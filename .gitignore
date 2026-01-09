@@ -1,0 +1,5 @@
+﻿RESQ_Backend/.vs
+RESQ_Backend/RESQ.Application/obj
+RESQ_Backend/RESQ.Domain/obj
+RESQ_Backend/RESQ.Infrastructure/obj
+RESQ_Backend/RESQ.Presentation/obj

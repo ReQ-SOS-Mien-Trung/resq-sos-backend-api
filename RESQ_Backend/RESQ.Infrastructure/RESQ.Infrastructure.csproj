@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RESQ.Application\RESQ.Application.csproj" />
+    <ProjectReference Include="..\RESQ.Domain\RESQ.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
