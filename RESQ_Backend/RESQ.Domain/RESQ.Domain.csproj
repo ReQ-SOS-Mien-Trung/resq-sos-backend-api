@@ -20,4 +20,8 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" Version="8.0.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Users\" />
+  </ItemGroup>
+
 </Project>
