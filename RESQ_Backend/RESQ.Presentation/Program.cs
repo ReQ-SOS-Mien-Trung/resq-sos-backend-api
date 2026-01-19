@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using RESQ.Domain;
 using RESQ.Application.Common.Interfaces;
 using RESQ.Infrastructure.Caching;
 using RESQ.Infrastructure.Notifications;
@@ -36,6 +38,12 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks()
     .AddRedis(redisOptions.ConnectionString, name: "redis");
+
+builder.Services.AddDbContext<ResQDbContext>(options =>
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("ResQDb"),
+        x => x.UseNetTopologySuite()
+    ));
 
 var app = builder.Build();
 
