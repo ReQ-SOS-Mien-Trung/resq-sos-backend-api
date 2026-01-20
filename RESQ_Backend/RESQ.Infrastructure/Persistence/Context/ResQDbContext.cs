@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Domain.Entities;
 
-namespace RESQ.Domain;
+namespace RESQ.Infrastructure.Persistence.Context;
 
 public partial class ResQDbContext : DbContext
 {

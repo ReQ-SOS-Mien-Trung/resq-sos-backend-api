@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RESQ.Application.Users.Interface
+namespace RESQ.Infrastructure.Persistence.Base
 {
-    internal interface IUserRepository
+    internal class UnitOfWork
     {
     }
 }

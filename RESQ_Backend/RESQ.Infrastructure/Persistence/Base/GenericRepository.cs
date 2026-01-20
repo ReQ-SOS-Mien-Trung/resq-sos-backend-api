@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RESQ.Application.Users.UseCases
+namespace RESQ.Infrastructure.Persistence.Base
 {
-    internal class Login
+    internal class GenericRepository
     {
     }
 }

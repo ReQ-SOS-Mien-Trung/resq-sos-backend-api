@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RESQ.Application.Users.Dtos
+namespace RESQ.Application.Features.Users.Dtos
 {
     internal class LoginDto
     {
