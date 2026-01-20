@@ -334,4 +334,10 @@ public partial class ResQDbContext : DbContext
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    {
+        builder.Properties<DateTime>()
+               .HaveColumnType("timestamp with time zone");
+    }
 }

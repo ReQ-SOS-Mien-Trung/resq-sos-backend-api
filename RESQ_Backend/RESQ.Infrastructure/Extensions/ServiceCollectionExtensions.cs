@@ -21,6 +21,11 @@ public static class ServiceCollectionExtensions
         // Generic Repositories
 
         // Users Repositories
+        services.AddScoped<RESQ.Domain.Repositories.IUserRepository, RESQ.Infrastructure.Persistence.Users.UserRepository>();
+
+        // Token service
+        services.AddScoped<RESQ.Application.Services.ITokenService, RESQ.Infrastructure.Services.TokenService>();
+
         return services;
     }
 }

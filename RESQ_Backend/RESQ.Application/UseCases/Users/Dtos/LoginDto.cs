@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace RESQ.Application.Features.Users.Dtos
+﻿namespace RESQ.Application.UseCases.Users.Dtos
 {
-    internal class LoginDto
+    public class LoginDto
     {
+        public string Username { get; set; } = null!;
+        public string Password { get; set; } = null!;
     }
 }
+

@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.36.1" />
     <ProjectReference Include="..\RESQ.Application\RESQ.Application.csproj" />
     <ProjectReference Include="..\RESQ.Domain\RESQ.Domain.csproj" />
   </ItemGroup>

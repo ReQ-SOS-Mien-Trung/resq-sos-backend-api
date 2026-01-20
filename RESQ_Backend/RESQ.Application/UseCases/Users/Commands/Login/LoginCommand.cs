@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MediatR;
+using RESQ.Application.UseCases.Users.Dtos;
 
-namespace RESQ.Application.Features.Users.Commands.Login
+namespace RESQ.Application.UseCases.Users.Commands.Login
 {
-    internal class LoginCommand
+    public class LoginCommand : IRequest<AuthResultDto>
     {
+        public LoginDto Login { get; set; } = null!;
     }
 }

@@ -33,6 +33,12 @@ public partial class User
     [Column("password")]
     public string Password { get; set; } = null!;
 
+    [Column("refresh_token")]
+    public string? RefreshToken { get; set; }
+
+    [Column("refresh_token_expiry", TypeName = "timestamp without time zone")]
+    public DateTime? RefreshTokenExpiry { get; set; }
+
     [Column("location", TypeName = "geography(Point,4326)")]
     public Point? Location { get; set; }
 
