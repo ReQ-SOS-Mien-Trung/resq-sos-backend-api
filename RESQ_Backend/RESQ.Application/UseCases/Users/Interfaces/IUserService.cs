@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RESQ.Infrastructure.Users
+namespace RESQ.Application.Features.Users.Interfaces
 {
-    internal class UserRepository
+    internal interface IUserService
     {
     }
 }

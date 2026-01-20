@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RESQ.Application.Users.Services
+namespace RESQ.Infrastructure.Persistence.Users
 {
-    internal class UserService
+    internal class UserRepository
     {
     }
 }

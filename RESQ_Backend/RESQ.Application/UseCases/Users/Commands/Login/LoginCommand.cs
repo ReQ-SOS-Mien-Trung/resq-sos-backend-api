@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RESQ.Application.Users.Interface
+namespace RESQ.Application.Features.Users.Commands.Login
 {
-    internal interface IUserService
+    internal class LoginCommand
     {
     }
 }
