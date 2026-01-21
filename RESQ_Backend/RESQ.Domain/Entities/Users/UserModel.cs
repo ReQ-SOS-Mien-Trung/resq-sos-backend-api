@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace RESQ.Domain.Models
+namespace RESQ.Domain.Entities.Users
 {
     public class UserModel
     {

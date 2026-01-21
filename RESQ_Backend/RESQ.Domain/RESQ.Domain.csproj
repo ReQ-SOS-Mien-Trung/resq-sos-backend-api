@@ -13,7 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Exception\" />
+    <Folder Include="Entities\Users\ValueObjects\" />
+    <Folder Include="Entities\Users\Services\" />
   </ItemGroup>
 
 </Project>

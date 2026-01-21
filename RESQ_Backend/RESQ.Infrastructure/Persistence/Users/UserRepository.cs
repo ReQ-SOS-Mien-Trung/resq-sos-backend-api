@@ -1,11 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using RESQ.Domain.Models;
 using RESQ.Domain.Entities;
+using RESQ.Domain.Entities.Users;
 using RESQ.Domain.Repositories;
-using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Mappers.Users;
-using System.Threading.Tasks;
-using System;
+using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Users
 {

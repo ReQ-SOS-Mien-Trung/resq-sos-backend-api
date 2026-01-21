@@ -1,13 +1,12 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using RESQ.Application.Exceptions;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Users.Dtos;
-using RESQ.Domain.Models;
-using System;
+using RESQ.Domain.Entities.Users;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace RESQ.Infrastructure.Services
 {
@@ -42,6 +41,10 @@ namespace RESQ.Infrastructure.Services
             var key = _config.GetValue<string>("Jwt:Key");
             var issuer = _config.GetValue<string>("Jwt:Issuer");
             var audience = _config.GetValue<string>("Jwt:Audience");
+            if (string.IsNullOrEmpty(key))
+            {
+                throw new UnprocessableEntityException("JWT signing key is not configured.");
+            }
             var minutes = _config.GetValue<int?>("Jwt:AccessTokenExpiryMinutes") ?? 60;
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));

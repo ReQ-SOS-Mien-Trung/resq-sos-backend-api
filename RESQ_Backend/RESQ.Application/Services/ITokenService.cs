@@ -1,6 +1,5 @@
-using RESQ.Domain.Models;
 using RESQ.Application.UseCases.Users.Dtos;
-using System.Threading.Tasks;
+using RESQ.Domain.Entities.Users;
 
 namespace RESQ.Application.Services
 {

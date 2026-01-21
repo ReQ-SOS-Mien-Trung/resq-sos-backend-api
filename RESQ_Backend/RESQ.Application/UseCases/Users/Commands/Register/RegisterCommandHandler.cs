@@ -1,10 +1,9 @@
 using MediatR;
-using RESQ.Application.UseCases.Users.Dtos;
 using RESQ.Application.Services;
-using RESQ.Domain.Models;
+using RESQ.Application.UseCases.Users.Dtos;
+using RESQ.Domain.Entities.Users;
+using RESQ.Domain.Entities.Users.Exceptions;
 using RESQ.Domain.Repositories;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace RESQ.Application.UseCases.Users.Commands.Register
 {
@@ -25,20 +24,20 @@ namespace RESQ.Application.UseCases.Users.Commands.Register
             var exists = await _userRepository.GetByUsernameAsync(dto.Username);
             if (exists != null)
             {
-                throw new System.Exception("Username already exists");
+                throw new UserAlreadyExistsException();
             }
 
             var user = new UserModel
             {
-                Id = System.Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 Username = dto.Username,
                 FullName = dto.FullName,
                 Phone = dto.Phone,
-                CreatedAt = System.DateTime.UtcNow,
-                UpdatedAt = System.DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
-            user.Password = RESQ.Application.Services.PasswordHasher.HashPassword(dto.Password);
+            user.Password = PasswordHasher.HashPassword(dto.Password);
 
             // create
             await _userRepository.CreateAsync(user);

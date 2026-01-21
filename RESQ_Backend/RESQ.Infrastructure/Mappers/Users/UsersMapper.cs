@@ -1,5 +1,5 @@
-﻿using RESQ.Domain.Models;
-using RESQ.Domain.Entities;
+﻿using RESQ.Domain.Entities;
+using RESQ.Domain.Entities.Users;
 
 namespace RESQ.Infrastructure.Mappers.Users
 {

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
-using RESQ.Domain.Models;
+﻿using RESQ.Domain.Entities.Users;
 
 namespace RESQ.Domain.Repositories
 {
