@@ -57,10 +57,10 @@ namespace RESQ.Infrastructure.Services
                 new Claim(JwtRegisteredClaimNames.UniqueName, user.Username ?? string.Empty)
             };
 
-            if (!string.IsNullOrEmpty(user.RoleName))
+            if (user.RoleId.HasValue)
             {
-                claims.Add(new Claim(ClaimTypes.Role, user.RoleName));
-                claims.Add(new Claim("role", user.RoleName));
+                claims.Add(new Claim(ClaimTypes.Role, user.RoleId.Value.ToString()));
+                claims.Add(new Claim("role_id", user.RoleId.Value.ToString()));
             }
 
             var token = new JwtSecurityToken(

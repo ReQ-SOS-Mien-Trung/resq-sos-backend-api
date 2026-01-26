@@ -15,7 +15,7 @@ public static class ServiceCollectionExtensions
         // DbContext Configuration
         services.AddDbContext<ResQDbContext>(options =>
         options.UseNpgsql(
-        configuration.GetConnectionString("ResQDb"),
+        configuration.GetConnectionString("DefaultConnection"),
         x => x.UseNetTopologySuite()
     ));
         // Generic Repositories

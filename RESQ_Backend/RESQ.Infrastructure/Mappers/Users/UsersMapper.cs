@@ -12,7 +12,6 @@ namespace RESQ.Infrastructure.Mappers.Users
             {
                 Id = db.Id,
                 RoleId = db.RoleId,
-                RoleName = db.Role?.Name,
                 FullName = db.FullName,
                 Username = db.Username,
                 Phone = db.Phone,

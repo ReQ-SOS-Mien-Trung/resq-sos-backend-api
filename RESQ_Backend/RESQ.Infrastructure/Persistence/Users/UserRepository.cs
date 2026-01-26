@@ -52,6 +52,14 @@ namespace RESQ.Infrastructure.Persistence.Users
             return db == null ? null : db.ToDomain();
         }
 
+        public async Task<UserModel?> GetByPhoneAsync(string phone)
+        {
+            var db = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Phone == phone);
+            return db == null ? null : db.ToDomain();
+        }
+
         public async Task UpdateAsync(UserModel user)
         {
             var db = await _context.Users.FirstOrDefaultAsync(u => u.Id == user.Id);

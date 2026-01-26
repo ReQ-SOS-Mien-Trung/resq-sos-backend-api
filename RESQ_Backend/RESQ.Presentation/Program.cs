@@ -3,8 +3,10 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using RESQ.Infrastructure.Extensions;
+using RESQ.Infrastructure.Persistence.Context;
 using Microsoft.OpenApi.Models;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,6 +75,22 @@ if (!string.IsNullOrEmpty(jwtKey))
 }
 
 var app = builder.Build();
+
+// AUTO CREATE / MIGRATE DATABASE
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var db = services.GetRequiredService<ResQDbContext>();
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("❌ Database migration failed");
+        Console.WriteLine(ex.Message);
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {

@@ -2,7 +2,9 @@
 {
     public class LoginDto
     {
-        public string Username { get; set; } = null!;
+        // For victims login by phone, other roles by username
+        public string? Username { get; set; }
+        public string? Phone { get; set; }
         public string Password { get; set; } = null!;
     }
 }

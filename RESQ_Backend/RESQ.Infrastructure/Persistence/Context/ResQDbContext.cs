@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using Microsoft.EntityFrameworkCore;
 using RESQ.Domain.Entities;
 
 namespace RESQ.Infrastructure.Persistence.Context;
@@ -329,6 +330,94 @@ public partial class ResQDbContext : DbContext
 
             entity.HasOne(d => d.User).WithMany(p => p.UserAbilities).HasConstraintName("user_abilities_user_id_fkey");
         });
+
+        // Seed sample data for development/testing
+        // Note: Keep values stable (no runtime-generated values) so EF migrations can capture them
+        modelBuilder.Entity<Role>().HasData(
+            new Role { Id = 1, Name = "Victim" },
+            new Role { Id = 2, Name = "Coordinator" },
+            new Role { Id = 3, Name = "Rescuer" },
+            new Role { Id = 4, Name = "Admin" }
+        );
+
+        modelBuilder.Entity<Ability>().HasData(
+            new Ability { Id = 1, Code = "FIRST_AID", Description = "First aid" },
+            new Ability { Id = 2, Code = "DRIVING", Description = "Able to drive" }
+        );
+
+        modelBuilder.Entity<Category>().HasData(
+            new Category { Id = 1, Name = "Food", CreatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc), UpdatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc) },
+            new Category { Id = 2, Name = "Shelter", CreatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc), UpdatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc) }
+        );
+
+        modelBuilder.Entity<ReliefItem>().HasData(
+            new ReliefItem { Id = 1, Name = "Rice", CategoryId = 1, CreatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc), UpdatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc) },
+            new ReliefItem { Id = 2, Name = "Blanket", CategoryId = 2, CreatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc), UpdatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc) }
+        );
+
+        var userAdminId = new Guid("00000000-0000-0000-0000-000000000001");
+        var userResponderId = new Guid("00000000-0000-0000-0000-000000000002");
+
+        modelBuilder.Entity<User>().HasData(
+            new User { Id = userAdminId, RoleId = 4, FullName = "Admin User", Username = "admin", Phone = "0123456789", Password = "password", CreatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc), UpdatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc) },
+            new User { Id = userResponderId, RoleId = 3, FullName = "Rescuer One", Username = "responder1", Phone = "0987654321", Password = "password", CreatedAt = new DateTime(2025,1,2,0,0,0, DateTimeKind.Utc), UpdatedAt = new DateTime(2025,1,2,0,0,0, DateTimeKind.Utc) }
+        );
+
+        modelBuilder.Entity<UserAbility>().HasData(
+            new UserAbility { UserAbilityId = 1, UserId = userResponderId, AbilityId = 1 }
+        );
+
+        modelBuilder.Entity<Organization>().HasData(
+            new Organization { Id = 1, Name = "Relief Org", IsActive = true, CreatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc), UpdatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc) }
+        );
+
+        modelBuilder.Entity<Depot>().HasData(
+            new Depot { Id = 1, Name = "Central Depot", DepotManagerId = userAdminId }
+        );
+
+        modelBuilder.Entity<DepotInventory>().HasData(
+            new DepotInventory { Id = 1, DepotId = 1, ReliefItemId = 1, Quantity = 100 }
+        );
+
+        modelBuilder.Entity<RescueUnit>().HasData(
+            new RescueUnit { Id = 1, Name = "Unit A" }
+        );
+
+        modelBuilder.Entity<UnitMember>().HasData(
+            new UnitMember { Id = 1, RescueUnitId = 1, UserId = userResponderId }
+        );
+
+        modelBuilder.Entity<Mission>().HasData(
+            new Mission { Id = 1, MissionType = "Search", ClusterId = null, CoordinatorId = userAdminId, PrimaryUnitId = 1, CreatedAt = new DateTime(2025,1,3,0,0,0, DateTimeKind.Utc) }
+        );
+
+        modelBuilder.Entity<MissionItem>().HasData(
+            new MissionItem { Id = 1, MissionId = 1, ReliefItemId = 1, RequiredQuantity = 10 }
+        );
+
+        modelBuilder.Entity<Prompt>().HasData(
+            new Prompt { Id = 1, Name = "Default Prompt", SystemPrompt = "Default prompt", CreatedAt = new DateTime(2025,1,1,0,0,0, DateTimeKind.Utc) }
+        );
+
+        modelBuilder.Entity<Conversation>().HasData(
+            new Conversation { Id = 1, MissionId = 1 }
+        );
+
+        modelBuilder.Entity<ConversationParticipant>().HasData(
+            new ConversationParticipant { ConversationId = 1, UserId = userAdminId }
+        );
+
+        modelBuilder.Entity<Message>().HasData(
+            new Message { Id = 1, ConversationId = 1, SenderId = userAdminId, Content = "Welcome to the mission conversation.", SentAt = new DateTime(2025,1,3,1,0,0, DateTimeKind.Utc) }
+        );
+
+        modelBuilder.Entity<Notification>().HasData(
+            new Notification { Id = 1, UserId = userResponderId, Content = "You have a new assignment.", IsRead = false, CreatedAt = new DateTime(2025,1,3,1,0,0, DateTimeKind.Utc) }
+        );
+
+        modelBuilder.Entity<SosRequest>().HasData(
+            new SosRequest { Id = 1, UserId = userResponderId, RescueMessage = "Sample SOS", CreatedAt = new DateTime(2025,1,4,0,0,0, DateTimeKind.Utc), IsAnalyzed = false }
+        );
 
         OnModelCreatingPartial(modelBuilder);
     }
