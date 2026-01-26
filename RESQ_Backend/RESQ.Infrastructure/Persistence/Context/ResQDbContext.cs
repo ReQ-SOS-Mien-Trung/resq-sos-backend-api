@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Domain.Entities;
+using RESQ.Infrastructure.Entities;
 
 namespace RESQ.Infrastructure.Persistence.Context;
 

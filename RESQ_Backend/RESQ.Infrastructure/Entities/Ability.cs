@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Microsoft.EntityFrameworkCore;
+using RESQ.Infrastructure.Entities;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
-namespace RESQ.Domain.Entities;
+namespace RESQ.Infrastructure.Entities;
 
 [Table("abilities")]
 [Index("Code", Name = "abilities_code_key", IsUnique = true)]

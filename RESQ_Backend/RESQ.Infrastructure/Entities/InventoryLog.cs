@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using RESQ.Infrastructure.Entities;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
-namespace RESQ.Domain.Entities;
+namespace RESQ.Infrastructure.Entities;
 
 [Table("inventory_logs")]
 public partial class InventoryLog

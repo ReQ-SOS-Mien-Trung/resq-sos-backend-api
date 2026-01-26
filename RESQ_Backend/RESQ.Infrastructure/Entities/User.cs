@@ -4,8 +4,9 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
+using RESQ.Infrastructure.Entities;
 
-namespace RESQ.Domain.Entities;
+namespace RESQ.Infrastructure.Entities;
 
 [Table("users")]
 [Index("Username", Name = "users_username_key", IsUnique = true)]

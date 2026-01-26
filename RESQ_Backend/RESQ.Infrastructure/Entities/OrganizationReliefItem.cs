@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace RESQ.Domain.Entities;
+namespace RESQ.Infrastructure.Entities;
 
 [Table("organization_relief_items")]
 public partial class OrganizationReliefItem

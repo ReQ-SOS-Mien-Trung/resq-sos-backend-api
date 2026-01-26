@@ -13,9 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Enum\" />
-    <Folder Include="Entities\" />
-    <Folder Include="Services\" />
+    <Folder Include="Entities\Resources\Services\" />
   </ItemGroup>
 
 </Project>

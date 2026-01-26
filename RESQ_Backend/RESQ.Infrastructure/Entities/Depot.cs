@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
-namespace RESQ.Domain.Entities;
+namespace RESQ.Infrastructure.Entities;
 
 [Table("depots")]
 public partial class Depot
@@ -28,13 +25,13 @@ public partial class Depot
 
     [Column("status")]
     [StringLength(50)]
-    public string? Status { get; set; }
+    public string Status { get; set; } = null!;
 
     [Column("capacity")]
-    public int? Capacity { get; set; }
+    public int Capacity { get; set; }
 
     [Column("current_utilization")]
-    public int? CurrentUtilization { get; set; }
+    public int CurrentUtilization { get; set; }
 
     [Column("last_updated_at", TypeName = "timestamp without time zone")]
     public DateTime? LastUpdatedAt { get; set; }

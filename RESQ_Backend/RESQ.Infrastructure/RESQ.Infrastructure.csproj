@@ -27,12 +27,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RESQ.Application\RESQ.Application.csproj" />
-    <ProjectReference Include="..\RESQ.Domain\RESQ.Domain.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Mappers\" />
-    <Folder Include="Services\" />
   </ItemGroup>
 
 </Project>

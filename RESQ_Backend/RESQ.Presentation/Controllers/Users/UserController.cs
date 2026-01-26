@@ -5,7 +5,7 @@ namespace RESQ.Presentation.Controllers.Users
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController : ControllerBase
+    public class Class1 : ControllerBase
     {
     }
 }

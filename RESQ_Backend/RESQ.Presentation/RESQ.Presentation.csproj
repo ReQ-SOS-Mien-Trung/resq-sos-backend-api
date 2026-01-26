@@ -17,10 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RESQ.Application\RESQ.Application.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Middlewares\" />
+	  <ProjectReference Include="..\RESQ.Infrastructure\RESQ.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
