@@ -38,13 +38,17 @@ namespace RESQ.Infrastructure.Persistence.Users
 
         public async Task<UserModel?> GetByIdAsync(Guid id)
         {
-            var db = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+            var db = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Id == id);
             return db == null ? null : db.ToDomain();
         }
 
         public async Task<UserModel?> GetByUsernameAsync(string username)
         {
-            var db = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            var db = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Username == username);
             return db == null ? null : db.ToDomain();
         }
 

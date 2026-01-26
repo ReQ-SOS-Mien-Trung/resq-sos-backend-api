@@ -34,7 +34,8 @@ namespace RESQ.Application.UseCases.Users.Commands.Register
                 FullName = dto.FullName,
                 Phone = dto.Phone,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                RoleId = 1
             };
 
             user.Password = PasswordHasher.HashPassword(dto.Password);

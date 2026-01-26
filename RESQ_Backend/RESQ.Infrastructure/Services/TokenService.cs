@@ -6,6 +6,7 @@ using RESQ.Application.UseCases.Users.Dtos;
 using RESQ.Domain.Entities.Users;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Collections.Generic;
 using System.Text;
 
 namespace RESQ.Infrastructure.Services
@@ -50,15 +51,22 @@ namespace RESQ.Infrastructure.Services
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[] {
+            var claims = new List<Claim>
+            {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.UniqueName, user.Username ?? string.Empty)
             };
 
+            if (!string.IsNullOrEmpty(user.RoleName))
+            {
+                claims.Add(new Claim(ClaimTypes.Role, user.RoleName));
+                claims.Add(new Claim("role", user.RoleName));
+            }
+
             var token = new JwtSecurityToken(
                 issuer,
                 audience,
-                claims,
+                claims: claims,
                 expires: DateTime.UtcNow.AddMinutes(minutes),
                 signingCredentials: credentials);
 
