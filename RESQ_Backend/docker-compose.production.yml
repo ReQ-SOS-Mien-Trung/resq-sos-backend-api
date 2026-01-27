@@ -1,0 +1,75 @@
+version: "3.9"
+
+# =============================================================
+# FILE NÀY DÀNH CHO FRONTEND SỬ DỤNG
+# Chỉ cần file này và chạy: docker-compose -f docker-compose.production.yml up -d
+# =============================================================
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: resq_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: resq
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-12345}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d resq"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - resq-network
+
+  api:
+    # =====================================================
+    # THAY ĐỔI IMAGE NAME THEO DOCKER HUB USERNAME CỦA BẠN
+    # Ví dụ: your-dockerhub-username/resq-backend:latest
+    # =====================================================
+    image: ${DOCKER_REGISTRY:-resq}/resq-backend:${IMAGE_TAG:-latest}
+    container_name: resq_api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: >
+        Host=postgres;
+        Port=5432;
+        Database=resq;
+        Username=postgres;
+        Password=${POSTGRES_PASSWORD:-12345}
+      Jwt__Key: ${JWT_KEY:-replace-this-with-a-secure-key-of-min-32-chars}
+      Jwt__Issuer: ${JWT_ISSUER:-resq.local}
+      Jwt__Audience: ${JWT_AUDIENCE:-resq.local}
+      Redis__ConnectionString: ${REDIS_CONNECTION:-redis:6379}
+    ports:
+      - "5000:8080"
+    networks:
+      - resq-network
+
+  # Optional: Redis cache
+  redis:
+    image: redis:7-alpine
+    container_name: resq_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - resq-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  resq-network:
+    driver: bridge
