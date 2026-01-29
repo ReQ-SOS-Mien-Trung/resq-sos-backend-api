@@ -25,7 +25,7 @@ public partial class ActivityHandoverLog
     [Column("reason")]
     public string? Reason { get; set; }
 
-    [Column("created_at", TypeName = "timestamp without time zone")]
+    [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
     [Column("decided_by")]

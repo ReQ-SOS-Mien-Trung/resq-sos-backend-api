@@ -29,16 +29,16 @@ public partial class Mission
     [StringLength(50)]
     public string? Status { get; set; }
 
-    [Column("start_time", TypeName = "timestamp without time zone")]
+    [Column("start_time", TypeName = "timestamp with time zone")]
     public DateTime? StartTime { get; set; }
 
-    [Column("expected_end_time", TypeName = "timestamp without time zone")]
+    [Column("expected_end_time", TypeName = "timestamp with time zone")]
     public DateTime? ExpectedEndTime { get; set; }
 
-    [Column("created_at", TypeName = "timestamp without time zone")]
+    [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
-    [Column("completed_at", TypeName = "timestamp without time zone")]
+    [Column("completed_at", TypeName = "timestamp with time zone")]
     public DateTime? CompletedAt { get; set; }
 
     [Column("coordinator_id")]

@@ -33,7 +33,7 @@ public partial class Depot
     [Column("current_utilization")]
     public int CurrentUtilization { get; set; }
 
-    [Column("last_updated_at", TypeName = "timestamp without time zone")]
+    [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime? LastUpdatedAt { get; set; }
 
     [Column("depot_manager_id")]

@@ -1,6 +1,12 @@
-﻿namespace RESQ.Application.Features.Users.Commands.Login
+﻿using FluentValidation;
+
+namespace RESQ.Application.UseCases.Users.Commands.Login
 {
-    internal class LoginCommandValidator
+    public class LoginCommandValidator : AbstractValidator<LoginCommand>
     {
+        public LoginCommandValidator()
+        {
+            RuleFor(x => x.Password).NotEmpty().MaximumLength(100);
+        }
     }
 }

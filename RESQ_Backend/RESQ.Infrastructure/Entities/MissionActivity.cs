@@ -46,10 +46,10 @@ public partial class MissionActivity
     [StringLength(50)]
     public string? Status { get; set; }
 
-    [Column("assigned_at", TypeName = "timestamp without time zone")]
+    [Column("assigned_at", TypeName = "timestamp with time zone")]
     public DateTime? AssignedAt { get; set; }
 
-    [Column("completed_at", TypeName = "timestamp without time zone")]
+    [Column("completed_at", TypeName = "timestamp with time zone")]
     public DateTime? CompletedAt { get; set; }
 
     [Column("last_decision_by")]

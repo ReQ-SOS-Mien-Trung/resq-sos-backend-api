@@ -22,10 +22,10 @@ public partial class ConversationParticipant
     [StringLength(50)]
     public string? RoleInConversation { get; set; }
 
-    [Column("joined_at", TypeName = "timestamp without time zone")]
+    [Column("joined_at", TypeName = "timestamp with time zone")]
     public DateTime? JoinedAt { get; set; }
 
-    [Column("left_at", TypeName = "timestamp without time zone")]
+    [Column("left_at", TypeName = "timestamp with time zone")]
     public DateTime? LeftAt { get; set; }
 
     [ForeignKey("ConversationId")]

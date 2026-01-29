@@ -40,10 +40,10 @@ public partial class SosCluster
     [Column("medical_urgency_score")]
     public double? MedicalUrgencyScore { get; set; }
 
-    [Column("created_at", TypeName = "timestamp without time zone")]
+    [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
-    [Column("last_updated_at", TypeName = "timestamp without time zone")]
+    [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime? LastUpdatedAt { get; set; }
 
     [InverseProperty("Cluster")]

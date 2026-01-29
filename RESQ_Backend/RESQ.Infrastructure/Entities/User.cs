@@ -34,13 +34,19 @@ public partial class User
     [Column("password")]
     public string Password { get; set; } = null!;
 
+    [Column("refresh_token")]
+    public string? RefreshToken { get; set; }
+
+    [Column("refresh_token_expiry", TypeName = "timestamp with time zone")]
+    public DateTime? RefreshTokenExpiry { get; set; }
+
     [Column("location", TypeName = "geography(Point,4326)")]
     public Point? Location { get; set; }
 
-    [Column("created_at", TypeName = "timestamp without time zone")]
+    [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
-    [Column("updated_at", TypeName = "timestamp without time zone")]
+    [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
     [InverseProperty("DecidedByNavigation")]

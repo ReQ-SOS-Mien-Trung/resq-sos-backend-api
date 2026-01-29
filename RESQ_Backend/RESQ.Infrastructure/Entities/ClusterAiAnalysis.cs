@@ -37,7 +37,7 @@ public partial class ClusterAiAnalysis
     [Column("confidence_score")]
     public double? ConfidenceScore { get; set; }
 
-    [Column("created_at", TypeName = "timestamp without time zone")]
+    [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
     [ForeignKey("ClusterId")]

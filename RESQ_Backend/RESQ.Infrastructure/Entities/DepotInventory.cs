@@ -26,7 +26,7 @@ public partial class DepotInventory
     [Column("reserved_quantity")]
     public int? ReservedQuantity { get; set; }
 
-    [Column("last_stocked_at", TypeName = "timestamp without time zone")]
+    [Column("last_stocked_at", TypeName = "timestamp with time zone")]
     public DateTime? LastStockedAt { get; set; }
 
     [ForeignKey("DepotId")]

@@ -28,10 +28,10 @@ public partial class Organization
     [Column("is_active")]
     public bool? IsActive { get; set; }
 
-    [Column("created_at", TypeName = "timestamp without time zone")]
+    [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
-    [Column("updated_at", TypeName = "timestamp without time zone")]
+    [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
     [InverseProperty("Organization")]

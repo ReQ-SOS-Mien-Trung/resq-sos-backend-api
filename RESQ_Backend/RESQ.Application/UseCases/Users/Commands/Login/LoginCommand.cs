@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MediatR;
 
-namespace RESQ.Application.Features.Users.Commands.Login
+namespace RESQ.Application.UseCases.Users.Commands.Login
 {
-    internal class LoginCommand
-    {
-    }
+    public record LoginCommand  (
+    string? Username,
+    string? Phone,
+    string Password
+    ) : IRequest<LoginResonse>;
 }

@@ -34,7 +34,7 @@ public partial class InventoryLog
     [Column("note")]
     public string? Note { get; set; }
 
-    [Column("created_at", TypeName = "timestamp without time zone")]
+    [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
     [ForeignKey("DepotInventoryId")]
