@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/node_modules/
+**/*.user
+**/*.suo
+**/Dockerfile*
+**/docker-compose*
+**/.dockerignore
+**/.git
+**/.gitignore
+**/README.md
+**/*.md
+**/HashGenerator/

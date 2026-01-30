@@ -1,0 +1,90 @@
+# ===============================================
+# RESQ Backend Docker Compose
+# ===============================================
+# 
+# Hướng dẫn sử dụng:
+# 1. Copy file này vào thư mục project frontend
+# 2. Chạy lệnh: docker-compose up -d
+# 3. Backend API sẽ chạy tại: http://localhost:8080
+# 4. Swagger UI: http://localhost:8080/swagger
+#
+# Thông tin đăng nhập mẫu:
+# - admin / Admin@123
+# - coordinator / Coordinator@123
+# - rescuer / Rescuer@123
+# - manager / Manager@123
+# - victim / Victim@123
+#
+# ===============================================
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database with PostGIS
+  resq-db:
+    image: postgis/postgis:16-3.4
+    container_name: resq-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: RESQ
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - resq-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  resq-redis:
+    image: redis:7-alpine
+    container_name: resq-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - resq-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RESQ Backend API
+  resq-api:
+    image: ntpan04/resq-backend:latest
+    container_name: resq-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__ResQDb=Host=resq-db;Port=5432;Database=RESQ;Username=postgres;Password=postgres123
+      - Redis__ConnectionString=resq-redis:6379
+      - JwtSettings__SecretKey=YourSuperSecretKeyForJwtTokenGeneration_AtLeast32Characters!
+      - JwtSettings__Issuer=RESQ.API
+      - JwtSettings__Audience=RESQ.Client
+      - JwtSettings__AccessTokenExpirationMinutes=60
+      - JwtSettings__RefreshTokenExpirationDays=7
+    depends_on:
+      resq-db:
+        condition: service_healthy
+      resq-redis:
+        condition: service_healthy
+    networks:
+      - resq-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  resq-network:
+    driver: bridge
