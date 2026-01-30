@@ -2,6 +2,7 @@
 {
     public enum DepotStatus
     {
+        PendingAssignment,
         Available,
         Full,
         Closed

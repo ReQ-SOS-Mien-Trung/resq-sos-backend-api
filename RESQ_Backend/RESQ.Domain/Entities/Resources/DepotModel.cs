@@ -23,9 +23,7 @@ public class DepotModel
         string name,
         string address,
         GeoLocation location,
-        int capacity,
-        DepotStatus status,
-        Guid? depotManagerId = null)
+        int capacity)
     {
         if (capacity <= 0)
             throw new InvalidDepotCapacityException(capacity);
@@ -37,8 +35,8 @@ public class DepotModel
             Location = location,
             Capacity = capacity,
             CurrentUtilization = 0,
-            Status = DepotStatus.Available,
-            DepotManagerId = depotManagerId
+            Status = DepotStatus.PendingAssignment,
+            DepotManagerId = null
         };
     }
 
@@ -54,5 +52,20 @@ public class DepotModel
             throw new DepotCapacityExceededException();
 
         CurrentUtilization += amount;
+    }
+
+    public void AssignManager(Guid managerId)
+    {
+        if (managerId == Guid.Empty)
+            throw new InvalidDepotManagerException();
+
+        DepotManagerId = managerId;
+        Status = DepotStatus.Available;
+    }
+
+    public void UnassignManager()
+    {
+        DepotManagerId = null;
+        Status = DepotStatus.PendingAssignment;
     }
 }
