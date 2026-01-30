@@ -7,4 +7,5 @@ public class CreateDepotRequestDto
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public int Capacity { get; set; }
+    public Guid? ManagerId { get; set; }    
 }
