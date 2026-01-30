@@ -1,6 +1,5 @@
 using RESQ.Application.Common.Interfaces;
 using RESQ.Infrastructure.Caching;
-using RESQ.Infrastructure.Notifications;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,32 +9,27 @@ var redisOptions = new RedisOptions();
 builder.Configuration.GetSection(RedisOptions.SectionName).Bind(redisOptions);
 builder.Services.Configure<RedisOptions>(builder.Configuration.GetSection(RedisOptions.SectionName));
 
-// 2. Register Redis Connection
+// 2. Register StackExchange.Redis ConnectionMultiplexer as a Singleton
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
     ConnectionMultiplexer.Connect(redisOptions.ConnectionString));
 
-// 3. Register Distributed Cache
+// 3. Register Distributed Redis Cache
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = redisOptions.ConnectionString;
     options.InstanceName = redisOptions.InstanceName;
 });
 
-// 4. Configure SignalR with Redis Backplane
-builder.Services.AddSignalR()
-    .AddStackExchangeRedis(redisOptions.ConnectionString, options => {
-        options.Configuration.ChannelPrefix = "RESQ_NOTIFICATIONS";
-    });
-
-// 5. Register Services (Tất cả từ Infrastructure)
+// 4. Register our custom Cache Service
 builder.Services.AddScoped<ICacheService, RedisCacheService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// 5. Add Health Checks
+builder.Services.AddHealthChecks()
+    .AddRedis(redisOptions.ConnectionString, name: "redis");
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHealthChecks()
-    .AddRedis(redisOptions.ConnectionString, name: "redis");
 
 var app = builder.Build();
 
@@ -48,11 +42,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 
-// 6. Map Endpoints
+// Map Health Checks
 app.MapHealthChecks("/health");
-app.MapControllers();
 
-// Map Hub từ Infrastructure (Presentation có quyền biết Infrastructure)
-app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapControllers();
 
 app.Run();
