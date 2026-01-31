@@ -53,8 +53,14 @@ public partial class SosCluster
     public virtual ICollection<ClusterAiAnalysis> ClusterAiAnalyses { get; set; } = new List<ClusterAiAnalysis>();
 
     [InverseProperty("Cluster")]
+    public virtual ICollection<MissionAiSuggestion> MissionAiSuggestions { get; set; } = new List<MissionAiSuggestion>();
+
+    [InverseProperty("Cluster")]
     public virtual ICollection<Mission> Missions { get; set; } = new List<Mission>();
 
     [InverseProperty("Cluster")]
-    public virtual ICollection<RescueUnitAiSuggestion> RescueUnitAiSuggestions { get; set; } = new List<RescueUnitAiSuggestion>();
+    public virtual ICollection<RescueTeamAiSuggestion> RescueTeamAiSuggestions { get; set; } = new List<RescueTeamAiSuggestion>();
+
+    [InverseProperty("Cluster")]
+    public virtual ICollection<SosRequest> SosRequests { get; set; } = new List<SosRequest>();
 }

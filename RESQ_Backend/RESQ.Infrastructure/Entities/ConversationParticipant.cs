@@ -6,17 +6,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace RESQ.Infrastructure.Entities;
 
-[PrimaryKey("ConversationId", "UserId")]
 [Table("conversation_participants")]
 public partial class ConversationParticipant
 {
     [Key]
-    [Column("conversation_id")]
-    public int ConversationId { get; set; }
+    [Column("id")]
+    public int Id { get; set; }
 
-    [Key]
+    [Column("conversation_id")]
+    public int? ConversationId { get; set; }
+
     [Column("user_id")]
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
 
     [Column("role_in_conversation")]
     [StringLength(50)]
@@ -30,9 +31,9 @@ public partial class ConversationParticipant
 
     [ForeignKey("ConversationId")]
     [InverseProperty("ConversationParticipants")]
-    public virtual Conversation Conversation { get; set; } = null!;
+    public virtual Conversation? Conversation { get; set; }
 
     [ForeignKey("UserId")]
     [InverseProperty("ConversationParticipants")]
-    public virtual User User { get; set; } = null!;
+    public virtual User? User { get; set; }
 }

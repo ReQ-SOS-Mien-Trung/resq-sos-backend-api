@@ -26,8 +26,7 @@ namespace RESQ.Presentation.Controllers.Resources
                 dto.Name,
                 dto.Address,
                 new GeoLocation(dto.Latitude, dto.Longitude),
-                dto.Capacity,
-                dto.ManagerId
+                dto.Capacity
                 );
             var result = await _mediator.Send(command);
             return Ok(result);

@@ -28,17 +28,29 @@ public partial class ClusterAiAnalysis
     [StringLength(50)]
     public string? AnalysisType { get; set; }
 
-    [Column("event_assessment", TypeName = "jsonb")]
-    public string? EventAssessment { get; set; }
+    [Column("suggested_severity_level")]
+    [StringLength(50)]
+    public string? SuggestedSeverityLevel { get; set; }
 
-    [Column("suggested_mission_plan", TypeName = "jsonb")]
-    public string? SuggestedMissionPlan { get; set; }
+    [Column("suggested_mission_types")]
+    [StringLength(255)]
+    public string? SuggestedMissionTypes { get; set; }
 
     [Column("confidence_score")]
     public double? ConfidenceScore { get; set; }
 
+    [Column("suggestion_scope")]
+    [StringLength(100)]
+    public string? SuggestionScope { get; set; }
+
+    [Column("metadata", TypeName = "jsonb")]
+    public string? Metadata { get; set; }
+
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
+
+    [Column("adopted_at", TypeName = "timestamp with time zone")]
+    public DateTime? AdoptedAt { get; set; }
 
     [ForeignKey("ClusterId")]
     [InverseProperty("ClusterAiAnalyses")]

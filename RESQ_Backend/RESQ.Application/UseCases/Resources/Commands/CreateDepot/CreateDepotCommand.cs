@@ -6,6 +6,5 @@ public record CreateDepotCommand (
     string Name,
     string Address,
     GeoLocation Location,
-    int Capacity,
-    Guid? DepotManagerId
+    int Capacity
     ) : IRequest<CreateDepotResponse>;

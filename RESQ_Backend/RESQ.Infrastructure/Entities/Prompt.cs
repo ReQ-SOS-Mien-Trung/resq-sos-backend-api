@@ -23,6 +23,13 @@ public partial class Prompt
     [Column("system_prompt")]
     public string? SystemPrompt { get; set; }
 
+    [Column("user_prompt_template")]
+    public string? UserPromptTemplate { get; set; }
+
+    [Column("model")]
+    [StringLength(100)]
+    public string? Model { get; set; }
+
     [Column("temperature")]
     public double? Temperature { get; set; }
 

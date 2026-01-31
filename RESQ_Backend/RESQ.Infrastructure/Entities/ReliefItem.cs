@@ -37,10 +37,10 @@ public partial class ReliefItem
 
     [ForeignKey("CategoryId")]
     [InverseProperty("ReliefItems")]
-    public virtual Category? Category { get; set; }
+    public virtual ItemCategory? ItemCategory { get; set; }
 
     [InverseProperty("ReliefItem")]
-    public virtual ICollection<DepotInventory> DepotInventories { get; set; } = new List<DepotInventory>();
+    public virtual ICollection<DepotSupplyInventory> DepotSupplyInventories { get; set; } = new List<DepotSupplyInventory>();
 
     [InverseProperty("ReliefItem")]
     public virtual ICollection<MissionItem> MissionItems { get; set; } = new List<MissionItem>();

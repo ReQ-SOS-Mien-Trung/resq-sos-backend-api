@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
 
 namespace RESQ.Infrastructure.Entities;
 
@@ -12,9 +13,6 @@ public partial class MissionActivity
     [Key]
     [Column("id")]
     public int Id { get; set; }
-
-    [Column("assigned_unit_id")]
-    public int? AssignedUnitId { get; set; }
 
     [Column("mission_id")]
     public int? MissionId { get; set; }
@@ -36,11 +34,11 @@ public partial class MissionActivity
     [Column("target", TypeName = "jsonb")]
     public string? Target { get; set; }
 
-    [Column("latitude")]
-    public double? Latitude { get; set; }
+    [Column("items", TypeName = "jsonb")]
+    public string? Items { get; set; }
 
-    [Column("longitude")]
-    public double? Longitude { get; set; }
+    [Column("target_location", TypeName = "geography(Point,4326)")]
+    public Point? TargetLocation { get; set; }
 
     [Column("status")]
     [StringLength(50)]
@@ -55,16 +53,9 @@ public partial class MissionActivity
     [Column("last_decision_by")]
     public Guid? LastDecisionBy { get; set; }
 
-    [InverseProperty("Activity")]
-    public virtual ICollection<ActivityHandoverLog> ActivityHandoverLogs { get; set; } = new List<ActivityHandoverLog>();
-
-    [ForeignKey("AssignedUnitId")]
-    [InverseProperty("MissionActivities")]
-    public virtual RescueUnit? AssignedUnit { get; set; }
-
     [ForeignKey("LastDecisionBy")]
     [InverseProperty("MissionActivities")]
-    public virtual User? LastDecisionByNavigation { get; set; }
+    public virtual User? LastDecisionByUser { get; set; }
 
     [ForeignKey("MissionId")]
     [InverseProperty("MissionActivities")]

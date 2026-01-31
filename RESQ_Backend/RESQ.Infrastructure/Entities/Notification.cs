@@ -16,11 +16,16 @@ public partial class Notification
     [Column("user_id")]
     public Guid? UserId { get; set; }
 
+    [Column("title")]
+    [StringLength(255)]
+    public string? Title { get; set; }
+
+    [Column("type")]
+    [StringLength(50)]
+    public string? Type { get; set; }
+
     [Column("content")]
     public string? Content { get; set; }
-
-    [Column("is_read")]
-    public bool? IsRead { get; set; }
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
@@ -28,4 +33,7 @@ public partial class Notification
     [ForeignKey("UserId")]
     [InverseProperty("Notifications")]
     public virtual User? User { get; set; }
+
+    [InverseProperty("Notification")]
+    public virtual ICollection<UserNotification> UserNotifications { get; set; } = new List<UserNotification>();
 }
