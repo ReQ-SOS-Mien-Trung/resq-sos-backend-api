@@ -27,6 +27,20 @@ public partial class User
     [StringLength(100)]
     public string? Username { get; set; }
 
+    [Column("email")]
+    [StringLength(255)]
+    public string? Email { get; set; }
+
+    [Column("is_email_verified")]
+    public bool IsEmailVerified { get; set; } = false;
+
+    [Column("email_verification_token")]
+    [StringLength(255)]
+    public string? EmailVerificationToken { get; set; }
+
+    [Column("email_verification_token_expiry", TypeName = "timestamp with time zone")]
+    public DateTime? EmailVerificationTokenExpiry { get; set; }
+
     [Column("phone")]
     [StringLength(20)]
     public string? Phone { get; set; }

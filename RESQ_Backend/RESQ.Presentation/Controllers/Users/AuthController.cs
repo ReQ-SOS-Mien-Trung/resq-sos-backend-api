@@ -8,6 +8,8 @@ using RESQ.Application.UseCases.Users.Commands.Logout;
 using RESQ.Application.UseCases.Users.Commands.RefreshToken;
 using RESQ.Application.UseCases.Users.Commands.Register;
 using RESQ.Application.UseCases.Users.Commands.RegisterRescuer;
+using RESQ.Application.UseCases.Users.Commands.VerifyEmail;
+using RESQ.Application.UseCases.Users.Commands.ResendVerificationEmail;
 
 namespace RESQ.Presentation.Controllers.Users
 {
@@ -30,7 +32,25 @@ namespace RESQ.Presentation.Controllers.Users
         [AllowAnonymous]
         public async Task<IActionResult> RegisterRescuer([FromBody] RegisterRescuerRequestDto dto)
         {
-            var command = new RegisterRescuerCommand(dto.Username, dto.Password);
+            var command = new RegisterRescuerCommand(dto.Email, dto.Password, dto.FullName);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpGet("verify-email")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+        {
+            var command = new VerifyEmailCommand(token);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("resend-verification-email")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendVerificationEmailRequestDto dto)
+        {
+            var command = new ResendVerificationEmailCommand(dto.Email);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

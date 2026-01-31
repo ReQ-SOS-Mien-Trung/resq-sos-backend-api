@@ -22,6 +22,12 @@ namespace RESQ.Infrastructure.Persistence.Users
             return entity is null ? null : UsersMapper.ToModel(entity);
         }
 
+        public async Task<UserModel?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+        {
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Email == email);
+            return entity is null ? null : UsersMapper.ToModel(entity);
+        }
+
         public async Task<UserModel?> GetByPhoneAsync(string phone, CancellationToken cancellationToken = default)
         {
             var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Phone == phone);
@@ -34,14 +40,24 @@ namespace RESQ.Infrastructure.Persistence.Users
             return entity is null ? null : UsersMapper.ToModel(entity);
         }
 
+        public async Task<UserModel?> GetByEmailVerificationTokenAsync(string token, CancellationToken cancellationToken = default)
+        {
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.EmailVerificationToken == token);
+            return entity is null ? null : UsersMapper.ToModel(entity);
+        }
+
         public async Task UpdateAsync(UserModel user, CancellationToken cancellationToken = default)
         {
             var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Id == user.Id);
             if (entity is not null)
             {
                 entity.FullName = user.FullName;
+                entity.Email = user.Email;
                 entity.Phone = user.Phone;
                 entity.Password = user.Password;
+                entity.IsEmailVerified = user.IsEmailVerified;
+                entity.EmailVerificationToken = user.EmailVerificationToken;
+                entity.EmailVerificationTokenExpiry = user.EmailVerificationTokenExpiry;
                 entity.RefreshToken = user.RefreshToken;
                 entity.RefreshTokenExpiry = user.RefreshTokenExpiry;
                 entity.UpdatedAt = DateTime.UtcNow;
