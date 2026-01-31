@@ -2,10 +2,12 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.UseCases.Users.Commands.GoogleLogin;
 using RESQ.Application.UseCases.Users.Commands.Login;
 using RESQ.Application.UseCases.Users.Commands.Logout;
 using RESQ.Application.UseCases.Users.Commands.RefreshToken;
 using RESQ.Application.UseCases.Users.Commands.Register;
+using RESQ.Application.UseCases.Users.Commands.RegisterRescuer;
 
 namespace RESQ.Presentation.Controllers.Users
 {
@@ -24,11 +26,29 @@ namespace RESQ.Presentation.Controllers.Users
             return Ok(result);
         }
 
+        [HttpPost("register-rescuer")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RegisterRescuer([FromBody] RegisterRescuerRequestDto dto)
+        {
+            var command = new RegisterRescuerCommand(dto.Username, dto.Password);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
             var command = new LoginCommand(dto.Username, dto.Phone, dto.Password);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("google-login")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto dto)
+        {
+            var command = new GoogleLoginCommand(dto.IdToken);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

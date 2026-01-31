@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddHttpClient(); // Add HttpClientFactory for Google API calls
 
 //jwt swagger
 builder.Services.AddSwaggerGen(c =>
