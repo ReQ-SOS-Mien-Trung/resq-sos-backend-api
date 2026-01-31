@@ -2,7 +2,7 @@
 
 public class TooManyRequestsException : Exception
 {
-    public TooManyRequestsException() : base("Too many requests")
+    public TooManyRequestsException() : base("Quá nhiều yêu cầu")
     {
     }
 

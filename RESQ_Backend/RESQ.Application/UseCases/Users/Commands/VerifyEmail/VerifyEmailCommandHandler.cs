@@ -26,14 +26,14 @@ namespace RESQ.Application.UseCases.Users.Commands.VerifyEmail
             if (user is null)
             {
                 _logger.LogWarning("Email verification failed: Invalid token");
-                throw new BadRequestException("Invalid or expired verification token");
+                throw new BadRequestException("Mã xác minh không hợp lệ hoặc đã hết hạn");
             }
 
             // Check if token is expired
             if (user.EmailVerificationTokenExpiry.HasValue && user.EmailVerificationTokenExpiry.Value < DateTime.UtcNow)
             {
                 _logger.LogWarning("Email verification failed: Token expired for Email={email}", user.Email);
-                throw new BadRequestException("Verification token has expired. Please request a new verification email.");
+                throw new BadRequestException("Mã xác minh đã hết hạn. Vui lòng yêu cầu gửi lại email xác minh.");
             }
 
             // Check if already verified
@@ -43,7 +43,7 @@ namespace RESQ.Application.UseCases.Users.Commands.VerifyEmail
                 return new VerifyEmailResponse
                 {
                     Success = true,
-                    Message = "Email is already verified",
+                    Message = "Email đã được xác minh trước đó",
                     Email = user.Email
                 };
             }
@@ -59,7 +59,7 @@ namespace RESQ.Application.UseCases.Users.Commands.VerifyEmail
 
             if (succeedCount < 1)
             {
-                throw new BadRequestException("Failed to verify email. Please try again.");
+                throw new BadRequestException("Không thể xác minh email. Vui lòng thử lại.");
             }
 
             _logger.LogInformation("Email verified successfully for Email={email}", user.Email);
@@ -67,7 +67,7 @@ namespace RESQ.Application.UseCases.Users.Commands.VerifyEmail
             return new VerifyEmailResponse
             {
                 Success = true,
-                Message = "Email verified successfully. You can now login.",
+                Message = "Xác minh email thành công. Bạn có thể đăng nhập ngay bây giờ.",
                 Email = user.Email
             };
         }

@@ -4,5 +4,5 @@ namespace RESQ.Domain.Entities.Resources.Exceptions;
 
 public sealed class DepotCapacityExceededException : DomainException
 {
-    public DepotCapacityExceededException() : base("Depot capacity exceeded") { }
+    public DepotCapacityExceededException() : base("Vượt quá sức chứa kho") { }
 }

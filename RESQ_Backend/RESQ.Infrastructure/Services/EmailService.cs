@@ -23,7 +23,7 @@ namespace RESQ.Infrastructure.Services
             var baseUrl = _configuration["AppSettings:BaseUrl"] ?? "http://localhost:5000";
             var verificationUrl = $"{baseUrl}/api/auth/verify-email?token={verificationToken}";
 
-            var subject = "Verify Your RESQ Account";
+            var subject = "Xác Minh Tài Khoản RESQ Của Bạn";
             var body = $@"
                 <html>
                 <head>
@@ -39,21 +39,21 @@ namespace RESQ.Infrastructure.Services
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h1>RESQ - Emergency Response System</h1>
+                            <h1>RESQ - Hệ Thống Ứng Phó Khẩn Cấp</h1>
                         </div>
                         <div class='content'>
-                            <h2>Welcome to RESQ!</h2>
-                            <p>Thank you for registering as a rescuer. Please verify your email address by clicking the button below:</p>
+                            <h2>Chào mừng đến với RESQ!</h2>
+                            <p>Cảm ơn bạn đã đăng ký làm nhân viên cứu hộ. Vui lòng xác minh địa chỉ email của bạn bằng cách nhấp vào nút bên dưới:</p>
                             <p style='text-align: center;'>
-                                <a href='{verificationUrl}' class='button'>Verify Email</a>
+                                <a href='{verificationUrl}' class='button'>Xác Minh Email</a>
                             </p>
-                            <p>Or copy and paste this link into your browser:</p>
+                            <p>Hoặc sao chép và dán liên kết này vào trình duyệt của bạn:</p>
                             <p style='word-break: break-all; color: #007bff;'>{verificationUrl}</p>
-                            <p><strong>This link will expire in 24 hours.</strong></p>
-                            <p>If you did not create an account, please ignore this email.</p>
+                            <p><strong>Liên kết này sẽ hết hạn sau 24 giờ.</strong></p>
+                            <p>Nếu bạn không tạo tài khoản, vui lòng bỏ qua email này.</p>
                         </div>
                         <div class='footer'>
-                            <p>&copy; 2026 RESQ. All rights reserved.</p>
+                            <p>&copy; 2026 RESQ. Bảo lưu mọi quyền.</p>
                         </div>
                     </div>
                 </body>
@@ -67,7 +67,7 @@ namespace RESQ.Infrastructure.Services
             var baseUrl = _configuration["AppSettings:BaseUrl"] ?? "http://localhost:5000";
             var resetUrl = $"{baseUrl}/api/auth/reset-password?token={resetToken}";
 
-            var subject = "Reset Your RESQ Password";
+            var subject = "Đặt Lại Mật Khẩu RESQ Của Bạn";
             var body = $@"
                 <html>
                 <head>
@@ -83,21 +83,21 @@ namespace RESQ.Infrastructure.Services
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h1>RESQ - Emergency Response System</h1>
+                            <h1>RESQ - Hệ Thống Ứng Phó Khẩn Cấp</h1>
                         </div>
                         <div class='content'>
-                            <h2>Password Reset Request</h2>
-                            <p>We received a request to reset your password. Click the button below to set a new password:</p>
+                            <h2>Yêu Cầu Đặt Lại Mật Khẩu</h2>
+                            <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu của bạn. Nhấp vào nút bên dưới để đặt mật khẩu mới:</p>
                             <p style='text-align: center;'>
-                                <a href='{resetUrl}' class='button'>Reset Password</a>
+                                <a href='{resetUrl}' class='button'>Đặt Lại Mật Khẩu</a>
                             </p>
-                            <p>Or copy and paste this link into your browser:</p>
+                            <p>Hoặc sao chép và dán liên kết này vào trình duyệt của bạn:</p>
                             <p style='word-break: break-all; color: #007bff;'>{resetUrl}</p>
-                            <p><strong>This link will expire in 1 hour.</strong></p>
-                            <p>If you did not request a password reset, please ignore this email.</p>
+                            <p><strong>Liên kết này sẽ hết hạn sau 1 giờ.</strong></p>
+                            <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
                         </div>
                         <div class='footer'>
-                            <p>&copy; 2026 RESQ. All rights reserved.</p>
+                            <p>&copy; 2026 RESQ. Bảo lưu mọi quyền.</p>
                         </div>
                     </div>
                 </body>

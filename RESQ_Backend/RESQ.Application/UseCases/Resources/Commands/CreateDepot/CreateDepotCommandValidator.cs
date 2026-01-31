@@ -23,6 +23,6 @@ public class CreateDepotCommandValidator
 
         RuleFor(x => x.Capacity)
             .GreaterThan(0)
-            .WithMessage("Depot capacity must be greater than 0");
+            .WithMessage("Sức chứa kho phải lớn hơn 0");
     }
 }

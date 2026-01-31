@@ -2,7 +2,7 @@
 
 public class UnauthorizedException : Exception
 {
-    public UnauthorizedException() : base("Unauthorized access")
+    public UnauthorizedException() : base("Truy cập không được phép")
     {
     }
 

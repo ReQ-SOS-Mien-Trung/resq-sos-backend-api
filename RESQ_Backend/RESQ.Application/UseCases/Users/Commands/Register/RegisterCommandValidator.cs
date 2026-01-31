@@ -7,13 +7,13 @@ namespace RESQ.Application.UseCases.Users.Commands.Register
         public RegisterCommandValidator()
         {
             RuleFor(x => x.Phone)
-                .NotEmpty().WithMessage("Phone is required")
-                .Matches(@"^\d{10,15}$").WithMessage("Phone must be between 10-15 digits");
+                .NotEmpty().WithMessage("Số điện thoại là bắt buộc")
+                .Matches(@"^\d{10,15}$").WithMessage("Số điện thoại phải có từ 10-15 chữ số");
 
             RuleFor(x => x.Password)
-                .NotEmpty().WithMessage("Password is required")
-                .Length(6).WithMessage("Password must be exactly 6 digits")
-                .Matches(@"^\d{6}$").WithMessage("Password must be a 6-digit PIN");
+                .NotEmpty().WithMessage("Mật khẩu là bắt buộc")
+                .Length(6).WithMessage("Mật khẩu phải đúng 6 chữ số")
+                .Matches(@"^\d{6}$").WithMessage("Mật khẩu phải là mã PIN 6 chữ số");
         }
     }
 }

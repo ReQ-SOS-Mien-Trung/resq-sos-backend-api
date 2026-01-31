@@ -7,7 +7,7 @@ namespace RESQ.Application.UseCases.Users.Commands.VerifyEmail
         public VerifyEmailCommandValidator()
         {
             RuleFor(x => x.Token)
-                .NotEmpty().WithMessage("Verification token is required");
+                .NotEmpty().WithMessage("Mã xác minh là bắt buộc");
         }
     }
 }

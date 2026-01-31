@@ -2,7 +2,7 @@
 
 public class ForbiddenException : Exception
 {
-    public ForbiddenException() : base("Access forbidden")
+    public ForbiddenException() : base("Truy cập bị từ chối")
     {
     }
 

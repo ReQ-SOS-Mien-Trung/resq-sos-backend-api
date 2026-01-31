@@ -29,7 +29,7 @@ namespace RESQ.Application.UseCases.Users.Commands.Register
             if (existingUser is not null)
             {
                 _logger.LogWarning("Registration failed: Phone already exists Phone={phone}", request.Phone);
-                throw new ConflictException("Phone number already registered");
+                throw new ConflictException("Số điện thoại đã được đăng ký");
             }
 
             // Hash password

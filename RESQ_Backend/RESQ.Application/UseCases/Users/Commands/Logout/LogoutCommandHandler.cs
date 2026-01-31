@@ -38,7 +38,7 @@ namespace RESQ.Application.UseCases.Users.Commands.Logout
             return new LogoutResponse
             {
                 Success = true,
-                Message = "Logged out successfully"
+                Message = "Đăng xuất thành công"
             };
         }
     }

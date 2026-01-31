@@ -39,7 +39,7 @@ namespace RESQ.Application.UseCases.Users.Commands.GoogleLogin
             var googleUser = await ValidateGoogleTokenAsync(request.IdToken, cancellationToken);
             if (googleUser is null)
             {
-                throw new UnauthorizedException("Invalid Google token");
+                throw new UnauthorizedException("Token Google không hợp lệ");
             }
 
             _logger.LogInformation("Google token validated for email={email}", googleUser.Email);

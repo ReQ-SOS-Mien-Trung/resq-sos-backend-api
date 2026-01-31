@@ -2,7 +2,7 @@
 
 public class UnprocessableEntityException : Exception
 {
-    public UnprocessableEntityException() : base("Unprocessable entity")
+    public UnprocessableEntityException() : base("Không thể xử lý thực thể")
     {
     }
 

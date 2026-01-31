@@ -29,7 +29,7 @@ namespace RESQ.Application.UseCases.Users.Commands.Login
             // Validate input - at least one of username or phone must be provided
             if (string.IsNullOrEmpty(request.Username) && string.IsNullOrEmpty(request.Phone))
             {
-                throw new BadRequestException("Username or Phone is required");
+                throw new BadRequestException("Tên đăng nhập hoặc số điện thoại là bắt buộc");
             }
 
             // Find user by username or phone
@@ -40,14 +40,14 @@ namespace RESQ.Application.UseCases.Users.Commands.Login
             if (user is null)
             {
                 _logger.LogWarning("Login failed: User not found for Username={username} or Phone={phone}", request.Username, request.Phone);
-                throw new UnauthorizedException("Invalid credentials");
+                throw new UnauthorizedException("Thông tin đăng nhập không hợp lệ");
             }
 
             // Verify password
             if (!VerifyPassword(request.Password, user.Password))
             {
                 _logger.LogWarning("Login failed: Invalid password for UserId={userId}", user.Id);
-                throw new UnauthorizedException("Invalid credentials");
+                throw new UnauthorizedException("Thông tin đăng nhập không hợp lệ");
             }
 
             // Generate tokens

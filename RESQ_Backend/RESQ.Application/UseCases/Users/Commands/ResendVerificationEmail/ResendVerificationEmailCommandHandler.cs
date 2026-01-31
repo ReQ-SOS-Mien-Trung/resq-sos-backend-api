@@ -33,7 +33,7 @@ namespace RESQ.Application.UseCases.Users.Commands.ResendVerificationEmail
                 return new ResendVerificationEmailResponse
                 {
                     Success = true,
-                    Message = "If the email exists in our system, a verification email will be sent."
+                    Message = "Nếu email tồn tại trong hệ thống, email xác minh sẽ được gửi đi."
                 };
             }
 
@@ -41,7 +41,7 @@ namespace RESQ.Application.UseCases.Users.Commands.ResendVerificationEmail
             if (user.IsEmailVerified)
             {
                 _logger.LogInformation("Email already verified for Email={email}", user.Email);
-                throw new BadRequestException("Email is already verified");
+                throw new BadRequestException("Email đã được xác minh");
             }
 
             // Generate new verification token
@@ -57,7 +57,7 @@ namespace RESQ.Application.UseCases.Users.Commands.ResendVerificationEmail
 
             if (succeedCount < 1)
             {
-                throw new BadRequestException("Failed to generate verification token. Please try again.");
+                throw new BadRequestException("Không thể tạo mã xác minh. Vui lòng thử lại.");
             }
 
             // Send verification email
@@ -69,13 +69,13 @@ namespace RESQ.Application.UseCases.Users.Commands.ResendVerificationEmail
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to resend verification email to {email}", user.Email);
-                throw new NetworkException("Failed to send verification email. Please try again later.");
+                throw new NetworkException("Không thể gửi email xác minh. Vui lòng thử lại sau.");
             }
 
             return new ResendVerificationEmailResponse
             {
                 Success = true,
-                Message = "Verification email sent successfully. Please check your inbox."
+                Message = "Email xác minh đã được gửi thành công. Vui lòng kiểm tra hộp thư đến."
             };
         }
 

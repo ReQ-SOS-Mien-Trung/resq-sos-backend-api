@@ -7,20 +7,20 @@ namespace RESQ.Application.UseCases.Users.Commands.RegisterRescuer
         public RegisterRescuerCommandValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("Email is required")
-                .EmailAddress().WithMessage("Invalid email format")
-                .MaximumLength(255).WithMessage("Email must not exceed 255 characters");
+                .NotEmpty().WithMessage("Email là bắt buộc")
+                .EmailAddress().WithMessage("Định dạng email không hợp lệ")
+                .MaximumLength(255).WithMessage("Email không được vượt quá 255 ký tự");
 
             RuleFor(x => x.Password)
-                .NotEmpty().WithMessage("Password is required")
-                .MinimumLength(6).WithMessage("Password must be at least 6 characters")
-                .MaximumLength(100).WithMessage("Password must not exceed 100 characters")
-                .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter")
-                .Matches(@"[a-z]").WithMessage("Password must contain at least one lowercase letter")
-                .Matches(@"[0-9]").WithMessage("Password must contain at least one number");
+                .NotEmpty().WithMessage("Mật khẩu là bắt buộc")
+                .MinimumLength(6).WithMessage("Mật khẩu phải có ít nhất 6 ký tự")
+                .MaximumLength(100).WithMessage("Mật khẩu không được vượt quá 100 ký tự")
+                .Matches(@"[A-Z]").WithMessage("Mật khẩu phải chứa ít nhất một chữ cái viết hoa")
+                .Matches(@"[a-z]").WithMessage("Mật khẩu phải chứa ít nhất một chữ cái viết thường")
+                .Matches(@"[0-9]").WithMessage("Mật khẩu phải chứa ít nhất một chữ số");
 
             RuleFor(x => x.FullName)
-                .MaximumLength(255).WithMessage("Full name must not exceed 255 characters")
+                .MaximumLength(255).WithMessage("Họ tên không được vượt quá 255 ký tự")
                 .When(x => !string.IsNullOrEmpty(x.FullName));
         }
     }

@@ -32,32 +32,32 @@ namespace RESQ.Application.UseCases.Users.Commands.RefreshToken
             var principal = GetPrincipalFromExpiredToken(request.AccessToken);
             if (principal is null)
             {
-                throw new UnauthorizedException("Invalid access token");
+                throw new UnauthorizedException("Access token không hợp lệ");
             }
 
             var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             {
-                throw new UnauthorizedException("Invalid access token");
+                throw new UnauthorizedException("Access token không hợp lệ");
             }
 
             // Get user and validate refresh token
             var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
             if (user is null)
             {
-                throw new UnauthorizedException("User not found");
+                throw new UnauthorizedException("Không tìm thấy người dùng");
             }
 
             if (user.RefreshToken != request.RefreshToken)
             {
                 _logger.LogWarning("Invalid refresh token for UserId={userId}", userId);
-                throw new UnauthorizedException("Invalid refresh token");
+                throw new UnauthorizedException("Refresh token không hợp lệ");
             }
 
             if (user.RefreshTokenExpiry < DateTime.UtcNow)
             {
                 _logger.LogWarning("Refresh token expired for UserId={userId}", userId);
-                throw new UnauthorizedException("Refresh token has expired");
+                throw new UnauthorizedException("Refresh token đã hết hạn");
             }
 
             // Generate new tokens

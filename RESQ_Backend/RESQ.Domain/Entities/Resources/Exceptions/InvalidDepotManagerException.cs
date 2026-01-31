@@ -5,7 +5,7 @@ namespace RESQ.Domain.Entities.Resources.Exceptions
     public sealed class InvalidDepotManagerException : DomainException
     {
         public InvalidDepotManagerException()
-            : base("Depot manager is invalid. A depot must be assigned to a valid manager.")
+            : base("Quản lý kho không hợp lệ. Kho phải được giao cho một quản lý hợp lệ.")
         {
         }
     }

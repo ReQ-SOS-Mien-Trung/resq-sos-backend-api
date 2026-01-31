@@ -32,7 +32,7 @@ namespace RESQ.Application.UseCases.Users.Commands.RegisterRescuer
             if (existingUser is not null)
             {
                 _logger.LogWarning("Registration failed: Email already exists Email={email}", request.Email);
-                throw new ConflictException("Email already registered");
+                throw new ConflictException("Email đã được đăng ký");
             }
 
             // Hash password
@@ -86,7 +86,7 @@ namespace RESQ.Application.UseCases.Users.Commands.RegisterRescuer
                 FullName = user.FullName,
                 RoleId = user.RoleId ?? DEFAULT_RESCUER_ROLE_ID,
                 IsEmailVerified = user.IsEmailVerified,
-                Message = "Registration successful. Please check your email to verify your account.",
+                Message = "Đăng ký thành công. Vui lòng kiểm tra email để xác minh tài khoản của bạn.",
                 CreatedAt = user.CreatedAt ?? DateTime.UtcNow
             };
         }
