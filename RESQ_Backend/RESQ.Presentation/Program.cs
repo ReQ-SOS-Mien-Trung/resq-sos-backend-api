@@ -77,6 +77,12 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
+// Auto-create database and seed data on startup
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<RESQ.Infrastructure.Persistence.Context.ResQDbContext>();
+    dbContext.Database.EnsureCreated();
+}
 
 // Enable Swagger for all environments (useful for Docker)
 app.UseSwagger();
