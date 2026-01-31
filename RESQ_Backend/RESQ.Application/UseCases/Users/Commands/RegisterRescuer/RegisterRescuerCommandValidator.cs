@@ -18,10 +18,6 @@ namespace RESQ.Application.UseCases.Users.Commands.RegisterRescuer
                 .Matches(@"[A-Z]").WithMessage("Mật khẩu phải chứa ít nhất một chữ cái viết hoa")
                 .Matches(@"[a-z]").WithMessage("Mật khẩu phải chứa ít nhất một chữ cái viết thường")
                 .Matches(@"[0-9]").WithMessage("Mật khẩu phải chứa ít nhất một chữ số");
-
-            RuleFor(x => x.FullName)
-                .MaximumLength(255).WithMessage("Họ tên không được vượt quá 255 ký tự")
-                .When(x => !string.IsNullOrEmpty(x.FullName));
         }
     }
 }

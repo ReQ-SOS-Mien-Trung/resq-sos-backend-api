@@ -77,6 +77,7 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
+
 // Enable Swagger for all environments (useful for Docker)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
@@ -85,6 +86,7 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
+app.UseMiddleware<RESQ.Presentation.Middlewares.ValidationExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

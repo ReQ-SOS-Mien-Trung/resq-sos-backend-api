@@ -47,7 +47,6 @@ namespace RESQ.Application.UseCases.Users.Commands.RegisterRescuer
             {
                 Id = Guid.NewGuid(),
                 Email = request.Email,
-                FullName = request.FullName,
                 Password = hashedPassword,
                 RoleId = DEFAULT_RESCUER_ROLE_ID,
                 IsEmailVerified = false,

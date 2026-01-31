@@ -32,7 +32,7 @@ namespace RESQ.Presentation.Controllers.Users
         [AllowAnonymous]
         public async Task<IActionResult> RegisterRescuer([FromBody] RegisterRescuerRequestDto dto)
         {
-            var command = new RegisterRescuerCommand(dto.Email, dto.Password, dto.FullName);
+            var command = new RegisterRescuerCommand(dto.Email, dto.Password);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
