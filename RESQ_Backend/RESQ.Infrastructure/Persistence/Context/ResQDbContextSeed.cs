@@ -1,5 +1,12 @@
 using Microsoft.EntityFrameworkCore;
-using RESQ.Infrastructure.Entities;
+using NetTopologySuite.Geometries;
+using RESQ.Infrastructure.Entities.Emergency;
+using RESQ.Infrastructure.Entities.Identity;
+using RESQ.Infrastructure.Entities.Logistics;
+using RESQ.Infrastructure.Entities.Notifications;
+using RESQ.Infrastructure.Entities.Operations;
+using RESQ.Infrastructure.Entities.Personnel;
+using RESQ.Infrastructure.Entities.System;
 
 namespace RESQ.Infrastructure.Persistence.Context;
 
@@ -61,10 +68,11 @@ public partial class ResQDbContext
         SeedOrganizations(modelBuilder);
         SeedReliefItems(modelBuilder);
         SeedDepots(modelBuilder);
+        SeedDepotManagers(modelBuilder);
         SeedDepotInventories(modelBuilder);
         SeedInventoryLogs(modelBuilder);
-        SeedRescueUnits(modelBuilder);
-        SeedUnitMembers(modelBuilder);
+        SeedRescueTeams(modelBuilder);
+        // SeedUnitMembers(modelBuilder); // Entity removed/changed
         SeedUserAbilities(modelBuilder);
         SeedSosClusters(modelBuilder);
         SeedSosRequests(modelBuilder);
@@ -79,8 +87,8 @@ public partial class ResQDbContext
         SeedPrompts(modelBuilder);
         SeedClusterAiAnalyses(modelBuilder);
         SeedActivityAiSuggestions(modelBuilder);
-        SeedActivityHandoverLogs(modelBuilder);
-        SeedRescueUnitAiSuggestions(modelBuilder);
+        // SeedActivityHandoverLogs(modelBuilder); // Entity removed/changed
+        SeedRescueTeamAiSuggestions(modelBuilder);
         SeedOrganizationReliefItems(modelBuilder);
     }
 
@@ -170,8 +178,8 @@ public partial class ResQDbContext
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
-        modelBuilder.Entity<Category>().HasData(
-            new Category
+        modelBuilder.Entity<ItemCategory>().HasData(
+            new ItemCategory
             {
                 Id = 1,
                 Code = "FOOD",
@@ -180,7 +188,7 @@ public partial class ResQDbContext
                 CreatedAt = now,
                 UpdatedAt = now
             },
-            new Category
+            new ItemCategory
             {
                 Id = 2,
                 Code = "MEDICAL",
@@ -258,26 +266,44 @@ public partial class ResQDbContext
                 Id = 1,
                 Name = "Kho cứu trợ Quận 1",
                 Address = "123 Nguyễn Huệ, Quận 1, TP.HCM",
-                Latitude = 10.7769,
-                Longitude = 106.7009,
+                Location = new Point(106.7009, 10.7769) { SRID = 4326 },
                 Status = "Active",
                 Capacity = 1000,
                 CurrentUtilization = 500,
-                LastUpdatedAt = now,
-                DepotManagerId = AdminUserId
+                LastUpdatedAt = now
             },
             new Depot
             {
                 Id = 2,
                 Name = "Kho cứu trợ Quận 7",
                 Address = "456 Nguyễn Văn Linh, Quận 7, TP.HCM",
-                Latitude = 10.7380,
-                Longitude = 106.7218,
+                Location = new Point(106.7218, 10.7380) { SRID = 4326 },
                 Status = "Active",
                 Capacity = 2000,
                 CurrentUtilization = 800,
-                LastUpdatedAt = now,
-                DepotManagerId = CoordinatorUserId
+                LastUpdatedAt = now
+            }
+        );
+    }
+
+    private static void SeedDepotManagers(ModelBuilder modelBuilder)
+    {
+        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<DepotManager>().HasData(
+            new DepotManager
+            {
+                Id = 1,
+                DepotId = 1,
+                UserId = AdminUserId,
+                AssignedAt = now
+            },
+            new DepotManager
+            {
+                Id = 2,
+                DepotId = 2,
+                UserId = CoordinatorUserId,
+                AssignedAt = now
             }
         );
     }
@@ -286,8 +312,8 @@ public partial class ResQDbContext
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<DepotInventory>().HasData(
-            new DepotInventory
+        modelBuilder.Entity<DepotSupplyInventory>().HasData(
+            new DepotSupplyInventory
             {
                 Id = 1,
                 DepotId = 1,
@@ -296,7 +322,7 @@ public partial class ResQDbContext
                 ReservedQuantity = 100,
                 LastStockedAt = now
             },
-            new DepotInventory
+            new DepotSupplyInventory
             {
                 Id = 2,
                 DepotId = 2,
@@ -316,7 +342,7 @@ public partial class ResQDbContext
             new InventoryLog
             {
                 Id = 1,
-                DepotInventoryId = 1,
+                DepotSupplyInventoryId = 1,
                 ActionType = "Import",
                 QuantityChange = 500,
                 SourceType = "Donation",
@@ -328,7 +354,7 @@ public partial class ResQDbContext
             new InventoryLog
             {
                 Id = 2,
-                DepotInventoryId = 2,
+                DepotSupplyInventoryId = 2,
                 ActionType = "Import",
                 QuantityChange = 200,
                 SourceType = "Donation",
@@ -340,48 +366,29 @@ public partial class ResQDbContext
         );
     }
 
-    private static void SeedRescueUnits(ModelBuilder modelBuilder)
+    private static void SeedRescueTeams(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<RescueUnit>().HasData(
-            new RescueUnit
+        var now = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now2 = new DateTime(2023, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<RescueTeam>().HasData(
+            new RescueTeam
             {
                 Id = 1,
                 Name = "Đội cứu hộ Alpha",
-                CurrentLatitude = 10.7769,
-                CurrentLongitude = 106.7009,
+                Location = new Point(106.7009, 10.7769) { SRID = 4326 },
                 Status = "Available",
-                DistanceAvailable = 50,
-                MaxCapacityPeople = 10,
-                FormedAt = new DateOnly(2023, 1, 1)
+                MaxMembers = 10,
+                CreatedAt = now
             },
-            new RescueUnit
+            new RescueTeam
             {
                 Id = 2,
                 Name = "Đội cứu hộ Beta",
-                CurrentLatitude = 10.7380,
-                CurrentLongitude = 106.7218,
+                Location = new Point(106.7218, 10.7380) { SRID = 4326 },
                 Status = "OnMission",
-                DistanceAvailable = 30,
-                MaxCapacityPeople = 8,
-                FormedAt = new DateOnly(2023, 6, 15)
-            }
-        );
-    }
-
-    private static void SeedUnitMembers(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<UnitMember>().HasData(
-            new UnitMember
-            {
-                Id = 1,
-                RescueUnitId = 1,
-                UserId = AdminUserId
-            },
-            new UnitMember
-            {
-                Id = 2,
-                RescueUnitId = 2,
-                UserId = CoordinatorUserId
+                MaxMembers = 8,
+                CreatedAt = now2
             }
         );
     }
@@ -391,14 +398,12 @@ public partial class ResQDbContext
         modelBuilder.Entity<UserAbility>().HasData(
             new UserAbility
             {
-                UserAbilityId = 1,
                 UserId = AdminUserId,
                 AbilityId = 1,
                 Level = 5
             },
             new UserAbility
             {
-                UserAbilityId = 2,
                 UserId = CoordinatorUserId,
                 AbilityId = 2,
                 Level = 4
@@ -450,11 +455,8 @@ public partial class ResQDbContext
                 Id = 1,
                 ClusterId = 1,
                 UserId = AdminUserId,
-                RescueMessage = "Cần cứu hộ khẩn cấp, có người già và trẻ em",
+                RawMessage = "Cần cứu hộ khẩn cấp, có người già và trẻ em",
                 PriorityLevel = "High",
-                WaterLevel = "Ngập 1m",
-                VictimCount = 5,
-                IsAnalyzed = true,
                 WaitTimeMinutes = 30,
                 Status = "Pending",
                 CreatedAt = now
@@ -464,11 +466,8 @@ public partial class ResQDbContext
                 Id = 2,
                 ClusterId = 2,
                 UserId = CoordinatorUserId,
-                RescueMessage = "Cần hỗ trợ thực phẩm và nước uống",
+                RawMessage = "Cần hỗ trợ thực phẩm và nước uống",
                 PriorityLevel = "Medium",
-                WaterLevel = "Ngập 0.5m",
-                VictimCount = 3,
-                IsAnalyzed = true,
                 WaitTimeMinutes = 60,
                 Status = "InProgress",
                 CreatedAt = now
@@ -485,7 +484,7 @@ public partial class ResQDbContext
             {
                 Id = 1,
                 SosRequestId = 1,
-                ExtractedData = "{\"urgency\": \"high\", \"needs\": [\"rescue\", \"medical\"]}",
+                Metadata = "{\"urgency\": \"high\", \"needs\": [\"rescue\", \"medical\"]}",
                 ModelVersion = "v1.0",
                 CreatedAt = now
             },
@@ -493,7 +492,7 @@ public partial class ResQDbContext
             {
                 Id = 2,
                 SosRequestId = 2,
-                ExtractedData = "{\"urgency\": \"medium\", \"needs\": [\"food\", \"water\"]}",
+                Metadata = "{\"urgency\": \"medium\", \"needs\": [\"food\", \"water\"]}",
                 ModelVersion = "v1.0",
                 CreatedAt = now
             }
@@ -510,26 +509,24 @@ public partial class ResQDbContext
                 Id = 1,
                 ClusterId = 1,
                 MissionType = "Rescue",
-                Priority = "High",
+                PriorityScore = 10.0,
                 Status = "InProgress",
                 StartTime = now,
                 ExpectedEndTime = now.AddHours(4),
                 CreatedAt = now,
-                CoordinatorId = CoordinatorUserId,
-                PrimaryUnitId = 1
+                CreatedById = CoordinatorUserId
             },
             new Mission
             {
                 Id = 2,
                 ClusterId = 2,
                 MissionType = "Relief",
-                Priority = "Medium",
+                PriorityScore = 5.0,
                 Status = "Planned",
                 StartTime = now.AddHours(2),
                 ExpectedEndTime = now.AddHours(6),
                 CreatedAt = now,
-                CoordinatorId = AdminUserId,
-                PrimaryUnitId = 2
+                CreatedById = AdminUserId
             }
         );
     }
@@ -542,15 +539,13 @@ public partial class ResQDbContext
             new MissionActivity
             {
                 Id = 1,
-                AssignedUnitId = 1,
                 MissionId = 1,
                 Step = 1,
                 ActivityCode = "EVACUATE",
                 ActivityType = "Evacuation",
                 Description = "Di tản người dân khỏi vùng ngập",
                 Target = "{\"location\": \"Khu vực A\", \"count\": 20}",
-                Latitude = 10.7769,
-                Longitude = 106.7009,
+                TargetLocation = new Point(106.7009, 10.7769) { SRID = 4326 },
                 Status = "InProgress",
                 AssignedAt = now,
                 LastDecisionBy = CoordinatorUserId
@@ -558,15 +553,13 @@ public partial class ResQDbContext
             new MissionActivity
             {
                 Id = 2,
-                AssignedUnitId = 2,
                 MissionId = 2,
                 Step = 1,
                 ActivityCode = "DISTRIBUTE",
                 ActivityType = "Distribution",
                 Description = "Phân phát thực phẩm và nước",
                 Target = "{\"items\": [\"food\", \"water\"], \"count\": 100}",
-                Latitude = 10.7380,
-                Longitude = 106.7218,
+                TargetLocation = new Point(106.7218, 10.7380) { SRID = 4326 },
                 Status = "Planned",
                 AssignedAt = now,
                 LastDecisionBy = AdminUserId
@@ -621,6 +614,7 @@ public partial class ResQDbContext
         modelBuilder.Entity<ConversationParticipant>().HasData(
             new ConversationParticipant
             {
+                Id = 1,
                 ConversationId = 1,
                 UserId = AdminUserId,
                 RoleInConversation = "Admin",
@@ -628,6 +622,7 @@ public partial class ResQDbContext
             },
             new ConversationParticipant
             {
+                Id = 2,
                 ConversationId = 2,
                 UserId = CoordinatorUserId,
                 RoleInConversation = "Coordinator",
@@ -647,7 +642,7 @@ public partial class ResQDbContext
                 ConversationId = 1,
                 SenderId = AdminUserId,
                 Content = "Bắt đầu nhiệm vụ cứu hộ",
-                SentAt = now
+                CreatedAt = now
             },
             new Message
             {
@@ -655,7 +650,7 @@ public partial class ResQDbContext
                 ConversationId = 2,
                 SenderId = CoordinatorUserId,
                 Content = "Đã chuẩn bị xong vật tư cứu trợ",
-                SentAt = now
+                CreatedAt = now
             }
         );
     }
@@ -670,7 +665,6 @@ public partial class ResQDbContext
                 Id = 1,
                 UserId = AdminUserId,
                 Content = "Có yêu cầu cứu hộ mới cần xử lý",
-                IsRead = false,
                 CreatedAt = now
             },
             new Notification
@@ -678,7 +672,6 @@ public partial class ResQDbContext
                 Id = 2,
                 UserId = CoordinatorUserId,
                 Content = "Nhiệm vụ #1 đã được giao cho đội của bạn",
-                IsRead = true,
                 CreatedAt = now
             }
         );
@@ -726,8 +719,7 @@ public partial class ResQDbContext
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 AnalysisType = "Severity",
-                EventAssessment = "{\"severity\": \"high\", \"risk_factors\": [\"flooding\", \"elderly\"]}",
-                SuggestedMissionPlan = "{\"actions\": [\"evacuate\", \"medical_support\"]}",
+                Metadata = "{\"event_assessment\": {\"severity\": \"high\", \"risk_factors\": [\"flooding\", \"elderly\"]}, \"suggested_plan\": {\"actions\": [\"evacuate\", \"medical_support\"]}}",
                 ConfidenceScore = 0.85,
                 CreatedAt = now
             },
@@ -738,8 +730,7 @@ public partial class ResQDbContext
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 AnalysisType = "Resource",
-                EventAssessment = "{\"severity\": \"medium\", \"risk_factors\": [\"limited_supplies\"]}",
-                SuggestedMissionPlan = "{\"actions\": [\"distribute_food\", \"provide_shelter\"]}",
+                Metadata = "{\"event_assessment\": {\"severity\": \"medium\", \"risk_factors\": [\"limited_supplies\"]}, \"suggested_plan\": {\"actions\": [\"distribute_food\", \"provide_shelter\"]}}",
                 ConfidenceScore = 0.78,
                 CreatedAt = now
             }
@@ -759,7 +750,7 @@ public partial class ResQDbContext
                 ModelVersion = "v1.0",
                 ActivityType = "Evacuation",
                 SuggestionPhase = "Planning",
-                SuggestedActions = "{\"steps\": [\"identify_exits\", \"gather_people\", \"transport\"]}",
+                SuggestedActivities = "{\"steps\": [\"identify_exits\", \"gather_people\", \"transport\"]}",
                 ConfidenceScore = 0.9,
                 CreatedAt = now
             },
@@ -771,67 +762,39 @@ public partial class ResQDbContext
                 ModelVersion = "v1.0",
                 ActivityType = "Distribution",
                 SuggestionPhase = "Execution",
-                SuggestedActions = "{\"steps\": [\"inventory_check\", \"load_supplies\", \"distribute\"]}",
+                SuggestedActivities = "{\"steps\": [\"inventory_check\", \"load_supplies\", \"distribute\"]}",
                 ConfidenceScore = 0.82,
                 CreatedAt = now
             }
         );
     }
 
-    private static void SeedActivityHandoverLogs(ModelBuilder modelBuilder)
+    private static void SeedRescueTeamAiSuggestions(ModelBuilder modelBuilder)
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<ActivityHandoverLog>().HasData(
-            new ActivityHandoverLog
-            {
-                Id = 1,
-                ActivityId = 1,
-                FromUnitId = 1,
-                ToUnitId = 2,
-                Reason = "Đội Alpha cần hỗ trợ thêm",
-                CreatedAt = now,
-                DecidedBy = CoordinatorUserId
-            },
-            new ActivityHandoverLog
-            {
-                Id = 2,
-                ActivityId = 2,
-                FromUnitId = 2,
-                ToUnitId = 1,
-                Reason = "Chuyển giao theo yêu cầu",
-                CreatedAt = now,
-                DecidedBy = AdminUserId
-            }
-        );
-    }
-
-    private static void SeedRescueUnitAiSuggestions(ModelBuilder modelBuilder)
-    {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-        modelBuilder.Entity<RescueUnitAiSuggestion>().HasData(
-            new RescueUnitAiSuggestion
+        modelBuilder.Entity<RescueTeamAiSuggestion>().HasData(
+            new RescueTeamAiSuggestion
             {
                 Id = 1,
                 ClusterId = 1,
-                SuggestedRescueUnitId = 1,
+                AdoptedRescueTeamId = 1,
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 AnalysisType = "Assignment",
-                AssignedReason = "{\"reasons\": [\"nearest\", \"available\", \"skilled\"]}",
+                SuggestionScope = "{\"reasons\": [\"nearest\", \"available\", \"skilled\"]}",
                 ConfidenceScore = 0.88,
                 CreatedAt = now
             },
-            new RescueUnitAiSuggestion
+            new RescueTeamAiSuggestion
             {
                 Id = 2,
                 ClusterId = 2,
-                SuggestedRescueUnitId = 2,
+                AdoptedRescueTeamId = 2,
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 AnalysisType = "Assignment",
-                AssignedReason = "{\"reasons\": [\"capacity\", \"equipment\"]}",
+                SuggestionScope = "{\"reasons\": [\"capacity\", \"equipment\"]}",
                 ConfidenceScore = 0.75,
                 CreatedAt = now
             }

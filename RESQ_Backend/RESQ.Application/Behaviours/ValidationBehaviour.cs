@@ -21,8 +21,11 @@ public class ValidationBehaviour<TRequest, TResponse> : IPipelineBehavior<TReque
             var validationResults = await Task.WhenAll(_validators.Select(v => v.ValidateAsync(context, cancellationToken)));
             var failures = validationResults.SelectMany(r => r.Errors).Where(f => f != null).ToList();
 
-            if (failures.Count != 0) { }
-                //throw new RogueLearn.User.Application.Exceptions.ValidationException(failures);
+            if (failures.Count != 0)
+            {
+                // Sử dụng ValidationException của bạn, hoặc FluentValidation.ValidationException nếu muốn
+                throw new Exceptions.ValidationException(failures);
+            }
         }
 
         return await next();

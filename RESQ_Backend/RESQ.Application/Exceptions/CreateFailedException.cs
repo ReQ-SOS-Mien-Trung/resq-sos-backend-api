@@ -2,7 +2,7 @@
 {
     public class CreateFailedException : Exception
     {
-        public CreateFailedException(string input) : base($"Failed to create {input}")
+        public CreateFailedException(string input) : base($"Không thể tạo {input}")
         {
         }
 

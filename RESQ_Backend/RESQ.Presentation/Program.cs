@@ -9,6 +9,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddHttpClient(); // Add HttpClientFactory for Google API calls
+
+// Add CORS to allow all origins
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy => policy.AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod());
+});
 
 //jwt swagger
 builder.Services.AddSwaggerGen(c =>
@@ -76,6 +86,17 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
+// Auto-create database and seed data on startup
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<RESQ.Infrastructure.Persistence.Context.ResQDbContext>();
+    dbContext.Database.EnsureCreated();
+}
+
+
+// Enable CORS for all requests
+app.UseCors("AllowAll");
+
 // Enable Swagger for all environments (useful for Docker)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
@@ -84,6 +105,7 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
+app.UseMiddleware<RESQ.Presentation.Middlewares.ValidationExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

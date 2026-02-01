@@ -1,0 +1,14 @@
+﻿namespace RESQ.Application.UseCases.Identity.Commands.Login
+{
+    public class LoginResonse
+    {
+        public string AccessToken { get; set; } = null!;
+        public string RefreshToken { get; set; } = null!;
+        public int ExpiresIn { get; set; }
+        public string TokenType { get; set; } = "Bearer";
+        public Guid UserId { get; set; }
+        public string? Username { get; set; }
+        public string? FullName { get; set; }
+        public int? RoleId { get; set; }
+    }
+}

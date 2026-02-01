@@ -1,5 +1,5 @@
-﻿using RESQ.Domain.Entities;
-using RESQ.Infrastructure.Entities;
+﻿using RESQ.Domain.Entities.Identity;
+using RESQ.Infrastructure.Entities.Identity;
 
 namespace RESQ.Infrastructure.Mappers.Users
 {
@@ -13,6 +13,10 @@ namespace RESQ.Infrastructure.Mappers.Users
                 RoleId = model.RoleId,
                 FullName = model.FullName,
                 Username = model.Username,
+                Email = model.Email,
+                IsEmailVerified = model.IsEmailVerified,
+                EmailVerificationToken = model.EmailVerificationToken,
+                EmailVerificationTokenExpiry = model.EmailVerificationTokenExpiry,
                 Phone = model.Phone,
                 Password = model.Password,
                 RefreshToken = model.RefreshToken,
@@ -30,6 +34,10 @@ namespace RESQ.Infrastructure.Mappers.Users
                 RoleId = entity.RoleId,
                 FullName = entity.FullName,
                 Username = entity.Username,
+                Email = entity.Email,
+                IsEmailVerified = entity.IsEmailVerified,
+                EmailVerificationToken = entity.EmailVerificationToken,
+                EmailVerificationTokenExpiry = entity.EmailVerificationTokenExpiry,
                 Phone = entity.Phone,
                 Password = entity.Password,
                 RefreshToken = entity.RefreshToken,

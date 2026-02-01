@@ -2,7 +2,7 @@
 
 public class MethodNotAllowedException : Exception
 {
-    public MethodNotAllowedException() : base("Method not allowed")
+    public MethodNotAllowedException() : base("Phương thức không được phép")
     {
     }
 

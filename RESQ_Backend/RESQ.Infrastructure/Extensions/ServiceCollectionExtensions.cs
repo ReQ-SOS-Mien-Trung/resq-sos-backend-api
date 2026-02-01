@@ -2,13 +2,13 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RESQ.Application.Repositories.Base;
-using RESQ.Application.Repositories.Resources;
-using RESQ.Application.Repositories.Users;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Resources;
-using RESQ.Infrastructure.Persistence.Users;
+using RESQ.Infrastructure.Persistence.Identity;
 using RESQ.Infrastructure.Services;
 
 namespace RESQ.Infrastructure.Extensions;
@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
 
         // Services
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IEmailService, EmailService>();
 
         return services;
     }
