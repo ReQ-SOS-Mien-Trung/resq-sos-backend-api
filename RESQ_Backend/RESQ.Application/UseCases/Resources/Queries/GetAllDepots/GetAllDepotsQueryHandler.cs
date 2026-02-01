@@ -15,6 +15,7 @@ namespace RESQ.Application.UseCases.Resources.Queries.GetAllDepots
             _logger.LogInformation("Handling {handler} - retrieving all depots", nameof(GetAllDepotsQueryHandler));
 
             var depots = await _depotRepository.GetAllAsync(cancellationToken);
+            
             var response = new GetAllDepotsResponse
             {
                 Depots = depots.Select(depot => new DepotDto
@@ -22,12 +23,12 @@ namespace RESQ.Application.UseCases.Resources.Queries.GetAllDepots
                     Id = depot.Id,
                     Name = depot.Name,
                     Address = depot.Address,
-                    Latitude = depot.Latitude,
-                    Longitude = depot.Longitude,
+                    Latitude = depot.Location?.Latitude,
+                    Longitude = depot.Location?.Longitude,
                     Capacity = depot.Capacity,
                     CurrentUtilization = depot.CurrentUtilization,
                     Status = depot.Status.ToString(),
-                    DepotManagerId = depot.DepotManagerId,
+                    DepotManagerId = depot.CurrentManagerId, // Map from computed property
                     LastUpdatedAt = depot.LastUpdatedAt
                 }).ToList()
             };

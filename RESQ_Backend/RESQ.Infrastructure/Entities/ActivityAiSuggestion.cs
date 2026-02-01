@@ -1,5 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace RESQ.Infrastructure.Entities;
 
@@ -35,11 +38,14 @@ public partial class ActivityAiSuggestion
     [StringLength(50)]
     public string? SuggestionPhase { get; set; }
 
-    [Column("suggested_actions", TypeName = "jsonb")]
-    public string? SuggestedActions { get; set; }
+    [Column("suggested_activities", TypeName = "jsonb")]
+    public string? SuggestedActivities { get; set; }
 
     [Column("confidence_score")]
     public double? ConfidenceScore { get; set; }
+
+    [Column("suggestion_scope")]
+    public string? SuggestionScope { get; set; }
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }

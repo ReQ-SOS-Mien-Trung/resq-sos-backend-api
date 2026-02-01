@@ -22,8 +22,8 @@ public partial class Message
     [Column("content")]
     public string? Content { get; set; }
 
-    [Column("sent_at", TypeName = "timestamp with time zone")]
-    public DateTime? SentAt { get; set; }
+    [Column("created_at", TypeName = "timestamp with time zone")]
+    public DateTime? CreatedAt { get; set; }
 
     [ForeignKey("ConversationId")]
     [InverseProperty("Messages")]

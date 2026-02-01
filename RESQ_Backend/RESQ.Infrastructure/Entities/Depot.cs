@@ -1,5 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
 
 namespace RESQ.Infrastructure.Entities;
 
@@ -17,35 +21,34 @@ public partial class Depot
     [Column("address")]
     public string? Address { get; set; }
 
-    [Column("latitude")]
-    public double? Latitude { get; set; }
-
-    [Column("longitude")]
-    public double? Longitude { get; set; }
+    [Column("location", TypeName = "geography(Point,4326)")]
+    public Point? Location { get; set; }
 
     [Column("status")]
     [StringLength(50)]
-    public string Status { get; set; } = null!;
+    public string Status { get; set; } = string.Empty;
 
     [Column("capacity")]
-    public int Capacity { get; set; }
+    public int? Capacity { get; set; }
 
     [Column("current_utilization")]
-    public int CurrentUtilization { get; set; }
+    public int? CurrentUtilization { get; set; }
 
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime? LastUpdatedAt { get; set; }
 
-    [Column("depot_manager_id")]
-    public Guid? DepotManagerId { get; set; }
+    [InverseProperty("Depot")]
+    public virtual ICollection<DepotFundAllocation> DepotFundAllocations { get; set; } = new List<DepotFundAllocation>();
 
     [InverseProperty("Depot")]
-    public virtual ICollection<DepotInventory> DepotInventories { get; set; } = new List<DepotInventory>();
+    public virtual ICollection<DepotManager> DepotManagers { get; set; } = new List<DepotManager>();
 
-    [ForeignKey("DepotManagerId")]
-    [InverseProperty("Depots")]
-    public virtual User? DepotManager { get; set; }
+    [InverseProperty("Depot")]
+    public virtual ICollection<DepotSupplyInventory> DepotSupplyInventories { get; set; } = new List<DepotSupplyInventory>();
 
     [InverseProperty("SourceDepot")]
     public virtual ICollection<MissionItem> MissionItems { get; set; } = new List<MissionItem>();
+
+    [InverseProperty("Depot")]
+    public virtual ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
 }
