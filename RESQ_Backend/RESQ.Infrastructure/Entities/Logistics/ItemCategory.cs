@@ -33,6 +33,7 @@ public partial class ItemCategory
     [Column("updated_at", TypeName = "timestamp without time zone")]
     public DateTime? UpdatedAt { get; set; }
 
-    [InverseProperty("Category")]
+    // FIXED: Changed "Category" to "ItemCategory" to match the property in ReliefItem.cs
+    [InverseProperty("ItemCategory")]
     public virtual ICollection<ReliefItem> ReliefItems { get; set; } = new List<ReliefItem>();
-}
+}

@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -17,6 +17,12 @@ public class CreateDepotCommandHandler(IDepotRepository depotRepository, IUnitOf
     {
         _logger.LogInformation("Handling CreateDepotCommand for Name={name}", request.Name);
         
+        var existing = await _depotRepository.GetByNameAsync(request.Name, cancellationToken);
+        if (existing != null)
+        {
+            throw new ConflictException($"Kho với tên '{request.Name}' đã tồn tại.");
+        }
+
         var depot = DepotModel.Create(
             request.Name,
             request.Address,
@@ -28,16 +34,11 @@ public class CreateDepotCommandHandler(IDepotRepository depotRepository, IUnitOf
         var succeedCount = await _unitOfWork.SaveAsync();
         
         if (succeedCount < 1) 
-            throw new CreateFailedException("Depot");
+            throw new CreateFailedException("Kho");
 
-        // Fetching back to get ID and confirm persistence
-        var createdDepots = await _depotRepository.GetAllAsync(cancellationToken); 
-        var addedDepot = createdDepots
-            .Where(d => d.Name == request.Name && d.Address == request.Address)
-            .OrderByDescending(d => d.LastUpdatedAt)
-            .FirstOrDefault();
+        var addedDepot = await _depotRepository.GetByNameAsync(request.Name, cancellationToken); 
 
-        if (addedDepot is null) throw new CreateFailedException("Depot");
+        if (addedDepot is null) throw new CreateFailedException("Kho");
 
         _logger.LogInformation("Created depot: Id={id} Name={name}", addedDepot.Id, request.Name);
 
@@ -51,7 +52,7 @@ public class CreateDepotCommandHandler(IDepotRepository depotRepository, IUnitOf
             Capacity = addedDepot.Capacity,
             CurrentUtilization = addedDepot.CurrentUtilization,
             Status = addedDepot.Status.ToString(),
-            DepotManagerId = addedDepot.CurrentManagerId, // Use computed property
+            DepotManagerId = addedDepot.CurrentManagerId,
             LastUpdatedAt = addedDepot.LastUpdatedAt
         };
     }

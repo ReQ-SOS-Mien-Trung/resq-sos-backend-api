@@ -18,7 +18,6 @@ public class DepotModel
     private readonly List<DepotManagerAssignment> _managerHistory = [];
     public IReadOnlyCollection<DepotManagerAssignment> ManagerHistory => _managerHistory.AsReadOnly();
 
-    // Computed property to get the active manager ID
     public Guid? CurrentManagerId => _managerHistory.FirstOrDefault(x => x.IsActive())?.UserId;
     
     public DateTime? LastUpdatedAt { get; set; }
@@ -54,6 +53,25 @@ public class DepotModel
         return depot;
     }
 
+    // New: Encapsulate update logic and invariants
+    public void UpdateDetails(string name, string address, GeoLocation location, int capacity)
+    {
+        if (Status == DepotStatus.Closed)
+            throw new DepotClosedException();
+
+        if (capacity <= 0)
+            throw new InvalidDepotCapacityException(capacity);
+
+        if (capacity < CurrentUtilization)
+            throw new DepotCapacityExceededException();
+
+        Name = name;
+        Address = address;
+        Location = location;
+        Capacity = capacity;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
     public void AddHistory(IEnumerable<DepotManagerAssignment> history)
     {
         _managerHistory.AddRange(history);
@@ -79,12 +97,9 @@ public class DepotModel
         if (managerId == Guid.Empty)
             throw new InvalidDepotManagerException();
 
-        // Close any existing active assignment
         var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
         if (activeAssignment != null)
         {
-            // If re-assigning same manager, do nothing or update logic as needed. 
-            // Here we assume a new assignment cycle.
             activeAssignment.Unassign(DateTime.UtcNow);
         }
 

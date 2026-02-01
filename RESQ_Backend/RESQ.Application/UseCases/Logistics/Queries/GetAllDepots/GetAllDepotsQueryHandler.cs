@@ -12,28 +12,37 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
 
         public async Task<GetAllDepotsResponse> Handle(GetAllDepotsQuery request, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Handling {handler} - retrieving all depots", nameof(GetAllDepotsQueryHandler));
+            _logger.LogInformation("Handling {handler} - retrieving all depots page {page}", nameof(GetAllDepotsQueryHandler), request.PageNumber);
 
-            var depots = await _depotRepository.GetAllAsync(cancellationToken);
+            // Use the Paged repository method
+            var pagedResult = await _depotRepository.GetAllPagedAsync(request.PageNumber, request.PageSize, cancellationToken);
             
+            var dtos = pagedResult.Items.Select(depot => new DepotDto
+            {
+                Id = depot.Id,
+                Name = depot.Name,
+                Address = depot.Address,
+                Latitude = depot.Location?.Latitude,
+                Longitude = depot.Location?.Longitude,
+                Capacity = depot.Capacity,
+                CurrentUtilization = depot.CurrentUtilization,
+                Status = depot.Status.ToString(),
+                DepotManagerId = depot.CurrentManagerId, 
+                LastUpdatedAt = depot.LastUpdatedAt
+            }).ToList();
+
             var response = new GetAllDepotsResponse
             {
-                Depots = depots.Select(depot => new DepotDto
-                {
-                    Id = depot.Id,
-                    Name = depot.Name,
-                    Address = depot.Address,
-                    Latitude = depot.Location?.Latitude,
-                    Longitude = depot.Location?.Longitude,
-                    Capacity = depot.Capacity,
-                    CurrentUtilization = depot.CurrentUtilization,
-                    Status = depot.Status.ToString(),
-                    DepotManagerId = depot.CurrentManagerId, // Map from computed property
-                    LastUpdatedAt = depot.LastUpdatedAt
-                }).ToList()
+                Items = dtos,
+                PageNumber = pagedResult.PageNumber,
+                PageSize = pagedResult.PageSize,
+                TotalCount = pagedResult.TotalCount,
+                TotalPages = pagedResult.TotalPages,
+                HasNextPage = pagedResult.HasNextPage,
+                HasPreviousPage = pagedResult.HasPreviousPage
             };
 
-            _logger.LogInformation("{handler} - retrieved {count} depots", nameof(GetAllDepotsQueryHandler), depots.Count());
+            _logger.LogInformation("{handler} - retrieved {count} depots on page {page}", nameof(GetAllDepotsQueryHandler), dtos.Count, request.PageNumber);
             return response;
         }
     }

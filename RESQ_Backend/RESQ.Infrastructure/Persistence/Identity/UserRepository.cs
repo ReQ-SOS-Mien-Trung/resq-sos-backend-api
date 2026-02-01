@@ -2,7 +2,7 @@
 using RESQ.Application.Repositories.Identity;
 using RESQ.Domain.Entities.Identity;
 using RESQ.Infrastructure.Entities.Identity;
-using RESQ.Infrastructure.Mappers.Users;
+using RESQ.Infrastructure.Mappers.Identity;
 
 namespace RESQ.Infrastructure.Persistence.Identity
 {
