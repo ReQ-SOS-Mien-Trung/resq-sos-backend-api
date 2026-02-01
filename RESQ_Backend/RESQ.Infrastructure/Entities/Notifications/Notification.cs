@@ -1,0 +1,40 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
+using RESQ.Infrastructure.Entities.Identity;
+
+namespace RESQ.Infrastructure.Entities.Notifications;
+
+[Table("notifications")]
+public partial class Notification
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+
+    [Column("user_id")]
+    public Guid? UserId { get; set; }
+
+    [Column("title")]
+    [StringLength(255)]
+    public string? Title { get; set; }
+
+    [Column("type")]
+    [StringLength(50)]
+    public string? Type { get; set; }
+
+    [Column("content")]
+    public string? Content { get; set; }
+
+    [Column("created_at", TypeName = "timestamp with time zone")]
+    public DateTime? CreatedAt { get; set; }
+
+    [ForeignKey("UserId")]
+    [InverseProperty("Notifications")]
+    public virtual User? User { get; set; }
+
+    [InverseProperty("Notification")]
+    public virtual ICollection<UserNotification> UserNotifications { get; set; } = new List<UserNotification>();
+}
