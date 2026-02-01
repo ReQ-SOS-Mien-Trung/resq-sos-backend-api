@@ -5,7 +5,7 @@ using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using RESQ.Application.Services;
-using RESQ.Domain.Entities;
+using RESQ.Domain.Entities.Identity;
 
 namespace RESQ.Infrastructure.Services
 {

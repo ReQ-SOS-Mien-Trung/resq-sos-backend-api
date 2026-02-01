@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Repositories.Base;
-using RESQ.Application.Repositories.Resources;
-using RESQ.Domain.Entities.Resources;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Domain.Entities.Logistics;
 using RESQ.Infrastructure.Entities;
 using RESQ.Infrastructure.Mappers.Resources;
 using RESQ.Infrastructure.Persistence.Base;

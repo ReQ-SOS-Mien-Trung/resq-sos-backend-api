@@ -1,8 +1,9 @@
 using NetTopologySuite.Geometries;
-using RESQ.Domain.Entities.Resources;
-using RESQ.Domain.Entities.Resources.ValueObjects;
-using RESQ.Domain.Enum.Resources;
+using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Entities.Logistics.ValueObjects;
+using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities;
+using RESQ.Infrastructure.Entities.Logistics;
 
 namespace RESQ.Infrastructure.Mappers.Resources
 {

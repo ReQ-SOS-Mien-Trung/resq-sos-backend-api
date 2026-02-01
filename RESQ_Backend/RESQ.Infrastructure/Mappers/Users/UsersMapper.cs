@@ -1,5 +1,5 @@
-﻿using RESQ.Domain.Entities;
-using RESQ.Infrastructure.Entities;
+﻿using RESQ.Domain.Entities.Identity;
+using RESQ.Infrastructure.Entities.Identity;
 
 namespace RESQ.Infrastructure.Mappers.Users
 {

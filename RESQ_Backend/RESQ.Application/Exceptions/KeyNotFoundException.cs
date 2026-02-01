@@ -1,6 +1,6 @@
 ﻿using RESQ.Domain.Entities.Exceptions;
 
-namespace RESQ.Domain.Entities.Resources.Exceptions
+namespace RESQ.Domain.Entities.Logistics.Exceptions
 {
     public class KeyNotFoundException : DomainException
     {

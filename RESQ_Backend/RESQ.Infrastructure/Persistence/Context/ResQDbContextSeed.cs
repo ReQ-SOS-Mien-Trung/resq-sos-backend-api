@@ -1,6 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
-using RESQ.Infrastructure.Entities;
+using RESQ.Infrastructure.Entities.Emergency;
+using RESQ.Infrastructure.Entities.Identity;
+using RESQ.Infrastructure.Entities.Logistics;
+using RESQ.Infrastructure.Entities.Notifications;
+using RESQ.Infrastructure.Entities.Operations;
+using RESQ.Infrastructure.Entities.Personnel;
+using RESQ.Infrastructure.Entities.System;
 
 namespace RESQ.Infrastructure.Persistence.Context;
 
