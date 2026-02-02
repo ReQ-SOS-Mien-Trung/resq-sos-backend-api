@@ -11,7 +11,6 @@ using RESQ.Application.UseCases.Identity.Commands.RegisterRescuer;
 using RESQ.Application.UseCases.Identity.Commands.RescuerConsent;
 using RESQ.Application.UseCases.Identity.Commands.VerifyEmail;
 using RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail;
-using RESQ.Application.UseCases.Identity.Queries.GetCurrentUser;
 
 namespace RESQ.Presentation.Controllers.Identity
 {
@@ -117,21 +116,6 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.AgreeCodeOfConduct
             );
             var result = await _mediator.Send(command);
-            return Ok(result);
-        }
-
-        [HttpGet("me")]
-        [Authorize]
-        public async Task<IActionResult> GetCurrentUser()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            {
-                return Unauthorized();
-            }
-
-            var query = new GetCurrentUserQuery(userId);
-            var result = await _mediator.Send(query);
             return Ok(result);
         }
     }
