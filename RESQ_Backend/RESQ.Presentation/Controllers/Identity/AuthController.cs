@@ -9,6 +9,7 @@ using RESQ.Application.UseCases.Identity.Commands.RefreshToken;
 using RESQ.Application.UseCases.Identity.Commands.Register;
 using RESQ.Application.UseCases.Identity.Commands.RegisterRescuer;
 using RESQ.Application.UseCases.Identity.Commands.RescuerConsent;
+using RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile;
 using RESQ.Application.UseCases.Identity.Commands.VerifyEmail;
 using RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail;
 
@@ -44,7 +45,11 @@ namespace RESQ.Presentation.Controllers.Identity
         {
             var command = new VerifyEmailCommand(token);
             var result = await _mediator.Send(command);
-            return Ok(result);
+            if (result.Success)
+            {
+                return Redirect("http://localhost:5173/auth/personal-info");
+            }
+            return BadRequest(result);
         }
 
         [HttpPost("resend-verification-email")]
@@ -114,6 +119,32 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.AgreeLegalResponsibility,
                 dto.AgreeTraining,
                 dto.AgreeCodeOfConduct
+            );
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPut("rescuer-profile")]
+        [Authorize]
+        public async Task<IActionResult> UpdateRescuerProfile([FromBody] UpdateRescuerProfileRequestDto dto)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized();
+            }
+
+            var command = new UpdateRescuerProfileCommand(
+                userId,
+                dto.FirstName,
+                dto.LastName,
+                dto.Phone,
+                dto.Address,
+                dto.Ward,
+                dto.District,
+                dto.City,
+                dto.Latitude,
+                dto.Longitude
             );
             var result = await _mediator.Send(command);
             return Ok(result);

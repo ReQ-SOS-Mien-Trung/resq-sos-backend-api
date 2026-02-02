@@ -27,6 +27,14 @@ public partial class User
     [StringLength(255)]
     public string? FullName { get; set; }
 
+    [Column("first_name")]
+    [StringLength(100)]
+    public string? FirstName { get; set; }
+
+    [Column("last_name")]
+    [StringLength(100)]
+    public string? LastName { get; set; }
+
     [Column("username")]
     [StringLength(100)]
     public string? Username { get; set; }
@@ -70,6 +78,22 @@ public partial class User
 
     [Column("location", TypeName = "geography(Point,4326)")]
     public Point? Location { get; set; }
+
+    [Column("address")]
+    [StringLength(500)]
+    public string? Address { get; set; }
+
+    [Column("ward")]
+    [StringLength(100)]
+    public string? Ward { get; set; }
+
+    [Column("district")]
+    [StringLength(100)]
+    public string? District { get; set; }
+
+    [Column("city")]
+    [StringLength(100)]
+    public string? City { get; set; }
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
