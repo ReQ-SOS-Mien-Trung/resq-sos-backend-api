@@ -31,9 +31,6 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 entity.Location = new Point(model.Location.Longitude, model.Location.Latitude) { SRID = 4326 };
             }
 
-            // Map Manager History to Entity Collection
-            // Note: For updates, this requires careful handling (not overwriting existing IDs). 
-            // For creation, this works perfectly.
             if (model.ManagerHistory.Any())
             {
                 foreach (var history in model.ManagerHistory)
@@ -48,6 +45,22 @@ namespace RESQ.Infrastructure.Mappers.Resources
             }
 
             return entity;
+        }
+
+        // New: Apply Domain changes to existing Entity
+        public static void UpdateEntity(Depot entity, DepotModel model)
+        {
+            entity.Name = model.Name;
+            entity.Address = model.Address;
+            entity.Capacity = model.Capacity;
+            entity.CurrentUtilization = model.CurrentUtilization;
+            entity.Status = model.Status.ToString();
+            entity.LastUpdatedAt = model.LastUpdatedAt;
+
+            if (model.Location != null)
+            {
+                entity.Location = new Point(model.Location.Longitude, model.Location.Latitude) { SRID = 4326 };
+            }
         }
 
         public static DepotModel ToDomain(Depot entity)
@@ -79,7 +92,7 @@ namespace RESQ.Infrastructure.Mappers.Resources
             {
                 var history = entity.DepotManagers.Select(dm => 
                     new DepotManagerAssignment(
-                        dm.UserId ?? Guid.Empty, // Handle nullable Guid in DB
+                        dm.UserId ?? Guid.Empty,
                         dm.AssignedAt ?? DateTime.MinValue,
                         dm.UnassignedAt
                     ));

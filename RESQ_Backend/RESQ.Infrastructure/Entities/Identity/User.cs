@@ -9,6 +9,7 @@ using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Notifications;
 using RESQ.Infrastructure.Entities.Operations;
+using RESQ.Infrastructure.Entities.System; // Added to resolve Message
 
 namespace RESQ.Infrastructure.Entities.Identity;
 
@@ -107,6 +108,10 @@ public partial class User
 
     [InverseProperty("Rescuer")]
     public virtual ICollection<MissionTeamMember> MissionTeamMembers { get; set; } = new List<MissionTeamMember>();
+
+    // FIXED: Added Messages collection to resolve InverseProperty("Messages") on Message.Sender
+    [InverseProperty("Sender")]
+    public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
 
     [InverseProperty("User")]
     public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();

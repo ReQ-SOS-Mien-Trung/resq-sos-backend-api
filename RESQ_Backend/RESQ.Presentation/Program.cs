@@ -3,13 +3,16 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RESQ.Application.Extensions;
 using RESQ.Infrastructure.Extensions;
+using RESQ.Presentation.Middlewares;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpClient(); // Add HttpClientFactory for Google API calls
+builder.Services.AddTransient<GlobalExceptionMiddleware>();
 
 // Add CORS to allow all origins
 builder.Services.AddCors(options =>
@@ -55,6 +58,15 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
+// 5. Configure JSON options to serialize enums as strings
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter()
+        );
+    });
 
 builder.Services.AddHealthChecks();
 builder.Services.AddInfrastructureServices(builder.Configuration);
@@ -105,7 +117,7 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-app.UseMiddleware<RESQ.Presentation.Middlewares.ValidationExceptionMiddleware>();
+app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

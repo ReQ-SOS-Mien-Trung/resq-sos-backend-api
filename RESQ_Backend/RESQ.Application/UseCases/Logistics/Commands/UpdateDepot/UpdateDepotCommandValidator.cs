@@ -1,12 +1,14 @@
 using FluentValidation;
 
-namespace RESQ.Application.UseCases.Logistics.Commands.CreateDepot;
+namespace RESQ.Application.UseCases.Logistics.Commands.UpdateDepot;
 
-public class CreateDepotCommandValidator
-    : AbstractValidator<CreateDepotCommand>
+public class UpdateDepotCommandValidator : AbstractValidator<UpdateDepotCommand>
 {
-    public CreateDepotCommandValidator()
+    public UpdateDepotCommandValidator()
     {
+        RuleFor(x => x.Id)
+            .GreaterThan(0).WithMessage("Id kho không hợp lệ.");
+
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Tên kho không được để trống.")
             .MaximumLength(200).WithMessage("Tên kho không được vượt quá 200 ký tự.");

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RESQ.Application.Repositories.Base;
@@ -7,7 +7,7 @@ using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
-using RESQ.Infrastructure.Persistence.Resources;
+using RESQ.Infrastructure.Persistence.Logistics;
 using RESQ.Infrastructure.Persistence.Identity;
 using RESQ.Infrastructure.Services;
 

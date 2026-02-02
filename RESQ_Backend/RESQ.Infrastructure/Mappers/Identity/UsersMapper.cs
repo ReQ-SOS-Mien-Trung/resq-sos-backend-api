@@ -1,7 +1,7 @@
 ﻿using RESQ.Domain.Entities.Identity;
 using RESQ.Infrastructure.Entities.Identity;
 
-namespace RESQ.Infrastructure.Mappers.Users
+namespace RESQ.Infrastructure.Mappers.Identity
 {
     public static class UsersMapper
     {
