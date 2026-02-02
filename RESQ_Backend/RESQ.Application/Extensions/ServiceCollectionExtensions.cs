@@ -23,7 +23,6 @@ public static class ServiceCollectionExtensions
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(UnhandledExceptionBehaviour<,>));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(LoggingBehaviour<,>));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
-            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(DomainExceptionBehaviour<,>));
         });
 
         // FluentValidation
@@ -36,9 +35,6 @@ public static class ServiceCollectionExtensions
         // If you are using MediatR 12.0+, the cfg.AddBehavior lines inside AddMediatR are preferred.
         // Assuming we keep the existing style but ensure DomainExceptionBehaviour is added:
         
-        // Ensure DomainExceptionBehaviour is registered
-        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(DomainExceptionBehaviour<,>));
-
         return services;
     }
 }

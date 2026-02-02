@@ -53,7 +53,6 @@ public class DepotModel
         return depot;
     }
 
-    // New: Encapsulate update logic and invariants
     public void UpdateDetails(string name, string address, GeoLocation location, int capacity)
     {
         if (Status == DepotStatus.Closed)
@@ -69,6 +68,27 @@ public class DepotModel
         Address = address;
         Location = location;
         Capacity = capacity;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
+    // NEW: Method to handle status changes with business invariants
+    public void ChangeStatus(DepotStatus newStatus)
+    {
+        if (Status == newStatus) return;
+
+        // Invariant 1: Cannot make a depot 'Available' if it has no active manager
+        if (newStatus == DepotStatus.Available && CurrentManagerId == null)
+        {
+            throw new InvalidDepotStatusTransitionException(Status, newStatus, "Kho chưa có quản lý được chỉ định.");
+        }
+
+        // Invariant 2: Cannot make a depot 'Available' if it is already over capacity (edge case)
+        if (newStatus == DepotStatus.Available && CurrentUtilization > Capacity)
+        {
+             throw new InvalidDepotStatusTransitionException(Status, newStatus, "Kho đang vượt quá sức chứa.");
+        }
+
+        Status = newStatus;
         LastUpdatedAt = DateTime.UtcNow;
     }
 

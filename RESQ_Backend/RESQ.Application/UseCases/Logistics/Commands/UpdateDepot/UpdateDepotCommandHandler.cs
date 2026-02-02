@@ -3,6 +3,9 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Domain.Entities.Logistics.Exceptions;
+using RESQ.Domain.Entities.Logistics.ValueObjects;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.UpdateDepot;
 
@@ -19,34 +22,43 @@ public class UpdateDepotCommandHandler(
     {
         _logger.LogInformation("Handling UpdateDepotCommand for Id={Id}", request.Id);
 
-        // 1. Load Domain Model
         var depot = await _depotRepository.GetByIdAsync(request.Id, cancellationToken);
         if (depot == null)
         {
-            // NotFoundException outputs: "Không tìm thấy thực thể "Kho" ({id})."
-            throw new NotFoundException("Kho", request.Id);
+            throw new NotFoundException("Không tìm thấy kho cứu trợ");
         }
 
-        // 2. Business Validation: Unique Name
+        // Validate: Cannot update Closed depot
+        if (depot.Status == DepotStatus.Closed)
+        {
+            throw new DepotClosedException();
+        }
+
+        // Validate: Capacity must hold current stock
+        if (request.Capacity < depot.CurrentUtilization)
+        {
+            throw new DepotCapacityExceededException();
+        }
+
+        // Validate: Duplicate name check (excluding current record)
         if (!string.Equals(depot.Name, request.Name, StringComparison.OrdinalIgnoreCase))
         {
             var existingName = await _depotRepository.GetByNameAsync(request.Name, cancellationToken);
             if (existingName != null && existingName.Id != request.Id)
             {
-                throw new ConflictException($"Kho với tên '{request.Name}' đã tồn tại.");
+                throw new DepotNameDuplicatedException(request.Name);
             }
         }
 
-        // 3. Apply changes to Domain Model (Enforces Invariants)
-        // Domain exceptions are already in Vietnamese (e.g., DepotCapacityExceededException)
+        var location = new GeoLocation(request.Latitude, request.Longitude);
+
         depot.UpdateDetails(
             request.Name,
             request.Address,
-            request.Location,
+            location,
             request.Capacity
         );
 
-        // 4. Persist changes
         await _depotRepository.UpdateAsync(depot, cancellationToken);
         await _unitOfWork.SaveAsync();
 

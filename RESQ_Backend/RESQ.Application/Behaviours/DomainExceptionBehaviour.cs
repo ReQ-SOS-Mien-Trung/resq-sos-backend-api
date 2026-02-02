@@ -19,4 +19,4 @@ public class DomainExceptionBehaviour<TRequest, TResponse> : IPipelineBehavior<T
             throw new BadRequestException(ex.Message);
         }
     }
-}
+}
