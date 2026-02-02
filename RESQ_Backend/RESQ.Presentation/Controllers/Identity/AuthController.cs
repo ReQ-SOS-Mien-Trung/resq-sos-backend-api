@@ -141,7 +141,6 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.Phone,
                 dto.Address,
                 dto.Ward,
-                dto.District,
                 dto.City,
                 dto.Latitude,
                 dto.Longitude

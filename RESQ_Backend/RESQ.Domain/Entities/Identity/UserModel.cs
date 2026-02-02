@@ -29,7 +29,6 @@
         // Address fields
         public string? Address { get; set; }        // Số nhà, tên đường
         public string? Ward { get; set; }           // Phường/Xã
-        public string? District { get; set; }       // Quận/Huyện
         public string? City { get; set; }           // Tỉnh/Thành phố
 
         public DateTime? CreatedAt { get; set; }

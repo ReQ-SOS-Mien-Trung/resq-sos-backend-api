@@ -40,7 +40,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
 
             // Generate email verification token
             var verificationToken = GenerateVerificationToken();
-            var tokenExpiry = DateTime.UtcNow.AddHours(24); // Token valid for 24 hours
+            var tokenExpiry = DateTime.UtcNow.AddMinutes(1); // Token valid for 1 minute
 
             // Create new user with rescuer role
             var user = new UserModel

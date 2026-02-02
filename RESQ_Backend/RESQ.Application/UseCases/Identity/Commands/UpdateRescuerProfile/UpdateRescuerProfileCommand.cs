@@ -9,7 +9,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
         string Phone,
         string Address,
         string? Ward,
-        string? District,
         string City,
         double? Latitude,
         double? Longitude
