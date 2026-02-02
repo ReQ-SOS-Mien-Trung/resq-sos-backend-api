@@ -11,5 +11,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
         public string? FullName { get; set; }
         public int? RoleId { get; set; }
         public bool IsNewUser { get; set; }
+        public bool IsOnboarded { get; set; }
     }
 }

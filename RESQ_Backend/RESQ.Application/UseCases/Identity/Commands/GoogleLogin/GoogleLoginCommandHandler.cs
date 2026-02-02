@@ -28,7 +28,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
         private readonly ILogger<GoogleLoginCommandHandler> _logger = logger;
 
         // Default role for rescuer
-        private const int DEFAULT_RESCUER_ROLE_ID = 4;
+        private const int DEFAULT_RESCUER_ROLE_ID = 3;
 
         public async Task<GoogleLoginResponse> Handle(GoogleLoginCommand request, CancellationToken cancellationToken)
         {
@@ -59,6 +59,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
                     FullName = googleUser.Name,
                     Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()), // Random password for Google users
                     RoleId = DEFAULT_RESCUER_ROLE_ID,
+                    IsOnboarded = false,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -101,7 +102,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
                 Username = user.Username,
                 FullName = user.FullName,
                 RoleId = user.RoleId,
-                IsNewUser = isNewUser
+                IsNewUser = isNewUser,
+                IsOnboarded = user.IsOnboarded
             };
         }
 

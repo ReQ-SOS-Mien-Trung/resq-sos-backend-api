@@ -49,6 +49,12 @@ public partial class User
     [Column("is_email_verified")]
     public bool IsEmailVerified { get; set; } = false;
 
+    [Column("is_onboarded")]
+    public bool IsOnboarded { get; set; } = false;
+
+    [Column("is_eligible_rescuer")]
+    public bool IsEligibleRescuer { get; set; } = false;
+
     [Column("email_verification_token")]
     [StringLength(255)]
     public string? EmailVerificationToken { get; set; }
@@ -141,4 +147,7 @@ public partial class User
 
     [InverseProperty("PerformedByUser")]
     public virtual ICollection<VehicleActivityLog> VehicleActivityLogs { get; set; } = new List<VehicleActivityLog>();
+
+    [InverseProperty("Sender")]
+    public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
 }

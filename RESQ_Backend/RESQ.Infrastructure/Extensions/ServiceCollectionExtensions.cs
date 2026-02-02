@@ -5,10 +5,12 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Services;
+using RESQ.Application.Repositories.SosRequests;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Resources;
 using RESQ.Infrastructure.Persistence.Identity;
+using RESQ.Infrastructure.Persistence.SosRequests;
 using RESQ.Infrastructure.Services;
 
 namespace RESQ.Infrastructure.Extensions;
@@ -39,6 +41,9 @@ public static class ServiceCollectionExtensions
 
         // Users Repositories
         services.AddScoped<IUserRepository, UserRepository>();
+
+        // SosRequests Repositories
+        services.AddScoped<ISosRequestRepository, SosRequestRepository>();
 
         // Services
         services.AddScoped<ITokenService, TokenService>();

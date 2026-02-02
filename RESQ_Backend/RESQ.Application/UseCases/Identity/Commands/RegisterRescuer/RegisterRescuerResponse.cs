@@ -7,6 +7,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
         public string? FullName { get; set; }
         public int RoleId { get; set; }
         public bool IsEmailVerified { get; set; }
+        public bool IsOnboarded { get; set; }
         public string Message { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
     }
