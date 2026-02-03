@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RESQ.Application.Extensions;
@@ -98,11 +99,11 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Auto-create database and seed data on startup
+// Auto-migrate database on startup
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<RESQ.Infrastructure.Persistence.Context.ResQDbContext>();
-    dbContext.Database.EnsureCreated();
+    dbContext.Database.Migrate();
 }
 
 

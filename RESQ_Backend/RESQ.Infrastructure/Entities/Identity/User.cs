@@ -28,6 +28,14 @@ public partial class User
     [StringLength(255)]
     public string? FullName { get; set; }
 
+    [Column("first_name")]
+    [StringLength(100)]
+    public string? FirstName { get; set; }
+
+    [Column("last_name")]
+    [StringLength(100)]
+    public string? LastName { get; set; }
+
     [Column("username")]
     [StringLength(100)]
     public string? Username { get; set; }
@@ -50,6 +58,12 @@ public partial class User
     [Column("is_email_verified")]
     public bool IsEmailVerified { get; set; } = false;
 
+    [Column("is_onboarded")]
+    public bool IsOnboarded { get; set; } = false;
+
+    [Column("is_eligible_rescuer")]
+    public bool IsEligibleRescuer { get; set; } = false;
+
     [Column("email_verification_token")]
     [StringLength(255)]
     public string? EmailVerificationToken { get; set; }
@@ -65,6 +79,18 @@ public partial class User
 
     [Column("location", TypeName = "geography(Point,4326)")]
     public Point? Location { get; set; }
+
+    [Column("address")]
+    [StringLength(500)]
+    public string? Address { get; set; }
+
+    [Column("ward")]
+    [StringLength(100)]
+    public string? Ward { get; set; }
+
+    [Column("city")]
+    [StringLength(100)]
+    public string? City { get; set; }
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
@@ -146,4 +172,7 @@ public partial class User
 
     [InverseProperty("PerformedByUser")]
     public virtual ICollection<VehicleActivityLog> VehicleActivityLogs { get; set; } = new List<VehicleActivityLog>();
+
+    [InverseProperty("Sender")]
+    public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
 }

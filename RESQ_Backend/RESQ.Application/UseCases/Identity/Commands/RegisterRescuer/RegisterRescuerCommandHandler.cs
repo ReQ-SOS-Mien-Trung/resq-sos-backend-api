@@ -21,7 +21,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
         private readonly ILogger<RegisterRescuerCommandHandler> _logger = logger;
 
         // Default role for rescuer
-        private const int DEFAULT_RESCUER_ROLE_ID = 4;
+        private const int DEFAULT_RESCUER_ROLE_ID = 3;
 
         public async Task<RegisterRescuerResponse> Handle(RegisterRescuerCommand request, CancellationToken cancellationToken)
         {
@@ -40,7 +40,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
 
             // Generate email verification token
             var verificationToken = GenerateVerificationToken();
-            var tokenExpiry = DateTime.UtcNow.AddHours(24); // Token valid for 24 hours
+            var tokenExpiry = DateTime.UtcNow.AddMinutes(1); // Token valid for 1 minute
 
             // Create new user with rescuer role
             var user = new UserModel
@@ -50,6 +50,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
                 Password = hashedPassword,
                 RoleId = DEFAULT_RESCUER_ROLE_ID,
                 IsEmailVerified = false,
+                IsOnboarded = false,
                 EmailVerificationToken = verificationToken,
                 EmailVerificationTokenExpiry = tokenExpiry,
                 CreatedAt = DateTime.UtcNow,
@@ -85,6 +86,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
                 FullName = user.FullName,
                 RoleId = user.RoleId ?? DEFAULT_RESCUER_ROLE_ID,
                 IsEmailVerified = user.IsEmailVerified,
+                IsOnboarded = user.IsOnboarded,
                 Message = "Đăng ký thành công. Vui lòng kiểm tra email để xác minh tài khoản của bạn.",
                 CreatedAt = user.CreatedAt ?? DateTime.UtcNow
             };
