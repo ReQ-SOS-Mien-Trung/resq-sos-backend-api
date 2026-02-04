@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
-using RESQ.Domain.Enum.Logistics; // Added namespace for DepotStatus
+using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Entities.Logistics;
 
@@ -30,7 +30,7 @@ public static class LogisticsSeeder
                 Id = 1,
                 Code = "FOOD",
                 Name = "Thực phẩm",
-                Description = "Các loại thực phẩm cứu trợ",
+                Description = "Nhu yếu phẩm, gạo, mì, nước uống",
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -38,8 +38,8 @@ public static class LogisticsSeeder
             {
                 Id = 2,
                 Code = "MEDICAL",
-                Name = "Y tế",
-                Description = "Các vật tư y tế, thuốc men",
+                Name = "Y tế & Cứu hộ",
+                Description = "Thuốc men, dụng cụ sơ cứu, áo phao",
                 CreatedAt = now,
                 UpdatedAt = now
             }
@@ -54,9 +54,9 @@ public static class LogisticsSeeder
             new Organization
             {
                 Id = 1,
-                Name = "Hội Chữ Thập Đỏ Việt Nam",
-                Phone = "0281234567",
-                Email = "contact@redcross.org.vn",
+                Name = "Hội Chữ Thập Đỏ - Chi nhánh Miền Trung",
+                Phone = "02343822123",
+                Email = "central@redcross.org.vn",
                 IsActive = true,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -64,9 +64,9 @@ public static class LogisticsSeeder
             new Organization
             {
                 Id = 2,
-                Name = "Tổ chức Cứu trợ Nhân đạo ABC",
-                Phone = "0289876543",
-                Email = "info@abc-relief.org",
+                Name = "Quỹ Hỗ trợ Thiên tai ABC",
+                Phone = "02363567890",
+                Email = "contact@abc-relief.org",
                 IsActive = true,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -79,22 +79,45 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
         modelBuilder.Entity<ReliefItem>().HasData(
+            // ID 1: General Food Item
             new ReliefItem
             {
                 Id = 1,
                 CategoryId = 1,
-                Name = "Gạo",
-                Unit = "kg",
+                Name = "Gạo & Lương khô (Combo)",
+                Unit = "phần",
+                TargetGroup = "Tất cả",
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            // ID 2: General Rescue/Medical Item
+            new ReliefItem
+            {
+                Id = 2,
+                CategoryId = 2,
+                Name = "Bộ cứu thương & Áo phao",
+                Unit = "bộ",
+                TargetGroup = "Cứu hộ",
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            // New Items (Optional, referenced in Inventory but not Missions to avoid FK errors)
+            new ReliefItem
+            {
+                Id = 3,
+                CategoryId = 1,
+                Name = "Mì tôm",
+                Unit = "thùng",
                 TargetGroup = "Tất cả",
                 CreatedAt = now,
                 UpdatedAt = now
             },
             new ReliefItem
             {
-                Id = 2,
-                CategoryId = 2,
-                Name = "Bộ sơ cứu",
-                Unit = "bộ",
+                Id = 4,
+                CategoryId = 1,
+                Name = "Nước sạch",
+                Unit = "thùng",
                 TargetGroup = "Tất cả",
                 CreatedAt = now,
                 UpdatedAt = now
@@ -104,31 +127,29 @@ public static class LogisticsSeeder
 
     private static void SeedDepots(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Depot>().HasData(
             new Depot
             {
                 Id = 1,
-                Name = "Kho cứu trợ Quận 1",
-                Address = "123 Nguyễn Huệ, Quận 1, TP.HCM",
-                Location = new Point(106.7009, 10.7769) { SRID = 4326 },
-                // FIX: Used to be "Active", now uses Enum "Available"
-                Status = DepotStatus.Available.ToString(), 
-                Capacity = 1000,
-                CurrentUtilization = 500,
+                Name = "Kho Cứu trợ Trung tâm Huế",
+                Address = "15 Lê Lợi, TP. Huế",
+                Location = new Point(107.5950, 16.4650) { SRID = 4326 },
+                Status = DepotStatus.Available.ToString(),
+                Capacity = 5000,
+                CurrentUtilization = 3000,
                 LastUpdatedAt = now
             },
             new Depot
             {
                 Id = 2,
-                Name = "Kho cứu trợ Quận 7",
-                Address = "456 Nguyễn Văn Linh, Quận 7, TP.HCM",
-                Location = new Point(106.7218, 10.7380) { SRID = 4326 },
-                // FIX: Used to be "Active", now uses Enum "Available"
-                Status = DepotStatus.Available.ToString(),
+                Name = "Kho Tiền phương Lệ Thủy",
+                Address = "TT. Kiến Giang, Lệ Thủy, QB",
+                Location = new Point(106.7820, 17.2150) { SRID = 4326 },
+                Status = DepotStatus.Full.ToString(), 
                 Capacity = 2000,
-                CurrentUtilization = 800,
+                CurrentUtilization = 1800,
                 LastUpdatedAt = now
             }
         );
@@ -136,55 +157,32 @@ public static class LogisticsSeeder
 
     private static void SeedDepotManagers(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<DepotManager>().HasData(
-            new DepotManager
-            {
-                Id = 1,
-                DepotId = 1,
-                UserId = SeedConstants.AdminUserId,
-                AssignedAt = now
-            },
-            new DepotManager
-            {
-                Id = 2,
-                DepotId = 2,
-                UserId = SeedConstants.CoordinatorUserId,
-                AssignedAt = now
-            }
+            new DepotManager { Id = 1, DepotId = 1, UserId = SeedConstants.AdminUserId, AssignedAt = now },
+            new DepotManager { Id = 2, DepotId = 2, UserId = SeedConstants.CoordinatorUserId, AssignedAt = now }
         );
     }
 
     private static void SeedDepotInventories(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<DepotSupplyInventory>().HasData(
-            new DepotSupplyInventory
-            {
-                Id = 1,
-                DepotId = 1,
-                ReliefItemId = 1,
-                Quantity = 500,
-                ReservedQuantity = 100,
-                LastStockedAt = now
-            },
-            new DepotSupplyInventory
-            {
-                Id = 2,
-                DepotId = 2,
-                ReliefItemId = 2,
-                Quantity = 200,
-                ReservedQuantity = 50,
-                LastStockedAt = now
-            }
+            // Hue Depot
+            new DepotSupplyInventory { Id = 1, DepotId = 1, ReliefItemId = 1, Quantity = 2000, ReservedQuantity = 100, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 2, DepotId = 1, ReliefItemId = 3, Quantity = 1000, ReservedQuantity = 0, LastStockedAt = now },
+            
+            // Le Thuy Depot
+            new DepotSupplyInventory { Id = 3, DepotId = 2, ReliefItemId = 1, Quantity = 500, ReservedQuantity = 400, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 4, DepotId = 2, ReliefItemId = 2, Quantity = 100, ReservedQuantity = 50, LastStockedAt = now }
         );
     }
 
     private static void SeedInventoryLogs(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2024, 10, 14, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<InventoryLog>().HasData(
             new InventoryLog
@@ -192,8 +190,8 @@ public static class LogisticsSeeder
                 Id = 1,
                 DepotSupplyInventoryId = 1,
                 ActionType = "Import",
-                QuantityChange = 500,
-                SourceType = "Donation",
+                QuantityChange = 2000,
+                SourceType = "Organization",
                 SourceId = 1,
                 PerformedBy = SeedConstants.AdminUserId,
                 Note = "Nhập kho đợt 1",
@@ -202,13 +200,13 @@ public static class LogisticsSeeder
             new InventoryLog
             {
                 Id = 2,
-                DepotSupplyInventoryId = 2,
-                ActionType = "Import",
-                QuantityChange = 200,
-                SourceType = "Donation",
-                SourceId = 2,
+                DepotSupplyInventoryId = 3,
+                ActionType = "Transfer",
+                QuantityChange = 500,
+                SourceType = "Depot",
+                SourceId = 1,
                 PerformedBy = SeedConstants.CoordinatorUserId,
-                Note = "Nhập kho đợt 1",
+                Note = "Chuyển từ kho Huế ra Lệ Thủy",
                 CreatedAt = now
             }
         );
@@ -222,18 +220,9 @@ public static class LogisticsSeeder
                 Id = 1,
                 OrganizationId = 1,
                 ReliefItemId = 1,
-                ReceivedDate = new DateOnly(2024, 1, 1),
-                ExpiredDate = new DateOnly(2025, 1, 1),
-                Notes = "Quyên góp từ tổ chức Hội Chữ Thập Đỏ"
-            },
-            new OrganizationReliefItem
-            {
-                Id = 2,
-                OrganizationId = 2,
-                ReliefItemId = 2,
-                ReceivedDate = new DateOnly(2024, 1, 15),
-                ExpiredDate = new DateOnly(2026, 1, 15),
-                Notes = "Quyên góp từ tổ chức ABC"
+                ReceivedDate = new DateOnly(2024, 10, 1),
+                ExpiredDate = new DateOnly(2025, 10, 1),
+                Notes = "Hàng cứu trợ từ TW"
             }
         );
     }
