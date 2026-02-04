@@ -1,11 +1,14 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.UseCases.Logistics.Queries.Depot;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
 {
-    public class GetAllDepotsQueryHandler(IDepotRepository depotRepository, ILogger<GetAllDepotsQueryHandler> logger) : IRequestHandler<GetAllDepotsQuery, GetAllDepotsResponse>
+    public class GetAllDepotsQueryHandler(
+        IDepotRepository depotRepository, 
+        ILogger<GetAllDepotsQueryHandler> logger) 
+        : IRequestHandler<GetAllDepotsQuery, GetAllDepotsResponse>
     {
         private readonly IDepotRepository _depotRepository = depotRepository;
         private readonly ILogger<GetAllDepotsQueryHandler> _logger = logger;
@@ -14,7 +17,6 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
         {
             _logger.LogInformation("Handling {handler} - retrieving all depots page {page}", nameof(GetAllDepotsQueryHandler), request.PageNumber);
 
-            // Use the Paged repository method
             var pagedResult = await _depotRepository.GetAllPagedAsync(request.PageNumber, request.PageSize, cancellationToken);
             
             var dtos = pagedResult.Items.Select(depot => new DepotDto
@@ -27,7 +29,7 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
                 Capacity = depot.Capacity,
                 CurrentUtilization = depot.CurrentUtilization,
                 Status = depot.Status.ToString(),
-                DepotManagerId = depot.CurrentManagerId, 
+                DepotManagerId = depot.CurrentManagerId,
                 LastUpdatedAt = depot.LastUpdatedAt
             }).ToList();
 

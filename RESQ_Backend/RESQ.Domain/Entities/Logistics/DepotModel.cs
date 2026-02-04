@@ -20,6 +20,7 @@ public class DepotModel
 
     public Guid? CurrentManagerId => _managerHistory.FirstOrDefault(x => x.IsActive())?.UserId;
     
+    // RESTORED: To support queries needing timestamp
     public DateTime? LastUpdatedAt { get; set; }
 
     public DepotModel() { }
@@ -71,18 +72,15 @@ public class DepotModel
         LastUpdatedAt = DateTime.UtcNow;
     }
 
-    // NEW: Method to handle status changes with business invariants
     public void ChangeStatus(DepotStatus newStatus)
     {
         if (Status == newStatus) return;
 
-        // Invariant 1: Cannot make a depot 'Available' if it has no active manager
         if (newStatus == DepotStatus.Available && CurrentManagerId == null)
         {
             throw new InvalidDepotStatusTransitionException(Status, newStatus, "Kho chưa có quản lý được chỉ định.");
         }
 
-        // Invariant 2: Cannot make a depot 'Available' if it is already over capacity (edge case)
         if (newStatus == DepotStatus.Available && CurrentUtilization > Capacity)
         {
              throw new InvalidDepotStatusTransitionException(Status, newStatus, "Kho đang vượt quá sức chứa.");
