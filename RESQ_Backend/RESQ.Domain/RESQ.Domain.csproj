@@ -14,6 +14,9 @@
 
   <ItemGroup>
     <Folder Include="Entities\Logistics\Services\" />
+    <Folder Include="Entities\Personnel\Exceptions\" />
+    <Folder Include="Entities\Personnel\Services\" />
+    <Folder Include="Entities\Personnel\ValueObjects\" />
   </ItemGroup>
 
 </Project>
