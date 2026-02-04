@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
-using RESQ.Domain.Enum.Personnel; // Added namespace for AssemblyPointStatus
+using RESQ.Domain.Enum.Personnel;
 using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Personnel;
 
@@ -18,7 +18,7 @@ public static class PersonnelSeeder
 
     private static void SeedAbilities(ModelBuilder modelBuilder)
     {
-        // (Abilities data retained as is...)
+        // Abilities remain the same as they are generic domain concepts
         modelBuilder.Entity<Ability>().HasData(
             new Ability { Id = 1, Code = "BASIC_SWIMMING", Description = "Bơi cơ bản" },
             new Ability { Id = 2, Code = "ADVANCED_SWIMMING", Description = "Bơi thành thạo" },
@@ -79,199 +79,178 @@ public static class PersonnelSeeder
 
     private static void SeedRescueTeams(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var now2 = new DateTime(2023, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<RescueTeam>().HasData(
             new RescueTeam
             {
                 Id = 1,
-                Name = "Đội cứu hộ Alpha",
-                Location = new Point(106.7009, 10.7769) { SRID = 4326 },
-                Status = "Available", // Keeping string as RescueTeamStatus enum file is not available in context
-                MaxMembers = 10,
+                Name = "Đội Cứu hộ Sông Hương (Huế)",
+                Location = new Point(107.5925, 16.4608) { SRID = 4326 }, // Hue City
+                Status = "Available",
+                MaxMembers = 15,
                 CreatedAt = now
             },
             new RescueTeam
             {
                 Id = 2,
-                Name = "Đội cứu hộ Beta",
-                Location = new Point(106.7218, 10.7380) { SRID = 4326 },
-                Status = "OnMission", // Keeping string as RescueTeamStatus enum file is not available in context
-                MaxMembers = 8,
-                CreatedAt = now2
+                Name = "Đội Phản ứng nhanh Quảng Bình",
+                Location = new Point(106.6186, 17.4706) { SRID = 4326 }, // Dong Hoi
+                Status = "OnMission",
+                MaxMembers = 12,
+                CreatedAt = now
+            },
+            new RescueTeam
+            {
+                Id = 3,
+                Name = "Đội Cứu nạn Vùng cao Nam Trà My",
+                Location = new Point(108.0645, 15.1950) { SRID = 4326 }, // Nam Tra My
+                Status = "Available",
+                MaxMembers = 10,
+                CreatedAt = now
+            },
+            new RescueTeam
+            {
+                Id = 4,
+                Name = "Biệt đội Ca nô Đà Nẵng",
+                Location = new Point(108.2205, 16.0500) { SRID = 4326 }, // Da Nang
+                Status = "Available",
+                MaxMembers = 20,
+                CreatedAt = now
             }
         );
     }
 
     private static void SeedAssemblyPoints(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 2, 4, 12, 0, 0, DateTimeKind.Utc);
-        var timestampStr = "240204120000";
+        var now = new DateTime(2024, 10, 15, 12, 0, 0, DateTimeKind.Utc);
+        var timestampStr = "241015";
 
         modelBuilder.Entity<AssemblyPoint>().HasData(
+            // THỪA THIÊN HUẾ
             new AssemblyPoint
             {
                 Id = 1,
-                Code = $"AP-CEN-{timestampStr}",
-                Name = "Trung tâm Văn hóa Quận 1",
-                CapacityTeams = 10,
+                Code = $"AP-HUE-QH-{timestampStr}",
+                Name = "Trường THPT Chuyên Quốc Học Huế",
+                CapacityTeams = 15,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.6961, 10.7925) { SRID = 4326 },
+                Location = new Point(107.5925, 16.4608) { SRID = 4326 }, // Hue City
                 CreatedAt = now,
                 UpdatedAt = now
             },
             new AssemblyPoint
             {
                 Id = 2,
-                Code = $"AP-HOA-{timestampStr}",
-                Name = "Sân vận động Hoa Lư",
-                CapacityTeams = 20,
+                Code = $"AP-HUE-HT-{timestampStr}",
+                Name = "UBND Thị xã Hương Trà",
+                CapacityTeams = 10,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.7020, 10.7890) { SRID = 4326 },
+                Location = new Point(107.4566, 16.3986) { SRID = 4326 }, // Huong Tra
                 CreatedAt = now,
                 UpdatedAt = now
             },
+            // QUẢNG BÌNH
             new AssemblyPoint
             {
                 Id = 3,
-                Code = $"AP-LEQ-{timestampStr}",
-                Name = "Trường THPT Lê Quý Đôn",
-                CapacityTeams = 8,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.6930, 10.7780) { SRID = 4326 },
+                Code = $"AP-QBI-LT-{timestampStr}",
+                Name = "Nhà Văn hóa Huyện Lệ Thủy",
+                CapacityTeams = 20,
+                Status = AssemblyPointStatus.Overloaded.ToString(),
+                Location = new Point(106.7845, 17.2165) { SRID = 4326 }, // Le Thuy (Deep flood)
                 CreatedAt = now,
                 UpdatedAt = now
             },
             new AssemblyPoint
             {
                 Id = 4,
-                Code = $"AP-CON-{timestampStr}",
-                Name = "Công viên 23/9",
-                CapacityTeams = 15,
+                Code = $"AP-QBI-DH-{timestampStr}",
+                Name = "Quảng trường Hồ Chí Minh (Đồng Hới)",
+                CapacityTeams = 25,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.6940, 10.7680) { SRID = 4326 },
+                Location = new Point(106.6186, 17.4706) { SRID = 4326 }, // Dong Hoi
                 CreatedAt = now,
                 UpdatedAt = now
             },
+            // QUẢNG TRỊ
             new AssemblyPoint
             {
                 Id = 5,
-                Code = $"AP-PHU-{timestampStr}",
-                Name = "Nhà thi đấu Phú Thọ",
-                CapacityTeams = 25,
+                Code = $"AP-QTR-DH-{timestampStr}",
+                Name = "Nhà Thi đấu Đa năng Quảng Trị",
+                CapacityTeams = 15,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.6560, 10.7685) { SRID = 4326 },
+                Location = new Point(107.1018, 16.8080) { SRID = 4326 }, // Dong Ha
                 CreatedAt = now,
                 UpdatedAt = now
             },
             new AssemblyPoint
             {
                 Id = 6,
-                Code = $"AP-BAC-{timestampStr}",
-                Name = "Đại học Bách Khoa TP.HCM",
-                CapacityTeams = 20,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.6578, 10.7725) { SRID = 4326 },
+                Code = $"AP-QTR-HH-{timestampStr}",
+                Name = "Trường Dân tộc Nội trú Hướng Hóa",
+                CapacityTeams = 8,
+                Status = AssemblyPointStatus.Unavailable.ToString(), // Landslide risk
+                Location = new Point(106.7323, 16.6212) { SRID = 4326 }, // Khe Sanh
                 CreatedAt = now,
                 UpdatedAt = now
             },
+            // ĐÀ NẴNG
             new AssemblyPoint
             {
                 Id = 7,
-                Code = $"AP-UBN-{timestampStr}",
-                Name = "UBND Quận 4",
-                CapacityTeams = 6,
-                Status = AssemblyPointStatus.Overloaded.ToString(),
-                Location = new Point(106.7050, 10.7600) { SRID = 4326 },
+                Code = $"AP-DNA-LC-{timestampStr}",
+                Name = "Trung tâm Hội chợ Triển lãm Đà Nẵng",
+                CapacityTeams = 30,
+                Status = AssemblyPointStatus.Active.ToString(),
+                Location = new Point(108.2205, 16.0500) { SRID = 4326 }, // Cam Le
                 CreatedAt = now,
                 UpdatedAt = now
             },
             new AssemblyPoint
             {
                 Id = 8,
-                Code = $"AP-CAN-{timestampStr}",
-                Name = "Cảng Nhà Rồng",
+                Code = $"AP-DNA-HV-{timestampStr}",
+                Name = "UBND Huyện Hòa Vang",
                 CapacityTeams = 12,
-                Status = AssemblyPointStatus.Unavailable.ToString(),
-                Location = new Point(106.7070, 10.7680) { SRID = 4326 },
+                Status = AssemblyPointStatus.Active.ToString(),
+                Location = new Point(108.1097, 16.0264) { SRID = 4326 }, // Hoa Vang
                 CreatedAt = now,
                 UpdatedAt = now
             },
+            // QUẢNG NAM
             new AssemblyPoint
             {
                 Id = 9,
-                Code = $"AP-NGU-{timestampStr}",
-                Name = "Trường Tiểu học Nguyễn Thái Học",
-                CapacityTeams = 5,
+                Code = $"AP-QNA-HA-{timestampStr}",
+                Name = "Trường THPT Trần Quý Cáp (Hội An)",
+                CapacityTeams = 10,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.6965, 10.7630) { SRID = 4326 },
+                Location = new Point(108.3380, 15.8801) { SRID = 4326 }, // Hoi An
                 CreatedAt = now,
                 UpdatedAt = now
             },
             new AssemblyPoint
             {
                 Id = 10,
-                Code = $"AP-THE-{timestampStr}",
-                Name = "Trung tâm Thể thao Quận 7",
-                CapacityTeams = 18,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.7350, 10.7420) { SRID = 4326 },
+                Code = $"AP-QNA-TM-{timestampStr}",
+                Name = "Trung tâm Y tế Nam Trà My",
+                CapacityTeams = 5,
+                Status = AssemblyPointStatus.Unavailable.ToString(), // Isolated
+                Location = new Point(108.0645, 15.1950) { SRID = 4326 }, // Nam Tra My
                 CreatedAt = now,
                 UpdatedAt = now
             },
+            // HÀ TĨNH
             new AssemblyPoint
             {
                 Id = 11,
-                Code = $"AP-CRE-{timestampStr}",
-                Name = "Crescent Mall",
+                Code = $"AP-HTI-HK-{timestampStr}",
+                Name = "Trường THPT Hương Khê",
                 CapacityTeams = 10,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.7210, 10.7290) { SRID = 4326 },
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new AssemblyPoint
-            {
-                Id = 12,
-                Code = $"AP-CAU-{timestampStr}",
-                Name = "Công viên Cầu Ánh Sao",
-                CapacityTeams = 8,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.7230, 10.7280) { SRID = 4326 },
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new AssemblyPoint
-            {
-                Id = 13,
-                Code = $"AP-MIE-{timestampStr}",
-                Name = "Bến xe Miền Đông (Cũ)",
-                CapacityTeams = 15,
-                Status = AssemblyPointStatus.Unavailable.ToString(),
-                Location = new Point(106.7120, 10.8130) { SRID = 4326 },
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new AssemblyPoint
-            {
-                Id = 14,
-                Code = $"AP-VAN-{timestampStr}",
-                Name = "Khu du lịch Văn Thánh",
-                CapacityTeams = 12,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.7190, 10.7960) { SRID = 4326 },
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new AssemblyPoint
-            {
-                Id = 15,
-                Code = $"AP-VIN-{timestampStr}",
-                Name = "Vinhomes Central Park",
-                CapacityTeams = 20,
-                Status = AssemblyPointStatus.Overloaded.ToString(),
-                Location = new Point(106.7220, 10.7950) { SRID = 4326 },
+                Location = new Point(105.7144, 18.1755) { SRID = 4326 }, // Huong Khe
                 CreatedAt = now,
                 UpdatedAt = now
             }

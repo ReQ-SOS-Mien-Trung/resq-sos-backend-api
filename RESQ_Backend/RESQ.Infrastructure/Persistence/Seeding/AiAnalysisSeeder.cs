@@ -16,29 +16,31 @@ public static class AiAnalysisSeeder
 
     private static void SeedClusterAiAnalyses(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2024, 10, 16, 8, 15, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<ClusterAiAnalysis>().HasData(
             new ClusterAiAnalysis
             {
                 Id = 1,
-                ClusterId = 1,
+                ClusterId = 1, // Le Thuy
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 AnalysisType = "Severity",
-                Metadata = "{\"event_assessment\": {\"severity\": \"high\", \"risk_factors\": [\"flooding\", \"elderly\"]}, \"suggested_plan\": {\"actions\": [\"evacuate\", \"medical_support\"]}}",
-                ConfidenceScore = 0.85,
+                Metadata = "{\"event_assessment\": {\"severity\": \"critical\", \"risk_factors\": [\"rapid_water_rise\", \"night_time\"]}, \"suggested_plan\": {\"actions\": [\"deploy_boats\", \"prioritize_vulnerable\"]}}",
+                ConfidenceScore = 0.92,
+                SuggestedSeverityLevel = "Critical",
                 CreatedAt = now
             },
             new ClusterAiAnalysis
             {
                 Id = 2,
-                ClusterId = 2,
+                ClusterId = 2, // Huong Tra
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 AnalysisType = "Resource",
-                Metadata = "{\"event_assessment\": {\"severity\": \"medium\", \"risk_factors\": [\"limited_supplies\"]}, \"suggested_plan\": {\"actions\": [\"distribute_food\", \"provide_shelter\"]}}",
-                ConfidenceScore = 0.78,
+                Metadata = "{\"event_assessment\": {\"severity\": \"high\", \"risk_factors\": [\"road_blocked\"]}, \"suggested_plan\": {\"actions\": [\"air_drop_supplies\", \"use_amphibious_vehicles\"]}}",
+                ConfidenceScore = 0.85,
+                SuggestedSeverityLevel = "High",
                 CreatedAt = now
             }
         );
@@ -46,7 +48,7 @@ public static class AiAnalysisSeeder
 
     private static void SeedActivityAiSuggestions(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2024, 10, 16, 8, 20, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<ActivityAiSuggestion>().HasData(
             new ActivityAiSuggestion
@@ -56,8 +58,8 @@ public static class AiAnalysisSeeder
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 ActivityType = "Evacuation",
-                SuggestionPhase = "Planning",
-                SuggestedActivities = "{\"steps\": [\"identify_exits\", \"gather_people\", \"transport\"]}",
+                SuggestionPhase = "Execution",
+                SuggestedActivities = "{\"steps\": [\"scout_safe_path\", \"transport_elderly_first\", \"mark_cleared_houses\"]}",
                 ConfidenceScore = 0.9,
                 CreatedAt = now
             },
@@ -68,9 +70,9 @@ public static class AiAnalysisSeeder
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 ActivityType = "Distribution",
-                SuggestionPhase = "Execution",
-                SuggestedActivities = "{\"steps\": [\"inventory_check\", \"load_supplies\", \"distribute\"]}",
-                ConfidenceScore = 0.82,
+                SuggestionPhase = "Planning",
+                SuggestedActivities = "{\"steps\": [\"verify_road_access\", \"prepare_dry_food\", \"coordinate_with_local_militia\"]}",
+                ConfidenceScore = 0.88,
                 CreatedAt = now
             }
         );
@@ -78,33 +80,34 @@ public static class AiAnalysisSeeder
 
     private static void SeedRescueTeamAiSuggestions(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2024, 10, 16, 8, 25, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<RescueTeamAiSuggestion>().HasData(
             new RescueTeamAiSuggestion
             {
                 Id = 1,
                 ClusterId = 1,
-                AdoptedRescueTeamId = 1,
+                AdoptedRescueTeamId = 1, // Doi Cuu Ho Song Huong (Simulating deployment from Hue to QB or local) - actually ID 2 is QB. Let's suggest ID 2.
+                // Wait, ID 1 is Hue, ID 2 is Quang Binh. For Cluster 1 (Le Thuy), ID 2 is best.
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 AnalysisType = "Assignment",
-                SuggestionScope = "{\"reasons\": [\"nearest\", \"available\", \"skilled\"]}",
-                ConfidenceScore = 0.88,
+                SuggestionScope = "{\"reasons\": [\"closest_proximity\", \"flood_experience\"]}",
+                ConfidenceScore = 0.95,
                 CreatedAt = now
             },
             new RescueTeamAiSuggestion
             {
                 Id = 2,
                 ClusterId = 2,
-                AdoptedRescueTeamId = 2,
+                AdoptedRescueTeamId = 1, // Hue Team for Hue Cluster
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 AnalysisType = "Assignment",
-                SuggestionScope = "{\"reasons\": [\"capacity\", \"equipment\"]}",
-                ConfidenceScore = 0.75,
+                SuggestionScope = "{\"reasons\": [\"local_knowledge\", \"available_equipment\"]}",
+                ConfidenceScore = 0.89,
                 CreatedAt = now
             }
         );
     }
-}
+}
