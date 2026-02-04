@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Personnel; // Added namespace for AssemblyPointStatus
+using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Personnel;
 
 namespace RESQ.Infrastructure.Persistence.Seeding;
