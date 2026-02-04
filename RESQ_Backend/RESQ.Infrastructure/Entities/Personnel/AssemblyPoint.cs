@@ -40,4 +40,4 @@ public partial class AssemblyPoint
 
     [InverseProperty("AssemblyPoint")]
     public virtual ICollection<RescueTeam> RescueTeams { get; set; } = new List<RescueTeam>();
-}
+}
