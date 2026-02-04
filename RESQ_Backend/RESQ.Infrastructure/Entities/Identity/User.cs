@@ -172,7 +172,4 @@ public partial class User
 
     [InverseProperty("PerformedByUser")]
     public virtual ICollection<VehicleActivityLog> VehicleActivityLogs { get; set; } = new List<VehicleActivityLog>();
-
-    [InverseProperty("Sender")]
-    public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
 }
