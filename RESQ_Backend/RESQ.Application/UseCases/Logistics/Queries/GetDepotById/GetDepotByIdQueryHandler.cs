@@ -6,7 +6,9 @@ using RESQ.Application.UseCases.Logistics.Queries.Depot;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotById;
 
-public class GetDepotByIdQueryHandler(IDepotRepository depotRepository, ILogger<GetDepotByIdQueryHandler> logger) 
+public class GetDepotByIdQueryHandler(
+    IDepotRepository depotRepository, 
+    ILogger<GetDepotByIdQueryHandler> logger) 
     : IRequestHandler<GetDepotByIdQuery, DepotDto>
 {
     private readonly IDepotRepository _depotRepository = depotRepository;
@@ -18,7 +20,6 @@ public class GetDepotByIdQueryHandler(IDepotRepository depotRepository, ILogger<
 
         var depot = await _depotRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        // Validate Existence
         if (depot == null)
         {
             throw new NotFoundException($"Không tìm thấy kho cứu trợ với id = {request.Id}");

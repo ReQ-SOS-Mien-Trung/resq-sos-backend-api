@@ -28,19 +28,7 @@ public class UpdateDepotCommandHandler(
             throw new NotFoundException("Không tìm thấy kho cứu trợ");
         }
 
-        // Validate: Cannot update Closed depot
-        if (depot.Status == DepotStatus.Closed)
-        {
-            throw new DepotClosedException();
-        }
-
-        // Validate: Capacity must hold current stock
-        if (request.Capacity < depot.CurrentUtilization)
-        {
-            throw new DepotCapacityExceededException();
-        }
-
-        // Validate: Duplicate name check (excluding current record)
+        // 1. Validate Duplicate Name (excluding current record)
         if (!string.Equals(depot.Name, request.Name, StringComparison.OrdinalIgnoreCase))
         {
             var existingName = await _depotRepository.GetByNameAsync(request.Name, cancellationToken);
@@ -50,6 +38,7 @@ public class UpdateDepotCommandHandler(
             }
         }
 
+        // 2. Update Domain Model
         var location = new GeoLocation(request.Latitude, request.Longitude);
 
         depot.UpdateDetails(

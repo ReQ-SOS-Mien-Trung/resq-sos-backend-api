@@ -9,7 +9,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotById;
 
 namespace RESQ.Presentation.Controllers.Logistics
 {
-    [Route("api/depot")]
+    [Route("logistics/depot")]
     [ApiController]
     public class DepotController(IMediator mediator) : ControllerBase
     {

@@ -47,7 +47,6 @@ namespace RESQ.Infrastructure.Mappers.Resources
             return entity;
         }
 
-        // New: Apply Domain changes to existing Entity
         public static void UpdateEntity(Depot entity, DepotModel model)
         {
             entity.Name = model.Name;

@@ -28,13 +28,9 @@ public class ChangeDepotStatusCommandHandler(
             throw new NotFoundException("Không tìm thấy kho cứu trợ");
         }
 
-        // Validate: Cannot switch to Available without a Manager
-        if (request.Status == DepotStatus.Available && depot.CurrentManagerId == null)
-        {
-            throw new InvalidDepotStatusTransitionException(depot.Status, request.Status, "Không thể chuyển kho sang trạng thái hoạt động khi chưa có quản lý");
-        }
-
-        // Apply change
+        // Domain Logic validation is handled inside the Entity's ChangeStatus method
+        // But application specific checks (like Manager existence) can be done here or in Domain Service
+        
         depot.ChangeStatus(request.Status);
 
         await _depotRepository.UpdateAsync(depot, cancellationToken);
