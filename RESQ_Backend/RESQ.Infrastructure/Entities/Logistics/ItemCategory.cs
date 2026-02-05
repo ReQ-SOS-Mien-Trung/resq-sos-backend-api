@@ -27,10 +27,10 @@ public partial class ItemCategory
     [Column("description")]
     public string? Description { get; set; }
 
-    [Column("created_at", TypeName = "timestamp without time zone")]
+    [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
-    [Column("updated_at", TypeName = "timestamp without time zone")]
+    [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
     // FIXED: Changed "Category" to "ItemCategory" to match the property in ReliefItem.cs

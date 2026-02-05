@@ -17,4 +17,4 @@ public class PagedResult<T>
         PageSize = pageSize;
         Items = items;
     }
-}
+}

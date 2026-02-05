@@ -18,7 +18,6 @@ public static class PersonnelSeeder
 
     private static void SeedAbilities(ModelBuilder modelBuilder)
     {
-        // Abilities remain the same as they are generic domain concepts
         modelBuilder.Entity<Ability>().HasData(
             new Ability { Id = 1, Code = "BASIC_SWIMMING", Description = "Bơi cơ bản" },
             new Ability { Id = 2, Code = "ADVANCED_SWIMMING", Description = "Bơi thành thạo" },

@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
 
         // Resources Repositories
         services.AddScoped<IDepotRepository, DepotRepository>();
+        services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
 
         // Personnel Repositories
         services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>(); // Registered
