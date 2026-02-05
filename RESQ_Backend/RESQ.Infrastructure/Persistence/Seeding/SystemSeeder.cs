@@ -36,7 +36,8 @@ public static class SystemSeeder
 
     private static void SeedPrompts(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        // Adjusted to Utc
+        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Prompt>().HasData(
             new Prompt
@@ -63,4 +64,4 @@ public static class SystemSeeder
             }
         );
     }
-}
+}

@@ -58,6 +58,9 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+
+    //c.IncludeXmlComments(
+    //Path.Combine(AppContext.BaseDirectory, "RESQ.Presentation.xml"));
 });
 
 // 5. Configure JSON options to serialize enums as strings

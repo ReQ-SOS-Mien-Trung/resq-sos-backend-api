@@ -22,24 +22,43 @@ public static class LogisticsSeeder
 
     private static void SeedCategories(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        // Using ItemCategoryCode Enum to set IDs and Codes
         modelBuilder.Entity<ItemCategory>().HasData(
             new ItemCategory
             {
-                Id = 1,
-                Code = "FOOD",
+                Id = (int)ItemCategoryCode.Food, // 1
+                Code = ItemCategoryCode.Food.ToString(),
                 Name = "Thực phẩm",
-                Description = "Nhu yếu phẩm, gạo, mì, nước uống",
+                Description = "Lương thực, nhu yếu phẩm, đồ ăn khô",
                 CreatedAt = now,
                 UpdatedAt = now
             },
             new ItemCategory
             {
-                Id = 2,
-                Code = "MEDICAL",
-                Name = "Y tế & Cứu hộ",
-                Description = "Thuốc men, dụng cụ sơ cứu, áo phao",
+                Id = (int)ItemCategoryCode.Water, // 2
+                Code = ItemCategoryCode.Water.ToString(),
+                Name = "Nước uống",
+                Description = "Nước sạch, nước đóng chai, thiết bị lọc nước",
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            new ItemCategory
+            {
+                Id = (int)ItemCategoryCode.Medical, // 3
+                Code = ItemCategoryCode.Medical.ToString(),
+                Name = "Y tế",
+                Description = "Thuốc men, dụng cụ sơ cứu",
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            new ItemCategory
+            {
+                Id = (int)ItemCategoryCode.RescueEquipment, // 7
+                Code = ItemCategoryCode.RescueEquipment.ToString(),
+                Name = "Thiết bị cứu hộ",
+                Description = "Áo phao, đèn pin, dây thừng",
                 CreatedAt = now,
                 UpdatedAt = now
             }
@@ -76,46 +95,47 @@ public static class LogisticsSeeder
 
     private static void SeedReliefItems(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<ReliefItem>().HasData(
-            // ID 1: General Food Item
+            // ID 1: General Food Item -> Category Food (1)
             new ReliefItem
             {
                 Id = 1,
-                CategoryId = 1,
+                CategoryId = (int)ItemCategoryCode.Food,
                 Name = "Gạo & Lương khô (Combo)",
                 Unit = "phần",
                 TargetGroup = "Tất cả",
                 CreatedAt = now,
                 UpdatedAt = now
             },
-            // ID 2: General Rescue/Medical Item
+            // ID 2: General Rescue/Medical Item -> Category Medical (3)
             new ReliefItem
             {
                 Id = 2,
-                CategoryId = 2,
+                CategoryId = (int)ItemCategoryCode.Medical,
                 Name = "Bộ cứu thương & Áo phao",
                 Unit = "bộ",
                 TargetGroup = "Cứu hộ",
                 CreatedAt = now,
                 UpdatedAt = now
             },
-            // New Items (Optional, referenced in Inventory but not Missions to avoid FK errors)
+            // ID 3: Noodles -> Category Food (1)
             new ReliefItem
             {
                 Id = 3,
-                CategoryId = 1,
+                CategoryId = (int)ItemCategoryCode.Food,
                 Name = "Mì tôm",
                 Unit = "thùng",
                 TargetGroup = "Tất cả",
                 CreatedAt = now,
                 UpdatedAt = now
             },
+            // ID 4: Water -> Category Water (2)
             new ReliefItem
             {
                 Id = 4,
-                CategoryId = 1,
+                CategoryId = (int)ItemCategoryCode.Water,
                 Name = "Nước sạch",
                 Unit = "thùng",
                 TargetGroup = "Tất cả",

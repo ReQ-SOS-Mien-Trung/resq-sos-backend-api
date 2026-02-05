@@ -40,6 +40,6 @@ public partial class Prompt
     [StringLength(20)]
     public string? Version { get; set; }
 
-    [Column("created_at", TypeName = "timestamp without time zone")]
+    [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 }

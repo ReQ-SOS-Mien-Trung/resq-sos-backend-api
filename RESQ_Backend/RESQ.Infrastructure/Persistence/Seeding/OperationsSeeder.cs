@@ -90,7 +90,7 @@ public static class OperationsSeeder
     {
         modelBuilder.Entity<MissionItem>().HasData(
             // Mission 1 (Rescue): Needs Medical/Rescue Kits. 
-            // FIX: Use ReliefItem ID 2 (First Aid/Medical) which definitely exists.
+            // ReliefItem ID 2 (First Aid/Medical)
             new MissionItem
             {
                 Id = 1,
@@ -101,7 +101,7 @@ public static class OperationsSeeder
                 SourceDepotId = 2 // Le Thuy Depot
             },
             // Mission 2 (Relief): Needs Food.
-            // FIX: Use ReliefItem ID 1 (Rice/Food) which definitely exists.
+            // ReliefItem ID 1 (Rice/Food)
             new MissionItem
             {
                 Id = 2,
@@ -111,7 +111,6 @@ public static class OperationsSeeder
                 AllocatedQuantity = 100,
                 SourceDepotId = 1 // Hue Depot
             }
-            // Removed MissionItem 3 & 4 to prevent FK errors with new/unstable ReliefItem IDs.
         );
     }
 

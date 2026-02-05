@@ -87,8 +87,7 @@ public static class AiAnalysisSeeder
             {
                 Id = 1,
                 ClusterId = 1,
-                AdoptedRescueTeamId = 1, // Doi Cuu Ho Song Huong (Simulating deployment from Hue to QB or local) - actually ID 2 is QB. Let's suggest ID 2.
-                // Wait, ID 1 is Hue, ID 2 is Quang Binh. For Cluster 1 (Le Thuy), ID 2 is best.
+                AdoptedRescueTeamId = 1, // Doi Cuu Ho Song Huong
                 ModelName = "GPT-4",
                 ModelVersion = "v1.0",
                 AnalysisType = "Assignment",
