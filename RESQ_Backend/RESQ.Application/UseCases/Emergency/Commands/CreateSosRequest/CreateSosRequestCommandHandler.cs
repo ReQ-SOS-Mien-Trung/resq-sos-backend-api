@@ -2,10 +2,10 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
-using RESQ.Application.Repositories.SosRequests;
-using RESQ.Domain.Entities.SosRequests;
+using RESQ.Application.Repositories.Emergency;
+using RESQ.Domain.Entities.Emergency;
 
-namespace RESQ.Application.UseCases.SosRequests.Commands.CreateSosRequest;
+namespace RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 
 public class CreateSosRequestCommandHandler(
     ISosRequestRepository sosRequestRepository,

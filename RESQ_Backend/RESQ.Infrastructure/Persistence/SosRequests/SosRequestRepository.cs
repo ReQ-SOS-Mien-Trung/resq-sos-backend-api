@@ -1,10 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using RESQ.Application.Repositories.SosRequests;
-using RESQ.Domain.Entities.SosRequests;
-using RESQ.Infrastructure.Mappers.SosRequests;
+using RESQ.Application.Repositories.Emergency;
+using RESQ.Domain.Entities.Emergency;
+using RESQ.Infrastructure.Mappers.Emergency;
 using RESQ.Infrastructure.Persistence.Context;
 
-namespace RESQ.Infrastructure.Persistence.SosRequests;
+namespace RESQ.Infrastructure.Persistence.Emergency;
 
 public class SosRequestRepository(ResQDbContext context) : ISosRequestRepository
 {

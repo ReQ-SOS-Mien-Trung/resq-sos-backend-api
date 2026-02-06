@@ -1,5 +1,5 @@
 using MediatR;
 
-namespace RESQ.Application.UseCases.SosRequests.Queries.GetAllSosRequests;
+namespace RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
 
 public record GetAllSosRequestsQuery() : IRequest<GetAllSosRequestsResponse>;

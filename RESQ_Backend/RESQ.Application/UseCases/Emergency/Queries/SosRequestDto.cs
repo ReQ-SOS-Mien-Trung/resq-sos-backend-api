@@ -1,4 +1,4 @@
-namespace RESQ.Application.UseCases.SosRequests.Queries;
+namespace RESQ.Application.UseCases.Emergency.Queries;
 
 public class SosRequestDto
 {

@@ -6,13 +6,13 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Personnel; // Added
 using RESQ.Application.Services;
-using RESQ.Application.Repositories.SosRequests;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Logistics;
 using RESQ.Infrastructure.Persistence.Identity;
+using RESQ.Infrastructure.Persistence.Emergency;
 using RESQ.Infrastructure.Persistence.Personnel; // Added
-using RESQ.Infrastructure.Persistence.SosRequests;
 using RESQ.Infrastructure.Services;
 
 namespace RESQ.Infrastructure.Extensions;

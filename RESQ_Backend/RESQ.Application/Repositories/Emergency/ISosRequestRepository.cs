@@ -1,6 +1,6 @@
-using RESQ.Domain.Entities.SosRequests;
+using RESQ.Domain.Entities.Emergency;
 
-namespace RESQ.Application.Repositories.SosRequests;
+namespace RESQ.Application.Repositories.Emergency;
 
 public interface ISosRequestRepository
 {

@@ -1,9 +1,9 @@
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
-using RESQ.Domain.Entities.SosRequests;
+using RESQ.Domain.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 
-namespace RESQ.Infrastructure.Mappers.SosRequests;
+namespace RESQ.Infrastructure.Mappers.Emergency;
 
 public static class SosRequestMapper
 {

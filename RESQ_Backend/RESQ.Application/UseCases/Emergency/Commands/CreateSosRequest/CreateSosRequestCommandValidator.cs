@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace RESQ.Application.UseCases.SosRequests.Commands.CreateSosRequest;
+namespace RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 
 public class CreateSosRequestCommandValidator : AbstractValidator<CreateSosRequestCommand>
 {

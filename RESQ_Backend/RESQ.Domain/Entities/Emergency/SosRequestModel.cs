@@ -1,6 +1,6 @@
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 
-namespace RESQ.Domain.Entities.SosRequests;
+namespace RESQ.Domain.Entities.Emergency;
 
 public class SosRequestModel
 {

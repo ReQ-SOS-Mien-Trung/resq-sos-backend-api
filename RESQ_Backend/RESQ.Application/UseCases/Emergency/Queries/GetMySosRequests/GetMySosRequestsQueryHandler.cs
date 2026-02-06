@@ -1,24 +1,24 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RESQ.Application.Repositories.SosRequests;
+using RESQ.Application.Repositories.Emergency;
 
-namespace RESQ.Application.UseCases.SosRequests.Queries.GetAllSosRequests;
+namespace RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
 
-public class GetAllSosRequestsQueryHandler(
+public class GetMySosRequestsQueryHandler(
     ISosRequestRepository sosRequestRepository,
-    ILogger<GetAllSosRequestsQueryHandler> logger
-) : IRequestHandler<GetAllSosRequestsQuery, GetAllSosRequestsResponse>
+    ILogger<GetMySosRequestsQueryHandler> logger
+) : IRequestHandler<GetMySosRequestsQuery, GetMySosRequestsResponse>
 {
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
-    private readonly ILogger<GetAllSosRequestsQueryHandler> _logger = logger;
+    private readonly ILogger<GetMySosRequestsQueryHandler> _logger = logger;
 
-    public async Task<GetAllSosRequestsResponse> Handle(GetAllSosRequestsQuery request, CancellationToken cancellationToken)
+    public async Task<GetMySosRequestsResponse> Handle(GetMySosRequestsQuery request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Handling GetAllSosRequestsQuery");
+        _logger.LogInformation("Handling GetMySosRequestsQuery for UserId={userId}", request.UserId);
 
-        var requests = await _sosRequestRepository.GetAllAsync(cancellationToken);
+        var requests = await _sosRequestRepository.GetByUserIdAsync(request.UserId, cancellationToken);
 
-        return new GetAllSosRequestsResponse
+        return new GetMySosRequestsResponse
         {
             SosRequests = requests.Select(x => new SosRequestDto
             {

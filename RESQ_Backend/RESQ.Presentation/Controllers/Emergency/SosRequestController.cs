@@ -2,13 +2,13 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using RESQ.Application.UseCases.SosRequests.Commands.CreateSosRequest;
-using RESQ.Application.UseCases.SosRequests.Queries.GetAllSosRequests;
-using RESQ.Application.UseCases.SosRequests.Queries.GetMySosRequests;
-using RESQ.Application.UseCases.SosRequests.Queries.GetSosRequests;
+using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
+using RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
+using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 
-namespace RESQ.Presentation.Controllers.SosRequests;
+namespace RESQ.Presentation.Controllers.Emergency;
 
 [Route("api/sos-requests")]
 [ApiController]

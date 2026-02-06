@@ -1,7 +1,7 @@
 using MediatR;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 
-namespace RESQ.Application.UseCases.SosRequests.Commands.CreateSosRequest;
+namespace RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 
 public record CreateSosRequestCommand(
     Guid UserId,
