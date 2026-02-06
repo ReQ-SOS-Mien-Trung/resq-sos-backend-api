@@ -23,15 +23,24 @@ public class GetAllSosRequestsQueryHandler(
             SosRequests = requests.Select(x => new SosRequestDto
             {
                 Id = x.Id,
+                PacketId = x.PacketId,
+                ClusterId = x.ClusterId,
                 UserId = x.UserId,
+                SosType = x.SosType,
                 RawMessage = x.RawMessage,
+                StructuredData = x.StructuredData,
+                NetworkMetadata = x.NetworkMetadata,
                 Status = x.Status,
                 PriorityLevel = x.PriorityLevel,
                 WaitTimeMinutes = x.WaitTimeMinutes,
                 Latitude = x.Location?.Latitude,
                 Longitude = x.Location?.Longitude,
+                LocationAccuracy = x.LocationAccuracy,
+                Timestamp = x.Timestamp,
                 CreatedAt = x.CreatedAt,
-                LastUpdatedAt = x.LastUpdatedAt
+                LastUpdatedAt = x.LastUpdatedAt,
+                ReviewedAt = x.ReviewedAt,
+                ReviewedById = x.ReviewedById
             }).ToList()
         };
     }
