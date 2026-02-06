@@ -15,6 +15,9 @@ public partial class SosRequest
     [Column("id")]
     public int Id { get; set; }
 
+    [Column("packet_id")]
+    public Guid? PacketId { get; set; }
+
     [Column("cluster_id")]
     public int? ClusterId { get; set; }
 
@@ -24,8 +27,21 @@ public partial class SosRequest
     [Column("location", TypeName = "geography(Point,4326)")]
     public Point? Location { get; set; }
 
+    [Column("location_accuracy")]
+    public double? LocationAccuracy { get; set; }
+
+    [Column("sos_type")]
+    [StringLength(50)]
+    public string? SosType { get; set; }
+
     [Column("raw_message")]
     public string? RawMessage { get; set; }
+
+    [Column("structured_data", TypeName = "jsonb")]
+    public string? StructuredData { get; set; }
+
+    [Column("network_metadata", TypeName = "jsonb")]
+    public string? NetworkMetadata { get; set; }
 
     [Column("priority_level")]
     [StringLength(10)]
@@ -40,6 +56,9 @@ public partial class SosRequest
 
     [Column("wait_time_minutes")]
     public int? WaitTimeMinutes { get; set; }
+
+    [Column("timestamp")]
+    public long? Timestamp { get; set; }
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }

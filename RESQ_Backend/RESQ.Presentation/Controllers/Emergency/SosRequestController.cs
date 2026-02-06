@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +7,7 @@ using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 using RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 
 namespace RESQ.Presentation.Controllers.Emergency;
@@ -23,10 +25,24 @@ public class SosRequestController(IMediator mediator) : ControllerBase
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
+        string? structuredDataJson = dto.StructuredData != null
+            ? JsonSerializer.Serialize(dto.StructuredData)
+            : null;
+
+        string? networkMetadataJson = dto.NetworkMetadata != null
+            ? JsonSerializer.Serialize(dto.NetworkMetadata)
+            : null;
+
         var command = new CreateSosRequestCommand(
             userId,
-            new GeoLocation(dto.Latitude, dto.Longitude),
-            dto.RawMessage
+            new GeoLocation(dto.Location.Latitude, dto.Location.Longitude),
+            dto.RawMessage,
+            dto.PacketId,
+            dto.Location.Accuracy,
+            dto.SosType,
+            structuredDataJson,
+            networkMetadataJson,
+            dto.Timestamp
         );
 
         var result = await _mediator.Send(command);
@@ -49,6 +65,19 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetAllSosRequests()
     {
         var result = await _mediator.Send(new GetAllSosRequestsQuery());
+        return Ok(result);
+    }
+
+    [HttpGet("paged")]
+    [Authorize(Roles = "2")]
+    public async Task<IActionResult> GetSosRequestsPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    {
+        var query = new GetSosRequestsPagedQuery
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+        var result = await _mediator.Send(query);
         return Ok(result);
     }
 
