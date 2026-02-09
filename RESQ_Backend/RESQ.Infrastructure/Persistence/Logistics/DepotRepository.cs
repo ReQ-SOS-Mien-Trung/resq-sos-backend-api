@@ -23,7 +23,7 @@ public class DepotRepository(IUnitOfWork unitOfWork) : IDepotRepository
         var existingEntity = await repository.GetByPropertyAsync(
             x => x.Id == depotModel.Id, 
             tracked: true, 
-            includeProperties: "DepotManagers"
+            includeProperties: "DepotManagers.User" // Included User to ensure consistency
         );
 
         if (existingEntity != null)
@@ -38,12 +38,13 @@ public class DepotRepository(IUnitOfWork unitOfWork) : IDepotRepository
         var repository = _unitOfWork.GetRepository<Depot>();
         
         // UPDATED: Pass OrderBy to ensure consistent pagination (Order by LastUpdated DESC)
+        // UPDATED: Included "DepotManagers.User" to fetch manager details
         var pagedEntities = await repository.GetPagedAsync(
             pageNumber, 
             pageSize,
             filter: null,
             orderBy: q => q.OrderByDescending(d => d.LastUpdatedAt), 
-            includeProperties: "DepotManagers"
+            includeProperties: "DepotManagers.User"
         );
 
         var domainItems = pagedEntities.Items
@@ -61,7 +62,7 @@ public class DepotRepository(IUnitOfWork unitOfWork) : IDepotRepository
     public async Task<IEnumerable<DepotModel>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<Depot>()
-            .GetAllByPropertyAsync(null, includeProperties: "DepotManagers");
+            .GetAllByPropertyAsync(null, includeProperties: "DepotManagers.User");
 
         return entities.Select(DepotMapper.ToDomain);
     }
@@ -69,7 +70,7 @@ public class DepotRepository(IUnitOfWork unitOfWork) : IDepotRepository
     public async Task<DepotModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<Depot>()
-            .GetByPropertyAsync(x => x.Id == id, tracked: false, includeProperties: "DepotManagers");
+            .GetByPropertyAsync(x => x.Id == id, tracked: false, includeProperties: "DepotManagers.User");
 
         if (entity == null) return null;
 
@@ -79,7 +80,7 @@ public class DepotRepository(IUnitOfWork unitOfWork) : IDepotRepository
     public async Task<DepotModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<Depot>()
-            .GetByPropertyAsync(x => x.Name == name, tracked: false, includeProperties: "DepotManagers");
+            .GetByPropertyAsync(x => x.Name == name, tracked: false, includeProperties: "DepotManagers.User");
 
         if (entity == null) return null;
 

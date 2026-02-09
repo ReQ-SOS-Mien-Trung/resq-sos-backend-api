@@ -2,7 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
-using RESQ.Application.UseCases.Logistics.Queries.Depot;
+using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots.Depot;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotById;
 
@@ -25,6 +25,8 @@ public class GetDepotByIdQueryHandler(
             throw new NotFoundException($"Không tìm thấy kho cứu trợ với id = {request.Id}");
         }
 
+        var manager = depot.CurrentManager;
+
         return new DepotDto
         {
             Id = depot.Id,
@@ -35,7 +37,16 @@ public class GetDepotByIdQueryHandler(
             Capacity = depot.Capacity,
             CurrentUtilization = depot.CurrentUtilization,
             Status = depot.Status.ToString(),
-            DepotManagerId = depot.CurrentManagerId,
+            
+            // Map Manager details
+            Manager = manager != null ? new ManagerDto
+            {
+                Id = manager.UserId,
+                FullName = manager.FullName,
+                Email = manager.Email,
+                Phone = manager.Phone
+            } : null,
+            
             LastUpdatedAt = depot.LastUpdatedAt
         };
     }

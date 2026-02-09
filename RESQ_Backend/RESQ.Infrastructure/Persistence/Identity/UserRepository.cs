@@ -1,4 +1,5 @@
-﻿using RESQ.Application.Repositories.Base;
+﻿using NetTopologySuite.Geometries;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Domain.Entities.Identity;
 using RESQ.Infrastructure.Entities.Identity;
@@ -51,16 +52,45 @@ namespace RESQ.Infrastructure.Persistence.Identity
             var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Id == user.Id);
             if (entity is not null)
             {
+                // Update identity info
                 entity.FullName = user.FullName;
+                entity.FirstName = user.FirstName;
+                entity.LastName = user.LastName;
                 entity.Email = user.Email;
                 entity.Phone = user.Phone;
                 entity.Password = user.Password;
+                entity.RescuerType = user.RescuerType;
+
+                // Update status flags
                 entity.IsEmailVerified = user.IsEmailVerified;
+                entity.IsOnboarded = user.IsOnboarded;
+                entity.IsEligibleRescuer = user.IsEligibleRescuer;
+
+                // Update tokens
                 entity.EmailVerificationToken = user.EmailVerificationToken;
                 entity.EmailVerificationTokenExpiry = user.EmailVerificationTokenExpiry;
                 entity.RefreshToken = user.RefreshToken;
                 entity.RefreshTokenExpiry = user.RefreshTokenExpiry;
+
+                // Update location and address
+                entity.Address = user.Address;
+                entity.Ward = user.Ward;
+                entity.City = user.City;
+
+                if (user.Latitude.HasValue && user.Longitude.HasValue)
+                {
+                    entity.Location = new Point(user.Longitude.Value, user.Latitude.Value) { SRID = 4326 };
+                }
+                else
+                {
+                    entity.Location = null;
+                }
+
+                // Update metadata
                 entity.UpdatedAt = DateTime.UtcNow;
+                entity.ApprovedBy = user.ApprovedBy;
+                entity.ApprovedAt = user.ApprovedAt;
+
                 await _unitOfWork.GetRepository<User>().UpdateAsync(entity);
             }
         }

@@ -20,6 +20,9 @@ public class DepotModel
 
     public Guid? CurrentManagerId => _managerHistory.FirstOrDefault(x => x.IsActive())?.UserId;
     
+    // New property to access the full assignment object (including cached user details)
+    public DepotManagerAssignment? CurrentManager => _managerHistory.FirstOrDefault(x => x.IsActive());
+    
     // RESTORED: To support queries needing timestamp
     public DateTime? LastUpdatedAt { get; set; }
 

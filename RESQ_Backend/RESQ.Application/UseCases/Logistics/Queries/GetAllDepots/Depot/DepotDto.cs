@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.UseCases.Logistics.Queries.Depot
+namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots.Depot
 {
     public class DepotDto
     {
@@ -10,7 +10,10 @@
         public int? Capacity { get; set; }
         public int? CurrentUtilization { get; set; }
         public string Status { get; set; } = string.Empty;
-        public Guid? DepotManagerId { get; set; }
+        
+        // Changed from DepotManagerId (Guid) to Manager object
+        public ManagerDto? Manager { get; set; }
+        
         public DateTime? LastUpdatedAt { get; set; }
     }
 }
