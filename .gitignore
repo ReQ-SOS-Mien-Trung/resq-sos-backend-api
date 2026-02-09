@@ -8,4 +8,4 @@ RESQ_Backend/RESQ.Domain/bin
 RESQ_Backend/RESQ.Infrastructure/bin
 RESQ_Backend/RESQ.Presentation/bin
 RESQ_Backend/RESQ.Infrastructure/Migrations
-/RESQ_Backend/RESQ_Backend.sln
+.vs
