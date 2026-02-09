@@ -1,7 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Logistics;
-using RESQ.Application.UseCases.Logistics.Queries.Depot;
+using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots.Depot;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
 {
@@ -19,18 +19,32 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
 
             var pagedResult = await _depotRepository.GetAllPagedAsync(request.PageNumber, request.PageSize, cancellationToken);
             
-            var dtos = pagedResult.Items.Select(depot => new DepotDto
+            var dtos = pagedResult.Items.Select(depot => 
             {
-                Id = depot.Id,
-                Name = depot.Name,
-                Address = depot.Address,
-                Latitude = depot.Location?.Latitude,
-                Longitude = depot.Location?.Longitude,
-                Capacity = depot.Capacity,
-                CurrentUtilization = depot.CurrentUtilization,
-                Status = depot.Status.ToString(),
-                DepotManagerId = depot.CurrentManagerId,
-                LastUpdatedAt = depot.LastUpdatedAt
+                var manager = depot.CurrentManager;
+                
+                return new DepotDto
+                {
+                    Id = depot.Id,
+                    Name = depot.Name,
+                    Address = depot.Address,
+                    Latitude = depot.Location?.Latitude,
+                    Longitude = depot.Location?.Longitude,
+                    Capacity = depot.Capacity,
+                    CurrentUtilization = depot.CurrentUtilization,
+                    Status = depot.Status.ToString(),
+                    
+                    // Map Manager details
+                    Manager = manager != null ? new ManagerDto
+                    {
+                        Id = manager.UserId,
+                        FullName = manager.FullName,
+                        Email = manager.Email,
+                        Phone = manager.Phone
+                    } : null,
+                    
+                    LastUpdatedAt = depot.LastUpdatedAt
+                };
             }).ToList();
 
             var response = new GetAllDepotsResponse

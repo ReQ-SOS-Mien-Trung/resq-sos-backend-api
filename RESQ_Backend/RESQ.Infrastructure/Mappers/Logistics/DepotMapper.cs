@@ -89,11 +89,15 @@ namespace RESQ.Infrastructure.Mappers.Resources
 
             if (entity.DepotManagers != null && entity.DepotManagers.Count != 0)
             {
+                // Updated to map User details into the value object
                 var history = entity.DepotManagers.Select(dm => 
                     new DepotManagerAssignment(
                         dm.UserId ?? Guid.Empty,
                         dm.AssignedAt ?? DateTime.MinValue,
-                        dm.UnassignedAt
+                        dm.UnassignedAt,
+                        dm.User?.FullName,
+                        dm.User?.Email,
+                        dm.User?.Phone
                     ));
                 
                 model.AddHistory(history);

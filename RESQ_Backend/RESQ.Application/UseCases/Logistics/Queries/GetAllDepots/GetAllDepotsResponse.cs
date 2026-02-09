@@ -1,4 +1,4 @@
-﻿using RESQ.Application.UseCases.Logistics.Queries.Depot;
+﻿using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots.Depot;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots;
 
