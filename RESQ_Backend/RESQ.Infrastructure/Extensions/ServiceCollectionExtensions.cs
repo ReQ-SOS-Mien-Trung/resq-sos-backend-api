@@ -49,6 +49,7 @@ public static class ServiceCollectionExtensions
 
         // Users Repositories
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRescuerApplicationRepository, RescuerApplicationRepository>();
 
         // Emergency Repositories
         services.AddScoped<ISosRequestRepository, SosRequestRepository>();

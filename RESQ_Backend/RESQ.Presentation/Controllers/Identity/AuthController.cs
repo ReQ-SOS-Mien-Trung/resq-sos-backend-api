@@ -13,7 +13,7 @@ using RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail;
 
 namespace RESQ.Presentation.Controllers.Identity
 {
-    [Route("api/auth")]
+    [Route("identity/auth")]
     [ApiController]
     public class AuthController(IMediator mediator) : ControllerBase
     {
@@ -47,7 +47,7 @@ namespace RESQ.Presentation.Controllers.Identity
             {
                 return Redirect("http://localhost:5173/auth/personal-info");
             }
-            return BadRequest(result);
+            return Redirect("http://localhost:5173/auth/resend-email");
         }
 
         [HttpPost("resend-verification-email")]

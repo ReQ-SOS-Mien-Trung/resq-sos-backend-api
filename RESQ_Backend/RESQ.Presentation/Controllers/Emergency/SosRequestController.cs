@@ -12,7 +12,7 @@ using RESQ.Domain.Entities.Logistics.ValueObjects;
 
 namespace RESQ.Presentation.Controllers.Emergency;
 
-[Route("api/sos-requests")]
+[Route("emergency/sos-requests")]
 [ApiController]
 public class SosRequestController(IMediator mediator) : ControllerBase
 {
