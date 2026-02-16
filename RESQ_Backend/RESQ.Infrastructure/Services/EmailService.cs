@@ -21,7 +21,7 @@ namespace RESQ.Infrastructure.Services
         {
             var emailSettings = _configuration.GetSection("EmailSettings");
             var baseUrl = _configuration["AppSettings:BaseUrl"] ?? "http://localhost:8080";
-            var verificationUrl = $"{baseUrl}/api/auth/verify-email?token={verificationToken}";
+            var verificationUrl = $"{baseUrl}/identity/auth/verify-email?token={verificationToken}";
 
             var subject = "Xác Minh Tài Khoản RESQ Của Bạn";
             var body = $@"
