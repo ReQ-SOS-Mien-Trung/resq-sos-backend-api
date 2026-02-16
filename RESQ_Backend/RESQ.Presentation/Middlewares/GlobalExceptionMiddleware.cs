@@ -61,15 +61,46 @@ public class GlobalExceptionMiddleware : IMiddleware
             //    _logger.LogWarning("Bad request: {Message}", badRequestEx.Message);
             //    break;
 
+            // ✅ Bad Request
+            case BadRequestException badRequestEx:
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = badRequestEx.Message;
+                _logger.LogWarning("Bad request: {Message}", badRequestEx.Message);
+                break;
+
+            // ✅ Unauthorized
+            case UnauthorizedException unauthorizedEx:
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                response.Message = unauthorizedEx.Message;
+                _logger.LogWarning("Unauthorized: {Message}", unauthorizedEx.Message);
+                break;
+
+            // ✅ Forbidden
+            case ForbiddenException forbiddenEx:
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                response.Message = forbiddenEx.Message;
+                _logger.LogWarning("Forbidden: {Message}", forbiddenEx.Message);
+                break;
+
             // ✅ Not Found
             case NotFoundException notFoundEx:
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Không tìm thấy";
-                response.Errors = new Dictionary<string, string[]>
-                {
-                    ["_notFoundMsg"] = new[] { notFoundEx.Message }
-                };
+                response.Message = notFoundEx.Message;
                 _logger.LogWarning("Not found: {Message}", notFoundEx.Message);
+                break;
+
+            // ✅ Conflict
+            case ConflictException conflictEx:
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                response.Message = conflictEx.Message;
+                _logger.LogWarning("Conflict: {Message}", conflictEx.Message);
+                break;
+
+            // ✅ Too Many Requests
+            case TooManyRequestsException tooManyEx:
+                context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                response.Message = tooManyEx.Message;
+                _logger.LogWarning("Too many requests: {Message}", tooManyEx.Message);
                 break;
 
             // ❌ System error
