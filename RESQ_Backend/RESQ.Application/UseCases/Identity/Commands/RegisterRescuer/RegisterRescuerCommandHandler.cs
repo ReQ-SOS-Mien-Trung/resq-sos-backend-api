@@ -54,7 +54,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
                 EmailVerificationToken = verificationToken,
                 EmailVerificationTokenExpiry = tokenExpiry,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                Username = request.Email
             };
 
             await _userRepository.CreateAsync(user, cancellationToken);
