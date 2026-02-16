@@ -9,11 +9,13 @@ namespace RESQ.Application.UseCases.Identity.Commands.SaveRescuerAbilities;
 
 public class SaveRescuerAbilitiesCommandHandler(
     IAbilityRepository abilityRepository,
+    IUserRepository userRepository,
     IUnitOfWork unitOfWork,
     ILogger<SaveRescuerAbilitiesCommandHandler> logger)
     : IRequestHandler<SaveRescuerAbilitiesCommand, SaveRescuerAbilitiesResponse>
 {
     private readonly IAbilityRepository _abilityRepository = abilityRepository;
+    private readonly IUserRepository _userRepository = userRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<SaveRescuerAbilitiesCommandHandler> _logger = logger;
 
@@ -46,6 +48,15 @@ public class SaveRescuerAbilitiesCommandHandler(
 
         // Save (replace all existing abilities for this user)
         await _abilityRepository.SaveUserAbilitiesAsync(request.UserId, userAbilities, cancellationToken);
+
+        // Update IsOnboarded = true for the rescuer
+        var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
+        if (user != null && !user.IsOnboarded)
+        {
+            user.IsOnboarded = true;
+            await _userRepository.UpdateAsync(user, cancellationToken);
+        }
+
         var savedCount = await _unitOfWork.SaveAsync();
 
         // Retrieve saved abilities to return

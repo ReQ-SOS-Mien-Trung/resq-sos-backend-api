@@ -40,7 +40,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
             user.City = request.City;
             user.Latitude = request.Latitude;
             user.Longitude = request.Longitude;
-            user.IsOnboarded = true;
+            user.IsOnboarded = false;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateAsync(user, cancellationToken);
