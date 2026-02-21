@@ -28,6 +28,8 @@ public class GetSosRequestsPagedQueryHandler(
             RawMessage = x.RawMessage,
             StructuredData = x.StructuredData,
             NetworkMetadata = x.NetworkMetadata,
+            SenderInfo = x.SenderInfo,
+            OriginId = x.OriginId,
             Status = x.Status,
             PriorityLevel = x.PriorityLevel,
             WaitTimeMinutes = x.WaitTimeMinutes,

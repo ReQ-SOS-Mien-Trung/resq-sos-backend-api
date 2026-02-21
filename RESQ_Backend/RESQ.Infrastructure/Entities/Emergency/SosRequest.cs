@@ -43,6 +43,13 @@ public partial class SosRequest
     [Column("network_metadata", TypeName = "jsonb")]
     public string? NetworkMetadata { get; set; }
 
+    [Column("sender_info", TypeName = "jsonb")]
+    public string? SenderInfo { get; set; }
+
+    [Column("origin_id")]
+    [StringLength(255)]
+    public string? OriginId { get; set; }
+
     [Column("priority_level")]
     [StringLength(10)]
     public string? PriorityLevel { get; set; }

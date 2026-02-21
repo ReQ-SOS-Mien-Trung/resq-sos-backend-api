@@ -33,15 +33,21 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             ? JsonSerializer.Serialize(dto.NetworkMetadata)
             : null;
 
+        string? senderInfoJson = dto.SenderInfo != null
+            ? JsonSerializer.Serialize(dto.SenderInfo)
+            : null;
+
         var command = new CreateSosRequestCommand(
             userId,
             new GeoLocation(dto.Location.Latitude, dto.Location.Longitude),
             dto.RawMessage,
             dto.PacketId,
+            dto.OriginId,
             dto.Location.Accuracy,
             dto.SosType,
             structuredDataJson,
             networkMetadataJson,
+            senderInfoJson,
             dto.Timestamp
         );
 

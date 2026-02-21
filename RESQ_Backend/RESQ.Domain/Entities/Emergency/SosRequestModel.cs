@@ -16,6 +16,8 @@ public class SosRequestModel
     public string RawMessage { get; set; } = string.Empty;
     public string? StructuredData { get; set; }
     public string? NetworkMetadata { get; set; }
+    public string? SenderInfo { get; set; }
+    public string? OriginId { get; set; }
     public string? PriorityLevel { get; set; }
     public string Status { get; set; } = string.Empty;
     public int? WaitTimeMinutes { get; set; }
@@ -32,10 +34,12 @@ public class SosRequestModel
         GeoLocation location,
         string rawMessage,
         Guid? packetId = null,
+        string? originId = null,
         double? locationAccuracy = null,
         string? sosType = null,
         string? structuredData = null,
         string? networkMetadata = null,
+        string? senderInfo = null,
         long? timestamp = null,
         SosRequestStatus status = SosRequestStatus.Pending,
         SosPriorityLevel? priorityLevel = null)
@@ -49,6 +53,7 @@ public class SosRequestModel
         return new SosRequestModel
         {
             PacketId = packetId,
+            OriginId = originId,
             UserId = userId,
             Location = location,
             LocationAccuracy = locationAccuracy,
@@ -56,6 +61,7 @@ public class SosRequestModel
             RawMessage = rawMessage.Trim(),
             StructuredData = structuredData,
             NetworkMetadata = networkMetadata,
+            SenderInfo = senderInfo,
             Timestamp = timestamp,
             Status = status.ToString(),
             PriorityLevel = priorityLevel?.ToString(),

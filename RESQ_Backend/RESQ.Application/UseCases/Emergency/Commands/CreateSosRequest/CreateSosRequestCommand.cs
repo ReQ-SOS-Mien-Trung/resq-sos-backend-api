@@ -8,9 +8,11 @@ public record CreateSosRequestCommand(
     GeoLocation Location,
     string RawMessage,
     Guid? PacketId = null,
+    string? OriginId = null,
     double? LocationAccuracy = null,
     string? SosType = null,
     string? StructuredData = null,
     string? NetworkMetadata = null,
+    string? SenderInfo = null,
     long? Timestamp = null
 ) : IRequest<CreateSosRequestResponse>;

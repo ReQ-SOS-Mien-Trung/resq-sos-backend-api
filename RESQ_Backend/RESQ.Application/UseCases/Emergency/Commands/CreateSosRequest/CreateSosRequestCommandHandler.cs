@@ -35,10 +35,12 @@ public class CreateSosRequestCommandHandler(
             request.Location,
             request.RawMessage,
             request.PacketId,
+            request.OriginId,
             request.LocationAccuracy,
             request.SosType,
             request.StructuredData,
             request.NetworkMetadata,
+            request.SenderInfo,
             request.Timestamp,
             SosRequestStatus.Pending);
 
@@ -95,11 +97,13 @@ public class CreateSosRequestCommandHandler(
         {
             Id = created.Id,
             PacketId = created.PacketId,
+            OriginId = created.OriginId,
             UserId = created.UserId,
             SosType = created.SosType,
             RawMessage = created.RawMessage,
             StructuredData = created.StructuredData,
             NetworkMetadata = created.NetworkMetadata,
+            SenderInfo = created.SenderInfo,
             Status = created.Status,
             PriorityLevel = evaluation.PriorityLevel,
             Latitude = created.Location?.Latitude,

@@ -19,6 +19,8 @@ public static class SosRequestMapper
             RawMessage = model.RawMessage,
             StructuredData = model.StructuredData,
             NetworkMetadata = model.NetworkMetadata,
+            SenderInfo = model.SenderInfo,
+            OriginId = model.OriginId,
             PriorityLevel = model.PriorityLevel,
             Status = model.Status,
             WaitTimeMinutes = model.WaitTimeMinutes,
@@ -62,6 +64,8 @@ public static class SosRequestMapper
             RawMessage = entity.RawMessage ?? string.Empty,
             StructuredData = entity.StructuredData,
             NetworkMetadata = entity.NetworkMetadata,
+            SenderInfo = entity.SenderInfo,
+            OriginId = entity.OriginId,
             PriorityLevel = entity.PriorityLevel,
             Status = entity.Status ?? string.Empty,
             WaitTimeMinutes = entity.WaitTimeMinutes,
@@ -82,6 +86,8 @@ public static class SosRequestMapper
         entity.RawMessage = model.RawMessage;
         entity.StructuredData = model.StructuredData;
         entity.NetworkMetadata = model.NetworkMetadata;
+        entity.SenderInfo = model.SenderInfo;
+        entity.OriginId = model.OriginId;
         entity.PriorityLevel = model.PriorityLevel;
         entity.Status = model.Status;
         entity.WaitTimeMinutes = model.WaitTimeMinutes;

@@ -10,6 +10,8 @@ public class SosRequestDto
     public string RawMessage { get; set; } = string.Empty;
     public string? StructuredData { get; set; }
     public string? NetworkMetadata { get; set; }
+    public string? SenderInfo { get; set; }
+    public string? OriginId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? PriorityLevel { get; set; }
     public int? WaitTimeMinutes { get; set; }

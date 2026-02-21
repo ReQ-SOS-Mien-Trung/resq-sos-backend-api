@@ -7,6 +7,9 @@ public class CreateSosRequestRequestDto
     [JsonPropertyName("packet_id")]
     public Guid? PacketId { get; set; }
 
+    [JsonPropertyName("origin_id")]
+    public string? OriginId { get; set; }
+
     [JsonPropertyName("ts")]
     public long? Timestamp { get; set; }
 
@@ -24,6 +27,9 @@ public class CreateSosRequestRequestDto
 
     [JsonPropertyName("network_metadata")]
     public NetworkMetadataDto? NetworkMetadata { get; set; }
+
+    [JsonPropertyName("sender_info")]
+    public SenderInfoDto? SenderInfo { get; set; }
 }
 
 public class LocationDto
@@ -43,11 +49,17 @@ public class StructuredDataDto
     [JsonPropertyName("situation")]
     public string? Situation { get; set; }
 
+    [JsonPropertyName("other_situation_description")]
+    public string? OtherSituationDescription { get; set; }
+
     [JsonPropertyName("has_injured")]
     public bool? HasInjured { get; set; }
 
     [JsonPropertyName("medical_issues")]
     public List<string>? MedicalIssues { get; set; }
+
+    [JsonPropertyName("other_medical_description")]
+    public string? OtherMedicalDescription { get; set; }
 
     [JsonPropertyName("others_are_stable")]
     public bool? OthersAreStable { get; set; }
@@ -60,6 +72,12 @@ public class StructuredDataDto
 
     [JsonPropertyName("need_medical")]
     public bool? NeedMedical { get; set; }
+
+    [JsonPropertyName("supplies")]
+    public List<string>? Supplies { get; set; }
+
+    [JsonPropertyName("other_supply_description")]
+    public string? OtherSupplyDescription { get; set; }
 
     [JsonPropertyName("additional_description")]
     public string? AdditionalDescription { get; set; }
@@ -84,4 +102,25 @@ public class NetworkMetadataDto
 
     [JsonPropertyName("path")]
     public List<string>? Path { get; set; }
+}
+
+public class SenderInfoDto
+{
+    [JsonPropertyName("device_id")]
+    public string? DeviceId { get; set; }
+
+    [JsonPropertyName("user_id")]
+    public string? UserId { get; set; }
+
+    [JsonPropertyName("user_name")]
+    public string? UserName { get; set; }
+
+    [JsonPropertyName("user_phone")]
+    public string? UserPhone { get; set; }
+
+    [JsonPropertyName("battery_level")]
+    public int? BatteryLevel { get; set; }
+
+    [JsonPropertyName("is_online")]
+    public bool? IsOnline { get; set; }
 }
