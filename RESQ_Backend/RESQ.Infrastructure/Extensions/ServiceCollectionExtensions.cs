@@ -65,6 +65,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ISosPriorityEvaluationService, SosPriorityEvaluationService>();
         services.AddScoped<ISosAiAnalysisService, SosAiAnalysisService>();
+        services.AddScoped<IAiModelTestService, AiModelTestService>();
+        services.AddScoped<IRescueMissionSuggestionService, RescueMissionSuggestionService>();
 
         // Background Services
         services.AddSingleton<SosAiAnalysisQueue>();

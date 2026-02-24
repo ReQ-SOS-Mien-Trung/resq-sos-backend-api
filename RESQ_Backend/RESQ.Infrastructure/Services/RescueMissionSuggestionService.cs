@@ -1,0 +1,366 @@
+using System.Diagnostics;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
+
+namespace RESQ.Infrastructure.Services;
+
+public class RescueMissionSuggestionService : IRescueMissionSuggestionService
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IPromptRepository _promptRepository;
+    private readonly ILogger<RescueMissionSuggestionService> _logger;
+    private readonly string _apiKey;
+
+    private const string PROMPT_NAME = "Mission Planning Prompt";
+
+    // Fallback defaults - chỉ dùng khi field trong DB bị null
+    private const string FALLBACK_MODEL = "gemini-2.5-flash";
+    private const string FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
+    private const double FALLBACK_TEMPERATURE = 0.5;
+    private const int FALLBACK_MAX_TOKENS = 4096;
+
+    public RescueMissionSuggestionService(
+        IHttpClientFactory httpClientFactory,
+        IPromptRepository promptRepository,
+        IConfiguration configuration,
+        ILogger<RescueMissionSuggestionService> logger)
+    {
+        _httpClientFactory = httpClientFactory;
+        _promptRepository = promptRepository;
+        _logger = logger;
+        _apiKey = configuration["Gemini:ApiKey"] ?? throw new InvalidOperationException("Gemini API key not configured");
+    }
+
+    public async Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
+        List<SosRequestSummary> sosRequests,
+        CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            _logger.LogInformation("Generating rescue mission suggestion for {count} SOS requests", sosRequests.Count);
+
+            // Load prompt config from database
+            var prompt = await _promptRepository.GetByNameAsync(PROMPT_NAME, cancellationToken);
+            if (prompt == null)
+            {
+                _logger.LogWarning("Prompt '{promptName}' not found in database.", PROMPT_NAME);
+                return new RescueMissionSuggestionResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = $"Prompt '{PROMPT_NAME}' chưa được cấu hình trong database. Vui lòng thêm prompt trong quản trị hệ thống.",
+                    ResponseTimeMs = stopwatch.ElapsedMilliseconds
+                };
+            }
+
+            if (!prompt.IsActive)
+            {
+                return new RescueMissionSuggestionResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = "Prompt cấu hình cho Mission Planning hiện đang tắt. Vui lòng kích hoạt trong quản trị hệ thống.",
+                    ModelName = prompt.Model,
+                    ResponseTimeMs = stopwatch.ElapsedMilliseconds
+                };
+            }
+
+            var modelName = prompt.Model ?? FALLBACK_MODEL;
+            var apiUrl = prompt.ApiUrl ?? FALLBACK_API_URL;
+            var temperature = prompt.Temperature ?? FALLBACK_TEMPERATURE;
+            var maxTokens = prompt.MaxTokens ?? FALLBACK_MAX_TOKENS;
+
+            _logger.LogInformation(
+                "Using AI config from DB: Model={model}, Temperature={temperature}, MaxTokens={maxTokens}",
+                modelName, temperature, maxTokens);
+
+            // Build data for prompt
+            var sosDataJson = BuildSosRequestsData(sosRequests);
+            var userPrompt = (prompt.UserPromptTemplate ?? string.Empty)
+                .Replace("{{sos_requests_data}}", sosDataJson)
+                .Replace("{{total_count}}", sosRequests.Count.ToString());
+
+            // Call Gemini API
+            var aiResponse = await CallAiApiAsync(modelName, apiUrl, prompt.SystemPrompt ?? string.Empty, userPrompt, temperature, maxTokens, cancellationToken);
+
+            stopwatch.Stop();
+
+            if (aiResponse == null)
+            {
+                return new RescueMissionSuggestionResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = "AI không phản hồi. Vui lòng thử lại sau.",
+                    ModelName = modelName,
+                    ResponseTimeMs = stopwatch.ElapsedMilliseconds
+                };
+            }
+
+            // Parse AI response
+            var result = ParseMissionSuggestion(aiResponse);
+            result.IsSuccess = true;
+            result.ModelName = modelName;
+            result.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
+            result.RawAiResponse = aiResponse;
+
+            _logger.LogInformation(
+                "Rescue mission suggestion generated: Title={title}, Type={type}, Priority={priority}, Activities={activityCount}, Confidence={confidence}",
+                result.SuggestedMissionTitle, result.SuggestedMissionType, result.SuggestedPriorityScore,
+                result.SuggestedActivities.Count, result.ConfidenceScore);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "Error generating rescue mission suggestion");
+            return new RescueMissionSuggestionResult
+            {
+                IsSuccess = false,
+                ErrorMessage = $"Lỗi khi gọi AI: {ex.Message}",
+                ResponseTimeMs = stopwatch.ElapsedMilliseconds
+            };
+        }
+    }
+
+    private static string BuildSosRequestsData(List<SosRequestSummary> sosRequests)
+    {
+        var entries = sosRequests.Select((sos, index) => new
+        {
+            stt = index + 1,
+            id = sos.Id,
+            loai_sos = sos.SosType ?? "Không xác định",
+            tin_nhan = sos.RawMessage,
+            du_lieu_chi_tiet = sos.StructuredData ?? "Không có",
+            muc_uu_tien = sos.PriorityLevel ?? "Chưa đánh giá",
+            trang_thai = sos.Status ?? "Không rõ",
+            vi_tri = sos.Latitude.HasValue && sos.Longitude.HasValue
+                ? $"{sos.Latitude}, {sos.Longitude}"
+                : "Không xác định",
+            thoi_gian_cho_phut = sos.WaitTimeMinutes,
+            thoi_gian_tao = sos.CreatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
+        });
+
+        return JsonSerializer.Serialize(entries, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+    }
+
+    private async Task<string?> CallAiApiAsync(string model, string apiUrlTemplate, string systemPrompt, string userPrompt, double temperature, int maxTokens, CancellationToken cancellationToken)
+    {
+        var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(60);
+
+        var url = string.Format(apiUrlTemplate, model, _apiKey);
+
+        var requestBody = new GeminiRequest
+        {
+            Contents =
+            [
+                new()
+                {
+                    Parts = [new() { Text = $"{systemPrompt}\n\n{userPrompt}" }]
+                }
+            ],
+            GenerationConfig = new GeminiGenerationConfig
+            {
+                Temperature = temperature,
+                MaxOutputTokens = maxTokens
+            }
+        };
+
+        var response = await client.PostAsJsonAsync(url, requestBody, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError("AI API error: {statusCode} - {error}", response.StatusCode, error);
+            return null;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<GeminiResponse>(cancellationToken: cancellationToken);
+        return result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+    }
+
+    private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
+    {
+        try
+        {
+            var jsonStart = response.IndexOf('{');
+            var jsonEnd = response.LastIndexOf('}');
+
+            if (jsonStart >= 0 && jsonEnd > jsonStart)
+            {
+                var jsonStr = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
+                var parsed = JsonSerializer.Deserialize<AiMissionSuggestion>(jsonStr, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (parsed != null)
+                {
+                    return new RescueMissionSuggestionResult
+                    {
+                        SuggestedMissionTitle = parsed.MissionTitle,
+                        SuggestedMissionType = parsed.MissionType,
+                        SuggestedPriorityScore = parsed.PriorityScore,
+                        SuggestedSeverityLevel = parsed.SeverityLevel,
+                        OverallAssessment = parsed.OverallAssessment,
+                        SuggestedActivities = parsed.Activities?.Select(a => new SuggestedActivityDto
+                        {
+                            Step = a.Step,
+                            ActivityType = a.ActivityType ?? string.Empty,
+                            Description = a.Description ?? string.Empty,
+                            Priority = a.Priority,
+                            EstimatedTime = a.EstimatedTime
+                        }).ToList() ?? [],
+                        SuggestedResources = parsed.Resources?.Select(r => new SuggestedResourceDto
+                        {
+                            ResourceType = r.ResourceType ?? string.Empty,
+                            Description = r.Description ?? string.Empty,
+                            Quantity = r.Quantity,
+                            Priority = r.Priority
+                        }).ToList() ?? [],
+                        EstimatedDuration = parsed.EstimatedDuration,
+                        SpecialNotes = parsed.SpecialNotes,
+                        ConfidenceScore = parsed.ConfidenceScore
+                    };
+                }
+            }
+        }
+        catch
+        {
+            // Fallback if JSON parsing fails
+        }
+
+        return new RescueMissionSuggestionResult
+        {
+            SuggestedMissionTitle = "Nhiệm vụ giải cứu",
+            OverallAssessment = response.Length > 1000 ? response[..1000] : response,
+            ConfidenceScore = 0.3
+        };
+    }
+
+    #region Gemini API Models
+
+    private class GeminiRequest
+    {
+        [JsonPropertyName("contents")]
+        public List<GeminiContent> Contents { get; set; } = [];
+
+        [JsonPropertyName("generationConfig")]
+        public GeminiGenerationConfig? GenerationConfig { get; set; }
+    }
+
+    private class GeminiContent
+    {
+        [JsonPropertyName("parts")]
+        public List<GeminiPart> Parts { get; set; } = [];
+    }
+
+    private class GeminiPart
+    {
+        [JsonPropertyName("text")]
+        public string? Text { get; set; }
+    }
+
+    private class GeminiGenerationConfig
+    {
+        [JsonPropertyName("temperature")]
+        public double Temperature { get; set; }
+
+        [JsonPropertyName("maxOutputTokens")]
+        public int MaxOutputTokens { get; set; }
+    }
+
+    private class GeminiResponse
+    {
+        [JsonPropertyName("candidates")]
+        public List<GeminiCandidate>? Candidates { get; set; }
+    }
+
+    private class GeminiCandidate
+    {
+        [JsonPropertyName("content")]
+        public GeminiContent? Content { get; set; }
+    }
+
+    #endregion
+
+    #region AI Response Models
+
+    private class AiMissionSuggestion
+    {
+        [JsonPropertyName("mission_title")]
+        public string? MissionTitle { get; set; }
+
+        [JsonPropertyName("mission_type")]
+        public string? MissionType { get; set; }
+
+        [JsonPropertyName("priority_score")]
+        public double PriorityScore { get; set; }
+
+        [JsonPropertyName("severity_level")]
+        public string? SeverityLevel { get; set; }
+
+        [JsonPropertyName("overall_assessment")]
+        public string? OverallAssessment { get; set; }
+
+        [JsonPropertyName("activities")]
+        public List<AiActivity>? Activities { get; set; }
+
+        [JsonPropertyName("resources")]
+        public List<AiResource>? Resources { get; set; }
+
+        [JsonPropertyName("estimated_duration")]
+        public string? EstimatedDuration { get; set; }
+
+        [JsonPropertyName("special_notes")]
+        public string? SpecialNotes { get; set; }
+
+        [JsonPropertyName("confidence_score")]
+        public double ConfidenceScore { get; set; }
+    }
+
+    private class AiActivity
+    {
+        [JsonPropertyName("step")]
+        public int Step { get; set; }
+
+        [JsonPropertyName("activity_type")]
+        public string? ActivityType { get; set; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [JsonPropertyName("priority")]
+        public string? Priority { get; set; }
+
+        [JsonPropertyName("estimated_time")]
+        public string? EstimatedTime { get; set; }
+    }
+
+    private class AiResource
+    {
+        [JsonPropertyName("resource_type")]
+        public string? ResourceType { get; set; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [JsonPropertyName("quantity")]
+        public int? Quantity { get; set; }
+
+        [JsonPropertyName("priority")]
+        public string? Priority { get; set; }
+    }
+
+    #endregion
+}

@@ -17,7 +17,10 @@ public static class PromptMapper
             Temperature = model.Temperature,
             MaxTokens = model.MaxTokens,
             Version = model.Version,
-            CreatedAt = model.CreatedAt
+            ApiUrl = model.ApiUrl,
+            IsActive = model.IsActive,
+            CreatedAt = model.CreatedAt,
+            UpdatedAt = model.UpdatedAt
         };
 
         if (model.Id > 0)
@@ -41,7 +44,10 @@ public static class PromptMapper
             Temperature = entity.Temperature,
             MaxTokens = entity.MaxTokens,
             Version = entity.Version,
-            CreatedAt = entity.CreatedAt
+            ApiUrl = entity.ApiUrl,
+            IsActive = entity.IsActive,
+            CreatedAt = entity.CreatedAt,
+            UpdatedAt = entity.UpdatedAt
         };
     }
 }

@@ -18,8 +18,8 @@ public class SosRequestModel
     public string? NetworkMetadata { get; set; }
     public string? SenderInfo { get; set; }
     public string? OriginId { get; set; }
-    public string? PriorityLevel { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public SosPriorityLevel? PriorityLevel { get; set; }
+    public SosRequestStatus Status { get; set; } = SosRequestStatus.Pending;
     public int? WaitTimeMinutes { get; set; }
     public long? Timestamp { get; set; }
     public DateTime? CreatedAt { get; set; }
@@ -63,8 +63,8 @@ public class SosRequestModel
             NetworkMetadata = networkMetadata,
             SenderInfo = senderInfo,
             Timestamp = timestamp,
-            Status = status.ToString(),
-            PriorityLevel = priorityLevel?.ToString(),
+            Status = status,
+            PriorityLevel = priorityLevel,
             CreatedAt = DateTime.UtcNow,
             LastUpdatedAt = DateTime.UtcNow
         };
@@ -72,12 +72,12 @@ public class SosRequestModel
 
     public void SetPriorityLevel(SosPriorityLevel level)
     {
-        PriorityLevel = level.ToString();
+        PriorityLevel = level;
     }
 
     public void SetStatus(SosRequestStatus status)
     {
-        Status = status.ToString();
+        Status = status;
         LastUpdatedAt = DateTime.UtcNow;
     }
 }

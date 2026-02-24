@@ -15,4 +15,14 @@ public static class SeedConstants
     public static readonly Guid RescuerUserId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     public static readonly Guid ManagerUserId = Guid.Parse("44444444-4444-4444-4444-444444444444");
     public static readonly Guid VictimUserId = Guid.Parse("55555555-5555-5555-5555-555555555555");
-}
+
+    // Rescuer Applicant GUIDs (dùng để seed đơn đăng ký rescuer)
+    public static readonly Guid Applicant1UserId = Guid.Parse("66666666-6666-6666-6666-666666666661");
+    public static readonly Guid Applicant2UserId = Guid.Parse("66666666-6666-6666-6666-666666666662");
+    public static readonly Guid Applicant3UserId = Guid.Parse("66666666-6666-6666-6666-666666666663");
+    public static readonly Guid Applicant4UserId = Guid.Parse("66666666-6666-6666-6666-666666666664");
+    public static readonly Guid Applicant5UserId = Guid.Parse("66666666-6666-6666-6666-666666666665");
+
+    // Password hash cho applicant (dùng chung Victim@123)
+    public const string ApplicantPasswordHash = VictimPasswordHash;
+}

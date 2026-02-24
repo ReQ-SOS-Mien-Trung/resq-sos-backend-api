@@ -1,3 +1,5 @@
+using RESQ.Domain.Enum.Emergency;
+
 namespace RESQ.Domain.Entities.Emergency;
 
 public class SosRuleEvaluationModel
@@ -10,7 +12,7 @@ public class SosRuleEvaluationModel
     public double MobilityScore { get; set; }
     public double EnvironmentScore { get; set; }
     public double TotalScore { get; set; }
-    public string PriorityLevel { get; set; } = string.Empty;
+    public SosPriorityLevel PriorityLevel { get; set; }
     public string RuleVersion { get; set; } = "1.0";
     public string? ItemsNeeded { get; set; }
     public DateTime CreatedAt { get; set; }

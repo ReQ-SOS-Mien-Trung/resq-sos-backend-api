@@ -1,4 +1,5 @@
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 
 namespace RESQ.Infrastructure.Mappers.Emergency;
@@ -16,7 +17,7 @@ public static class SosRuleEvaluationMapper
             MobilityScore = model.MobilityScore,
             EnvironmentScore = model.EnvironmentScore,
             TotalScore = model.TotalScore,
-            PriorityLevel = model.PriorityLevel,
+            PriorityLevel = model.PriorityLevel.ToString(),
             RuleVersion = model.RuleVersion,
             ItemsNeeded = model.ItemsNeeded,
             CreatedAt = model.CreatedAt
@@ -35,7 +36,7 @@ public static class SosRuleEvaluationMapper
             MobilityScore = entity.MobilityScore ?? 0,
             EnvironmentScore = entity.EnvironmentScore ?? 0,
             TotalScore = entity.TotalScore ?? 0,
-            PriorityLevel = entity.PriorityLevel ?? string.Empty,
+            PriorityLevel = Enum.TryParse<SosPriorityLevel>(entity.PriorityLevel, out var priority) ? priority : SosPriorityLevel.Low,
             RuleVersion = entity.RuleVersion ?? "1.0",
             ItemsNeeded = entity.ItemsNeeded,
             CreatedAt = entity.CreatedAt ?? DateTime.UtcNow

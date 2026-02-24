@@ -1,4 +1,5 @@
 using RESQ.Domain.Entities.Identity;
+using RESQ.Domain.Enum.Identity;
 using RESQ.Infrastructure.Entities.Identity;
 
 namespace RESQ.Infrastructure.Mappers.Identity
@@ -11,7 +12,7 @@ namespace RESQ.Infrastructure.Mappers.Identity
             {
                 Id = model.Id,
                 UserId = model.UserId,
-                Status = model.Status,
+                Status = model.Status.ToString(),
                 SubmittedAt = model.SubmittedAt,
                 ReviewedAt = model.ReviewedAt,
                 ReviewedBy = model.ReviewedBy,
@@ -25,7 +26,9 @@ namespace RESQ.Infrastructure.Mappers.Identity
             {
                 Id = entity.Id,
                 UserId = entity.UserId,
-                Status = entity.Status,
+                Status = Enum.TryParse<RescuerApplicationStatus>(entity.Status, out var status)
+                    ? status
+                    : RescuerApplicationStatus.Pending,
                 SubmittedAt = entity.SubmittedAt,
                 ReviewedAt = entity.ReviewedAt,
                 ReviewedBy = entity.ReviewedBy,
