@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Domain.Entities.Identity;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
 {
@@ -52,7 +53,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
             var application = new RescuerApplicationModel
             {
                 UserId = request.UserId,
-                Status = "Pending",
+                Status = RescuerApplicationStatus.Pending,
                 SubmittedAt = DateTime.UtcNow,
                 AdminNote = request.Note
             };
@@ -85,7 +86,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
             {
                 ApplicationId = applicationId,
                 UserId = request.UserId,
-                Status = "Pending",
+                Status = RescuerApplicationStatus.Pending.ToString(),
                 SubmittedAt = application.SubmittedAt ?? DateTime.UtcNow,
                 Message = "Đơn đăng ký đã được gửi thành công. Vui lòng đợi quản trị viên xét duyệt.",
                 DocumentCount = documentCount

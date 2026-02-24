@@ -36,7 +36,6 @@ public static class SystemSeeder
 
     private static void SeedPrompts(ModelBuilder modelBuilder)
     {
-        // Adjusted to Utc
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Prompt>().HasData(
@@ -49,6 +48,9 @@ public static class SystemSeeder
                 Temperature = 0.3,
                 MaxTokens = 1000,
                 Version = "v1.0",
+                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
+                Model = "gemini-2.5-flash",
+                IsActive = true,
                 CreatedAt = now
             },
             new Prompt
@@ -56,10 +58,49 @@ public static class SystemSeeder
                 Id = 2,
                 Name = "Mission Planning Prompt",
                 Purpose = "Lập kế hoạch nhiệm vụ cứu trợ",
-                SystemPrompt = "Bạn là một AI hỗ trợ lập kế hoạch nhiệm vụ cứu trợ thiên tai...",
+                SystemPrompt = @"Bạn là một chuyên gia lập kế hoạch nhiệm vụ cứu trợ thiên tai. Dựa trên danh sách các yêu cầu SOS, bạn cần phân tích tổng thể tình hình và đề xuất kế hoạch nhiệm vụ giải cứu.
+
+Bạn phải trả lời bằng JSON với format sau:
+{
+  ""mission_title"": ""Tên nhiệm vụ ngắn gọn"",
+  ""mission_type"": ""RESCUE|EVACUATION|MEDICAL|SUPPLY|MIXED"",
+  ""priority_score"": 0.0-10.0,
+  ""severity_level"": ""Critical|Severe|Moderate|Minor"",
+  ""overall_assessment"": ""Đánh giá tổng thể tình hình"",
+  ""activities"": [
+    {
+      ""step"": 1,
+      ""activity_type"": ""RESCUE|EVACUATE|DELIVER_SUPPLIES|MEDICAL_AID|ASSESS"",
+      ""description"": ""Mô tả hoạt động"",
+      ""priority"": ""Critical|High|Medium|Low"",
+      ""estimated_time"": ""30 phút""
+    }
+  ],
+  ""resources"": [
+    {
+      ""resource_type"": ""TEAM|VEHICLE|MEDICAL_KIT|FOOD|WATER|BOAT|EQUIPMENT"",
+      ""description"": ""Mô tả tài nguyên cần thiết"",
+      ""quantity"": 1,
+      ""priority"": ""Critical|High|Medium|Low""
+    }
+  ],
+  ""estimated_duration"": ""Thời gian ước tính hoàn thành"",
+  ""special_notes"": ""Lưu ý đặc biệt"",
+  ""confidence_score"": 0.0-1.0
+}",
+                UserPromptTemplate = @"Dựa trên các yêu cầu SOS sau đây, hãy đề xuất kế hoạch nhiệm vụ giải cứu:
+
+{{sos_requests_data}}
+
+Tổng số yêu cầu SOS: {{total_count}}
+
+Hãy phân tích tình hình và đưa ra đề xuất nhiệm vụ giải cứu phù hợp nhất.",
                 Temperature = 0.5,
-                MaxTokens = 2000,
+                MaxTokens = 4096,
                 Version = "v1.0",
+                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
+                Model = "gemini-2.5-flash",
+                IsActive = true,
                 CreatedAt = now
             },
             new Prompt
@@ -96,9 +137,11 @@ Dữ liệu chi tiết: {{structured_data}}
 
 Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này.",
                 Model = "gemini-2.5-flash",
+                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
                 Temperature = 0.3,
                 MaxTokens = 1024,
                 Version = "1.0",
+                IsActive = true,
                 CreatedAt = now
             }
         );

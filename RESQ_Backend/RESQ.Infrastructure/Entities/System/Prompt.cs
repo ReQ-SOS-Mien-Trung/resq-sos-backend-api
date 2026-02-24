@@ -40,6 +40,16 @@ public partial class Prompt
     [StringLength(20)]
     public string? Version { get; set; }
 
+    [Column("api_url")]
+    [StringLength(500)]
+    public string? ApiUrl { get; set; }
+
+    [Column("is_active")]
+    public bool IsActive { get; set; } = true;
+
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
+
+    [Column("updated_at", TypeName = "timestamp with time zone")]
+    public DateTime? UpdatedAt { get; set; }
 }

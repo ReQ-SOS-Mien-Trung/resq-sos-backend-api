@@ -8,6 +8,8 @@ using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Entities.System;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Infrastructure.Services;
 
@@ -22,8 +24,12 @@ public class SosAiAnalysisService : ISosAiAnalysisService
     private readonly string _apiKey;
 
     private const string PROMPT_NAME = "SOS_PRIORITY_ANALYSIS";
-    private const string DEFAULT_MODEL = "gemini-2.5-flash";
-    private const string GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
+
+    // Fallback defaults - chỉ dùng khi database chưa có cấu hình
+    private const string FALLBACK_MODEL = "gemini-2.5-flash";
+    private const string FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
+    private const double FALLBACK_TEMPERATURE = 0.3;
+    private const int FALLBACK_MAX_TOKENS = 2048;
 
     public SosAiAnalysisService(
         IHttpClientFactory httpClientFactory,
@@ -49,19 +55,35 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         {
             _logger.LogInformation("Starting AI analysis for SOS Request Id={sosRequestId}", sosRequestId);
 
-            // Get prompt from database
+            // Get prompt configuration from database (model, url, temperature, etc.)
             var prompt = await _promptRepository.GetByNameAsync(PROMPT_NAME, cancellationToken);
             if (prompt == null)
             {
-                _logger.LogWarning("Prompt '{promptName}' not found. Skipping AI analysis.", PROMPT_NAME);
+                _logger.LogWarning("Prompt '{promptName}' not found in database. Skipping AI analysis.", PROMPT_NAME);
                 return;
             }
+
+            if (!prompt.IsActive)
+            {
+                _logger.LogWarning("Prompt '{promptName}' is inactive. Skipping AI analysis.", PROMPT_NAME);
+                return;
+            }
+
+            // Resolve AI configuration from database, fallback to defaults
+            var modelName = prompt.Model ?? FALLBACK_MODEL;
+            var apiUrl = prompt.ApiUrl ?? FALLBACK_API_URL;
+            var temperature = prompt.Temperature ?? FALLBACK_TEMPERATURE;
+            var maxTokens = prompt.MaxTokens ?? FALLBACK_MAX_TOKENS;
+
+            _logger.LogInformation(
+                "Using AI config from DB: Model={model}, ApiUrl={apiUrl}, Temperature={temperature}, MaxTokens={maxTokens}",
+                modelName, apiUrl, temperature, maxTokens);
 
             // Build user prompt from template
             var userPrompt = BuildUserPrompt(prompt.UserPromptTemplate, structuredData, rawMessage, sosType);
 
-            // Call Gemini API
-            var aiResponse = await CallGeminiApiAsync(prompt.Model ?? DEFAULT_MODEL, prompt.SystemPrompt, userPrompt, prompt.Temperature ?? 0.3, cancellationToken);
+            // Call AI API using database configuration
+            var aiResponse = await CallAiApiAsync(modelName, apiUrl, prompt.SystemPrompt, userPrompt, temperature, maxTokens, cancellationToken);
 
             if (aiResponse == null)
             {
@@ -75,7 +97,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             // Create and save analysis
             var analysis = SosAiAnalysisModel.Create(
                 sosRequestId: sosRequestId,
-                modelName: prompt.Model ?? DEFAULT_MODEL,
+                modelName: modelName,
                 modelVersion: prompt.Version,
                 analysisType: "PRIORITY_ANALYSIS",
                 suggestedSeverityLevel: analysisResult.SeverityLevel,
@@ -83,24 +105,27 @@ public class SosAiAnalysisService : ISosAiAnalysisService
                 explanation: analysisResult.Explanation,
                 confidenceScore: analysisResult.ConfidenceScore,
                 suggestionScope: "SOS_REQUEST",
-                metadata: JsonSerializer.Serialize(new { rawResponse = aiResponse, analysisResult })
+                metadata: JsonSerializer.Serialize(new { rawResponse = aiResponse, analysisResult, promptId = prompt.Id, promptVersion = prompt.Version })
             );
 
             await _sosAiAnalysisRepository.CreateAsync(analysis, cancellationToken);
 
             // Update SOS request with AI suggested priority if not already set
             var sosRequest = await _sosRequestRepository.GetByIdAsync(sosRequestId, cancellationToken);
-            if (sosRequest != null && string.IsNullOrEmpty(sosRequest.PriorityLevel))
+            if (sosRequest != null && sosRequest.PriorityLevel == null)
             {
-                sosRequest.PriorityLevel = analysisResult.Priority;
-                await _sosRequestRepository.UpdateAsync(sosRequest, cancellationToken);
+                if (Enum.TryParse<SosPriorityLevel>(analysisResult.Priority, true, out var aiPriority))
+                {
+                    sosRequest.PriorityLevel = aiPriority;
+                    await _sosRequestRepository.UpdateAsync(sosRequest, cancellationToken);
+                }
             }
 
             await _unitOfWork.SaveAsync();
 
             _logger.LogInformation(
-                "AI analysis completed for SOS Request Id={sosRequestId}: Priority={priority}, Severity={severity}, Confidence={confidence}",
-                sosRequestId, analysisResult.Priority, analysisResult.SeverityLevel, analysisResult.ConfidenceScore);
+                "AI analysis completed for SOS Request Id={sosRequestId}: Model={model}, Priority={priority}, Severity={severity}, Confidence={confidence}",
+                sosRequestId, modelName, analysisResult.Priority, analysisResult.SeverityLevel, analysisResult.ConfidenceScore);
         }
         catch (Exception ex)
         {
@@ -121,12 +146,18 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             .Replace("{{sos_type}}", sosType ?? "UNKNOWN");
     }
 
-    private async Task<string?> CallGeminiApiAsync(string model, string? systemPrompt, string userPrompt, double temperature, CancellationToken cancellationToken)
+    /// <summary>
+    /// Gọi AI API sử dụng cấu hình từ database (model, url, temperature, maxTokens).
+    /// URL template hỗ trợ placeholder {0} cho model name và {1} cho API key.
+    /// </summary>
+    private async Task<string?> CallAiApiAsync(string model, string apiUrlTemplate, string? systemPrompt, string userPrompt, double temperature, int maxTokens, CancellationToken cancellationToken)
     {
         try
         {
             var client = _httpClientFactory.CreateClient();
-            var url = string.Format(GEMINI_API_URL, model, _apiKey);
+
+            // Build URL from template stored in database
+            var url = string.Format(apiUrlTemplate, model, _apiKey);
 
             var requestBody = new GeminiRequest
             {
@@ -143,7 +174,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
                 GenerationConfig = new GeminiGenerationConfig
                 {
                     Temperature = temperature,
-                    MaxOutputTokens = 2048
+                    MaxOutputTokens = maxTokens
                 }
             };
 
@@ -152,7 +183,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogError("Gemini API error: {statusCode} - {error}", response.StatusCode, error);
+                _logger.LogError("AI API error: {statusCode} - {error} (Model={model}, URL={url})", response.StatusCode, error, model, apiUrlTemplate);
                 return null;
             }
 
@@ -161,7 +192,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling Gemini API");
+            _logger.LogError(ex, "Error calling AI API (Model={model}, URL={url})", model, apiUrlTemplate);
             return null;
         }
     }

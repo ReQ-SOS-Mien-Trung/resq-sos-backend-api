@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication
 {
@@ -31,13 +32,13 @@ namespace RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication
             }
 
             // 2. Check if already reviewed
-            if (application.Status != "Pending")
+            if (application.Status != RescuerApplicationStatus.Pending)
             {
                 throw new ConflictException($"Đơn đăng ký đã được xử lý với trạng thái: {application.Status}");
             }
 
             // 3. Update application status
-            var newStatus = request.IsApproved ? "Approved" : "Rejected";
+            var newStatus = request.IsApproved ? RescuerApplicationStatus.Approved : RescuerApplicationStatus.Rejected;
             application.Status = newStatus;
             application.ReviewedAt = DateTime.UtcNow;
             application.ReviewedBy = request.ReviewedBy;
@@ -69,7 +70,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication
             {
                 ApplicationId = application.Id,
                 UserId = application.UserId ?? Guid.Empty,
-                Status = newStatus,
+                Status = newStatus.ToString(),
                 ReviewedAt = application.ReviewedAt ?? DateTime.UtcNow,
                 ReviewedBy = request.ReviewedBy,
                 Message = request.IsApproved

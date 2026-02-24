@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
+using RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
 using RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
@@ -95,6 +96,21 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             return Unauthorized();
 
         var result = await _mediator.Send(new GetSosRequestQuery(id, userId, roleId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Gửi danh sách SOS request IDs để AI đề xuất kế hoạch nhiệm vụ giải cứu.
+    /// </summary>
+    [HttpPost("rescue-suggestion")]
+    [Authorize(Roles = "1,2,4")]
+    public async Task<IActionResult> GenerateRescueMissionSuggestion([FromBody] GenerateRescueMissionSuggestionRequestDto dto)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var command = new GenerateRescueMissionSuggestionCommand(dto.SosRequestIds, userId);
+        var result = await _mediator.Send(command);
         return Ok(result);
     }
 

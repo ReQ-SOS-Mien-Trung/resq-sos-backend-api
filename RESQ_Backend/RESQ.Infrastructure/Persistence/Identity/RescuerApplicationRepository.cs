@@ -90,7 +90,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
             
             if (entity is not null)
             {
-                entity.Status = application.Status;
+                entity.Status = application.Status.ToString();
                 entity.ReviewedAt = application.ReviewedAt;
                 entity.ReviewedBy = application.ReviewedBy;
                 entity.AdminNote = application.AdminNote;

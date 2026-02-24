@@ -1,6 +1,7 @@
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 
 namespace RESQ.Infrastructure.Mappers.Emergency;
@@ -21,8 +22,8 @@ public static class SosRequestMapper
             NetworkMetadata = model.NetworkMetadata,
             SenderInfo = model.SenderInfo,
             OriginId = model.OriginId,
-            PriorityLevel = model.PriorityLevel,
-            Status = model.Status,
+            PriorityLevel = model.PriorityLevel?.ToString(),
+            Status = model.Status.ToString(),
             WaitTimeMinutes = model.WaitTimeMinutes,
             Timestamp = model.Timestamp,
             CreatedAt = model.CreatedAt,
@@ -66,8 +67,8 @@ public static class SosRequestMapper
             NetworkMetadata = entity.NetworkMetadata,
             SenderInfo = entity.SenderInfo,
             OriginId = entity.OriginId,
-            PriorityLevel = entity.PriorityLevel,
-            Status = entity.Status ?? string.Empty,
+            PriorityLevel = Enum.TryParse<SosPriorityLevel>(entity.PriorityLevel, out var priority) ? priority : null,
+            Status = Enum.TryParse<SosRequestStatus>(entity.Status, out var status) ? status : SosRequestStatus.Pending,
             WaitTimeMinutes = entity.WaitTimeMinutes,
             Timestamp = entity.Timestamp,
             CreatedAt = entity.CreatedAt,
@@ -88,8 +89,8 @@ public static class SosRequestMapper
         entity.NetworkMetadata = model.NetworkMetadata;
         entity.SenderInfo = model.SenderInfo;
         entity.OriginId = model.OriginId;
-        entity.PriorityLevel = model.PriorityLevel;
-        entity.Status = model.Status;
+        entity.PriorityLevel = model.PriorityLevel?.ToString();
+        entity.Status = model.Status.ToString();
         entity.WaitTimeMinutes = model.WaitTimeMinutes;
         entity.Timestamp = model.Timestamp;
         entity.LastUpdatedAt = DateTime.UtcNow;

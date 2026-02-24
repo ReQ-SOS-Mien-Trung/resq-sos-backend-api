@@ -49,7 +49,7 @@ public class SosPriorityEvaluationService : ISosPriorityEvaluationService
         evaluation.TotalScore = CalculateTotalScore(evaluation);
 
         // Determine priority level based on total score
-        evaluation.PriorityLevel = DeterminePriorityLevel(evaluation.TotalScore).ToString();
+        evaluation.PriorityLevel = DeterminePriorityLevel(evaluation.TotalScore);
 
         // Determine items needed based on situation
         evaluation.ItemsNeeded = DetermineItemsNeeded(structuredData, sosType);
