@@ -34,7 +34,8 @@ namespace RESQ.Infrastructure.Services
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username ?? string.Empty),
                 new Claim("phone", user.Phone ?? string.Empty),
-                new Claim("fullName", user.FullName ?? string.Empty),
+                new Claim("firstName", user.FirstName ?? string.Empty),
+                new Claim("lastName", user.LastName ?? string.Empty),
                 new Claim(ClaimTypes.Role, user.RoleId?.ToString() ?? "0"),
                 new Claim("roleId", user.RoleId?.ToString() ?? "0")
             };

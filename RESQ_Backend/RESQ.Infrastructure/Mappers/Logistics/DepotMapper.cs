@@ -95,7 +95,8 @@ namespace RESQ.Infrastructure.Mappers.Resources
                         dm.UserId ?? Guid.Empty,
                         dm.AssignedAt ?? DateTime.MinValue,
                         dm.UnassignedAt,
-                        dm.User?.FullName,
+                        dm.User?.FirstName,
+                        dm.User?.LastName,
                         dm.User?.Email,
                         dm.User?.Phone
                     ));

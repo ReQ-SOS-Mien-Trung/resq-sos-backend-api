@@ -56,7 +56,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
                 {
                     Id = Guid.NewGuid(),
                     Username = googleUser.Email,
-                    FullName = googleUser.Name,
+                    FirstName = googleUser.GivenName,
+                    LastName = googleUser.FamilyName,
                     Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()), // Random password for Google users
                     RoleId = DEFAULT_RESCUER_ROLE_ID,
                     IsOnboarded = false,
@@ -101,7 +102,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
                 TokenType = "Bearer",
                 UserId = user.Id,
                 Username = user.Username,
-                FullName = user.FullName,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
                 RoleId = user.RoleId,
                 IsNewUser = isNewUser,
                 IsOnboarded = user.IsOnboarded
@@ -142,6 +144,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
                 {
                     Email = tokenInfo.Email,
                     Name = tokenInfo.Name,
+                    GivenName = tokenInfo.GivenName,
+                    FamilyName = tokenInfo.FamilyName,
                     Picture = tokenInfo.Picture,
                     EmailVerified = tokenInfo.EmailVerified == "true"
                 };
@@ -170,12 +174,20 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
 
         [JsonPropertyName("email_verified")]
         public string? EmailVerified { get; set; }
+
+        [JsonPropertyName("given_name")]
+        public string? GivenName { get; set; }
+
+        [JsonPropertyName("family_name")]
+        public string? FamilyName { get; set; }
     }
 
     public class GoogleUserInfo
     {
         public string Email { get; set; } = null!;
         public string? Name { get; set; }
+        public string? GivenName { get; set; }
+        public string? FamilyName { get; set; }
         public string? Picture { get; set; }
         public bool EmailVerified { get; set; }
     }

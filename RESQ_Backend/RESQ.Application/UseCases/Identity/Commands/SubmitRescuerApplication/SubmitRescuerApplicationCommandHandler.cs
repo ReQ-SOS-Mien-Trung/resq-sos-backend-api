@@ -39,11 +39,15 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
             }
 
             // 3. Update user profile info
-            user.FullName = request.FullName;
+            user.FirstName = request.FirstName;
+            user.LastName = request.LastName;
             user.Phone = request.Phone;
             user.Address = request.Address;
             user.Ward = request.Ward;
-            user.City = request.City;
+            user.District = request.District;
+            user.Province = request.Province;
+            user.Latitude = request.Latitude;
+            user.Longitude = request.Longitude;
             user.RescuerType = request.RescuerType;
             user.UpdatedAt = DateTime.UtcNow;
 

@@ -69,9 +69,11 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.Phone,
                 dto.Address,
                 dto.Ward,
-                dto.City,
+                dto.District,
+                dto.Province,
                 dto.Latitude,
-                dto.Longitude
+                dto.Longitude,
+                dto.Documents
             );
             var result = await _mediator.Send(command);
             return Ok(result);
@@ -95,11 +97,15 @@ namespace RESQ.Presentation.Controllers.Identity
             var command = new SubmitRescuerApplicationCommand(
                 userId,
                 dto.RescuerType,
-                dto.FullName,
+                dto.FirstName,
+                dto.LastName,
                 dto.Phone,
                 dto.Address,
                 dto.Ward,
-                dto.City,
+                dto.District,
+                dto.Province,
+                dto.Latitude,
+                dto.Longitude,
                 dto.Note,
                 dto.Documents
             );

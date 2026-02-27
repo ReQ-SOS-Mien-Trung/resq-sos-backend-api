@@ -30,7 +30,8 @@ public class GetDepotManagerHistoryQueryHandler(
             .Select(h => new DepotManagerHistoryDto
             {
                 UserId = h.UserId,
-                FullName = h.FullName,
+                FirstName = h.FirstName,
+                LastName = h.LastName,
                 Email = h.Email,
                 Phone = h.Phone,
                 AssignedAt = h.AssignedAt,

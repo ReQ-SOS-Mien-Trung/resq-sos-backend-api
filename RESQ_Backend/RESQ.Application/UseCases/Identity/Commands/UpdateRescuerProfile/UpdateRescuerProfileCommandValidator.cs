@@ -28,9 +28,10 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
             RuleFor(x => x.Ward)
                 .MaximumLength(100).WithMessage("Phường/Xã không được vượt quá 100 ký tự");
 
+            RuleFor(x => x.District)
+                .MaximumLength(100).WithMessage("Quận/Huyện không được vượt quá 100 ký tự");
 
-
-            RuleFor(x => x.City)
+            RuleFor(x => x.Province)
                 .NotEmpty().WithMessage("Tỉnh/Thành phố là bắt buộc")
                 .MaximumLength(100).WithMessage("Tỉnh/Thành phố không được vượt quá 100 ký tự");
 
@@ -41,6 +42,18 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
             RuleFor(x => x.Longitude)
                 .InclusiveBetween(-180, 180).When(x => x.Longitude.HasValue)
                 .WithMessage("Kinh độ phải nằm trong khoảng -180 đến 180");
+
+            RuleForEach(x => x.Documents)
+                .ChildRules(doc =>
+                {
+                    doc.RuleFor(d => d.FileUrl)
+                        .NotEmpty().WithMessage("URL tài liệu là bắt buộc");
+
+                    doc.RuleFor(d => d.FileType)
+                        .MaximumLength(50).WithMessage("Loại file không được vượt quá 50 ký tự")
+                        .When(d => !string.IsNullOrEmpty(d.FileType));
+                })
+                .When(x => x.Documents is not null && x.Documents.Count > 0);
         }
     }
 }

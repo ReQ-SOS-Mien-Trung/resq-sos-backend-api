@@ -13,9 +13,13 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
                 .NotEmpty().WithMessage("Loại rescuer là bắt buộc")
                 .MaximumLength(50).WithMessage("Loại rescuer không được vượt quá 50 ký tự");
 
-            RuleFor(x => x.FullName)
-                .NotEmpty().WithMessage("Họ và tên là bắt buộc")
-                .MaximumLength(255).WithMessage("Họ và tên không được vượt quá 255 ký tự");
+            RuleFor(x => x.FirstName)
+                .NotEmpty().WithMessage("Tên là bắt buộc")
+                .MaximumLength(100).WithMessage("Tên không được vượt quá 100 ký tự");
+
+            RuleFor(x => x.LastName)
+                .NotEmpty().WithMessage("Họ là bắt buộc")
+                .MaximumLength(100).WithMessage("Họ không được vượt quá 100 ký tự");
 
             RuleFor(x => x.Phone)
                 .Matches(@"^(0|\+84)[3-9]\d{8}$")
@@ -28,8 +32,19 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
             RuleFor(x => x.Ward)
                 .MaximumLength(100).WithMessage("Phường/Xã không được vượt quá 100 ký tự");
 
-            RuleFor(x => x.City)
+            RuleFor(x => x.District)
+                .MaximumLength(100).WithMessage("Quận/Huyện không được vượt quá 100 ký tự");
+
+            RuleFor(x => x.Province)
                 .MaximumLength(100).WithMessage("Tỉnh/Thành phố không được vượt quá 100 ký tự");
+
+            RuleFor(x => x.Latitude)
+                .InclusiveBetween(-90, 90).When(x => x.Latitude.HasValue)
+                .WithMessage("Vĩ độ phải nằm trong khoảng -90 đến 90");
+
+            RuleFor(x => x.Longitude)
+                .InclusiveBetween(-180, 180).When(x => x.Longitude.HasValue)
+                .WithMessage("Kinh độ phải nằm trong khoảng -180 đến 180");
 
             RuleFor(x => x.Note)
                 .MaximumLength(2000).WithMessage("Ghi chú không được vượt quá 2000 ký tự");

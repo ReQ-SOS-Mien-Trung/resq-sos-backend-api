@@ -24,10 +24,6 @@ public partial class User
     [Column("role_id")]
     public int? RoleId { get; set; }
 
-    [Column("full_name")]
-    [StringLength(255)]
-    public string? FullName { get; set; }
-
     [Column("first_name")]
     [StringLength(100)]
     public string? FirstName { get; set; }
@@ -88,9 +84,13 @@ public partial class User
     [StringLength(100)]
     public string? Ward { get; set; }
 
-    [Column("city")]
+    [Column("district")]
     [StringLength(100)]
-    public string? City { get; set; }
+    public string? District { get; set; }
+
+    [Column("province")]
+    [StringLength(100)]
+    public string? Province { get; set; }
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }

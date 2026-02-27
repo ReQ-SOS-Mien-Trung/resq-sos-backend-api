@@ -31,7 +31,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
             {
                 Id = user.Id,
                 RoleId = user.RoleId,
-                FullName = user.FullName,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
                 Username = user.Username,
                 Phone = user.Phone,
                 RescuerType = user.RescuerType,

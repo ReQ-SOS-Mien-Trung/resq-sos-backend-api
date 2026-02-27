@@ -53,7 +53,6 @@ namespace RESQ.Infrastructure.Persistence.Identity
             if (entity is not null)
             {
                 // Update identity info
-                entity.FullName = user.FullName;
                 entity.FirstName = user.FirstName;
                 entity.LastName = user.LastName;
                 entity.Email = user.Email;
@@ -75,7 +74,8 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 // Update location and address
                 entity.Address = user.Address;
                 entity.Ward = user.Ward;
-                entity.City = user.City;
+                entity.District = user.District;
+                entity.Province = user.Province;
 
                 if (user.Latitude.HasValue && user.Longitude.HasValue)
                 {
