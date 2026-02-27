@@ -74,7 +74,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
                 TokenType = "Bearer",
                 UserId = user.Id,
                 Username = user.Username,
-                FullName = user.FullName,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
                 RoleId = user.RoleId
             };
         }

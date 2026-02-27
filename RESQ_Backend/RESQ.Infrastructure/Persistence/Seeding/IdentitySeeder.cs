@@ -32,7 +32,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.AdminUserId,
                 RoleId = 1,
-                FullName = "Nguyễn Văn Admin",
+                FirstName = "Admin",
+                LastName = "Nguyễn Văn",
                 Username = "admin",
                 Phone = "0901234567",
                 Password = SeedConstants.AdminPasswordHash,
@@ -44,7 +45,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.CoordinatorUserId,
                 RoleId = 2,
-                FullName = "Trần Thị Coordinator",
+                FirstName = "Coordinator",
+                LastName = "Trần Thị",
                 Username = "coordinator",
                 Phone = "0912345678",
                 Password = SeedConstants.CoordinatorPasswordHash,
@@ -56,7 +58,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.RescuerUserId,
                 RoleId = 3,
-                FullName = "Lê Văn Rescuer",
+                FirstName = "Rescuer",
+                LastName = "Lê Văn",
                 Username = "rescuer",
                 Phone = "0923456789",
                 Password = SeedConstants.RescuerPasswordHash,
@@ -68,7 +71,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.ManagerUserId,
                 RoleId = 4,
-                FullName = "Phạm Thị Manager",
+                FirstName = "Manager",
+                LastName = "Phạm Thị",
                 Username = "manager",
                 Phone = "0934567890",
                 Password = SeedConstants.ManagerPasswordHash,
@@ -80,7 +84,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.VictimUserId,
                 RoleId = 5,
-                FullName = "Hoàng Văn Victim",
+                FirstName = "Victim",
+                LastName = "Hoàng Văn",
                 Username = "victim",
                 Phone = "0945678901",
                 Password = SeedConstants.VictimPasswordHash,
@@ -93,7 +98,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.Applicant1UserId,
                 RoleId = 5, // Victim role - chưa được duyệt thành Rescuer
-                FullName = "Nguyễn Thanh Tùng",
+                FirstName = "Tùng",
+                LastName = "Nguyễn Thanh",
                 Username = "applicant1",
                 Phone = "0961111111",
                 Email = "tung.nguyen@email.com",
@@ -101,7 +107,8 @@ public static class IdentitySeeder
                 RescuerType = "Volunteer",
                 Address = "123 Nguyễn Huệ, Quận 1",
                 Ward = "Bến Nghé",
-                City = "TP. Hồ Chí Minh",
+                District = "Quận 1",
+                Province = "TP. Hồ Chí Minh",
                 IsOnboarded = true,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -110,7 +117,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.Applicant2UserId,
                 RoleId = 5,
-                FullName = "Trần Minh Đức",
+                FirstName = "Đức",
+                LastName = "Trần Minh",
                 Username = "applicant2",
                 Phone = "0962222222",
                 Email = "duc.tran@email.com",
@@ -118,7 +126,8 @@ public static class IdentitySeeder
                 RescuerType = "Professional",
                 Address = "456 Lê Lợi, Quận 3",
                 Ward = "Phường 7",
-                City = "TP. Hồ Chí Minh",
+                District = "Quận 3",
+                Province = "TP. Hồ Chí Minh",
                 IsOnboarded = true,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -127,7 +136,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.Applicant3UserId,
                 RoleId = 5,
-                FullName = "Lê Thị Hương",
+                FirstName = "Hương",
+                LastName = "Lê Thị",
                 Username = "applicant3",
                 Phone = "0963333333",
                 Email = "huong.le@email.com",
@@ -135,7 +145,8 @@ public static class IdentitySeeder
                 RescuerType = "Volunteer",
                 Address = "789 Trần Hưng Đạo, Quận 5",
                 Ward = "Phường 11",
-                City = "TP. Hồ Chí Minh",
+                District = "Quận 5",
+                Province = "TP. Hồ Chí Minh",
                 IsOnboarded = true,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -144,7 +155,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.Applicant4UserId,
                 RoleId = 3, // Đã được duyệt thành Rescuer
-                FullName = "Phạm Văn Hải",
+                FirstName = "Hải",
+                LastName = "Phạm Văn",
                 Username = "applicant4",
                 Phone = "0964444444",
                 Email = "hai.pham@email.com",
@@ -152,7 +164,8 @@ public static class IdentitySeeder
                 RescuerType = "Professional",
                 Address = "321 Hai Bà Trưng, Quận 1",
                 Ward = "Đa Kao",
-                City = "TP. Hồ Chí Minh",
+                District = "Quận 1",
+                Province = "TP. Hồ Chí Minh",
                 IsOnboarded = true,
                 IsEligibleRescuer = true,
                 ApprovedBy = SeedConstants.AdminUserId,
@@ -164,7 +177,8 @@ public static class IdentitySeeder
             {
                 Id = SeedConstants.Applicant5UserId,
                 RoleId = 5,
-                FullName = "Võ Thị Mai",
+                FirstName = "Mai",
+                LastName = "Võ Thị",
                 Username = "applicant5",
                 Phone = "0965555555",
                 Email = "mai.vo@email.com",
@@ -172,7 +186,8 @@ public static class IdentitySeeder
                 RescuerType = "Volunteer",
                 Address = "654 Cách Mạng Tháng Tám, Quận 10",
                 Ward = "Phường 13",
-                City = "TP. Hồ Chí Minh",
+                District = "Quận 10",
+                Province = "TP. Hồ Chí Minh",
                 IsOnboarded = true,
                 CreatedAt = now,
                 UpdatedAt = now

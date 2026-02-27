@@ -110,6 +110,35 @@ namespace RESQ.Infrastructure.Persistence.Identity
             await _unitOfWork.GetRepository<RescuerApplicationDocument>().AddRangeAsync(entities);
         }
 
+        public async Task ReplaceDocumentsAsync(int applicationId, List<RescuerApplicationDocumentModel> documents, CancellationToken cancellationToken = default)
+        {
+            // Delete old documents
+            var oldDocuments = await _unitOfWork.GetRepository<RescuerApplicationDocument>()
+                .GetAllByPropertyAsync(x => x.ApplicationId == applicationId);
+
+            foreach (var doc in oldDocuments)
+            {
+                await _unitOfWork.GetRepository<RescuerApplicationDocument>().DeleteAsyncById(doc.Id);
+            }
+
+            // Add new documents
+            var entities = documents.Select(d =>
+            {
+                d.ApplicationId = applicationId;
+                return RescuerApplicationMapper.ToDocumentEntity(d);
+            }).ToList();
+
+            await _unitOfWork.GetRepository<RescuerApplicationDocument>().AddRangeAsync(entities);
+        }
+
+        public async Task<List<RescuerApplicationDocumentModel>> GetDocumentsByApplicationIdAsync(int applicationId, CancellationToken cancellationToken = default)
+        {
+            var entities = await _unitOfWork.GetRepository<RescuerApplicationDocument>()
+                .GetAllByPropertyAsync(x => x.ApplicationId == applicationId);
+
+            return entities.Select(RescuerApplicationMapper.ToDocumentModel).ToList();
+        }
+
         private static RescuerApplicationDto MapToDto(RescuerApplication entity)
         {
             return new RescuerApplicationDto
@@ -121,13 +150,15 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 ReviewedAt = entity.ReviewedAt,
                 ReviewedBy = entity.ReviewedBy,
                 AdminNote = entity.AdminNote,
-                FullName = entity.User?.FullName,
+                FirstName = entity.User?.FirstName,
+                LastName = entity.User?.LastName,
                 Email = entity.User?.Email,
                 Phone = entity.User?.Phone,
                 RescuerType = entity.User?.RescuerType,
                 Address = entity.User?.Address,
                 Ward = entity.User?.Ward,
-                City = entity.User?.City,
+                District = entity.User?.District,
+                Province = entity.User?.Province,
                 Documents = entity.RescuerApplicationDocuments.Select(d => new RescuerApplicationDocumentDto
                 {
                     Id = d.Id,

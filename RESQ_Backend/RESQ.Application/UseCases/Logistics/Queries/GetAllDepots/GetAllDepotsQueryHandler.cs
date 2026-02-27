@@ -38,7 +38,8 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
                     Manager = manager != null ? new ManagerDto
                     {
                         Id = manager.UserId,
-                        FullName = manager.FullName,
+                        FirstName = manager.FirstName,
+                        LastName = manager.LastName,
                         Email = manager.Email,
                         Phone = manager.Phone
                     } : null,

@@ -84,7 +84,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
             {
                 UserId = user.Id,
                 Email = user.Email,
-                FullName = user.FullName,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
                 RoleId = user.RoleId ?? DEFAULT_RESCUER_ROLE_ID,
                 IsEmailVerified = user.IsEmailVerified,
                 IsOnboarded = user.IsOnboarded,

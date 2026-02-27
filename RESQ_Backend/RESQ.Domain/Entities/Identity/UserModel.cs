@@ -4,7 +4,6 @@
     {
         public Guid Id { get; set; }
         public int? RoleId { get; set; }
-        public string? FullName { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? Username { get; set; }
@@ -29,7 +28,8 @@
         // Address fields
         public string? Address { get; set; }        // Số nhà, tên đường
         public string? Ward { get; set; }           // Phường/Xã
-        public string? City { get; set; }           // Tỉnh/Thành phố
+        public string? District { get; set; }       // Quận/Huyện
+        public string? Province { get; set; }       // Tỉnh/Thành phố
 
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }

@@ -83,7 +83,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.LoginRescuer
                 TokenType = "Bearer",
                 UserId = user.Id,
                 Email = user.Email,
-                FullName = user.FullName,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
                 RoleId = user.RoleId,
                 IsEmailVerified = user.IsEmailVerified,
                 IsOnboarded = user.IsOnboarded

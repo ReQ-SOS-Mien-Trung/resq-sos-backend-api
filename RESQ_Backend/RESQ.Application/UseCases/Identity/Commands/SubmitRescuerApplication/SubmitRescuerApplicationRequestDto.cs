@@ -8,9 +8,14 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
         public string RescuerType { get; set; } = null!;
 
         /// <summary>
-        /// Họ và tên đầy đủ
+        /// Họ
         /// </summary>
-        public string FullName { get; set; } = null!;
+        public string LastName { get; set; } = null!;
+
+        /// <summary>
+        /// Tên
+        /// </summary>
+        public string FirstName { get; set; } = null!;
 
         /// <summary>
         /// Số điện thoại
@@ -28,9 +33,24 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
         public string? Ward { get; set; }
 
         /// <summary>
+        /// Quận/Huyện
+        /// </summary>
+        public string? District { get; set; }
+
+        /// <summary>
         /// Tỉnh/Thành phố
         /// </summary>
-        public string? City { get; set; }
+        public string? Province { get; set; }
+
+        /// <summary>
+        /// Vĩ độ
+        /// </summary>
+        public double? Latitude { get; set; }
+
+        /// <summary>
+        /// Kinh độ
+        /// </summary>
+        public double? Longitude { get; set; }
 
         /// <summary>
         /// Ghi chú/mô tả thêm về kinh nghiệm, kỹ năng

@@ -11,13 +11,15 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
         public string? AdminNote { get; set; }
 
         // User info
-        public string? FullName { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
         public string? Email { get; set; }
         public string? Phone { get; set; }
         public string? RescuerType { get; set; }
         public string? Address { get; set; }
         public string? Ward { get; set; }
-        public string? City { get; set; }
+        public string? District { get; set; }
+        public string? Province { get; set; }
 
         // Documents
         public List<RescuerApplicationDocumentDto> Documents { get; set; } = new();

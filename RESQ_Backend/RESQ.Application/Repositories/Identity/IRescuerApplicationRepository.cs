@@ -14,5 +14,7 @@ namespace RESQ.Application.Repositories.Identity
         Task<int> CreateAsync(RescuerApplicationModel application, CancellationToken cancellationToken = default);
         Task UpdateAsync(RescuerApplicationModel application, CancellationToken cancellationToken = default);
         Task AddDocumentsAsync(int applicationId, List<RescuerApplicationDocumentModel> documents, CancellationToken cancellationToken = default);
+        Task ReplaceDocumentsAsync(int applicationId, List<RescuerApplicationDocumentModel> documents, CancellationToken cancellationToken = default);
+        Task<List<RescuerApplicationDocumentModel>> GetDocumentsByApplicationIdAsync(int applicationId, CancellationToken cancellationToken = default);
     }
 }

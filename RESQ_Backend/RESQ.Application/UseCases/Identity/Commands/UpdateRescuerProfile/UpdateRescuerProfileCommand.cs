@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication;
 
 namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
 {
@@ -9,8 +10,10 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
         string Phone,
         string Address,
         string? Ward,
-        string City,
+        string? District,
+        string Province,
         double? Latitude,
-        double? Longitude
+        double? Longitude,
+        List<DocumentDto>? Documents
     ) : IRequest<UpdateRescuerProfileResponse>;
 }
