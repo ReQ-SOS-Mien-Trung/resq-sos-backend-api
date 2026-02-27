@@ -18,8 +18,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
                 .MaximumLength(255).WithMessage("Họ và tên không được vượt quá 255 ký tự");
 
             RuleFor(x => x.Phone)
-                .MaximumLength(20).WithMessage("Số điện thoại không được vượt quá 20 ký tự")
-                .Matches(@"^[0-9+\-\s()]*$").WithMessage("Số điện thoại không hợp lệ")
+                .Matches(@"^(0|\+84)[3-9]\d{8}$")
+                .WithMessage("Số điện thoại phải là số điện thoại Việt Nam hợp lệ (VD: 0912345678 hoặc +84912345678)")
                 .When(x => !string.IsNullOrEmpty(x.Phone));
 
             RuleFor(x => x.Address)

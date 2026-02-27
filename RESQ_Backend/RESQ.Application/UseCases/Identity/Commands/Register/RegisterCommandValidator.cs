@@ -8,7 +8,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.Register
         {
             RuleFor(x => x.Phone)
                 .NotEmpty().WithMessage("Số điện thoại là bắt buộc")
-                .Matches(@"^\d{10,15}$").WithMessage("Số điện thoại phải có từ 10-15 chữ số");
+                .Matches(@"^(0|\+84)[3-9]\d{8}$")
+                .WithMessage("Số điện thoại phải là số điện thoại Việt Nam hợp lệ (VD: 0912345678 hoặc +84912345678)");
 
             RuleFor(x => x.Password)
                 .NotEmpty().WithMessage("Mật khẩu là bắt buộc")
