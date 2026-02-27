@@ -7,6 +7,7 @@ using RESQ.Application.UseCases.Identity.Commands.Login;
 using RESQ.Application.UseCases.Identity.Commands.Logout;
 using RESQ.Application.UseCases.Identity.Commands.RefreshToken;
 using RESQ.Application.UseCases.Identity.Commands.Register;
+using RESQ.Application.UseCases.Identity.Commands.LoginRescuer;
 using RESQ.Application.UseCases.Identity.Commands.RegisterRescuer;
 using RESQ.Application.UseCases.Identity.Commands.VerifyEmail;
 using RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail;
@@ -64,6 +65,15 @@ namespace RESQ.Presentation.Controllers.Identity
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
             var command = new LoginCommand(dto.Username, dto.Phone, dto.Password);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("login-rescuer")]
+        [AllowAnonymous]
+        public async Task<IActionResult> LoginRescuer([FromBody] LoginRescuerRequestDto dto)
+        {
+            var command = new LoginRescuerCommand(dto.Email, dto.Password);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

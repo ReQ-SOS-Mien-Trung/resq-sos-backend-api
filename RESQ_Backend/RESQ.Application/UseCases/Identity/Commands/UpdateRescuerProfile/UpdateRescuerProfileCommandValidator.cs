@@ -18,7 +18,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
 
             RuleFor(x => x.Phone)
                 .NotEmpty().WithMessage("Số điện thoại là bắt buộc")
-                .Matches(@"^[0-9]{9,11}$").WithMessage("Số điện thoại không hợp lệ (9-11 chữ số)");
+                .Matches(@"^(0|\+84)[3-9]\d{8}$")
+                .WithMessage("Số điện thoại phải là số điện thoại Việt Nam hợp lệ (VD: 0912345678 hoặc +84912345678)");
 
             RuleFor(x => x.Address)
                 .NotEmpty().WithMessage("Địa chỉ là bắt buộc")
