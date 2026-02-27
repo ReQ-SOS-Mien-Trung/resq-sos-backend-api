@@ -45,7 +45,7 @@ namespace RESQ.Presentation.Controllers.Identity
             var result = await _mediator.Send(command);
             if (result.Success)
             {
-                return Redirect("http://localhost:5173/auth/personal-info");
+                return Redirect("http://localhost:5173/verify-email/success");
             }
             return Redirect("http://localhost:5173/auth/resend-email");
         }
