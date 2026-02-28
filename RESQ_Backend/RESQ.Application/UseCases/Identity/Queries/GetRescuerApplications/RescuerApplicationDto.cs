@@ -18,7 +18,6 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
         public string? RescuerType { get; set; }
         public string? Address { get; set; }
         public string? Ward { get; set; }
-        public string? District { get; set; }
         public string? Province { get; set; }
 
         // Documents

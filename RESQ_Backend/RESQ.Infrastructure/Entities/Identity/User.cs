@@ -84,10 +84,6 @@ public partial class User
     [StringLength(100)]
     public string? Ward { get; set; }
 
-    [Column("district")]
-    [StringLength(100)]
-    public string? District { get; set; }
-
     [Column("province")]
     [StringLength(100)]
     public string? Province { get; set; }

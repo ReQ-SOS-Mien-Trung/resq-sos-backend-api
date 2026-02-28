@@ -38,7 +38,6 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.Phone,
                 dto.Address,
                 dto.Ward,
-                dto.District,
                 dto.Province,
                 dto.Latitude,
                 dto.Longitude,

@@ -74,7 +74,6 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 // Update location and address
                 entity.Address = user.Address;
                 entity.Ward = user.Ward;
-                entity.District = user.District;
                 entity.Province = user.Province;
 
                 if (user.Latitude.HasValue && user.Longitude.HasValue)

@@ -34,7 +34,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
             user.Phone = request.Phone;
             user.Address = request.Address;
             user.Ward = request.Ward;
-            user.District = request.District;
             user.Province = request.Province;
             user.Latitude = request.Latitude;
             user.Longitude = request.Longitude;
@@ -60,7 +59,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
                 Phone = user.Phone,
                 Address = user.Address,
                 Ward = user.Ward,
-                District = user.District,
                 Province = user.Province,
                 Latitude = user.Latitude,
                 Longitude = user.Longitude,

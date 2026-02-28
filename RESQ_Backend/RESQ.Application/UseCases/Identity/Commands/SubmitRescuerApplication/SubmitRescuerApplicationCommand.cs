@@ -10,7 +10,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
         string? Phone,
         string? Address,
         string? Ward,
-        string? District,
         string? Province,
         double? Latitude,
         double? Longitude,

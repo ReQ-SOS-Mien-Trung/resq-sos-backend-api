@@ -32,9 +32,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
             RuleFor(x => x.Ward)
                 .MaximumLength(100).WithMessage("Phường/Xã không được vượt quá 100 ký tự");
 
-            RuleFor(x => x.District)
-                .MaximumLength(100).WithMessage("Quận/Huyện không được vượt quá 100 ký tự");
-
             RuleFor(x => x.Province)
                 .MaximumLength(100).WithMessage("Tỉnh/Thành phố không được vượt quá 100 ký tự");
 

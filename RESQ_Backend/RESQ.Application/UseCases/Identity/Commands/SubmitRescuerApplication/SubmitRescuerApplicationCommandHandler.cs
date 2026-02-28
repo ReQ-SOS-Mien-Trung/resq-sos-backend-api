@@ -44,7 +44,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
             user.Phone = request.Phone;
             user.Address = request.Address;
             user.Ward = request.Ward;
-            user.District = request.District;
             user.Province = request.Province;
             user.Latitude = request.Latitude;
             user.Longitude = request.Longitude;
