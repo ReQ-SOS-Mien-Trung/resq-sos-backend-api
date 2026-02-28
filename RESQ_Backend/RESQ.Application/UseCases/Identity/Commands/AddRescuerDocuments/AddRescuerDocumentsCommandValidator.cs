@@ -25,8 +25,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.AddRescuerDocuments
                         .Must(url => Uri.TryCreate(url, UriKind.Absolute, out _))
                         .WithMessage("URL không hợp lệ");
 
-                    doc.RuleFor(d => d.FileType)
-                        .IsInEnum().WithMessage("Loại tài liệu không hợp lệ. Giá trị hợp lệ: WATER_SAFETY_CERT, WATER_RESCUE_CERT, TECHNICAL_RESCUE_CERT, DISASTER_RESPONSE_CERT, BASIC_MEDICAL_CERT, ADVANCED_MEDICAL_LICENSE, LAND_VEHICLE_LICENSE, WATER_VEHICLE_LICENSE, OTHER");
+                    doc.RuleFor(d => d.FileTypeId)
+                        .GreaterThan(0).WithMessage("Loại tài liệu (FileTypeId) phải lớn hơn 0");
                 })
                 .When(x => x.Documents is not null && x.Documents.Count > 0);
         }

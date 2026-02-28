@@ -47,7 +47,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
             var entities = await _unitOfWork.GetRepository<RescuerApplication>()
                 .GetAllByPropertyAsync(
                     x => x.UserId == userId,
-                    includeProperties: "RescuerApplicationDocuments,User"
+                    includeProperties: "RescuerApplicationDocuments.FileType,User"
                 );
 
             var entity = entities.OrderByDescending(x => x.SubmittedAt).FirstOrDefault();
@@ -62,7 +62,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     pageSize,
                     filter: status is null ? null : x => x.Status == status,
                     orderBy: q => q.OrderByDescending(x => x.SubmittedAt),
-                    includeProperties: "RescuerApplicationDocuments,User"
+                    includeProperties: "RescuerApplicationDocuments.FileType,User"
                 );
 
             var dtos = pagedResult.Items.Select(MapToDto).ToList();
@@ -163,9 +163,9 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 {
                     Id = d.Id,
                     FileUrl = d.FileUrl,
-                    FileType = global::System.Enum.TryParse<RESQ.Domain.Enum.Identity.DocumentFileType>(d.FileType, true, out var ft)
-                        ? ft
-                        : RESQ.Domain.Enum.Identity.DocumentFileType.OTHER,
+                    FileTypeId = d.FileTypeId,
+                    FileTypeCode = d.FileType?.Code,
+                    FileTypeName = d.FileType?.Name,
                     UploadedAt = d.UploadedAt
                 }).ToList()
             };

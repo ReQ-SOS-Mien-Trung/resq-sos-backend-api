@@ -249,6 +249,19 @@ public static class IdentitySeeder
             }
         );
 
+        // Seed document file types từ enum
+        modelBuilder.Entity<DocumentFileType>().HasData(
+            new DocumentFileType { Id = 1, Code = "WATER_SAFETY_CERT", Name = "Chứng chỉ an toàn dưới nước", Description = "Chứng chỉ về an toàn hoạt động dưới nước", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 2, Code = "WATER_RESCUE_CERT", Name = "Chứng chỉ cứu hộ dưới nước", Description = "Chứng chỉ cứu hộ, cứu nạn dưới nước", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 3, Code = "TECHNICAL_RESCUE_CERT", Name = "Chứng chỉ cứu hộ kỹ thuật", Description = "Chứng chỉ cứu hộ kỹ thuật chuyên ngành", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 4, Code = "DISASTER_RESPONSE_CERT", Name = "Chứng chỉ ứng phó thiên tai", Description = "Chứng chỉ ứng phó và xử lý thiên tai", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 5, Code = "BASIC_MEDICAL_CERT", Name = "Chứng chỉ y tế cơ bản", Description = "Chứng chỉ sơ cấp cứu và y tế cơ bản", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 6, Code = "ADVANCED_MEDICAL_LICENSE", Name = "Giấy phép y tế nâng cao", Description = "Giấy phép hành nghề y tế nâng cao", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 7, Code = "LAND_VEHICLE_LICENSE", Name = "Giấy phép lái xe đường bộ", Description = "Bằng lái xe ô tô, xe tải phục vụ cứu hộ", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 8, Code = "WATER_VEHICLE_LICENSE", Name = "Giấy phép lái tàu/thuyền", Description = "Bằng lái tàu, thuyền phục vụ cứu hộ đường thủy", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 9, Code = "OTHER", Name = "Khác", Description = "Loại tài liệu khác", IsActive = true, CreatedAt = now, UpdatedAt = now }
+        );
+
         // Seed documents cho các đơn đăng ký
         modelBuilder.Entity<RescuerApplicationDocument>().HasData(
             // Documents cho Applicant 1 (Pending)
@@ -257,7 +270,7 @@ public static class IdentitySeeder
                 Id = 1,
                 ApplicationId = 1,
                 FileUrl = "https://storage.example.com/documents/applicant1_cccd_front.jpg",
-                FileType = "CCCD",
+                FileTypeId = 9, // OTHER
                 UploadedAt = now.AddDays(1)
             },
             new RescuerApplicationDocument
@@ -265,7 +278,7 @@ public static class IdentitySeeder
                 Id = 2,
                 ApplicationId = 1,
                 FileUrl = "https://storage.example.com/documents/applicant1_cccd_back.jpg",
-                FileType = "CCCD",
+                FileTypeId = 9, // OTHER
                 UploadedAt = now.AddDays(1)
             },
             new RescuerApplicationDocument
@@ -273,7 +286,7 @@ public static class IdentitySeeder
                 Id = 3,
                 ApplicationId = 1,
                 FileUrl = "https://storage.example.com/documents/applicant1_health_cert.pdf",
-                FileType = "HealthCertificate",
+                FileTypeId = 5, // BASIC_MEDICAL_CERT
                 UploadedAt = now.AddDays(1)
             },
             // Documents cho Applicant 2 (Pending)
@@ -282,7 +295,7 @@ public static class IdentitySeeder
                 Id = 4,
                 ApplicationId = 2,
                 FileUrl = "https://storage.example.com/documents/applicant2_cccd_front.jpg",
-                FileType = "CCCD",
+                FileTypeId = 9, // OTHER
                 UploadedAt = now.AddDays(2)
             },
             new RescuerApplicationDocument
@@ -290,7 +303,7 @@ public static class IdentitySeeder
                 Id = 5,
                 ApplicationId = 2,
                 FileUrl = "https://storage.example.com/documents/applicant2_rescue_cert.pdf",
-                FileType = "RescueCertificate",
+                FileTypeId = 2, // WATER_RESCUE_CERT
                 UploadedAt = now.AddDays(2)
             },
             // Documents cho Applicant 3 (Pending)
@@ -299,7 +312,7 @@ public static class IdentitySeeder
                 Id = 6,
                 ApplicationId = 3,
                 FileUrl = "https://storage.example.com/documents/applicant3_cccd_front.jpg",
-                FileType = "CCCD",
+                FileTypeId = 9, // OTHER
                 UploadedAt = now.AddDays(3)
             },
             // Documents cho Applicant 4 (Approved)
@@ -308,7 +321,7 @@ public static class IdentitySeeder
                 Id = 7,
                 ApplicationId = 4,
                 FileUrl = "https://storage.example.com/documents/applicant4_cccd_front.jpg",
-                FileType = "CCCD",
+                FileTypeId = 9, // OTHER
                 UploadedAt = now.AddDays(1)
             },
             new RescuerApplicationDocument
@@ -316,7 +329,7 @@ public static class IdentitySeeder
                 Id = 8,
                 ApplicationId = 4,
                 FileUrl = "https://storage.example.com/documents/applicant4_first_aid_cert.pdf",
-                FileType = "FirstAidCertificate",
+                FileTypeId = 5, // BASIC_MEDICAL_CERT
                 UploadedAt = now.AddDays(1)
             },
             new RescuerApplicationDocument
@@ -324,7 +337,7 @@ public static class IdentitySeeder
                 Id = 9,
                 ApplicationId = 4,
                 FileUrl = "https://storage.example.com/documents/applicant4_experience_letter.pdf",
-                FileType = "ExperienceLetter",
+                FileTypeId = 9, // OTHER
                 UploadedAt = now.AddDays(1)
             },
             // Documents cho Applicant 5 (Rejected)
@@ -333,7 +346,7 @@ public static class IdentitySeeder
                 Id = 10,
                 ApplicationId = 5,
                 FileUrl = "https://storage.example.com/documents/applicant5_cccd_front.jpg",
-                FileType = "CCCD",
+                FileTypeId = 9, // OTHER
                 UploadedAt = now.AddDays(2)
             }
         );

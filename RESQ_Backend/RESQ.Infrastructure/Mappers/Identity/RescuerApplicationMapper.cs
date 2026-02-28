@@ -48,7 +48,7 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 Id = model.Id,
                 ApplicationId = model.ApplicationId,
                 FileUrl = model.FileUrl,
-                FileType = model.FileType.ToString(),
+                FileTypeId = model.FileTypeId,
                 UploadedAt = model.UploadedAt
             };
         }
@@ -60,9 +60,9 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 Id = entity.Id,
                 ApplicationId = entity.ApplicationId,
                 FileUrl = entity.FileUrl,
-                FileType = global::System.Enum.TryParse<DocumentFileType>(entity.FileType, true, out var ft)
-                    ? ft
-                    : DocumentFileType.OTHER,
+                FileTypeId = entity.FileTypeId,
+                FileTypeCode = entity.FileType?.Code,
+                FileTypeName = entity.FileType?.Name,
                 UploadedAt = entity.UploadedAt
             };
         }
