@@ -163,7 +163,9 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 {
                     Id = d.Id,
                     FileUrl = d.FileUrl,
-                    FileType = d.FileType,
+                    FileType = global::System.Enum.TryParse<RESQ.Domain.Enum.Identity.DocumentFileType>(d.FileType, true, out var ft)
+                        ? ft
+                        : RESQ.Domain.Enum.Identity.DocumentFileType.OTHER,
                     UploadedAt = d.UploadedAt
                 }).ToList()
             };

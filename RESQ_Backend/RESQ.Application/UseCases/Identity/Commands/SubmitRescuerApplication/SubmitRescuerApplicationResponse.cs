@@ -7,6 +7,5 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
         public string Status { get; set; } = null!;
         public DateTime SubmittedAt { get; set; }
         public string Message { get; set; } = null!;
-        public int DocumentCount { get; set; }
     }
 }

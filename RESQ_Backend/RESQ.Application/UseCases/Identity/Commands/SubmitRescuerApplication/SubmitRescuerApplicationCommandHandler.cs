@@ -64,27 +64,11 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
 
             var applicationId = await _rescuerApplicationRepository.CreateAsync(application, cancellationToken);
 
-            // 5. Save document URLs if provided
-            var documentCount = 0;
-            if (request.Documents is not null && request.Documents.Count > 0)
-            {
-                var documentModels = request.Documents.Select(doc => new RescuerApplicationDocumentModel
-                {
-                    ApplicationId = applicationId,
-                    FileUrl = doc.FileUrl,
-                    FileType = doc.FileType ?? "Other",
-                    UploadedAt = DateTime.UtcNow
-                }).ToList();
-
-                await _rescuerApplicationRepository.AddDocumentsAsync(applicationId, documentModels, cancellationToken);
-                documentCount = documentModels.Count;
-            }
-
-            // 6. Save all changes
+            // 5. Save all changes
             await _unitOfWork.SaveAsync();
 
-            _logger.LogInformation("Rescuer application submitted successfully: ApplicationId={ApplicationId}, UserId={UserId}, Documents={DocumentCount}",
-                applicationId, request.UserId, documentCount);
+            _logger.LogInformation("Rescuer application submitted successfully: ApplicationId={ApplicationId}, UserId={UserId}",
+                applicationId, request.UserId);
 
             return new SubmitRescuerApplicationResponse
             {
@@ -92,8 +76,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
                 UserId = request.UserId,
                 Status = RescuerApplicationStatus.Pending.ToString(),
                 SubmittedAt = application.SubmittedAt ?? DateTime.UtcNow,
-                Message = "Đơn đăng ký đã được gửi thành công. Vui lòng đợi quản trị viên xét duyệt.",
-                DocumentCount = documentCount
+                Message = "Đơn đăng ký đã được gửi thành công. Vui lòng đợi quản trị viên xét duyệt."
             };
         }
     }

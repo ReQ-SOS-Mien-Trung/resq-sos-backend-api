@@ -1,3 +1,5 @@
+using RESQ.Domain.Enum.Identity;
+
 namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
 {
     public class RescuerApplicationDto
@@ -29,7 +31,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
     {
         public int Id { get; set; }
         public string? FileUrl { get; set; }
-        public string? FileType { get; set; }
+        public DocumentFileType FileType { get; set; }
         public DateTime? UploadedAt { get; set; }
     }
 }
