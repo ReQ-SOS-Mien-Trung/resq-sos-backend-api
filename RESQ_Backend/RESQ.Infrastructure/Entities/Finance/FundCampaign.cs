@@ -32,6 +32,12 @@ public partial class FundCampaign
     [Column("campaign_end_date")]
     public DateOnly? CampaignEndDate { get; set; }
 
+    [Column("target_amount")]
+    public decimal? TargetAmount { get; set; }
+
+    [Column("total_amount")]
+    public decimal? TotalAmount { get; set; }
+
     [Column("status")]
     [StringLength(50)]
     public string? Status { get; set; }
@@ -54,4 +60,4 @@ public partial class FundCampaign
 
     [InverseProperty("FundCampaign")]
     public virtual ICollection<FundTransaction> FundTransactions { get; set; } = new List<FundTransaction>();
-}
+}

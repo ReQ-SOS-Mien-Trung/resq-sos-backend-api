@@ -9,3 +9,8 @@ RESQ_Backend/RESQ.Infrastructure/bin
 RESQ_Backend/RESQ.Presentation/bin
 RESQ_Backend/RESQ.Infrastructure/Migrations
 .vs
+RESQ_Backend/RESQ.Presentation/appsettings.Development.json
+RESQ_Backend/RESQ.Presentation/appsettings.json
+RESQ_Backend/RESQ.Presentation/appsettings.Development.json
+RESQ_Backend/RESQ.Presentation/appsettings.json
+RESQ_Backend/RESQ.Presentation/appsettings.Production.json

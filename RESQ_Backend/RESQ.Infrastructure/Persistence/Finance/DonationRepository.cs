@@ -1,0 +1,77 @@
+using RESQ.Application.Common.Models;
+using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Finance;
+using RESQ.Domain.Entities.Finance;
+using RESQ.Infrastructure.Entities.Finance;
+using RESQ.Infrastructure.Mappers.Finance;
+using System.Linq.Expressions;
+
+namespace RESQ.Infrastructure.Persistence.Finance;
+
+public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
+{
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
+
+    public async Task<PagedResult<DonationModel>> GetPagedAsync(int pageNumber, int pageSize, int? campaignId = null, CancellationToken cancellationToken = default)
+    {
+        var repo = _unitOfWork.GetRepository<Donation>();
+        Expression<Func<Donation, bool>>? filter = null;
+
+        if (campaignId.HasValue)
+        {
+            filter = x => x.FundCampaignId == campaignId.Value;
+        }
+
+        var pagedEntities = await repo.GetPagedAsync(
+            pageNumber,
+            pageSize,
+            filter,
+            q => q.OrderByDescending(x => x.CreatedAt),
+            "FundCampaign"
+        );
+
+        var models = pagedEntities.Items.Select(DonationMapper.ToModel).ToList();
+
+        return new PagedResult<DonationModel>(models, pagedEntities.TotalCount, pageNumber, pageSize);
+    }
+
+    public async Task<DonationModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var repo = _unitOfWork.GetRepository<Donation>();
+        var entity = await repo.GetByPropertyAsync(x => x.Id == id, tracked: false, includeProperties: "FundCampaign");
+            
+        return entity == null ? null : DonationMapper.ToModel(entity);
+    }
+
+    public async Task<DonationModel?> GetByPayosOrderIdAsync(string? orderId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(orderId)) return null;
+
+        var repo = _unitOfWork.GetRepository<Donation>();
+        var entity = await repo.GetByPropertyAsync(x => x.PayosOrderId == orderId, tracked: false, includeProperties: "FundCampaign");
+
+        return entity == null ? null : DonationMapper.ToModel(entity);
+    }
+
+    public async Task CreateAsync(DonationModel model, CancellationToken cancellationToken = default)
+    {
+        var entity = DonationMapper.ToEntity(model);
+        var repo = _unitOfWork.GetRepository<Donation>();
+        await repo.AddAsync(entity);
+    }
+
+    public async Task UpdateAsync(DonationModel model, CancellationToken cancellationToken = default)
+    {
+        var repo = _unitOfWork.GetRepository<Donation>();
+        var entity = await repo.GetByPropertyAsync(x => x.Id == model.Id);
+        
+        if (entity != null)
+        {
+            // Map the changes from Model to Entity
+            DonationMapper.UpdateEntity(entity, model);
+            
+            // Mark as modified
+            await repo.UpdateAsync(entity);
+        }
+    }
+}

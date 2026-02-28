@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Repositories\Finance\" />
     <Folder Include="UseCases\Personnel\Commands\" />
     <Folder Include="UseCases\Personnel\Queries\" />
   </ItemGroup>
