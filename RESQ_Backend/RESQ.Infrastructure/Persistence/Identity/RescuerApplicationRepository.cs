@@ -157,7 +157,6 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 RescuerType = entity.User?.RescuerType,
                 Address = entity.User?.Address,
                 Ward = entity.User?.Ward,
-                District = entity.User?.District,
                 Province = entity.User?.Province,
                 Documents = entity.RescuerApplicationDocuments.Select(d => new RescuerApplicationDocumentDto
                 {

@@ -33,11 +33,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
         public string? Ward { get; set; }
 
         /// <summary>
-        /// Quận/Huyện
-        /// </summary>
-        public string? District { get; set; }
-
-        /// <summary>
         /// Tỉnh/Thành phố
         /// </summary>
         public string? Province { get; set; }
