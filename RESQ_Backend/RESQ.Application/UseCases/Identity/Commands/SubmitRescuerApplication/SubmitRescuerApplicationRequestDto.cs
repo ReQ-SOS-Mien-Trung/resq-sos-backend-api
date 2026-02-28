@@ -1,5 +1,3 @@
-using RESQ.Domain.Enum.Identity;
-
 namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
 {
     public class SubmitRescuerApplicationRequestDto
@@ -68,10 +66,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
         public string FileUrl { get; set; } = null!;
 
         /// <summary>
-        /// Loại tài liệu: WATER_SAFETY_CERT, WATER_RESCUE_CERT, TECHNICAL_RESCUE_CERT,
-        /// DISASTER_RESPONSE_CERT, BASIC_MEDICAL_CERT, ADVANCED_MEDICAL_LICENSE,
-        /// LAND_VEHICLE_LICENSE, WATER_VEHICLE_LICENSE, OTHER
+        /// ID loại tài liệu (tham chiếu bảng document_file_types)
         /// </summary>
-        public DocumentFileType FileType { get; set; } = DocumentFileType.OTHER;
+        public int FileTypeId { get; set; }
     }
 }

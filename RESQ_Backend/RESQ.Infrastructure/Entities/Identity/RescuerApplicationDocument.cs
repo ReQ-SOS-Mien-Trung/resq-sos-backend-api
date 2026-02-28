@@ -19,9 +19,8 @@ public partial class RescuerApplicationDocument
     [Column("file_url")]
     public string? FileUrl { get; set; }
 
-    [Column("file_type")]
-    [StringLength(50)]
-    public string? FileType { get; set; }
+    [Column("file_type_id")]
+    public int? FileTypeId { get; set; }
 
     [Column("uploaded_at", TypeName = "timestamp with time zone")]
     public DateTime? UploadedAt { get; set; }
@@ -29,4 +28,8 @@ public partial class RescuerApplicationDocument
     [ForeignKey("ApplicationId")]
     [InverseProperty("RescuerApplicationDocuments")]
     public virtual RescuerApplication? Application { get; set; }
-}
+
+    [ForeignKey("FileTypeId")]
+    [InverseProperty("RescuerApplicationDocuments")]
+    public virtual DocumentFileType? FileType { get; set; }
+}

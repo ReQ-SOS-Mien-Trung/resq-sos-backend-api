@@ -5,7 +5,6 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications;
 using RESQ.Domain.Entities.Identity;
-using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Application.UseCases.Identity.Commands.AddRescuerDocuments
 {
@@ -40,7 +39,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.AddRescuerDocuments
             {
                 ApplicationId = application.Id,
                 FileUrl = doc.FileUrl,
-                FileType = doc.FileType,
+                FileTypeId = doc.FileTypeId,
                 UploadedAt = DateTime.UtcNow
             }).ToList();
 
@@ -58,7 +57,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.AddRescuerDocuments
                 Documents = documentModels.Select(d => new RescuerApplicationDocumentDto
                 {
                     FileUrl = d.FileUrl,
-                    FileType = d.FileType,
+                    FileTypeId = d.FileTypeId,
                     UploadedAt = d.UploadedAt
                 }).ToList()
             };

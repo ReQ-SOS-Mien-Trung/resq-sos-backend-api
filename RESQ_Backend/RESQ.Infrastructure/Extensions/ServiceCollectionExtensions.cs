@@ -51,6 +51,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRescuerApplicationRepository, RescuerApplicationRepository>();
         services.AddScoped<IAbilityRepository, AbilityRepository>();
+        services.AddScoped<IDocumentFileTypeRepository, DocumentFileTypeRepository>();
 
         // Emergency Repositories
         services.AddScoped<ISosRequestRepository, SosRequestRepository>();

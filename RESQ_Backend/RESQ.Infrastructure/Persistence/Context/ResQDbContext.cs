@@ -25,6 +25,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<ConversationParticipant> ConversationParticipants { get; set; }
     public virtual DbSet<Depot> Depots { get; set; }
     public virtual DbSet<DepotFundAllocation> DepotFundAllocations { get; set; }
+    public virtual DbSet<DocumentFileType> DocumentFileTypes { get; set; }
     public virtual DbSet<DepotManager> DepotManagers { get; set; }
     public virtual DbSet<DepotSupplyInventory> DepotSupplyInventories { get; set; }
     public virtual DbSet<Donation> Donations { get; set; }
@@ -91,6 +92,14 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<Conversation>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("conversations_pkey");
+        });
+
+        modelBuilder.Entity<DocumentFileType>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("document_file_types_pkey");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<ConversationParticipant>(entity =>
