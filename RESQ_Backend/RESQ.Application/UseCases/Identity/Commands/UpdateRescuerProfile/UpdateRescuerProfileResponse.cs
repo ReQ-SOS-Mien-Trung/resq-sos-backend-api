@@ -1,5 +1,3 @@
-using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications;
-
 namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
 {
     public class UpdateRescuerProfileResponse
@@ -17,6 +15,5 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
         public bool IsOnboarded { get; set; }
         public DateTime UpdatedAt { get; set; }
         public string Message { get; set; } = null!;
-        public List<RescuerApplicationDocumentDto> Documents { get; set; } = new();
     }
 }

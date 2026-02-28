@@ -1,3 +1,5 @@
+using RESQ.Domain.Enum.Identity;
+
 namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
 {
     public class SubmitRescuerApplicationRequestDto
@@ -56,11 +58,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
         /// Ghi chú/mô tả thêm về kinh nghiệm, kỹ năng
         /// </summary>
         public string? Note { get; set; }
-
-        /// <summary>
-        /// Danh sách URL tài liệu chứng minh (CMND, bằng cấp, chứng chỉ...) - đã upload lên cloud
-        /// </summary>
-        public List<DocumentDto>? Documents { get; set; }
     }
 
     public class DocumentDto
@@ -71,8 +68,10 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
         public string FileUrl { get; set; } = null!;
 
         /// <summary>
-        /// Loại file: PDF, JPEG, PNG, DOC, etc.
+        /// Loại tài liệu: WATER_SAFETY_CERT, WATER_RESCUE_CERT, TECHNICAL_RESCUE_CERT,
+        /// DISASTER_RESPONSE_CERT, BASIC_MEDICAL_CERT, ADVANCED_MEDICAL_LICENSE,
+        /// LAND_VEHICLE_LICENSE, WATER_VEHICLE_LICENSE, OTHER
         /// </summary>
-        public string? FileType { get; set; }
+        public DocumentFileType FileType { get; set; } = DocumentFileType.OTHER;
     }
 }

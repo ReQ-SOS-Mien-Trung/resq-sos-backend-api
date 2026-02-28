@@ -48,24 +48,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
 
             RuleFor(x => x.Note)
                 .MaximumLength(2000).WithMessage("Ghi chú không được vượt quá 2000 ký tự");
-
-            RuleFor(x => x.Documents)
-                .Must(docs => docs == null || docs.Count <= 10)
-                .WithMessage("Số lượng tài liệu không được vượt quá 10");
-
-            RuleForEach(x => x.Documents)
-                .ChildRules(doc =>
-                {
-                    doc.RuleFor(d => d.FileUrl)
-                        .NotEmpty().WithMessage("URL tài liệu là bắt buộc")
-                        .MaximumLength(2000).WithMessage("URL không được vượt quá 2000 ký tự")
-                        .Must(url => Uri.TryCreate(url, UriKind.Absolute, out _))
-                        .WithMessage("URL không hợp lệ");
-
-                    doc.RuleFor(d => d.FileType)
-                        .MaximumLength(50).WithMessage("Loại file không được vượt quá 50 ký tự");
-                })
-                .When(x => x.Documents is not null && x.Documents.Count > 0);
         }
     }
 }

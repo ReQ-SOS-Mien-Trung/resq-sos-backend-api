@@ -14,7 +14,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
         string? Province,
         double? Latitude,
         double? Longitude,
-        string? Note,
-        List<DocumentDto>? Documents
+        string? Note
     ) : IRequest<SubmitRescuerApplicationResponse>;
 }

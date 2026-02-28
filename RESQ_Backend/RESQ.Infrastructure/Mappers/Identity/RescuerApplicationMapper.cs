@@ -2,6 +2,7 @@ using RESQ.Domain.Entities.Identity;
 using RESQ.Domain.Enum.Identity;
 using RESQ.Infrastructure.Entities.Identity;
 
+
 namespace RESQ.Infrastructure.Mappers.Identity
 {
     public static class RescuerApplicationMapper
@@ -47,7 +48,7 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 Id = model.Id,
                 ApplicationId = model.ApplicationId,
                 FileUrl = model.FileUrl,
-                FileType = model.FileType,
+                FileType = model.FileType.ToString(),
                 UploadedAt = model.UploadedAt
             };
         }
@@ -59,7 +60,9 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 Id = entity.Id,
                 ApplicationId = entity.ApplicationId,
                 FileUrl = entity.FileUrl,
-                FileType = entity.FileType,
+                FileType = global::System.Enum.TryParse<DocumentFileType>(entity.FileType, true, out var ft)
+                    ? ft
+                    : DocumentFileType.OTHER,
                 UploadedAt = entity.UploadedAt
             };
         }
