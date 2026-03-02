@@ -69,8 +69,6 @@ public static class PersonnelSeeder
             new Ability { Id = 48, Code = "DISASTER_RELIEF_EXPERIENCE", Description = "Đã tham gia cứu trợ thiên tai" },
             new Ability { Id = 49, Code = "FLOOD_RESCUE_EXPERIENCE", Description = "Kinh nghiệm cứu hộ lũ lụt" },
             new Ability { Id = 50, Code = "COMMUNITY_RESCUE_EXPERIENCE", Description = "Kinh nghiệm cứu hộ cộng đồng" },
-            new Ability { Id = 51, Code = "RESCUE_CERTIFICATE", Description = "Chứng chỉ cứu hộ" },
-            new Ability { Id = 52, Code = "FIRST_AID_CERTIFICATE", Description = "Chứng chỉ sơ cứu / y tế" },
             new Ability { Id = 53, Code = "LOCAL_RESCUE_TEAM_MEMBER", Description = "Thành viên đội cứu hộ địa phương" },
             new Ability { Id = 54, Code = "VOLUNTEER_ORG_MEMBER", Description = "Thành viên tổ chức thiện nguyện" }
         );

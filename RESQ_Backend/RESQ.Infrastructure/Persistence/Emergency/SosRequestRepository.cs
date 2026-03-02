@@ -82,4 +82,14 @@ public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepositor
 
         return entity == null ? null : SosRequestMapper.ToDomain(entity);
     }
+
+    public async Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default)
+    {
+        var entities = await _unitOfWork.GetRepository<SosRequest>()
+            .GetAllByPropertyAsync(x => x.ClusterId == clusterId);
+
+        return entities
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(SosRequestMapper.ToDomain);
+    }
 }

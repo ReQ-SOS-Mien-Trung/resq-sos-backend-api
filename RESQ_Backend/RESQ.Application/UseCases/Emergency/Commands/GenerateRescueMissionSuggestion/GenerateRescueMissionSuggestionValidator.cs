@@ -6,9 +6,8 @@ public class GenerateRescueMissionSuggestionValidator : AbstractValidator<Genera
 {
     public GenerateRescueMissionSuggestionValidator()
     {
-        RuleFor(x => x.SosRequestIds)
-            .NotEmpty().WithMessage("Danh sách SOS request không được trống")
-            .Must(ids => ids.Count <= 20).WithMessage("Tối đa 20 SOS request mỗi lần đề xuất");
+        RuleFor(x => x.ClusterId)
+            .GreaterThan(0).WithMessage("ClusterId không hợp lệ");
 
         RuleFor(x => x.RequestedByUserId)
             .NotEmpty().WithMessage("UserId không hợp lệ");

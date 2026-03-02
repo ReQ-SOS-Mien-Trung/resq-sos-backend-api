@@ -11,4 +11,5 @@ public interface ISosRequestRepository
     Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
     Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default);
 }

@@ -67,6 +67,13 @@ public partial class User
     [Column("email_verification_token_expiry", TypeName = "timestamp with time zone")]
     public DateTime? EmailVerificationTokenExpiry { get; set; }
 
+    [Column("password_reset_token")]
+    [StringLength(255)]
+    public string? PasswordResetToken { get; set; }
+
+    [Column("password_reset_token_expiry", TypeName = "timestamp with time zone")]
+    public DateTime? PasswordResetTokenExpiry { get; set; }
+
     [Column("refresh_token")]
     public string? RefreshToken { get; set; }
 

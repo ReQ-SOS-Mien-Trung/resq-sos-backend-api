@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.System;
@@ -22,7 +23,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     private const string FALLBACK_MODEL = "gemini-2.5-flash";
     private const string FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
     private const double FALLBACK_TEMPERATURE = 0.5;
-    private const int FALLBACK_MAX_TOKENS = 4096;
+    private const int FALLBACK_MAX_TOKENS = 65535;
 
     public RescueMissionSuggestionService(
         IHttpClientFactory httpClientFactory,
@@ -73,7 +74,9 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             var modelName = prompt.Model ?? FALLBACK_MODEL;
             var apiUrl = prompt.ApiUrl ?? FALLBACK_API_URL;
             var temperature = prompt.Temperature ?? FALLBACK_TEMPERATURE;
-            var maxTokens = prompt.MaxTokens ?? FALLBACK_MAX_TOKENS;
+            // Always use at least FALLBACK_MAX_TOKENS regardless of DB setting to avoid truncation
+            // Vietnamese text is token-heavy (~2-3 tokens/char), so responses need much more than 4096
+            var maxTokens = Math.Max(prompt.MaxTokens ?? FALLBACK_MAX_TOKENS, FALLBACK_MAX_TOKENS);
 
             _logger.LogInformation(
                 "Using AI config from DB: Model={model}, Temperature={temperature}, MaxTokens={maxTokens}",
@@ -191,60 +194,156 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
     {
-        try
+        // Step 1: Strip ```json ... ``` markdown fence if present
+        var cleaned = response.Trim();
+        if (cleaned.StartsWith("```"))
         {
-            var jsonStart = response.IndexOf('{');
-            var jsonEnd = response.LastIndexOf('}');
+            var fenceEnd = cleaned.IndexOf('\n');
+            if (fenceEnd >= 0)
+                cleaned = cleaned[(fenceEnd + 1)..];
+            var closingFence = cleaned.LastIndexOf("```");
+            if (closingFence >= 0)
+                cleaned = cleaned[..closingFence];
+            cleaned = cleaned.Trim();
+        }
 
-            if (jsonStart >= 0 && jsonEnd > jsonStart)
+        // Step 2: Extract JSON object boundaries
+        var jsonStart = cleaned.IndexOf('{');
+        var jsonEnd = cleaned.LastIndexOf('}');
+
+        if (jsonStart >= 0 && jsonEnd > jsonStart)
+        {
+            var jsonStr = cleaned[jsonStart..(jsonEnd + 1)];
+
+            // Step 3: Try full deserialization
+            try
             {
-                var jsonStr = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
                 var parsed = JsonSerializer.Deserialize<AiMissionSuggestion>(jsonStr, new JsonSerializerOptions
                 {
-                    PropertyNameCaseInsensitive = true
+                    PropertyNameCaseInsensitive = true,
+                    AllowTrailingCommas = true
                 });
-
                 if (parsed != null)
-                {
-                    return new RescueMissionSuggestionResult
-                    {
-                        SuggestedMissionTitle = parsed.MissionTitle,
-                        SuggestedMissionType = parsed.MissionType,
-                        SuggestedPriorityScore = parsed.PriorityScore,
-                        SuggestedSeverityLevel = parsed.SeverityLevel,
-                        OverallAssessment = parsed.OverallAssessment,
-                        SuggestedActivities = parsed.Activities?.Select(a => new SuggestedActivityDto
-                        {
-                            Step = a.Step,
-                            ActivityType = a.ActivityType ?? string.Empty,
-                            Description = a.Description ?? string.Empty,
-                            Priority = a.Priority,
-                            EstimatedTime = a.EstimatedTime
-                        }).ToList() ?? [],
-                        SuggestedResources = parsed.Resources?.Select(r => new SuggestedResourceDto
-                        {
-                            ResourceType = r.ResourceType ?? string.Empty,
-                            Description = r.Description ?? string.Empty,
-                            Quantity = r.Quantity,
-                            Priority = r.Priority
-                        }).ToList() ?? [],
-                        EstimatedDuration = parsed.EstimatedDuration,
-                        SpecialNotes = parsed.SpecialNotes,
-                        ConfidenceScore = parsed.ConfidenceScore
-                    };
-                }
+                    return MapParsedToResult(parsed);
             }
+            catch { /* fall through to partial extraction */ }
+
+            // Step 4: Partial extraction via JsonDocument (handles valid-but-incomplete structures)
+            try
+            {
+                return ExtractPartialFromJson(jsonStr);
+            }
+            catch { /* fall through to regex */ }
         }
-        catch
+
+        // Step 5: Regex extraction for severely truncated responses
+        return ExtractViaRegex(cleaned.Length > 0 ? cleaned : response);
+    }
+
+    private static RescueMissionSuggestionResult MapParsedToResult(AiMissionSuggestion parsed)
+    {
+        return new RescueMissionSuggestionResult
         {
-            // Fallback if JSON parsing fails
+            SuggestedMissionTitle = parsed.MissionTitle,
+            SuggestedMissionType = parsed.MissionType,
+            SuggestedPriorityScore = parsed.PriorityScore > 0 ? parsed.PriorityScore : null,
+            SuggestedSeverityLevel = parsed.SeverityLevel,
+            OverallAssessment = parsed.OverallAssessment,
+            SuggestedActivities = parsed.Activities?.Select(a => new SuggestedActivityDto
+            {
+                Step = a.Step,
+                ActivityType = a.ActivityType ?? string.Empty,
+                Description = a.Description ?? string.Empty,
+                Priority = a.Priority,
+                EstimatedTime = a.EstimatedTime
+            }).ToList() ?? [],
+            SuggestedResources = parsed.Resources?.Select(r => new SuggestedResourceDto
+            {
+                ResourceType = r.ResourceType ?? string.Empty,
+                Description = r.Description ?? string.Empty,
+                Quantity = r.Quantity,
+                Priority = r.Priority
+            }).ToList() ?? [],
+            EstimatedDuration = parsed.EstimatedDuration,
+            SpecialNotes = parsed.SpecialNotes,
+            ConfidenceScore = parsed.ConfidenceScore
+        };
+    }
+
+    private static RescueMissionSuggestionResult ExtractPartialFromJson(string jsonStr)
+    {
+        using var doc = JsonDocument.Parse(jsonStr, new JsonDocumentOptions
+        {
+            AllowTrailingCommas = true,
+            CommentHandling = JsonCommentHandling.Skip
+        });
+        var root = doc.RootElement;
+        var result = new RescueMissionSuggestionResult();
+
+        if (root.TryGetProperty("mission_title", out var t)) result.SuggestedMissionTitle = t.GetString();
+        if (root.TryGetProperty("mission_type", out var mt)) result.SuggestedMissionType = mt.GetString();
+        if (root.TryGetProperty("priority_score", out var ps) && ps.TryGetDouble(out var psVal)) result.SuggestedPriorityScore = psVal;
+        if (root.TryGetProperty("severity_level", out var sl)) result.SuggestedSeverityLevel = sl.GetString();
+        if (root.TryGetProperty("overall_assessment", out var oa)) result.OverallAssessment = oa.GetString();
+        if (root.TryGetProperty("estimated_duration", out var ed)) result.EstimatedDuration = ed.GetString();
+        if (root.TryGetProperty("special_notes", out var sn)) result.SpecialNotes = sn.GetString();
+        if (root.TryGetProperty("confidence_score", out var cs) && cs.TryGetDouble(out var csVal)) result.ConfidenceScore = csVal;
+
+        if (root.TryGetProperty("activities", out var acts) && acts.ValueKind == JsonValueKind.Array)
+        {
+            result.SuggestedActivities = acts.EnumerateArray().Select(a =>
+            {
+                var dto = new SuggestedActivityDto();
+                if (a.TryGetProperty("step", out var sv) && sv.TryGetInt32(out var svi)) dto.Step = svi;
+                if (a.TryGetProperty("activity_type", out var at)) dto.ActivityType = at.GetString() ?? string.Empty;
+                if (a.TryGetProperty("description", out var d)) dto.Description = d.GetString() ?? string.Empty;
+                if (a.TryGetProperty("priority", out var p)) dto.Priority = p.GetString();
+                if (a.TryGetProperty("estimated_time", out var et)) dto.EstimatedTime = et.GetString();
+                return dto;
+            }).ToList();
+        }
+
+        if (root.TryGetProperty("resources", out var ress) && ress.ValueKind == JsonValueKind.Array)
+        {
+            result.SuggestedResources = ress.EnumerateArray().Select(r =>
+            {
+                var dto = new SuggestedResourceDto();
+                if (r.TryGetProperty("resource_type", out var rt)) dto.ResourceType = rt.GetString() ?? string.Empty;
+                if (r.TryGetProperty("description", out var d)) dto.Description = d.GetString() ?? string.Empty;
+                if (r.TryGetProperty("quantity", out var q) && q.TryGetInt32(out var qv)) dto.Quantity = qv;
+                if (r.TryGetProperty("priority", out var p)) dto.Priority = p.GetString();
+                return dto;
+            }).ToList();
+        }
+
+        return result;
+    }
+
+    private static RescueMissionSuggestionResult ExtractViaRegex(string text)
+    {
+        static string? ExtractStr(string src, string field)
+        {
+            var m = Regex.Match(src, $@"""{field}""\s*:\s*""((?:[^""\\]|\\.)*)""", RegexOptions.Singleline);
+            return m.Success ? Regex.Unescape(m.Groups[1].Value) : null;
+        }
+        static double? ExtractNum(string src, string field)
+        {
+            var m = Regex.Match(src, $@"""{field}""\s*:\s*([0-9]+(?:\.[0-9]+)?)");
+            return m.Success && double.TryParse(m.Groups[1].Value,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
         }
 
         return new RescueMissionSuggestionResult
         {
-            SuggestedMissionTitle = "Nhiệm vụ giải cứu",
-            OverallAssessment = response.Length > 1000 ? response[..1000] : response,
-            ConfidenceScore = 0.3
+            SuggestedMissionTitle = ExtractStr(text, "mission_title") ?? "Nhiệm vụ giải cứu",
+            SuggestedMissionType = ExtractStr(text, "mission_type"),
+            SuggestedPriorityScore = ExtractNum(text, "priority_score"),
+            SuggestedSeverityLevel = ExtractStr(text, "severity_level"),
+            OverallAssessment = ExtractStr(text, "overall_assessment"),
+            EstimatedDuration = ExtractStr(text, "estimated_duration"),
+            SpecialNotes = ExtractStr(text, "special_notes"),
+            ConfidenceScore = ExtractNum(text, "confidence_score") ?? 0.3
         };
     }
 
