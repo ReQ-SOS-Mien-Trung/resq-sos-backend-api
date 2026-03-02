@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
@@ -40,9 +41,9 @@ public class GetSosRequestQueryHandler(
                 UserId = sosRequest.UserId,
                 SosType = sosRequest.SosType,
                 RawMessage = sosRequest.RawMessage,
-                StructuredData = sosRequest.StructuredData,
-                NetworkMetadata = sosRequest.NetworkMetadata,
-                SenderInfo = sosRequest.SenderInfo,
+                StructuredData = ParseJson(sosRequest.StructuredData),
+                NetworkMetadata = ParseJson(sosRequest.NetworkMetadata),
+                SenderInfo = ParseJson(sosRequest.SenderInfo),
                 OriginId = sosRequest.OriginId,
                 Status = sosRequest.Status.ToString(),
                 PriorityLevel = sosRequest.PriorityLevel?.ToString(),
@@ -57,5 +58,12 @@ public class GetSosRequestQueryHandler(
                 ReviewedById = sosRequest.ReviewedById
             }
         };
+    }
+
+    private static JsonElement? ParseJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try { return JsonSerializer.Deserialize<JsonElement>(json); }
+        catch { return null; }
     }
 }

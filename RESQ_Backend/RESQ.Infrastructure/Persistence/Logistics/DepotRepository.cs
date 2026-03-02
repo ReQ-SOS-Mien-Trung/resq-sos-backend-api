@@ -86,4 +86,17 @@ public class DepotRepository(IUnitOfWork unitOfWork) : IDepotRepository
 
         return DepotMapper.ToDomain(entity);
     }
+
+    public async Task<IEnumerable<DepotModel>> GetAvailableDepotsAsync(CancellationToken cancellationToken = default)
+    {
+        // Lọc kho đang hoạt động (Available) và còn hàng (CurrentUtilization > 0)
+        // Kho Closed, PendingAssignment hoặc trống (utilization = 0) bị loại
+        var entities = await _unitOfWork.GetRepository<Depot>()
+            .GetAllByPropertyAsync(
+                x => x.Status == "Available" && x.CurrentUtilization > 0,
+                includeProperties: "DepotManagers.User"
+            );
+
+        return entities.Select(DepotMapper.ToDomain);
+    }
 }

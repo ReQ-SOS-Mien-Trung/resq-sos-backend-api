@@ -42,7 +42,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.LoginRescuer
             if (user.RoleId != RESCUER_ROLE_ID)
             {
                 _logger.LogWarning("Login failed: User is not a rescuer. UserId={userId} RoleId={roleId}", user.Id, user.RoleId);
-                throw new UnauthorizedException("Tài khoản không phải là tài khoản rescuer");
+                throw new UnauthorizedException("Tài khoản không phải là tài khoản người cứu hộ");
             }
 
             // Verify password
