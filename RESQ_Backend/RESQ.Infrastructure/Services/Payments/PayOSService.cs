@@ -51,15 +51,16 @@ public class PayOSService : IPaymentGatewayService
         else
         {
             // Fallback
-            orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            orderCode = long.Parse(DateTime.UtcNow.ToString("yyMMddHHmmss"));
             donation.PayosOrderId = orderCode.ToString();
         }
 
         // Requirement 1: Description format "Donation #{donation.Id} - {campaign.Code}"
         // Fallback to CampaignId if Code is null
         var campaignRef = !string.IsNullOrEmpty(donation.FundCampaignCode) ? donation.FundCampaignCode : donation.FundCampaignId.ToString();
-        var description = $"Donation #{donation.Id} - {campaignRef}";
-        
+        //var description = $"Donation #{donation.Id} - {campaignRef}";
+        var description = $"RESQ{donation.Id}";
+
         // Truncate description if too long (PayOS limit usually 25 chars for some fields, but description supports more. Verify API docs. Usually 255 chars).
         // Standardizing safe length.
         if (description.Length > 25) 
@@ -83,7 +84,8 @@ public class PayOSService : IPaymentGatewayService
         // 2. Create Signature
         // Signature requires alphabetical order of fields.
         // amount, cancelUrl, description, orderCode, returnUrl
-        var signatureData = $"amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={orderCode}&returnUrl={returnUrl}";
+        var signatureData =
+            $"amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={orderCode}&returnUrl={returnUrl}";
         var signature = CreateSignature(signatureData, checksumKey);
 
         var requestData = new PayOSCreatePaymentLinkRequest
