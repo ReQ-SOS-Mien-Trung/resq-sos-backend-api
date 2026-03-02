@@ -24,7 +24,7 @@ public class DonationController(IMediator mediator) : ControllerBase
         };
 
         var result = await _mediator.Send(command);
-        return Ok(result);
+        return StatusCode(201, result);
     }
 
     [HttpPost("payment-return")]
@@ -40,6 +40,5 @@ public class DonationController(IMediator mediator) : ControllerBase
 
         return BadRequest(new { message = "Failed to update payment status." });
 
-        //return Ok();
     }
 }
