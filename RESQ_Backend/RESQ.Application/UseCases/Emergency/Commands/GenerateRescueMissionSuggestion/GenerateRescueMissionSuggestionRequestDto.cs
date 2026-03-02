@@ -2,5 +2,5 @@ namespace RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSugg
 
 public class GenerateRescueMissionSuggestionRequestDto
 {
-    public List<int> SosRequestIds { get; set; } = [];
+    public int ClusterId { get; set; }
 }

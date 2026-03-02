@@ -58,8 +58,10 @@ public static class ServiceCollectionExtensions
 
         // Emergency Repositories
         services.AddScoped<ISosRequestRepository, SosRequestRepository>();
+        services.AddScoped<ISosClusterRepository, SosClusterRepository>();
         services.AddScoped<ISosRuleEvaluationRepository, SosRuleEvaluationRepository>();
         services.AddScoped<ISosAiAnalysisRepository, SosAiAnalysisRepository>();
+        services.AddScoped<IMissionAiSuggestionRepository, MissionAiSuggestionRepository>();
 
         // Finance Repositories
         services.AddScoped<IFundCampaignRepository, FundCampaignRepository>();

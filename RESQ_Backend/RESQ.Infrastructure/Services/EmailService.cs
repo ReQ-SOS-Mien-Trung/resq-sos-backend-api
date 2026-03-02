@@ -24,31 +24,258 @@ namespace RESQ.Infrastructure.Services
             var verificationUrl = $"{baseUrl}/identity/auth/verify-email?token={verificationToken}";
             
             var subject = "Xác Minh Tài Khoản RESQ Của Bạn";
-            var body = GetDefaultTemplate(
-                "Xác Minh Email", 
-                "Chào mừng đến với RESQ!", 
-                "Cảm ơn bạn đã đăng ký. Vui lòng xác minh địa chỉ email của bạn bằng cách nhấp vào nút bên dưới:", 
-                "Xác Minh Email", 
-                verificationUrl
-            );
+            var body = $@"<!DOCTYPE html>
+<html lang='vi'>
+<head>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>Xác Minh Email — RESQ</title>
+</head>
+<body style='margin:0;padding:0;background:#ffffff;font-family:""Helvetica Neue"",Helvetica,Arial,sans-serif;'>
+  <table width='100%' cellpadding='0' cellspacing='0' border='0' style='background:#ffffff;'>
+    <tr>
+      <td align='center' style='padding:48px 16px;'>
+        <table width='600' cellpadding='0' cellspacing='0' border='0' style='max-width:600px;width:100%;border:3px solid #000000;'>
+
+          <!-- HEADER RULE -->
+          <tr>
+            <td style='background:#000000;padding:0;height:6px;font-size:0;line-height:0;'>&nbsp;</td>
+          </tr>
+
+          <!-- MASTHEAD -->
+          <tr>
+            <td style='padding:32px 40px 24px;border-bottom:3px solid #000000;'>
+              <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td>
+                    <span style='font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#000000;'>RESQ SYSTEM</span>
+                  </td>
+                  <td align='right'>
+                    <span style='font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#999999;'>EMAIL VERIFICATION</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- HERO BLOCK -->
+          <tr>
+            <td style='padding:48px 40px 32px;border-bottom:2px solid #000000;'>
+              <p style='margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#FF5722;'>— Bước 01 / Xác minh</p>
+              <h1 style='margin:0 0 24px;font-size:42px;font-weight:900;line-height:1.05;letter-spacing:-1.5px;color:#000000;text-transform:uppercase;'>XÁC MINH<br/>TÀI KHOẢN</h1>
+              <p style='margin:0;font-size:15px;line-height:1.7;color:#333333;max-width:420px;'>
+                Cảm ơn bạn đã đăng ký trên RESQ. Xác nhận tài khoản của bạn để bắt đầu tham gia hệ thống ứng phó khẩn cấp.
+              </p>
+            </td>
+          </tr>
+
+          <!-- CTA BLOCK -->
+          <tr>
+            <td style='padding:40px;border-bottom:2px solid #000000;'>
+              <table cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td style='background:#FF5722;'>
+                    <a href='{verificationUrl}'
+                       style='display:inline-block;padding:16px 40px;font-size:12px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:#ffffff;text-decoration:none;'>
+                      XÁC MINH EMAIL →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style='margin:24px 0 0;font-size:11px;color:#999999;letter-spacing:1px;'>
+                HOẶC DÁN ĐƯỜNG DẪN VÀO TRÌNH DUYỆT:
+              </p>
+              <p style='margin:8px 0 0;font-size:12px;line-height:1.6;word-break:break-all;color:#000000;border-left:3px solid #FF5722;padding-left:12px;'>
+                {verificationUrl}
+              </p>
+            </td>
+          </tr>
+
+          <!-- META GRID -->
+          <tr>
+            <td style='padding:0;'>
+              <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td width='50%' style='padding:24px 40px;border-right:2px solid #000000;border-bottom:2px solid #000000;'>
+                    <p style='margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#999999;'>HIỆU LỰC</p>
+                    <p style='margin:0;font-size:14px;font-weight:700;color:#000000;'>24 GIỜ</p>
+                  </td>
+                  <td width='50%' style='padding:24px 40px;border-bottom:2px solid #000000;'>
+                    <p style='margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#999999;'>DỊCH VỤ</p>
+                    <p style='margin:0;font-size:14px;font-weight:700;color:#000000;'>RESQ EMERGENCY</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- DISCLAIMER -->
+          <tr>
+            <td style='padding:20px 40px;border-bottom:3px solid #000000;background:#f5f5f5;'>
+              <p style='margin:0;font-size:11px;line-height:1.6;color:#666666;'>
+                Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này. Liên kết sẽ tự động hết hạn.
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style='padding:20px 40px;'>
+              <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td>
+                    <span style='font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#000000;'>RESQ</span>
+                  </td>
+                  <td align='right'>
+                    <span style='font-size:10px;letter-spacing:1px;color:#999999;'>© 2026</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- BOTTOM ACCENT -->
+          <tr>
+            <td style='background:#FF5722;padding:0;height:4px;font-size:0;line-height:0;'>&nbsp;</td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>";
 
             await SendEmailAsync(email, subject, body, cancellationToken);
         }
 
         public async Task SendPasswordResetEmailAsync(string email, string resetToken, CancellationToken cancellationToken = default)
         {
-            var baseUrl = _configuration["AppSettings:BaseUrl"] ?? "http://localhost:5000";
-            var resetUrl = $"{baseUrl}/api/auth/reset-password?token={resetToken}";
+            var FEbaseUrl = _configuration["AppSettings:FEBaseUrl"] ?? "http://localhost:5173";
+            var resetUrl = $"{FEbaseUrl}/auth/reset-pass?token={resetToken}";
 
             var subject = "Đặt Lại Mật Khẩu RESQ Của Bạn";
-            var body = GetDefaultTemplate(
-                "Đặt Lại Mật Khẩu", 
-                "Yêu Cầu Đặt Lại Mật Khẩu", 
-                "Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu của bạn. Nhấp vào nút bên dưới để đặt mật khẩu mới:", 
-                "Đặt Lại Mật Khẩu", 
-                resetUrl, 
-                isAlert: true
-            );
+            var body = $@"<!DOCTYPE html>
+<html lang='vi'>
+<head>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>Đặt Lại Mật Khẩu — RESQ</title>
+</head>
+<body style='margin:0;padding:0;background:#ffffff;font-family:""Be Vietnam Pro"",""Segoe UI"",Roboto,""Noto Sans"",sans-serif;'>
+  <table width='100%' cellpadding='0' cellspacing='0' border='0' style='background:#ffffff;'>
+    <tr>
+      <td align='center' style='padding:48px 16px;'>
+        <table width='600' cellpadding='0' cellspacing='0' border='0' style='max-width:600px;width:100%;border:3px solid #000000;'>
+
+          <!-- HEADER RULE -->
+          <tr>
+            <td style='background:#000000;padding:0;height:6px;font-size:0;line-height:0;'>&nbsp;</td>
+          </tr>
+
+          <!-- MASTHEAD -->
+          <tr>
+            <td style='padding:32px 40px 24px;border-bottom:3px solid #000000;'>
+              <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td>
+                    <span style='font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#000000;'>RESQ SYSTEM</span>
+                  </td>
+                  <td align='right'>
+                    <span style='font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#999999;'>PASSWORD RESET</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- HERO BLOCK -->
+          <tr>
+            <td style='padding:48px 40px 32px;border-bottom:2px solid #000000;'>
+              <p style='margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#FF5722;'>— Yêu cầu bảo mật</p>
+              <h1 style='margin:0 0 24px;font-size:42px;font-weight:900;line-height:1.05;letter-spacing:-1.5px;color:#000000;text-transform:uppercase;'>ĐẶT LẠI<br/>MẬT KHẨU</h1>
+              <p style='margin:0;font-size:15px;line-height:1.7;color:#333333;max-width:420px;'>
+                Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Nhấp vào nút bên dưới để tiến hành.
+              </p>
+            </td>
+          </tr>
+
+          <!-- CTA BLOCK -->
+          <tr>
+            <td style='padding:40px;border-bottom:2px solid #000000;'>
+              <table cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td style='background:#FF5722;'>
+                    <a href='{resetUrl}'
+                       style='display:inline-block;padding:16px 40px;font-size:12px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:#ffffff;text-decoration:none;'>
+                      ĐẶT LẠI MẬT KHẨU →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style='margin:24px 0 0;font-size:11px;color:#999999;letter-spacing:1px;'>
+                HOẶC DÁN ĐƯỜNG DẪN VÀO TRÌNH DUYỆT:
+              </p>
+              <p style='margin:8px 0 0;font-size:12px;line-height:1.6;word-break:break-all;color:#000000;border-left:3px solid #FF5722;padding-left:12px;'>
+                {resetUrl}
+              </p>
+            </td>
+          </tr>
+
+          <!-- META GRID -->
+          <tr>
+            <td style='padding:0;'>
+              <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td width='50%' style='padding:24px 40px;border-right:2px solid #000000;border-bottom:2px solid #000000;'>
+                    <p style='margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#999999;'>HIỆU LỰC</p>
+                    <p style='margin:0;font-size:14px;font-weight:700;color:#000000;'>01 GIỜ</p>
+                  </td>
+                  <td width='50%' style='padding:24px 40px;border-bottom:2px solid #000000;'>
+                    <p style='margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#999999;'>MỨC ĐỘ</p>
+                    <p style='margin:0;font-size:14px;font-weight:700;color:#000000;'>BẢO MẬT CAO</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- DISCLAIMER -->
+          <tr>
+            <td style='padding:20px 40px;border-bottom:3px solid #000000;background:#f5f5f5;'>
+              <p style='margin:0;font-size:11px;line-height:1.6;color:#666666;'>
+                Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này. Tài khoản của bạn vẫn an toàn và không có thay đổi nào được thực hiện.
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style='padding:20px 40px;'>
+              <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td>
+                    <span style='font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#000000;'>RESQ</span>
+                  </td>
+                  <td align='right'>
+                    <span style='font-size:10px;letter-spacing:1px;color:#999999;'>© 2026</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- BOTTOM ACCENT -->
+          <tr>
+            <td style='background:#FF5722;padding:0;height:4px;font-size:0;line-height:0;'>&nbsp;</td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>";
 
             await SendEmailAsync(email, subject, body, cancellationToken);
         }

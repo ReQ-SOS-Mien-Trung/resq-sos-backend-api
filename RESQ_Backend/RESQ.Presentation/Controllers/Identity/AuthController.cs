@@ -11,6 +11,8 @@ using RESQ.Application.UseCases.Identity.Commands.LoginRescuer;
 using RESQ.Application.UseCases.Identity.Commands.RegisterRescuer;
 using RESQ.Application.UseCases.Identity.Commands.VerifyEmail;
 using RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail;
+using RESQ.Application.UseCases.Identity.Commands.ForgotPassword;
+using RESQ.Application.UseCases.Identity.Commands.ResetPassword;
 
 namespace RESQ.Presentation.Controllers.Identity
 {
@@ -56,6 +58,24 @@ namespace RESQ.Presentation.Controllers.Identity
         public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendVerificationEmailRequestDto dto)
         {
             var command = new ResendVerificationEmailCommand(dto.Email);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto)
+        {
+            var command = new ForgotPasswordCommand(dto.Email);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto dto)
+        {
+            var command = new ResetPasswordCommand(dto.Token, dto.NewPassword);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

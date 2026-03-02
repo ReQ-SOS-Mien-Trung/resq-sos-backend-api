@@ -4,6 +4,8 @@ namespace RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSugg
 
 public class GenerateRescueMissionSuggestionResponse
 {
+    /// <summary>ID bản ghi mission suggestion đã lưu vào DB</summary>
+    public int? SuggestionId { get; set; }
     public bool IsSuccess { get; set; }
     public string? ErrorMessage { get; set; }
     public string? ModelName { get; set; }

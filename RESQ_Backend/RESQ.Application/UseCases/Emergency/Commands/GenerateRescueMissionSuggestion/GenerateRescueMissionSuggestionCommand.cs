@@ -3,6 +3,6 @@ using MediatR;
 namespace RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
 
 public record GenerateRescueMissionSuggestionCommand(
-    List<int> SosRequestIds,
+    int ClusterId,
     Guid RequestedByUserId
 ) : IRequest<GenerateRescueMissionSuggestionResponse>;

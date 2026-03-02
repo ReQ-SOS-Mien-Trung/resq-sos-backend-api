@@ -47,6 +47,12 @@ namespace RESQ.Infrastructure.Persistence.Identity
             return entity is null ? null : UsersMapper.ToModel(entity);
         }
 
+        public async Task<UserModel?> GetByPasswordResetTokenAsync(string token, CancellationToken cancellationToken = default)
+        {
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.PasswordResetToken == token);
+            return entity is null ? null : UsersMapper.ToModel(entity);
+        }
+
         public async Task UpdateAsync(UserModel user, CancellationToken cancellationToken = default)
         {
             var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Id == user.Id);
@@ -68,6 +74,8 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 // Update tokens
                 entity.EmailVerificationToken = user.EmailVerificationToken;
                 entity.EmailVerificationTokenExpiry = user.EmailVerificationTokenExpiry;
+                entity.PasswordResetToken = user.PasswordResetToken;
+                entity.PasswordResetTokenExpiry = user.PasswordResetTokenExpiry;
                 entity.RefreshToken = user.RefreshToken;
                 entity.RefreshTokenExpiry = user.RefreshTokenExpiry;
 

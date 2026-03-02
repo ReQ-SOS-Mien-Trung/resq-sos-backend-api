@@ -4,7 +4,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
-using RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
 using RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
@@ -67,16 +66,8 @@ public class SosRequestController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet]
-    [Authorize(Roles = "2")]
-    public async Task<IActionResult> GetAllSosRequests()
-    {
-        var result = await _mediator.Send(new GetAllSosRequestsQuery());
-        return Ok(result);
-    }
-
     [HttpGet("paged")]
-    [Authorize(Roles = "2")]
+    [Authorize(Roles = "1,2")]
     public async Task<IActionResult> GetSosRequestsPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         var query = new GetSosRequestsPagedQuery
@@ -89,28 +80,13 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-    [Authorize(Roles = "2,5")]
+    [Authorize(Roles = "1,2,5")]
     public async Task<IActionResult> GetSosRequestDetail([FromRoute] int id)
     {
         if (!TryGetUserId(out var userId) || !TryGetRoleId(out var roleId))
             return Unauthorized();
 
         var result = await _mediator.Send(new GetSosRequestQuery(id, userId, roleId));
-        return Ok(result);
-    }
-
-    /// <summary>
-    /// Gửi danh sách SOS request IDs để AI đề xuất kế hoạch nhiệm vụ giải cứu.
-    /// </summary>
-    [HttpPost("rescue-suggestion")]
-    [Authorize(Roles = "1,2,4")]
-    public async Task<IActionResult> GenerateRescueMissionSuggestion([FromBody] GenerateRescueMissionSuggestionRequestDto dto)
-    {
-        if (!TryGetUserId(out var userId))
-            return Unauthorized();
-
-        var command = new GenerateRescueMissionSuggestionCommand(dto.SosRequestIds, userId);
-        var result = await _mediator.Send(command);
         return Ok(result);
     }
 
