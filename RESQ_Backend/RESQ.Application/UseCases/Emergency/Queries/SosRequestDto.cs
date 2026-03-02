@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace RESQ.Application.UseCases.Emergency.Queries;
 
@@ -9,6 +10,7 @@ public class SosRequestDto
     public int? ClusterId { get; set; }
     public Guid UserId { get; set; }
     public string? SosType { get; set; }
+    [JsonPropertyName("msg")]
     public string RawMessage { get; set; } = string.Empty;
     public JsonElement? StructuredData { get; set; }
     public JsonElement? NetworkMetadata { get; set; }

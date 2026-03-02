@@ -22,17 +22,21 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
                 .MaximumLength(100).WithMessage("Họ không được vượt quá 100 ký tự");
 
             RuleFor(x => x.Phone)
+                .NotEmpty().WithMessage("Số điện thoại là bắt buộc")
                 .Matches(@"^(0|\+84)[3-9]\d{8}$")
                 .WithMessage("Số điện thoại phải là số điện thoại Việt Nam hợp lệ (VD: 0912345678 hoặc +84912345678)")
                 .When(x => !string.IsNullOrEmpty(x.Phone));
 
             RuleFor(x => x.Address)
+                .NotEmpty().WithMessage("Địa chỉ là bắt buộc")
                 .MaximumLength(500).WithMessage("Địa chỉ không được vượt quá 500 ký tự");
 
             RuleFor(x => x.Ward)
+                .NotEmpty().WithMessage("Phường/Xã là bắt buộc")
                 .MaximumLength(100).WithMessage("Phường/Xã không được vượt quá 100 ký tự");
 
             RuleFor(x => x.Province)
+                .NotEmpty().WithMessage("Tỉnh/Thành phố là bắt buộc")
                 .MaximumLength(100).WithMessage("Tỉnh/Thành phố không được vượt quá 100 ký tự");
 
             RuleFor(x => x.Latitude)
