@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace RESQ.Application.UseCases.Emergency.Queries;
 
 public class SosRequestDto
@@ -8,9 +10,9 @@ public class SosRequestDto
     public Guid UserId { get; set; }
     public string? SosType { get; set; }
     public string RawMessage { get; set; } = string.Empty;
-    public string? StructuredData { get; set; }
-    public string? NetworkMetadata { get; set; }
-    public string? SenderInfo { get; set; }
+    public JsonElement? StructuredData { get; set; }
+    public JsonElement? NetworkMetadata { get; set; }
+    public JsonElement? SenderInfo { get; set; }
     public string? OriginId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? PriorityLevel { get; set; }

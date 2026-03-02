@@ -39,6 +39,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
     public async Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
         List<SosRequestSummary> sosRequests,
+        List<DepotSummary>? nearbyDepots = null,
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -84,9 +85,26 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
             // Build data for prompt
             var sosDataJson = BuildSosRequestsData(sosRequests);
+            var depotsDataJson = BuildDepotsData(nearbyDepots);
+
             var userPrompt = (prompt.UserPromptTemplate ?? string.Empty)
                 .Replace("{{sos_requests_data}}", sosDataJson)
-                .Replace("{{total_count}}", sosRequests.Count.ToString());
+                .Replace("{{total_count}}", sosRequests.Count.ToString())
+                .Replace("{{depots_data}}", depotsDataJson);
+
+            // Nếu prompt template không có placeholder {{depots_data}} nhưng có kho → đính kèm cuối prompt
+            if (!string.IsNullOrEmpty(depotsDataJson)
+                && !(prompt.UserPromptTemplate ?? string.Empty).Contains("{{depots_data}}"))
+            {
+                userPrompt += $"""
+
+
+--- THÔNG TIN KHO TIẾP TẾ GẦN NHẤT ---
+Dưới đây là danh sách các kho tiếp tế đang hoạt động, còn hàng, được sắp xếp từ gần đến xa so với SOS request quan trọng nhất.
+Hãy sử dụng thông tin này để đề xuất nguồn cung cấp tài nguyên trong kế hoạch cứu hộ:
+{depotsDataJson}
+""";
+            }
 
             // Call Gemini API
             var aiResponse = await CallAiApiAsync(modelName, apiUrl, prompt.SystemPrompt ?? string.Empty, userPrompt, temperature, maxTokens, cancellationToken);
@@ -147,6 +165,38 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 : "Không xác định",
             thoi_gian_cho_phut = sos.WaitTimeMinutes,
             thoi_gian_tao = sos.CreatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
+        });
+
+        return JsonSerializer.Serialize(entries, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+    }
+
+    /// <summary>
+    /// Tuần tự hoá danh sách kho tiếp tế gần nhất sang JSON để đưa vào prompt cho AI.
+    /// Trả về chuỗi rỗng nếu không có kho nào.
+    /// </summary>
+    private static string BuildDepotsData(List<DepotSummary>? depots)
+    {
+        if (depots is null || depots.Count == 0)
+            return string.Empty;
+
+        var entries = depots.Select((d, index) => new
+        {
+            stt = index + 1,
+            id = d.Id,
+            ten_kho = d.Name,
+            dia_chi = d.Address,
+            vi_tri = d.Latitude.HasValue && d.Longitude.HasValue
+                ? $"{d.Latitude}, {d.Longitude}"
+                : "Không xác định",
+            khoang_cach_km = d.DistanceKm,
+            suc_chua_tong = d.Capacity,
+            dang_su_dung = d.CurrentUtilization,
+            con_trong = d.Capacity - d.CurrentUtilization,
+            trang_thai = d.Status
         });
 
         return JsonSerializer.Serialize(entries, new JsonSerializerOptions

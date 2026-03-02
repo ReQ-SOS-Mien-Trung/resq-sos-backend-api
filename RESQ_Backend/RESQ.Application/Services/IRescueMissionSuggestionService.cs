@@ -4,7 +4,23 @@ public interface IRescueMissionSuggestionService
 {
     Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
         List<SosRequestSummary> sosRequests,
+        List<DepotSummary>? nearbyDepots = null,
         CancellationToken cancellationToken = default);
+}
+
+/// <summary>Thông tin tóm tắt kho tiếp tế gần nhất, dùng để cung cấp context cho AI.</summary>
+public class DepotSummary
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    /// <summary>Khoảng cách (km) từ kho đến SOS request quan trọng nhất trong cluster.</summary>
+    public double DistanceKm { get; set; }
+    public int Capacity { get; set; }
+    public int CurrentUtilization { get; set; }
+    public string Status { get; set; } = string.Empty;
 }
 
 public class SosRequestSummary

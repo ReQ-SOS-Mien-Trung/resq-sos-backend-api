@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Emergency;
@@ -26,9 +27,9 @@ public class GetSosRequestsPagedQueryHandler(
             UserId = x.UserId,
             SosType = x.SosType,
             RawMessage = x.RawMessage,
-            StructuredData = x.StructuredData,
-            NetworkMetadata = x.NetworkMetadata,
-            SenderInfo = x.SenderInfo,
+            StructuredData = ParseJson(x.StructuredData),
+            NetworkMetadata = ParseJson(x.NetworkMetadata),
+            SenderInfo = ParseJson(x.SenderInfo),
             OriginId = x.OriginId,
             Status = x.Status.ToString(),
             PriorityLevel = x.PriorityLevel?.ToString(),
@@ -56,5 +57,12 @@ public class GetSosRequestsPagedQueryHandler(
 
         _logger.LogInformation("{handler} - retrieved {count} SOS requests on page {page}", nameof(GetSosRequestsPagedQueryHandler), dtos.Count, request.PageNumber);
         return response;
+    }
+
+    private static JsonElement? ParseJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try { return JsonSerializer.Deserialize<JsonElement>(json); }
+        catch { return null; }
     }
 }
