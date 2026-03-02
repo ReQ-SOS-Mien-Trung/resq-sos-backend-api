@@ -27,5 +27,8 @@ public partial class ResQDbContext
 
         // 7. AI Analysis (Suggestions)
         modelBuilder.SeedAiAnalysis();
+
+        // 8. Finance (Fund Campaigns, Donations, Transactions) - NEWLY ADDED
+        modelBuilder.SeedFinance();
     }
 }

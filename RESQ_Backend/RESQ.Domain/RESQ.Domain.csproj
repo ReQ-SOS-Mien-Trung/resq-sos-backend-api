@@ -13,10 +13,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Entities\Finance\Exceptions\" />
+    <Folder Include="Entities\Finance\ValueObjects\" />
     <Folder Include="Entities\Logistics\Services\" />
     <Folder Include="Entities\Personnel\Exceptions\" />
     <Folder Include="Entities\Personnel\Services\" />
     <Folder Include="Entities\Personnel\ValueObjects\" />
+    <Folder Include="Enum\Finance\" />
   </ItemGroup>
 
 </Project>

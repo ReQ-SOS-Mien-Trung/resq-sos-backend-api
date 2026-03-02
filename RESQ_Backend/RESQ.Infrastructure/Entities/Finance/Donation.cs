@@ -20,10 +20,6 @@ public partial class Donation
     [StringLength(255)]
     public string? DonorName { get; set; }
 
-    [Column("donor_phone")]
-    [StringLength(20)]
-    public string? DonorPhone { get; set; }
-
     [Column("donor_email")]
     [StringLength(255)]
     public string? DonorEmail { get; set; }
@@ -55,4 +51,4 @@ public partial class Donation
     [ForeignKey("FundCampaignId")]
     [InverseProperty("Donations")]
     public virtual FundCampaign? FundCampaign { get; set; }
-}
+}

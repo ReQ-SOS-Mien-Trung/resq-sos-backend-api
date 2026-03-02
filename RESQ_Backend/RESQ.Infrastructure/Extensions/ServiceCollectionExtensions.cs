@@ -6,6 +6,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Infrastructure.Persistence.Base;
@@ -15,7 +16,9 @@ using RESQ.Infrastructure.Persistence.Identity;
 using RESQ.Infrastructure.Persistence.Emergency;
 using RESQ.Infrastructure.Persistence.Personnel;
 using RESQ.Infrastructure.Persistence.System;
+using RESQ.Infrastructure.Persistence.Finance;
 using RESQ.Infrastructure.Services;
+using RESQ.Infrastructure.Services.Payments;
 
 namespace RESQ.Infrastructure.Extensions;
 
@@ -45,7 +48,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
 
         // Personnel Repositories
-        services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>(); // Registered
+        services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>(); 
 
         // Users Repositories
         services.AddScoped<IUserRepository, UserRepository>();
@@ -58,6 +61,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISosRuleEvaluationRepository, SosRuleEvaluationRepository>();
         services.AddScoped<ISosAiAnalysisRepository, SosAiAnalysisRepository>();
 
+        // Finance Repositories
+        services.AddScoped<IFundCampaignRepository, FundCampaignRepository>();
+        services.AddScoped<IDonationRepository, DonationRepository>();
+        services.AddScoped<IFundTransactionRepository, FundTransactionRepository>();
+        services.AddScoped<IDepotFundAllocationRepository, DepotFundAllocationRepository>();
+
         // System Repositories
         services.AddScoped<IPromptRepository, PromptRepository>();
 
@@ -68,6 +77,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISosAiAnalysisService, SosAiAnalysisService>();
         services.AddScoped<IAiModelTestService, AiModelTestService>();
         services.AddScoped<IRescueMissionSuggestionService, RescueMissionSuggestionService>();
+        
+        // Payment Service
+        services.AddScoped<IPaymentGatewayService, PayOSService>();
 
         // Background Services
         services.AddSingleton<SosAiAnalysisQueue>();
