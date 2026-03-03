@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 
@@ -15,8 +16,6 @@ public class UpdateActivityStatusCommandHandler(
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<UpdateActivityStatusCommandHandler> _logger = logger;
-
-    private static readonly string[] AllowedStatuses = ["pending", "in_progress", "completed", "cancelled", "skipped"];
 
     public async Task<UpdateActivityStatusResponse> Handle(UpdateActivityStatusCommand request, CancellationToken cancellationToken)
     {
@@ -32,7 +31,7 @@ public class UpdateActivityStatusCommandHandler(
         return new UpdateActivityStatusResponse
         {
             ActivityId = request.ActivityId,
-            Status = request.Status,
+            Status = request.Status.ToString(),
             DecisionBy = request.DecisionBy
         };
     }

@@ -1,3 +1,5 @@
+using RESQ.Domain.Enum.Operations;
+
 namespace RESQ.Domain.Entities.Operations;
 
 public class MissionModel
@@ -7,7 +9,7 @@ public class MissionModel
     public int? PreviousMissionId { get; set; }
     public string? MissionType { get; set; }
     public double? PriorityScore { get; set; }
-    public string? Status { get; set; }
+    public MissionStatus Status { get; set; } = MissionStatus.Pending;
     public DateTime? StartTime { get; set; }
     public DateTime? ExpectedEndTime { get; set; }
     public bool? IsCompleted { get; set; }

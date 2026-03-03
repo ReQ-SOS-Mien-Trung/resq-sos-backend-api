@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
 
@@ -38,7 +39,7 @@ public class AddMissionActivityCommandHandler(
             Items = request.Items,
             TargetLatitude = request.TargetLatitude,
             TargetLongitude = request.TargetLongitude,
-            Status = "pending"
+            Status = MissionActivityStatus.Pending
         };
 
         var activityId = await _activityRepository.AddAsync(activity, cancellationToken);

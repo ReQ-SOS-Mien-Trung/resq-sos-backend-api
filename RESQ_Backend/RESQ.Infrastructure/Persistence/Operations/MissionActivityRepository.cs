@@ -1,6 +1,7 @@
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Mappers.Operations;
 
@@ -60,17 +61,17 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
         await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);
     }
 
-    public async Task UpdateStatusAsync(int activityId, string status, Guid decisionBy, CancellationToken cancellationToken = default)
+    public async Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<MissionActivity>()
             .GetByPropertyAsync(x => x.Id == activityId, tracked: true);
 
         if (entity is null) return;
 
-        entity.Status = status;
+        entity.Status = MissionActivityMapper.ToDbString(status);
         entity.LastDecisionBy = decisionBy;
 
-        if (status == "completed")
+        if (status == MissionActivityStatus.Completed)
             entity.CompletedAt = DateTime.UtcNow;
 
         await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);

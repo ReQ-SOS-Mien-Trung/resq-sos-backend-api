@@ -30,7 +30,7 @@ public class GetMissionActivitiesQueryHandler(
             Items = a.Items,
             TargetLatitude = a.TargetLatitude,
             TargetLongitude = a.TargetLongitude,
-            Status = a.Status,
+            Status = a.Status.ToString(),
             AssignedAt = a.AssignedAt,
             CompletedAt = a.CompletedAt
         }).ToList();

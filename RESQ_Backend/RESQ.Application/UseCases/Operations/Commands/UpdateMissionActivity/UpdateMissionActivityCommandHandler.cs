@@ -44,7 +44,7 @@ public class UpdateMissionActivityCommandHandler(
             Step = activity.Step,
             ActivityType = activity.ActivityType,
             Description = activity.Description,
-            Status = activity.Status
+            Status = activity.Status.ToString()
         };
     }
 }

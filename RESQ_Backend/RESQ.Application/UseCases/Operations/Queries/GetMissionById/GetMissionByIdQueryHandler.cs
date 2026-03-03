@@ -26,7 +26,7 @@ public class GetMissionByIdQueryHandler(
             ClusterId = mission.ClusterId,
             MissionType = mission.MissionType,
             PriorityScore = mission.PriorityScore,
-            Status = mission.Status,
+            Status = mission.Status.ToString(),
             StartTime = mission.StartTime,
             ExpectedEndTime = mission.ExpectedEndTime,
             IsCompleted = mission.IsCompleted,
@@ -45,7 +45,7 @@ public class GetMissionByIdQueryHandler(
                 Items = a.Items,
                 TargetLatitude = a.TargetLatitude,
                 TargetLongitude = a.TargetLongitude,
-                Status = a.Status,
+                Status = a.Status.ToString(),
                 AssignedAt = a.AssignedAt,
                 CompletedAt = a.CompletedAt
             }).ToList()

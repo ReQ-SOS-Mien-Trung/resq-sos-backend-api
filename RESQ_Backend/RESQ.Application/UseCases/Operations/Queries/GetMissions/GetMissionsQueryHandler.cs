@@ -32,7 +32,7 @@ public class GetMissionsQueryHandler(
                 ClusterId = m.ClusterId,
                 MissionType = m.MissionType,
                 PriorityScore = m.PriorityScore,
-                Status = m.Status,
+                Status = m.Status.ToString(),
                 StartTime = m.StartTime,
                 ExpectedEndTime = m.ExpectedEndTime,
                 IsCompleted = m.IsCompleted,
@@ -51,7 +51,7 @@ public class GetMissionsQueryHandler(
                     Items = a.Items,
                     TargetLatitude = a.TargetLatitude,
                     TargetLongitude = a.TargetLongitude,
-                    Status = a.Status,
+                    Status = a.Status.ToString(),
                     AssignedAt = a.AssignedAt,
                     CompletedAt = a.CompletedAt
                 }).ToList()

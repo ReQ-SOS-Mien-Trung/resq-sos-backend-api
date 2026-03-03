@@ -1,11 +1,30 @@
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
 using RESQ.Infrastructure.Entities.Operations;
 
 namespace RESQ.Infrastructure.Mappers.Operations;
 
 public static class MissionActivityMapper
 {
+    private static readonly Dictionary<MissionActivityStatus, string> StatusToString = new()
+    {
+        [MissionActivityStatus.Pending] = "pending",
+        [MissionActivityStatus.InProgress] = "in_progress",
+        [MissionActivityStatus.Completed] = "completed",
+        [MissionActivityStatus.Cancelled] = "cancelled",
+        [MissionActivityStatus.Skipped] = "skipped"
+    };
+
+    private static readonly Dictionary<string, MissionActivityStatus> StringToStatus =
+        StatusToString.ToDictionary(x => x.Value, x => x.Key);
+
+    public static string ToDbString(MissionActivityStatus status) =>
+        StatusToString.GetValueOrDefault(status, "pending");
+
+    public static MissionActivityStatus ToEnum(string? status) =>
+        status is not null && StringToStatus.TryGetValue(status, out var val) ? val : MissionActivityStatus.Pending;
+
     public static MissionActivity ToEntity(MissionActivityModel model)
     {
         var entity = new MissionActivity
@@ -17,7 +36,7 @@ public static class MissionActivityMapper
             Description = model.Description,
             Target = model.Target,
             Items = model.Items,
-            Status = model.Status ?? "pending",
+            Status = ToDbString(model.Status),
             AssignedAt = model.AssignedAt,
             CompletedAt = model.CompletedAt,
             LastDecisionBy = model.LastDecisionBy
@@ -45,7 +64,7 @@ public static class MissionActivityMapper
             Items = entity.Items,
             TargetLatitude = entity.TargetLocation?.Y,
             TargetLongitude = entity.TargetLocation?.X,
-            Status = entity.Status,
+            Status = ToEnum(entity.Status),
             AssignedAt = entity.AssignedAt,
             CompletedAt = entity.CompletedAt,
             LastDecisionBy = entity.LastDecisionBy
