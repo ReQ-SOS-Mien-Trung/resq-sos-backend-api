@@ -48,6 +48,15 @@ public partial class FundCampaign
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
+    [Column("last_modified_by")]
+    public Guid? LastModifiedBy { get; set; }
+
+    [Column("last_modified_at", TypeName = "timestamp with time zone")]
+    public DateTime? LastModifiedAt { get; set; }
+
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; } = false;
+
     [ForeignKey("CreatedBy")]
     [InverseProperty("FundCampaigns")]
     public virtual User? CreatedByUser { get; set; }

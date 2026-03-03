@@ -8,27 +8,29 @@ public static class FundCampaignMapper
 {
     public static FundCampaignModel ToModel(FundCampaign entity)
     {
-        // Default to Active if parsing fails or null
         var statusEnum = FundCampaignStatus.Active;
         if (!string.IsNullOrEmpty(entity.Status))
         {
             Enum.TryParse(entity.Status, true, out statusEnum);
         }
 
-        return new FundCampaignModel
-        {
-            Id = entity.Id,
-            Code = entity.Code,
-            Name = entity.Name,
-            Region = entity.Region,
-            CampaignStartDate = entity.CampaignStartDate,
-            CampaignEndDate = entity.CampaignEndDate,
-            TargetAmount = entity.TargetAmount,
-            TotalAmount = entity.TotalAmount,
-            Status = statusEnum,
-            CreatedBy = entity.CreatedBy,
-            CreatedAt = entity.CreatedAt
-        };
+        // Use Factory Method to bypass private setters for hydration
+        return FundCampaignModel.Reconstitute(
+            entity.Id,
+            entity.Code,
+            entity.Name ?? string.Empty,
+            entity.Region ?? string.Empty,
+            entity.CampaignStartDate,
+            entity.CampaignEndDate,
+            entity.TargetAmount,
+            entity.TotalAmount,
+            statusEnum,
+            entity.CreatedBy,
+            entity.CreatedAt,
+            entity.LastModifiedBy,
+            entity.LastModifiedAt,
+            entity.IsDeleted
+        );
     }
 
     public static FundCampaign ToEntity(FundCampaignModel model)
@@ -39,26 +41,30 @@ public static class FundCampaignMapper
             Code = model.Code,
             Name = model.Name,
             Region = model.Region,
-            CampaignStartDate = model.CampaignStartDate,
-            CampaignEndDate = model.CampaignEndDate,
+            CampaignStartDate = model.Duration?.StartDate,
+            CampaignEndDate = model.Duration?.EndDate,
             TargetAmount = model.TargetAmount,
             TotalAmount = model.TotalAmount,
-            // Map Enum to PascalCase string: Active | Closed | Archived
             Status = model.Status.ToString(),
             CreatedBy = model.CreatedBy,
-            CreatedAt = model.CreatedAt
+            CreatedAt = model.CreatedAt,
+            LastModifiedBy = model.LastModifiedBy,
+            LastModifiedAt = model.LastModifiedAt,
+            IsDeleted = model.IsDeleted
         };
     }
     
     public static void UpdateEntity(FundCampaign entity, FundCampaignModel model)
     {
-        entity.Code = model.Code;
         entity.Name = model.Name;
         entity.Region = model.Region;
-        entity.CampaignStartDate = model.CampaignStartDate;
-        entity.CampaignEndDate = model.CampaignEndDate;
+        entity.CampaignStartDate = model.Duration?.StartDate;
+        entity.CampaignEndDate = model.Duration?.EndDate;
         entity.TargetAmount = model.TargetAmount;
         entity.TotalAmount = model.TotalAmount;
         entity.Status = model.Status.ToString();
+        entity.LastModifiedBy = model.LastModifiedBy;
+        entity.LastModifiedAt = model.LastModifiedAt;
+        entity.IsDeleted = model.IsDeleted;
     }
 }
