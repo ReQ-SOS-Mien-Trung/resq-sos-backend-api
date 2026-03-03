@@ -10,6 +10,7 @@ using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Domain.Services.Finance; // Added namespace
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Logistics;
@@ -78,6 +79,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAiModelTestService, AiModelTestService>();
         services.AddScoped<IRescueMissionSuggestionService, RescueMissionSuggestionService>();
         
+        // Domain Services
+        services.AddScoped<IFundDistributionManager, FundDistributionManager>(); // Registered
+
         // Payment Service
         services.AddScoped<IPaymentGatewayService, PayOSService>();
 

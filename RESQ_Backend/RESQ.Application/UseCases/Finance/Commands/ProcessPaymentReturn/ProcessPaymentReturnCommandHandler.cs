@@ -113,7 +113,9 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
                 if (campaign != null)
                 {
                     var donationAmount = donation.Amount?.Amount ?? 0;
-                    campaign.TotalAmount = (campaign.TotalAmount ?? 0) + donationAmount;
+                    
+                    // Use Domain Method to update TotalAmount securely
+                    campaign.ReceiveDonation(donationAmount);
                     
                     await _campaignRepository.UpdateAsync(campaign, cancellationToken);
                 }
