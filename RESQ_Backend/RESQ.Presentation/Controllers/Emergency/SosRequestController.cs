@@ -66,7 +66,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("paged")]
+    [HttpGet()]
     [Authorize(Roles = "1,2")]
     public async Task<IActionResult> GetSosRequestsPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {

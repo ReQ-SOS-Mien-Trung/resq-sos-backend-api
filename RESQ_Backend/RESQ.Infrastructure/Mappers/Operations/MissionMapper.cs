@@ -1,10 +1,28 @@
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
 using RESQ.Infrastructure.Entities.Operations;
 
 namespace RESQ.Infrastructure.Mappers.Operations;
 
 public static class MissionMapper
 {
+    private static readonly Dictionary<MissionStatus, string> StatusToString = new()
+    {
+        [MissionStatus.Pending] = "pending",
+        [MissionStatus.InProgress] = "in_progress",
+        [MissionStatus.Completed] = "completed",
+        [MissionStatus.Cancelled] = "cancelled"
+    };
+
+    private static readonly Dictionary<string, MissionStatus> StringToStatus =
+        StatusToString.ToDictionary(x => x.Value, x => x.Key);
+
+    public static string ToDbString(MissionStatus status) =>
+        StatusToString.GetValueOrDefault(status, "pending");
+
+    public static MissionStatus ToEnum(string? status) =>
+        status is not null && StringToStatus.TryGetValue(status, out var val) ? val : MissionStatus.Pending;
+
     public static Mission ToEntity(MissionModel model)
     {
         return new Mission
@@ -13,7 +31,7 @@ public static class MissionMapper
             PreviousMissionId = model.PreviousMissionId,
             MissionType = model.MissionType,
             PriorityScore = model.PriorityScore,
-            Status = model.Status ?? "pending",
+            Status = ToDbString(model.Status),
             StartTime = model.StartTime,
             ExpectedEndTime = model.ExpectedEndTime,
             IsCompleted = model.IsCompleted ?? false,
@@ -32,7 +50,7 @@ public static class MissionMapper
             PreviousMissionId = entity.PreviousMissionId,
             MissionType = entity.MissionType,
             PriorityScore = entity.PriorityScore,
-            Status = entity.Status,
+            Status = ToEnum(entity.Status),
             StartTime = entity.StartTime,
             ExpectedEndTime = entity.ExpectedEndTime,
             IsCompleted = entity.IsCompleted,

@@ -6,6 +6,5 @@ public enum SosRequestStatus
     Assigned,
     InProgress,
     Resolved,
-    Cancelled,
-    Expired
+    Cancelled
 }

@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.CreateMission;
 
@@ -37,7 +38,7 @@ public class CreateMissionCommandHandler(
             ClusterId = request.ClusterId,
             MissionType = request.MissionType,
             PriorityScore = request.PriorityScore,
-            Status = "pending",
+            Status = MissionStatus.Pending,
             StartTime = request.StartTime,
             ExpectedEndTime = request.ExpectedEndTime,
             IsCompleted = false,
@@ -53,7 +54,7 @@ public class CreateMissionCommandHandler(
                 Items = a.Items,
                 TargetLatitude = a.TargetLatitude,
                 TargetLongitude = a.TargetLongitude,
-                Status = "pending"
+                Status = MissionActivityStatus.Pending
             }).ToList()
         };
 
