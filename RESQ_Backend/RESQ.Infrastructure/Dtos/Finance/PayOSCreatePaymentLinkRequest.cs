@@ -33,4 +33,7 @@ internal class PayOSCreatePaymentLinkRequest
 
     [JsonPropertyName("items")]
     public List<PayOSItem>? Items { get; set; }
+
+    [JsonPropertyName("expiredAt")]
+    public long? ExpiredAt { get; set; }
 }

@@ -1,7 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Domain.Entities.Finance;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Mappers.Finance;
 using System.Linq.Expressions;
@@ -48,9 +50,22 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
         if (string.IsNullOrEmpty(orderId)) return null;
 
         var repo = _unitOfWork.GetRepository<Donation>();
-        var entity = await repo.GetByPropertyAsync(x => x.PayosOrderId == orderId, tracked: false, includeProperties: "FundCampaign");
+        var entity = await repo.GetByPropertyAsync(x => x.PayosOrderId == orderId, tracked: true, includeProperties: "FundCampaign"); // Tracked true for updates
 
         return entity == null ? null : DonationMapper.ToModel(entity);
+    }
+
+    public async Task<List<DonationModel>> GetPendingDonationsOlderThanAsync(DateTime threshold, CancellationToken cancellationToken = default)
+    {
+        var repo = _unitOfWork.GetRepository<Donation>();
+        var pendingStatus = PayOSStatus.Pending.ToString();
+
+        // Find Pending donations created BEFORE the threshold
+        var entities = await repo.GetAllByPropertyAsync(
+            x => x.PayosStatus == pendingStatus && x.CreatedAt < threshold
+        );
+
+        return entities.Select(DonationMapper.ToModel).ToList();
     }
 
     public async Task CreateAsync(DonationModel model, CancellationToken cancellationToken = default)
@@ -67,10 +82,7 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
         
         if (entity != null)
         {
-            // Map the changes from Model to Entity
             DonationMapper.UpdateEntity(entity, model);
-            
-            // Mark as modified
             await repo.UpdateAsync(entity);
         }
     }

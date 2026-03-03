@@ -8,6 +8,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using RESQ.Infrastructure.Dtos.Finance;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace RESQ.Infrastructure.Services.Payments;
 
@@ -37,55 +39,29 @@ public class PayOSService : IPaymentGatewayService
         var returnUrl = payOsConfig["ReturnUrl"];
         var cancelUrl = payOsConfig["CancelUrl"];
 
-        if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(checksumKey) || string.IsNullOrEmpty(returnUrl) || string.IsNullOrEmpty(cancelUrl))
+        if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(checksumKey))
         {
-            throw new InvalidOperationException("PayOS configuration is missing.");
+            throw new InvalidOperationException("Cấu hình PayOS bị thiếu hoặc không hợp lệ.");
         }
 
-        // 1. Prepare Data
+        // Logic to create link (kept from original)
         long orderCode;
         if (!string.IsNullOrEmpty(donation.PayosOrderId) && long.TryParse(donation.PayosOrderId, out var existingCode))
-        {
             orderCode = existingCode;
-        }
         else
         {
-            // Fallback
             orderCode = long.Parse(DateTime.UtcNow.ToString("yyMMddHHmmss"));
             donation.PayosOrderId = orderCode.ToString();
         }
 
-        // Requirement 1: Description format "Donation #{donation.Id} - {campaign.Code}"
-        // Fallback to CampaignId if Code is null
-        var campaignRef = !string.IsNullOrEmpty(donation.FundCampaignCode) ? donation.FundCampaignCode : donation.FundCampaignId.ToString();
-        //var description = $"Donation #{donation.Id} - {campaignRef}";
-        var description = $"RESQ{donation.Id}";
+        var campaignCode = donation.FundCampaignCode ?? "CAMP";
+        var description = $"Donation #{donation.Id} - {campaignCode}";
+        if (description.Length > 25) description = description.Substring(0, 25);
 
-        // Truncate description if too long (PayOS limit usually 25 chars for some fields, but description supports more. Verify API docs. Usually 255 chars).
-        // Standardizing safe length.
-        if (description.Length > 25) 
-        {
-             // PayOS requires description to be short in some contexts, but usually standard payment link allows longer.
-             // If strict 25 char limit applies to 'description' field in signature, we must be careful.
-             // PayOS Docs: description should be short. Let's assume standard behavior.
-             // Actually, PayOS 'description' typically maps to banking transaction content, which is very limited.
-             // "Donation #1023 - FLOOD" might fit. "Donation #1023 - FLOOD-MT2026" is 29 chars.
-             // Let's try to fit or truncate.
-             if (description.Length > 25) description = description.Substring(0, 25);
-        }
-
-        // Extract amount
         var amount = (int)(donation.Amount?.Amount ?? 0);
+        var expiredAt = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds();
 
-        // Extract Buyer Info
-        var buyerName = donation.Donor?.Name;
-        var buyerEmail = donation.Donor?.Email; // Requirement 2 support
-
-        // 2. Create Signature
-        // Signature requires alphabetical order of fields.
-        // amount, cancelUrl, description, orderCode, returnUrl
-        var signatureData =
-            $"amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={orderCode}&returnUrl={returnUrl}";
+        var signatureData = $"amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={orderCode}&returnUrl={returnUrl}";
         var signature = CreateSignature(signatureData, checksumKey);
 
         var requestData = new PayOSCreatePaymentLinkRequest
@@ -96,38 +72,28 @@ public class PayOSService : IPaymentGatewayService
             CancelUrl = cancelUrl,
             ReturnUrl = returnUrl,
             Signature = signature,
-
-            BuyerName = buyerName,
-            BuyerEmail = buyerEmail, 
-            Items = [
-                new PayOSItem { Name = $"Ủng hộ chiến dịch {campaignRef}", Quantity = 1, Price = amount }
-            ]
+            ExpiredAt = expiredAt,
+            BuyerName = donation.Donor?.Name,
+            BuyerEmail = donation.Donor?.Email,
+            Items = [ new PayOSItem { Name = $"Ủng hộ {campaignCode}", Quantity = 1, Price = amount } ]
         };
 
-        // 3. Send Request
         var client = _httpClientFactory.CreateClient();
         client.BaseAddress = new Uri(baseUrl ?? "https://api-merchant.payos.vn");
         client.DefaultRequestHeaders.Add("x-client-id", clientId);
         client.DefaultRequestHeaders.Add("x-api-key", apiKey);
 
-        _logger.LogInformation("Sending Payment Request to PayOS: OrderCode={OrderCode}, Amount={Amount}, Desc={Desc}", orderCode, amount, description);
-
         var response = await client.PostAsJsonAsync("/v2/payment-requests", requestData, cancellationToken);
         var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("PayOS API Error: {StatusCode} - {Content}", response.StatusCode, responseContent);
-            throw new Exception($"Lỗi khi tạo link thanh toán PayOS: {responseContent}");
-        }
+            throw new Exception($"Lỗi PayOS ({response.StatusCode}): {responseContent}");
 
-        var result = JsonSerializer.Deserialize<PayOSResponse<PayOSPaymentLinkData>>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var result = JsonSerializer.Deserialize<PayOSResponse<PayOSPaymentLinkData>>(responseContent, 
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         if (result == null || result.Code != "00" || result.Data == null)
-        {
-            _logger.LogError("PayOS Logic Error: {Code} - {Desc}", result?.Code, result?.Desc);
-            throw new Exception($"Lỗi xử lý PayOS: {result?.Desc}");
-        }
+            throw new Exception($"Lỗi PayOS Logic: {result?.Desc}");
 
         return new PaymentLinkResult
         {
@@ -136,6 +102,90 @@ public class PayOSService : IPaymentGatewayService
             OrderCode = orderCode.ToString(),
             QrCode = result.Data.QrCode
         };
+    }
+
+    public bool VerifyWebhookSignature(string jsonBody)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonBody);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("data", out var dataElement) || 
+                !root.TryGetProperty("signature", out var signatureElement))
+            {
+                _logger.LogWarning("Webhook missing 'data' or 'signature' properties.");
+                return false;
+            }
+
+            var signatureReceived = signatureElement.GetString();
+            if (string.IsNullOrEmpty(signatureReceived)) return false;
+
+            var checksumKey = _configuration["PayOS:ChecksumKey"];
+            if (string.IsNullOrEmpty(checksumKey))
+            {
+                _logger.LogError("ChecksumKey configuration is missing.");
+                return false;
+            }
+
+            // Flatten 'data' object to SortedDictionary
+            var dataDict = new SortedDictionary<string, object>();
+            foreach (var prop in dataElement.EnumerateObject())
+            {
+                var value = prop.Value;
+                // PayOS Rules: 
+                // 1. Ignore nulls
+                // 2. Ignore nested objects (though data usually flat)
+                // 3. Convert numbers to string, strings keep as is
+                
+                if (value.ValueKind == JsonValueKind.Null) continue;
+
+                if (value.ValueKind == JsonValueKind.String)
+                {
+                     dataDict.Add(prop.Name, value.GetString() ?? "");
+                }
+                else if (value.ValueKind == JsonValueKind.Number)
+                {
+                    dataDict.Add(prop.Name, value.ToString());
+                }
+                else if (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False)
+                {
+                     dataDict.Add(prop.Name, value.ToString().ToLower());
+                }
+            }
+
+            // Build signature string
+            var dataStringBuilder = new StringBuilder();
+            foreach (var kvp in dataDict)
+            {
+                if (dataStringBuilder.Length > 0)
+                    dataStringBuilder.Append('&');
+
+                dataStringBuilder.Append($"{kvp.Key}={kvp.Value}");
+            }
+
+            var computedSignature = CreateSignature(dataStringBuilder.ToString(), checksumKey);
+
+            // Logging for Debugging
+            _logger.LogInformation("--- PayOS Signature Verification ---");
+            _logger.LogInformation("Raw Body Length: {Length}", jsonBody.Length);
+            _logger.LogInformation("Computed Data String: {DataString}", dataStringBuilder.ToString());
+            _logger.LogInformation("Computed Signature: {Computed}", computedSignature);
+            _logger.LogInformation("Received Signature: {Received}", signatureReceived);
+            
+            if (computedSignature != signatureReceived)
+            {
+                _logger.LogWarning("MISMATCH! Check key or field filtering.");
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying webhook signature.");
+            return false;
+        }
     }
 
     private static string CreateSignature(string data, string key)
