@@ -19,12 +19,12 @@ using RESQ.Infrastructure.Persistence.System;
 using RESQ.Infrastructure.Persistence.Finance;
 using RESQ.Infrastructure.Services;
 using RESQ.Infrastructure.Services.Payments;
+using RESQ.Infrastructure.Services.Finance;
 
 namespace RESQ.Infrastructure.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    // Lớp này khai báo DI cho infrastructure layer
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddHttpClient();
@@ -43,20 +43,14 @@ public static class ServiceCollectionExtensions
         // Generic Repository   
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
-        // Resources Repositories
+        // Repositories
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
-
-        // Personnel Repositories
         services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>(); 
-
-        // Users Repositories
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRescuerApplicationRepository, RescuerApplicationRepository>();
         services.AddScoped<IAbilityRepository, AbilityRepository>();
         services.AddScoped<IDocumentFileTypeRepository, DocumentFileTypeRepository>();
-
-        // Emergency Repositories
         services.AddScoped<ISosRequestRepository, SosRequestRepository>();
         services.AddScoped<ISosClusterRepository, SosClusterRepository>();
         services.AddScoped<ISosRuleEvaluationRepository, SosRuleEvaluationRepository>();
@@ -88,6 +82,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISosAiAnalysisQueue>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddSingleton<ISosAiAnalysisQueueInternal>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddHostedService<SosAiAnalysisBackgroundService>();
+        
+        // Donation Expiration Service
+        services.AddHostedService<DonationExpirationBackgroundService>();
 
         return services;
     }

@@ -40,14 +40,17 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
         var webhook = request.WebhookData;
         if (webhook == null || webhook.Data == null)
         {
-            _logger.LogWarning("Received empty webhook data from PayOS.");
+            _logger.LogWarning("Received empty webhook data.");
             return false;
         }
+
+        // NOTE: Signature verification is now handled in the Controller using the raw request body.
+        // We assume the data here is authentic.
 
         var orderCodeStr = webhook.Data.OrderCode.ToString();
         _logger.LogInformation("Processing payment return for OrderCode: {OrderCode}, Success: {Success}", orderCodeStr, webhook.Success);
 
-        // 1. Find Donation by Order Code
+        // 1. Find Donation
         var donation = await _donationRepository.GetByPayosOrderIdAsync(orderCodeStr, cancellationToken);
 
         if (donation == null)
@@ -56,46 +59,56 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
             throw new NotFoundException($"Không tìm thấy đơn ủng hộ với mã: {orderCodeStr}");
         }
 
-        // 2. Determine Status
-        var newStatus = PayOSStatus.Failed;
-
-        if (webhook.Success || webhook.Code == "00")
+        // 2. Idempotency Check
+        if (donation.PayosStatus == PayOSStatus.Succeed)
         {
-            newStatus = PayOSStatus.Succeed; // Note: Ensure Enum is 'Succeed'
+            _logger.LogInformation("Donation {Id} is already processed (Success). Ignoring webhook.", donation.Id);
+            return true;
         }
 
-        // 3. Update Donation
-        // Only process if status changed (e.g. Pending -> Succeed)
-        if (donation.PayosStatus != newStatus)
+        // 3. Determine Status
+        var newStatus = PayOSStatus.Failed;
+
+        // "00" is success code for PayOS
+        if (webhook.Success || webhook.Code == "00")
         {
-            donation.PayosStatus = newStatus;
-            donation.PayosTransactionId = webhook.Data.PaymentLinkId;
+            newStatus = PayOSStatus.Succeed;
+        }
 
-            if (newStatus == PayOSStatus.Succeed)
+        // 4. Update Donation Status
+        donation.PayosStatus = newStatus;
+        donation.PayosTransactionId = webhook.Data.PaymentLinkId;
+
+        if (newStatus == PayOSStatus.Succeed)
+        {
+            // Set paid time
+            if (DateTime.TryParseExact(
+                    webhook.Data.TransactionDateTime,
+                    "yyyy-MM-dd HH:mm:ss",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var paidAt))
             {
-                if (DateTime.TryParseExact(
-                        webhook.Data.TransactionDateTime,
-                        "yyyy-MM-dd HH:mm:ss",
-                        CultureInfo.InvariantCulture,
-                        DateTimeStyles.None,
-                        out var paidAt))
-                {
-                    donation.PaidAt = paidAt.ToUniversalTime();
-                }
+                donation.PaidAt = paidAt.ToUniversalTime();
             }
-
-            await _donationRepository.UpdateAsync(donation, cancellationToken);
-            
-            // 4. Business Logic for Successful Donation
-            if (newStatus == PayOSStatus.Succeed)
+            else
             {
-                if (!donation.FundCampaignId.HasValue)
-                {
-                    _logger.LogError("Donation {Id} is missing FundCampaignId", donation.Id);
-                    throw new InvalidOperationException($"Đơn ủng hộ {donation.Id} không có thông tin chiến dịch gây quỹ");
-                }
+                donation.PaidAt = DateTime.UtcNow;
+            }
+        }
 
-                // 4.1 Update Campaign Total
+        await _donationRepository.UpdateAsync(donation, cancellationToken);
+        
+        // 5. Handle Business Logic for Success
+        if (newStatus == PayOSStatus.Succeed)
+        {
+            if (!donation.FundCampaignId.HasValue)
+            {
+                _logger.LogError("Donation {Id} is missing FundCampaignId", donation.Id);
+            }
+            else
+            {
+                // 5.1 Update Campaign Total
                 var campaign = await _campaignRepository.GetByIdAsync(donation.FundCampaignId.Value, cancellationToken);
                 if (campaign != null)
                 {
@@ -105,7 +118,7 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
                     await _campaignRepository.UpdateAsync(campaign, cancellationToken);
                 }
 
-                // 4.2 Create Fund Transaction
+                // 5.2 Create Fund Transaction
                 var transaction = new FundTransactionModel
                 {
                     FundCampaignId = donation.FundCampaignId,
@@ -114,50 +127,45 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
                     Amount = donation.Amount?.Amount,
                     ReferenceType = TransactionReferenceType.Donation,
                     ReferenceId = donation.Id,
+                    CreatedBy = null, // System / Public user
                     CreatedAt = DateTime.UtcNow,
-                }
-            ;
+                };
                 await _transactionRepository.CreateAsync(transaction, cancellationToken);
-
-                // 4.3 Send Confirmation Email
-                // We do this inside the try block but ideally email failures shouldn't rollback DB
-                // Since this runs within a transaction scope of SaveAsync potentially, 
-                // we'll trigger email *after* DB commit or swallow exceptions carefully.
             }
-
-            // 5. Save all changes atomically
-            var result = await _unitOfWork.SaveAsync();
-            
-            if (result > 0 && newStatus == PayOSStatus.Succeed)
-            {
-                // Send email AFTER successful DB commit
-                if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
-                {
-                    try 
-                    {
-                        var campaignName = donation.FundCampaignName ?? "Chiến dịch";
-                        var campaignCode = donation.FundCampaignCode ?? "Unknown";
-
-                        await _emailService.SendDonationSuccessEmailAsync(
-                            donation.Donor.Email,
-                            donation.Donor.Name,
-                            donation.Amount?.Amount ?? 0,
-                            campaignName,
-                            campaignCode,
-                            donation.Id,
-                            cancellationToken
-                        );
-                    }
-                    catch(Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to send confirmation email for donation {Id}", donation.Id);
-                    }
-                }
-            }
-            
-            _logger.LogInformation("Donation {Id} processed with status {Status}.", donation.Id, newStatus);
         }
 
+        // 6. Save Transaction
+        var result = await _unitOfWork.SaveAsync();
+        
+        // 7. Send Email if Success
+        if (result > 0 && newStatus == PayOSStatus.Succeed)
+        {
+            if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
+            {
+                try 
+                {
+                    var campaignName = donation.FundCampaignName ?? "Chiến dịch cứu trợ";
+                    var campaignCode = donation.FundCampaignCode ?? "RESQ";
+
+                    await _emailService.SendDonationSuccessEmailAsync(
+                        donation.Donor.Email,
+                        donation.Donor.Name,
+                        donation.Amount?.Amount ?? 0,
+                        campaignName,
+                        campaignCode,
+                        donation.Id,
+                        cancellationToken
+                    );
+                }
+                catch(Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send confirmation email for donation {Id}", donation.Id);
+                }
+            }
+        }
+        
+        _logger.LogInformation("Donation {Id} processed with status {Status}.", donation.Id, newStatus);
+        
         return true;
     }
 }
