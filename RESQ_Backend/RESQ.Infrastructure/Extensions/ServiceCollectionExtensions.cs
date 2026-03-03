@@ -9,11 +9,13 @@ using RESQ.Application.Repositories.System;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Repositories.Operations;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Logistics;
 using RESQ.Infrastructure.Persistence.Identity;
 using RESQ.Infrastructure.Persistence.Emergency;
+using RESQ.Infrastructure.Persistence.Operations;
 using RESQ.Infrastructure.Persistence.Personnel;
 using RESQ.Infrastructure.Persistence.System;
 using RESQ.Infrastructure.Persistence.Finance;
@@ -56,6 +58,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISosRuleEvaluationRepository, SosRuleEvaluationRepository>();
         services.AddScoped<ISosAiAnalysisRepository, SosAiAnalysisRepository>();
         services.AddScoped<IMissionAiSuggestionRepository, MissionAiSuggestionRepository>();
+        services.AddScoped<IMissionRepository, MissionRepository>();
+        services.AddScoped<IMissionActivityRepository, MissionActivityRepository>();
 
         // Finance Repositories
         services.AddScoped<IFundCampaignRepository, FundCampaignRepository>();

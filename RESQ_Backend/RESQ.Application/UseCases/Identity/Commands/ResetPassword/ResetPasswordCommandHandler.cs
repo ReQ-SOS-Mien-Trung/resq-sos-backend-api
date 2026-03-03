@@ -20,6 +20,12 @@ namespace RESQ.Application.UseCases.Identity.Commands.ResetPassword
         {
             _logger.LogInformation("Handling ResetPasswordCommand");
 
+            if(request.NewPassword != request.ConfirmPassword)
+            {
+                _logger.LogWarning("Reset password failed: New password and confirm password do not match");
+                throw new BadRequestException("Mật khẩu mới và xác nhận mật khẩu không khớp");
+            }
+
             // Find user by reset token
             var user = await _userRepository.GetByPasswordResetTokenAsync(request.Token, cancellationToken);
 

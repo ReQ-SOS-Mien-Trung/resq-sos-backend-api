@@ -1,0 +1,84 @@
+using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Operations;
+using RESQ.Domain.Entities.Operations;
+using RESQ.Infrastructure.Entities.Operations;
+using RESQ.Infrastructure.Mappers.Operations;
+
+namespace RESQ.Infrastructure.Persistence.Operations;
+
+public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivityRepository
+{
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
+
+    public async Task<MissionActivityModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<MissionActivity>()
+            .GetByPropertyAsync(x => x.Id == id, tracked: false);
+
+        return entity is null ? null : MissionActivityMapper.ToDomain(entity);
+    }
+
+    public async Task<IEnumerable<MissionActivityModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
+    {
+        var entities = await _unitOfWork.GetRepository<MissionActivity>()
+            .GetAllByPropertyAsync(x => x.MissionId == missionId);
+
+        return entities
+            .OrderBy(x => x.Step)
+            .Select(MissionActivityMapper.ToDomain);
+    }
+
+    public async Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
+    {
+        var entity = MissionActivityMapper.ToEntity(activity);
+        entity.AssignedAt = DateTime.UtcNow;
+        await _unitOfWork.GetRepository<MissionActivity>().AddAsync(entity);
+        await _unitOfWork.SaveAsync();
+        return entity.Id;
+    }
+
+    public async Task UpdateAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<MissionActivity>()
+            .GetByPropertyAsync(x => x.Id == activity.Id, tracked: true);
+
+        if (entity is null) return;
+
+        entity.Step = activity.Step;
+        entity.ActivityCode = activity.ActivityCode;
+        entity.ActivityType = activity.ActivityType;
+        entity.Description = activity.Description;
+        entity.Target = activity.Target;
+        entity.Items = activity.Items;
+
+        if (activity.TargetLatitude.HasValue && activity.TargetLongitude.HasValue)
+        {
+            entity.TargetLocation = new NetTopologySuite.Geometries.Point(
+                activity.TargetLongitude.Value, activity.TargetLatitude.Value) { SRID = 4326 };
+        }
+
+        await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);
+    }
+
+    public async Task UpdateStatusAsync(int activityId, string status, Guid decisionBy, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<MissionActivity>()
+            .GetByPropertyAsync(x => x.Id == activityId, tracked: true);
+
+        if (entity is null) return;
+
+        entity.Status = status;
+        entity.LastDecisionBy = decisionBy;
+
+        if (status == "completed")
+            entity.CompletedAt = DateTime.UtcNow;
+
+        await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);
+    }
+
+    public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        await _unitOfWork.GetRepository<MissionActivity>().DeleteAsyncById(id);
+        await _unitOfWork.SaveAsync();
+    }
+}
