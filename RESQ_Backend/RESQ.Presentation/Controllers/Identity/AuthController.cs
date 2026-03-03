@@ -75,7 +75,7 @@ namespace RESQ.Presentation.Controllers.Identity
         [AllowAnonymous]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto dto)
         {
-            var command = new ResetPasswordCommand(dto.Token, dto.NewPassword);
+            var command = new ResetPasswordCommand(dto.Token, dto.NewPassword, dto.ConfirmPassword);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

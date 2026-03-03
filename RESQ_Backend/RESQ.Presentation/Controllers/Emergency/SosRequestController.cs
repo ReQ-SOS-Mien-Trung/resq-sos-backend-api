@@ -22,8 +22,8 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     [Authorize(Roles = "5")]
     public async Task<IActionResult> Create([FromBody] CreateSosRequestRequestDto dto)
     {
-        if (!TryGetUserId(out var userId))
-            return Unauthorized();
+        if (dto.SenderInfo?.UserId == null || !Guid.TryParse(dto.SenderInfo.UserId, out var senderUserId))
+            return BadRequest(new { message = "sender_info.user_id is required and must be a valid GUID." });
 
         string? structuredDataJson = dto.StructuredData != null
             ? JsonSerializer.Serialize(dto.StructuredData)
@@ -38,7 +38,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             : null;
 
         var command = new CreateSosRequestCommand(
-            userId,
+            senderUserId,
             new GeoLocation(dto.Location.Latitude, dto.Location.Longitude),
             dto.RawMessage,
             dto.PacketId,
