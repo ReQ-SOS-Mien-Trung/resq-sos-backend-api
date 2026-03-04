@@ -46,8 +46,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.RescuerConsent
                 };
             }
 
-            // Update user's IsEligibleRescuer to true
-            user.IsEligibleRescuer = true;
+            // NOTE: IsEligibleRescuer is NOT set here.
+            // It will only be set to true after admin approves the rescuer application.
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateAsync(user, cancellationToken);
@@ -63,9 +63,9 @@ namespace RESQ.Application.UseCases.Identity.Commands.RescuerConsent
             return new RescuerConsentResponse
             {
                 UserId = user.Id,
-                IsEligibleRescuer = true,
+                IsEligibleRescuer = false,
                 AcceptedAt = DateTime.UtcNow,
-                Message = "Bạn đã đồng ý tất cả các điều khoản và đủ điều kiện trở thành người cứu hộ."
+                Message = "Bạn đã đồng ý tất cả các điều khoản. Đơn đăng ký của bạn đang chờ admin xét duyệt."
             };
         }
     }

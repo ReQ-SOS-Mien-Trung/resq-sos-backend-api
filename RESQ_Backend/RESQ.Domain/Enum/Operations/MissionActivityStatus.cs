@@ -5,6 +5,5 @@ public enum MissionActivityStatus
     Pending,
     InProgress,
     Completed,
-    Cancelled,
-    Skipped
+    Cancelled
 }

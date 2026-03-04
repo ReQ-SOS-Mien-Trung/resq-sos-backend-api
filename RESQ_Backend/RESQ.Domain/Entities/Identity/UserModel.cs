@@ -14,6 +14,7 @@
         public bool IsEmailVerified { get; set; } = false;
         public bool IsOnboarded { get; set; } = false;
         public bool IsEligibleRescuer { get; set; } = false;
+        public string? AvatarUrl { get; set; }
         public string? EmailVerificationToken { get; set; }
         public DateTime? EmailVerificationTokenExpiry { get; set; }
 
