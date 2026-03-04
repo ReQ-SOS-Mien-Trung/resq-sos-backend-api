@@ -60,6 +60,10 @@ public partial class User
     [Column("is_eligible_rescuer")]
     public bool IsEligibleRescuer { get; set; } = false;
 
+    [Column("avatar_url")]
+    [StringLength(500)]
+    public string? AvatarUrl { get; set; }
+
     [Column("email_verification_token")]
     [StringLength(255)]
     public string? EmailVerificationToken { get; set; }

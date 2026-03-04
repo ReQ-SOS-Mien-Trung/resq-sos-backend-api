@@ -70,6 +70,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 entity.IsEmailVerified = user.IsEmailVerified;
                 entity.IsOnboarded = user.IsOnboarded;
                 entity.IsEligibleRescuer = user.IsEligibleRescuer;
+                entity.AvatarUrl = user.AvatarUrl;
 
                 // Update tokens
                 entity.EmailVerificationToken = user.EmailVerificationToken;

@@ -12,8 +12,7 @@ public static class MissionActivityMapper
         [MissionActivityStatus.Pending] = "pending",
         [MissionActivityStatus.InProgress] = "in_progress",
         [MissionActivityStatus.Completed] = "completed",
-        [MissionActivityStatus.Cancelled] = "cancelled",
-        [MissionActivityStatus.Skipped] = "skipped"
+        [MissionActivityStatus.Cancelled] = "cancelled"
     };
 
     private static readonly Dictionary<string, MissionActivityStatus> StringToStatus =
