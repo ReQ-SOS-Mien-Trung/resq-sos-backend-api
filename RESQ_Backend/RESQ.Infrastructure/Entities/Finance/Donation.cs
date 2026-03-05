@@ -45,6 +45,9 @@ public partial class Donation
     [Column("note")]
     public string? Note { get; set; }
 
+    [Column("is_private")]
+    public bool IsPrivate { get; set; } = false;
+
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 

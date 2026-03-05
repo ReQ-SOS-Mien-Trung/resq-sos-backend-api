@@ -31,6 +31,7 @@ public static class DonationMapper
             PayosStatus = statusEnum,
             PaidAt = entity.PaidAt,
             Note = entity.Note,
+            IsPrivate = entity.IsPrivate,
             CreatedAt = entity.CreatedAt,
             FundCampaignName = entity.FundCampaign?.Name,
             FundCampaignCode = entity.FundCampaign?.Code
@@ -51,6 +52,7 @@ public static class DonationMapper
             PayosStatus = model.PayosStatus.ToString(),
             PaidAt = model.PaidAt,
             Note = model.Note,
+            IsPrivate = model.IsPrivate,
             CreatedAt = model.CreatedAt
         };
     }
@@ -64,12 +66,12 @@ public static class DonationMapper
             entity.DonorEmail = model.Donor.Email;
         }
         
-        // Critical updates for payment flow
         entity.PayosOrderId = model.PayosOrderId;
         entity.PayosTransactionId = model.PayosTransactionId;
         entity.PayosStatus = model.PayosStatus.ToString();
         entity.PaidAt = model.PaidAt;
         
         entity.Note = model.Note;
+        entity.IsPrivate = model.IsPrivate;
     }
 }

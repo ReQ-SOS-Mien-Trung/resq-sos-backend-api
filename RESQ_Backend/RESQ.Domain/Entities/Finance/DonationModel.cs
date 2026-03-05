@@ -20,6 +20,7 @@ public class DonationModel
     
     public DateTime? PaidAt { get; set; }
     public string? Note { get; set; }
+    public bool IsPrivate { get; set; }
     public DateTime? CreatedAt { get; set; }
     
     // View/Logic properties
