@@ -18,7 +18,7 @@ public class CreatePromptCommandHandler(
 
     public async Task<CreatePromptResponse> Handle(CreatePromptCommand request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Creating new prompt with name={Name}", request.Name);
+        _logger.LogInformation("Creating new prompt with name={Name}, type={Type}", request.Name, request.PromptType);
 
         // Check duplicate name
         var exists = await _promptRepository.ExistsAsync(request.Name, cancellationToken);
@@ -29,6 +29,7 @@ public class CreatePromptCommandHandler(
 
         var prompt = PromptModel.Create(
             name: request.Name,
+            promptType: request.PromptType,
             purpose: request.Purpose,
             systemPrompt: request.SystemPrompt,
             userPromptTemplate: request.UserPromptTemplate,
@@ -38,15 +39,25 @@ public class CreatePromptCommandHandler(
             version: request.Version,
             apiUrl: request.ApiUrl
         );
+        prompt.IsActive = request.IsActive;
 
         await _promptRepository.CreateAsync(prompt, cancellationToken);
         await _unitOfWork.SaveAsync();
+
+        // Nếu prompt này được kích hoạt, tắt các prompt khác cùng loại
+        if (prompt.IsActive)
+        {
+            await _promptRepository.DeactivateOthersByTypeAsync(prompt.Id, prompt.PromptType, cancellationToken);
+            await _unitOfWork.SaveAsync();
+        }
 
         _logger.LogInformation("Created prompt successfully: Name={Name}", request.Name);
 
         return new CreatePromptResponse
         {
+            Id = prompt.Id,
             Name = prompt.Name,
+            PromptType = prompt.PromptType,
             Message = "Tạo prompt thành công."
         };
     }

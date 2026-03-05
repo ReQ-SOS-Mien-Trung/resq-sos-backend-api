@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
+using RESQ.Domain.Enum.System;
 
 namespace RESQ.Infrastructure.Services;
 
@@ -16,8 +17,6 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     private readonly IPromptRepository _promptRepository;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
     private readonly string _apiKey;
-
-    private const string PROMPT_NAME = "Mission Planning Prompt";
 
     // Fallback defaults - chỉ dùng khi field trong DB bị null
     private const string FALLBACK_MODEL = "gemini-2.5-flash";
@@ -40,6 +39,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     public async Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
         List<SosRequestSummary> sosRequests,
         List<DepotSummary>? nearbyDepots = null,
+        bool isMultiDepotRecommended = false,
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -48,26 +48,15 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         {
             _logger.LogInformation("Generating rescue mission suggestion for {count} SOS requests", sosRequests.Count);
 
-            // Load prompt config from database
-            var prompt = await _promptRepository.GetByNameAsync(PROMPT_NAME, cancellationToken);
+            // Load prompt config from database theo PromptType
+            var prompt = await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
             if (prompt == null)
             {
-                _logger.LogWarning("Prompt '{promptName}' not found in database.", PROMPT_NAME);
+                _logger.LogWarning("Không tìm thấy prompt đang active cho loại MissionPlanning trong database.");
                 return new RescueMissionSuggestionResult
                 {
                     IsSuccess = false,
-                    ErrorMessage = $"Prompt '{PROMPT_NAME}' chưa được cấu hình trong database. Vui lòng thêm prompt trong quản trị hệ thống.",
-                    ResponseTimeMs = stopwatch.ElapsedMilliseconds
-                };
-            }
-
-            if (!prompt.IsActive)
-            {
-                return new RescueMissionSuggestionResult
-                {
-                    IsSuccess = false,
-                    ErrorMessage = "Prompt cấu hình cho Mission Planning hiện đang tắt. Vui lòng kích hoạt trong quản trị hệ thống.",
-                    ModelName = prompt.Model,
+                    ErrorMessage = "Chưa có prompt 'MissionPlanning' đang được kích hoạt. Vui lòng cấu hình trong quản trị hệ thống.",
                     ResponseTimeMs = stopwatch.ElapsedMilliseconds
                 };
             }
@@ -100,9 +89,21 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
 
 --- THÔNG TIN KHO TIẾP TẾ GẦN NHẤT ---
-Dưới đây là danh sách các kho tiếp tế đang hoạt động, còn hàng, được sắp xếp từ gần đến xa so với SOS request quan trọng nhất.
-Hãy sử dụng thông tin này để đề xuất nguồn cung cấp tài nguyên trong kế hoạch cứu hộ:
+Dưới đây là danh sách các kho tiếp tế đang hoạt động, còn hàng, được sắp xếp ưu tiên theo mức độ đầy đủ tồn kho (đa dạng vật tư) rồi đến gần nhất.
+Mỗi kho có danh sách vật tư khả dụng (quantity - reserved). Hãy sử dụng để đề xuất nguồn cung cấp tài nguyên:
 {depotsDataJson}
+""";
+            }
+
+            // Nếu không kho nào đủ đồ trong một lần, thông báo AI phối hợp nhiều kho
+            if (isMultiDepotRecommended)
+            {
+                userPrompt += """
+
+
+--- LƯU Ý NGƯỚN THÜ CẤP PHÁT ---
+Phân tích tồn kho cho thấy không có kho đơn lẻ nào có đủ tất cả các loại vật tư cần thiết.
+TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để điều phối viên biết cần lấy từ nhiều nguồn.
 """;
             }
 
@@ -196,7 +197,15 @@ Hãy sử dụng thông tin này để đề xuất nguồn cung cấp tài nguy
             suc_chua_tong = d.Capacity,
             dang_su_dung = d.CurrentUtilization,
             con_trong = d.Capacity - d.CurrentUtilization,
-            trang_thai = d.Status
+            trang_thai = d.Status,
+            vat_tu_kha_dung = d.Inventories.Count > 0
+                ? d.Inventories.Select(i => new
+                  {
+                      ten = i.ItemName,
+                      don_vi = i.Unit ?? "cái",
+                      so_luong_kha_dung = i.AvailableQuantity
+                  }).ToList()
+                : null
         });
 
         return JsonSerializer.Serialize(entries, new JsonSerializerOptions

@@ -10,6 +10,7 @@ using RESQ.Application.Services;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.Emergency;
+using RESQ.Domain.Enum.System;
 
 namespace RESQ.Infrastructure.Services;
 
@@ -22,8 +23,6 @@ public class SosAiAnalysisService : ISosAiAnalysisService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<SosAiAnalysisService> _logger;
     private readonly string _apiKey;
-
-    private const string PROMPT_NAME = "SOS_PRIORITY_ANALYSIS";
 
     // Fallback defaults - chỉ dùng khi database chưa có cấu hình
     private const string FALLBACK_MODEL = "gemini-2.5-flash";
@@ -55,17 +54,11 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         {
             _logger.LogInformation("Starting AI analysis for SOS Request Id={sosRequestId}", sosRequestId);
 
-            // Get prompt configuration from database (model, url, temperature, etc.)
-            var prompt = await _promptRepository.GetByNameAsync(PROMPT_NAME, cancellationToken);
+            // Get prompt configuration from database theo PromptType
+            var prompt = await _promptRepository.GetActiveByTypeAsync(PromptType.SosPriorityAnalysis, cancellationToken);
             if (prompt == null)
             {
-                _logger.LogWarning("Prompt '{promptName}' not found in database. Skipping AI analysis.", PROMPT_NAME);
-                return;
-            }
-
-            if (!prompt.IsActive)
-            {
-                _logger.LogWarning("Prompt '{promptName}' is inactive. Skipping AI analysis.", PROMPT_NAME);
+                _logger.LogWarning("Không tìm thấy prompt đang active cho loại SosPriorityAnalysis. Bỏ qua AI analysis.");
                 return;
             }
 

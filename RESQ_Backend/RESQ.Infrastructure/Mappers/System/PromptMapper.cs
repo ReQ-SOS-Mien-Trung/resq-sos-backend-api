@@ -1,4 +1,5 @@
 using RESQ.Domain.Entities.System;
+using RESQ.Domain.Enum.System;
 using RESQ.Infrastructure.Entities.System;
 
 namespace RESQ.Infrastructure.Mappers.System;
@@ -10,6 +11,7 @@ public static class PromptMapper
         var entity = new Prompt
         {
             Name = model.Name,
+            PromptType = model.PromptType.ToString(),
             Purpose = model.Purpose,
             SystemPrompt = model.SystemPrompt,
             UserPromptTemplate = model.UserPromptTemplate,
@@ -37,6 +39,7 @@ public static class PromptMapper
         {
             Id = entity.Id,
             Name = entity.Name ?? string.Empty,
+            PromptType = Enum.TryParse<PromptType>(entity.PromptType, out var pt) ? pt : default,
             Purpose = entity.Purpose,
             SystemPrompt = entity.SystemPrompt,
             UserPromptTemplate = entity.UserPromptTemplate,

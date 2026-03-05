@@ -21,6 +21,7 @@ public class GetAllPromptsQueryHandler(
         {
             Id = p.Id,
             Name = p.Name,
+            PromptType = p.PromptType,
             Purpose = p.Purpose,
             Model = p.Model,
             Temperature = p.Temperature,

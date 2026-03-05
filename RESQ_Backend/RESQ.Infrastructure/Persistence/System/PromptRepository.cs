@@ -1,7 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
 using RESQ.Domain.Entities.System;
+using RESQ.Domain.Enum.System;
 using RESQ.Infrastructure.Entities.System;
 using RESQ.Infrastructure.Mappers.System;
 
@@ -11,10 +13,11 @@ public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
-    public async Task<PromptModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<PromptModel?> GetActiveByTypeAsync(PromptType promptType, CancellationToken cancellationToken = default)
     {
+        var typeStr = promptType.ToString();
         var entity = await _unitOfWork.GetRepository<Prompt>()
-            .GetByPropertyAsync(x => x.Name == name, tracked: false);
+            .GetByPropertyAsync(x => x.PromptType == typeStr && x.IsActive, tracked: false);
 
         return entity == null ? null : PromptMapper.ToDomain(entity);
     }
@@ -50,6 +53,19 @@ public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
             .GetByPropertyAsync(x => x.Name == name, tracked: false);
 
         return entity != null;
+    }
+
+    public async Task DeactivateOthersByTypeAsync(int currentPromptId, PromptType promptType, CancellationToken cancellationToken = default)
+    {
+        var typeStr = promptType.ToString();
+        var others = await _unitOfWork.GetRepository<Prompt>()
+            .GetAllByPropertyAsync(x => x.PromptType == typeStr && x.IsActive && x.Id != currentPromptId);
+
+        foreach (var other in others)
+        {
+            other.IsActive = false;
+            await _unitOfWork.GetRepository<Prompt>().UpdateAsync(other);
+        }
     }
 
     public async Task<PagedResult<PromptModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)

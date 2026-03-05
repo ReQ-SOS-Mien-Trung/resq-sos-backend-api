@@ -138,4 +138,24 @@ public class DepotModel
         Status = DepotStatus.PendingAssignment;
         LastUpdatedAt = DateTime.UtcNow;
     }
+
+    // ── Inventory lines (item-level stock, loaded from DepotSupplyInventory) ──
+    private readonly List<DepotInventoryLine> _inventoryLines = [];
+    public IReadOnlyList<DepotInventoryLine> InventoryLines => _inventoryLines.AsReadOnly();
+
+    public void SetInventoryLines(IEnumerable<DepotInventoryLine> lines)
+    {
+        _inventoryLines.Clear();
+        _inventoryLines.AddRange(lines);
+    }
 }
+
+/// <summary>
+/// Đại diện cho số lượng tồn kho khả dụng của một loại vật tư trong kho.
+/// AvailableQuantity = Quantity - ReservedQuantity.
+/// </summary>
+public record DepotInventoryLine(
+    string ItemName,
+    string? Unit,
+    int AvailableQuantity
+);

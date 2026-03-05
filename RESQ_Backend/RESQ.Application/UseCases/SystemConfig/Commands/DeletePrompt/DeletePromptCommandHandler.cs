@@ -25,6 +25,11 @@ public class DeletePromptCommandHandler(
             throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
         }
 
+        if(prompt.IsActive)
+        {
+            throw new ConflictException($"Không thể xóa prompt đang được kích hoạt. Vui lòng tắt kích hoạt trước khi xóa.");
+        }
+
         await _promptRepository.DeleteAsync(request.Id, cancellationToken);
         await _unitOfWork.SaveAsync();
 
