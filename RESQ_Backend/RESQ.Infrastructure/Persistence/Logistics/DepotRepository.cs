@@ -91,10 +91,11 @@ public class DepotRepository(IUnitOfWork unitOfWork) : IDepotRepository
     {
         // Lọc kho đang hoạt động (Available) và còn hàng (CurrentUtilization > 0)
         // Kho Closed, PendingAssignment hoặc trống (utilization = 0) bị loại
+        // Include DepotSupplyInventories.ReliefItem để lấy thông tin tồn kho chi tiết
         var entities = await _unitOfWork.GetRepository<Depot>()
             .GetAllByPropertyAsync(
                 x => x.Status == "Available" && x.CurrentUtilization > 0,
-                includeProperties: "DepotManagers.User"
+                includeProperties: "DepotManagers.User,DepotSupplyInventories.ReliefItem"
             );
 
         return entities.Select(DepotMapper.ToDomain);

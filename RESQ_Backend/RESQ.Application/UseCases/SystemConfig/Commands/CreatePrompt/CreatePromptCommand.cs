@@ -1,9 +1,11 @@
 using MediatR;
+using RESQ.Domain.Enum.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.CreatePrompt;
 
 public record CreatePromptCommand(
     string Name,
+    PromptType PromptType,
     string Purpose,
     string SystemPrompt,
     string UserPromptTemplate,
@@ -11,5 +13,6 @@ public record CreatePromptCommand(
     double Temperature,
     int MaxTokens,
     string Version,
-    string? ApiUrl
+    string? ApiUrl,
+    bool IsActive = true
 ) : IRequest<CreatePromptResponse>;

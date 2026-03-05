@@ -49,6 +49,7 @@ namespace RESQ.Presentation.Controllers.System
         {
             var command = new CreatePromptCommand(
                 dto.Name,
+                dto.PromptType,
                 dto.Purpose,
                 dto.SystemPrompt,
                 dto.UserPromptTemplate,
@@ -56,7 +57,8 @@ namespace RESQ.Presentation.Controllers.System
                 dto.Temperature,
                 dto.MaxTokens,
                 dto.Version,
-                dto.ApiUrl
+                dto.ApiUrl,
+                dto.IsActive
             );
 
             var result = await _mediator.Send(command);
@@ -72,6 +74,7 @@ namespace RESQ.Presentation.Controllers.System
             var command = new UpdatePromptCommand(
                 id,
                 dto.Name,
+                dto.PromptType,
                 dto.Purpose,
                 dto.SystemPrompt,
                 dto.UserPromptTemplate,

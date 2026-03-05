@@ -104,6 +104,19 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 model.AddHistory(history);
             }
 
+            // Map item-level inventory (only items with positive available stock)
+            if (entity.DepotSupplyInventories != null && entity.DepotSupplyInventories.Count != 0)
+            {
+                var lines = entity.DepotSupplyInventories
+                    .Where(i => (i.Quantity ?? 0) - (i.ReservedQuantity ?? 0) > 0)
+                    .Select(i => new DepotInventoryLine(
+                        i.ReliefItem?.Name ?? $"Item #{i.ReliefItemId}",
+                        i.ReliefItem?.Unit,
+                        (i.Quantity ?? 0) - (i.ReservedQuantity ?? 0)
+                    ));
+                model.SetInventoryLines(lines);
+            }
+
             return model;
         }
     }

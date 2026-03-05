@@ -17,6 +17,10 @@ public partial class Prompt
     [StringLength(255)]
     public string? Name { get; set; }
 
+    [Column("prompt_type")]
+    [StringLength(100)]
+    public string PromptType { get; set; } = string.Empty;
+
     [Column("purpose")]
     public string? Purpose { get; set; }
 

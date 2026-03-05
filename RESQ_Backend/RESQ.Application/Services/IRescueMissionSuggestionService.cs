@@ -5,6 +5,7 @@ public interface IRescueMissionSuggestionService
     Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
         List<SosRequestSummary> sosRequests,
         List<DepotSummary>? nearbyDepots = null,
+        bool isMultiDepotRecommended = false,
         CancellationToken cancellationToken = default);
 }
 
@@ -21,6 +22,16 @@ public class DepotSummary
     public int Capacity { get; set; }
     public int CurrentUtilization { get; set; }
     public string Status { get; set; } = string.Empty;
+    /// <summary>Danh sách vật tư còn khả dụng (quantity - reserved > 0) trong kho này.</summary>
+    public List<DepotInventoryItemDto> Inventories { get; set; } = [];
+}
+
+/// <summary>Một dòng vật tư khả dụng trong kho tiếp tế.</summary>
+public class DepotInventoryItemDto
+{
+    public string ItemName { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    public int AvailableQuantity { get; set; }
 }
 
 public class SosRequestSummary
@@ -56,6 +67,13 @@ public class RescueMissionSuggestionResult
     public string? SpecialNotes { get; set; }
     public double ConfidenceScore { get; set; }
     public string? RawAiResponse { get; set; }
+
+    /// <summary>true khi AI có độ tự tin thấp — cần người điều phối xem xét thủ công.</summary>
+    public bool NeedsManualReview { get; set; }
+    /// <summary>Thông báo giải thích lý do cần xem xét thủ công (chỉ set khi NeedsManualReview = true).</summary>
+    public string? LowConfidenceWarning { get; set; }
+    /// <summary>true khi không có kho nào đủ đa dạng hàng để cấp phát trong một lần — AI sẽ được nhắc lấy từ nhiều kho.</summary>
+    public bool MultiDepotRecommended { get; set; }
 }
 
 public class SuggestedActivityDto

@@ -37,6 +37,7 @@ public class UpdatePromptCommandHandler(
 
         prompt.Update(
             name: request.Name,
+            promptType: request.PromptType,
             purpose: request.Purpose,
             systemPrompt: request.SystemPrompt,
             userPromptTemplate: request.UserPromptTemplate,
@@ -49,6 +50,13 @@ public class UpdatePromptCommandHandler(
         );
 
         await _promptRepository.UpdateAsync(prompt, cancellationToken);
+
+        // Nếu prompt được kích hoạt, tắt các prompt khác cùng loại
+        if (request.IsActive == true)
+        {
+            await _promptRepository.DeactivateOthersByTypeAsync(prompt.Id, prompt.PromptType, cancellationToken);
+        }
+
         await _unitOfWork.SaveAsync();
 
         _logger.LogInformation("Updated prompt successfully: Id={Id}", request.Id);

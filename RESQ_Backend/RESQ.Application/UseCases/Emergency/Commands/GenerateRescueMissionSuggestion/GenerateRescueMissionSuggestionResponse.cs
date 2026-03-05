@@ -23,4 +23,11 @@ public class GenerateRescueMissionSuggestionResponse
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
     public double ConfidenceScore { get; set; }
+
+    /// <summary>true khi AI không đủ tự tin — người điều phối nên xem xét và điều chỉnh thủ công.</summary>
+    public bool NeedsManualReview { get; set; }
+    /// <summary>Lý do cần xem xét thủ công, ví dụ: "Độ tự tin AI chỉ đạt 45%, dưới ngưỡng 65%."</summary>
+    public string? LowConfidenceWarning { get; set; }
+    /// <summary>true khi AI được gợi ý phối hợp nhiều kho vì không kho nào đủ đồ cho một lần cấp phát.</summary>
+    public bool MultiDepotRecommended { get; set; }
 }

@@ -1,9 +1,12 @@
+using RESQ.Domain.Enum.System;
+
 namespace RESQ.Domain.Entities.System;
 
 public class PromptModel
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public PromptType PromptType { get; set; }
     public string? Purpose { get; set; }
     public string? SystemPrompt { get; set; }
     public string? UserPromptTemplate { get; set; }
@@ -20,6 +23,7 @@ public class PromptModel
 
     public static PromptModel Create(
         string name,
+        PromptType promptType,
         string purpose,
         string systemPrompt,
         string userPromptTemplate,
@@ -32,6 +36,7 @@ public class PromptModel
         return new PromptModel
         {
             Name = name,
+            PromptType = promptType,
             Purpose = purpose,
             SystemPrompt = systemPrompt,
             UserPromptTemplate = userPromptTemplate,
@@ -47,6 +52,7 @@ public class PromptModel
 
     public void Update(
         string? name = null,
+        PromptType? promptType = null,
         string? purpose = null,
         string? systemPrompt = null,
         string? userPromptTemplate = null,
@@ -58,6 +64,7 @@ public class PromptModel
         bool? isActive = null)
     {
         if (name != null) Name = name;
+        if (promptType.HasValue) PromptType = promptType.Value;
         if (purpose != null) Purpose = purpose;
         if (systemPrompt != null) SystemPrompt = systemPrompt;
         if (userPromptTemplate != null) UserPromptTemplate = userPromptTemplate;

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
@@ -33,8 +34,8 @@ public static class MissionActivityMapper
             ActivityCode = model.ActivityCode,
             ActivityType = model.ActivityType,
             Description = model.Description,
-            Target = model.Target,
-            Items = model.Items,
+            Target = EnsureValidJson(model.Target),
+            Items = EnsureValidJson(model.Items),
             Status = ToDbString(model.Status),
             AssignedAt = model.AssignedAt,
             CompletedAt = model.CompletedAt,
@@ -68,5 +69,24 @@ public static class MissionActivityMapper
             CompletedAt = entity.CompletedAt,
             LastDecisionBy = entity.LastDecisionBy
         };
+    }
+
+    /// <summary>
+    /// Ensures the value stored in a jsonb column is valid JSON.
+    /// If the string is already valid JSON it is returned as-is.
+    /// Otherwise it is serialized as a JSON string literal so Postgres accepts it.
+    /// </summary>
+    internal static string? EnsureValidJson(string? value)
+    {
+        if (value is null) return null;
+        try
+        {
+            using var _ = JsonDocument.Parse(value);
+            return value; // already valid JSON
+        }
+        catch (JsonException)
+        {
+            return JsonSerializer.Serialize(value); // wrap plain string as JSON string literal
+        }
     }
 }

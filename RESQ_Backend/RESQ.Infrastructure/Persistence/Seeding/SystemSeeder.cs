@@ -43,6 +43,7 @@ public static class SystemSeeder
             {
                 Id = 1,
                 Name = "SOS Analysis Prompt",
+                PromptType = "SosPriorityAnalysis",
                 Purpose = "Phân tích tin nhắn SOS để trích xuất thông tin",
                 SystemPrompt = "Bạn là một AI chuyên phân tích các tin nhắn cầu cứu trong thiên tai...",
                 Temperature = 0.3,
@@ -50,13 +51,14 @@ public static class SystemSeeder
                 Version = "v1.0",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
                 Model = "gemini-2.5-flash",
-                IsActive = true,
+                IsActive = false, // Đã được thay thế bởi prompt Id=3
                 CreatedAt = now
             },
             new Prompt
             {
                 Id = 2,
                 Name = "Mission Planning Prompt",
+                PromptType = "MissionPlanning",
                 Purpose = "Lập kế hoạch nhiệm vụ cứu trợ",
                 SystemPrompt = @"Bạn là một chuyên gia lập kế hoạch nhiệm vụ cứu trợ thiên tai. Dựa trên danh sách các yêu cầu SOS, bạn cần phân tích tổng thể tình hình và đề xuất kế hoạch nhiệm vụ giải cứu.
 
@@ -70,7 +72,7 @@ Bạn phải trả lời bằng JSON với format sau:
   ""activities"": [
     {
       ""step"": 1,
-      ""activity_type"": ""RESCUE|EVACUATE|DELIVER_SUPPLIES|MEDICAL_AID|ASSESS"",
+      ""activity_type"": ""RESCUE|EVACUATE|DELIVER_SUPPLIES|MEDICAL_AID"",
       ""description"": ""Mô tả hoạt động"",
       ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""30 phút""
@@ -107,6 +109,7 @@ Hãy phân tích tình hình và đưa ra đề xuất nhiệm vụ giải cứu
             {
                 Id = 3,
                 Name = "SOS_PRIORITY_ANALYSIS",
+                PromptType = "SosPriorityAnalysis",
                 Purpose = "Phân tích yêu cầu SOS để xác định mức độ ưu tiên và nghiêm trọng",
                 SystemPrompt = @"Bạn là một chuyên gia phân tích tình huống khẩn cấp. Nhiệm vụ của bạn là phân tích các yêu cầu SOS và đánh giá mức độ ưu tiên.
 

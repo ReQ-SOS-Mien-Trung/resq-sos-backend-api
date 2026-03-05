@@ -16,6 +16,9 @@ public class CreateSosClusterCommandHandler(
     ILogger<CreateSosClusterCommandHandler> logger
 ) : IRequestHandler<CreateSosClusterCommand, CreateSosClusterResponse>
 {
+    /// <summary>Khoảng cách tối đa (km) giữa 2 SOS request bất kỳ trong cùng một cluster.</summary>
+    private const double MaxClusterSpreadKm = 10.0;
+
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
@@ -45,6 +48,29 @@ public class CreateSosClusterCommandHandler(
 
         if (resolvedRequests.Count == 0)
             throw new BadRequestException("Không có SOS request hợp lệ để tạo cluster");
+
+        // Validate: no two SOS requests may be farther apart than MaxClusterSpreadKm
+        var withCoords = resolvedRequests
+            .Where(r => r.Location != null)
+            .ToList();
+
+        for (int i = 0; i < withCoords.Count; i++)
+        {
+            for (int j = i + 1; j < withCoords.Count; j++)
+            {
+                var a = withCoords[i];
+                var b = withCoords[j];
+                double distKm = HaversineKm(
+                    a.Location!.Latitude, a.Location.Longitude,
+                    b.Location!.Latitude, b.Location.Longitude);
+
+                if (distKm > MaxClusterSpreadKm)
+                    throw new BadRequestException(
+                        $"SOS request #{a.Id} và #{b.Id} cách nhau {distKm:F1} km, " +
+                        $"vượt quá giới hạn {MaxClusterSpreadKm} km cho phép trong một cluster. " +
+                        $"Vui lòng chỉ nhóm các yêu cầu trong cùng khu vực địa lý.");
+            }
+        }
 
         // Auto-calculate center coordinates from average of all SOS request locations
         var validCoords = resolvedRequests
@@ -119,5 +145,19 @@ public class CreateSosClusterCommandHandler(
             SeverityLevel = severityLevel,
             CreatedAt = cluster.CreatedAt
         };
+    }
+
+    /// <summary>
+    /// Tính khoảng cách (km) giữa hai toạ độ GPS theo công thức Haversine.
+    /// </summary>
+    private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double R = 6371.0; // bán kính Trái Đất (km)
+        double dLat = (lat2 - lat1) * Math.PI / 180.0;
+        double dLon = (lon2 - lon1) * Math.PI / 180.0;
+        double a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+                 + Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0)
+                 * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
     }
 }

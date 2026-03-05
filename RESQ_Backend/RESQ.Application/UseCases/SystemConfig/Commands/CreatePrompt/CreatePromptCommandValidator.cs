@@ -1,4 +1,5 @@
 using FluentValidation;
+using RESQ.Domain.Enum.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.CreatePrompt;
 
@@ -9,6 +10,9 @@ public class CreatePromptCommandValidator : AbstractValidator<CreatePromptComman
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Tên prompt không được để trống.")
             .MaximumLength(255).WithMessage("Tên prompt không được vượt quá 255 ký tự.");
+
+        RuleFor(x => x.PromptType)
+            .IsInEnum().WithMessage("Loại prompt (PromptType) không hợp lệ.");
 
         RuleFor(x => x.Purpose)
             .NotEmpty().WithMessage("Mục đích không được để trống.");

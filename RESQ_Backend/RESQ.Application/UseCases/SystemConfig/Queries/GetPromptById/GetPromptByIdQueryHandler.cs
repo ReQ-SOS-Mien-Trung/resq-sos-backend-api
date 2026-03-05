@@ -26,6 +26,7 @@ public class GetPromptByIdQueryHandler(
         {
             Id = prompt.Id,
             Name = prompt.Name,
+            PromptType = prompt.PromptType,
             Purpose = prompt.Purpose,
             SystemPrompt = prompt.SystemPrompt,
             UserPromptTemplate = prompt.UserPromptTemplate,
