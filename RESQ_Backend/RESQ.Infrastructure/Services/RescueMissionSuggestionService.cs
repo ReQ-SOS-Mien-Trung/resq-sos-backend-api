@@ -88,9 +88,9 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 userPrompt += $"""
 
 
---- THÔNG TIN KHO TIẾP TẾ GẦN NHẤT ---
-Dưới đây là danh sách các kho tiếp tế đang hoạt động, còn hàng, được sắp xếp ưu tiên theo mức độ đầy đủ tồn kho (đa dạng vật tư) rồi đến gần nhất.
-Mỗi kho có danh sách vật tư khả dụng (quantity - reserved). Hãy sử dụng để đề xuất nguồn cung cấp tài nguyên:
+--- THÔNG TIN KHO TIẾP TẾ PHÙ HỢP ---
+Dưới đây là danh sách các kho tiếp tế đang hoạt động, còn hàng, được sắp xếp ưu tiên theo mức độ đáp ứng vật tư nhu cầu SOS rồi đến gần nhất.
+Mỗi kho có danh sách vật tư khả dụng (quantity - reserved). Hãy ưu tiên kho đáp ứng đúng vật tư cần thiết để đề xuất nguồn cung cấp tài nguyên:
 {depotsDataJson}
 """;
             }

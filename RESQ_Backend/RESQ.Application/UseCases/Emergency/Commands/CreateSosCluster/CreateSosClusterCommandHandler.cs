@@ -49,6 +49,24 @@ public class CreateSosClusterCommandHandler(
         if (resolvedRequests.Count == 0)
             throw new BadRequestException("Không có SOS request hợp lệ để tạo cluster");
 
+        // Validate: all SOS requests must be Pending
+        var nonPendingRequests = resolvedRequests
+            .Where(r => r.Status != SosRequestStatus.Pending)
+            .ToList();
+        if (nonPendingRequests.Count > 0)
+            throw new BadRequestException(
+                $"Chỉ được tạo cluster từ các SOS request ở trạng thái Pending. " +
+                $"Các request không hợp lệ: {string.Join(", ", nonPendingRequests.Select(r => $"#{r.Id} ({r.Status})"))}");
+
+        // Validate: SOS requests must not already belong to another cluster
+        var alreadyClusteredRequests = resolvedRequests
+            .Where(r => r.ClusterId.HasValue)
+            .ToList();
+        if (alreadyClusteredRequests.Count > 0)
+            throw new ConflictException(
+                $"Các SOS request sau đã thuộc cluster khác: " +
+                $"{string.Join(", ", alreadyClusteredRequests.Select(r => $"#{r.Id} (Cluster #{r.ClusterId})"))}");
+
         // Validate: no two SOS requests may be farther apart than MaxClusterSpreadKm
         var withCoords = resolvedRequests
             .Where(r => r.Location != null)
