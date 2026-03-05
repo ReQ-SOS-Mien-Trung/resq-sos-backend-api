@@ -54,13 +54,19 @@ namespace RESQ.Infrastructure.Persistence.Identity
             return entity is null ? null : MapToDto(entity);
         }
 
-        public async Task<PagedResult<RescuerApplicationDto>> GetPagedAsync(int pageNumber, int pageSize, string? status = null, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<RescuerApplicationDto>> GetPagedAsync(int pageNumber, int pageSize, string? status = null, string? name = null, string? email = null, string? phone = null, CancellationToken cancellationToken = default)
         {
             var pagedResult = await _unitOfWork.GetRepository<RescuerApplication>()
                 .GetPagedAsync(
                     pageNumber,
                     pageSize,
-                    filter: status is null ? null : x => x.Status == status,
+                    filter: x =>
+                        (status == null || x.Status == status) &&
+                        (name == null || (x.User != null && (
+                            (x.User.FirstName != null && x.User.FirstName.ToLower().Contains(name.ToLower())) ||
+                            (x.User.LastName != null && x.User.LastName.ToLower().Contains(name.ToLower()))))) &&
+                        (email == null || (x.User != null && x.User.Email != null && x.User.Email.ToLower().Contains(email.ToLower()))) &&
+                        (phone == null || (x.User != null && x.User.Phone != null && x.User.Phone.Contains(phone))),
                     orderBy: q => q.OrderByDescending(x => x.SubmittedAt),
                     includeProperties: "RescuerApplicationDocuments.FileType,User"
                 );

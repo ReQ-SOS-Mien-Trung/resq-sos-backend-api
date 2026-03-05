@@ -6,6 +6,9 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
     public record GetRescuerApplicationsQuery(
         int PageNumber = 1,
         int PageSize = 10,
-        string? Status = null // Filter by status: Pending, Approved, Rejected
+        string? Status = null, // Filter by status: Pending, Approved, Rejected
+        string? Name = null,
+        string? Email = null,
+        string? Phone = null
     ) : IRequest<PagedResult<RescuerApplicationDto>>;
 }
