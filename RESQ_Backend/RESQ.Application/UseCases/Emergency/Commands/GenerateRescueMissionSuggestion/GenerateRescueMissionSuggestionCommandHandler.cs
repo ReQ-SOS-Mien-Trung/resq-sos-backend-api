@@ -6,6 +6,7 @@ using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Entities.Logistics;
 
 namespace RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
 
@@ -28,11 +29,11 @@ public class GenerateRescueMissionSuggestionCommandHandler(
     // Số kho gần nhất tối đa gửi cho AI
     private const int MaxDepotContext = 5;
 
+    // Bán kính (km) lọc kho gần - chỉ xét kho trong phạm vi này trước khi so vật tư
+    private const double MaxDepotRadiusKm = 20.0;
+
     // Nếu confidence_score của AI dưới ngưỡng này → đánh dấu cần xét lại thủ công
     private const double LowConfidenceThreshold = 0.65;
-
-    // Nếu kho tốt nhất chỉ có < ngưỡng này loại vật tư → gợi ý phối hợp nhiều kho
-    private const int MultiDepotDiversityThreshold = 2;
 
     // Thứ tự ưu tiên: giá trị càng cao càng quan trọng
     private static readonly Dictionary<string, int> PriorityRank = new(StringComparer.OrdinalIgnoreCase)
@@ -77,16 +78,20 @@ public class GenerateRescueMissionSuggestionCommandHandler(
             CreatedAt = sos.CreatedAt
         }).ToList();
 
-        // 3. Tìm SOS request quan trọng nhất để tính khoảng cách đến kho
+        // 3. Trích xuất danh sách vật tư cần thiết từ StructuredData.supplies của các SOS request
+        var neededSupplies = ExtractNeededSupplies(sosRequestSummaries);
+
+        // 4. Tìm SOS request quan trọng nhất để tính khoảng cách đến kho
         var anchorSos = FindHighestPrioritySos(sosRequestSummaries);
 
-        // 4. Query DB: lấy các kho đang hoạt động và còn hàng,
-        //    ưu tiên kho có nhiều loại vật tư (tồn kho đa dạng) trước, rồi gần nhất
-        var (nearbyDepots, multiDepotRecommended) = await BuildNearbyDepotSummariesAsync(anchorSos, cancellationToken);
+        // 5. Query DB: lấy các kho đang hoạt động và còn hàng,
+        //    ưu tiên kho đáp ứng được nhiều vật tư cần thiết nhất (theo SOS request), sau đó mới tính gần nhất
+        var (nearbyDepots, multiDepotRecommended) = await BuildNearbyDepotSummariesAsync(anchorSos, neededSupplies, cancellationToken);
 
         _logger.LogInformation(
-            "Depot context: AnchorSOS={sosId} (Priority={priority}, Lat={lat}, Lng={lng}), EligibleDepots={count}, MultiDepot={multi}",
-            anchorSos?.Id, anchorSos?.PriorityLevel, anchorSos?.Latitude, anchorSos?.Longitude, nearbyDepots.Count, multiDepotRecommended);
+            "Depot context: AnchorSOS={sosId} (Priority={priority}, Lat={lat}, Lng={lng}), NeededSupplies=[{supplies}], EligibleDepots={count}, MultiDepot={multi}",
+            anchorSos?.Id, anchorSos?.PriorityLevel, anchorSos?.Latitude, anchorSos?.Longitude,
+            string.Join(", ", neededSupplies), nearbyDepots.Count, multiDepotRecommended);
 
         // 5. Call AI to generate suggestion
         var result = await _suggestionService.GenerateSuggestionAsync(
@@ -204,13 +209,13 @@ public class GenerateRescueMissionSuggestionCommandHandler(
 
     /// <summary>
     /// Query DB lấy danh sách kho đang hoạt động có hàng, sắp xếp theo:<br/>
-    /// 1. Ưu tiên kho có tồn kho đa dạng (nhiều loại vật tư khả dụng) trước;<br/>
-    /// 2. Cùng mức đa dạng thì lấy kho gần SOS nhất.<br/>
-    /// Nếu kho tốt nhất vẫn &lt; <see cref="MultiDepotDiversityThreshold"/> loại
-    /// và có nhiều kho với hàng hoá khác nhau → <c>multiDepotRecommended = true</c>.
+    /// 1. Ưu tiên kho đáp ứng được nhiều vật tư cần thiết (theo SOS request) nhất trước;<br/>
+    /// 2. Cùng độ phủ thì lấy kho gần SOS nhất.<br/>
+    /// Nếu không có kho nào bao phủ đủ tất cả vật tư cần thiết → <c>multiDepotRecommended = true</c>.
     /// </summary>
     private async Task<(List<DepotSummary> Depots, bool MultiDepotRecommended)> BuildNearbyDepotSummariesAsync(
         SosRequestSummary? anchorSos,
+        IReadOnlyCollection<string> neededSupplies,
         CancellationToken cancellationToken)
     {
         if (anchorSos is null)
@@ -228,37 +233,49 @@ public class GenerateRescueMissionSuggestionCommandHandler(
             return ([], false);
         }
 
-        // Tính điểm cho từng kho: đa dạng = số loại vật tư có số lượng khả dụng > 0
-        var scored = availableDepots
+        // Tính khoảng cách và lọc kho trong bán kính MaxDepotRadiusKm;
+        // nếu không kho nào đủ gần thì mở rộng lấy tất cả (fallback)
+        var withDistance = availableDepots
             .Where(d => d.Location is not null)
             .Select(d =>
             {
                 double distKm = HaversineKm(
                     anchorSos.Latitude!.Value, anchorSos.Longitude!.Value,
                     d.Location!.Latitude, d.Location!.Longitude);
-
-                int diversityScore = d.InventoryLines.Count; // số loại vật tư khả dụng
-
-                return (depot: d, distKm: Math.Round(distKm, 2), diversityScore);
+                return (depot: d, distKm: Math.Round(distKm, 2));
             })
-            // Bước 1: kho có nhiều loại vật tư (đủ đồ) trước
-            // Bước 2: cùng mức đa dạng → kho gần nhất trước
-            .OrderByDescending(x => x.diversityScore)
+            .ToList();
+
+        var nearby = withDistance.Where(x => x.distKm <= MaxDepotRadiusKm).ToList();
+        if (nearby.Count == 0)
+        {
+            _logger.LogWarning(
+                "Không có kho nào trong bán kính {radius} km — mở rộng tìm toàn bộ kho.",
+                MaxDepotRadiusKm);
+            nearby = withDistance; // fallback: lấy tất cả
+        }
+
+        // Trong các kho gần, ưu tiên kho đáp ứng nhiều vật tư cần thiết nhất;
+        // cùng mức phủ thì ưu tiên kho gần hơn
+        var scored = nearby
+            .Select(x =>
+            {
+                int coverageScore = neededSupplies.Count > 0
+                    ? CountCoveredSupplies(x.depot.InventoryLines, neededSupplies)
+                    : x.depot.InventoryLines.Count;
+                return (x.depot, x.distKm, coverageScore);
+            })
+            .OrderByDescending(x => x.coverageScore)
             .ThenBy(x => x.distKm)
             .ToList();
 
-        // Xác định có cần phối hợp nhiều kho không
-        int maxDiversity = scored.Count > 0 ? scored.Max(x => x.diversityScore) : 0;
-        int allUniqueItems = scored
-            .SelectMany(x => x.depot.InventoryLines.Select(l => l.ItemName))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count();
-
-        // Multi-depot: kho tốt nhất không đủ đa dạng VÀ tổng hợp nhiều kho sẽ bao phủ tốt hơn
+        // Multi-depot: kho tốt nhất chưa bao phủ đủ tất cả vật tư cần thiết
+        int totalNeeded = neededSupplies.Count;
+        int maxCoverage = scored.Count > 0 ? scored.Max(x => x.coverageScore) : 0;
         bool multiDepotRecommended =
-            scored.Count >= 2
-            && maxDiversity < MultiDepotDiversityThreshold
-            && allUniqueItems > maxDiversity;
+            totalNeeded > 0
+            && scored.Count >= 2
+            && maxCoverage < totalNeeded;
 
         var depotSummaries = scored
             .Take(MaxDepotContext)
@@ -285,6 +302,72 @@ public class GenerateRescueMissionSuggestionCommandHandler(
             .ToList();
 
         return (depotSummaries, multiDepotRecommended);
+    }
+
+    /// <summary>
+    /// Trích xuất danh sách loại vật tư cần thiết từ StructuredData.supplies của tất cả SOS request trong cluster.
+    /// </summary>
+    private static HashSet<string> ExtractNeededSupplies(List<SosRequestSummary> sosRequests)
+    {
+        var needed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sos in sosRequests)
+        {
+            if (string.IsNullOrWhiteSpace(sos.StructuredData)) continue;
+            try
+            {
+                using var doc = JsonDocument.Parse(sos.StructuredData);
+                if (doc.RootElement.TryGetProperty("supplies", out var supplies)
+                    && supplies.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in supplies.EnumerateArray())
+                    {
+                        var val = item.GetString();
+                        if (!string.IsNullOrWhiteSpace(val))
+                            needed.Add(val.Trim().ToUpperInvariant());
+                    }
+                }
+            }
+            catch (JsonException) { /* bỏ qua StructuredData không hợp lệ */ }
+        }
+        return needed;
+    }
+
+    /// <summary>
+    /// Mapping từ supply category code trong SOS request sang keywords xuất hiện trong tên vật tư kho.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> SupplyCategoryKeywords =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["FOOD"]             = ["food", "gạo", "mì", "lương thực", "thực phẩm", "bánh", "đồ ăn"],
+            ["WATER"]            = ["water", "nước"],
+            ["MEDICINE"]         = ["medicine", "thuốc", "y tế", "medical", "băng", "bông", "sơ cứu"],
+            ["RESCUE_EQUIPMENT"] = ["rescue", "cứu hộ", "dây", "phao", "xuồng", "thuyền"],
+            ["HYGIENE"]          = ["hygiene", "vệ sinh", "xà phòng", "khăn", "giấy vệ sinh"],
+            ["SHELTER"]          = ["shelter", "lều", "bạt", "tấm che"],
+            ["CLOTHING"]         = ["clothing", "quần áo", "áo", "chăn", "mền"],
+            ["TRANSPORTATION"]   = ["transportation", "xe", "phương tiện"],
+        };
+
+    /// <summary>
+    /// Đếm số loại vật tư trong <paramref name="neededSupplies"/> mà kho này có sẵn trong tồn kho.
+    /// Dùng keyword mapping từ category code của SOS sang tên vật tư thực tế.
+    /// </summary>
+    private static int CountCoveredSupplies(
+        IEnumerable<DepotInventoryLine> inventoryLines,
+        IReadOnlyCollection<string> neededSupplies)
+    {
+        var itemNamesUpper = inventoryLines
+            .Select(l => l.ItemName.ToUpperInvariant())
+            .ToList();
+
+        return neededSupplies.Count(supply =>
+        {
+            if (SupplyCategoryKeywords.TryGetValue(supply, out var keywords))
+                return itemNamesUpper.Any(n =>
+                    keywords.Any(kw => n.Contains(kw, StringComparison.OrdinalIgnoreCase)));
+            // Fallback: khớp trực tiếp tên supply với tên vật tư
+            return itemNamesUpper.Any(n => n.Contains(supply, StringComparison.OrdinalIgnoreCase));
+        });
     }
 
     /// <summary>
