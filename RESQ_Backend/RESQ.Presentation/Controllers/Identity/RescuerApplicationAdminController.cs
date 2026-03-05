@@ -20,13 +20,19 @@ namespace RESQ.Presentation.Controllers.Identity
         /// <param name="pageNumber">Số trang (mặc định: 1)</param>
         /// <param name="pageSize">Số lượng mỗi trang (mặc định: 10)</param>
         /// <param name="status">Lọc theo trạng thái: Pending, Approved, Rejected (để trống = tất cả)</param>
+        /// <param name="name">Lọc theo tên (first name hoặc last name)</param>
+        /// <param name="email">Lọc theo email</param>
+        /// <param name="phone">Lọc theo số điện thoại</param>
         [HttpGet]
         public async Task<IActionResult> GetRescuerApplications(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
-            [FromQuery] string? status = null)
+            [FromQuery] string? status = null,
+            [FromQuery] string? name = null,
+            [FromQuery] string? email = null,
+            [FromQuery] string? phone = null)
         {
-            var query = new GetRescuerApplicationsQuery(pageNumber, pageSize, status);
+            var query = new GetRescuerApplicationsQuery(pageNumber, pageSize, status, name, email, phone);
             var result = await _mediator.Send(query);
             return Ok(result);
         }
