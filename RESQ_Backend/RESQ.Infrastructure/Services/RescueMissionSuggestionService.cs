@@ -314,7 +314,16 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
                 ActivityType = a.ActivityType ?? string.Empty,
                 Description = a.Description ?? string.Empty,
                 Priority = a.Priority,
-                EstimatedTime = a.EstimatedTime
+                EstimatedTime = a.EstimatedTime,
+                DepotId = a.DepotId,
+                DepotName = a.DepotName,
+                DepotAddress = a.DepotAddress,
+                SuppliesToCollect = a.SuppliesToCollect?.Select(s => new SupplyToCollectDto
+                {
+                    ItemName = s.ItemName ?? string.Empty,
+                    Quantity = s.Quantity,
+                    Unit = s.Unit
+                }).ToList()
             }).ToList() ?? [],
             SuggestedResources = parsed.Resources?.Select(r => new SuggestedResourceDto
             {
@@ -358,6 +367,18 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
                 if (a.TryGetProperty("description", out var d)) dto.Description = d.GetString() ?? string.Empty;
                 if (a.TryGetProperty("priority", out var p)) dto.Priority = p.GetString();
                 if (a.TryGetProperty("estimated_time", out var et)) dto.EstimatedTime = et.GetString();
+                if (a.TryGetProperty("depot_id", out var di) && di.ValueKind != JsonValueKind.Null && di.TryGetInt32(out var div)) dto.DepotId = div;
+                if (a.TryGetProperty("depot_name", out var dn) && dn.ValueKind != JsonValueKind.Null) dto.DepotName = dn.GetString();
+                if (a.TryGetProperty("depot_address", out var da) && da.ValueKind != JsonValueKind.Null) dto.DepotAddress = da.GetString();
+                if (a.TryGetProperty("supplies_to_collect", out var stc) && stc.ValueKind == JsonValueKind.Array)
+                    dto.SuppliesToCollect = stc.EnumerateArray().Select(s =>
+                    {
+                        var supply = new SupplyToCollectDto();
+                        if (s.TryGetProperty("item_name", out var iname)) supply.ItemName = iname.GetString() ?? string.Empty;
+                        if (s.TryGetProperty("quantity", out var qty) && qty.TryGetInt32(out var qtyv)) supply.Quantity = qtyv;
+                        if (s.TryGetProperty("unit", out var unit) && unit.ValueKind != JsonValueKind.Null) supply.Unit = unit.GetString();
+                        return supply;
+                    }).ToList();
                 return dto;
             }).ToList();
         }
@@ -487,6 +508,18 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
         public double ConfidenceScore { get; set; }
     }
 
+    private class AiSupplyToCollect
+    {
+        [JsonPropertyName("item_name")]
+        public string? ItemName { get; set; }
+
+        [JsonPropertyName("quantity")]
+        public int Quantity { get; set; }
+
+        [JsonPropertyName("unit")]
+        public string? Unit { get; set; }
+    }
+
     private class AiActivity
     {
         [JsonPropertyName("step")]
@@ -503,6 +536,18 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
 
         [JsonPropertyName("estimated_time")]
         public string? EstimatedTime { get; set; }
+
+        [JsonPropertyName("depot_id")]
+        public int? DepotId { get; set; }
+
+        [JsonPropertyName("depot_name")]
+        public string? DepotName { get; set; }
+
+        [JsonPropertyName("depot_address")]
+        public string? DepotAddress { get; set; }
+
+        [JsonPropertyName("supplies_to_collect")]
+        public List<AiSupplyToCollect>? SuppliesToCollect { get; set; }
     }
 
     private class AiResource

@@ -171,6 +171,30 @@ public static class LogisticsSeeder
                 Capacity = 2000,
                 CurrentUtilization = 1800,
                 LastUpdatedAt = now
+            },
+            // Depot 3: Gần SOS 3 & 4 — Phong Điền, TT-Huế (~350m từ SOS Id=3)
+            new Depot
+            {
+                Id = 3,
+                Name = "Điểm tiếp tế Phong Điền",
+                Address = "Thôn Phong Mỹ, Phong Điền, Thừa Thiên-Huế",
+                Location = new Point(107.2902, 16.6358) { SRID = 4326 },
+                Status = DepotStatus.Available.ToString(),
+                Capacity = 1500,
+                CurrentUtilization = 900,
+                LastUpdatedAt = now
+            },
+            // Depot 4: Gần SOS 5 — Hòa Vang, Đà Nẵng (~550m từ SOS Id=5)
+            new Depot
+            {
+                Id = 4,
+                Name = "Kho Cứu trợ Hòa Vang",
+                Address = "Thôn Phú Túc, Hòa Phú, Hòa Vang, Đà Nẵng",
+                Location = new Point(108.0055, 16.0275) { SRID = 4326 },
+                Status = DepotStatus.Available.ToString(),
+                Capacity = 800,
+                CurrentUtilization = 350,
+                LastUpdatedAt = now
             }
         );
     }
@@ -181,7 +205,9 @@ public static class LogisticsSeeder
 
         modelBuilder.Entity<DepotManager>().HasData(
             new DepotManager { Id = 1, DepotId = 1, UserId = SeedConstants.AdminUserId, AssignedAt = now },
-            new DepotManager { Id = 2, DepotId = 2, UserId = SeedConstants.CoordinatorUserId, AssignedAt = now }
+            new DepotManager { Id = 2, DepotId = 2, UserId = SeedConstants.CoordinatorUserId, AssignedAt = now },
+            new DepotManager { Id = 3, DepotId = 3, UserId = SeedConstants.ManagerUserId, AssignedAt = now },
+            new DepotManager { Id = 4, DepotId = 4, UserId = SeedConstants.RescuerUserId, AssignedAt = now }
         );
     }
 
@@ -196,7 +222,17 @@ public static class LogisticsSeeder
             
             // Le Thuy Depot
             new DepotSupplyInventory { Id = 3, DepotId = 2, ReliefItemId = 1, Quantity = 500, ReservedQuantity = 400, LastStockedAt = now },
-            new DepotSupplyInventory { Id = 4, DepotId = 2, ReliefItemId = 2, Quantity = 100, ReservedQuantity = 50, LastStockedAt = now }
+            new DepotSupplyInventory { Id = 4, DepotId = 2, ReliefItemId = 2, Quantity = 100, ReservedQuantity = 50, LastStockedAt = now },
+
+            // Phong Dien Depot (near SOS 3 & 4)
+            new DepotSupplyInventory { Id = 5, DepotId = 3, ReliefItemId = 1, Quantity = 300, ReservedQuantity = 0, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 6, DepotId = 3, ReliefItemId = 3, Quantity = 200, ReservedQuantity = 0, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 7, DepotId = 3, ReliefItemId = 4, Quantity = 300, ReservedQuantity = 0, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 8, DepotId = 3, ReliefItemId = 2, Quantity = 50, ReservedQuantity = 0, LastStockedAt = now },
+
+            // Hoa Vang Depot (near SOS 5)
+            new DepotSupplyInventory { Id = 9, DepotId = 4, ReliefItemId = 2, Quantity = 30, ReservedQuantity = 0, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 10, DepotId = 4, ReliefItemId = 1, Quantity = 100, ReservedQuantity = 0, LastStockedAt = now }
         );
     }
 
@@ -227,6 +263,30 @@ public static class LogisticsSeeder
                 SourceId = 1,
                 PerformedBy = SeedConstants.CoordinatorUserId,
                 Note = "Chuyển từ kho Huế ra Lệ Thủy",
+                CreatedAt = now
+            },
+            new InventoryLog
+            {
+                Id = 3,
+                DepotSupplyInventoryId = 5,
+                ActionType = "Import",
+                QuantityChange = 300,
+                SourceType = "Organization",
+                SourceId = 2,
+                PerformedBy = SeedConstants.ManagerUserId,
+                Note = "Nhập kho Phong Điền đợt 1",
+                CreatedAt = now
+            },
+            new InventoryLog
+            {
+                Id = 4,
+                DepotSupplyInventoryId = 9,
+                ActionType = "Import",
+                QuantityChange = 30,
+                SourceType = "Organization",
+                SourceId = 1,
+                PerformedBy = SeedConstants.RescuerUserId,
+                Note = "Nhập kho Hòa Vang đợt 1",
                 CreatedAt = now
             }
         );
