@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using RESQ.Application.UseCases.Identity.Commands.GoogleLogin;
 using RESQ.Application.UseCases.Identity.Commands.Login;
 using RESQ.Application.UseCases.Identity.Commands.Logout;
@@ -18,9 +19,10 @@ namespace RESQ.Presentation.Controllers.Identity
 {
     [Route("identity/auth")]
     [ApiController]
-    public class AuthController(IMediator mediator) : ControllerBase
+    public class AuthController(IMediator mediator, IConfiguration configuration) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;
+        private readonly string _feBaseUrl = configuration["AppSettings:FEBaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
 
         [HttpPost("register")]
         [AllowAnonymous]
@@ -48,9 +50,9 @@ namespace RESQ.Presentation.Controllers.Identity
             var result = await _mediator.Send(command);
             if (result.Success)
             {
-                return Redirect("http://localhost:5173/verify-email/success");
+                return Redirect($"{_feBaseUrl}/verify-email/success");
             }
-            return Redirect("http://localhost:5173/auth/resend-email");
+            return Redirect($"{_feBaseUrl}/auth/resend-email");
         }
 
         [HttpPost("resend-verification-email")]

@@ -76,6 +76,13 @@ public class RescueMissionSuggestionResult
     public bool MultiDepotRecommended { get; set; }
 }
 
+public class SupplyToCollectDto
+{
+    public string ItemName { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public string? Unit { get; set; }
+}
+
 public class SuggestedActivityDto
 {
     public int Step { get; set; }
@@ -83,6 +90,14 @@ public class SuggestedActivityDto
     public string Description { get; set; } = string.Empty;
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
+    /// <summary>ID kho tiếp tế (chỉ có khi ActivityType = COLLECT_SUPPLIES)</summary>
+    public int? DepotId { get; set; }
+    /// <summary>Tên kho tiếp tế</summary>
+    public string? DepotName { get; set; }
+    /// <summary>Địa chỉ kho tiếp tế</summary>
+    public string? DepotAddress { get; set; }
+    /// <summary>Danh sách vật tư cần lấy từ kho</summary>
+    public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
 }
 
 public class SuggestedResourceDto
