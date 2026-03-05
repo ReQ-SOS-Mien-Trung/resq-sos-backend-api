@@ -13,9 +13,9 @@ using RESQ.Application.UseCases.Finance.Queries.ViewAllCampaigns;
 using RESQ.Application.UseCases.Finance.Queries.ViewCampaignMetadata;
 using System.Security.Claims;
 
-namespace RESQ.Application.Controllers.Finance;
+namespace RESQ.Presentation.Controllers.Finance;
 
-[Route("api/finance/campaigns")]
+[Route("finance/campaigns")]
 [ApiController]
 public class FundCampaignController(IMediator mediator) : ControllerBase
 {
