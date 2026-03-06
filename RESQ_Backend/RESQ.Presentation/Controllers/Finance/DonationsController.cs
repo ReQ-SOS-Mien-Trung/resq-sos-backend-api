@@ -12,10 +12,11 @@ namespace RESQ.Presentation.Controllers.Finance;
 
 [Route("finance/donations")]
 [ApiController]
-public class DonationController(IMediator mediator, IPaymentGatewayService paymentGatewayService) : ControllerBase
+public class DonationController(IMediator mediator, IPaymentGatewayService paymentGatewayService, ILogger<DonationController> logger) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
     private readonly IPaymentGatewayService _paymentGatewayService = paymentGatewayService;
+    private readonly ILogger<DonationController> _logger = logger;
 
     /// <summary>
     /// Lấy danh sách ủng hộ (Admin/Manager view) - Có thể xem cả ẩn danh nếu không filter
@@ -68,14 +69,20 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
     {
         try
         {
-            // 1. Read Raw Request Body
-            // We use the raw stream to ensure the signature matches exactly what PayOS sent
-            using var reader = new StreamReader(Request.Body);
-            var jsonBody = await reader.ReadToEndAsync();
+            // 1. Enable buffering to read the stream
+            Request.EnableBuffering();
 
-            if (string.IsNullOrEmpty(jsonBody))
+            string jsonBody;
+            using (var reader = new StreamReader(Request.Body, leaveOpen: true))
             {
-                return Ok(new { success = false, message = "Empty body" });
+                jsonBody = await reader.ReadToEndAsync();
+                // Reset position for later use if needed (though we deserialize string directly)
+                Request.Body.Position = 0;
+            }
+
+            if (string.IsNullOrWhiteSpace(jsonBody))
+            {
+                return Ok(new { success = false, message = "Empty webhook payload." });
             }
 
             // 2. Verify Signature
@@ -83,34 +90,42 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
 
             if (!isValidSignature)
             {
-                // PayOS expects 200 OK even on logic errors to stop retrying
-                return Ok(new { success = false, message = "Webhook signature mismatch" });
+                _logger.LogWarning("Webhook signature verification failed.");
+                return Ok(new { success = false, message = "Webhook signature mismatch." });
             }
 
-            // 3. Deserialize
-            var webhookOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var webhookData = JsonSerializer.Deserialize<WebhookType>(jsonBody, webhookOptions);
-
-            if (webhookData == null || webhookData.Data == null)
+            // 3. Deserialize to Object
+            var webhook = JsonSerializer.Deserialize<WebhookType>(jsonBody, new JsonSerializerOptions
             {
-                return Ok(new { success = false, message = "Invalid webhook data structure" });
-            }
+                PropertyNameCaseInsensitive = true
+            });
 
-            // 4. Process Logic
-            var command = new ProcessPaymentReturnCommand { WebhookData = webhookData };
-            var success = await _mediator.Send(command);
-
-            if (success)
+            if (webhook == null || webhook.Data == null)
             {
-                return Ok(new { success = true, message = "Payment updated successfully." });
+                return Ok(new { success = false, message = "Invalid webhook data." });
             }
 
-            return Ok(new { success = false, message = "Failed to process payment." });
+            // 4. Process Payment Logic
+            var command = new ProcessPaymentReturnCommand
+            {
+                WebhookData = webhook
+            };
+
+            var result = await _mediator.Send(command);
+
+            if (!result)
+            {
+                _logger.LogWarning("Payment logic returned false, but returning 200 OK to acknowledge webhook.");
+            }
+
+            return Ok(new { success = true, message = "Webhook received." });
         }
         catch (Exception ex)
         {
-            // In production: _logger.LogError(ex, "Webhook processing failed");
-            return Ok(new { success = false, message = "Internal Server Error" });
+            _logger.LogError(ex, "Error processing webhook");
+            // Always return 200 to PayOS to stop retry spam, even on internal errors, 
+            // unless we want them to retry. Usually we catch and log.
+            return Ok(new { success = true, message = "Webhook received with internal error." });
         }
     }
 }
