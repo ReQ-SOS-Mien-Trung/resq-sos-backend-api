@@ -50,12 +50,10 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
             orderCodeStr, paymentLinkId, webhook.Success, webhook.Desc);
 
         // We only process successful payments via webhook reliably.
-        // PayOS usually sends Code "00" for success.
         if (!webhook.Success || webhook.Code != "00")
         {
             _logger.LogWarning("Webhook indicates non-success payment for OrderCode: {OrderCode}. Code: {Code}, Desc: {Desc}", 
                 orderCodeStr, webhook.Code, webhook.Desc);
-            // Return true to acknowledge receipt so PayOS stops retrying a failed status
             return true; 
         }
 
@@ -64,11 +62,10 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
         if (donation == null)
         {
             _logger.LogError("Donation not found for OrderCode: {OrderCode}", orderCodeStr);
-            // Return true to acknowledge receipt, nothing we can do if donation doesn't exist
             return true;
         }
 
-        // 2. Idempotency Check: If already successful, stop processing
+        // 2. Idempotency Check
         if (donation.PayosStatus == PayOSStatus.Succeed)
         {
             _logger.LogInformation("Donation {Id} (OrderCode: {OrderCode}) is already marked as Succeed. Ignoring duplicate webhook.", 
@@ -85,9 +82,10 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
             donation.PayosStatus = newStatus;
             donation.PayosTransactionId = paymentLinkId;
             
-            // Append PayOS reference/account info to note for audit
+            // UPDATED: Save audit info to dedicated column instead of Note
             var auditInfo = $"[Bank:{webhook.Data.CounterAccountBankName}-{webhook.Data.CounterAccountNumber}]";
-            donation.Note = string.IsNullOrEmpty(donation.Note) ? auditInfo : donation.Note + " " + auditInfo;
+            donation.PaymentAuditInfo = auditInfo; 
+            // Note field remains untouched (keeps user message)
 
             // Parse Date Time from Webhook
             if (DateTime.TryParseExact(
@@ -112,17 +110,14 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
             {
                 var campaign = await _campaignRepository.GetByIdAsync(donation.FundCampaignId.Value, cancellationToken);
                 
-                // Ensure campaign exists and isn't deleted (though soft delete usually allows viewing)
                 if (campaign != null && !campaign.IsDeleted)
                 {
                     var donationAmount = donation.Amount?.Amount ?? 0;
                     if (donationAmount > 0)
                     {
-                        // Domain method to add funds
                         campaign.ReceiveDonation(donationAmount);
                         await _campaignRepository.UpdateAsync(campaign, cancellationToken);
                         
-                        // Create Ledger Record
                         var transaction = new FundTransactionModel
                         {
                             FundCampaignId = donation.FundCampaignId,
@@ -133,7 +128,6 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
                             ReferenceId = donation.Id,
                             CreatedBy = null, // System
                             CreatedAt = DateTime.UtcNow,
-                            // Could store the sender name in a description field if available on transaction model
                         };
                         await _transactionRepository.CreateAsync(transaction, cancellationToken);
                     }
@@ -144,11 +138,11 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
                 }
             }
 
-            // 6. Commit Transaction (All or Nothing)
+            // 6. Commit Transaction
             var rowsAffected = await _unitOfWork.SaveAsync();
             _logger.LogInformation("Donation {Id} updated to Succeed. Rows affected: {Rows}", donation.Id, rowsAffected);
 
-            // 7. Send Email (Fire & Forget - outside the transaction scope)
+            // 7. Send Email
             if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
                 try 
@@ -168,7 +162,6 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
                 }
                 catch(Exception ex)
                 {
-                    // Log but don't fail the request since payment is recorded
                     _logger.LogError(ex, "Failed to send success email for Donation {Id}", donation.Id);
                 }
             }
@@ -178,8 +171,6 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing donation logic for OrderCode {OrderCode}", orderCodeStr);
-            // Return false to potentially signal a server error (500) if handled by controller, 
-            // causing PayOS to retry later.
             return false; 
         }
     }

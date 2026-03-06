@@ -52,7 +52,8 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
             DonorName = dto.DonorName,
             DonorEmail = dto.DonorEmail,
             Amount = dto.Amount,
-            Note = dto.Note
+            Note = dto.Note,
+            IsPrivate = dto.IsPrivate,
         };
 
         var result = await _mediator.Send(command);

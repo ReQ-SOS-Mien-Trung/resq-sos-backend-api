@@ -17,18 +17,14 @@ public record DonorInfo
 
         if (string.IsNullOrWhiteSpace(email) || !IsValidEmail(email))
         {
-            // Ideally throw InvalidDonorEmailException, but reusing ValidationException concept or DomainException
-            throw new InvalidDonorNameException(); // Reusing or creating new one below would be better. 
-            // For now, let's assume validation happens at command level too, but Domain should protect invariant.
+            // FIXED: Throw specific email exception instead of Name exception
+            throw new InvalidDonorEmailException(); 
         }
 
         Name = name.Trim();
         Email = email.Trim();
     }
 
-    // Constructor for backward compatibility if needed, but we are refactoring.
-    // The previous code had DonorInfo(string name). We need to update it.
-    
     public static DonorInfo Create(string name, string email)
     {
         return new DonorInfo(name, email);

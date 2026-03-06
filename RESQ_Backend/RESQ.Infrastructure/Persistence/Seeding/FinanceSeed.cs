@@ -59,6 +59,7 @@ public static class FinanceSeed
                 PayosStatus = PayOSStatus.Succeed.ToString(),
                 PaidAt = new DateTime(2024, 7, 15, 10, 30, 0, DateTimeKind.Utc),
                 Note = "Mong bà con sớm vượt qua khó khăn.",
+                PaymentAuditInfo = "[Bank:MBBANK-1234567890]", // Added PaymentAuditInfo
                 IsPrivate = false,
                 CreatedAt = new DateTime(2024, 7, 15, 10, 25, 0, DateTimeKind.Utc)
             },
@@ -74,6 +75,7 @@ public static class FinanceSeed
                 PayosStatus = PayOSStatus.Succeed.ToString(),
                 PaidAt = new DateTime(2024, 7, 16, 14, 15, 0, DateTimeKind.Utc),
                 Note = "Ủng hộ miền Trung ruột thịt.",
+                PaymentAuditInfo = "[Bank:VIETCOMBANK-0987654321]", // Added PaymentAuditInfo
                 IsPrivate = true, // Ẩn danh
                 CreatedAt = new DateTime(2024, 7, 16, 14, 10, 0, DateTimeKind.Utc)
             },
@@ -89,6 +91,7 @@ public static class FinanceSeed
                 PayosStatus = PayOSStatus.Succeed.ToString(),
                 PaidAt = new DateTime(2024, 8, 1, 09, 00, 0, DateTimeKind.Utc),
                 Note = "Góp một phần nhỏ bé.",
+                PaymentAuditInfo = "[Bank:TPBANK-111222333]", // Added PaymentAuditInfo
                 IsPrivate = false,
                 CreatedAt = new DateTime(2024, 8, 1, 08, 55, 0, DateTimeKind.Utc)
             },
@@ -106,6 +109,7 @@ public static class FinanceSeed
                 PayosStatus = PayOSStatus.Succeed.ToString(),
                 PaidAt = new DateTime(2024, 2, 10, 11, 20, 0, DateTimeKind.Utc),
                 Note = "Hỗ trợ thiết bị y tế cho bệnh viện.",
+                PaymentAuditInfo = "[Bank:BIDV-555666777]", // Added PaymentAuditInfo
                 IsPrivate = false,
                 CreatedAt = new DateTime(2024, 2, 10, 11, 15, 0, DateTimeKind.Utc)
             },
@@ -121,6 +125,7 @@ public static class FinanceSeed
                 PayosStatus = PayOSStatus.Succeed.ToString(),
                 PaidAt = new DateTime(2024, 2, 15, 16, 45, 0, DateTimeKind.Utc),
                 Note = "Chúc các bác sĩ nhiều sức khỏe.",
+                PaymentAuditInfo = "[Bank:TECHCOMBANK-888999000]", // Added PaymentAuditInfo
                 IsPrivate = true,
                 CreatedAt = new DateTime(2024, 2, 15, 16, 40, 0, DateTimeKind.Utc)
             }

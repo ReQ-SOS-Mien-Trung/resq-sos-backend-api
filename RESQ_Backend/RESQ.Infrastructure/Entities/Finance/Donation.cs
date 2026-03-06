@@ -45,6 +45,10 @@ public partial class Donation
     [Column("note")]
     public string? Note { get; set; }
 
+    // New Column for Audit Information
+    [Column("payment_audit_info")]
+    public string? PaymentAuditInfo { get; set; }
+
     [Column("is_private")]
     public bool IsPrivate { get; set; } = false;
 
