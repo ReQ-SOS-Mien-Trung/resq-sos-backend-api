@@ -107,7 +107,7 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
 
             return Ok(new { success = false, message = "Failed to process payment." });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // In production: _logger.LogError(ex, "Webhook processing failed");
             return Ok(new { success = false, message = "Internal Server Error" });
