@@ -9,5 +9,7 @@ namespace RESQ.Domain.Entities.Identity
         public bool IsActive { get; set; } = true;
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public int? DocumentFileTypeCategoryId { get; set; }
+        public DocumentFileTypeCategoryModel? DocumentFileTypeCategory { get; set; }
     }
 }

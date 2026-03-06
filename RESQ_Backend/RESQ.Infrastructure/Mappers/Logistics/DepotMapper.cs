@@ -110,6 +110,7 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 var lines = entity.DepotSupplyInventories
                     .Where(i => (i.Quantity ?? 0) - (i.ReservedQuantity ?? 0) > 0)
                     .Select(i => new DepotInventoryLine(
+                        i.ReliefItemId,
                         i.ReliefItem?.Name ?? $"Item #{i.ReliefItemId}",
                         i.ReliefItem?.Unit,
                         (i.Quantity ?? 0) - (i.ReservedQuantity ?? 0)
