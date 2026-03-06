@@ -12,4 +12,7 @@ internal class PayOSResponse<T>
 
     [JsonPropertyName("data")]
     public T? Data { get; set; }
+    
+    [JsonPropertyName("signature")]
+    public string? Signature { get; set; }
 }
