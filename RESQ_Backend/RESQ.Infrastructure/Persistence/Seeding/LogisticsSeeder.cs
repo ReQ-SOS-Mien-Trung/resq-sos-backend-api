@@ -126,7 +126,7 @@ public static class LogisticsSeeder
                 Id = 3,
                 CategoryId = (int)ItemCategoryCode.Food,
                 Name = "Mì tôm",
-                Unit = "thùng",
+                Unit = "gói",
                 TargetGroup = "Tất cả",
                 CreatedAt = now,
                 UpdatedAt = now
@@ -136,8 +136,8 @@ public static class LogisticsSeeder
             {
                 Id = 4,
                 CategoryId = (int)ItemCategoryCode.Water,
-                Name = "Nước sạch",
-                Unit = "thùng",
+                Name = "Nước suối",
+                Unit = "chai",
                 TargetGroup = "Tất cả",
                 CreatedAt = now,
                 UpdatedAt = now

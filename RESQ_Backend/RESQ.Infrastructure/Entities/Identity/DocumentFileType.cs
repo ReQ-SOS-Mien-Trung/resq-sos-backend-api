@@ -28,11 +28,18 @@ public partial class DocumentFileType
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
 
+    [Column("document_file_type_category_id")]
+    public int? DocumentFileTypeCategoryId { get; set; }
+
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
     [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
+
+    [ForeignKey("DocumentFileTypeCategoryId")]
+    [InverseProperty("DocumentFileTypes")]
+    public virtual DocumentFileTypeCategory? DocumentFileTypeCategory { get; set; }
 
     [InverseProperty("FileType")]
     public virtual ICollection<RescuerApplicationDocument> RescuerApplicationDocuments { get; set; } = new List<RescuerApplicationDocument>();

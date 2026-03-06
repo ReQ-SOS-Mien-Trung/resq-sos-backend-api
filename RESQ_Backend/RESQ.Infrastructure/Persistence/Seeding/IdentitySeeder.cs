@@ -8,8 +8,19 @@ public static class IdentitySeeder
     public static void SeedIdentity(this ModelBuilder modelBuilder)
     {
         SeedRoles(modelBuilder);
+        SeedDocumentFileTypeCategories(modelBuilder);
         SeedUsers(modelBuilder);
         SeedRescuerApplications(modelBuilder);
+    }
+
+    private static void SeedDocumentFileTypeCategories(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<DocumentFileTypeCategory>().HasData(
+            new DocumentFileTypeCategory { Id = 1, Code = "RESCUE", Description = "Tài liệu danh mục cứu hộ" },
+            new DocumentFileTypeCategory { Id = 2, Code = "MEDICAL", Description = "Tài liệu danh mục y tế" },
+            new DocumentFileTypeCategory { Id = 3, Code = "TRANSPORTATION", Description = "Tài liệu danh mục vận chuyển" },
+            new DocumentFileTypeCategory { Id = 4, Code = "OTHER", Description = "Tài liệu danh mục khác" }
+        );
     }
 
     private static void SeedRoles(ModelBuilder modelBuilder)
@@ -246,15 +257,22 @@ public static class IdentitySeeder
 
         // Seed document file types từ enum
         modelBuilder.Entity<DocumentFileType>().HasData(
-            new DocumentFileType { Id = 1, Code = "WATER_SAFETY_CERT", Name = "Chứng chỉ an toàn dưới nước", Description = "Chứng chỉ về an toàn hoạt động dưới nước", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new DocumentFileType { Id = 2, Code = "WATER_RESCUE_CERT", Name = "Chứng chỉ cứu hộ dưới nước", Description = "Chứng chỉ cứu hộ, cứu nạn dưới nước", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new DocumentFileType { Id = 3, Code = "TECHNICAL_RESCUE_CERT", Name = "Chứng chỉ cứu hộ kỹ thuật", Description = "Chứng chỉ cứu hộ kỹ thuật chuyên ngành", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new DocumentFileType { Id = 4, Code = "DISASTER_RESPONSE_CERT", Name = "Chứng chỉ ứng phó thiên tai", Description = "Chứng chỉ ứng phó và xử lý thiên tai", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new DocumentFileType { Id = 5, Code = "BASIC_MEDICAL_CERT", Name = "Chứng chỉ y tế cơ bản", Description = "Chứng chỉ sơ cấp cứu và y tế cơ bản", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new DocumentFileType { Id = 6, Code = "ADVANCED_MEDICAL_LICENSE", Name = "Giấy phép y tế nâng cao", Description = "Giấy phép hành nghề y tế nâng cao", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new DocumentFileType { Id = 7, Code = "LAND_VEHICLE_LICENSE", Name = "Giấy phép lái xe đường bộ", Description = "Bằng lái xe ô tô, xe tải phục vụ cứu hộ", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new DocumentFileType { Id = 8, Code = "WATER_VEHICLE_LICENSE", Name = "Giấy phép lái tàu/thuyền", Description = "Bằng lái tàu, thuyền phục vụ cứu hộ đường thủy", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new DocumentFileType { Id = 9, Code = "OTHER", Name = "Khác", Description = "Loại tài liệu khác", IsActive = true, CreatedAt = now, UpdatedAt = now }
+            // RESCUE
+            new DocumentFileType { Id = 1, Code = "WATER_SAFETY_CERT", Name = "Chứng chỉ an toàn dưới nước", Description = "Chứng chỉ xác nhận khả năng bơi lội, sinh tồn và an toàn môi trường nước cơ bản.", IsActive = true, DocumentFileTypeCategoryId = 1, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 2, Code = "WATER_RESCUE_CERT", Name = "Chứng chỉ cứu hộ dưới nước", Description = "Chứng chỉ nghiệp vụ cứu hộ, cứu nạn chuyên nghiệp dưới nước, dòng chảy xiết.", IsActive = true, DocumentFileTypeCategoryId = 1, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 3, Code = "TECHNICAL_RESCUE_CERT", Name = "Chứng chỉ cứu hộ kỹ thuật", Description = "Chứng chỉ nghiệp vụ sử dụng thiết bị chuyên dụng, cứu hộ không gian hẹp, sập đổ, dùng dây thừng.", IsActive = true, DocumentFileTypeCategoryId = 1, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 4, Code = "DISASTER_RESPONSE_CERT", Name = "Chứng chỉ ứng phó thiên tai", Description = "Chứng chỉ hoàn thành khóa huấn luyện phản ứng nhanh, điều phối và ứng phó thảm họa/thiên tai.", IsActive = true, DocumentFileTypeCategoryId = 1, CreatedAt = now, UpdatedAt = now },
+            // MEDICAL
+            new DocumentFileType { Id = 5, Code = "BASIC_FIRST_AID_CERT", Name = "Chứng chỉ Sơ cấp cứu cơ bản", Description = "Chứng chỉ hoàn thành các khóa đào tạo sơ cấp cứu ban đầu, hô hấp nhân tạo, dành cho tình nguyện viên và nhân viên y tế nền tảng.", IsActive = true, DocumentFileTypeCategoryId = 2, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 6, Code = "NURSING_PRACTICE_LICENSE", Name = "Chứng chỉ hành nghề Điều dưỡng", Description = "Giấy phép hành nghề điều dưỡng, y tá do cơ quan có thẩm quyền cấp, chứng minh năng lực thực hành lâm sàng và chăm sóc người bệnh.", IsActive = true, DocumentFileTypeCategoryId = 2, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 10, Code = "PARAMEDIC_EMT_CERT", Name = "Chứng chỉ Cấp cứu ngoại viện", Description = "Chứng chỉ chuyên môn dành cho lực lượng cấp cứu tiền viện (115/EMT), chuyên gia xử lý chấn thương và duy trì sự sống trực tiếp tại hiện trường.", IsActive = true, DocumentFileTypeCategoryId = 2, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 11, Code = "MEDICAL_DOCTOR_LICENSE", Name = "Chứng chỉ hành nghề Bác sĩ", Description = "Giấy phép hành nghề khám, chữa bệnh cấp cho Bác sĩ. Thể hiện thẩm quyền cao nhất trong chẩn đoán, phân loại mức độ nguy kịch và ra y lệnh.", IsActive = true, DocumentFileTypeCategoryId = 2, CreatedAt = now, UpdatedAt = now },
+            // TRANSPORTATION
+            new DocumentFileType { Id = 7, Code = "MOTORCYCLE_LICENSE", Name = "Giấy phép lái xe máy", Description = "Bằng lái xe mô tô 2 bánh (Hạng A1, A2...).", IsActive = true, DocumentFileTypeCategoryId = 3, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 8, Code = "CAR_TRUCK_LICENSE", Name = "Giấy phép lái xe ô tô / tải", Description = "Bằng lái xe ô tô, xe bán tải, xe tải hạng nặng (Hạng B1, B2, C, D...).", IsActive = true, DocumentFileTypeCategoryId = 3, CreatedAt = now, UpdatedAt = now },
+            new DocumentFileType { Id = 12, Code = "INLAND_WATERWAY_LICENSE", Name = "Bằng lái phương tiện thủy", Description = "Chứng chỉ/Bằng lái phương tiện thủy nội địa dành cho người điều khiển Ca nô, xuồng máy có động cơ.", IsActive = true, DocumentFileTypeCategoryId = 3, CreatedAt = now, UpdatedAt = now },
+            // OTHER
+            new DocumentFileType { Id = 9, Code = "OTHER", Name = "Khác", Description = "Khác", IsActive = true, DocumentFileTypeCategoryId = 4, CreatedAt = now, UpdatedAt = now }
         );
 
         // Seed documents cho các đơn đăng ký

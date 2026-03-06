@@ -14,8 +14,8 @@ public static class FinanceSeed
             new FundCampaign
             {
                 Id = 1,
-                Code = "FLOOD_RELIEF_2024",
-                Name = "Quỹ Hỗ Trợ Nạn Nhân Lũ Lụt Miền Trung 2024",
+                Code = "FLOOD_RELIEF_2026",
+                Name = "Quỹ Hỗ Trợ Nạn Nhân Lũ Lụt Miền Trung 2026",
                 Region = "Miền Trung",
                 CampaignStartDate = new DateOnly(2024, 7, 1),
                 CampaignEndDate = new DateOnly(2024, 9, 30),
