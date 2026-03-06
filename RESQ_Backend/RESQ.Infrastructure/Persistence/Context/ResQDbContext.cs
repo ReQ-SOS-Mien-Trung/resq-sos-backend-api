@@ -19,6 +19,7 @@ public partial class ResQDbContext : DbContext
 
     public virtual DbSet<Ability> Abilities { get; set; }
     public virtual DbSet<AbilityCategory> AbilityCategories { get; set; }
+    public virtual DbSet<AbilitySubgroup> AbilitySubgroups { get; set; }
     public virtual DbSet<ActivityAiSuggestion> ActivityAiSuggestions { get; set; }
     public virtual DbSet<AssemblyPoint> AssemblyPoints { get; set; }
     public virtual DbSet<ClusterAiAnalysis> ClusterAiAnalyses { get; set; }
@@ -77,11 +78,24 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<Ability>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("abilities_pkey");
+            entity.HasOne(e => e.AbilitySubgroup)
+                .WithMany(s => s.Abilities)
+                .HasForeignKey(e => e.AbilitySubgroupId)
+                .HasConstraintName("FK_abilities_ability_subgroups_ability_subgroup_id");
         });
 
         modelBuilder.Entity<AbilityCategory>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("ability_categories_pkey");
+        });
+
+        modelBuilder.Entity<AbilitySubgroup>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("ability_subgroups_pkey");
+            entity.HasOne(e => e.AbilityCategory)
+                .WithMany(c => c.Subgroups)
+                .HasForeignKey(e => e.AbilityCategoryId)
+                .HasConstraintName("FK_ability_subgroups_ability_categories_ability_category_id");
         });
 
         modelBuilder.Entity<ActivityAiSuggestion>(entity =>

@@ -23,13 +23,14 @@ public class GetAllAbilitiesQueryHandler(
             Id = a.Id,
             Code = a.Code,
             Description = a.Description,
-            AbilityCategoryId = a.AbilityCategoryId,
-            AbilityCategory = a.AbilityCategory is not null
-                ? new AbilityCategoryDto
+            AbilitySubgroupId = a.AbilitySubgroupId,
+            AbilitySubgroup = a.AbilitySubgroup is not null
+                ? new AbilitySubgroupDto
                 {
-                    Id = a.AbilityCategory.Id,
-                    Code = a.AbilityCategory.Code,
-                    Description = a.AbilityCategory.Description
+                    Id = a.AbilitySubgroup.Id,
+                    Code = a.AbilitySubgroup.Code,
+                    Description = a.AbilitySubgroup.Description,
+                    AbilityCategoryId = a.AbilitySubgroup.AbilityCategoryId
                 }
                 : null
         }).ToList();

@@ -12,7 +12,7 @@ public class AbilityCategoryRepository(IUnitOfWork unitOfWork) : IAbilityCategor
     public async Task<List<AbilityCategoryModel>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<AbilityCategory>()
-            .GetAllByPropertyAsync();
+            .GetAllByPropertyAsync(includeProperties: "Subgroups.Abilities");
         return entities.Select(MapToModel).OrderBy(x => x.Id).ToList();
     }
 
@@ -63,6 +63,20 @@ public class AbilityCategoryRepository(IUnitOfWork unitOfWork) : IAbilityCategor
     {
         Id = entity.Id,
         Code = entity.Code,
-        Description = entity.Description
+        Description = entity.Description,
+        Subgroups = entity.Subgroups.Select(s => new AbilitySubgroupModel
+        {
+            Id = s.Id,
+            Code = s.Code,
+            Description = s.Description,
+            AbilityCategoryId = s.AbilityCategoryId,
+            Abilities = s.Abilities.Select(a => new AbilityModel
+            {
+                Id = a.Id,
+                Code = a.Code,
+                Description = a.Description,
+                AbilitySubgroupId = a.AbilitySubgroupId
+            }).OrderBy(a => a.Id).ToList()
+        }).OrderBy(s => s.Id).ToList()
     };
 }

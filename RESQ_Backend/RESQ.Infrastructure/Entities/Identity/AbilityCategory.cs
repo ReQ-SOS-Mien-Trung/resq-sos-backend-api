@@ -20,5 +20,5 @@ public partial class AbilityCategory
     public string? Description { get; set; }
 
     [InverseProperty("AbilityCategory")]
-    public virtual ICollection<Ability> Abilities { get; set; } = new List<Ability>();
+    public virtual ICollection<AbilitySubgroup> Subgroups { get; set; } = new List<AbilitySubgroup>();
 }

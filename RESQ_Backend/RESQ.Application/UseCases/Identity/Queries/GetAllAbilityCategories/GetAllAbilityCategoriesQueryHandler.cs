@@ -22,7 +22,19 @@ public class GetAllAbilityCategoriesQueryHandler(
         {
             Id = c.Id,
             Code = c.Code,
-            Description = c.Description
+            Description = c.Description,
+            Subgroups = c.Subgroups.Select(s => new AbilitySubgroupItemDto
+            {
+                Id = s.Id,
+                Code = s.Code,
+                Description = s.Description,
+                Abilities = s.Abilities.Select(a => new AbilityItemDto
+                {
+                    Id = a.Id,
+                    Code = a.Code,
+                    Description = a.Description
+                }).ToList()
+            }).ToList()
         }).ToList();
 
         _logger.LogInformation("{handler} - retrieved {count} ability categories", nameof(GetAllAbilityCategoriesQueryHandler), dtos.Count);

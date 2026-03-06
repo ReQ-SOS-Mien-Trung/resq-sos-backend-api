@@ -11,6 +11,7 @@ public static class PersonnelSeeder
     public static void SeedPersonnel(this ModelBuilder modelBuilder)
     {
         SeedAbilityCategories(modelBuilder);
+        SeedAbilitySubgroups(modelBuilder);
         SeedAbilities(modelBuilder);
         SeedRescueTeams(modelBuilder);
         SeedAssemblyPoints(modelBuilder);
@@ -22,65 +23,102 @@ public static class PersonnelSeeder
         modelBuilder.Entity<AbilityCategory>().HasData(
             new AbilityCategory { Id = 1, Code = "RESCUE", Description = "Kỹ năng cứu hộ" },
             new AbilityCategory { Id = 2, Code = "MEDICAL", Description = "Kỹ năng y tế" },
-            new AbilityCategory { Id = 3, Code = "TRANSPORTATION", Description = "Kỹ năng vận chuyển" }
+            new AbilityCategory { Id = 3, Code = "TRANSPORTATION", Description = "Kỹ năng vận chuyển" },
+            new AbilityCategory { Id = 4, Code = "EXPERIENCE", Description = "Kinh nghiệm thực tiễn" }
+        );
+    }
+
+    private static void SeedAbilitySubgroups(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AbilitySubgroup>().HasData(
+            // RESCUE subgroups
+            new AbilitySubgroup { Id = 1, Code = "WATER_SKILLS", Description = "Kỹ năng bơi lội", AbilityCategoryId = 1 },
+            new AbilitySubgroup { Id = 2, Code = "LIFESAVING_SKILLS", Description = "Kỹ năng cứu người", AbilityCategoryId = 1 },
+            new AbilitySubgroup { Id = 3, Code = "HARSH_ENVIRONMENT_RESCUE", Description = "Cứu hộ trong điều kiện khắc nghiệt", AbilityCategoryId = 1 },
+            // MEDICAL subgroups
+            new AbilitySubgroup { Id = 4, Code = "PROFESSIONAL_MEDICAL", Description = "Y tế chuyên môn", AbilityCategoryId = 2 },
+            new AbilitySubgroup { Id = 5, Code = "BASIC_FIRST_AID", Description = "Sơ cứu cơ bản", AbilityCategoryId = 2 },
+            new AbilitySubgroup { Id = 6, Code = "EMERGENCY_CARE", Description = "Cấp cứu", AbilityCategoryId = 2 },
+            new AbilitySubgroup { Id = 7, Code = "TRAUMA_CARE", Description = "Chấn thương", AbilityCategoryId = 2 },
+            // TRANSPORTATION subgroups
+            new AbilitySubgroup { Id = 8, Code = "LAND_VEHICLES", Description = "Lái xe cơ giới", AbilityCategoryId = 3 },
+            new AbilitySubgroup { Id = 9, Code = "WATER_VEHICLES", Description = "Lái phương tiện thủy", AbilityCategoryId = 3 },
+            new AbilitySubgroup { Id = 10, Code = "SPECIALIZED_DRIVING", Description = "Kỹ năng điều khiển đặc biệt", AbilityCategoryId = 3 },
+            new AbilitySubgroup { Id = 11, Code = "TRANSPORT_OPERATIONS", Description = "Vận chuyển", AbilityCategoryId = 3 },
+            // EXPERIENCE subgroups
+            new AbilitySubgroup { Id = 12, Code = "FIELD_EXPERIENCE", Description = "Kinh nghiệm thực tế", AbilityCategoryId = 4 },
+            new AbilitySubgroup { Id = 13, Code = "ORGANIZATIONAL_MEMBERSHIP", Description = "Tổ chức", AbilityCategoryId = 4 }
         );
     }
 
     private static void SeedAbilities(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Ability>().HasData(
-            new Ability { Id = 1, Code = "BASIC_SWIMMING", Description = "Bơi cơ bản", AbilityCategoryId = 1 },
-            new Ability { Id = 2, Code = "ADVANCED_SWIMMING", Description = "Bơi thành thạo", AbilityCategoryId = 1 },
-            new Ability { Id = 3, Code = "WATER_RESCUE", Description = "Cứu hộ dưới nước", AbilityCategoryId = 1 },
-            new Ability { Id = 4, Code = "DEEP_WATER_MOVEMENT", Description = "Di chuyển trong nước ngập sâu", AbilityCategoryId = 1 },
-            new Ability { Id = 5, Code = "RAPID_WATER_MOVEMENT", Description = "Di chuyển trong dòng nước chảy xiết", AbilityCategoryId = 1 },
-            new Ability { Id = 6, Code = "BASIC_DIVING", Description = "Lặn cơ bản", AbilityCategoryId = 1 },
-            new Ability { Id = 7, Code = "FLOOD_ESCAPE", Description = "Thoát hiểm trong môi trường ngập nước", AbilityCategoryId = 1 },
-            new Ability { Id = 8, Code = "FLOODED_HOUSE_RESCUE", Description = "Cứu người bị mắc kẹt trong nhà ngập", AbilityCategoryId = 1 },
-            new Ability { Id = 9, Code = "ROOFTOP_RESCUE", Description = "Cứu người bị mắc kẹt trên mái nhà", AbilityCategoryId = 1 },
-            new Ability { Id = 10, Code = "VEHICLE_RESCUE", Description = "Cứu người bị kẹt trong phương tiện (xe, ghe)", AbilityCategoryId = 1 },
-            new Ability { Id = 11, Code = "ROPE_RESCUE", Description = "Sử dụng dây thừng cứu hộ", AbilityCategoryId = 1 },
-            new Ability { Id = 12, Code = "LIFE_JACKET_USE", Description = "Sử dụng áo phao, phao cứu sinh", AbilityCategoryId = 1 },
-            new Ability { Id = 13, Code = "NIGHT_RESCUE", Description = "Cứu hộ ban đêm / tầm nhìn kém", AbilityCategoryId = 1 },
-            new Ability { Id = 14, Code = "STORM_RESCUE", Description = "Cứu hộ trong mưa lớn / bão", AbilityCategoryId = 1 },
-            new Ability { Id = 15, Code = "DEBRIS_RESCUE", Description = "Cứu hộ tại khu vực đổ nát", AbilityCategoryId = 1 },
-            new Ability { Id = 16, Code = "HAZARDOUS_RESCUE", Description = "Cứu hộ trong môi trường nguy hiểm", AbilityCategoryId = 1 },
-            new Ability { Id = 17, Code = "BASIC_FIRST_AID", Description = "Sơ cứu cơ bản", AbilityCategoryId = 2 },
-            new Ability { Id = 18, Code = "OPEN_WOUND_CARE", Description = "Sơ cứu vết thương hở", AbilityCategoryId = 2 },
-            new Ability { Id = 19, Code = "BLEEDING_CONTROL", Description = "Cầm máu", AbilityCategoryId = 2 },
-            new Ability { Id = 20, Code = "WOUND_BANDAGING", Description = "Băng bó vết thương", AbilityCategoryId = 2 },
-            new Ability { Id = 21, Code = "MINOR_INJURY_CARE", Description = "Xử lý trầy xước, chấn thương nhẹ", AbilityCategoryId = 2 },
-            new Ability { Id = 22, Code = "MINOR_BURN_CARE", Description = "Xử lý bỏng nhẹ", AbilityCategoryId = 2 },
-            new Ability { Id = 23, Code = "CPR", Description = "Hồi sức tim phổi (CPR)", AbilityCategoryId = 2 },
-            new Ability { Id = 24, Code = "DROWNING_RESPONSE", Description = "Xử lý đuối nước", AbilityCategoryId = 2 },
-            new Ability { Id = 25, Code = "SHOCK_TREATMENT", Description = "Xử lý sốc", AbilityCategoryId = 2 },
-            new Ability { Id = 26, Code = "HYPOTHERMIA_TREATMENT", Description = "Xử lý hạ thân nhiệt", AbilityCategoryId = 2 },
-            new Ability { Id = 27, Code = "VITAL_SIGNS_MONITORING", Description = "Theo dõi dấu hiệu sinh tồn", AbilityCategoryId = 2 },
-            new Ability { Id = 28, Code = "VICTIM_ASSESSMENT", Description = "Đánh giá mức độ nguy kịch nạn nhân", AbilityCategoryId = 2 },
-            new Ability { Id = 29, Code = "FRACTURE_IMMOBILIZATION", Description = "Cố định gãy xương tạm thời", AbilityCategoryId = 2 },
-            new Ability { Id = 30, Code = "SPINAL_INJURY_CARE", Description = "Xử lý chấn thương cột sống (cơ bản)", AbilityCategoryId = 2 },
-            new Ability { Id = 31, Code = "SAFE_PATIENT_TRANSPORT", Description = "Vận chuyển người bị thương an toàn", AbilityCategoryId = 2 },
-            new Ability { Id = 32, Code = "MEDICAL_STAFF", Description = "Nhân viên y tế", AbilityCategoryId = 2 },
-            new Ability { Id = 33, Code = "NURSE", Description = "Y tá", AbilityCategoryId = 2 },
-            new Ability { Id = 34, Code = "DOCTOR", Description = "Bác sĩ", AbilityCategoryId = 2 },
-            new Ability { Id = 35, Code = "PREHOSPITAL_EMERGENCY", Description = "Cấp cứu tiền viện", AbilityCategoryId = 2 },
-            new Ability { Id = 36, Code = "MOTORCYCLE_DRIVING", Description = "Lái xe máy", AbilityCategoryId = 3 },
-            new Ability { Id = 37, Code = "MOTORCYCLE_FLOOD_DRIVING", Description = "Lái xe máy trong điều kiện ngập nước", AbilityCategoryId = 3 },
-            new Ability { Id = 38, Code = "CAR_DRIVING", Description = "Lái ô tô", AbilityCategoryId = 3 },
-            new Ability { Id = 39, Code = "OFFROAD_DRIVING", Description = "Lái ô tô địa hình", AbilityCategoryId = 3 },
-            new Ability { Id = 40, Code = "ROWBOAT_DRIVING", Description = "Lái ghe", AbilityCategoryId = 3 },
-            new Ability { Id = 41, Code = "DINGHY_DRIVING", Description = "Lái xuồng", AbilityCategoryId = 3 },
-            new Ability { Id = 42, Code = "SPEEDBOAT_DRIVING", Description = "Lái ca nô", AbilityCategoryId = 3 },
-            new Ability { Id = 43, Code = "NIGHT_VEHICLE_OPERATION", Description = "Điều khiển phương tiện ban đêm", AbilityCategoryId = 3 },
-            new Ability { Id = 44, Code = "RAIN_VEHICLE_OPERATION", Description = "Điều khiển phương tiện trong mưa lớn", AbilityCategoryId = 3 },
-            new Ability { Id = 45, Code = "VICTIM_TRANSPORT", Description = "Vận chuyển nạn nhân", AbilityCategoryId = 3 },
-            new Ability { Id = 46, Code = "RELIEF_GOODS_TRANSPORT", Description = "Vận chuyển hàng cứu trợ", AbilityCategoryId = 3 },
-            new Ability { Id = 47, Code = "HEAVY_CARGO_TRANSPORT", Description = "Vận chuyển hàng nặng", AbilityCategoryId = 3 },
-            new Ability { Id = 48, Code = "DISASTER_RELIEF_EXPERIENCE", Description = "Đã tham gia cứu trợ thiên tai", AbilityCategoryId = 1 },
-            new Ability { Id = 49, Code = "FLOOD_RESCUE_EXPERIENCE", Description = "Kinh nghiệm cứu hộ lũ lụt", AbilityCategoryId = 1 },
-            new Ability { Id = 50, Code = "COMMUNITY_RESCUE_EXPERIENCE", Description = "Kinh nghiệm cứu hộ cộng đồng", AbilityCategoryId = 1 },
-            new Ability { Id = 51, Code = "LOCAL_RESCUE_TEAM_MEMBER", Description = "Thành viên đội cứu hộ địa phương", AbilityCategoryId = 1 },
-            new Ability { Id = 52, Code = "VOLUNTEER_ORG_MEMBER", Description = "Thành viên tổ chức thiện nguyện", AbilityCategoryId = 1 }
+            // WATER_SKILLS (subgroup 1)
+            new Ability { Id = 1, Code = "BASIC_SWIMMING", Description = "Bơi cơ bản", AbilitySubgroupId = 1 },
+            new Ability { Id = 2, Code = "ADVANCED_SWIMMING", Description = "Bơi thành thạo", AbilitySubgroupId = 1 },
+            new Ability { Id = 3, Code = "WATER_RESCUE", Description = "Cứu hộ dưới nước", AbilitySubgroupId = 1 },
+            new Ability { Id = 4, Code = "DEEP_WATER_MOVEMENT", Description = "Di chuyển trong nước ngập sâu", AbilitySubgroupId = 1 },
+            new Ability { Id = 5, Code = "RAPID_WATER_MOVEMENT", Description = "Di chuyển trong dòng nước chảy xiết", AbilitySubgroupId = 1 },
+            new Ability { Id = 6, Code = "BASIC_DIVING", Description = "Lặn cơ bản", AbilitySubgroupId = 1 },
+            new Ability { Id = 7, Code = "FLOOD_ESCAPE", Description = "Thoát hiểm trong môi trường ngập nước", AbilitySubgroupId = 1 },
+            // LIFESAVING_SKILLS (subgroup 2)
+            new Ability { Id = 8, Code = "FLOODED_HOUSE_RESCUE", Description = "Cứu người bị mắc kẹt trong nhà ngập", AbilitySubgroupId = 2 },
+            new Ability { Id = 9, Code = "ROOFTOP_RESCUE", Description = "Cứu người bị mắc kẹt trên mái nhà", AbilitySubgroupId = 2 },
+            new Ability { Id = 10, Code = "VEHICLE_RESCUE", Description = "Cứu người bị kẹt trong phương tiện (xe, ghe)", AbilitySubgroupId = 2 },
+            new Ability { Id = 11, Code = "ROPE_RESCUE", Description = "Sử dụng dây thừng cứu hộ", AbilitySubgroupId = 2 },
+            new Ability { Id = 12, Code = "LIFE_JACKET_USE", Description = "Sử dụng áo phao, phao cứu sinh", AbilitySubgroupId = 2 },
+            // HARSH_ENVIRONMENT_RESCUE (subgroup 3)
+            new Ability { Id = 13, Code = "NIGHT_RESCUE", Description = "Cứu hộ ban đêm / tầm nhìn kém", AbilitySubgroupId = 3 },
+            new Ability { Id = 14, Code = "STORM_RESCUE", Description = "Cứu hộ trong mưa lớn / bão", AbilitySubgroupId = 3 },
+            new Ability { Id = 15, Code = "DEBRIS_RESCUE", Description = "Cứu hộ tại khu vực đổ nát", AbilitySubgroupId = 3 },
+            new Ability { Id = 16, Code = "HAZARDOUS_RESCUE", Description = "Cứu hộ trong môi trường nguy hiểm", AbilitySubgroupId = 3 },
+            // BASIC_FIRST_AID (subgroup 5)
+            new Ability { Id = 17, Code = "BASIC_FIRST_AID", Description = "Sơ cứu cơ bản", AbilitySubgroupId = 5 },
+            new Ability { Id = 18, Code = "OPEN_WOUND_CARE", Description = "Sơ cứu vết thương hở", AbilitySubgroupId = 5 },
+            new Ability { Id = 19, Code = "BLEEDING_CONTROL", Description = "Cầm máu", AbilitySubgroupId = 5 },
+            new Ability { Id = 20, Code = "WOUND_BANDAGING", Description = "Băng bó vết thương", AbilitySubgroupId = 5 },
+            new Ability { Id = 21, Code = "MINOR_INJURY_CARE", Description = "Xử lý trầy xước, chấn thương nhẹ", AbilitySubgroupId = 5 },
+            new Ability { Id = 22, Code = "MINOR_BURN_CARE", Description = "Xử lý bỏng nhẹ", AbilitySubgroupId = 5 },
+            // EMERGENCY_CARE (subgroup 6)
+            new Ability { Id = 23, Code = "CPR", Description = "Hồi sức tim phổi (CPR)", AbilitySubgroupId = 6 },
+            new Ability { Id = 24, Code = "DROWNING_RESPONSE", Description = "Xử lý đuối nước", AbilitySubgroupId = 6 },
+            new Ability { Id = 25, Code = "SHOCK_TREATMENT", Description = "Xử lý sốc", AbilitySubgroupId = 6 },
+            new Ability { Id = 26, Code = "HYPOTHERMIA_TREATMENT", Description = "Xử lý hạ thân nhiệt", AbilitySubgroupId = 6 },
+            new Ability { Id = 27, Code = "VITAL_SIGNS_MONITORING", Description = "Theo dõi dấu hiệu sinh tồn", AbilitySubgroupId = 6 },
+            new Ability { Id = 28, Code = "VICTIM_ASSESSMENT", Description = "Đánh giá mức độ nguy kịch nạn nhân", AbilitySubgroupId = 6 },
+            // TRAUMA_CARE (subgroup 7)
+            new Ability { Id = 29, Code = "FRACTURE_IMMOBILIZATION", Description = "Cố định gãy xương tạm thời", AbilitySubgroupId = 7 },
+            new Ability { Id = 30, Code = "SPINAL_INJURY_CARE", Description = "Xử lý chấn thương cột sống (cơ bản)", AbilitySubgroupId = 7 },
+            new Ability { Id = 31, Code = "SAFE_PATIENT_TRANSPORT", Description = "Vận chuyển người bị thương an toàn", AbilitySubgroupId = 7 },
+            // PROFESSIONAL_MEDICAL (subgroup 4)
+            new Ability { Id = 32, Code = "MEDICAL_STAFF", Description = "Nhân viên y tế", AbilitySubgroupId = 4 },
+            new Ability { Id = 33, Code = "NURSE", Description = "Y tá", AbilitySubgroupId = 4 },
+            new Ability { Id = 34, Code = "DOCTOR", Description = "Bác sĩ", AbilitySubgroupId = 4 },
+            new Ability { Id = 35, Code = "PREHOSPITAL_EMERGENCY", Description = "Cấp cứu tiền viện", AbilitySubgroupId = 4 },
+            // LAND_VEHICLES (subgroup 8)
+            new Ability { Id = 36, Code = "MOTORCYCLE_DRIVING", Description = "Lái xe máy", AbilitySubgroupId = 8 },
+            new Ability { Id = 37, Code = "MOTORCYCLE_FLOOD_DRIVING", Description = "Lái xe máy trong điều kiện ngập nước", AbilitySubgroupId = 8 },
+            new Ability { Id = 38, Code = "CAR_DRIVING", Description = "Lái ô tô", AbilitySubgroupId = 8 },
+            new Ability { Id = 39, Code = "OFFROAD_DRIVING", Description = "Lái ô tô địa hình", AbilitySubgroupId = 8 },
+            // WATER_VEHICLES (subgroup 9)
+            new Ability { Id = 40, Code = "ROWBOAT_DRIVING", Description = "Lái ghe", AbilitySubgroupId = 9 },
+            new Ability { Id = 41, Code = "DINGHY_DRIVING", Description = "Lái xuồng", AbilitySubgroupId = 9 },
+            new Ability { Id = 42, Code = "SPEEDBOAT_DRIVING", Description = "Lái ca nô", AbilitySubgroupId = 9 },
+            // SPECIALIZED_DRIVING (subgroup 10)
+            new Ability { Id = 43, Code = "NIGHT_VEHICLE_OPERATION", Description = "Điều khiển phương tiện ban đêm", AbilitySubgroupId = 10 },
+            new Ability { Id = 44, Code = "RAIN_VEHICLE_OPERATION", Description = "Điều khiển phương tiện trong mưa lớn", AbilitySubgroupId = 10 },
+            // TRANSPORT_OPERATIONS (subgroup 11)
+            new Ability { Id = 45, Code = "VICTIM_TRANSPORT", Description = "Vận chuyển nạn nhân", AbilitySubgroupId = 11 },
+            new Ability { Id = 46, Code = "RELIEF_GOODS_TRANSPORT", Description = "Vận chuyển hàng cứu trợ", AbilitySubgroupId = 11 },
+            new Ability { Id = 47, Code = "HEAVY_CARGO_TRANSPORT", Description = "Vận chuyển hàng nặng", AbilitySubgroupId = 11 },
+            // FIELD_EXPERIENCE (subgroup 12)
+            new Ability { Id = 48, Code = "DISASTER_RELIEF_EXPERIENCE", Description = "Đã tham gia cứu trợ thiên tai", AbilitySubgroupId = 12 },
+            new Ability { Id = 49, Code = "FLOOD_RESCUE_EXPERIENCE", Description = "Kinh nghiệm cứu hộ lũ lụt", AbilitySubgroupId = 12 },
+            new Ability { Id = 50, Code = "COMMUNITY_RESCUE_EXPERIENCE", Description = "Kinh nghiệm cứu hộ cộng đồng", AbilitySubgroupId = 12 },
+            // ORGANIZATIONAL_MEMBERSHIP (subgroup 13)
+            new Ability { Id = 51, Code = "LOCAL_RESCUE_TEAM_MEMBER", Description = "Thành viên đội cứu hộ địa phương", AbilitySubgroupId = 13 },
+            new Ability { Id = 52, Code = "VOLUNTEER_ORG_MEMBER", Description = "Thành viên tổ chức thiện nguyện", AbilitySubgroupId = 13 }
         );
     }
 
