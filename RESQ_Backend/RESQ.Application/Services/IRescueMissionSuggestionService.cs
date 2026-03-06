@@ -29,6 +29,8 @@ public class DepotSummary
 /// <summary>Một dòng vật tư khả dụng trong kho tiếp tế.</summary>
 public class DepotInventoryItemDto
 {
+    /// <summary>ID của relief item trong DB (dùng để AI trả về item_id trong supplies_to_collect).</summary>
+    public int? ItemId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public string? Unit { get; set; }
     public int AvailableQuantity { get; set; }
@@ -78,6 +80,8 @@ public class RescueMissionSuggestionResult
 
 public class SupplyToCollectDto
 {
+    /// <summary>ID của relief item tương ứng trong kho (khớp với DepotInventoryItemDto.ItemId).</summary>
+    public int? ItemId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public string? Unit { get; set; }
@@ -90,13 +94,15 @@ public class SuggestedActivityDto
     public string Description { get; set; } = string.Empty;
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
-    /// <summary>ID kho tiếp tế (chỉ có khi ActivityType = COLLECT_SUPPLIES)</summary>
+    /// <summary>ID của SOS request mà activity này phục vụ trực tiếp.</summary>
+    public int? SosRequestId { get; set; }
+    /// <summary>ID kho tiếp tế (chỉ có khi ActivityType = COLLECT_SUPPLIES hoặc DELIVER_SUPPLIES)</summary>
     public int? DepotId { get; set; }
     /// <summary>Tên kho tiếp tế</summary>
     public string? DepotName { get; set; }
     /// <summary>Địa chỉ kho tiếp tế</summary>
     public string? DepotAddress { get; set; }
-    /// <summary>Danh sách vật tư cần lấy từ kho</summary>
+    /// <summary>Danh sách vật tư cần lấy/giao</summary>
     public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
 }
 

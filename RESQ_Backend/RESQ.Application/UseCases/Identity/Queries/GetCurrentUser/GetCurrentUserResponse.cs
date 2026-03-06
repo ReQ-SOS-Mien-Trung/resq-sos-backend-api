@@ -1,5 +1,16 @@
 namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
 {
+    public class RescuerDocumentDto
+    {
+        public int Id { get; set; }
+        public int? ApplicationId { get; set; }
+        public string? FileUrl { get; set; }
+        public int? FileTypeId { get; set; }
+        public string? FileTypeCode { get; set; }
+        public string? FileTypeName { get; set; }
+        public DateTime? UploadedAt { get; set; }
+    }
+
     public class GetCurrentUserResponse
     {
         public Guid Id { get; set; }
@@ -20,5 +31,6 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         public DateTime? UpdatedAt { get; set; }
         public Guid? ApprovedBy { get; set; }
         public DateTime? ApprovedAt { get; set; }
+        public List<RescuerDocumentDto> RescuerApplicationDocuments { get; set; } = [];
     }
 }

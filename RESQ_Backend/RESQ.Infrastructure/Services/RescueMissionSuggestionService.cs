@@ -101,9 +101,9 @@ Mỗi kho có danh sách vật tư khả dụng (quantity - reserved). Hãy ưu 
                 userPrompt += """
 
 
---- LƯU Ý NGƯỚN THÜ CẤP PHÁT ---
+--- LƯU Ý NGUỒN THỨ CẤP PHÁT ---
 Phân tích tồn kho cho thấy không có kho đơn lẻ nào có đủ tất cả các loại vật tư cần thiết.
-TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để điều phối viên biết cần lấy từ nhiều nguồn.
+TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để điều phối viên biết cần lấy từ nhiều nguồn.
 """;
             }
 
@@ -201,6 +201,7 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
             vat_tu_kha_dung = d.Inventories.Count > 0
                 ? d.Inventories.Select(i => new
                   {
+                      item_id = i.ItemId,
                       ten = i.ItemName,
                       don_vi = i.Unit ?? "cái",
                       so_luong_kha_dung = i.AvailableQuantity
@@ -218,7 +219,7 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
     private async Task<string?> CallAiApiAsync(string model, string apiUrlTemplate, string systemPrompt, string userPrompt, double temperature, int maxTokens, CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(60);
+        client.Timeout = TimeSpan.FromSeconds(120);
 
         var url = string.Format(apiUrlTemplate, model, _apiKey);
 
@@ -315,11 +316,13 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
                 Description = a.Description ?? string.Empty,
                 Priority = a.Priority,
                 EstimatedTime = a.EstimatedTime,
+                SosRequestId = a.SosRequestId,
                 DepotId = a.DepotId,
                 DepotName = a.DepotName,
                 DepotAddress = a.DepotAddress,
                 SuppliesToCollect = a.SuppliesToCollect?.Select(s => new SupplyToCollectDto
                 {
+                    ItemId = s.ItemId,
                     ItemName = s.ItemName ?? string.Empty,
                     Quantity = s.Quantity,
                     Unit = s.Unit
@@ -367,6 +370,7 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
                 if (a.TryGetProperty("description", out var d)) dto.Description = d.GetString() ?? string.Empty;
                 if (a.TryGetProperty("priority", out var p)) dto.Priority = p.GetString();
                 if (a.TryGetProperty("estimated_time", out var et)) dto.EstimatedTime = et.GetString();
+                if (a.TryGetProperty("sos_request_id", out var sri) && sri.ValueKind != JsonValueKind.Null && sri.TryGetInt32(out var sriv)) dto.SosRequestId = sriv;
                 if (a.TryGetProperty("depot_id", out var di) && di.ValueKind != JsonValueKind.Null && di.TryGetInt32(out var div)) dto.DepotId = div;
                 if (a.TryGetProperty("depot_name", out var dn) && dn.ValueKind != JsonValueKind.Null) dto.DepotName = dn.GetString();
                 if (a.TryGetProperty("depot_address", out var da) && da.ValueKind != JsonValueKind.Null) dto.DepotAddress = da.GetString();
@@ -374,6 +378,7 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
                     dto.SuppliesToCollect = stc.EnumerateArray().Select(s =>
                     {
                         var supply = new SupplyToCollectDto();
+                        if (s.TryGetProperty("item_id", out var iid) && iid.ValueKind != JsonValueKind.Null && iid.TryGetInt32(out var iidv)) supply.ItemId = iidv;
                         if (s.TryGetProperty("item_name", out var iname)) supply.ItemName = iname.GetString() ?? string.Empty;
                         if (s.TryGetProperty("quantity", out var qty) && qty.TryGetInt32(out var qtyv)) supply.Quantity = qtyv;
                         if (s.TryGetProperty("unit", out var unit) && unit.ValueKind != JsonValueKind.Null) supply.Unit = unit.GetString();
@@ -510,6 +515,9 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
 
     private class AiSupplyToCollect
     {
+        [JsonPropertyName("item_id")]
+        public int? ItemId { get; set; }
+
         [JsonPropertyName("item_name")]
         public string? ItemName { get; set; }
 
@@ -536,6 +544,9 @@ TRONG KẾC HOẠCH BÁO CẠO: viết rõ kho nào cung cấp loại gì để 
 
         [JsonPropertyName("estimated_time")]
         public string? EstimatedTime { get; set; }
+
+        [JsonPropertyName("sos_request_id")]
+        public int? SosRequestId { get; set; }
 
         [JsonPropertyName("depot_id")]
         public int? DepotId { get; set; }

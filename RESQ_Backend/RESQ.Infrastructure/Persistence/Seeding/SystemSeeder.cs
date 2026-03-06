@@ -70,12 +70,12 @@ CÁC LOẠI ACTIVITY HỢP LỆ VÀ Ý NGHĨA
 
 COLLECT_SUPPLIES — Di chuyển đến kho, lấy vật tư:
   → Khi nào dùng: LUÔN LUÔN trước bất kỳ DELIVER_SUPPLIES nào. Không có COLLECT thì không có DELIVER.
-  → Điền bắt buộc: depot_id, depot_name, depot_address, supplies_to_collect (từng mặt hàng, số lượng, đơn vị).
+  → Điền bắt buộc: sos_request_id (ID của SOS request được phục vụ), depot_id, depot_name, depot_address, supplies_to_collect (từng mặt hàng với item_id đúng theo danh sách kho, số lượng, đơn vị).
   → Chỉ lấy vật tư kho ĐANG có sẵn (so_luong_kha_dung > 0). Thiếu gì → ghi vào special_notes.
   → description mẫu: ""Di chuyển đến kho [tên] tại [địa chỉ]. Lấy: [vật tư A] x[sl] [đv], [vật tư B] x[sl] [đv].""
 
 DELIVER_SUPPLIES — Di chuyển đến nạn nhân, giao vật tư (đã lấy từ bước COLLECT trước):
-  → Điền: depot_id/depot_name/depot_address của kho nguồn, supplies_to_collect = vật tư đang giao.
+  → Điền: sos_request_id (ID của SOS được giao hàng), depot_id/depot_name/depot_address của kho nguồn, supplies_to_collect (có item_id) = vật tư đang giao.
   → description mẫu: ""Di chuyển đến [địa điểm nạn nhân]. Giao vật tư (lấy từ kho [tên]): [vật tư A] x[sl] [đv] cho [đối tượng].""
 
 RESCUE — Di chuyển đến hiện trường, thực hiện cứu người:
@@ -123,11 +123,12 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""step"": 1,
       ""activity_type"": ""COLLECT_SUPPLIES"",
       ""description"": ""Di chuyển đến kho [tên kho] tại [địa chỉ]. Lấy: [vật tư A] x[sl] [đv], [vật tư B] x[sl] [đv]."",
+      ""sos_request_id"": 1,
       ""depot_id"": 1,
       ""depot_name"": ""Tên kho thực tế"",
       ""depot_address"": ""Địa chỉ kho thực tế"",
       ""supplies_to_collect"": [
-        { ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
+        { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
       ""priority"": ""Critical"",
       ""estimated_time"": ""30 phút""
@@ -136,11 +137,12 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""step"": 2,
       ""activity_type"": ""DELIVER_SUPPLIES"",
       ""description"": ""Di chuyển đến [địa điểm nạn nhân]. Giao (từ kho [tên]): [vật tư A] x[sl] [đv] cho [mô tả đối tượng]."",
+      ""sos_request_id"": 1,
       ""depot_id"": 1,
       ""depot_name"": ""Tên kho nguồn"",
       ""depot_address"": ""Địa chỉ kho nguồn"",
       ""supplies_to_collect"": [
-        { ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
+        { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
       ""priority"": ""Critical"",
       ""estimated_time"": ""1 giờ""
@@ -149,6 +151,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""step"": 3,
       ""activity_type"": ""RESCUE"",
       ""description"": ""Di chuyển đến [tọa độ/địa điểm]. [Hành động cứu hộ cụ thể]."",
+      ""sos_request_id"": 2,
       ""depot_id"": null,
       ""depot_name"": null,
       ""depot_address"": null,

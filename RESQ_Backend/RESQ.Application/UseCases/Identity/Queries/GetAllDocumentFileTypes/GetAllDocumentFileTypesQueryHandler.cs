@@ -21,7 +21,16 @@ public class GetAllDocumentFileTypesQueryHandler(
                 Code = x.Code,
                 Name = x.Name,
                 Description = x.Description,
-                IsActive = x.IsActive
+                IsActive = x.IsActive,
+                DocumentFileTypeCategoryId = x.DocumentFileTypeCategoryId,
+                DocumentFileTypeCategory = x.DocumentFileTypeCategory is not null
+                    ? new DocumentFileTypeCategoryDto
+                    {
+                        Id = x.DocumentFileTypeCategory.Id,
+                        Code = x.DocumentFileTypeCategory.Code,
+                        Description = x.DocumentFileTypeCategory.Description
+                    }
+                    : null
             }).ToList()
         };
     }

@@ -22,7 +22,16 @@ public class GetAllAbilitiesQueryHandler(
         {
             Id = a.Id,
             Code = a.Code,
-            Description = a.Description
+            Description = a.Description,
+            AbilityCategoryId = a.AbilityCategoryId,
+            AbilityCategory = a.AbilityCategory is not null
+                ? new AbilityCategoryDto
+                {
+                    Id = a.AbilityCategory.Id,
+                    Code = a.AbilityCategory.Code,
+                    Description = a.AbilityCategory.Description
+                }
+                : null
         }).ToList();
 
         _logger.LogInformation("{handler} - retrieved {count} abilities", nameof(GetAllAbilitiesQueryHandler), dtos.Count);

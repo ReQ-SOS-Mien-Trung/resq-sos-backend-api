@@ -94,7 +94,7 @@ public class DepotRepository(IUnitOfWork unitOfWork) : IDepotRepository
         // Include DepotSupplyInventories.ReliefItem để lấy thông tin tồn kho chi tiết
         var entities = await _unitOfWork.GetRepository<Depot>()
             .GetAllByPropertyAsync(
-                x => x.Status == "Available" && x.CurrentUtilization > 0,
+                x => (x.Status == "Available" || x.Status == "Full") && x.CurrentUtilization > 0,
                 includeProperties: "DepotManagers.User,DepotSupplyInventories.ReliefItem"
             );
 

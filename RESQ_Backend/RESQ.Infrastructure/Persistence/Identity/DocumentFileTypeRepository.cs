@@ -16,12 +16,12 @@ public class DocumentFileTypeRepository(IUnitOfWork unitOfWork) : IDocumentFileT
         if (activeOnly == true)
         {
             entities = await _unitOfWork.GetRepository<DocumentFileType>()
-                .GetAllByPropertyAsync(x => x.IsActive);
+                .GetAllByPropertyAsync(x => x.IsActive, includeProperties: "DocumentFileTypeCategory");
         }
         else
         {
             entities = await _unitOfWork.GetRepository<DocumentFileType>()
-                .GetAllByPropertyAsync(x => true);
+                .GetAllByPropertyAsync(x => true, includeProperties: "DocumentFileTypeCategory");
         }
 
         return entities.Select(MapToModel).OrderBy(x => x.Id).ToList();
@@ -90,7 +90,16 @@ public class DocumentFileTypeRepository(IUnitOfWork unitOfWork) : IDocumentFileT
             Description = entity.Description,
             IsActive = entity.IsActive,
             CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt
+            UpdatedAt = entity.UpdatedAt,
+            DocumentFileTypeCategoryId = entity.DocumentFileTypeCategoryId,
+            DocumentFileTypeCategory = entity.DocumentFileTypeCategory is not null
+                ? new DocumentFileTypeCategoryModel
+                {
+                    Id = entity.DocumentFileTypeCategory.Id,
+                    Code = entity.DocumentFileTypeCategory.Code,
+                    Description = entity.DocumentFileTypeCategory.Description
+                }
+                : null
         };
     }
 }
