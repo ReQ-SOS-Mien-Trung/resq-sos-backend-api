@@ -61,6 +61,8 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
             Amount = new Money(request.Amount),
             
             Note = request.Note,
+            IsPrivate = request.IsPrivate, // Map the privacy setting
+            
             PayosStatus = PayOSStatus.Pending,
             PayosOrderId = orderCode.ToString(),
             
@@ -80,10 +82,7 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
             throw new CreateFailedException("Đơn ủng hộ");
         }
         
-        // Retrieve the created entity to get the ID if not automatically populated in model (depends on Repo impl)
-        // Usually EF Core updates the entity instance. If mapper creates new instance, we might need to fetch.
-        // Assuming Repo/Mapper might not reflect ID back to model automatically if CreateAsync accepts model.
-        // Let's refetch by the unique PayosOrderId we just generated.
+        // Refetch by the unique PayosOrderId we just generated to get the correct ID
         var addedDonation = await _donationRepository.GetByPayosOrderIdAsync(orderCode.ToString(), cancellationToken);
         if (addedDonation == null)
         {
@@ -98,10 +97,7 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
             cancellationToken);
 
         // 4. Update Donation with PayOS Info (PaymentLinkId etc)
-        // Ensure we stick to the OrderCode generated/used by PayOS service (which should match our initial one)
         addedDonation.PayosTransactionId = paymentResult.PaymentLinkId;
-        // PayOS might return a different OrderCode if logic in service changed, but usually it respects input.
-        // Update status to Pending explicitly (already is).
         
         await _donationRepository.UpdateAsync(addedDonation, cancellationToken);
         await _unitOfWork.SaveAsync();

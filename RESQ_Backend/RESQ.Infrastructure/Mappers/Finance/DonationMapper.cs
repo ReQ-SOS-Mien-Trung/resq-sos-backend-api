@@ -15,6 +15,7 @@ public static class DonationMapper
             Enum.TryParse(entity.PayosStatus, true, out statusEnum);
         }
 
+        // Use defaults if data is missing to ensure Value Object validity
         var donorName = entity.DonorName ?? "Anonymous";
         var donorEmail = entity.DonorEmail ?? "no-email@resq.vn";
 
@@ -23,16 +24,21 @@ public static class DonationMapper
             Id = entity.Id,
             FundCampaignId = entity.FundCampaignId,
             
+            // Reconstruct Value Objects
             Donor = new DonorInfo(donorName, donorEmail),
             Amount = entity.Amount.HasValue ? new Money(entity.Amount.Value) : null,
             
+            // Map Primitive Fields
             PayosOrderId = entity.PayosOrderId,
             PayosTransactionId = entity.PayosTransactionId,
             PayosStatus = statusEnum,
             PaidAt = entity.PaidAt,
             Note = entity.Note,
-            IsPrivate = entity.IsPrivate,
+            PaymentAuditInfo = entity.PaymentAuditInfo, // Map new field
+            IsPrivate = entity.IsPrivate, 
             CreatedAt = entity.CreatedAt,
+            
+            // Map View Properties
             FundCampaignName = entity.FundCampaign?.Name,
             FundCampaignCode = entity.FundCampaign?.Code
         };
@@ -52,7 +58,8 @@ public static class DonationMapper
             PayosStatus = model.PayosStatus.ToString(),
             PaidAt = model.PaidAt,
             Note = model.Note,
-            IsPrivate = model.IsPrivate,
+            PaymentAuditInfo = model.PaymentAuditInfo, // Map new field
+            IsPrivate = model.IsPrivate, 
             CreatedAt = model.CreatedAt
         };
     }
@@ -72,6 +79,7 @@ public static class DonationMapper
         entity.PaidAt = model.PaidAt;
         
         entity.Note = model.Note;
-        entity.IsPrivate = model.IsPrivate;
+        entity.PaymentAuditInfo = model.PaymentAuditInfo; // Update new field
+        entity.IsPrivate = model.IsPrivate; 
     }
 }
