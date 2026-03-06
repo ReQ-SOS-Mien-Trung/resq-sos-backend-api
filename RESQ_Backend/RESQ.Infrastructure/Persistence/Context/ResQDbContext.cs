@@ -18,6 +18,7 @@ public partial class ResQDbContext : DbContext
     }
 
     public virtual DbSet<Ability> Abilities { get; set; }
+    public virtual DbSet<AbilityCategory> AbilityCategories { get; set; }
     public virtual DbSet<ActivityAiSuggestion> ActivityAiSuggestions { get; set; }
     public virtual DbSet<AssemblyPoint> AssemblyPoints { get; set; }
     public virtual DbSet<ClusterAiAnalysis> ClusterAiAnalyses { get; set; }
@@ -26,6 +27,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Depot> Depots { get; set; }
     public virtual DbSet<DepotFundAllocation> DepotFundAllocations { get; set; }
     public virtual DbSet<DocumentFileType> DocumentFileTypes { get; set; }
+    public virtual DbSet<DocumentFileTypeCategory> DocumentFileTypeCategories { get; set; }
     public virtual DbSet<DepotManager> DepotManagers { get; set; }
     public virtual DbSet<DepotSupplyInventory> DepotSupplyInventories { get; set; }
     public virtual DbSet<Donation> Donations { get; set; }
@@ -77,6 +79,11 @@ public partial class ResQDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("abilities_pkey");
         });
 
+        modelBuilder.Entity<AbilityCategory>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("ability_categories_pkey");
+        });
+
         modelBuilder.Entity<ActivityAiSuggestion>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("activity_ai_suggestions_pkey");
@@ -100,6 +107,11 @@ public partial class ResQDbContext : DbContext
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<DocumentFileTypeCategory>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("document_file_type_categories_pkey");
         });
 
         modelBuilder.Entity<ConversationParticipant>(entity =>
