@@ -12,13 +12,14 @@ public static class AbilityMapper
             Id = entity.Id,
             Code = entity.Code,
             Description = entity.Description,
-            AbilityCategoryId = entity.AbilityCategoryId,
-            AbilityCategory = entity.AbilityCategory is not null
-                ? new AbilityCategoryModel
+            AbilitySubgroupId = entity.AbilitySubgroupId,
+            AbilitySubgroup = entity.AbilitySubgroup is not null
+                ? new AbilitySubgroupModel
                 {
-                    Id = entity.AbilityCategory.Id,
-                    Code = entity.AbilityCategory.Code,
-                    Description = entity.AbilityCategory.Description
+                    Id = entity.AbilitySubgroup.Id,
+                    Code = entity.AbilitySubgroup.Code,
+                    Description = entity.AbilitySubgroup.Description,
+                    AbilityCategoryId = entity.AbilitySubgroup.AbilityCategoryId
                 }
                 : null
         };

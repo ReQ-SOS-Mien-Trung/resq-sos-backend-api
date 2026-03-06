@@ -19,12 +19,12 @@ public partial class Ability
     [Column("description")]
     public string? Description { get; set; }
 
-    [Column("ability_category_id")]
-    public int? AbilityCategoryId { get; set; }
+    [Column("ability_subgroup_id")]
+    public int? AbilitySubgroupId { get; set; }
 
-    [ForeignKey("AbilityCategoryId")]
+    [ForeignKey("AbilitySubgroupId")]
     [InverseProperty("Abilities")]
-    public virtual AbilityCategory? AbilityCategory { get; set; }
+    public virtual AbilitySubgroup? AbilitySubgroup { get; set; }
 
     [InverseProperty("Ability")]
     public virtual ICollection<UserAbility> UserAbilities { get; set; } = new List<UserAbility>();
