@@ -13,7 +13,7 @@ public class AbilityRepository(IUnitOfWork unitOfWork) : IAbilityRepository
     public async Task<List<AbilityModel>> GetAllAbilitiesAsync(CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<Ability>()
-            .GetAllByPropertyAsync(includeProperties: "AbilitySubgroup");
+            .GetAllByPropertyAsync(includeProperties: "AbilitySubgroup.AbilityCategory");
 
         return entities.Select(AbilityMapper.ToDomain).ToList();
     }

@@ -30,7 +30,15 @@ public class GetAllAbilitiesQueryHandler(
                     Id = a.AbilitySubgroup.Id,
                     Code = a.AbilitySubgroup.Code,
                     Description = a.AbilitySubgroup.Description,
-                    AbilityCategoryId = a.AbilitySubgroup.AbilityCategoryId
+                    AbilityCategoryId = a.AbilitySubgroup.AbilityCategoryId,
+                    AbilityCategory = a.AbilitySubgroup.AbilityCategory is not null
+                        ? new AbilityCategoryDto
+                        {
+                            Id = a.AbilitySubgroup.AbilityCategory.Id,
+                            Code = a.AbilitySubgroup.AbilityCategory.Code,
+                            Description = a.AbilitySubgroup.AbilityCategory.Description
+                        }
+                        : null
                 }
                 : null
         }).ToList();

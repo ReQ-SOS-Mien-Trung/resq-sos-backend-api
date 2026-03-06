@@ -7,6 +7,7 @@ using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 using RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 
@@ -87,6 +88,22 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             return Unauthorized();
 
         var result = await _mediator.Send(new GetSosRequestQuery(id, userId, roleId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Xem chi tiết đánh giá ưu tiên của một SOS request:
+    /// bao gồm điểm rule-based (Medical/Injury/Mobility/Environment/Food + TotalScore + PriorityLevel)
+    /// và tất cả bản phân tích AI (nếu đã hoàn thành xử lý bất đồng bộ).
+    /// </summary>
+    [HttpGet("{id:int}/evaluation")]
+    [Authorize(Roles = "1,2,5")]
+    public async Task<IActionResult> GetSosEvaluation([FromRoute] int id)
+    {
+        if (!TryGetUserId(out var userId) || !TryGetRoleId(out var roleId))
+            return Unauthorized();
+
+        var result = await _mediator.Send(new GetSosEvaluationQuery(id, userId, roleId));
         return Ok(result);
     }
 

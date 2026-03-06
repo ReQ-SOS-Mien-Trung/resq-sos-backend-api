@@ -6,5 +6,6 @@ public class AbilitySubgroupModel
     public string Code { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int? AbilityCategoryId { get; set; }
+    public AbilityCategoryModel? AbilityCategory { get; set; }
     public List<AbilityModel> Abilities { get; set; } = [];
 }
