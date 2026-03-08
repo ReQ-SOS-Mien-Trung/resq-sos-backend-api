@@ -10,7 +10,7 @@ using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
-using RESQ.Domain.Services.Finance; // Added namespace
+using RESQ.Domain.Services.Finance;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Logistics;
@@ -32,7 +32,6 @@ public static class ServiceCollectionExtensions
     {
         services.AddHttpClient();
 
-        // DbContext Configuration
         services.AddDbContext<ResQDbContext>(options =>
             options.UseNpgsql(
                 configuration.GetConnectionString("ResQDb"),
@@ -40,10 +39,7 @@ public static class ServiceCollectionExtensions
             )
         );
 
-        // Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-        // Generic Repository   
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
         // Repositories
@@ -69,6 +65,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDonationRepository, DonationRepository>();
         services.AddScoped<IFundTransactionRepository, FundTransactionRepository>();
         services.AddScoped<IDepotFundAllocationRepository, DepotFundAllocationRepository>();
+        services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>(); // Added
 
         // System Repositories
         services.AddScoped<IPromptRepository, PromptRepository>();
@@ -80,20 +77,19 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISosAiAnalysisService, SosAiAnalysisService>();
         services.AddScoped<IAiModelTestService, AiModelTestService>();
         services.AddScoped<IRescueMissionSuggestionService, RescueMissionSuggestionService>();
-        
-        // Domain Services
-        services.AddScoped<IFundDistributionManager, FundDistributionManager>(); // Registered
+        services.AddScoped<IFundDistributionManager, FundDistributionManager>();
 
-        // Payment Service
-        services.AddScoped<IPaymentGatewayService, PayOSService>();
+        // Payment Services
+        services.AddScoped<PayOSService>();
+        services.AddScoped<MomoPaymentService>();
+        services.AddScoped<IPaymentGatewayFactory, PaymentGatewayFactory>();
+        services.AddScoped<IPaymentGatewayService>(sp => sp.GetRequiredService<PayOSService>());
 
         // Background Services
         services.AddSingleton<SosAiAnalysisQueue>();
         services.AddSingleton<ISosAiAnalysisQueue>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddSingleton<ISosAiAnalysisQueueInternal>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddHostedService<SosAiAnalysisBackgroundService>();
-        
-        // Donation Expiration Service
         services.AddHostedService<DonationExpirationBackgroundService>();
 
         return services;

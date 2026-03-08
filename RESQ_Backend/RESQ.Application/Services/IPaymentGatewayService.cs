@@ -1,6 +1,6 @@
-using RESQ.Domain.Entities.Finance;
+﻿using RESQ.Domain.Entities.Finance;
 using RESQ.Application.Common.Models;
-using RESQ.Application.UseCases.Finance.Commands.ProcessPaymentReturn;
+using RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
 
 namespace RESQ.Application.Services;
 
@@ -15,3 +15,4 @@ public interface IPaymentGatewayService
     /// <returns>True if valid, False otherwise</returns>
     bool VerifyWebhookSignature(string jsonBody);
 }
+

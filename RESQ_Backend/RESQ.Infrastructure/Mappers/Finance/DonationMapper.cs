@@ -1,4 +1,4 @@
-using RESQ.Domain.Entities.Finance;
+﻿using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Finance.ValueObjects;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
@@ -9,39 +9,40 @@ public static class DonationMapper
 {
     public static DonationModel ToModel(Donation entity)
     {
-        var statusEnum = PayOSStatus.Pending;
-        if (!string.IsNullOrEmpty(entity.PayosStatus))
+        var statusEnum = Status.Pending;
+        if (!string.IsNullOrEmpty(entity.Status))
         {
-            Enum.TryParse(entity.PayosStatus, true, out statusEnum);
+            Enum.TryParse(entity.Status, true, out statusEnum);
         }
 
-        // Use defaults if data is missing to ensure Value Object validity
         var donorName = entity.DonorName ?? "Anonymous";
         var donorEmail = entity.DonorEmail ?? "no-email@resq.vn";
 
-        return new DonationModel
+        var model = new DonationModel
         {
             Id = entity.Id,
             FundCampaignId = entity.FundCampaignId,
-            
-            // Reconstruct Value Objects
             Donor = new DonorInfo(donorName, donorEmail),
             Amount = entity.Amount.HasValue ? new Money(entity.Amount.Value) : null,
+            OrderId = entity.OrderId,
+            TransactionId = entity.TransactionId,
             
-            // Map Primitive Fields
-            PayosOrderId = entity.PayosOrderId,
-            PayosTransactionId = entity.PayosTransactionId,
-            PayosStatus = statusEnum,
+            // Map Entity Reference
+            PaymentMethodId = entity.PaymentMethodId,
+            PaymentMethodCode = entity.PaymentMethod?.Code,
+            PaymentMethodName = entity.PaymentMethod?.Name,
+
             PaidAt = entity.PaidAt,
             Note = entity.Note,
-            PaymentAuditInfo = entity.PaymentAuditInfo, // Map new field
+            PaymentAuditInfo = entity.PaymentAuditInfo, 
             IsPrivate = entity.IsPrivate, 
             CreatedAt = entity.CreatedAt,
-            
-            // Map View Properties
             FundCampaignName = entity.FundCampaign?.Name,
             FundCampaignCode = entity.FundCampaign?.Code
         };
+        
+        model.SetStatus(statusEnum);
+        return model;
     }
 
     public static Donation ToEntity(DonationModel model)
@@ -53,12 +54,13 @@ public static class DonationMapper
             DonorName = model.Donor?.Name,
             DonorEmail = model.Donor?.Email,
             Amount = model.Amount?.Amount,
-            PayosOrderId = model.PayosOrderId,
-            PayosTransactionId = model.PayosTransactionId,
-            PayosStatus = model.PayosStatus.ToString(),
+            OrderId = model.OrderId,
+            TransactionId = model.TransactionId,
+            Status = model.Status.ToString(),
+            PaymentMethodId = model.PaymentMethodId,
             PaidAt = model.PaidAt,
             Note = model.Note,
-            PaymentAuditInfo = model.PaymentAuditInfo, // Map new field
+            PaymentAuditInfo = model.PaymentAuditInfo, 
             IsPrivate = model.IsPrivate, 
             CreatedAt = model.CreatedAt
         };
@@ -73,13 +75,15 @@ public static class DonationMapper
             entity.DonorEmail = model.Donor.Email;
         }
         
-        entity.PayosOrderId = model.PayosOrderId;
-        entity.PayosTransactionId = model.PayosTransactionId;
-        entity.PayosStatus = model.PayosStatus.ToString();
+        entity.OrderId = model.OrderId;
+        entity.TransactionId = model.TransactionId;
+        entity.Status = model.Status.ToString();
+        entity.PaymentMethodId = model.PaymentMethodId;
         entity.PaidAt = model.PaidAt;
         
         entity.Note = model.Note;
-        entity.PaymentAuditInfo = model.PaymentAuditInfo; // Update new field
+        entity.PaymentAuditInfo = model.PaymentAuditInfo; 
         entity.IsPrivate = model.IsPrivate; 
     }
 }
+

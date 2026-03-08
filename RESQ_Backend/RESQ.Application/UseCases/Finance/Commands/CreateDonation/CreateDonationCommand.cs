@@ -1,5 +1,4 @@
 using MediatR;
-using System.ComponentModel.DataAnnotations;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateDonation;
 
@@ -11,4 +10,5 @@ public record CreateDonationCommand : IRequest<CreateDonationResponse>
     public decimal Amount { get; init; }
     public string? Note { get; init; }
     public bool IsPrivate { get; init; }
+    public int PaymentMethodId { get; init; }
 }
