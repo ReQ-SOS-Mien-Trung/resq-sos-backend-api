@@ -1,4 +1,4 @@
-using RESQ.Domain.Entities.Finance;
+﻿using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Finance.ValueObjects;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
@@ -9,10 +9,10 @@ public static class DonationMapper
 {
     public static DonationModel ToModel(Donation entity)
     {
-        var statusEnum = PayOSStatus.Pending;
-        if (!string.IsNullOrEmpty(entity.PayosStatus))
+        var statusEnum = Status.Pending;
+        if (!string.IsNullOrEmpty(entity.Status))
         {
-            Enum.TryParse(entity.PayosStatus, true, out statusEnum);
+            Enum.TryParse(entity.Status, true, out statusEnum);
         }
 
         var donorName = entity.DonorName ?? "Anonymous";
@@ -24,8 +24,8 @@ public static class DonationMapper
             FundCampaignId = entity.FundCampaignId,
             Donor = new DonorInfo(donorName, donorEmail),
             Amount = entity.Amount.HasValue ? new Money(entity.Amount.Value) : null,
-            PayosOrderId = entity.PayosOrderId,
-            PayosTransactionId = entity.PayosTransactionId,
+            OrderId = entity.OrderId,
+            TransactionId = entity.TransactionId,
             
             // Map Entity Reference
             PaymentMethodId = entity.PaymentMethodId,
@@ -54,9 +54,9 @@ public static class DonationMapper
             DonorName = model.Donor?.Name,
             DonorEmail = model.Donor?.Email,
             Amount = model.Amount?.Amount,
-            PayosOrderId = model.PayosOrderId,
-            PayosTransactionId = model.PayosTransactionId,
-            PayosStatus = model.PayosStatus.ToString(),
+            OrderId = model.OrderId,
+            TransactionId = model.TransactionId,
+            Status = model.Status.ToString(),
             PaymentMethodId = model.PaymentMethodId,
             PaidAt = model.PaidAt,
             Note = model.Note,
@@ -75,9 +75,9 @@ public static class DonationMapper
             entity.DonorEmail = model.Donor.Email;
         }
         
-        entity.PayosOrderId = model.PayosOrderId;
-        entity.PayosTransactionId = model.PayosTransactionId;
-        entity.PayosStatus = model.PayosStatus.ToString();
+        entity.OrderId = model.OrderId;
+        entity.TransactionId = model.TransactionId;
+        entity.Status = model.Status.ToString();
         entity.PaymentMethodId = model.PaymentMethodId;
         entity.PaidAt = model.PaidAt;
         
@@ -86,3 +86,4 @@ public static class DonationMapper
         entity.IsPrivate = model.IsPrivate; 
     }
 }
+

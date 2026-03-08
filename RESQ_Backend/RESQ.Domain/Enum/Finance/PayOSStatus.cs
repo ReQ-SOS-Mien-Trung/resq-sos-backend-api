@@ -1,8 +1,9 @@
-namespace RESQ.Domain.Enum.Finance;
+﻿namespace RESQ.Domain.Enum.Finance;
 
-public enum PayOSStatus
+public enum Status
 {
     Pending,
     Succeed,
     Failed
 }
+

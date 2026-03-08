@@ -5,7 +5,7 @@ using RESQ.Application.Common.Models.Finance.Momo;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Finance.Commands.CreateDonation;
 using RESQ.Application.UseCases.Finance.Commands.ProcessMomoPayment;
-using RESQ.Application.UseCases.Finance.Commands.ProcessPaymentReturn;
+using RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
 using RESQ.Application.UseCases.Finance.Queries.GetDonations;
 using RESQ.Application.UseCases.Finance.Queries.GetPaymentMethods;
 using RESQ.Application.UseCases.Finance.Queries.GetPublicDonations;
@@ -80,7 +80,7 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
     [HttpPost("payment-return")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> ProcessPaymentReturn()
+    public async Task<IActionResult> ProcessPayosPaymentReturn()
     {
         try
         {
@@ -115,7 +115,7 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
                 return Ok(new { success = false, message = "Invalid webhook data." });
             }
 
-            var command = new ProcessPaymentReturnCommand
+            var command = new ProcessPayosPaymentReturnCommand
             {
                 WebhookData = webhook
             };
@@ -158,3 +158,4 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
         }
     }
 }
+

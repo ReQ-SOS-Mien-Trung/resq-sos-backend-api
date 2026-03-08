@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using RESQ.Domain.Entities.Finance.Exceptions;
 using RESQ.Domain.Entities.Finance.ValueObjects;
 using RESQ.Domain.Enum.Finance;
@@ -15,9 +15,9 @@ public class DonationModel
     public Money? Amount { get; set; }
 
     // Remaining primitive properties
-    public string? PayosOrderId { get; set; }
-    public string? PayosTransactionId { get; set; }
-    public PayOSStatus PayosStatus { get; private set; } // Private set to enforce logic
+    public string? OrderId { get; set; }
+    public string? TransactionId { get; set; }
+    public Status Status { get; private set; } // Private set to enforce logic
     
     // Entity References
     public int? PaymentMethodId { get; set; }
@@ -39,25 +39,26 @@ public class DonationModel
 
     public DonationModel() { }
 
-    public void SetStatus(PayOSStatus status)
+    public void SetStatus(Status status)
     {
-        this.PayosStatus = status;
+        this.Status = status;
     }
 
-    public void UpdatePaymentStatus(PayOSStatus newStatus)
+    public void UpdatePaymentStatus(Status newStatus)
     {
-        if (PayosStatus == PayOSStatus.Succeed)
+        if (Status == Status.Succeed)
         {
-            if (newStatus == PayOSStatus.Succeed) return;
-            throw new InvalidPaymentStatusException(PayosStatus.ToString(), newStatus.ToString());
+            if (newStatus == Status.Succeed) return;
+            throw new InvalidPaymentStatusException(Status.ToString(), newStatus.ToString());
         }
 
-        if (PayosStatus == PayOSStatus.Failed)
+        if (Status == Status.Failed)
         {
-            if (newStatus == PayOSStatus.Failed) return;
-            throw new InvalidPaymentStatusException(PayosStatus.ToString(), newStatus.ToString());
+            if (newStatus == Status.Failed) return;
+            throw new InvalidPaymentStatusException(Status.ToString(), newStatus.ToString());
         }
 
-        PayosStatus = newStatus;
+        Status = newStatus;
     }
 }
+

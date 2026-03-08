@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Base;
@@ -64,7 +64,7 @@ public class DonationExpirationBackgroundService : BackgroundService
             foreach (var donation in expiredDonations)
             {
                 // Use the Domain Method to update status instead of direct property setter
-                donation.UpdatePaymentStatus(PayOSStatus.Failed);
+                donation.UpdatePaymentStatus(Status.Failed);
                 
                 donation.PaymentAuditInfo += " [System: Expired due to timeout]";
                 
@@ -76,3 +76,4 @@ public class DonationExpirationBackgroundService : BackgroundService
         }
     }
 }
+

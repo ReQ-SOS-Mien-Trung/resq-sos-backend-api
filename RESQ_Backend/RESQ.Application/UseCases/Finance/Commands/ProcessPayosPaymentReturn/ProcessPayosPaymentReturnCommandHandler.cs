@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -7,24 +7,24 @@ using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using System.Globalization;
 
-namespace RESQ.Application.UseCases.Finance.Commands.ProcessPaymentReturn;
+namespace RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
 
-public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPaymentReturnCommand, bool>
+public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPayosPaymentReturnCommand, bool>
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDonationRepository _donationRepository;
     private readonly IFundCampaignRepository _campaignRepository;
     private readonly IFundTransactionRepository _transactionRepository;
     private readonly IEmailService _emailService;
-    private readonly ILogger<ProcessPaymentReturnCommandHandler> _logger;
+    private readonly ILogger<ProcessPayosPaymentReturnCommandHandler> _logger;
 
-    public ProcessPaymentReturnCommandHandler(
+    public ProcessPayosPaymentReturnCommandHandler(
         IUnitOfWork unitOfWork,
         IDonationRepository donationRepository,
         IFundCampaignRepository campaignRepository,
         IFundTransactionRepository transactionRepository,
         IEmailService emailService,
-        ILogger<ProcessPaymentReturnCommandHandler> logger)
+        ILogger<ProcessPayosPaymentReturnCommandHandler> logger)
     {
         _unitOfWork = unitOfWork;
         _donationRepository = donationRepository;
@@ -34,7 +34,7 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
         _logger = logger;
     }
 
-    public async Task<bool> Handle(ProcessPaymentReturnCommand request, CancellationToken cancellationToken)
+    public async Task<bool> Handle(ProcessPayosPaymentReturnCommand request, CancellationToken cancellationToken)
     {
         var webhook = request.WebhookData;
         if (webhook == null || webhook.Data == null)
@@ -57,7 +57,7 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
             return true; 
         }
 
-        var donation = await _donationRepository.GetByPayosOrderIdAsync(orderCodeStr, cancellationToken);
+        var donation = await _donationRepository.GetByOrderIdAsync(orderCodeStr, cancellationToken);
         
         if (donation == null)
         {
@@ -68,9 +68,9 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
         try 
         {
             // Business Rule: Update Status Check (Enforces Idempotency and State rules)
-            donation.UpdatePaymentStatus(PayOSStatus.Succeed);
+            donation.UpdatePaymentStatus(Status.Succeed);
 
-            donation.PayosTransactionId = paymentLinkId;
+            donation.TransactionId = paymentLinkId;
             donation.PaymentAuditInfo = $"[Bank:{webhook.Data.CounterAccountBankName}-{webhook.Data.CounterAccountNumber}]";
             
             if (DateTime.TryParseExact(webhook.Data.TransactionDateTime, new[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var paidAt))
@@ -108,7 +108,7 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
             {
                 _ = _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
-                    donation.FundCampaignName ?? "Chiến dịch", donation.FundCampaignCode ?? "RESQ",
+                    donation.FundCampaignName ?? "Chiáº¿n dá»‹ch", donation.FundCampaignCode ?? "RESQ",
                     donation.Id, cancellationToken
                 );
             }
@@ -124,3 +124,4 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
         }
     }
 }
+

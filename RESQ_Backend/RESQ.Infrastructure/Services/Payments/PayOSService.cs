@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Models.Finance.PayOS;
@@ -40,16 +40,16 @@ public class PayOSService : IPaymentGatewayService
 
         if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(checksumKey))
         {
-            throw new InvalidOperationException("Cấu hình PayOS bị thiếu hoặc không hợp lệ.");
+            throw new InvalidOperationException("Cáº¥u hÃ¬nh PayOS bá»‹ thiáº¿u hoáº·c khÃ´ng há»£p lá»‡.");
         }
 
         long orderCode;
-        if (!string.IsNullOrEmpty(donation.PayosOrderId) && long.TryParse(donation.PayosOrderId, out var existingCode))
+        if (!string.IsNullOrEmpty(donation.OrderId) && long.TryParse(donation.OrderId, out var existingCode))
             orderCode = existingCode;
         else
         {
             orderCode = long.Parse(DateTime.UtcNow.ToString("yyMMddHHmmss"));
-            donation.PayosOrderId = orderCode.ToString();
+            donation.OrderId = orderCode.ToString();
         }
 
         var campaignCode = donation.FundCampaignCode ?? "CAMP";
@@ -88,14 +88,14 @@ public class PayOSService : IPaymentGatewayService
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("PayOS Error: {Content}", responseContent);
-            throw new Exception($"Lỗi tạo link thanh toán ({response.StatusCode})");
+            throw new Exception($"Lá»—i táº¡o link thanh toÃ¡n ({response.StatusCode})");
         }
 
         var result = JsonSerializer.Deserialize<PayOSResponse<PayOSPaymentLinkData>>(responseContent, 
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         if (result == null || result.Code != "00" || result.Data == null)
-            throw new Exception($"Lỗi PayOS: {result?.Desc}");
+            throw new Exception($"Lá»—i PayOS: {result?.Desc}");
 
         return new PaymentLinkResult
         {
@@ -116,21 +116,21 @@ public class PayOSService : IPaymentGatewayService
             if (!root.TryGetProperty("data", out var dataElement) ||
                 !root.TryGetProperty("signature", out var signatureElement))
             {
-                _logger.LogWarning("Webhook thiếu data hoặc signature.");
+                _logger.LogWarning("Webhook thiáº¿u data hoáº·c signature.");
                 return false;
             }
 
             var receivedSignature = signatureElement.GetString();
             if (string.IsNullOrEmpty(receivedSignature))
             {
-                _logger.LogWarning("Signature rỗng.");
+                _logger.LogWarning("Signature rá»—ng.");
                 return false;
             }
 
             var checksumKey = _configuration["PayOS:ChecksumKey"];
             if (string.IsNullOrEmpty(checksumKey))
             {
-                _logger.LogError("Thiếu cấu hình PayOS ChecksumKey.");
+                _logger.LogError("Thiáº¿u cáº¥u hÃ¬nh PayOS ChecksumKey.");
                 return false;
             }
 
@@ -141,7 +141,7 @@ public class PayOSService : IPaymentGatewayService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Lỗi verify PayOS webhook.");
+            _logger.LogError(ex, "Lá»—i verify PayOS webhook.");
             return false;
         }
     }
@@ -175,3 +175,4 @@ public class PayOSService : IPaymentGatewayService
         return BitConverter.ToString(hash).Replace("-", "").ToLower();
     }
 }
+

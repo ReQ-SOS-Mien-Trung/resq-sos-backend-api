@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Models.Finance.Momo;
@@ -52,12 +52,12 @@ public class MomoPaymentService : IPaymentGatewayService
 
         // 2. Prepare Data
         // OrderId must follow regex ^[0-9a-zA-Z]([-_.]*[0-9a-zA-Z]+)*$
-        var orderId = donation.PayosOrderId;
+        var orderId = donation.OrderId;
         if (string.IsNullOrEmpty(orderId))
         {
             // Use PartnerCode as prefix to avoid test environment filtering
             orderId = $"{partnerCode}_{DateTime.UtcNow.Ticks}";
-            donation.PayosOrderId = orderId;
+            donation.OrderId = orderId;
         }
         
         var requestId = Guid.NewGuid().ToString("N");
@@ -66,7 +66,7 @@ public class MomoPaymentService : IPaymentGatewayService
         // Validation: Amount 1,000 - 50,000,000
         if (amount < 1000 || amount > 50000000)
         {
-            throw new Exception("Số tiền không hợp lệ. MoMo yêu cầu từ 1,000 đến 50,000,000 VND.");
+            throw new Exception("Sá»‘ tiá»n khÃ´ng há»£p lá»‡. MoMo yÃªu cáº§u tá»« 1,000 Ä‘áº¿n 50,000,000 VND.");
         }
 
         var orderInfo = $"Ung ho {donation.FundCampaignCode ?? "RESQ"}";
@@ -199,3 +199,4 @@ public class MomoPaymentService : IPaymentGatewayService
         }
     }
 }
+

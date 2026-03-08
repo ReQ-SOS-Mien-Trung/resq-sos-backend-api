@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models.Finance.Momo;
@@ -45,7 +45,7 @@ public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPayme
         var ipn = request.IpnData;
         if (!VerifyMomoSignature(ipn)) return false;
 
-        var donation = await _donationRepository.GetByPayosOrderIdAsync(ipn.OrderId, cancellationToken);
+        var donation = await _donationRepository.GetByOrderIdAsync(ipn.OrderId, cancellationToken);
         if (donation == null) return false;
 
         try 
@@ -53,9 +53,9 @@ public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPayme
             if (ipn.ResultCode == 0) // Success
             {
                 // Business Rule: Update Status Check
-                donation.UpdatePaymentStatus(PayOSStatus.Succeed);
+                donation.UpdatePaymentStatus(Status.Succeed);
 
-                donation.PayosTransactionId = ipn.TransId.ToString();
+                donation.TransactionId = ipn.TransId.ToString();
                 donation.PaymentAuditInfo = $"[MoMo:TransId={ipn.TransId},Type={ipn.PayType}]";
                 donation.PaidAt = DateTime.UtcNow;
 
@@ -97,7 +97,7 @@ public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPayme
             else
             {
                 // Failed
-                donation.UpdatePaymentStatus(PayOSStatus.Failed);
+                donation.UpdatePaymentStatus(Status.Failed);
                 donation.PaymentAuditInfo += $" [MoMo Failed: {ipn.Message}]";
                 await _donationRepository.UpdateAsync(donation, cancellationToken);
                 await _unitOfWork.SaveAsync();
@@ -135,3 +135,4 @@ public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPayme
         }
     }
 }
+
