@@ -42,14 +42,9 @@ public class GetSosEvaluationQueryHandler(
             && request.RequestingRoleId != VICTIM_ROLE_ID)
             throw new ForbiddenException("Bạn không có quyền truy cập.");
 
-        // 3. Lấy đánh giá rule-based và AI song song
-        var ruleTask = _ruleEvaluationRepository.GetBySosRequestIdAsync(request.SosRequestId, cancellationToken);
-        var aiTask = _aiAnalysisRepository.GetAllBySosRequestIdAsync(request.SosRequestId, cancellationToken);
-
-        await Task.WhenAll(ruleTask, aiTask);
-
-        var ruleEvaluation = await ruleTask;
-        var aiAnalyses = (await aiTask).ToList();
+        // 3. Lấy đánh giá rule-based và AI tuần tự (cùng DbContext instance, không thể song song)
+        var ruleEvaluation = await _ruleEvaluationRepository.GetBySosRequestIdAsync(request.SosRequestId, cancellationToken);
+        var aiAnalyses = (await _aiAnalysisRepository.GetAllBySosRequestIdAsync(request.SosRequestId, cancellationToken)).ToList();
 
         _logger.LogInformation(
             "GetSosEvaluationQuery SosRequestId={id} - RuleEvaluation={hasRule}, AiAnalyses={aiCount}",
