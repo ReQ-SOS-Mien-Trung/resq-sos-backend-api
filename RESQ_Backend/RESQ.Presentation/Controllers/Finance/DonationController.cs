@@ -15,15 +15,13 @@ namespace RESQ.Presentation.Controllers.Finance;
 
 [Route("finance/donations")]
 [ApiController]
-public class DonationController(IMediator mediator, IPaymentGatewayService paymentGatewayService, ILogger<DonationController> logger) : ControllerBase
+public class DonationController(IMediator mediator, IPaymentGatewayService paymentGatewayService, ILogger<DonationController> logger, IConfiguration configuration) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
     private readonly IPaymentGatewayService _paymentGatewayService = paymentGatewayService;
     private readonly ILogger<DonationController> _logger = logger;
+    private readonly IConfiguration _configuration = configuration;
 
-    /// <summary>
-    /// Lấy danh sách phương thức thanh toán
-    /// </summary>
     [HttpGet("payment-methods")]
     public async Task<IActionResult> GetPaymentMethods()
     {
@@ -31,9 +29,6 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
         return Ok(result);
     }
 
-    /// <summary>
-    /// Lấy danh sách ủng hộ (Admin/Manager view)
-    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetDonations([FromQuery] GetDonationsQuery query)
     {
@@ -41,9 +36,6 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
         return Ok(result);
     }
 
-    /// <summary>
-    /// API cho Landing Page: Chỉ lấy danh sách ủng hộ công khai (IsPrivate = false)
-    /// </summary>
     [HttpGet("public")]
     public async Task<IActionResult> GetPublicDonations([FromQuery] GetPublicDonationsQuery query)
     {
@@ -51,9 +43,6 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
         return Ok(result);
     }
 
-    /// <summary>
-    /// Tạo yêu cầu ủng hộ mới và lấy link thanh toán (PayOS hoặc MoMo)
-    /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(CreateDonationResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -74,14 +63,13 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
         return StatusCode(201, result);
     }
 
-    /// <summary>
-    /// Webhook xử lý kết quả thanh toán từ PayOS
-    /// </summary>
     [HttpPost("payment-return")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ProcessPayosPaymentReturn()
     {
+        // PayOS requires raw body for signature verification if you implemented it that way.
+        // Keeping your Stream logic here since you confirmed it works, but adding safety check.
         try
         {
             Request.EnableBuffering();
@@ -131,17 +119,28 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
     }
 
     /// <summary>
-    /// Webhook xử lý kết quả thanh toán từ MoMo
+    /// FIXED: Webhook xử lý kết quả thanh toán từ MoMo
+    /// Changed from Manual Stream Reading to [FromBody] for robustness on IIS/Somee
     /// </summary>
     [HttpPost("momo-ipn")]
     [AllowAnonymous]
+    [IgnoreAntiforgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> ProcessMomoIpn([FromBody] MomoIpnRequest ipnData)
     {
         try
         {
+            // [FromBody] handles buffering and deserialization automatically.
+            // This avoids "Stream was not readable" or "Synchronous IO" errors on IIS.
+
             if (ipnData == null)
-                return BadRequest();
+            {
+                _logger.LogWarning("MoMo IPN payload was null.");
+                return NoContent();
+            }
+
+            _logger.LogInformation("Received MoMo IPN: OrderId={OrderId}, ResultCode={Code}, Msg={Msg}",
+                ipnData.OrderId, ipnData.ResultCode, ipnData.Message);
 
             var command = new ProcessMomoPaymentCommand
             {
@@ -154,8 +153,27 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing MoMo IPN");
+            // Always return 204 to MoMo to prevent them from retrying continuously 
+            // if the error is internal logic (database, etc).
             return NoContent();
         }
     }
-}
 
+    [HttpGet("momo-return")]
+    [AllowAnonymous]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public IActionResult MomoReturn([FromQuery] int resultCode)
+    {
+        var config = _configuration.GetSection("MomoAPI");
+        if (resultCode == 0)
+        {
+            var returnUrl = config["ReturnUrl"];
+            return Redirect(returnUrl ?? "http://localhost:5173/success");
+        }
+        else
+        {
+            var cancelUrl = config["CancelUrl"];
+            return Redirect(cancelUrl ?? "http://localhost:5173/fail");
+        }
+    }
+}

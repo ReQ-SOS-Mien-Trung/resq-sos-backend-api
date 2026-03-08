@@ -14,6 +14,7 @@ public class MomoIpnRequest
     public string RequestId { get; set; } = string.Empty;
 
     [JsonPropertyName("amount")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)] // Explicitly allow string reading
     public long Amount { get; set; }
 
     [JsonPropertyName("orderInfo")]
@@ -23,9 +24,11 @@ public class MomoIpnRequest
     public string OrderType { get; set; } = string.Empty;
 
     [JsonPropertyName("transId")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)] // Explicitly allow string reading
     public long TransId { get; set; }
 
     [JsonPropertyName("resultCode")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)] // Explicitly allow string reading
     public int ResultCode { get; set; }
 
     [JsonPropertyName("message")]
@@ -35,6 +38,7 @@ public class MomoIpnRequest
     public string PayType { get; set; } = string.Empty;
 
     [JsonPropertyName("responseTime")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)] // Explicitly allow string reading
     public long ResponseTime { get; set; }
 
     [JsonPropertyName("extraData")]
@@ -42,4 +46,4 @@ public class MomoIpnRequest
 
     [JsonPropertyName("signature")]
     public string Signature { get; set; } = string.Empty;
-}
+}
