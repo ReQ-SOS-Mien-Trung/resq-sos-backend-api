@@ -1,0 +1,156 @@
+using System.Security.Claims;
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.UseCases.Operations.Commands.CoordinatorJoinConversation;
+using RESQ.Application.UseCases.Operations.Commands.LinkSosRequestToConversation;
+using RESQ.Application.UseCases.Operations.Commands.SelectSupportTopic;
+using RESQ.Application.UseCases.Operations.Queries.GetConversationByMission;
+using RESQ.Application.UseCases.Operations.Queries.GetConversationMessages;
+using RESQ.Application.UseCases.Operations.Queries.GetConversationsWaiting;
+using RESQ.Application.UseCases.Operations.Queries.GetOrCreateVictimConversation;
+
+namespace RESQ.Presentation.Controllers.Operations;
+
+/// <summary>
+/// REST endpoints cho luồng chat Victim–AI–Coordinator.
+/// Chat real-time sử dụng SignalR hub tại /hubs/chat.
+/// 
+/// Luồng cơ bản:
+///   1. Victim:      GET  /my-conversation          → lấy/tạo phòng chat, nhận gợi ý AI
+///   2. Victim:      POST /{id}/select-topic         → chọn chủ đề; nếu SOS → AI trả danh sách
+///   3. Victim:      POST /{id}/link-sos-request     → chọn SOS request cụ thể
+///   4. Coordinator: GET  /waiting                   → danh sách phòng đang chờ
+///   5. Coordinator: POST /{id}/join                 → join hỗ trợ Victim
+///   6. Both:        GET  /{id}/messages             → lịch sử tin nhắn
+///   7. Both:        SignalR hub /hubs/chat          → real-time messaging
+/// </summary>
+[Route("operations/conversations")]
+[ApiController]
+[Authorize]
+public class ConversationController(IMediator mediator) : ControllerBase
+{
+    private readonly IMediator _mediator = mediator;
+
+    // ─── Victim ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Victim mở màn hình chat → lấy hoặc tạo phòng chat của mình.
+    /// Trả về thông tin conversation và gợi ý chủ đề từ AI.
+    /// </summary>
+    [HttpGet("my-conversation")]
+    public async Task<IActionResult> GetOrCreateMyConversation()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(new GetOrCreateVictimConversationQuery(userId.Value));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Victim chọn chủ đề hỗ trợ (ví dụ: SosRequestSupport, SupplyRequest...).
+    /// AI sẽ phản hồi và nếu topic = SosRequestSupport, trả về danh sách SOS của victim.
+    /// </summary>
+    [HttpPost("{conversationId:int}/select-topic")]
+    public async Task<IActionResult> SelectTopic(
+        [FromRoute] int conversationId,
+        [FromBody] SelectTopicRequest dto)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(
+            new SelectSupportTopicCommand(conversationId, userId.Value, dto.TopicKey));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Victim chọn SOS Request cụ thể cần được hỗ trợ.
+    /// Sau bước này, conversation chuyển sang WaitingCoordinator,
+    /// Coordinator có thể thấy trong danh sách chờ và join.
+    /// </summary>
+    [HttpPost("{conversationId:int}/link-sos-request")]
+    public async Task<IActionResult> LinkSosRequest(
+        [FromRoute] int conversationId,
+        [FromBody] LinkSosRequestDto dto)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(
+            new LinkSosRequestToConversationCommand(conversationId, userId.Value, dto.SosRequestId));
+        return Ok(result);
+    }
+
+    // ─── Coordinator ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Coordinator xem danh sách phòng chat đang chờ hỗ trợ.
+    /// </summary>
+    [HttpGet("waiting")]
+    public async Task<IActionResult> GetWaitingConversations()
+    {
+        var result = await _mediator.Send(new GetConversationsWaitingQuery());
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Coordinator tham gia hỗ trợ Victim trong một conversation.
+    /// Sau khi gọi, Coordinator trở thành participant và có thể join SignalR group.
+    /// </summary>
+    [HttpPost("{conversationId:int}/join")]
+    public async Task<IActionResult> CoordinatorJoin([FromRoute] int conversationId)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(
+            new CoordinatorJoinConversationCommand(conversationId, userId.Value));
+        return Ok(result);
+    }
+
+    // ─── Shared ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Lấy lịch sử tin nhắn của một conversation (phân trang, cũ nhất trước).
+    /// </summary>
+    [HttpGet("{conversationId:int}/messages")]
+    public async Task<IActionResult> GetMessages(
+        [FromRoute] int conversationId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(
+            new GetConversationMessagesQuery(conversationId, userId.Value, page, pageSize));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Legacy: lấy conversations theo missionId (cho màn hình quản lý mission).
+    /// </summary>
+    [HttpGet("mission/{missionId:int}")]
+    public async Task<IActionResult> GetConversationByMission([FromRoute] int missionId)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(new GetConversationByMissionQuery(missionId, userId.Value));
+        return Ok(result);
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    private Guid? GetUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.TryParse(claim, out var id) ? id : null;
+    }
+}
+
+public record SelectTopicRequest(string TopicKey);
+public record LinkSosRequestDto(int SosRequestId);
+

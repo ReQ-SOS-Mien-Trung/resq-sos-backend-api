@@ -1,0 +1,261 @@
+using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Repositories.Operations;
+using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
+using RESQ.Infrastructure.Entities.Identity;
+using RESQ.Infrastructure.Entities.Operations;
+using RESQ.Infrastructure.Persistence.Context;
+
+namespace RESQ.Infrastructure.Persistence.Operations;
+
+public class ConversationRepository(ResQDbContext context) : IConversationRepository
+{
+    private readonly ResQDbContext _context = context;
+
+    // ─── Victim conversation ─────────────────────────────────────────────────
+
+    public async Task<ConversationModel> GetOrCreateForVictimAsync(
+        Guid victimId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.Conversations
+            .Include(c => c.ConversationParticipants)
+                .ThenInclude(p => p.User)
+            .FirstOrDefaultAsync(c => c.VictimId == victimId, cancellationToken);
+
+        if (entity == null)
+        {
+            entity = new Conversation
+            {
+                VictimId = victimId,
+                Status = nameof(ConversationStatus.AiAssist),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.Conversations.Add(entity);
+
+            var participant = new ConversationParticipant
+            {
+                Conversation = entity,
+                UserId = victimId,
+                RoleInConversation = "Victim",
+                JoinedAt = DateTime.UtcNow
+            };
+            _context.ConversationParticipants.Add(participant);
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // Reload with navigation
+            entity = await _context.Conversations
+                .Include(c => c.ConversationParticipants)
+                    .ThenInclude(p => p.User)
+                .FirstAsync(c => c.Id == entity.Id, cancellationToken);
+        }
+
+        return ToConversationModel(entity);
+    }
+
+    public async Task<ConversationModel?> GetByVictimIdAsync(
+        Guid victimId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.Conversations
+            .AsNoTracking()
+            .Include(c => c.ConversationParticipants)
+                .ThenInclude(p => p.User)
+            .FirstOrDefaultAsync(c => c.VictimId == victimId, cancellationToken);
+
+        return entity == null ? null : ToConversationModel(entity);
+    }
+
+    public async Task<ConversationModel?> GetByIdAsync(
+        int conversationId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.Conversations
+            .AsNoTracking()
+            .Include(c => c.ConversationParticipants)
+                .ThenInclude(p => p.User)
+            .FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken);
+
+        return entity == null ? null : ToConversationModel(entity);
+    }
+
+    // ─── Legacy: mission-based ───────────────────────────────────────────────
+
+    public async Task<IEnumerable<ConversationModel>> GetAllByMissionIdForUserAsync(
+        int missionId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var entities = await _context.Conversations
+            .AsNoTracking()
+            .Where(c => c.MissionId == missionId &&
+                        c.ConversationParticipants.Any(p => p.UserId == userId))
+            .Include(c => c.ConversationParticipants)
+                .ThenInclude(p => p.User)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToConversationModel);
+    }
+
+    // ─── Status transitions ──────────────────────────────────────────────────
+
+    public async Task UpdateStatusAsync(
+        int conversationId,
+        ConversationStatus status,
+        string? selectedTopic = null,
+        int? linkedSosRequestId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.Conversations
+            .FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken);
+
+        if (entity == null) return;
+
+        entity.Status = status.ToString();
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        if (selectedTopic != null)
+            entity.SelectedTopic = selectedTopic;
+
+        if (linkedSosRequestId.HasValue)
+            entity.LinkedSosRequestId = linkedSosRequestId;
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    // ─── Participants ────────────────────────────────────────────────────────
+
+    public async Task<bool> IsParticipantAsync(
+        int conversationId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.ConversationParticipants
+            .AnyAsync(p => p.ConversationId == conversationId && p.UserId == userId, cancellationToken);
+    }
+
+    public async Task AddCoordinatorAsync(
+        int conversationId, Guid coordinatorId, CancellationToken cancellationToken = default)
+    {
+        var alreadyJoined = await _context.ConversationParticipants
+            .AnyAsync(p => p.ConversationId == conversationId && p.UserId == coordinatorId, cancellationToken);
+
+        if (!alreadyJoined)
+        {
+            _context.ConversationParticipants.Add(new ConversationParticipant
+            {
+                ConversationId = conversationId,
+                UserId = coordinatorId,
+                RoleInConversation = "Coordinator",
+                JoinedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    public async Task<IEnumerable<ConversationModel>> GetConversationsWaitingForCoordinatorAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var entities = await _context.Conversations
+            .AsNoTracking()
+            .Where(c => c.Status == nameof(ConversationStatus.WaitingCoordinator))
+            .Include(c => c.ConversationParticipants)
+                .ThenInclude(p => p.User)
+            .OrderBy(c => c.UpdatedAt)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToConversationModel);
+    }
+
+    // ─── Messages ────────────────────────────────────────────────────────────
+
+    public async Task<IEnumerable<MessageModel>> GetMessagesAsync(
+        int conversationId, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var messages = await _context.Messages
+            .AsNoTracking()
+            .Where(m => m.ConversationId == conversationId)
+            .Include(m => m.Sender)
+            .OrderBy(m => m.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return messages.Select(ToMessageModel);
+    }
+
+    public async Task<MessageModel> SendMessageAsync(
+        int conversationId,
+        Guid? senderId,
+        string content,
+        MessageType messageType = MessageType.UserMessage,
+        CancellationToken cancellationToken = default)
+    {
+        var message = new Message
+        {
+            ConversationId = conversationId,
+            SenderId = senderId,
+            Content = content,
+            MessageType = messageType.ToString(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Messages.Add(message);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        User? sender = null;
+        if (senderId.HasValue)
+        {
+            sender = await _context.Set<User>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == senderId.Value, cancellationToken);
+        }
+
+        return new MessageModel
+        {
+            Id = message.Id,
+            ConversationId = conversationId,
+            SenderId = senderId,
+            SenderName = sender is not null
+                ? $"{sender.FirstName} {sender.LastName}".Trim()
+                : null,
+            Content = content,
+            MessageType = messageType,
+            CreatedAt = message.CreatedAt
+        };
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    private static ConversationModel ToConversationModel(Conversation entity) => new()
+    {
+        Id = entity.Id,
+        VictimId = entity.VictimId,
+        MissionId = entity.MissionId,
+        Status = Enum.TryParse<ConversationStatus>(entity.Status, out var s) ? s : ConversationStatus.AiAssist,
+        SelectedTopic = entity.SelectedTopic,
+        LinkedSosRequestId = entity.LinkedSosRequestId,
+        CreatedAt = entity.CreatedAt,
+        UpdatedAt = entity.UpdatedAt,
+        Participants = entity.ConversationParticipants.Select(p => new ConversationParticipantModel
+        {
+            Id = p.Id,
+            ConversationId = p.ConversationId,
+            UserId = p.UserId,
+            UserName = p.User is not null
+                ? $"{p.User.FirstName} {p.User.LastName}".Trim()
+                : null,
+            RoleInConversation = p.RoleInConversation,
+            JoinedAt = p.JoinedAt
+        }).ToList()
+    };
+
+    private static MessageModel ToMessageModel(Message m) => new()
+    {
+        Id = m.Id,
+        ConversationId = m.ConversationId,
+        SenderId = m.SenderId,
+        SenderName = m.Sender is not null
+            ? $"{m.Sender.FirstName} {m.Sender.LastName}".Trim()
+            : null,
+        Content = m.Content,
+        MessageType = Enum.TryParse<MessageType>(m.MessageType, out var mt) ? mt : MessageType.UserMessage,
+        CreatedAt = m.CreatedAt
+    };
+}
+

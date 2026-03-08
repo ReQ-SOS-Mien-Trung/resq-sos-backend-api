@@ -146,8 +146,9 @@ public partial class User
     [InverseProperty("Sender")]
     public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
 
-    [InverseProperty("User")]
-    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    /// <summary>Phòng chat của Victim (1-1: mỗi victim có đúng 1 conversation).</summary>
+    [InverseProperty("Victim")]
+    public virtual ICollection<Conversation> OwnedConversations { get; set; } = new List<Conversation>();
 
     [InverseProperty("AllocatedByUser")]
     public virtual ICollection<DepotFundAllocation> DepotFundAllocations { get; set; } = new List<DepotFundAllocation>();

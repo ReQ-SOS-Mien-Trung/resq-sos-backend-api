@@ -59,6 +59,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMissionAiSuggestionRepository, MissionAiSuggestionRepository>();
         services.AddScoped<IMissionRepository, MissionRepository>();
         services.AddScoped<IMissionActivityRepository, MissionActivityRepository>();
+        services.AddScoped<IConversationRepository, ConversationRepository>();
 
         // Finance Repositories
         services.AddScoped<IFundCampaignRepository, FundCampaignRepository>();
@@ -77,6 +78,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISosAiAnalysisService, SosAiAnalysisService>();
         services.AddScoped<IAiModelTestService, AiModelTestService>();
         services.AddScoped<IRescueMissionSuggestionService, RescueMissionSuggestionService>();
+        services.AddScoped<IChatSupportAiService, ChatSupportAiService>();
+        
+        // Domain Services
+        services.AddScoped<IFundDistributionManager, FundDistributionManager>(); // Registered
         services.AddScoped<IFundDistributionManager, FundDistributionManager>();
 
         // Payment Services

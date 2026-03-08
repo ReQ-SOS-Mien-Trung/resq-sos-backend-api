@@ -20,14 +20,12 @@ public static class SystemSeeder
             new Notification
             {
                 Id = 1,
-                UserId = SeedConstants.AdminUserId,
                 Content = "Có yêu cầu cứu hộ mới cần xử lý",
                 CreatedAt = now
             },
             new Notification
             {
                 Id = 2,
-                UserId = SeedConstants.CoordinatorUserId,
                 Content = "Nhiệm vụ #1 đã được giao cho đội của bạn",
                 CreatedAt = now
             }
