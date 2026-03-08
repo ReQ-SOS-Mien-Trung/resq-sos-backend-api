@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using RESQ.Application.Common.Models.Finance.Momo;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Finance.Commands.CreateDonation;
@@ -8,6 +9,7 @@ using RESQ.Application.UseCases.Finance.Commands.ProcessMomoPayment;
 using RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
 using RESQ.Application.UseCases.Finance.Queries.GetDonations;
 using RESQ.Application.UseCases.Finance.Queries.GetPaymentMethods;
+using System.Text.Json.Serialization;
 using RESQ.Application.UseCases.Finance.Queries.GetPublicDonations;
 using System.Text.Json;
 
@@ -15,11 +17,12 @@ namespace RESQ.Presentation.Controllers.Finance;
 
 [Route("finance/donations")]
 [ApiController]
-public class DonationController(IMediator mediator, IPaymentGatewayService paymentGatewayService, ILogger<DonationController> logger) : ControllerBase
+public class DonationController(IMediator mediator, IPaymentGatewayService paymentGatewayService, ILogger<DonationController> logger, IConfiguration configuration) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
     private readonly IPaymentGatewayService _paymentGatewayService = paymentGatewayService;
     private readonly ILogger<DonationController> _logger = logger;
+    private readonly IConfiguration _configuration = configuration;
 
     /// <summary>
     /// Lấy danh sách phương thức thanh toán
@@ -135,13 +138,38 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
     /// </summary>
     [HttpPost("momo-ipn")]
     [AllowAnonymous]
+    [IgnoreAntiforgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> ProcessMomoIpn([FromBody] MomoIpnRequest ipnData)
+    public async Task<IActionResult> ProcessMomoIpn()
     {
         try
         {
+            Request.EnableBuffering();
+            string jsonBody;
+            using (var reader = new StreamReader(Request.Body, leaveOpen: true))
+            {
+                jsonBody = await reader.ReadToEndAsync();
+                Request.Body.Position = 0;
+            }
+
+            _logger.LogInformation("Received MoMo IPN Webhook: {Payload}", jsonBody);
+
+            if (string.IsNullOrWhiteSpace(jsonBody))
+            {
+                return NoContent();
+            }
+
+            var ipnData = JsonSerializer.Deserialize<MomoIpnRequest>(jsonBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                NumberHandling = JsonNumberHandling.AllowReadingFromString
+            });
+
             if (ipnData == null)
-                return BadRequest();
+            {
+                _logger.LogWarning("MoMo IPN Webhook deserialized to null.");
+                return NoContent();
+            }
 
             var command = new ProcessMomoPaymentCommand
             {
@@ -155,6 +183,27 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
         {
             _logger.LogError(ex, "Error processing MoMo IPN");
             return NoContent();
+        }
+    }
+
+    /// <summary>
+    /// Redirect User sau khi hoàn tất thanh toán MoMo
+    /// </summary>
+    [HttpGet("momo-return")]
+    [AllowAnonymous]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public IActionResult MomoReturn([FromQuery] int resultCode)
+    {
+        var config = _configuration.GetSection("MomoAPI");
+        if (resultCode == 0)
+        {
+            var returnUrl = config["ReturnUrl"];
+            return Redirect(returnUrl ?? "http://localhost:5173/success");
+        }
+        else
+        {
+            var cancelUrl = config["CancelUrl"];
+            return Redirect(cancelUrl ?? "http://localhost:5173/fail");
         }
     }
 }

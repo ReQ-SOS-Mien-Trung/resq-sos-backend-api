@@ -43,10 +43,21 @@ public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPayme
     public async Task<bool> Handle(ProcessMomoPaymentCommand request, CancellationToken cancellationToken)
     {
         var ipn = request.IpnData;
-        if (!VerifyMomoSignature(ipn)) return false;
+        
+        _logger.LogInformation("MoMo IPN Init - OrderId: {OrderId}, TransId: {TransId}, ResultCode: {ResultCode}", ipn.OrderId, ipn.TransId, ipn.ResultCode);
+
+        if (!VerifyMomoSignature(ipn)) 
+        {
+            _logger.LogWarning("MoMo IPN Signature Verification Failed for OrderId: {OrderId}", ipn.OrderId);
+            return false;
+        }
 
         var donation = await _donationRepository.GetByOrderIdAsync(ipn.OrderId, cancellationToken);
-        if (donation == null) return false;
+        if (donation == null) 
+        {
+            _logger.LogWarning("MoMo IPN Failed - Donation not found for OrderId: {OrderId}", ipn.OrderId);
+            return false;
+        }
 
         try 
         {
