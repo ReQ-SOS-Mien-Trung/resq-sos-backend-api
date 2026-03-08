@@ -15,33 +15,34 @@ public static class DonationMapper
             Enum.TryParse(entity.PayosStatus, true, out statusEnum);
         }
 
-        // Use defaults if data is missing to ensure Value Object validity
         var donorName = entity.DonorName ?? "Anonymous";
         var donorEmail = entity.DonorEmail ?? "no-email@resq.vn";
 
-        return new DonationModel
+        var model = new DonationModel
         {
             Id = entity.Id,
             FundCampaignId = entity.FundCampaignId,
-            
-            // Reconstruct Value Objects
             Donor = new DonorInfo(donorName, donorEmail),
             Amount = entity.Amount.HasValue ? new Money(entity.Amount.Value) : null,
-            
-            // Map Primitive Fields
             PayosOrderId = entity.PayosOrderId,
             PayosTransactionId = entity.PayosTransactionId,
-            PayosStatus = statusEnum,
+            
+            // Map Entity Reference
+            PaymentMethodId = entity.PaymentMethodId,
+            PaymentMethodCode = entity.PaymentMethod?.Code,
+            PaymentMethodName = entity.PaymentMethod?.Name,
+
             PaidAt = entity.PaidAt,
             Note = entity.Note,
-            PaymentAuditInfo = entity.PaymentAuditInfo, // Map new field
+            PaymentAuditInfo = entity.PaymentAuditInfo, 
             IsPrivate = entity.IsPrivate, 
             CreatedAt = entity.CreatedAt,
-            
-            // Map View Properties
             FundCampaignName = entity.FundCampaign?.Name,
             FundCampaignCode = entity.FundCampaign?.Code
         };
+        
+        model.SetStatus(statusEnum);
+        return model;
     }
 
     public static Donation ToEntity(DonationModel model)
@@ -56,9 +57,10 @@ public static class DonationMapper
             PayosOrderId = model.PayosOrderId,
             PayosTransactionId = model.PayosTransactionId,
             PayosStatus = model.PayosStatus.ToString(),
+            PaymentMethodId = model.PaymentMethodId,
             PaidAt = model.PaidAt,
             Note = model.Note,
-            PaymentAuditInfo = model.PaymentAuditInfo, // Map new field
+            PaymentAuditInfo = model.PaymentAuditInfo, 
             IsPrivate = model.IsPrivate, 
             CreatedAt = model.CreatedAt
         };
@@ -76,10 +78,11 @@ public static class DonationMapper
         entity.PayosOrderId = model.PayosOrderId;
         entity.PayosTransactionId = model.PayosTransactionId;
         entity.PayosStatus = model.PayosStatus.ToString();
+        entity.PaymentMethodId = model.PaymentMethodId;
         entity.PaidAt = model.PaidAt;
         
         entity.Note = model.Note;
-        entity.PaymentAuditInfo = model.PaymentAuditInfo; // Update new field
+        entity.PaymentAuditInfo = model.PaymentAuditInfo; 
         entity.IsPrivate = model.IsPrivate; 
     }
 }

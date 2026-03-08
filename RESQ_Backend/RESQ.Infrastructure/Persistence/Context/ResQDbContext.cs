@@ -34,6 +34,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Donation> Donations { get; set; }
     public virtual DbSet<FundCampaign> FundCampaigns { get; set; }
     public virtual DbSet<FundTransaction> FundTransactions { get; set; }
+    public virtual DbSet<PaymentMethod> PaymentMethods { get; set; } // Added
     public virtual DbSet<InventoryLog> InventoryLogs { get; set; }
     public virtual DbSet<ItemCategory> ItemCategories { get; set; }
     public virtual DbSet<Message> Messages { get; set; }
@@ -74,7 +75,7 @@ public partial class ResQDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("postgis");
-
+        
         modelBuilder.Entity<Ability>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("abilities_pkey");
@@ -84,150 +85,10 @@ public partial class ResQDbContext : DbContext
                 .HasConstraintName("FK_abilities_ability_subgroups_ability_subgroup_id");
         });
 
-        modelBuilder.Entity<AbilityCategory>(entity =>
+        modelBuilder.Entity<PaymentMethod>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("ability_categories_pkey");
-        });
-
-        modelBuilder.Entity<AbilitySubgroup>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("ability_subgroups_pkey");
-            entity.HasOne(e => e.AbilityCategory)
-                .WithMany(c => c.Subgroups)
-                .HasForeignKey(e => e.AbilityCategoryId)
-                .HasConstraintName("FK_ability_subgroups_ability_categories_ability_category_id");
-        });
-
-        modelBuilder.Entity<ActivityAiSuggestion>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("activity_ai_suggestions_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<ClusterAiAnalysis>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("cluster_ai_analysis_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<Conversation>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("conversations_pkey");
-        });
-
-        modelBuilder.Entity<DocumentFileType>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("document_file_types_pkey");
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<DocumentFileTypeCategory>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("document_file_type_categories_pkey");
-        });
-
-        modelBuilder.Entity<ConversationParticipant>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("conversation_participants_pkey");
-        });
-
-        modelBuilder.Entity<Depot>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("depots_pkey");
-        });
-
-        modelBuilder.Entity<InventoryLog>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("inventory_logs_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<Message>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("messages_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<Mission>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("missions_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<MissionActivity>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("mission_activities_pkey");
-        });
-
-        modelBuilder.Entity<Notification>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("notifications_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<Organization>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("organizations_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<OrganizationReliefItem>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("organization_relief_items_pkey");
-        });
-
-        modelBuilder.Entity<Prompt>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("prompts_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<ReliefItem>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("relief_items_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<RescueTeamAiSuggestion>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("rescue_team_ai_suggestions_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<SosAiAnalysis>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("sos_ai_analysis_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<SosCluster>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("sos_clusters_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(e => e.LastUpdatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<SosRequest>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("sos_requests_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("users_pkey");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
-        });
-
-        modelBuilder.Entity<UserAbility>(entity =>
-        {
-            entity.HasKey(e => new { e.UserId, e.AbilityId }).HasName("user_abilities_pkey");
+            entity.HasKey(e => e.Id).HasName("payment_methods_pkey");
+            entity.HasIndex(e => e.Code).IsUnique();
         });
         
         modelBuilder.Entity<UserPermission>(entity =>

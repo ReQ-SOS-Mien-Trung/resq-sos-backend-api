@@ -39,13 +39,16 @@ public partial class Donation
     [StringLength(50)]
     public string? PayosStatus { get; set; }
 
+    // Changed: Foreign Key to PaymentMethod
+    [Column("payment_method_id")]
+    public int? PaymentMethodId { get; set; }
+
     [Column("paid_at", TypeName = "timestamp with time zone")]
     public DateTime? PaidAt { get; set; }
 
     [Column("note")]
     public string? Note { get; set; }
 
-    // New Column for Audit Information
     [Column("payment_audit_info")]
     public string? PaymentAuditInfo { get; set; }
 
@@ -58,4 +61,8 @@ public partial class Donation
     [ForeignKey("FundCampaignId")]
     [InverseProperty("Donations")]
     public virtual FundCampaign? FundCampaign { get; set; }
+
+    [ForeignKey("PaymentMethodId")]
+    [InverseProperty("Donations")]
+    public virtual PaymentMethod? PaymentMethod { get; set; }
 }

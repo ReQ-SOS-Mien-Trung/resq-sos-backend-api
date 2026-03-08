@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Models.Finance.PayOS;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
-using RESQ.Infrastructure.Dtos.Finance;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -60,9 +60,6 @@ public class PayOSService : IPaymentGatewayService
         var amount = (int)(donation.Amount?.Amount ?? 0);
         var expiredAt = DateTimeOffset.UtcNow.AddMinutes(15).ToUnixTimeSeconds();
 
-        // Signature for Creating Link (order matters: amount, cancelUrl, description, orderCode, returnUrl)
-        // Ensure values are sorted by key for signature generation if building manually, 
-        // or ensure the properties used here match PayOS requirements.
         var signatureData = $"amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={orderCode}&returnUrl={returnUrl}";
         var signature = CreateSignature(signatureData, checksumKey);
 
@@ -138,12 +135,7 @@ public class PayOSService : IPaymentGatewayService
             }
 
             var dataString = BuildSignatureDataString(dataElement);
-
             var computedSignature = CreateSignature(dataString, checksumKey);
-
-            _logger.LogInformation("PayOS Verify DataString: {DataString}", dataString);
-            _logger.LogInformation("Computed Signature: {Computed}", computedSignature);
-            _logger.LogInformation("Received Signature: {Received}", receivedSignature);
 
             return computedSignature.Equals(receivedSignature, StringComparison.OrdinalIgnoreCase);
         }
@@ -157,88 +149,29 @@ public class PayOSService : IPaymentGatewayService
     private static string BuildSignatureDataString(JsonElement dataElement)
     {
         var dict = new Dictionary<string, string>();
-
         foreach (var prop in dataElement.EnumerateObject())
         {
-            // PayOS Java: value = jsonObject.get(key).toString()
             var value = prop.Value.ToString();
-
             dict[prop.Name] = value ?? "";
         }
-
         var sorted = dict.OrderBy(x => x.Key, StringComparer.Ordinal);
-
         var builder = new StringBuilder();
-
         foreach (var item in sorted)
         {
-            if (builder.Length > 0)
-                builder.Append("&");
-
+            if (builder.Length > 0) builder.Append("&");
             builder.Append(item.Key);
             builder.Append("=");
             builder.Append(item.Value);
         }
-
         return builder.ToString();
-    }
-
-    /// <summary>
-    /// Flattens, filters nulls (keeps empty strings), and sorts keys by ASCII rules.
-    /// </summary>
-    private Dictionary<string, string> SortAndFilterData(JsonNode dataNode)
-    {
-        var result = new Dictionary<string, string>();
-
-        if (dataNode is JsonObject jsonObj)
-        {
-            foreach (var kvp in jsonObj)
-            {
-                var key = kvp.Key;
-                var valueNode = kvp.Value;
-
-                // Ignore null values strictly
-                if (valueNode == null) continue;
-
-                string stringValue;
-
-                // Handle types to preserve formatting (especially numbers)
-                if (valueNode is JsonValue val)
-                {
-                    if (val.TryGetValue<string>(out var s))
-                    {
-                        stringValue = s; // Keep strings as is (including empty)
-                    }
-                    else
-                    {
-                        // For numbers/bools, use Raw Text to ensure 500000 matches 500000 (not 500000.0)
-                        stringValue = valueNode.ToJsonString();
-                    }
-                }
-                else 
-                {
-                    // Fallback for arrays/objects if they exist in simple flat payload (usually shouldn't)
-                    stringValue = valueNode.ToJsonString();
-                }
-
-                result[key] = stringValue;
-            }
-        }
-
-        // Sort keys by ASCII (Ordinal)
-        return result
-            .OrderBy(x => x.Key, StringComparer.Ordinal)
-            .ToDictionary(x => x.Key, x => x.Value);
     }
 
     private static string CreateSignature(string data, string key)
     {
         var keyBytes = Encoding.UTF8.GetBytes(key);
         var dataBytes = Encoding.UTF8.GetBytes(data);
-
         using var hmac = new HMACSHA256(keyBytes);
         var hash = hmac.ComputeHash(dataBytes);
-        
         return BitConverter.ToString(hash).Replace("-", "").ToLower();
     }
 }

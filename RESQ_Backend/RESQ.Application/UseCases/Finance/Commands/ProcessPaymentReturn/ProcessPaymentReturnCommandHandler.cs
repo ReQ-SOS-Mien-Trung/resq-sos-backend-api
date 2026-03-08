@@ -57,113 +57,60 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
             return true; 
         }
 
-        // 1. Find Donation by Order Code
         var donation = await _donationRepository.GetByPayosOrderIdAsync(orderCodeStr, cancellationToken);
+        
         if (donation == null)
         {
             _logger.LogError("Donation not found for OrderCode: {OrderCode}", orderCodeStr);
             return true;
         }
 
-        // 2. Idempotency Check
-        if (donation.PayosStatus == PayOSStatus.Succeed)
-        {
-            _logger.LogInformation("Donation {Id} (OrderCode: {OrderCode}) is already marked as Succeed. Ignoring duplicate webhook.", 
-                donation.Id, orderCodeStr);
-            return true;
-        }
-
         try 
         {
-            // 3. Determine New Status
-            PayOSStatus newStatus = PayOSStatus.Succeed;
+            // Business Rule: Update Status Check (Enforces Idempotency and State rules)
+            donation.UpdatePaymentStatus(PayOSStatus.Succeed);
 
-            // 4. Update Donation Data
-            donation.PayosStatus = newStatus;
             donation.PayosTransactionId = paymentLinkId;
+            donation.PaymentAuditInfo = $"[Bank:{webhook.Data.CounterAccountBankName}-{webhook.Data.CounterAccountNumber}]";
             
-            // UPDATED: Save audit info to dedicated column instead of Note
-            var auditInfo = $"[Bank:{webhook.Data.CounterAccountBankName}-{webhook.Data.CounterAccountNumber}]";
-            donation.PaymentAuditInfo = auditInfo; 
-            // Note field remains untouched (keeps user message)
-
-            // Parse Date Time from Webhook
-            if (DateTime.TryParseExact(
-                    webhook.Data.TransactionDateTime,
-                    new[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm" }, 
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None,
-                    out var paidAt))
-            {
+            if (DateTime.TryParseExact(webhook.Data.TransactionDateTime, new[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var paidAt))
                 donation.PaidAt = paidAt.ToUniversalTime();
-            }
             else
-            {
                 donation.PaidAt = DateTime.UtcNow;
-            }
             
-            // Update Donation in Context
             await _donationRepository.UpdateAsync(donation, cancellationToken);
 
-            // 5. Update Campaign & Add Transaction Ledger
             if (donation.FundCampaignId.HasValue)
             {
                 var campaign = await _campaignRepository.GetByIdAsync(donation.FundCampaignId.Value, cancellationToken);
-                
                 if (campaign != null && !campaign.IsDeleted)
                 {
-                    var donationAmount = donation.Amount?.Amount ?? 0;
-                    if (donationAmount > 0)
+                    campaign.ReceiveDonation(donation.Amount?.Amount ?? 0);
+                    await _campaignRepository.UpdateAsync(campaign, cancellationToken);
+                    
+                    var transaction = new FundTransactionModel
                     {
-                        campaign.ReceiveDonation(donationAmount);
-                        await _campaignRepository.UpdateAsync(campaign, cancellationToken);
-                        
-                        var transaction = new FundTransactionModel
-                        {
-                            FundCampaignId = donation.FundCampaignId,
-                            Type = TransactionType.Donation,
-                            Direction = "in",
-                            Amount = donationAmount,
-                            ReferenceType = TransactionReferenceType.Donation,
-                            ReferenceId = donation.Id,
-                            CreatedBy = null, // System
-                            CreatedAt = DateTime.UtcNow,
-                        };
-                        await _transactionRepository.CreateAsync(transaction, cancellationToken);
-                    }
-                }
-                else 
-                {
-                    _logger.LogWarning("Campaign {CampaignId} not found or deleted for Donation {DonationId}", donation.FundCampaignId, donation.Id);
+                        FundCampaignId = donation.FundCampaignId,
+                        Type = TransactionType.Donation,
+                        Direction = "in",
+                        Amount = donation.Amount?.Amount,
+                        ReferenceType = TransactionReferenceType.Donation,
+                        ReferenceId = donation.Id,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _transactionRepository.CreateAsync(transaction, cancellationToken);
                 }
             }
 
-            // 6. Commit Transaction
-            var rowsAffected = await _unitOfWork.SaveAsync();
-            _logger.LogInformation("Donation {Id} updated to Succeed. Rows affected: {Rows}", donation.Id, rowsAffected);
+            await _unitOfWork.SaveAsync();
 
-            // 7. Send Email
             if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
-                try 
-                {
-                    var campaignName = donation.FundCampaignName ?? "Chiến dịch cứu trợ";
-                    var campaignCode = donation.FundCampaignCode ?? "RESQ";
-
-                    await _emailService.SendDonationSuccessEmailAsync(
-                        donation.Donor.Email,
-                        donation.Donor.Name,
-                        donation.Amount?.Amount ?? 0,
-                        campaignName,
-                        campaignCode,
-                        donation.Id,
-                        cancellationToken
-                    );
-                }
-                catch(Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to send success email for Donation {Id}", donation.Id);
-                }
+                _ = _emailService.SendDonationSuccessEmailAsync(
+                    donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
+                    donation.FundCampaignName ?? "Chiến dịch", donation.FundCampaignCode ?? "RESQ",
+                    donation.Id, cancellationToken
+                );
             }
 
             return true;
@@ -171,6 +118,8 @@ public class ProcessPaymentReturnCommandHandler : IRequestHandler<ProcessPayment
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing donation logic for OrderCode {OrderCode}", orderCodeStr);
+            // Return false or true depending on whether you want the gateway to retry. 
+            // Usually internal logic errors shouldn't retry if they are permanent, but for transient issues return false.
             return false; 
         }
     }

@@ -15,18 +15,21 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDonationRepository _donationRepository;
     private readonly IFundCampaignRepository _fundCampaignRepository;
-    private readonly IPaymentGatewayService _paymentGatewayService;
+    private readonly IPaymentMethodRepository _paymentMethodRepository;
+    private readonly IPaymentGatewayFactory _paymentGatewayFactory;
 
     public CreateDonationCommandHandler(
         IUnitOfWork unitOfWork,
         IDonationRepository donationRepository, 
         IFundCampaignRepository fundCampaignRepository,
-        IPaymentGatewayService paymentGatewayService)
+        IPaymentMethodRepository paymentMethodRepository,
+        IPaymentGatewayFactory paymentGatewayFactory)
     {
         _unitOfWork = unitOfWork;
         _donationRepository = donationRepository;
         _fundCampaignRepository = fundCampaignRepository;
-        _paymentGatewayService = paymentGatewayService;
+        _paymentMethodRepository = paymentMethodRepository;
+        _paymentGatewayFactory = paymentGatewayFactory;
     }
 
     public async Task<CreateDonationResponse> Handle(CreateDonationCommand request, CancellationToken cancellationToken)
@@ -34,71 +37,50 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
         // 1. Validate Campaign
         var campaign = await _fundCampaignRepository.GetByIdAsync(request.FundCampaignId, cancellationToken);
         if (campaign == null)
-        {
             throw new NotFoundException($"Không tìm thấy chiến dịch với ID {request.FundCampaignId}");
-        }
 
-        // Domain Rule Validation
         if (campaign.Status != FundCampaignStatus.Active)
-        {
-            throw new InvalidCampaignStatusException(
-                campaign.Id, 
-                campaign.Status.ToString(), 
-                "Nhận ủng hộ"
-            );
-        }
+            throw new InvalidCampaignStatusException(campaign.Id, campaign.Status.ToString(), "Nhận ủng hộ");
 
-        // 2. Create Initial Donation Record to get the ID
-        // Generate a temporary Order Code, will be updated or used
+        // 2. Validate Payment Method from DB
+        var paymentMethodEntity = await _paymentMethodRepository.GetByIdAsync(request.PaymentMethodId, cancellationToken);
+        if (paymentMethodEntity == null || !paymentMethodEntity.IsActive)
+            throw new BadRequestException("Phương thức thanh toán không hợp lệ hoặc đã ngưng hoạt động.");
+
+        // 3. Create Donation
         long orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         var donationModel = new DonationModel
         {
             FundCampaignId = request.FundCampaignId,
-            
-            // Value Objects
             Donor = new DonorInfo(request.DonorName, request.DonorEmail),
             Amount = new Money(request.Amount),
-            
             Note = request.Note,
-            IsPrivate = request.IsPrivate, // Map the privacy setting
-            
-            PayosStatus = PayOSStatus.Pending,
+            IsPrivate = request.IsPrivate,
             PayosOrderId = orderCode.ToString(),
-            
+            PaymentMethodId = request.PaymentMethodId,
             CreatedAt = DateTime.UtcNow,
-            
-            // Populate Domain Info for Service
             FundCampaignCode = campaign.Code,
             FundCampaignName = campaign.Name
         };
 
-        // Persist to DB first to get the ID
-        await _donationRepository.CreateAsync(donationModel, cancellationToken);
-        var saveResult = await _unitOfWork.SaveAsync();
-        
-        if (saveResult < 1)
-        {
-            throw new CreateFailedException("Đơn ủng hộ");
-        }
-        
-        // Refetch by the unique PayosOrderId we just generated to get the correct ID
-        var addedDonation = await _donationRepository.GetByPayosOrderIdAsync(orderCode.ToString(), cancellationToken);
-        if (addedDonation == null)
-        {
-            throw new Exception("Lỗi khi truy xuất đơn ủng hộ vừa tạo");
-        }
-        
-        // 3. Call PayOS to generate Link using the real ID
-        addedDonation.FundCampaignCode = campaign.Code; // Re-attach info required for description
-        
-        var paymentResult = await _paymentGatewayService.CreatePaymentLinkAsync(
-            addedDonation, 
-            cancellationToken);
+        donationModel.SetStatus(PayOSStatus.Pending);
 
-        // 4. Update Donation with PayOS Info (PaymentLinkId etc)
-        addedDonation.PayosTransactionId = paymentResult.PaymentLinkId;
+        await _donationRepository.CreateAsync(donationModel, cancellationToken);
+        if (await _unitOfWork.SaveAsync() < 1)
+            throw new CreateFailedException("Đơn ủng hộ");
         
+        var addedDonation = await _donationRepository.GetByPayosOrderIdAsync(orderCode.ToString(), cancellationToken);
+        if (addedDonation == null) throw new Exception("Lỗi khi truy xuất đơn ủng hộ.");
+
+        // 4. Resolve Gateway Service using the Code from DB Entity
+        addedDonation.FundCampaignCode = campaign.Code;
+        
+        var paymentService = _paymentGatewayFactory.GetService(paymentMethodEntity.Code);
+        var paymentResult = await paymentService.CreatePaymentLinkAsync(addedDonation, cancellationToken);
+
+        // 5. Update Transaction Info
+        addedDonation.PayosTransactionId = paymentResult.PaymentLinkId;
         await _donationRepository.UpdateAsync(addedDonation, cancellationToken);
         await _unitOfWork.SaveAsync();
 
@@ -106,7 +88,8 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
         {
             DonationId = addedDonation.Id,
             CheckoutUrl = paymentResult.CheckoutUrl,
-            QrCode = paymentResult.QrCode
+            QrCode = paymentResult.QrCode,
+            PaymentMethod = paymentMethodEntity.Name
         };
     }
 }

@@ -8,6 +8,14 @@ public static class FinanceSeed
 {
     public static void SeedFinance(this ModelBuilder modelBuilder)
     {
+        // 0. Payment Methods (Added)
+        var paymentMethods = new List<PaymentMethod>
+        {
+            new PaymentMethod { Id = 1, Code = "PAYOS", Name = "Chuyển khoản Ngân hàng (QR Code)", IsActive = true },
+            new PaymentMethod { Id = 2, Code = "MOMO", Name = "Ví điện tử MoMo", IsActive = true }
+        };
+        modelBuilder.Entity<PaymentMethod>().HasData(paymentMethods);
+
         // 1. Fund Campaigns
         var fundCampaigns = new List<FundCampaign>
         {
@@ -57,9 +65,10 @@ public static class FinanceSeed
                 PayosOrderId = "2407150001",
                 PayosTransactionId = "TRX-001",
                 PayosStatus = PayOSStatus.Succeed.ToString(),
+                PaymentMethodId = 1, // PayOS
                 PaidAt = new DateTime(2024, 7, 15, 10, 30, 0, DateTimeKind.Utc),
                 Note = "Mong bà con sớm vượt qua khó khăn.",
-                PaymentAuditInfo = "[Bank:MBBANK-1234567890]", // Added PaymentAuditInfo
+                PaymentAuditInfo = "[Bank:MBBANK-1234567890]", 
                 IsPrivate = false,
                 CreatedAt = new DateTime(2024, 7, 15, 10, 25, 0, DateTimeKind.Utc)
             },
@@ -73,10 +82,11 @@ public static class FinanceSeed
                 PayosOrderId = "2407160002",
                 PayosTransactionId = "TRX-002",
                 PayosStatus = PayOSStatus.Succeed.ToString(),
+                PaymentMethodId = 1, // PayOS
                 PaidAt = new DateTime(2024, 7, 16, 14, 15, 0, DateTimeKind.Utc),
                 Note = "Ủng hộ miền Trung ruột thịt.",
-                PaymentAuditInfo = "[Bank:VIETCOMBANK-0987654321]", // Added PaymentAuditInfo
-                IsPrivate = true, // Ẩn danh
+                PaymentAuditInfo = "[Bank:VIETCOMBANK-0987654321]", 
+                IsPrivate = true, 
                 CreatedAt = new DateTime(2024, 7, 16, 14, 10, 0, DateTimeKind.Utc)
             },
             new Donation
@@ -89,9 +99,10 @@ public static class FinanceSeed
                 PayosOrderId = "2408010003",
                 PayosTransactionId = "TRX-003",
                 PayosStatus = PayOSStatus.Succeed.ToString(),
+                PaymentMethodId = 2, // MoMo
                 PaidAt = new DateTime(2024, 8, 1, 09, 00, 0, DateTimeKind.Utc),
                 Note = "Góp một phần nhỏ bé.",
-                PaymentAuditInfo = "[Bank:TPBANK-111222333]", // Added PaymentAuditInfo
+                PaymentAuditInfo = "[MoMo:TransId=99887766,Type=captureWallet]", 
                 IsPrivate = false,
                 CreatedAt = new DateTime(2024, 8, 1, 08, 55, 0, DateTimeKind.Utc)
             },
@@ -107,9 +118,10 @@ public static class FinanceSeed
                 PayosOrderId = "2402100004",
                 PayosTransactionId = "TRX-004",
                 PayosStatus = PayOSStatus.Succeed.ToString(),
+                PaymentMethodId = 1, // PayOS
                 PaidAt = new DateTime(2024, 2, 10, 11, 20, 0, DateTimeKind.Utc),
                 Note = "Hỗ trợ thiết bị y tế cho bệnh viện.",
-                PaymentAuditInfo = "[Bank:BIDV-555666777]", // Added PaymentAuditInfo
+                PaymentAuditInfo = "[Bank:BIDV-555666777]", 
                 IsPrivate = false,
                 CreatedAt = new DateTime(2024, 2, 10, 11, 15, 0, DateTimeKind.Utc)
             },
@@ -123,9 +135,10 @@ public static class FinanceSeed
                 PayosOrderId = "2402150005",
                 PayosTransactionId = "TRX-005",
                 PayosStatus = PayOSStatus.Succeed.ToString(),
+                PaymentMethodId = 2, // MoMo
                 PaidAt = new DateTime(2024, 2, 15, 16, 45, 0, DateTimeKind.Utc),
                 Note = "Chúc các bác sĩ nhiều sức khỏe.",
-                PaymentAuditInfo = "[Bank:TECHCOMBANK-888999000]", // Added PaymentAuditInfo
+                PaymentAuditInfo = "[MoMo:TransId=55443322,Type=qr]",
                 IsPrivate = true,
                 CreatedAt = new DateTime(2024, 2, 15, 16, 40, 0, DateTimeKind.Utc)
             }
@@ -133,7 +146,7 @@ public static class FinanceSeed
 
         modelBuilder.Entity<Donation>().HasData(donations);
 
-        // 3. Fund Transactions (Corresponding to successful donations)
+        // 3. Fund Transactions
         var transactions = new List<FundTransaction>
         {
             new FundTransaction
@@ -144,8 +157,8 @@ public static class FinanceSeed
                 Direction = "in",
                 Amount = 500000,
                 ReferenceType = TransactionReferenceType.Donation.ToString(),
-                ReferenceId = 1, // Link to Donation Id 1
-                CreatedBy = null, // System/Public
+                ReferenceId = 1, 
+                CreatedBy = null,
                 CreatedAt = new DateTime(2024, 7, 15, 10, 30, 0, DateTimeKind.Utc)
             },
             new FundTransaction
@@ -156,7 +169,7 @@ public static class FinanceSeed
                 Direction = "in",
                 Amount = 2000000,
                 ReferenceType = TransactionReferenceType.Donation.ToString(),
-                ReferenceId = 2, // Link to Donation Id 2
+                ReferenceId = 2, 
                 CreatedBy = null,
                 CreatedAt = new DateTime(2024, 7, 16, 14, 15, 0, DateTimeKind.Utc)
             },
@@ -168,7 +181,7 @@ public static class FinanceSeed
                 Direction = "in",
                 Amount = 5000000,
                 ReferenceType = TransactionReferenceType.Donation.ToString(),
-                ReferenceId = 3, // Link to Donation Id 3
+                ReferenceId = 3, 
                 CreatedBy = null,
                 CreatedAt = new DateTime(2024, 8, 1, 09, 00, 0, DateTimeKind.Utc)
             },
@@ -180,7 +193,7 @@ public static class FinanceSeed
                 Direction = "in",
                 Amount = 50000000,
                 ReferenceType = TransactionReferenceType.Donation.ToString(),
-                ReferenceId = 4, // Link to Donation Id 4
+                ReferenceId = 4, 
                 CreatedBy = null,
                 CreatedAt = new DateTime(2024, 2, 10, 11, 20, 0, DateTimeKind.Utc)
             },
@@ -192,7 +205,7 @@ public static class FinanceSeed
                 Direction = "in",
                 Amount = 200000,
                 ReferenceType = TransactionReferenceType.Donation.ToString(),
-                ReferenceId = 5, // Link to Donation Id 5
+                ReferenceId = 5, 
                 CreatedBy = null,
                 CreatedAt = new DateTime(2024, 2, 15, 16, 45, 0, DateTimeKind.Utc)
             }
