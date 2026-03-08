@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Extensions;
 using RESQ.Infrastructure.Extensions;
+using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Presentation.Middlewares;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -106,6 +108,12 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
+// Auto-apply EF Core migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 // Middleware pipeline
 
