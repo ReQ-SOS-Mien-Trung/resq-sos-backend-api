@@ -1,10 +1,13 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Models.Finance.Momo;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Finance.Commands.CreateDonation;
-using RESQ.Application.UseCases.Finance.Commands.ProcessPaymentReturn;
+using RESQ.Application.UseCases.Finance.Commands.ProcessMomoPayment;
+using RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
 using RESQ.Application.UseCases.Finance.Queries.GetDonations;
+using RESQ.Application.UseCases.Finance.Queries.GetPaymentMethods;
 using RESQ.Application.UseCases.Finance.Queries.GetPublicDonations;
 using System.Text.Json;
 
@@ -19,7 +22,17 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
     private readonly ILogger<DonationController> _logger = logger;
 
     /// <summary>
-    /// Lấy danh sách ủng hộ (Admin/Manager view) - Có thể xem cả ẩn danh nếu không filter
+    /// Lấy danh sách phương thức thanh toán
+    /// </summary>
+    [HttpGet("payment-methods")]
+    public async Task<IActionResult> GetPaymentMethods()
+    {
+        var result = await _mediator.Send(new GetPaymentMethodsQuery());
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy danh sách ủng hộ (Admin/Manager view)
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetDonations([FromQuery] GetDonationsQuery query)
@@ -39,7 +52,7 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
     }
 
     /// <summary>
-    /// Tạo yêu cầu ủng hộ mới và lấy link thanh toán
+    /// Tạo yêu cầu ủng hộ mới và lấy link thanh toán (PayOS hoặc MoMo)
     /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(CreateDonationResponse), StatusCodes.Status201Created)]
@@ -54,6 +67,7 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
             Amount = dto.Amount,
             Note = dto.Note,
             IsPrivate = dto.IsPrivate,
+            PaymentMethodId = dto.PaymentMethodId
         };
 
         var result = await _mediator.Send(command);
@@ -66,18 +80,15 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
     [HttpPost("payment-return")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> ProcessPaymentReturn()
+    public async Task<IActionResult> ProcessPayosPaymentReturn()
     {
         try
         {
-            // 1. Enable buffering to read the stream
             Request.EnableBuffering();
-
             string jsonBody;
             using (var reader = new StreamReader(Request.Body, leaveOpen: true))
             {
                 jsonBody = await reader.ReadToEndAsync();
-                // Reset position for later use if needed (though we deserialize string directly)
                 Request.Body.Position = 0;
             }
 
@@ -86,16 +97,14 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
                 return Ok(new { success = false, message = "Empty webhook payload." });
             }
 
-            // 2. Verify Signature
             var isValidSignature = _paymentGatewayService.VerifyWebhookSignature(jsonBody);
 
             if (!isValidSignature)
             {
-                _logger.LogWarning("Webhook signature verification failed.");
+                _logger.LogWarning("PayOS Webhook signature verification failed.");
                 return Ok(new { success = false, message = "Webhook signature mismatch." });
             }
 
-            // 3. Deserialize to Object
             var webhook = JsonSerializer.Deserialize<WebhookType>(jsonBody, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
@@ -106,27 +115,47 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
                 return Ok(new { success = false, message = "Invalid webhook data." });
             }
 
-            // 4. Process Payment Logic
-            var command = new ProcessPaymentReturnCommand
+            var command = new ProcessPayosPaymentReturnCommand
             {
                 WebhookData = webhook
             };
 
-            var result = await _mediator.Send(command);
-
-            if (!result)
-            {
-                _logger.LogWarning("Payment logic returned false, but returning 200 OK to acknowledge webhook.");
-            }
-
+            await _mediator.Send(command);
             return Ok(new { success = true, message = "Webhook received." });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing webhook");
-            // Always return 200 to PayOS to stop retry spam, even on internal errors, 
-            // unless we want them to retry. Usually we catch and log.
+            _logger.LogError(ex, "Error processing PayOS webhook");
             return Ok(new { success = true, message = "Webhook received with internal error." });
         }
     }
+
+    /// <summary>
+    /// Webhook xử lý kết quả thanh toán từ MoMo
+    /// </summary>
+    [HttpPost("momo-ipn")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> ProcessMomoIpn([FromBody] MomoIpnRequest ipnData)
+    {
+        try
+        {
+            if (ipnData == null)
+                return BadRequest();
+
+            var command = new ProcessMomoPaymentCommand
+            {
+                IpnData = ipnData
+            };
+
+            await _mediator.Send(command);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing MoMo IPN");
+            return NoContent();
+        }
+    }
 }
+

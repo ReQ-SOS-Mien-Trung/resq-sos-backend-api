@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -24,11 +24,11 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
         var repo = _unitOfWork.GetRepository<Donation>();
         
         // Ensure successful payments only
-        var successStatus = PayOSStatus.Succeed.ToString();
+        var successStatus = Status.Succeed.ToString();
 
         // Build composite filter using explicit checks to ensure EF Translation works well
         Expression<Func<Donation, bool>> compositeFilter = x => 
-            x.PayosStatus == successStatus &&
+            x.Status == successStatus &&
             (!campaignId.HasValue || x.FundCampaignId == campaignId) &&
             (!isPrivate.HasValue || x.IsPrivate == isPrivate);
 
@@ -53,12 +53,12 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
         return entity == null ? null : DonationMapper.ToModel(entity);
     }
 
-    public async Task<DonationModel?> GetByPayosOrderIdAsync(string? orderId, CancellationToken cancellationToken = default)
+    public async Task<DonationModel?> GetByOrderIdAsync(string? orderId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(orderId)) return null;
 
         var repo = _unitOfWork.GetRepository<Donation>();
-        var entity = await repo.GetByPropertyAsync(x => x.PayosOrderId == orderId, tracked: true, includeProperties: "FundCampaign");
+        var entity = await repo.GetByPropertyAsync(x => x.OrderId == orderId, tracked: true, includeProperties: "FundCampaign");
 
         return entity == null ? null : DonationMapper.ToModel(entity);
     }
@@ -66,10 +66,10 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
     public async Task<List<DonationModel>> GetPendingDonationsOlderThanAsync(DateTime threshold, CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<Donation>();
-        var pendingStatus = PayOSStatus.Pending.ToString();
+        var pendingStatus = Status.Pending.ToString();
 
         var entities = await repo.GetAllByPropertyAsync(
-            x => x.PayosStatus == pendingStatus && x.CreatedAt < threshold
+            x => x.Status == pendingStatus && x.CreatedAt < threshold
         );
 
         return entities.Select(DonationMapper.ToModel).ToList();
@@ -94,3 +94,4 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
         }
     }
 }
+

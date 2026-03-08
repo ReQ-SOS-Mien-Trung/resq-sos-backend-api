@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace RESQ.Application.UseCases.Finance.Commands.ProcessPaymentReturn
+namespace RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn
 {
     public class WebhookType
     {
@@ -20,3 +20,4 @@ namespace RESQ.Application.UseCases.Finance.Commands.ProcessPaymentReturn
         public string? Signature { get; init; }
     }
 }
+

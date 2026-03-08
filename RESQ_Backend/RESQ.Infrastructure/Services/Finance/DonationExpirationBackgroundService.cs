@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Base;
@@ -63,8 +63,10 @@ public class DonationExpirationBackgroundService : BackgroundService
 
             foreach (var donation in expiredDonations)
             {
-                donation.PayosStatus = PayOSStatus.Failed;
-                donation.Note += " [System: Expired due to timeout]";
+                // Use the Domain Method to update status instead of direct property setter
+                donation.UpdatePaymentStatus(Status.Failed);
+                
+                donation.PaymentAuditInfo += " [System: Expired due to timeout]";
                 
                 // Update in DB
                 await donationRepository.UpdateAsync(donation, stoppingToken);
@@ -73,4 +75,5 @@ public class DonationExpirationBackgroundService : BackgroundService
             await unitOfWork.SaveAsync();
         }
     }
-}
+}
+

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateDonation
 {
@@ -11,5 +7,6 @@ namespace RESQ.Application.UseCases.Finance.Commands.CreateDonation
         public int DonationId { get; set; }
         public string CheckoutUrl { get; set; } = string.Empty;
         public string QrCode { get; set; } = string.Empty;
+        public string PaymentMethod { get; set; } = string.Empty;
     }
 }

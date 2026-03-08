@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -27,17 +27,21 @@ public partial class Donation
     [Column("amount")]
     public decimal? Amount { get; set; }
 
-    [Column("payos_order_id")]
+    [Column("order_id")]
     [StringLength(100)]
-    public string? PayosOrderId { get; set; }
+    public string? OrderId { get; set; }
 
-    [Column("payos_transaction_id")]
+    [Column("transaction_id")]
     [StringLength(100)]
-    public string? PayosTransactionId { get; set; }
+    public string? TransactionId { get; set; }
 
-    [Column("payos_status")]
+    [Column("status")]
     [StringLength(50)]
-    public string? PayosStatus { get; set; }
+    public string? Status { get; set; }
+
+    // Changed: Foreign Key to PaymentMethod
+    [Column("payment_method_id")]
+    public int? PaymentMethodId { get; set; }
 
     [Column("paid_at", TypeName = "timestamp with time zone")]
     public DateTime? PaidAt { get; set; }
@@ -45,7 +49,6 @@ public partial class Donation
     [Column("note")]
     public string? Note { get; set; }
 
-    // New Column for Audit Information
     [Column("payment_audit_info")]
     public string? PaymentAuditInfo { get; set; }
 
@@ -58,4 +61,9 @@ public partial class Donation
     [ForeignKey("FundCampaignId")]
     [InverseProperty("Donations")]
     public virtual FundCampaign? FundCampaign { get; set; }
+
+    [ForeignKey("PaymentMethodId")]
+    [InverseProperty("Donations")]
+    public virtual PaymentMethod? PaymentMethod { get; set; }
 }
+

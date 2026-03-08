@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 using System.Collections.Generic;
 
-namespace RESQ.Application.UseCases.Finance.Commands.ProcessPaymentReturn
+namespace RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn
 {
     // Corresponds strictly to the "data" object in PayOS JSON
     public class WebhookDataType
@@ -53,3 +53,4 @@ namespace RESQ.Application.UseCases.Finance.Commands.ProcessPaymentReturn
         public Dictionary<string, object>? ExtraData { get; set; }
     }
 }
+
