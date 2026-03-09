@@ -14,5 +14,6 @@ public record CreatePromptCommand(
     int MaxTokens,
     string Version,
     string? ApiUrl,
+    string? ApiKey,
     bool IsActive = true
 ) : IRequest<CreatePromptResponse>;

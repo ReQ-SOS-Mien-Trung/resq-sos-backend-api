@@ -16,7 +16,6 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IPromptRepository _promptRepository;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
-    private readonly string _apiKey;
 
     // Fallback defaults - chỉ dùng khi field trong DB bị null
     private const string FALLBACK_MODEL = "gemini-2.5-flash";
@@ -27,13 +26,11 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     public RescueMissionSuggestionService(
         IHttpClientFactory httpClientFactory,
         IPromptRepository promptRepository,
-        IConfiguration configuration,
         ILogger<RescueMissionSuggestionService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _promptRepository = promptRepository;
         _logger = logger;
-        _apiKey = configuration["Gemini:ApiKey"] ?? throw new InvalidOperationException("Gemini API key not configured");
     }
 
     public async Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
@@ -63,6 +60,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
             var modelName = prompt.Model ?? FALLBACK_MODEL;
             var apiUrl = prompt.ApiUrl ?? FALLBACK_API_URL;
+            var apiKey = prompt.ApiKey ?? string.Empty;
             var temperature = prompt.Temperature ?? FALLBACK_TEMPERATURE;
             // Always use at least FALLBACK_MAX_TOKENS regardless of DB setting to avoid truncation
             // Vietnamese text is token-heavy (~2-3 tokens/char), so responses need much more than 4096
@@ -108,7 +106,7 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
             }
 
             // Call Gemini API
-            var aiResponse = await CallAiApiAsync(modelName, apiUrl, prompt.SystemPrompt ?? string.Empty, userPrompt, temperature, maxTokens, cancellationToken);
+            var aiResponse = await CallAiApiAsync(modelName, apiUrl, apiKey, prompt.SystemPrompt ?? string.Empty, userPrompt, temperature, maxTokens, cancellationToken);
 
             stopwatch.Stop();
 
@@ -216,12 +214,12 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
         });
     }
 
-    private async Task<string?> CallAiApiAsync(string model, string apiUrlTemplate, string systemPrompt, string userPrompt, double temperature, int maxTokens, CancellationToken cancellationToken)
+    private async Task<string?> CallAiApiAsync(string model, string apiUrlTemplate, string apiKey, string systemPrompt, string userPrompt, double temperature, int maxTokens, CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(120);
 
-        var url = string.Format(apiUrlTemplate, model, _apiKey);
+        var url = string.Format(apiUrlTemplate, model, apiKey);
 
         var requestBody = new GeminiRequest
         {

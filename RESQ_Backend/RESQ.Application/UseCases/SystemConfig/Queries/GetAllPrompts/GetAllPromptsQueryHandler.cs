@@ -28,6 +28,7 @@ public class GetAllPromptsQueryHandler(
             MaxTokens = p.MaxTokens,
             Version = p.Version,
             ApiUrl = p.ApiUrl,
+            ApiKey = p.ApiKey,
             IsActive = p.IsActive,
             CreatedAt = p.CreatedAt,
             UpdatedAt = p.UpdatedAt

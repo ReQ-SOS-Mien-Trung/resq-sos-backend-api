@@ -15,5 +15,6 @@ public record UpdatePromptCommand(
     int? MaxTokens,
     string? Version,
     string? ApiUrl,
+    string? ApiKey,
     bool? IsActive
 ) : IRequest;

@@ -35,6 +35,9 @@ public class CreatePromptRequestDto
     [JsonPropertyName("api_url")]
     public string? ApiUrl { get; set; }
 
+    [JsonPropertyName("api_key")]
+    public string? ApiKey { get; set; }
+
     /// <summary>Nếu true (mặc định), prompt này sẽ được kích hoạt và các prompt cùng loại sẽ bị tắt.</summary>
     [JsonPropertyName("is_active")]
     public bool IsActive { get; set; } = true;

@@ -15,6 +15,7 @@ public class GetPromptByIdResponse
     public int? MaxTokens { get; set; }
     public string? Version { get; set; }
     public string? ApiUrl { get; set; }
+    public string? ApiKey { get; set; }
     public bool IsActive { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

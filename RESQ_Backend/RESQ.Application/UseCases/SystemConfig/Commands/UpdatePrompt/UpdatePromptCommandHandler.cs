@@ -46,6 +46,7 @@ public class UpdatePromptCommandHandler(
             maxTokens: request.MaxTokens,
             version: request.Version,
             apiUrl: request.ApiUrl,
+            apiKey: request.ApiKey,
             isActive: request.IsActive
         );
 

@@ -29,10 +29,11 @@ public class TestPromptCommandHandler(
 
         var model = prompt.Model ?? "gemini-2.5-flash";
         var apiUrl = prompt.ApiUrl ?? FALLBACK_API_URL;
+        var apiKey = prompt.ApiKey ?? string.Empty;
         var temperature = prompt.Temperature ?? 0.3;
         var maxTokens = prompt.MaxTokens ?? 256; // Dùng ít token cho test
 
-        var result = await _aiModelTestService.TestModelAsync(model, apiUrl, temperature, maxTokens, cancellationToken);
+        var result = await _aiModelTestService.TestModelAsync(model, apiUrl, apiKey, temperature, maxTokens, cancellationToken);
 
         return new TestPromptResponse
         {

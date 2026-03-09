@@ -35,6 +35,9 @@ public class UpdatePromptRequestDto
     [JsonPropertyName("api_url")]
     public string? ApiUrl { get; set; }
 
+    [JsonPropertyName("api_key")]
+    public string? ApiKey { get; set; }
+
     [JsonPropertyName("is_active")]
     public bool? IsActive { get; set; }
 }

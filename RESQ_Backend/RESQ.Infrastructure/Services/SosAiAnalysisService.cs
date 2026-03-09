@@ -22,7 +22,6 @@ public class SosAiAnalysisService : ISosAiAnalysisService
     private readonly ISosRequestRepository _sosRequestRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<SosAiAnalysisService> _logger;
-    private readonly string _apiKey;
 
     // Fallback defaults - chỉ dùng khi database chưa có cấu hình
     private const string FALLBACK_MODEL = "gemini-2.5-flash";
@@ -36,7 +35,6 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         ISosAiAnalysisRepository sosAiAnalysisRepository,
         ISosRequestRepository sosRequestRepository,
         IUnitOfWork unitOfWork,
-        IConfiguration configuration,
         ILogger<SosAiAnalysisService> logger)
     {
         _httpClientFactory = httpClientFactory;
@@ -45,7 +43,6 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         _sosRequestRepository = sosRequestRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
-        _apiKey = configuration["Gemini:ApiKey"] ?? throw new InvalidOperationException("Gemini API key not configured");
     }
 
     public async Task AnalyzeAndSaveAsync(int sosRequestId, string? structuredData, string? rawMessage, string? sosType, CancellationToken cancellationToken = default)
@@ -65,6 +62,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             // Resolve AI configuration from database, fallback to defaults
             var modelName = prompt.Model ?? FALLBACK_MODEL;
             var apiUrl = prompt.ApiUrl ?? FALLBACK_API_URL;
+            var apiKey = prompt.ApiKey ?? string.Empty;
             var temperature = prompt.Temperature ?? FALLBACK_TEMPERATURE;
             var maxTokens = prompt.MaxTokens ?? FALLBACK_MAX_TOKENS;
 
@@ -76,7 +74,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             var userPrompt = BuildUserPrompt(prompt.UserPromptTemplate, structuredData, rawMessage, sosType);
 
             // Call AI API using database configuration
-            var aiResponse = await CallAiApiAsync(modelName, apiUrl, prompt.SystemPrompt, userPrompt, temperature, maxTokens, cancellationToken);
+            var aiResponse = await CallAiApiAsync(modelName, apiUrl, apiKey, prompt.SystemPrompt, userPrompt, temperature, maxTokens, cancellationToken);
 
             if (aiResponse == null)
             {
@@ -143,14 +141,14 @@ public class SosAiAnalysisService : ISosAiAnalysisService
     /// Gọi AI API sử dụng cấu hình từ database (model, url, temperature, maxTokens).
     /// URL template hỗ trợ placeholder {0} cho model name và {1} cho API key.
     /// </summary>
-    private async Task<string?> CallAiApiAsync(string model, string apiUrlTemplate, string? systemPrompt, string userPrompt, double temperature, int maxTokens, CancellationToken cancellationToken)
+    private async Task<string?> CallAiApiAsync(string model, string apiUrlTemplate, string apiKey, string? systemPrompt, string userPrompt, double temperature, int maxTokens, CancellationToken cancellationToken)
     {
         try
         {
             var client = _httpClientFactory.CreateClient();
 
             // Build URL from template stored in database
-            var url = string.Format(apiUrlTemplate, model, _apiKey);
+            var url = string.Format(apiUrlTemplate, model, apiKey);
 
             var requestBody = new GeminiRequest
             {

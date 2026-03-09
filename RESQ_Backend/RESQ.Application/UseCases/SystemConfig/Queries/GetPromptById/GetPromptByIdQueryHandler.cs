@@ -35,6 +35,7 @@ public class GetPromptByIdQueryHandler(
             MaxTokens = prompt.MaxTokens,
             Version = prompt.Version,
             ApiUrl = prompt.ApiUrl,
+            ApiKey = prompt.ApiKey,
             IsActive = prompt.IsActive,
             CreatedAt = prompt.CreatedAt,
             UpdatedAt = prompt.UpdatedAt

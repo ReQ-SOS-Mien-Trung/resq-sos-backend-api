@@ -11,6 +11,7 @@ public interface IAiModelTestService
     Task<AiModelTestResult> TestModelAsync(
         string model,
         string apiUrlTemplate,
+        string apiKey,
         double temperature,
         int maxTokens,
         CancellationToken cancellationToken = default);

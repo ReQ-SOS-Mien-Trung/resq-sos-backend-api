@@ -58,6 +58,7 @@ namespace RESQ.Presentation.Controllers.System
                 dto.MaxTokens,
                 dto.Version,
                 dto.ApiUrl,
+                dto.ApiKey,
                 dto.IsActive
             );
 
@@ -83,6 +84,7 @@ namespace RESQ.Presentation.Controllers.System
                 dto.MaxTokens,
                 dto.Version,
                 dto.ApiUrl,
+                dto.ApiKey,
                 dto.IsActive
             );
 
