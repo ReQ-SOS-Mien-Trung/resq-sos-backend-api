@@ -1,50 +1,8 @@
 using System.Text.Json.Serialization;
 
-namespace RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
+namespace RESQ.Application.UseCases.Emergency.Queries;
 
-public class CreateSosRequestRequestDto
-{
-    [JsonPropertyName("packet_id")]
-    public Guid? PacketId { get; set; }
-
-    [JsonPropertyName("origin_id")]
-    public string? OriginId { get; set; }
-
-    [JsonPropertyName("ts")]
-    public long? Timestamp { get; set; }
-
-    [JsonPropertyName("location")]
-    public LocationDto Location { get; set; } = null!;
-
-    [JsonPropertyName("sos_type")]
-    public string? SosType { get; set; }
-
-    [JsonPropertyName("msg")]
-    public string RawMessage { get; set; } = null!;
-
-    [JsonPropertyName("structured_data")]
-    public StructuredDataDto? StructuredData { get; set; }
-
-    [JsonPropertyName("network_metadata")]
-    public NetworkMetadataDto? NetworkMetadata { get; set; }
-
-    [JsonPropertyName("sender_info")]
-    public SenderInfoDto? SenderInfo { get; set; }
-}
-
-public class LocationDto
-{
-    [JsonPropertyName("lat")]
-    public double Latitude { get; set; }
-
-    [JsonPropertyName("lng")]
-    public double Longitude { get; set; }
-
-    [JsonPropertyName("accuracy")]
-    public double? Accuracy { get; set; }
-}
-
-public class StructuredDataDto
+public class SosStructuredDataDto
 {
     [JsonPropertyName("situation")]
     public string? Situation { get; set; }
@@ -65,7 +23,7 @@ public class StructuredDataDto
     public bool? OthersAreStable { get; set; }
 
     [JsonPropertyName("people_count")]
-    public PeopleCountDto? PeopleCount { get; set; }
+    public SosPeopleCountDto? PeopleCount { get; set; }
 
     [JsonPropertyName("can_move")]
     public bool? CanMove { get; set; }
@@ -83,10 +41,22 @@ public class StructuredDataDto
     public string? AdditionalDescription { get; set; }
 
     [JsonPropertyName("injured_persons")]
-    public List<InjuredPersonDto>? InjuredPersons { get; set; }
+    public List<SosInjuredPersonDto>? InjuredPersons { get; set; }
 }
 
-public class InjuredPersonDto
+public class SosPeopleCountDto
+{
+    [JsonPropertyName("adult")]
+    public int? Adult { get; set; }
+
+    [JsonPropertyName("child")]
+    public int? Child { get; set; }
+
+    [JsonPropertyName("elderly")]
+    public int? Elderly { get; set; }
+}
+
+public class SosInjuredPersonDto
 {
     [JsonPropertyName("index")]
     public int? Index { get; set; }
@@ -107,19 +77,7 @@ public class InjuredPersonDto
     public string? Severity { get; set; }
 }
 
-public class PeopleCountDto
-{
-    [JsonPropertyName("adult")]
-    public int? Adult { get; set; }
-
-    [JsonPropertyName("child")]
-    public int? Child { get; set; }
-
-    [JsonPropertyName("elderly")]
-    public int? Elderly { get; set; }
-}
-
-public class NetworkMetadataDto
+public class SosNetworkMetadataDto
 {
     [JsonPropertyName("hop_count")]
     public int? HopCount { get; set; }
@@ -128,7 +86,7 @@ public class NetworkMetadataDto
     public List<string>? Path { get; set; }
 }
 
-public class SenderInfoDto
+public class SosSenderInfoDto
 {
     [JsonPropertyName("device_id")]
     public string? DeviceId { get; set; }

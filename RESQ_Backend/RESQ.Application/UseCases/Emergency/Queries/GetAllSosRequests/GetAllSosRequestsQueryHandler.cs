@@ -29,9 +29,9 @@ public class GetAllSosRequestsQueryHandler(
                 UserId = x.UserId,
                 SosType = x.SosType,
                 RawMessage = x.RawMessage,
-                StructuredData = ParseJson(x.StructuredData),
-                NetworkMetadata = ParseJson(x.NetworkMetadata),
-                SenderInfo = ParseJson(x.SenderInfo),
+                StructuredData = ParseJson<SosStructuredDataDto>(x.StructuredData),
+                NetworkMetadata = ParseJson<SosNetworkMetadataDto>(x.NetworkMetadata),
+                SenderInfo = ParseJson<SosSenderInfoDto>(x.SenderInfo),
                 OriginId = x.OriginId,
                 Status = x.Status.ToString(),
                 PriorityLevel = x.PriorityLevel?.ToString(),
@@ -48,10 +48,10 @@ public class GetAllSosRequestsQueryHandler(
         };
     }
 
-    private static JsonElement? ParseJson(string? json)
+    private static T? ParseJson<T>(string? json)
     {
-        if (string.IsNullOrWhiteSpace(json)) return null;
-        try { return JsonSerializer.Deserialize<JsonElement>(json); }
-        catch { return null; }
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        try { return JsonSerializer.Deserialize<T>(json); }
+        catch { return default; }
     }
 }

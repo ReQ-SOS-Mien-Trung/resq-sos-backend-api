@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
+using RESQ.Infrastructure.Entities.Identity;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
-using RESQ.Infrastructure.Entities.Identity;
 
 namespace RESQ.Infrastructure.Entities.Notifications;
 
@@ -36,4 +33,4 @@ public partial class UserNotification
     [ForeignKey("UserId")]
     [InverseProperty("UserNotifications")]
     public virtual User? User { get; set; }
-}
+}

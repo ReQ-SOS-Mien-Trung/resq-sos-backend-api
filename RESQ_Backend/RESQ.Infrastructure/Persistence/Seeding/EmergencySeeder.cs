@@ -10,6 +10,7 @@ public static class EmergencySeeder
     {
         SeedSosClusters(modelBuilder);
         SeedSosRequests(modelBuilder);
+        SeedSosRuleEvaluations(modelBuilder);
         SeedSosAiAnalyses(modelBuilder);
     }
 
@@ -91,15 +92,15 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 3 | Người già: 1 | Bị thương: Người lớn 1: Bệnh nền (Nghiêm trọng) | Ghi chú: Cu ba 82 tuoi bi liet nua nguoi khong di chuyen duoc, nuoc lu dang len nhanh",
                 StructuredData = """
                     {
-                      "situation": "TRAPPED",
+                      "situation": "FLOODING",
                       "can_move": false,
-                      "has_injured": false,
+                      "has_injured": true,
                       "need_medical": true,
                       "others_are_stable": false,
                       "people_count": { "adult": 2, "child": 0, "elderly": 1 },
-                      "medical_issues": ["CHRONIC_DISEASE", "MOBILITY_IMPAIRMENT"],
+                      "medical_issues": ["CHRONIC_DISEASE", "MOBILITY_IMPAIRMENT", "BREATHING_DIFFICULTY"],
                       "supplies": ["MEDICINE", "TRANSPORTATION"],
-                      "additional_description": "Cu ba 82 tuoi bi liet nua nguoi khong di chuyen duoc, nuoc lu dang len nhanh"
+                      "additional_description": "Cu ba 82 tuoi bi liet nua nguoi, kho tho, nuoc lu dang len nhanh khong tu di chuyen duoc"
                     }
                     """,
                 NetworkMetadata = """
@@ -140,7 +141,7 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 6 | Trẻ em: 3 | Bị thương: Người lớn 1: Thai kỳ tháng 8 (Nghiêm trọng) | Ghi chú: Dang tru tren mai nha 3 tre nho kho tho vi met moi, nuoc van dang dang",
                 StructuredData = """
                     {
-                      "situation": "TRAPPED",
+                      "situation": "FLOODING",
                       "can_move": false,
                       "has_injured": true,
                       "need_medical": true,
@@ -169,7 +170,7 @@ public static class EmergencySeeder
                 Timestamp = 1729067700L, // 2024-10-16 08:35 UTC
                 PriorityLevel = "Critical",
                 WaitTimeMinutes = 35,
-                Status = "Assigned",
+                Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 35, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc)
             },
@@ -194,7 +195,7 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 5 | Bị thương: Người lớn 1: Gãy tay (Trung bình); Người lớn 2: Chảy máu đầu (Nghiêm trọng) | Ghi chú: Sat lo dat chan duong tinh lo, xe tai bi chan lai, can truc thang hoac di bo rung",
                 StructuredData = """
                     {
-                      "situation": "TRAPPED",
+                      "situation": "LANDSLIDE",
                       "can_move": false,
                       "has_injured": true,
                       "need_medical": true,
@@ -243,7 +244,7 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị cô lập | Số người: 120 | Trẻ em: 4 | Người già: 25 | Bị thương: Người lớn 1: Bệnh nền (Trung bình) | Ghi chú: Ca thon co lap 3 ngay, het luong thuc va nuoc sach, 4 be can sua gap, nguoi gia het thuoc huyet ap",
                 StructuredData = """
                     {
-                      "situation": "TRAPPED",
+                      "situation": "FLOODING",
                       "can_move": false,
                       "has_injured": false,
                       "need_medical": true,
@@ -272,7 +273,7 @@ public static class EmergencySeeder
                 Timestamp = 1729068600L, // 2024-10-16 08:50 UTC
                 PriorityLevel = "High",
                 WaitTimeMinutes = 180,
-                Status = "InProgress",
+                Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 50, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc)
             },
@@ -288,7 +289,7 @@ public static class EmergencySeeder
             {
                 Id = 5,
                 PacketId = Guid.Parse("C5000000-0000-0000-0000-000000000005"),
-                ClusterId = null,
+                ClusterId = 2,
                 UserId = SeedConstants.Applicant4UserId,
                 Location = new Point(108.0100, 16.0240) { SRID = 4326 }, // Thôn Phú Túc, Hòa Phú, Hòa Vang
                 LocationAccuracy = 5,
@@ -297,7 +298,7 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 1 | Bị thương: Người lớn 1: Gãy chân (Nghiêm trọng) | Ghi chú: Lac trong rung Hoa Phu, gay chan trai khong di duoc, dien thoai sap het pin 8%",
                 StructuredData = """
                     {
-                      "situation": "ISOLATED",
+                      "situation": "ACCIDENT",
                       "can_move": false,
                       "has_injured": true,
                       "need_medical": true,
@@ -324,11 +325,99 @@ public static class EmergencySeeder
                     }
                     """,
                 Timestamp = 1729069800L, // 2024-10-16 09:10 UTC
-                PriorityLevel = "Medium",
+                PriorityLevel = "High",
                 WaitTimeMinutes = 0,
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc)
+            }
+        );
+    }
+
+    private static void SeedSosRuleEvaluations(ModelBuilder modelBuilder)
+    {
+        var now = new DateTime(2024, 10, 16, 8, 31, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<SosRuleEvaluation>().HasData(
+            // SOS 1: Lũ lụt, cụ bà 82t liệt + khó thở → Critical (72.5)
+            new SosRuleEvaluation
+            {
+                Id = 1,
+                SosRequestId = 1,
+                MedicalScore = 75.0,   // need_medical(30) + 3 issues(30) + BREATHING_DIFFICULTY(15)
+                InjuryScore = 70.0,    // has_injured(40) + others_not_stable(30)
+                MobilityScore = 80.0,  // can_move=false
+                EnvironmentScore = 80.0, // RESCUE(40) + FLOODING(40)
+                FoodScore = 45.0,      // 3 people(30) + elderly(15)
+                TotalScore = 72.5,
+                PriorityLevel = "Critical",
+                RuleVersion = "1.0",
+                ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
+                CreatedAt = now
+            },
+            // SOS 2: Lũ lụt, phụ nữ thai 8 tháng + 3 trẻ em trên mái nhà → Critical (71.5)
+            new SosRuleEvaluation
+            {
+                Id = 2,
+                SosRequestId = 2,
+                MedicalScore = 65.0,   // need_medical(30) + 2 issues(20) + BREATHING_DIFFICULTY(15)
+                InjuryScore = 70.0,    // has_injured(40) + others_not_stable(30)
+                MobilityScore = 80.0,
+                EnvironmentScore = 80.0,
+                FoodScore = 65.0,      // min(6*10,50)=50 + child(15)
+                TotalScore = 71.5,
+                PriorityLevel = "Critical",
+                RuleVersion = "1.0",
+                ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
+                CreatedAt = now.AddSeconds(30)
+            },
+            // SOS 3: Sạt lở, 2 người thương nặng (gãy tay + chảy máu đầu) → High (68.5)
+            new SosRuleEvaluation
+            {
+                Id = 3,
+                SosRequestId = 3,
+                MedicalScore = 60.0,   // need_medical(30) + 2 issues(20) + BLEEDING(10)
+                InjuryScore = 70.0,    // has_injured(40) + others_not_stable(30)
+                MobilityScore = 80.0,
+                EnvironmentScore = 80.0, // RESCUE(40) + LANDSLIDE(40)
+                FoodScore = 50.0,      // min(5*10,50)=50
+                TotalScore = 68.5,
+                PriorityLevel = "High",
+                RuleVersion = "1.0",
+                ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"BANDAGES\",\"BLOOD_CLOTTING_AGENTS\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
+                CreatedAt = now.AddMinutes(1)
+            },
+            // SOS 4: Lũ cô lập cả thôn 120 người, 3 ngày → High (55.5)
+            new SosRuleEvaluation
+            {
+                Id = 4,
+                SosRequestId = 4,
+                MedicalScore = 40.0,   // need_medical(30) + 1 issue(10)
+                InjuryScore = 30.0,    // has_injured=false(0) + others_not_stable(30)
+                MobilityScore = 80.0,
+                EnvironmentScore = 80.0, // RESCUE(40) + FLOODING(40)
+                FoodScore = 80.0,      // min(120*10,50)=50 + child(15) + elderly(15)
+                TotalScore = 55.5,
+                PriorityLevel = "High",
+                RuleVersion = "1.0",
+                ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
+                CreatedAt = now.AddMinutes(1).AddSeconds(30)
+            },
+            // SOS 5: Tai nạn rừng, gãy chân, điện thoại 8% pin → High (50.0)
+            new SosRuleEvaluation
+            {
+                Id = 5,
+                SosRequestId = 5,
+                MedicalScore = 40.0,   // need_medical(30) + 1 issue(10)
+                InjuryScore = 40.0,    // has_injured(40) + others_stable(0)
+                MobilityScore = 80.0,
+                EnvironmentScore = 75.0, // RESCUE(40) + ACCIDENT(35)
+                FoodScore = 10.0,      // 1 person(10)
+                TotalScore = 50.0,
+                PriorityLevel = "High",
+                RuleVersion = "1.0",
+                ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
+                CreatedAt = now.AddMinutes(2)
             }
         );
     }
