@@ -7,61 +7,83 @@ namespace RESQ.Infrastructure.Services;
 
 public class SosPriorityEvaluationService : ISosPriorityEvaluationService
 {
-    private const string RULE_VERSION = "2.0";
+    private const string RULE_VERSION = "3.0";
 
-    // Medical issue severity values (camelCase and snake_case variants both supported)
-    private static readonly Dictionary<string, int> IssueSeverity = new(StringComparer.OrdinalIgnoreCase)
+    // ── issueWeight: camelCase & snake_case variants both supported ──
+    private static readonly Dictionary<string, double> IssueWeight = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Injury group
-        ["bleeding"] = 4,
-        ["severelyBleeding"] = 4,
-        ["severely_bleeding"] = 4,
-        ["fracture"] = 3,
-        ["headInjury"] = 4,
-        ["head_injury"] = 4,
-        ["burns"] = 4,
-        // Danger group
-        ["unconscious"] = 5,
-        ["breathingDifficulty"] = 5,
+        // Weight 5: life-threatening
+        ["unconscious"]          = 5,
+        ["drowning"]             = 5,
+        ["breathingDifficulty"]  = 5,
         ["breathing_difficulty"] = 5,
-        ["chestPainStroke"] = 5,
-        ["chest_pain_stroke"] = 5,
-        ["cannotMove"] = 4,
-        ["cannot_move"] = 4,
-        ["drowning"] = 5,
-        // Special group
-        ["highFever"] = 3,
-        ["high_fever"] = 3,
-        ["dehydration"] = 3,
-        ["infantNeedsMilk"] = 3,
-        ["infant_needs_milk"] = 3,
-        ["lostParent"] = 3,
-        ["lost_parent"] = 3,
-        ["chronicDisease"] = 2,
-        ["chronic_disease"] = 2,
-        ["confusion"] = 2,
-        ["needsMedicalDevice"] = 2,
+        ["chestPainStroke"]      = 5,
+        ["chest_pain_stroke"]    = 5,
+        // Weight 4: severe
+        ["severelyBleeding"]     = 4,
+        ["severely_bleeding"]    = 4,
+        ["bleeding"]             = 4,
+        ["burns"]                = 4,
+        ["headInjury"]           = 4,
+        ["head_injury"]          = 4,
+        ["cannotMove"]           = 4,
+        ["cannot_move"]          = 4,
+        // Weight 3: moderate
+        ["highFever"]            = 3,
+        ["high_fever"]           = 3,
+        ["dehydration"]          = 3,
+        ["fracture"]             = 3,
+        ["infantNeedsMilk"]      = 3,
+        ["infant_needs_milk"]    = 3,
+        ["lostParent"]           = 3,
+        ["lost_parent"]          = 3,
+        // Weight 2: mild
+        ["chronicDisease"]       = 2,
+        ["chronic_disease"]      = 2,
+        ["confusion"]            = 2,
+        ["needsMedicalDevice"]   = 2,
         ["needs_medical_device"] = 2,
-        // Other
-        ["other"] = 1
+        // Weight 1: other
+        ["other"]                = 1,
     };
 
-    // severity field value → score: critical=5, moderate=3, mild=1
-    private static int GetSeverityScore(string? severity) => severity?.ToLowerInvariant() switch
+    // medicalSevere triggers: unconscious, drowning, breathingDifficulty, chestPainStroke, severelyBleeding
+    private static readonly HashSet<string> MedicalSevereIssues = new(StringComparer.OrdinalIgnoreCase)
     {
-        "critical" => 5,
-        "moderate" => 3,
-        "mild" => 1,
-        _ => 1
+        "unconscious",
+        "drowning",
+        "breathingDifficulty", "breathing_difficulty",
+        "chestPainStroke",     "chest_pain_stroke",
+        "severelyBleeding",    "severely_bleeding"
     };
 
-    // sosType base score: rescue=50, relief=20, anything else=10
-    private static int GetBaseScore(string? sosType) => sosType?.ToLowerInvariant() switch
+    // ageWeight multiplier by personType
+    private static double GetAgeWeight(string? personType) => personType?.ToLowerInvariant() switch
     {
-        "rescue" => 50,
+        "child" or "trẻ em"                     => 1.4,
+        "elderly" or "elder" or "người già"     => 1.3,
+        _                                        => 1.0   // adult
+    };
+
+    // requestTypeScore: rescue=30, relief=20, else=10
+    private static int GetRequestTypeScore(string? sosType) => sosType?.ToLowerInvariant() switch
+    {
+        "rescue" => 30,
         "relief" => 20,
-        _ => 10
+        _        => 10
     };
+
+    // situationMultiplier + situationSevere flag
+    private static (double multiplier, bool severe) GetSituationMultiplier(string? situation) =>
+        situation?.ToLowerInvariant() switch
+        {
+            "flooding"  or "flood"                                   => (1.5, true),
+            "building_collapse" or "collapsed" or "collapse"         => (1.5, true),
+            "trapped"                                                 => (1.3, false),
+            "danger_zone" or "dangerous_area" or "dangerous"         => (1.3, false),
+            "cannot_move" or "cannotmove"                            => (1.2, false),
+            _                                                         => (1.0, false)
+        };
 
     public SosRuleEvaluationModel Evaluate(int sosRequestId, string? structuredDataJson, string? sosType)
     {
@@ -86,62 +108,61 @@ public class SosPriorityEvaluationService : ISosPriorityEvaluationService
             catch { }
         }
 
-        // ── 1. Base score (from SOS type) + dangerous situation bonus ──
-        int baseScore = GetBaseScore(sosType);
-        var situation = data?.Situation?.ToLowerInvariant();
-        int dangerBonus = situation is "building_collapse" or "flooding" ? 20 : 0;
+        // ── 1. requestTypeScore ──
+        int requestTypeScore = GetRequestTypeScore(sosType);
 
-        // ── 2. Demographic score: children×3 + elderly×2 ──
-        int children = data?.PeopleCount?.Child ?? 0;
-        int elderly = data?.PeopleCount?.Elderly ?? 0;
-        int demographicScore = children * 3 + elderly * 2;
+        // ── 2. situationMultiplier + situationSevere flag ──
+        var (situationMultiplier, situationSevere) = GetSituationMultiplier(data?.Situation);
 
-        // ── 3. Medical priority score: Σ per-person (severity×2 + Σ issueSeverity) ──
-        int medicalPriorityScore = 0;
-        int injuredCount = 0;
+        // ── 3. medicalScore = Σ per-person: (Σ issueWeight) × ageWeight ──
+        double medicalScore = 0;
+        bool medicalSevere = false;
         if (data?.InjuredPersons is { Count: > 0 } persons)
         {
-            injuredCount = persons.Count;
             foreach (var person in persons)
             {
-                int severityScore = GetSeverityScore(person.Severity);
-                int issueSum = person.MedicalIssues?.Sum(k => IssueSeverity.GetValueOrDefault(k, 1)) ?? 0;
-                medicalPriorityScore += severityScore * 2 + issueSum;
+                var issues = person.MedicalIssues ?? [];
+                double issueScore = issues.Sum(k => IssueWeight.GetValueOrDefault(k, 1));
+                double ageMultiplier = GetAgeWeight(person.PersonType);
+                medicalScore += issueScore * ageMultiplier;
+
+                if (!medicalSevere && issues.Any(k => MedicalSevereIssues.Contains(k)))
+                    medicalSevere = true;
             }
         }
 
-        // ── 4. Assemble score components ──
-        // EnvironmentScore = base + danger bonus
-        // MedicalScore     = medicalPriorityScore × 5
-        // InjuryScore      = injuredCount × 4
-        // FoodScore        = demographic (children/elderly)
-        // MobilityScore    = 0 (not used in this formula)
-        evaluation.EnvironmentScore = baseScore + dangerBonus;
-        evaluation.MedicalScore = medicalPriorityScore * 5;
-        evaluation.InjuryScore = injuredCount * 4;
-        evaluation.FoodScore = demographicScore;
-        evaluation.MobilityScore = 0;
+        // ── 4. Assemble scores ──
+        // EnvironmentScore = requestTypeScore
+        // MedicalScore     = Σ (issueScore × ageWeight) across all injured persons
+        // TotalScore       = (requestTypeScore + medicalScore) × situationMultiplier
+        evaluation.EnvironmentScore = requestTypeScore;
+        evaluation.MedicalScore     = medicalScore;
+        evaluation.InjuryScore      = 0;
+        evaluation.FoodScore        = 0;
+        evaluation.MobilityScore    = 0;
 
-        evaluation.TotalScore = evaluation.EnvironmentScore
-                              + evaluation.MedicalScore
-                              + evaluation.InjuryScore
-                              + evaluation.FoodScore;
+        evaluation.TotalScore = (requestTypeScore + medicalScore) * situationMultiplier;
 
-        evaluation.PriorityLevel = DeterminePriorityLevel(evaluation.TotalScore);
+        // ── 5. Triage P1–P4 (P1/P2 require a severe flag) ──
+        bool isSevere = medicalSevere || situationSevere;
+        evaluation.PriorityLevel = DeterminePriorityLevel(evaluation.TotalScore, isSevere);
+
         evaluation.ItemsNeeded = DetermineItemsNeeded(data, sosType);
 
         return evaluation;
     }
 
-    // Thresholds calibrated for the unbounded score scale
-    // Example from spec: rescue+flooding+1child+1elderly+critical(unconscious+fracture) = 169 → Critical
-    private static SosPriorityLevel DeterminePriorityLevel(double totalScore) => totalScore switch
+    // P1 (Critical) >= 70 + severe
+    // P2 (High)     >= 45 + severe
+    // P3 (Medium)   >= 25
+    // P4 (Low)       < 25
+    private static SosPriorityLevel DeterminePriorityLevel(double totalScore, bool isSevere)
     {
-        >= 150 => SosPriorityLevel.Critical,
-        >= 70  => SosPriorityLevel.High,
-        >= 30  => SosPriorityLevel.Medium,
-        _      => SosPriorityLevel.Low
-    };
+        if (totalScore >= 70 && isSevere) return SosPriorityLevel.Critical;
+        if (totalScore >= 45 && isSevere) return SosPriorityLevel.High;
+        if (totalScore >= 25)             return SosPriorityLevel.Medium;
+        return SosPriorityLevel.Low;
+    }
 
     private static string? DetermineItemsNeeded(StructuredData? data, string? sosType)
     {
