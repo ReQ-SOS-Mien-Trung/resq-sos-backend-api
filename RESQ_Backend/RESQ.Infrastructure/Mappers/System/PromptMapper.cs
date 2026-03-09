@@ -20,6 +20,7 @@ public static class PromptMapper
             MaxTokens = model.MaxTokens,
             Version = model.Version,
             ApiUrl = model.ApiUrl,
+            ApiKey = model.ApiKey,
             IsActive = model.IsActive,
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt
@@ -48,6 +49,7 @@ public static class PromptMapper
             MaxTokens = entity.MaxTokens,
             Version = entity.Version,
             ApiUrl = entity.ApiUrl,
+            ApiKey = entity.ApiKey,
             IsActive = entity.IsActive,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt

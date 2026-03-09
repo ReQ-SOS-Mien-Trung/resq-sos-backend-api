@@ -22,6 +22,17 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
 
         // Documents
         public List<RescuerApplicationDocumentDto> Documents { get; set; } = new();
+
+        // Abilities
+        public List<RescuerApplicationAbilityDto> Abilities { get; set; } = new();
+    }
+
+    public class RescuerApplicationAbilityDto
+    {
+        public int AbilityId { get; set; }
+        public string? Code { get; set; }
+        public string? Description { get; set; }
+        public int? Level { get; set; }
     }
 
     public class RescuerApplicationDocumentDto

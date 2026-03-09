@@ -50,6 +50,7 @@ public static class SystemSeeder
                 MaxTokens = 1000,
                 Version = "v1.0",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
+                ApiKey = "AIzaSyBc5pvH7EpouC886yAEJUkKmH5bXev3gMM",
                 Model = "gemini-2.5-flash",
                 IsActive = false, // Đã được thay thế bởi prompt Id=3
                 CreatedAt = now
@@ -190,6 +191,7 @@ Trả về JSON (không giải thích, không markdown).",
                 MaxTokens = 4096,
                 Version = "v1.0",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
+                ApiKey = "AIzaSyDc4rHO4Vlfwp4BP3WP8BLc7x90q5j-ddk",
                 Model = "gemini-2.5-flash",
                 IsActive = true,
                 CreatedAt = now
@@ -230,6 +232,7 @@ Dữ liệu chi tiết: {{structured_data}}
 Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này.",
                 Model = "gemini-2.5-flash",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
+                ApiKey = "AIzaSyDc4rHO4Vlfwp4BP3WP8BLc7x90q5j-ddk",
                 Temperature = 0.3,
                 MaxTokens = 1024,
                 Version = "1.0",

@@ -48,6 +48,9 @@ public partial class Prompt
     [StringLength(500)]
     public string? ApiUrl { get; set; }
 
+    [Column("api_key")]
+    public string? ApiKey { get; set; }
+
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
 

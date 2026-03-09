@@ -11,23 +11,21 @@ public class AiModelTestService : IAiModelTestService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AiModelTestService> _logger;
-    private readonly string _apiKey;
 
     private const string TEST_PROMPT = "Respond with exactly: {\"status\": \"ok\", \"message\": \"Model is working\"}";
 
     public AiModelTestService(
         IHttpClientFactory httpClientFactory,
-        IConfiguration configuration,
         ILogger<AiModelTestService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
-        _apiKey = configuration["Gemini:ApiKey"] ?? throw new InvalidOperationException("Gemini API key not configured");
     }
 
     public async Task<AiModelTestResult> TestModelAsync(
         string model,
         string apiUrlTemplate,
+        string apiKey,
         double temperature,
         int maxTokens,
         CancellationToken cancellationToken = default)
@@ -39,7 +37,7 @@ public class AiModelTestService : IAiModelTestService
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(30);
 
-            var url = string.Format(apiUrlTemplate, model, _apiKey);
+            var url = string.Format(apiUrlTemplate, model, apiKey);
 
             var requestBody = new TestGeminiRequest
             {

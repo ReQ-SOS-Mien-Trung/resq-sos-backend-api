@@ -15,6 +15,7 @@ public class PromptModel
     public int? MaxTokens { get; set; }
     public string? Version { get; set; }
     public string? ApiUrl { get; set; }
+    public string? ApiKey { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -31,7 +32,8 @@ public class PromptModel
         double temperature = 0.3,
         int maxTokens = 2048,
         string version = "1.0",
-        string? apiUrl = null)
+        string? apiUrl = null,
+        string? apiKey = null)
     {
         return new PromptModel
         {
@@ -45,6 +47,7 @@ public class PromptModel
             MaxTokens = maxTokens,
             Version = version,
             ApiUrl = apiUrl,
+            ApiKey = apiKey,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -61,6 +64,7 @@ public class PromptModel
         int? maxTokens = null,
         string? version = null,
         string? apiUrl = null,
+        string? apiKey = null,
         bool? isActive = null)
     {
         if (name != null) Name = name;
@@ -73,6 +77,7 @@ public class PromptModel
         if (maxTokens.HasValue) MaxTokens = maxTokens.Value;
         if (version != null) Version = version;
         if (apiUrl != null) ApiUrl = apiUrl;
+        if (apiKey != null) ApiKey = apiKey;
         if (isActive.HasValue) IsActive = isActive.Value;
         UpdatedAt = DateTime.UtcNow;
     }

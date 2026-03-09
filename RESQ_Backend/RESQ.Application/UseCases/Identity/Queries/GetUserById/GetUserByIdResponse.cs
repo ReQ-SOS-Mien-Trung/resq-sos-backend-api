@@ -1,5 +1,24 @@
 namespace RESQ.Application.UseCases.Identity.Queries.GetUserById;
 
+public class UserAbilityDto
+{
+    public int AbilityId { get; set; }
+    public string? Code { get; set; }
+    public string? Description { get; set; }
+    public int? Level { get; set; }
+}
+
+public class RescuerDocumentDto
+{
+    public int Id { get; set; }
+    public int? ApplicationId { get; set; }
+    public string? FileUrl { get; set; }
+    public int? FileTypeId { get; set; }
+    public string? FileTypeCode { get; set; }
+    public string? FileTypeName { get; set; }
+    public DateTime? UploadedAt { get; set; }
+}
+
 public class GetUserByIdResponse
 {
     public Guid Id { get; set; }
@@ -27,4 +46,6 @@ public class GetUserByIdResponse
     public DateTime? ApprovedAt { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public List<UserAbilityDto> Abilities { get; set; } = [];
+    public List<RescuerDocumentDto> RescuerApplicationDocuments { get; set; } = [];
 }

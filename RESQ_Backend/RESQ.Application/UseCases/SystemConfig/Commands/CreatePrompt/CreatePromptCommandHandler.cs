@@ -37,7 +37,8 @@ public class CreatePromptCommandHandler(
             temperature: request.Temperature,
             maxTokens: request.MaxTokens,
             version: request.Version,
-            apiUrl: request.ApiUrl
+            apiUrl: request.ApiUrl,
+            apiKey: request.ApiKey
         );
         prompt.IsActive = request.IsActive;
 
