@@ -14,6 +14,7 @@ using RESQ.Application.UseCases.Identity.Commands.VerifyEmail;
 using RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail;
 using RESQ.Application.UseCases.Identity.Commands.ForgotPassword;
 using RESQ.Application.UseCases.Identity.Commands.ResetPassword;
+using RESQ.Application.UseCases.Identity.Commands.FirebasePhoneLogin;
 
 namespace RESQ.Presentation.Controllers.Identity
 {
@@ -28,7 +29,7 @@ namespace RESQ.Presentation.Controllers.Identity
         [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto)
         {
-            var command = new RegisterCommand(dto.Phone, dto.Password);
+            var command = new RegisterCommand(dto.Phone, dto.Password, dto.FirebaseIdToken);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
@@ -96,6 +97,15 @@ namespace RESQ.Presentation.Controllers.Identity
         public async Task<IActionResult> LoginRescuer([FromBody] LoginRescuerRequestDto dto)
         {
             var command = new LoginRescuerCommand(dto.Email, dto.Password);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("firebase-phone-login")]
+        [AllowAnonymous]
+        public async Task<IActionResult> FirebasePhoneLogin([FromBody] FirebasePhoneLoginRequestDto dto)
+        {
+            var command = new FirebasePhoneLoginCommand(dto.IdToken);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

@@ -71,6 +71,16 @@ builder.Services.AddSwaggerGen(c =>
 // Health check
 builder.Services.AddHealthChecks();
 
+// Firebase Admin SDK initialization
+var firebaseKeyPath = Path.Combine(builder.Environment.ContentRootPath, "resq-ff0ef-firebase-adminsdk-fbsvc-b3c84ebcbf.json");
+if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
+{
+    FirebaseAdmin.FirebaseApp.Create(new FirebaseAdmin.AppOptions
+    {
+        Credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromFile(firebaseKeyPath)
+    });
+}
+
 // Dependency Injection
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();

@@ -73,6 +73,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPromptRepository, PromptRepository>();
 
         // Services
+        services.AddScoped<IFirebaseService, FirebaseService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ISosPriorityEvaluationService, SosPriorityEvaluationService>();

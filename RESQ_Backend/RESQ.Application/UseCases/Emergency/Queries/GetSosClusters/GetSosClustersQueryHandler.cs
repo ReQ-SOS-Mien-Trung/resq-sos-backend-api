@@ -34,6 +34,7 @@ public class GetSosClustersQueryHandler(
                 MedicalUrgencyScore = c.MedicalUrgencyScore,
                 SosRequestCount = c.SosRequestIds.Count,
                 SosRequestIds = c.SosRequestIds,
+                IsMissionCreated = c.IsMissionCreated,
                 CreatedAt = c.CreatedAt,
                 LastUpdatedAt = c.LastUpdatedAt
             }).ToList()

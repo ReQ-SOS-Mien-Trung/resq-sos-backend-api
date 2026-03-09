@@ -4,5 +4,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.Register
     {
         public string Phone { get; set; } = null!;
         public string Password { get; set; } = null!;
+        public string FirebaseIdToken { get; set; } = null!;
     }
 }
