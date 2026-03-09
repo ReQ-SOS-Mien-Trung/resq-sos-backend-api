@@ -35,7 +35,11 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 CreatedAt = model.CreatedAt,
                 UpdatedAt = model.UpdatedAt,
                 ApprovedBy = model.ApprovedBy,
-                ApprovedAt = model.ApprovedAt
+                ApprovedAt = model.ApprovedAt,
+                IsBanned = model.IsBanned,
+                BannedBy = model.BannedBy,
+                BannedAt = model.BannedAt,
+                BanReason = model.BanReason
             };
 
             // Convert latitude/longitude to Point
@@ -78,7 +82,11 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 CreatedAt = entity.CreatedAt,
                 UpdatedAt = entity.UpdatedAt,
                 ApprovedBy = entity.ApprovedBy,
-                ApprovedAt = entity.ApprovedAt
+                ApprovedAt = entity.ApprovedAt,
+                IsBanned = entity.IsBanned,
+                BannedBy = entity.BannedBy,
+                BannedAt = entity.BannedAt,
+                BanReason = entity.BanReason
             };
         }
     }

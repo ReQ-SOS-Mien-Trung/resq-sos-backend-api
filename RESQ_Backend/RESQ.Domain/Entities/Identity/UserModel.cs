@@ -41,5 +41,11 @@
         // Approval info
         public Guid? ApprovedBy { get; set; }
         public DateTime? ApprovedAt { get; set; }
+
+        // Ban info
+        public bool IsBanned { get; set; } = false;
+        public Guid? BannedBy { get; set; }
+        public DateTime? BannedAt { get; set; }
+        public string? BanReason { get; set; }
     }
 }
