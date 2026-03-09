@@ -111,6 +111,9 @@ public class GlobalExceptionMiddleware : IMiddleware
                 break;
         }
 
+        if (exception.InnerException != null)
+            response.InnerError = exception.InnerException.Message;
+
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -124,5 +127,6 @@ public class GlobalExceptionMiddleware : IMiddleware
 public class ErrorResponse
 {
     public string Message { get; set; } = string.Empty;
+    public string? InnerError { get; set; }
     public IDictionary<string, string[]>? Errors { get; set; }
 }
