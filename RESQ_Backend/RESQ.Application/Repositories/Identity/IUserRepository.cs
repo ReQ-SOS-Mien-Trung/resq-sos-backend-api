@@ -1,4 +1,5 @@
-﻿using RESQ.Domain.Entities.Identity;
+﻿using RESQ.Application.Common.Models;
+using RESQ.Domain.Entities.Identity;
 
 namespace RESQ.Application.Repositories.Identity
 {
@@ -12,5 +13,6 @@ namespace RESQ.Application.Repositories.Identity
         Task<UserModel?> GetByPasswordResetTokenAsync(string token, CancellationToken cancellationToken = default);
         Task CreateAsync(UserModel user, CancellationToken cancellationToken = default);
         Task UpdateAsync(UserModel user, CancellationToken cancellationToken = default);
+        Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, CancellationToken cancellationToken = default);
     }
 }

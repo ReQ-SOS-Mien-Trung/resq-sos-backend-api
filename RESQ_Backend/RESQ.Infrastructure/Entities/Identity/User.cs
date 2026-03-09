@@ -111,6 +111,19 @@ public partial class User
     [Column("approved_at", TypeName = "timestamp with time zone")]
     public DateTime? ApprovedAt { get; set; }
 
+    [Column("is_banned")]
+    public bool IsBanned { get; set; } = false;
+
+    [Column("banned_by")]
+    public Guid? BannedBy { get; set; }
+
+    [Column("banned_at", TypeName = "timestamp with time zone")]
+    public DateTime? BannedAt { get; set; }
+
+    [Column("ban_reason")]
+    [StringLength(500)]
+    public string? BanReason { get; set; }
+
     [ForeignKey("ApprovedBy")]
     [InverseProperty("ApprovedUsers")]
     public virtual User? ApprovedByUser { get; set; }

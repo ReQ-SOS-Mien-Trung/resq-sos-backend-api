@@ -1,4 +1,5 @@
 ﻿using NetTopologySuite.Geometries;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Domain.Entities.Identity;
@@ -99,8 +100,33 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 entity.ApprovedBy = user.ApprovedBy;
                 entity.ApprovedAt = user.ApprovedAt;
 
+                // Update ban info
+                entity.IsBanned = user.IsBanned;
+                entity.BannedBy = user.BannedBy;
+                entity.BannedAt = user.BannedAt;
+                entity.BanReason = user.BanReason;
+
                 await _unitOfWork.GetRepository<User>().UpdateAsync(entity);
             }
+        }
+
+        public async Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, CancellationToken cancellationToken = default)
+        {
+            var paged = await _unitOfWork.GetRepository<User>().GetPagedAsync(
+                pageNumber,
+                pageSize,
+                filter: u =>
+                    (roleId == null || u.RoleId == roleId) &&
+                    (isBanned == null || u.IsBanned == isBanned) &&
+                    (search == null || (u.Phone != null && u.Phone.Contains(search)) ||
+                     (u.Email != null && u.Email.Contains(search)) ||
+                     (u.FirstName != null && u.FirstName.Contains(search)) ||
+                     (u.LastName != null && u.LastName.Contains(search))),
+                orderBy: q => q.OrderByDescending(u => u.CreatedAt)
+            );
+
+            var models = paged.Items.Select(UsersMapper.ToModel).ToList();
+            return new PagedResult<UserModel>(models, paged.TotalCount, paged.PageNumber, paged.PageSize);
         }
     }
 }

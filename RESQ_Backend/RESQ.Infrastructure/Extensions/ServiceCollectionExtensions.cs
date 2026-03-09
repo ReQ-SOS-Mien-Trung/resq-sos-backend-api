@@ -52,6 +52,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAbilityCategoryRepository, AbilityCategoryRepository>();
         services.AddScoped<IDocumentFileTypeRepository, DocumentFileTypeRepository>();
         services.AddScoped<IDocumentFileTypeCategoryRepository, DocumentFileTypeCategoryRepository>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<ISosRequestRepository, SosRequestRepository>();
         services.AddScoped<ISosClusterRepository, SosClusterRepository>();
         services.AddScoped<ISosRuleEvaluationRepository, SosRuleEvaluationRepository>();
