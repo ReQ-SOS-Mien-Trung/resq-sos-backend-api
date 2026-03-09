@@ -34,6 +34,8 @@ public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
     {
         var entity = PromptMapper.ToEntity(prompt);
         await _unitOfWork.GetRepository<Prompt>().AddAsync(entity);
+        await _unitOfWork.SaveAsync();
+        prompt.Id = entity.Id;
     }
 
     public async Task UpdateAsync(PromptModel prompt, CancellationToken cancellationToken = default)

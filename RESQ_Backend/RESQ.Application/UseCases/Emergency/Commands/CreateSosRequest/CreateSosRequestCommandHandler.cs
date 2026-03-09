@@ -1,6 +1,8 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.UseCases.Emergency.Queries;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Emergency;
@@ -97,20 +99,32 @@ public class CreateSosRequestCommandHandler(
         {
             Id = created.Id,
             PacketId = created.PacketId,
+            ClusterId = created.ClusterId,
             OriginId = created.OriginId,
             UserId = created.UserId,
             SosType = created.SosType,
             RawMessage = created.RawMessage,
-            StructuredData = created.StructuredData,
-            NetworkMetadata = created.NetworkMetadata,
-            SenderInfo = created.SenderInfo,
+            StructuredData = ParseJson<SosStructuredDataDto>(created.StructuredData),
+            NetworkMetadata = ParseJson<SosNetworkMetadataDto>(created.NetworkMetadata),
+            SenderInfo = ParseJson<SosSenderInfoDto>(created.SenderInfo),
             Status = created.Status.ToString(),
             PriorityLevel = evaluation.PriorityLevel.ToString(),
+            WaitTimeMinutes = created.WaitTimeMinutes,
             Latitude = created.Location?.Latitude,
             Longitude = created.Location?.Longitude,
             LocationAccuracy = created.LocationAccuracy,
             Timestamp = created.Timestamp,
-            CreatedAt = created.CreatedAt
+            CreatedAt = created.CreatedAt,
+            LastUpdatedAt = created.LastUpdatedAt,
+            ReviewedAt = created.ReviewedAt,
+            ReviewedById = created.ReviewedById
         };
+    }
+
+    private static T? ParseJson<T>(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        try { return JsonSerializer.Deserialize<T>(json); }
+        catch { return default; }
     }
 }

@@ -41,9 +41,9 @@ public class GetSosRequestQueryHandler(
                 UserId = sosRequest.UserId,
                 SosType = sosRequest.SosType,
                 RawMessage = sosRequest.RawMessage,
-                StructuredData = ParseJson(sosRequest.StructuredData),
-                NetworkMetadata = ParseJson(sosRequest.NetworkMetadata),
-                SenderInfo = ParseJson(sosRequest.SenderInfo),
+                StructuredData = ParseJson<SosStructuredDataDto>(sosRequest.StructuredData),
+                NetworkMetadata = ParseJson<SosNetworkMetadataDto>(sosRequest.NetworkMetadata),
+                SenderInfo = ParseJson<SosSenderInfoDto>(sosRequest.SenderInfo),
                 OriginId = sosRequest.OriginId,
                 Status = sosRequest.Status.ToString(),
                 PriorityLevel = sosRequest.PriorityLevel?.ToString(),
@@ -60,10 +60,10 @@ public class GetSosRequestQueryHandler(
         };
     }
 
-    private static JsonElement? ParseJson(string? json)
+    private static T? ParseJson<T>(string? json)
     {
-        if (string.IsNullOrWhiteSpace(json)) return null;
-        try { return JsonSerializer.Deserialize<JsonElement>(json); }
-        catch { return null; }
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        try { return JsonSerializer.Deserialize<T>(json); }
+        catch { return default; }
     }
 }

@@ -7,7 +7,61 @@ namespace RESQ.Infrastructure.Services;
 
 public class SosPriorityEvaluationService : ISosPriorityEvaluationService
 {
-    private const string RULE_VERSION = "1.0";
+    private const string RULE_VERSION = "2.0";
+
+    // Medical issue severity values (camelCase and snake_case variants both supported)
+    private static readonly Dictionary<string, int> IssueSeverity = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Injury group
+        ["bleeding"] = 4,
+        ["severelyBleeding"] = 4,
+        ["severely_bleeding"] = 4,
+        ["fracture"] = 3,
+        ["headInjury"] = 4,
+        ["head_injury"] = 4,
+        ["burns"] = 4,
+        // Danger group
+        ["unconscious"] = 5,
+        ["breathingDifficulty"] = 5,
+        ["breathing_difficulty"] = 5,
+        ["chestPainStroke"] = 5,
+        ["chest_pain_stroke"] = 5,
+        ["cannotMove"] = 4,
+        ["cannot_move"] = 4,
+        ["drowning"] = 5,
+        // Special group
+        ["highFever"] = 3,
+        ["high_fever"] = 3,
+        ["dehydration"] = 3,
+        ["infantNeedsMilk"] = 3,
+        ["infant_needs_milk"] = 3,
+        ["lostParent"] = 3,
+        ["lost_parent"] = 3,
+        ["chronicDisease"] = 2,
+        ["chronic_disease"] = 2,
+        ["confusion"] = 2,
+        ["needsMedicalDevice"] = 2,
+        ["needs_medical_device"] = 2,
+        // Other
+        ["other"] = 1
+    };
+
+    // severity field value → score: critical=5, moderate=3, mild=1
+    private static int GetSeverityScore(string? severity) => severity?.ToLowerInvariant() switch
+    {
+        "critical" => 5,
+        "moderate" => 3,
+        "mild" => 1,
+        _ => 1
+    };
+
+    // sosType base score: rescue=50, relief=20, anything else=10
+    private static int GetBaseScore(string? sosType) => sosType?.ToLowerInvariant() switch
+    {
+        "rescue" => 50,
+        "relief" => 20,
+        _ => 10
+    };
 
     public SosRuleEvaluationModel Evaluate(int sosRequestId, string? structuredDataJson, string? sosType)
     {
@@ -18,209 +72,122 @@ public class SosPriorityEvaluationService : ISosPriorityEvaluationService
             CreatedAt = DateTime.UtcNow
         };
 
-        StructuredData? structuredData = null;
+        StructuredData? data = null;
         if (!string.IsNullOrWhiteSpace(structuredDataJson))
         {
             try
             {
-                structuredData = JsonSerializer.Deserialize<StructuredData>(structuredDataJson, new JsonSerializerOptions
+                data = JsonSerializer.Deserialize<StructuredData>(structuredDataJson, new JsonSerializerOptions
                 {
-                    PropertyNameCaseInsensitive = true
+                    PropertyNameCaseInsensitive = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
                 });
             }
-            catch
+            catch { }
+        }
+
+        // ── 1. Base score (from SOS type) + dangerous situation bonus ──
+        int baseScore = GetBaseScore(sosType);
+        var situation = data?.Situation?.ToLowerInvariant();
+        int dangerBonus = situation is "building_collapse" or "flooding" ? 20 : 0;
+
+        // ── 2. Demographic score: children×3 + elderly×2 ──
+        int children = data?.PeopleCount?.Child ?? 0;
+        int elderly = data?.PeopleCount?.Elderly ?? 0;
+        int demographicScore = children * 3 + elderly * 2;
+
+        // ── 3. Medical priority score: Σ per-person (severity×2 + Σ issueSeverity) ──
+        int medicalPriorityScore = 0;
+        int injuredCount = 0;
+        if (data?.InjuredPersons is { Count: > 0 } persons)
+        {
+            injuredCount = persons.Count;
+            foreach (var person in persons)
             {
-                // Invalid JSON, use default scores
+                int severityScore = GetSeverityScore(person.Severity);
+                int issueSum = person.MedicalIssues?.Sum(k => IssueSeverity.GetValueOrDefault(k, 1)) ?? 0;
+                medicalPriorityScore += severityScore * 2 + issueSum;
             }
         }
 
-        // Calculate scores based on structured data
-        evaluation.MedicalScore = CalculateMedicalScore(structuredData);
-        evaluation.InjuryScore = CalculateInjuryScore(structuredData);
-        evaluation.MobilityScore = CalculateMobilityScore(structuredData);
-        evaluation.EnvironmentScore = CalculateEnvironmentScore(structuredData, sosType);
-        evaluation.FoodScore = CalculateFoodScore(structuredData);
+        // ── 4. Assemble score components ──
+        // EnvironmentScore = base + danger bonus
+        // MedicalScore     = medicalPriorityScore × 5
+        // InjuryScore      = injuredCount × 4
+        // FoodScore        = demographic (children/elderly)
+        // MobilityScore    = 0 (not used in this formula)
+        evaluation.EnvironmentScore = baseScore + dangerBonus;
+        evaluation.MedicalScore = medicalPriorityScore * 5;
+        evaluation.InjuryScore = injuredCount * 4;
+        evaluation.FoodScore = demographicScore;
+        evaluation.MobilityScore = 0;
 
-        // Calculate total score (weighted average)
-        evaluation.TotalScore = CalculateTotalScore(evaluation);
+        evaluation.TotalScore = evaluation.EnvironmentScore
+                              + evaluation.MedicalScore
+                              + evaluation.InjuryScore
+                              + evaluation.FoodScore;
 
-        // Determine priority level based on total score
         evaluation.PriorityLevel = DeterminePriorityLevel(evaluation.TotalScore);
-
-        // Determine items needed based on situation
-        evaluation.ItemsNeeded = DetermineItemsNeeded(structuredData, sosType);
+        evaluation.ItemsNeeded = DetermineItemsNeeded(data, sosType);
 
         return evaluation;
     }
 
-    private static double CalculateMedicalScore(StructuredData? data)
+    // Thresholds calibrated for the unbounded score scale
+    // Example from spec: rescue+flooding+1child+1elderly+critical(unconscious+fracture) = 169 → Critical
+    private static SosPriorityLevel DeterminePriorityLevel(double totalScore) => totalScore switch
     {
-        if (data == null) return 0;
-
-        double score = 0;
-
-        // Need medical assistance
-        if (data.NeedMedical == true) score += 30;
-
-        // Has medical issues
-        if (data.MedicalIssues != null && data.MedicalIssues.Count > 0)
-        {
-            score += Math.Min(data.MedicalIssues.Count * 10, 30);
-
-            // Specific critical conditions
-            if (data.MedicalIssues.Contains("BLEEDING")) score += 10;
-            if (data.MedicalIssues.Contains("UNCONSCIOUS")) score += 20;
-            if (data.MedicalIssues.Contains("BREATHING_DIFFICULTY")) score += 15;
-            if (data.MedicalIssues.Contains("CARDIAC")) score += 20;
-        }
-
-        return Math.Min(score, 100);
-    }
-
-    private static double CalculateInjuryScore(StructuredData? data)
-    {
-        if (data == null) return 0;
-
-        double score = 0;
-
-        if (data.HasInjured == true) score += 40;
-        if (data.OthersAreStable == false) score += 30;
-
-        return Math.Min(score, 100);
-    }
-
-    private static double CalculateMobilityScore(StructuredData? data)
-    {
-        if (data == null) return 0;
-
-        // Cannot move = higher urgency
-        if (data.CanMove == false) return 80;
-        if (data.CanMove == true) return 20;
-
-        return 50; // Unknown
-    }
-
-    private static double CalculateEnvironmentScore(StructuredData? data, string? sosType)
-    {
-        double score = 0;
-
-        // SOS type severity
-        if (!string.IsNullOrEmpty(sosType))
-        {
-            score += sosType.ToUpper() switch
-            {
-                "RESCUE" => 40,
-                "MEDICAL" => 50,
-                "EVACUATION" => 35,
-                "SUPPLY" => 20,
-                _ => 25
-            };
-        }
-
-        // Situation severity
-        if (data?.Situation != null)
-        {
-            score += data.Situation.ToUpper() switch
-            {
-                "FLOODING" => 40,
-                "FIRE" => 50,
-                "EARTHQUAKE" => 45,
-                "LANDSLIDE" => 40,
-                "STORM" => 30,
-                "MEDICAL_EMERGENCY" => 45,
-                "ACCIDENT" => 35,
-                _ => 20
-            };
-        }
-
-        return Math.Min(score, 100);
-    }
-
-    private static double CalculateFoodScore(StructuredData? data)
-    {
-        if (data == null) return 0;
-
-        double score = 0;
-
-        // People count affects food/supply needs
-        if (data.PeopleCount != null)
-        {
-            var totalPeople = (data.PeopleCount.Adult ?? 0) +
-                              (data.PeopleCount.Child ?? 0) +
-                              (data.PeopleCount.Elderly ?? 0);
-
-            score += Math.Min(totalPeople * 10, 50);
-
-            // Vulnerable groups need more attention
-            if (data.PeopleCount.Child > 0) score += 15;
-            if (data.PeopleCount.Elderly > 0) score += 15;
-        }
-
-        return Math.Min(score, 100);
-    }
-
-    private static double CalculateTotalScore(SosRuleEvaluationModel evaluation)
-    {
-        // Weighted average
-        const double medicalWeight = 0.30;
-        const double injuryWeight = 0.25;
-        const double mobilityWeight = 0.15;
-        const double environmentWeight = 0.20;
-        const double foodWeight = 0.10;
-
-        return (evaluation.MedicalScore * medicalWeight) +
-               (evaluation.InjuryScore * injuryWeight) +
-               (evaluation.MobilityScore * mobilityWeight) +
-               (evaluation.EnvironmentScore * environmentWeight) +
-               (evaluation.FoodScore * foodWeight);
-    }
-
-    private static SosPriorityLevel DeterminePriorityLevel(double totalScore)
-    {
-        return totalScore switch
-        {
-            >= 70 => SosPriorityLevel.Critical,
-            >= 50 => SosPriorityLevel.High,
-            >= 30 => SosPriorityLevel.Medium,
-            _ => SosPriorityLevel.Low
-        };
-    }
+        >= 150 => SosPriorityLevel.Critical,
+        >= 70  => SosPriorityLevel.High,
+        >= 30  => SosPriorityLevel.Medium,
+        _      => SosPriorityLevel.Low
+    };
 
     private static string? DetermineItemsNeeded(StructuredData? data, string? sosType)
     {
         var items = new List<string>();
 
-        if (data?.NeedMedical == true || data?.HasInjured == true)
+        var allIssues = data?.InjuredPersons?
+            .SelectMany(p => p.MedicalIssues ?? [])
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+
+        if (data?.InjuredPersons?.Count > 0 || data?.HasInjured == true)
         {
             items.Add("FIRST_AID_KIT");
             items.Add("MEDICAL_SUPPLIES");
         }
 
-        if (data?.MedicalIssues?.Contains("BLEEDING") == true)
+        if (allIssues.Contains("bleeding") || allIssues.Contains("severelyBleeding") || allIssues.Contains("severely_bleeding"))
         {
             items.Add("BANDAGES");
             items.Add("BLOOD_CLOTTING_AGENTS");
         }
 
-        if (data?.Situation?.ToUpper() == "FLOODING")
+        var situation = data?.Situation?.ToLowerInvariant();
+
+        if (situation is "flooding")
         {
             items.Add("LIFE_JACKET");
             items.Add("RESCUE_BOAT");
             items.Add("ROPE");
         }
 
-        if (data?.Situation?.ToUpper() == "FIRE")
+        if (situation is "trapped" or "building_collapse")
+        {
+            items.Add("ROPE");
+            items.Add("RESCUE_EQUIPMENT");
+        }
+
+        if (situation is "fire")
         {
             items.Add("FIRE_EXTINGUISHER");
             items.Add("PROTECTIVE_GEAR");
         }
 
-        if (data?.PeopleCount != null)
+        if (data?.PeopleCount is { } pc)
         {
-            var totalPeople = (data.PeopleCount.Adult ?? 0) +
-                              (data.PeopleCount.Child ?? 0) +
-                              (data.PeopleCount.Elderly ?? 0);
-            if (totalPeople > 0)
+            var total = (pc.Adult ?? 0) + (pc.Child ?? 0) + (pc.Elderly ?? 0);
+            if (total > 0)
             {
                 items.Add("FOOD_RATIONS");
                 items.Add("WATER");
@@ -228,7 +195,7 @@ public class SosPriorityEvaluationService : ISosPriorityEvaluationService
             }
         }
 
-        if (sosType?.ToUpper() == "EVACUATION")
+        if (sosType?.ToLowerInvariant() is "evacuation")
         {
             items.Add("TRANSPORT_VEHICLE");
             items.Add("STRETCHER");
@@ -237,17 +204,12 @@ public class SosPriorityEvaluationService : ISosPriorityEvaluationService
         return items.Count > 0 ? JsonSerializer.Serialize(items) : null;
     }
 
-    // Internal class for deserializing structured data
     private class StructuredData
     {
         public string? Situation { get; set; }
         public bool? HasInjured { get; set; }
-        public List<string>? MedicalIssues { get; set; }
-        public bool? OthersAreStable { get; set; }
         public PeopleCount? PeopleCount { get; set; }
-        public bool? CanMove { get; set; }
-        public bool? NeedMedical { get; set; }
-        public string? AdditionalDescription { get; set; }
+        public List<InjuredPerson>? InjuredPersons { get; set; }
     }
 
     private class PeopleCount
@@ -255,5 +217,12 @@ public class SosPriorityEvaluationService : ISosPriorityEvaluationService
         public int? Adult { get; set; }
         public int? Child { get; set; }
         public int? Elderly { get; set; }
+    }
+
+    private class InjuredPerson
+    {
+        public string? PersonType { get; set; }
+        public List<string>? MedicalIssues { get; set; }
+        public string? Severity { get; set; }
     }
 }

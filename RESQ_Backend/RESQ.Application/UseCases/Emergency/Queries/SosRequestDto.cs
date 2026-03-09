@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace RESQ.Application.UseCases.Emergency.Queries;
@@ -12,9 +11,9 @@ public class SosRequestDto
     public string? SosType { get; set; }
     [JsonPropertyName("msg")]
     public string RawMessage { get; set; } = string.Empty;
-    public JsonElement? StructuredData { get; set; }
-    public JsonElement? NetworkMetadata { get; set; }
-    public JsonElement? SenderInfo { get; set; }
+    public SosStructuredDataDto? StructuredData { get; set; }
+    public SosNetworkMetadataDto? NetworkMetadata { get; set; }
+    public SosSenderInfoDto? SenderInfo { get; set; }
     public string? OriginId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? PriorityLevel { get; set; }
