@@ -160,6 +160,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 LastName = entity.User?.LastName,
                 Email = entity.User?.Email,
                 Phone = entity.User?.Phone,
+                AvatarUrl = entity.User?.AvatarUrl,
                 RescuerType = entity.User?.RescuerType,
                 Address = entity.User?.Address,
                 Ward = entity.User?.Ward,
