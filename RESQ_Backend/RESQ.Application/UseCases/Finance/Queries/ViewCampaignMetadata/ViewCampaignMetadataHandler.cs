@@ -26,7 +26,7 @@ public class ViewCampaignMetadataHandler : IRequestHandler<ViewCampaignMetadataQ
         return pagedResult.Items
             .Select(c => new MetadataDto
             {
-                Key = c.Id,
+                Key = c.Id.ToString(),
                 Value = c.Name
             })
             .ToList();

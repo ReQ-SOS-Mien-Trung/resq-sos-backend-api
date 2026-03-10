@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -62,6 +62,44 @@ namespace RESQ.Infrastructure.Services
         public bool ValidateRefreshToken(string refreshToken)
         {
             return !string.IsNullOrEmpty(refreshToken);
+        }
+
+        public Guid? GetUserIdFromToken(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token)) return null;
+
+            // Strip "Bearer " prefix if it exists
+            if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                token = token.Substring("Bearer ".Length).Trim();
+            }
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            
+            if (!tokenHandler.CanReadToken(token)) return null;
+
+            try
+            {
+                var jwtToken = tokenHandler.ReadJwtToken(token);
+                
+                // Read NameIdentifier or standard "sub" / "nameid" formats
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(c => 
+                    c.Type == ClaimTypes.NameIdentifier || 
+                    c.Type == "sub" || 
+                    c.Type == "nameid");
+
+                if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return userId;
+                }
+            }
+            catch
+            {
+                // Return null if token parsing fails or is invalidly formatted
+                return null;
+            }
+
+            return null;
         }
     }
 }

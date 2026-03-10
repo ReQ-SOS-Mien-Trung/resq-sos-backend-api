@@ -1,6 +1,6 @@
 using RESQ.Domain.Entities.Finance;
 
-namespace RESQ.Domain.Services.Finance;
+namespace RESQ.Domain.Entities.Finance.Services;
 
 public interface IFundDistributionManager
 {
