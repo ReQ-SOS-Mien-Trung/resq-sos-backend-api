@@ -1,23 +1,24 @@
 ﻿using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.DepotStatusMetadata;
 
 public class GetDepotStatusMetadataQueryHandler
-    : IRequestHandler<GetDepotStatusMetadataQuery, List<DepotStatusMetadataDto>>
+    : IRequestHandler<GetDepotStatusMetadataQuery, List<MetadataDto>>
 {
-    public async Task<List<DepotStatusMetadataDto>> Handle(
+    public async Task<List<MetadataDto>> Handle(
         GetDepotStatusMetadataQuery request,
         CancellationToken cancellationToken)
     {
-        var result = new List<DepotStatusMetadataDto>
-    {
-        new() { Key = DepotStatus.PendingAssignment.ToString(), Label = "Chưa có quản lý" },
-        new() { Key = DepotStatus.Available.ToString(), Label = "Đang hoạt động" },
-        new() { Key = DepotStatus.Full.ToString(), Label = "Đã đầy" },
-        new() { Key = DepotStatus.Closed.ToString(), Label = "Đã đóng" }
-    };
+        var result = new List<MetadataDto>
+        {
+            new() { Key = DepotStatus.PendingAssignment.ToString(), Value = "Chưa có quản lý" },
+            new() { Key = DepotStatus.Available.ToString(), Value = "Đang hoạt động" },
+            new() { Key = DepotStatus.Full.ToString(), Value = "Đã đầy" },
+            new() { Key = DepotStatus.Closed.ToString(), Value = "Đã đóng" }
+        };
 
-        return result;
+        return await Task.FromResult(result);
     }
 }

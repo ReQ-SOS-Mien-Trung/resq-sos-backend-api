@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Logistics.Commands.CreateItemCategory;
 using RESQ.Application.UseCases.Logistics.Commands.DeleteItemCategory;
 using RESQ.Application.UseCases.Logistics.Commands.UpdateItemCategory;
@@ -33,7 +34,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
     }
 
     [HttpGet("codes")]
-    public async Task<ActionResult<List<ItemCategoryCodeDto>>> GetCodes()
+    public async Task<ActionResult<List<MetadataDto>>> GetCodes()
     {
         var result = await _sender.Send(new GetItemCategoryCodesQuery());
         return Ok(result);

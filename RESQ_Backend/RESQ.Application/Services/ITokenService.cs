@@ -7,5 +7,8 @@ namespace RESQ.Application.Services
         string GenerateAccessToken(UserModel user);
         string GenerateRefreshToken();
         bool ValidateRefreshToken(string refreshToken);
+        
+        // New method to manually extract UserId from a token string
+        Guid? GetUserIdFromToken(string token);
     }
 }

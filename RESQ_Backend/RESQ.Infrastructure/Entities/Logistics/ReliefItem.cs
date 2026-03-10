@@ -25,6 +25,9 @@ public partial class ReliefItem
     [StringLength(50)]
     public string? Unit { get; set; }
 
+    [Column("item_type")]
+    [StringLength(50)]
+    public string? ItemType { get; set; }
     [Column("target_group")]
     [StringLength(50)]
     public string? TargetGroup { get; set; }
@@ -38,7 +41,6 @@ public partial class ReliefItem
     [ForeignKey("CategoryId")]
     [InverseProperty("ReliefItems")]
     public virtual ItemCategory? ItemCategory { get; set; }
-
     [InverseProperty("ReliefItem")]
     public virtual ICollection<DepotSupplyInventory> DepotSupplyInventories { get; set; } = new List<DepotSupplyInventory>();
 

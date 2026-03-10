@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Logistics;
-using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Entities.Logistics;
 
 namespace RESQ.Infrastructure.Persistence.Seeding;
@@ -24,44 +23,17 @@ public static class LogisticsSeeder
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        // Using ItemCategoryCode Enum to set IDs and Codes
         modelBuilder.Entity<ItemCategory>().HasData(
-            new ItemCategory
-            {
-                Id = (int)ItemCategoryCode.Food, // 1
-                Code = ItemCategoryCode.Food.ToString(),
-                Name = "Thực phẩm",
-                Description = "Lương thực, nhu yếu phẩm, đồ ăn khô",
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new ItemCategory
-            {
-                Id = (int)ItemCategoryCode.Water, // 2
-                Code = ItemCategoryCode.Water.ToString(),
-                Name = "Nước uống",
-                Description = "Nước sạch, nước đóng chai, thiết bị lọc nước",
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new ItemCategory
-            {
-                Id = (int)ItemCategoryCode.Medical, // 3
-                Code = ItemCategoryCode.Medical.ToString(),
-                Name = "Y tế",
-                Description = "Thuốc men, dụng cụ sơ cứu",
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new ItemCategory
-            {
-                Id = (int)ItemCategoryCode.RescueEquipment, // 7
-                Code = ItemCategoryCode.RescueEquipment.ToString(),
-                Name = "Thiết bị cứu hộ",
-                Description = "Áo phao, đèn pin, dây thừng",
-                CreatedAt = now,
-                UpdatedAt = now
-            }
+            new ItemCategory { Id = 1, Code = "Food", Name = "Thực phẩm", Description = "Lương thực, đồ ăn khô", CreatedAt = now, UpdatedAt = now },
+            new ItemCategory { Id = 2, Code = "Water", Name = "Nước uống", Description = "Nước sạch, nước đóng chai", CreatedAt = now, UpdatedAt = now },
+            new ItemCategory { Id = 3, Code = "Medical", Name = "Y tế", Description = "Thuốc men, dụng cụ sơ cứu", CreatedAt = now, UpdatedAt = now },
+            new ItemCategory { Id = 4, Code = "RescueEquipment", Name = "Thiết bị cứu hộ", Description = "Áo phao, xuồng, dây thừng", CreatedAt = now, UpdatedAt = now },
+            new ItemCategory { Id = 5, Code = "Hygiene", Name = "Vệ sinh cá nhân", Description = "Khăn giấy, xà phòng, băng vệ sinh", CreatedAt = now, UpdatedAt = now },
+            new ItemCategory { Id = 6, Code = "Clothing", Name = "Quần áo", Description = "Quần áo sạch, áo mưa", CreatedAt = now, UpdatedAt = now },
+            new ItemCategory { Id = 7, Code = "Shelter", Name = "Nơi trú ẩn", Description = "Lều bạt, túi ngủ", CreatedAt = now, UpdatedAt = now },
+            new ItemCategory { Id = 8, Code = "Heating", Name = "Sưởi ấm", Description = "Chăn, than, máy sưởi", CreatedAt = now, UpdatedAt = now },
+            new ItemCategory { Id = 9, Code = "Nutrition", Name = "Dinh dưỡng", Description = "Sữa, thức ăn dặm", CreatedAt = now, UpdatedAt = now },
+            new ItemCategory { Id = 10, Code = "RepairTools", Name = "Công cụ sửa chữa", Description = "Búa, đinh, cưa", CreatedAt = now, UpdatedAt = now }
         );
     }
 
@@ -70,26 +42,16 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Organization>().HasData(
-            new Organization
-            {
-                Id = 1,
-                Name = "Hội Chữ Thập Đỏ - Chi nhánh Miền Trung",
-                Phone = "02343822123",
-                Email = "central@redcross.org.vn",
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new Organization
-            {
-                Id = 2,
-                Name = "Quỹ Hỗ trợ Thiên tai ABC",
-                Phone = "02363567890",
-                Email = "contact@abc-relief.org",
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now
-            }
+            new Organization { Id = 1, Name = "Hội Chữ Thập Đỏ - Thừa Thiên Huế", Phone = "02343822123", Email = "hue@redcross.org.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 2, Name = "Ủy ban MTTQ Việt Nam - Quảng Bình", Phone = "02323812345", Email = "mttq@quangbinh.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 3, Name = "Quỹ Tấm Lòng Vàng - Đà Nẵng", Phone = "02363567890", Email = "contact@tamlongvang-dn.org", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 4, Name = "Tỉnh Đoàn Quảng Trị", Phone = "02333852111", Email = "tinhdoan@quangtri.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 5, Name = "Hội Liên hiệp Phụ nữ - Hà Tĩnh", Phone = "02393855222", Email = "phunu@hatinh.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 6, Name = "Nhóm Thiện Nguyện Đồng Xanh - Quảng Nam", Phone = "0905123456", Email = "dongxanh@thiennguyen.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 7, Name = "Hội Chữ Thập Đỏ - Quảng Ngãi", Phone = "02553822777", Email = "quangngai@redcross.org.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 8, Name = "Ban Chỉ huy PCTT & TKCN Miền Trung", Phone = "02363822999", Email = "pctt@mientrung.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 9, Name = "Câu lạc bộ Tình Người - Phú Yên", Phone = "0988765432", Email = "tinhnguoi@phuyen.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 10, Name = "Quỹ Bảo trợ Trẻ em Miền Trung", Phone = "02343811811", Email = "treem@baotromientrung.vn", IsActive = true, CreatedAt = now, UpdatedAt = now }
         );
     }
 
@@ -98,50 +60,16 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<ReliefItem>().HasData(
-            // ID 1: General Food Item -> Category Food (1)
-            new ReliefItem
-            {
-                Id = 1,
-                CategoryId = (int)ItemCategoryCode.Food,
-                Name = "Gạo & Lương khô (Combo)",
-                Unit = "phần",
-                TargetGroup = "Tất cả",
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            // ID 2: General Rescue/Medical Item -> Category Medical (3)
-            new ReliefItem
-            {
-                Id = 2,
-                CategoryId = (int)ItemCategoryCode.Medical,
-                Name = "Bộ cứu thương & Áo phao",
-                Unit = "bộ",
-                TargetGroup = "Cứu hộ",
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            // ID 3: Noodles -> Category Food (1)
-            new ReliefItem
-            {
-                Id = 3,
-                CategoryId = (int)ItemCategoryCode.Food,
-                Name = "Mì tôm",
-                Unit = "gói",
-                TargetGroup = "Tất cả",
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            // ID 4: Water -> Category Water (2)
-            new ReliefItem
-            {
-                Id = 4,
-                CategoryId = (int)ItemCategoryCode.Water,
-                Name = "Nước suối",
-                Unit = "chai",
-                TargetGroup = "Tất cả",
-                CreatedAt = now,
-                UpdatedAt = now
-            }
+            new ReliefItem { Id = 1, CategoryId = 1, Name = "Mì tôm", Unit = "gói", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 2, CategoryId = 2, Name = "Nước tinh khiết", Unit = "chai 500ml", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 3, CategoryId = 3, Name = "Thuốc hạ sốt Paracetamol 500mg", Unit = "viên", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 4, CategoryId = 4, Name = "Áo phao cứu sinh", Unit = "chiếc", ItemType = ItemType.Equipment.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 5, CategoryId = 5, Name = "Băng vệ sinh", Unit = "miếng", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 6, CategoryId = 8, Name = "Chăn ấm giữ nhiệt", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 7, CategoryId = 9, Name = "Sữa bột trẻ em", Unit = "gói", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Children.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 8, CategoryId = 1, Name = "Lương khô", Unit = "phong", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 9, CategoryId = 3, Name = "Dầu gió", Unit = "chai 10ml", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Elderly.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 10, CategoryId = 3, Name = "Sắt & Vitamin tổng hợp", Unit = "viên", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Pregnant.ToString(), CreatedAt = now, UpdatedAt = now }
         );
     }
 
@@ -150,52 +78,16 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Depot>().HasData(
-            new Depot
-            {
-                Id = 1,
-                Name = "Kho Cứu trợ Trung tâm Huế",
-                Address = "15 Lê Lợi, TP. Huế",
-                Location = new Point(107.5950, 16.4650) { SRID = 4326 },
-                Status = DepotStatus.Available.ToString(),
-                Capacity = 5000,
-                CurrentUtilization = 3000,
-                LastUpdatedAt = now
-            },
-            new Depot
-            {
-                Id = 2,
-                Name = "Kho Tiền phương Lệ Thủy",
-                Address = "TT. Kiến Giang, Lệ Thủy, QB",
-                Location = new Point(106.7820, 17.2150) { SRID = 4326 },
-                Status = DepotStatus.Full.ToString(), 
-                Capacity = 2000,
-                CurrentUtilization = 1800,
-                LastUpdatedAt = now
-            },
-            // Depot 3: Gần SOS 3 & 4 — Phong Điền, TT-Huế (~350m từ SOS Id=3)
-            new Depot
-            {
-                Id = 3,
-                Name = "Điểm tiếp tế Phong Điền",
-                Address = "Thôn Phong Mỹ, Phong Điền, Thừa Thiên-Huế",
-                Location = new Point(107.2902, 16.6358) { SRID = 4326 },
-                Status = DepotStatus.Available.ToString(),
-                Capacity = 1500,
-                CurrentUtilization = 900,
-                LastUpdatedAt = now
-            },
-            // Depot 4: Gần SOS 5 — Hòa Vang, Đà Nẵng (~550m từ SOS Id=5)
-            new Depot
-            {
-                Id = 4,
-                Name = "Kho Cứu trợ Hòa Vang",
-                Address = "Thôn Phú Túc, Hòa Phú, Hòa Vang, Đà Nẵng",
-                Location = new Point(108.0055, 16.0275) { SRID = 4326 },
-                Status = DepotStatus.Available.ToString(),
-                Capacity = 800,
-                CurrentUtilization = 350,
-                LastUpdatedAt = now
-            }
+            new Depot { Id = 1, Name = "Kho Cứu trợ Tỉnh Thừa Thiên Huế", Address = "15 Lê Lợi, TP. Huế", Location = new Point(107.585, 16.463) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 500000, CurrentUtilization = 150000, LastUpdatedAt = now },
+            new Depot { Id = 2, Name = "Điểm Tập kết Lệ Thủy, Quảng Bình", Address = "TT. Kiến Giang, Lệ Thủy, QB", Location = new Point(106.782, 17.215) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 300000, CurrentUtilization = 120000, LastUpdatedAt = now },
+            new Depot { Id = 3, Name = "Trạm Hỗ trợ Hải Lăng, Quảng Trị", Address = "Hải Lăng, Quảng Trị", Location = new Point(107.288, 16.689) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 200000, CurrentUtilization = 80000, LastUpdatedAt = now },
+            new Depot { Id = 4, Name = "Kho Cứu trợ Hòa Vang, Đà Nẵng", Address = "Hòa Vang, Đà Nẵng", Location = new Point(108.005, 16.027) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 400000, CurrentUtilization = 100000, LastUpdatedAt = now },
+            new Depot { Id = 5, Name = "Trung tâm Phân phối Cẩm Xuyên, Hà Tĩnh", Address = "Cẩm Xuyên, Hà Tĩnh", Location = new Point(106.012, 18.256) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 250000, CurrentUtilization = 90000, LastUpdatedAt = now },
+            new Depot { Id = 6, Name = "Điểm Cứu trợ Trà My, Quảng Nam", Address = "Bắc Trà My, Quảng Nam", Location = new Point(108.192, 15.353) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 150000, CurrentUtilization = 50000, LastUpdatedAt = now },
+            new Depot { Id = 7, Name = "Kho Vận chuyển Phước Sơn, Quảng Nam", Address = "Phước Sơn, Quảng Nam", Location = new Point(107.817, 15.426) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 100000, CurrentUtilization = 40000, LastUpdatedAt = now },
+            new Depot { Id = 8, Name = "Kho Dự trữ Phong Điền, Thừa Thiên Huế", Address = "Phong Điền, Thừa Thiên Huế", Location = new Point(107.290, 16.635) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 200000, CurrentUtilization = 70000, LastUpdatedAt = now },
+            new Depot { Id = 9, Name = "Kho Tiền phương Bố Trạch, Quảng Bình", Address = "Bố Trạch, Quảng Bình", Location = new Point(106.550, 17.616) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 300000, CurrentUtilization = 110000, LastUpdatedAt = now },
+            new Depot { Id = 10, Name = "Kho Khẩn cấp Bình Sơn, Quảng Ngãi", Address = "Bình Sơn, Quảng Ngãi", Location = new Point(108.775, 15.312) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 250000, CurrentUtilization = 85000, LastUpdatedAt = now }
         );
     }
 
@@ -207,7 +99,13 @@ public static class LogisticsSeeder
             new DepotManager { Id = 1, DepotId = 1, UserId = SeedConstants.AdminUserId, AssignedAt = now },
             new DepotManager { Id = 2, DepotId = 2, UserId = SeedConstants.CoordinatorUserId, AssignedAt = now },
             new DepotManager { Id = 3, DepotId = 3, UserId = SeedConstants.ManagerUserId, AssignedAt = now },
-            new DepotManager { Id = 4, DepotId = 4, UserId = SeedConstants.RescuerUserId, AssignedAt = now }
+            new DepotManager { Id = 4, DepotId = 4, UserId = SeedConstants.RescuerUserId, AssignedAt = now },
+            new DepotManager { Id = 5, DepotId = 5, UserId = SeedConstants.AdminUserId, AssignedAt = now },
+            new DepotManager { Id = 6, DepotId = 6, UserId = SeedConstants.CoordinatorUserId, AssignedAt = now },
+            new DepotManager { Id = 7, DepotId = 7, UserId = SeedConstants.ManagerUserId, AssignedAt = now },
+            new DepotManager { Id = 8, DepotId = 8, UserId = SeedConstants.RescuerUserId, AssignedAt = now },
+            new DepotManager { Id = 9, DepotId = 9, UserId = SeedConstants.AdminUserId, AssignedAt = now },
+            new DepotManager { Id = 10, DepotId = 10, UserId = SeedConstants.CoordinatorUserId, AssignedAt = now }
         );
     }
 
@@ -216,23 +114,16 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<DepotSupplyInventory>().HasData(
-            // Hue Depot
-            new DepotSupplyInventory { Id = 1, DepotId = 1, ReliefItemId = 1, Quantity = 2000, ReservedQuantity = 100, LastStockedAt = now },
-            new DepotSupplyInventory { Id = 2, DepotId = 1, ReliefItemId = 3, Quantity = 1000, ReservedQuantity = 0, LastStockedAt = now },
-            
-            // Le Thuy Depot
-            new DepotSupplyInventory { Id = 3, DepotId = 2, ReliefItemId = 1, Quantity = 500, ReservedQuantity = 400, LastStockedAt = now },
-            new DepotSupplyInventory { Id = 4, DepotId = 2, ReliefItemId = 2, Quantity = 100, ReservedQuantity = 50, LastStockedAt = now },
-
-            // Phong Dien Depot (near SOS 3 & 4)
-            new DepotSupplyInventory { Id = 5, DepotId = 3, ReliefItemId = 1, Quantity = 300, ReservedQuantity = 0, LastStockedAt = now },
-            new DepotSupplyInventory { Id = 6, DepotId = 3, ReliefItemId = 3, Quantity = 200, ReservedQuantity = 0, LastStockedAt = now },
-            new DepotSupplyInventory { Id = 7, DepotId = 3, ReliefItemId = 4, Quantity = 300, ReservedQuantity = 0, LastStockedAt = now },
-            new DepotSupplyInventory { Id = 8, DepotId = 3, ReliefItemId = 2, Quantity = 50, ReservedQuantity = 0, LastStockedAt = now },
-
-            // Hoa Vang Depot (near SOS 5)
-            new DepotSupplyInventory { Id = 9, DepotId = 4, ReliefItemId = 2, Quantity = 30, ReservedQuantity = 0, LastStockedAt = now },
-            new DepotSupplyInventory { Id = 10, DepotId = 4, ReliefItemId = 1, Quantity = 100, ReservedQuantity = 0, LastStockedAt = now }
+            new DepotSupplyInventory { Id = 1, DepotId = 1, ReliefItemId = 1, Quantity = 100000, ReservedQuantity = 10000, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 2, DepotId = 2, ReliefItemId = 2, Quantity = 50000, ReservedQuantity = 5000, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 3, DepotId = 3, ReliefItemId = 3, Quantity = 200000, ReservedQuantity = 20000, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 4, DepotId = 4, ReliefItemId = 4, Quantity = 1500, ReservedQuantity = 200, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 5, DepotId = 5, ReliefItemId = 5, Quantity = 30000, ReservedQuantity = 3000, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 6, DepotId = 6, ReliefItemId = 6, Quantity = 2000, ReservedQuantity = 500, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 7, DepotId = 7, ReliefItemId = 7, Quantity = 25000, ReservedQuantity = 2000, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 8, DepotId = 8, ReliefItemId = 8, Quantity = 80000, ReservedQuantity = 8000, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 9, DepotId = 9, ReliefItemId = 9, Quantity = 10000, ReservedQuantity = 1000, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 10, DepotId = 10, ReliefItemId = 10, Quantity = 50000, ReservedQuantity = 5000, LastStockedAt = now }
         );
     }
 
@@ -241,69 +132,32 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 10, 14, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<InventoryLog>().HasData(
-            new InventoryLog
-            {
-                Id = 1,
-                DepotSupplyInventoryId = 1,
-                ActionType = "Import",
-                QuantityChange = 2000,
-                SourceType = "Organization",
-                SourceId = 1,
-                PerformedBy = SeedConstants.AdminUserId,
-                Note = "Nhập kho đợt 1",
-                CreatedAt = now
-            },
-            new InventoryLog
-            {
-                Id = 2,
-                DepotSupplyInventoryId = 3,
-                ActionType = "Transfer",
-                QuantityChange = 500,
-                SourceType = "Depot",
-                SourceId = 1,
-                PerformedBy = SeedConstants.CoordinatorUserId,
-                Note = "Chuyển từ kho Huế ra Lệ Thủy",
-                CreatedAt = now
-            },
-            new InventoryLog
-            {
-                Id = 3,
-                DepotSupplyInventoryId = 5,
-                ActionType = "Import",
-                QuantityChange = 300,
-                SourceType = "Organization",
-                SourceId = 2,
-                PerformedBy = SeedConstants.ManagerUserId,
-                Note = "Nhập kho Phong Điền đợt 1",
-                CreatedAt = now
-            },
-            new InventoryLog
-            {
-                Id = 4,
-                DepotSupplyInventoryId = 9,
-                ActionType = "Import",
-                QuantityChange = 30,
-                SourceType = "Organization",
-                SourceId = 1,
-                PerformedBy = SeedConstants.RescuerUserId,
-                Note = "Nhập kho Hòa Vang đợt 1",
-                CreatedAt = now
-            }
+            new InventoryLog { Id = 1, DepotSupplyInventoryId = 1, ActionType = "Import", QuantityChange = 100000, SourceType = "Organization", SourceId = 1, PerformedBy = SeedConstants.AdminUserId, Note = "Nhập mì tôm Huế", CreatedAt = now },
+            new InventoryLog { Id = 2, DepotSupplyInventoryId = 2, ActionType = "Import", QuantityChange = 50000, SourceType = "Organization", SourceId = 2, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập nước suối Lệ Thủy", CreatedAt = now },
+            new InventoryLog { Id = 3, DepotSupplyInventoryId = 3, ActionType = "Import", QuantityChange = 200000, SourceType = "Organization", SourceId = 3, PerformedBy = SeedConstants.ManagerUserId, Note = "Nhập Paracetamol Hải Lăng", CreatedAt = now },
+            new InventoryLog { Id = 4, DepotSupplyInventoryId = 4, ActionType = "Import", QuantityChange = 1500, SourceType = "Organization", SourceId = 4, PerformedBy = SeedConstants.RescuerUserId, Note = "Nhập áo phao Hòa Vang", CreatedAt = now },
+            new InventoryLog { Id = 5, DepotSupplyInventoryId = 5, ActionType = "Import", QuantityChange = 30000, SourceType = "Organization", SourceId = 5, PerformedBy = SeedConstants.AdminUserId, Note = "Nhập băng vệ sinh Cẩm Xuyên", CreatedAt = now },
+            new InventoryLog { Id = 6, DepotSupplyInventoryId = 6, ActionType = "Import", QuantityChange = 2000, SourceType = "Organization", SourceId = 6, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập chăn ấm Trà My", CreatedAt = now },
+            new InventoryLog { Id = 7, DepotSupplyInventoryId = 7, ActionType = "Import", QuantityChange = 25000, SourceType = "Organization", SourceId = 7, PerformedBy = SeedConstants.ManagerUserId, Note = "Nhập sữa bột Phước Sơn", CreatedAt = now },
+            new InventoryLog { Id = 8, DepotSupplyInventoryId = 8, ActionType = "Import", QuantityChange = 80000, SourceType = "Organization", SourceId = 8, PerformedBy = SeedConstants.RescuerUserId, Note = "Nhập lương khô Phong Điền", CreatedAt = now },
+            new InventoryLog { Id = 9, DepotSupplyInventoryId = 9, ActionType = "Import", QuantityChange = 10000, SourceType = "Organization", SourceId = 9, PerformedBy = SeedConstants.AdminUserId, Note = "Nhập dầu gió Bố Trạch", CreatedAt = now },
+            new InventoryLog { Id = 10, DepotSupplyInventoryId = 10, ActionType = "Import", QuantityChange = 50000, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập Vitamin Bình Sơn", CreatedAt = now }
         );
     }
 
     private static void SeedOrganizationReliefItems(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<OrganizationReliefItem>().HasData(
-            new OrganizationReliefItem
-            {
-                Id = 1,
-                OrganizationId = 1,
-                ReliefItemId = 1,
-                ReceivedDate = new DateOnly(2024, 10, 1),
-                ExpiredDate = new DateOnly(2025, 10, 1),
-                Notes = "Hàng cứu trợ từ TW"
-            }
+            new OrganizationReliefItem { Id = 1, OrganizationId = 1, ReliefItemId = 1, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2025, 4, 1), Notes = "Cứu trợ đợt 1" },
+            new OrganizationReliefItem { Id = 2, OrganizationId = 2, ReliefItemId = 2, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2025, 10, 1), Notes = "Cứu trợ đợt 1" },
+            new OrganizationReliefItem { Id = 3, OrganizationId = 3, ReliefItemId = 3, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2026, 10, 1), Notes = "Cứu trợ y tế" },
+            new OrganizationReliefItem { Id = 4, OrganizationId = 4, ReliefItemId = 4, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = null, Notes = "Trang thiết bị Tỉnh đoàn" },
+            new OrganizationReliefItem { Id = 5, OrganizationId = 5, ReliefItemId = 5, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2027, 10, 1), Notes = "Nhu yếu phẩm phụ nữ" },
+            new OrganizationReliefItem { Id = 6, OrganizationId = 6, ReliefItemId = 6, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = null, Notes = "Áo lạnh mùa đông" },
+            new OrganizationReliefItem { Id = 7, OrganizationId = 7, ReliefItemId = 7, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2025, 6, 1), Notes = "Dinh dưỡng trẻ em" },
+            new OrganizationReliefItem { Id = 8, OrganizationId = 8, ReliefItemId = 8, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2025, 12, 1), Notes = "Lương khô khẩn cấp" },
+            new OrganizationReliefItem { Id = 9, OrganizationId = 9, ReliefItemId = 9, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2028, 1, 1), Notes = "Y tế người già" },
+            new OrganizationReliefItem { Id = 10, OrganizationId = 10, ReliefItemId = 10, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2026, 5, 1), Notes = "Bổ sung Vitamin" }
         );
     }
 }
