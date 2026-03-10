@@ -10,5 +10,9 @@ public class AdminUpdateUserResponse
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? RescuerType { get; set; }
+    public string? AvatarUrl { get; set; }
+    public string? Address { get; set; }
+    public string? Ward { get; set; }
+    public string? Province { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

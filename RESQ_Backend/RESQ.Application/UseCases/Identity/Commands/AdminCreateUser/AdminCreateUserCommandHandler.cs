@@ -54,6 +54,10 @@ public class AdminCreateUserCommandHandler(
             Username = request.Username,
             Password = hashedPassword,
             RoleId = request.RoleId,
+            AvatarUrl = request.AvatarUrl,
+            Address = request.Address,
+            Ward = request.Ward,
+            Province = request.Province,
             IsEmailVerified = false,
             IsOnboarded = false,
             IsBanned = false,
@@ -77,6 +81,10 @@ public class AdminCreateUserCommandHandler(
             FirstName = user.FirstName,
             LastName = user.LastName,
             Username = user.Username,
+            AvatarUrl = user.AvatarUrl,
+            Address = user.Address,
+            Ward = user.Ward,
+            Province = user.Province,
             CreatedAt = user.CreatedAt
         };
     }
