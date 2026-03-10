@@ -72,7 +72,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddHealthChecks();
 
 // Firebase Admin SDK initialization
-var firebaseKeyPath = Path.Combine(builder.Environment.ContentRootPath, "resq-ff0ef-firebase-adminsdk-fbsvc-b3c84ebcbf.json");
+var firebaseKeyPath = Path.Combine(builder.Environment.ContentRootPath, "PRM PE 142 Firebase Admin SDK.json");
 if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 {
     FirebaseAdmin.FirebaseApp.Create(new FirebaseAdmin.AppOptions
