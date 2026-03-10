@@ -10,5 +10,9 @@ public record AdminUpdateUserCommand(
     string? Phone,
     string? Email,
     string? RescuerType,
-    int? RoleId
+    int? RoleId,
+    string? AvatarUrl,
+    string? Address,
+    string? Ward,
+    string? Province
 ) : IRequest<AdminUpdateUserResponse>;

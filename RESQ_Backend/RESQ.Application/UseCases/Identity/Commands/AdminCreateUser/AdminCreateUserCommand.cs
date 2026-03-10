@@ -9,5 +9,9 @@ public record AdminCreateUserCommand(
     string? LastName,
     string? Username,
     string Password,
-    int RoleId
+    int RoleId,
+    string? AvatarUrl,
+    string? Address,
+    string? Ward,
+    string? Province
 ) : IRequest<AdminCreateUserResponse>;

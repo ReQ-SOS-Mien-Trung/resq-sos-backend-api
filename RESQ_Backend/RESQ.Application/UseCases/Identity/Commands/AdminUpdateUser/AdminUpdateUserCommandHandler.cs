@@ -51,6 +51,10 @@ public class AdminUpdateUserCommandHandler(
         user.RescuerType = request.RescuerType ?? user.RescuerType;
         if (request.RoleId.HasValue)
             user.RoleId = request.RoleId.Value;
+        user.AvatarUrl = request.AvatarUrl ?? user.AvatarUrl;
+        user.Address = request.Address ?? user.Address;
+        user.Ward = request.Ward ?? user.Ward;
+        user.Province = request.Province ?? user.Province;
 
         await _userRepository.UpdateAsync(user, cancellationToken);
         await _unitOfWork.SaveAsync();
@@ -67,6 +71,10 @@ public class AdminUpdateUserCommandHandler(
             Phone = user.Phone,
             Email = user.Email,
             RescuerType = user.RescuerType,
+            AvatarUrl = user.AvatarUrl,
+            Address = user.Address,
+            Ward = user.Ward,
+            Province = user.Province,
             UpdatedAt = DateTime.UtcNow
         };
     }
