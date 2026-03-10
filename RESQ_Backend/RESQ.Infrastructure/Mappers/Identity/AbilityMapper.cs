@@ -35,13 +35,21 @@ public static class AbilityMapper
 
     public static UserAbilityModel ToUserAbilityDomain(UserAbility entity)
     {
+        var subgroup = entity.Ability?.AbilitySubgroup;
+        var category = subgroup?.AbilityCategory;
         return new UserAbilityModel
         {
             UserId = entity.UserId,
             AbilityId = entity.AbilityId,
             Level = entity.Level,
             AbilityCode = entity.Ability?.Code,
-            AbilityDescription = entity.Ability?.Description
+            AbilityDescription = entity.Ability?.Description,
+            SubgroupId = subgroup?.Id,
+            SubgroupCode = subgroup?.Code,
+            SubgroupDescription = subgroup?.Description,
+            CategoryId = category?.Id,
+            CategoryCode = category?.Code,
+            CategoryDescription = category?.Description
         };
     }
 

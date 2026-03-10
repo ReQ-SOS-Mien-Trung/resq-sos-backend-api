@@ -20,7 +20,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     private readonly IMediator _mediator = mediator;
 
     [HttpPost]
-    [Authorize(Roles = "5")]
+    [Authorize(Roles = "2,5")]
     public async Task<IActionResult> Create([FromBody] CreateSosRequestRequestDto dto)
     {
         if (dto.SenderInfo?.UserId == null || !Guid.TryParse(dto.SenderInfo.UserId, out var senderUserId))
