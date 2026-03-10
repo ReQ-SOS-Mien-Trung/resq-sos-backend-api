@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -16,6 +17,7 @@ public class GenerateRescueMissionSuggestionCommandHandler(
     IRescueMissionSuggestionService suggestionService,
     IMissionAiSuggestionRepository missionAiSuggestionRepository,
     IDepotRepository depotRepository,
+    IUnitOfWork unitOfWork,
     ILogger<GenerateRescueMissionSuggestionCommandHandler> logger
 ) : IRequestHandler<GenerateRescueMissionSuggestionCommand, GenerateRescueMissionSuggestionResponse>
 {
@@ -24,6 +26,7 @@ public class GenerateRescueMissionSuggestionCommandHandler(
     private readonly IRescueMissionSuggestionService _suggestionService = suggestionService;
     private readonly IMissionAiSuggestionRepository _missionAiSuggestionRepository = missionAiSuggestionRepository;
     private readonly IDepotRepository _depotRepository = depotRepository;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<GenerateRescueMissionSuggestionCommandHandler> _logger = logger;
 
     // Số kho gần nhất tối đa gửi cho AI
@@ -169,6 +172,11 @@ public class GenerateRescueMissionSuggestionCommandHandler(
 
             savedSuggestionId = await _missionAiSuggestionRepository.CreateAsync(missionModel, cancellationToken);
             _logger.LogInformation("Saved mission suggestion to DB: SuggestionId={id}", savedSuggestionId);
+
+            // Mark cluster as having a mission suggestion generated
+            cluster.IsMissionCreated = true;
+            await _sosClusterRepository.UpdateAsync(cluster, cancellationToken);
+            await _unitOfWork.SaveAsync();
         }
         catch (Exception ex)
         {

@@ -38,7 +38,13 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
                     AbilityId = a.AbilityId,
                     Code = a.AbilityCode,
                     Description = a.AbilityDescription,
-                    Level = a.Level
+                    Level = a.Level,
+                    SubgroupId = a.SubgroupId,
+                    SubgroupCode = a.SubgroupCode,
+                    SubgroupDescription = a.SubgroupDescription,
+                    CategoryId = a.CategoryId,
+                    CategoryCode = a.CategoryCode,
+                    CategoryDescription = a.CategoryDescription
                 }).ToList();
             }
 

@@ -67,6 +67,7 @@ public class SosClusterRepository(IUnitOfWork unitOfWork) : ISosClusterRepositor
         entity.ChildrenCount = cluster.ChildrenCount;
         entity.ElderlyCount = cluster.ElderlyCount;
         entity.MedicalUrgencyScore = cluster.MedicalUrgencyScore;
+        entity.IsMissionCreated = cluster.IsMissionCreated;
         entity.LastUpdatedAt = DateTime.UtcNow;
 
         if (cluster.CenterLatitude.HasValue && cluster.CenterLongitude.HasValue)
