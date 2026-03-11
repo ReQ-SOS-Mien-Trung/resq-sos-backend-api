@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Extensions;
 using RESQ.Infrastructure.Extensions;
 using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -23,6 +24,21 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpClient();
 builder.Services.AddTransient<GlobalExceptionMiddleware>();
 
+// Add CORS — AllowCredentials is required for SignalR WebSocket handshake
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy => policy
+            .SetIsOriginAllowed(_ => true) // allow any origin
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()); // required for SignalR
+});
+
+// Add SignalR
+builder.Services.AddSignalR();
+
+//jwt swagger
 // CORS
 builder.Services.AddCors(options =>
 {
@@ -114,6 +130,23 @@ builder.Services.AddAuthentication(options =>
 
         ClockSkew = TimeSpan.Zero
     };
+
+    // Allow SignalR to receive JWT via query string
+    // (WebSocket & Server-Sent Events cannot send Authorization header)
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) &&
+                path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 var app = builder.Build();
@@ -147,4 +180,8 @@ app.MapHealthChecks("/health");
 
 app.MapControllers();
 
+// 7. Map SignalR Hubs
+app.MapHub<ChatHub>("/hubs/chat");
+
+app.Run();
 app.Run();
