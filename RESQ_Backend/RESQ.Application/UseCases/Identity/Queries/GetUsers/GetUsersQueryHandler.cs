@@ -28,7 +28,7 @@ public class GetUsersQueryHandler(IUserRepository userRepository)
             Username = u.Username,
             Phone = u.Phone,
             Email = u.Email,
-            RescuerType = u.RescuerType,
+            RescuerType = u.RescuerType.ToString(),
             AvatarUrl = u.AvatarUrl,
             IsEmailVerified = u.IsEmailVerified,
             IsOnboarded = u.IsOnboarded,

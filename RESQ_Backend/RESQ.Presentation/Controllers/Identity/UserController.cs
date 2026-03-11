@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Identity.Commands.RescuerConsent;
 using RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile;
 using RESQ.Application.UseCases.Identity.Queries.GetCurrentUser;
+using RESQ.Application.UseCases.Identity.Queries.GetRescuerTypeMetadata;
 
 namespace RESQ.Presentation.Controllers.Identity
 {
@@ -25,6 +26,14 @@ namespace RESQ.Presentation.Controllers.Identity
             }
 
             var query = new GetCurrentUserQuery(userId);
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        [HttpGet("rescuer/metadata/types")]
+        public async Task<IActionResult> GetRescuerTypeMetadata()
+        {
+            var query = new GetRescuerTypeMetadataQuery();
             var result = await _mediator.Send(query);
             return Ok(result);
         }

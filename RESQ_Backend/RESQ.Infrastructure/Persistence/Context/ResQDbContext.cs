@@ -34,7 +34,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Donation> Donations { get; set; }
     public virtual DbSet<FundCampaign> FundCampaigns { get; set; }
     public virtual DbSet<FundTransaction> FundTransactions { get; set; }
-    public virtual DbSet<PaymentMethod> PaymentMethods { get; set; } // Added
+    public virtual DbSet<PaymentMethod> PaymentMethods { get; set; }
     public virtual DbSet<InventoryLog> InventoryLogs { get; set; }
     public virtual DbSet<ItemCategory> ItemCategories { get; set; }
     public virtual DbSet<Message> Messages { get; set; }
@@ -54,6 +54,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<RescuerApplication> RescuerApplications { get; set; }
     public virtual DbSet<RescuerApplicationDocument> RescuerApplicationDocuments { get; set; }
     public virtual DbSet<RescueTeam> RescueTeams { get; set; }
+    public virtual DbSet<RescueTeamMember> RescueTeamMembers { get; set; } // Added
     public virtual DbSet<RescueTeamAiSuggestion> RescueTeamAiSuggestions { get; set; }
     public virtual DbSet<Role> Roles { get; set; }
     public virtual DbSet<RolePermission> RolePermissions { get; set; }

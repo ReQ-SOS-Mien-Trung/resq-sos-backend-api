@@ -1,4 +1,7 @@
-﻿namespace RESQ.Domain.Entities.Identity
+﻿using System;
+using RESQ.Domain.Enum.Identity;
+
+namespace RESQ.Domain.Entities.Identity
 {
     public class UserModel
     {
@@ -9,7 +12,7 @@
         public string? Username { get; set; }
         public string? Phone { get; set; }
         public string Password { get; set; } = null!; // hashed password
-        public string? RescuerType { get; set; }
+        public RescuerType? RescuerType { get; set; }
         public string? Email { get; set; }
         public bool IsEmailVerified { get; set; } = false;
         public bool IsOnboarded { get; set; } = false;

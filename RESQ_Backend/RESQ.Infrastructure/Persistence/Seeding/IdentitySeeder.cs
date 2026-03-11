@@ -38,7 +38,8 @@ public static class IdentitySeeder
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<User>().HasData(
+        var users = new List<User>
+        {
             new User
             {
                 Id = SeedConstants.AdminUserId,
@@ -198,7 +199,29 @@ public static class IdentitySeeder
                 CreatedAt = now,
                 UpdatedAt = now
             }
-        );
+        };
+
+        // Thêm 24 Rescuers cho việc test Team Members
+        for (int i = 1; i <= 24; i++)
+        {
+            var idStr = i.ToString("D4");
+            users.Add(new User
+            {
+                Id = Guid.Parse($"33333333-3333-3333-3333-33333333{idStr}"),
+                RoleId = 3,
+                FirstName = "Rescuer",
+                LastName = $"Test {i}",
+                Username = $"rescuertest{i}",
+                Phone = $"09000000{i:D2}",
+                Email = "chaulbse182712@fpt.edu.vn",
+                Password = SeedConstants.RescuerPasswordHash,
+                IsOnboarded = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+
+        modelBuilder.Entity<User>().HasData(users);
     }
 
     private static void SeedRescuerApplications(ModelBuilder modelBuilder)

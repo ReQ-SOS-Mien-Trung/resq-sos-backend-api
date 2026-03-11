@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Application.UseCases.Identity.Commands.AdminUpdateUser;
 
@@ -9,7 +10,7 @@ public record AdminUpdateUserCommand(
     string? Username,
     string? Phone,
     string? Email,
-    string? RescuerType,
+    RescuerType? RescuerType,
     int? RoleId,
     string? AvatarUrl,
     string? Address,

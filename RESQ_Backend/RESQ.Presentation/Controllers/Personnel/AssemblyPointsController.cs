@@ -88,7 +88,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         /// Change the status of an assembly point.
         /// </summary>
         [HttpPatch("{id}/status")]
-        public async Task<IActionResult> ChangeStatus(int id, [FromQuery] ChangeAssemblyPointStatusRequestDto dto)
+        public async Task<IActionResult> ChangeStatus(int id, [FromBody] ChangeAssemblyPointStatusRequestDto dto)
         {
             var command = new ChangeAssemblyPointStatusCommand(id, dto.Status);
             var result = await _mediator.Send(command);

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
-using NetTopologySuite.Geometries;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Operations;
+using RESQ.Infrastructure.Entities.Identity;
 
 namespace RESQ.Infrastructure.Entities.Personnel;
 
@@ -18,6 +18,9 @@ public partial class RescueTeam
 
     [Column("assembly_point_id")]
     public int? AssemblyPointId { get; set; }
+
+    [Column("managed_by")]
+    public Guid? ManagedBy { get; set; }
 
     [Column("code")]
     [StringLength(50)]
@@ -35,14 +38,14 @@ public partial class RescueTeam
     [StringLength(50)]
     public string? Status { get; set; }
 
-    [Column("location", TypeName = "geography(Point,4326)")]
-    public Point? Location { get; set; }
-
     [Column("max_members")]
     public int? MaxMembers { get; set; }
 
     [Column("reason")]
     public string? Reason { get; set; }
+
+    [Column("assembly_date", TypeName = "timestamp with time zone")]
+    public DateTime? AssemblyDate { get; set; }
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
@@ -57,9 +60,15 @@ public partial class RescueTeam
     [InverseProperty("RescueTeams")]
     public virtual AssemblyPoint? AssemblyPoint { get; set; }
 
+    [ForeignKey("ManagedBy")]
+    public virtual User? Coordinator { get; set; }
+
     [InverseProperty("RescuerTeam")]
     public virtual ICollection<MissionTeam> MissionTeams { get; set; } = new List<MissionTeam>();
 
     [InverseProperty("AdoptedRescueTeam")]
     public virtual ICollection<RescueTeamAiSuggestion> RescueTeamAiSuggestions { get; set; } = new List<RescueTeamAiSuggestion>();
+
+    [InverseProperty("Team")]
+    public virtual ICollection<RescueTeamMember> RescueTeamMembers { get; set; } = new List<RescueTeamMember>();
 }

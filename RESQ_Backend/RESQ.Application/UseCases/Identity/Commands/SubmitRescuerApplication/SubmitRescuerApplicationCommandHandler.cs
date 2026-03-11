@@ -47,7 +47,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
             user.Province = request.Province;
             user.Latitude = request.Latitude;
             user.Longitude = request.Longitude;
-            user.RescuerType = request.RescuerType;
+            user.RescuerType = Enum.Parse<RescuerType>(request.RescuerType);
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateAsync(user, cancellationToken);
