@@ -14,5 +14,6 @@ public class SosClusterModel
     public double? MedicalUrgencyScore { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? LastUpdatedAt { get; set; }
+    public bool IsMissionCreated { get; set; }
     public List<int> SosRequestIds { get; set; } = [];
 }

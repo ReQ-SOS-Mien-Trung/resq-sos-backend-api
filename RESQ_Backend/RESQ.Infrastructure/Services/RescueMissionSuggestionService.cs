@@ -1,9 +1,10 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
@@ -428,6 +429,181 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
             SpecialNotes = ExtractStr(text, "special_notes"),
             ConfidenceScore = ExtractNum(text, "confidence_score") ?? 0.3
         };
+    }
+
+    // ─── Streaming (SSE) ──────────────────────────────────────────────────────
+
+    public async IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(
+        List<SosRequestSummary> sosRequests,
+        List<DepotSummary>? nearbyDepots = null,
+        bool isMultiDepotRecommended = false,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        yield return new SseMissionEvent { EventType = "status", Data = "Đang tải cấu hình AI..." };
+
+        var prompt = await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
+        if (prompt == null)
+        {
+            yield return new SseMissionEvent
+            {
+                EventType = "error",
+                Data = "Chưa có prompt 'MissionPlanning' đang được kích hoạt. Vui lòng cấu hình trong quản trị hệ thống."
+            };
+            yield break;
+        }
+
+        var modelName    = prompt.Model       ?? FALLBACK_MODEL;
+        var apiUrlTpl    = prompt.ApiUrl      ?? FALLBACK_API_URL;
+        var apiKey       = prompt.ApiKey      ?? string.Empty;
+        var temperature  = prompt.Temperature ?? FALLBACK_TEMPERATURE;
+        var maxTokens    = Math.Max(prompt.MaxTokens ?? FALLBACK_MAX_TOKENS, FALLBACK_MAX_TOKENS);
+
+        // Build prompt the same way as the blocking path
+        var sosDataJson    = BuildSosRequestsData(sosRequests);
+        var depotsDataJson = BuildDepotsData(nearbyDepots);
+
+        var userPrompt = (prompt.UserPromptTemplate ?? string.Empty)
+            .Replace("{{sos_requests_data}}", sosDataJson)
+            .Replace("{{total_count}}", sosRequests.Count.ToString())
+            .Replace("{{depots_data}}", depotsDataJson);
+
+        if (!string.IsNullOrEmpty(depotsDataJson)
+            && !(prompt.UserPromptTemplate ?? string.Empty).Contains("{{depots_data}}"))
+        {
+            userPrompt += $"""
+
+
+--- THÔNG TIN KHO TIẾP TẾ PHÙ HỢP ---
+Dưới đây là danh sách các kho tiếp tế đang hoạt động, còn hàng, được sắp xếp ưu tiên theo mức độ đáp ứng vật tư nhu cầu SOS rồi đến gần nhất.
+Mỗi kho có danh sách vật tư khả dụng (quantity - reserved). Hãy ưu tiên kho đáp ứng đúng vật tư cần thiết để đề xuất nguồn cung cấp tài nguyên:
+{depotsDataJson}
+""";
+        }
+
+        if (isMultiDepotRecommended)
+        {
+            userPrompt += """
+
+
+--- LƯU Ý NGUỒN THỨ CẤP PHÁT ---
+Phân tích tồn kho cho thấy không có kho đơn lẻ nào có đủ tất cả các loại vật tư cần thiết.
+TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để điều phối viên biết cần lấy từ nhiều nguồn.
+""";
+        }
+
+        yield return new SseMissionEvent { EventType = "status", Data = $"Đang gọi AI ({modelName})..." };
+
+        // Derive streaming URL: replace :generateContent? → :streamGenerateContent?alt=sse&
+        var baseUrl    = string.Format(apiUrlTpl, modelName, apiKey);
+        var streamUrl  = baseUrl.Replace(":generateContent?", ":streamGenerateContent?alt=sse&");
+
+        var fullText = new StringBuilder();
+        bool hadChunks = false;
+
+        await foreach (var chunk in StreamFromGeminiAsync(
+            streamUrl, prompt.SystemPrompt ?? string.Empty, userPrompt, temperature, maxTokens, cancellationToken))
+        {
+            hadChunks = true;
+            fullText.Append(chunk);
+            yield return new SseMissionEvent { EventType = "chunk", Data = chunk };
+        }
+
+        if (!hadChunks)
+        {
+            yield return new SseMissionEvent { EventType = "error", Data = "AI không phản hồi. Vui lòng thử lại sau." };
+            yield break;
+        }
+
+        yield return new SseMissionEvent { EventType = "status", Data = "Đang xử lý kết quả..." };
+
+        var result     = ParseMissionSuggestion(fullText.ToString());
+        result.IsSuccess   = true;
+        result.ModelName   = modelName;
+        result.RawAiResponse = fullText.ToString();
+
+        yield return new SseMissionEvent { EventType = "result", Result = result };
+    }
+
+    /// <summary>
+    /// Calls the Gemini <c>streamGenerateContent?alt=sse</c> endpoint and yields raw text chunks
+    /// as they arrive from the HTTP response stream.
+    /// </summary>
+    private async IAsyncEnumerable<string> StreamFromGeminiAsync(
+        string streamUrl,
+        string systemPrompt,
+        string userPrompt,
+        double temperature,
+        int maxTokens,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var client  = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(120);
+
+        var requestBody = new GeminiRequest
+        {
+            Contents =
+            [
+                new() { Parts = [new() { Text = $"{systemPrompt}\n\n{userPrompt}" }] }
+            ],
+            GenerationConfig = new GeminiGenerationConfig
+            {
+                Temperature     = temperature,
+                MaxOutputTokens = maxTokens
+            }
+        };
+
+        var bodyJson  = JsonSerializer.Serialize(requestBody);
+        var httpMsg   = new HttpRequestMessage(HttpMethod.Post, streamUrl)
+        {
+            Content = new StringContent(bodyJson, Encoding.UTF8, "application/json")
+        };
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(httpMsg, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initiating Gemini streaming request");
+            yield break;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError("Gemini streaming API error: {status} - {error}", response.StatusCode, err);
+            yield break;
+        }
+
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new System.IO.StreamReader(stream);
+
+        while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (line is null) break;
+            if (!line.StartsWith("data: ")) continue;
+
+            var json = line["data: ".Length..].Trim();
+            if (json is "[DONE]" or "") continue;
+
+            string? text = null;
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                text = doc.RootElement
+                    .GetProperty("candidates")[0]
+                    .GetProperty("content")
+                    .GetProperty("parts")[0]
+                    .GetProperty("text")
+                    .GetString();
+            }
+            catch { /* partial / malformed chunk — skip */ }
+
+            if (!string.IsNullOrEmpty(text))
+                yield return text;
+        }
     }
 
     #region Gemini API Models

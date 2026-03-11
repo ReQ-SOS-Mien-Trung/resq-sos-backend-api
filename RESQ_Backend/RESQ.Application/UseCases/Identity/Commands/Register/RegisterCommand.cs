@@ -4,6 +4,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.Register
 {
     public record RegisterCommand(
         string Phone,
-        string Password
+        string Password,
+        string FirebaseIdToken
     ) : IRequest<RegisterResponse>;
 }

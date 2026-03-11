@@ -51,6 +51,17 @@ public class AdminUpdateUserCommandHandler(
         user.RescuerType = request.RescuerType ?? user.RescuerType;
         if (request.RoleId.HasValue)
             user.RoleId = request.RoleId.Value;
+        user.AvatarUrl = request.AvatarUrl ?? user.AvatarUrl;
+        user.Address = request.Address ?? user.Address;
+        user.Ward = request.Ward ?? user.Ward;
+        user.Province = request.Province ?? user.Province;
+        if (request.Latitude.HasValue) user.Latitude = request.Latitude;
+        if (request.Longitude.HasValue) user.Longitude = request.Longitude;
+        if (request.IsEmailVerified.HasValue) user.IsEmailVerified = request.IsEmailVerified.Value;
+        if (request.IsOnboarded.HasValue) user.IsOnboarded = request.IsOnboarded.Value;
+        if (request.IsEligibleRescuer.HasValue) user.IsEligibleRescuer = request.IsEligibleRescuer.Value;
+        if (request.ApprovedBy.HasValue) user.ApprovedBy = request.ApprovedBy;
+        if (request.ApprovedAt.HasValue) user.ApprovedAt = request.ApprovedAt;
 
         await _userRepository.UpdateAsync(user, cancellationToken);
         await _unitOfWork.SaveAsync();
@@ -67,6 +78,22 @@ public class AdminUpdateUserCommandHandler(
             Phone = user.Phone,
             Email = user.Email,
             RescuerType = user.RescuerType,
+            AvatarUrl = user.AvatarUrl,
+            Address = user.Address,
+            Ward = user.Ward,
+            Province = user.Province,
+            Latitude = user.Latitude,
+            Longitude = user.Longitude,
+            IsEmailVerified = user.IsEmailVerified,
+            IsOnboarded = user.IsOnboarded,
+            IsEligibleRescuer = user.IsEligibleRescuer,
+            IsBanned = user.IsBanned,
+            BannedBy = user.BannedBy,
+            BannedAt = user.BannedAt,
+            BanReason = user.BanReason,
+            ApprovedBy = user.ApprovedBy,
+            ApprovedAt = user.ApprovedAt,
+            CreatedAt = user.CreatedAt,
             UpdatedAt = DateTime.UtcNow
         };
     }

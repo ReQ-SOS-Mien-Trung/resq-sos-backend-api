@@ -54,9 +54,19 @@ public class AdminCreateUserCommandHandler(
             Username = request.Username,
             Password = hashedPassword,
             RoleId = request.RoleId,
-            IsEmailVerified = false,
-            IsOnboarded = false,
+            RescuerType = request.RescuerType,
+            AvatarUrl = request.AvatarUrl,
+            Address = request.Address,
+            Ward = request.Ward,
+            Province = request.Province,
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            IsEmailVerified = request.IsEmailVerified,
+            IsOnboarded = request.IsOnboarded,
+            IsEligibleRescuer = request.IsEligibleRescuer,
             IsBanned = false,
+            ApprovedBy = request.ApprovedBy,
+            ApprovedAt = request.ApprovedAt,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -77,7 +87,21 @@ public class AdminCreateUserCommandHandler(
             FirstName = user.FirstName,
             LastName = user.LastName,
             Username = user.Username,
-            CreatedAt = user.CreatedAt
+            RescuerType = user.RescuerType,
+            AvatarUrl = user.AvatarUrl,
+            Address = user.Address,
+            Ward = user.Ward,
+            Province = user.Province,
+            Latitude = user.Latitude,
+            Longitude = user.Longitude,
+            IsEmailVerified = user.IsEmailVerified,
+            IsOnboarded = user.IsOnboarded,
+            IsEligibleRescuer = user.IsEligibleRescuer,
+            IsBanned = user.IsBanned,
+            ApprovedBy = user.ApprovedBy,
+            ApprovedAt = user.ApprovedAt,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt
         };
     }
 }

@@ -59,6 +59,11 @@ public class CreateMissionCommandHandler(
         };
 
         var missionId = await _missionRepository.CreateAsync(mission, request.CreatedById, cancellationToken);
+
+        // Mark cluster as having a mission created
+        cluster.IsMissionCreated = true;
+        await _sosClusterRepository.UpdateAsync(cluster, cancellationToken);
+
         await _unitOfWork.SaveAsync();
 
         _logger.LogInformation("Mission created: MissionId={missionId}", missionId);

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
-using RESQ.Infrastructure.Entities.Identity;
 
 namespace RESQ.Infrastructure.Entities.Notifications;
 
@@ -13,9 +12,6 @@ public partial class Notification
     [Key]
     [Column("id")]
     public int Id { get; set; }
-
-    [Column("user_id")]
-    public Guid? UserId { get; set; }
 
     [Column("title")]
     [StringLength(255)]
@@ -30,10 +26,6 @@ public partial class Notification
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
-
-    [ForeignKey("UserId")]
-    [InverseProperty("Notifications")]
-    public virtual User? User { get; set; }
 
     [InverseProperty("Notification")]
     public virtual ICollection<UserNotification> UserNotifications { get; set; } = new List<UserNotification>();

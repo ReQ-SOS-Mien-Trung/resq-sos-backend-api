@@ -51,7 +51,11 @@ namespace RESQ.Presentation.Controllers.Identity
         {
             var command = new AdminCreateUserCommand(
                 dto.Phone, dto.Email, dto.FirstName, dto.LastName,
-                dto.Username, dto.Password, dto.RoleId);
+                dto.Username, dto.Password, dto.RoleId,
+                dto.RescuerType, dto.AvatarUrl, dto.Address, dto.Ward, dto.Province,
+                dto.Latitude, dto.Longitude,
+                dto.IsEmailVerified, dto.IsOnboarded, dto.IsEligibleRescuer,
+                dto.ApprovedBy, dto.ApprovedAt);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
@@ -62,7 +66,11 @@ namespace RESQ.Presentation.Controllers.Identity
         {
             var command = new AdminUpdateUserCommand(
                 userId, dto.FirstName, dto.LastName, dto.Username,
-                dto.Phone, dto.Email, dto.RescuerType, dto.RoleId);
+                dto.Phone, dto.Email, dto.RescuerType, dto.RoleId,
+                dto.AvatarUrl, dto.Address, dto.Ward, dto.Province,
+                dto.Latitude, dto.Longitude,
+                dto.IsEmailVerified, dto.IsOnboarded, dto.IsEligibleRescuer,
+                dto.ApprovedBy, dto.ApprovedAt);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

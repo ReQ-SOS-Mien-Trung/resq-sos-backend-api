@@ -34,6 +34,12 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
         public string? Code { get; set; }
         public string? Description { get; set; }
         public int? Level { get; set; }
+        public int? SubgroupId { get; set; }
+        public string? SubgroupCode { get; set; }
+        public string? SubgroupDescription { get; set; }
+        public int? CategoryId { get; set; }
+        public string? CategoryCode { get; set; }
+        public string? CategoryDescription { get; set; }
     }
 
     public class RescuerApplicationDocumentDto

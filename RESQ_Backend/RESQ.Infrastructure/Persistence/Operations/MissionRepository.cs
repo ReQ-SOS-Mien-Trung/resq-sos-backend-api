@@ -101,51 +101,46 @@ public class MissionRepository(IUnitOfWork unitOfWork) : IMissionRepository
     // -----------------------------------------------------------------------
     private async Task CreateConversationForMissionAsync(int missionId, int? clusterId, Guid coordinatorId)
     {
+        if (!clusterId.HasValue) return;
+
         var conversationRepo = _unitOfWork.GetRepository<Conversation>();
         var participantRepo = _unitOfWork.GetRepository<ConversationParticipant>();
 
-        // Create the conversation
-        var conversation = new Conversation
+        var sosRequests = await _unitOfWork.GetRepository<SosRequest>()
+            .GetAllByPropertyAsync(x => x.ClusterId == clusterId.Value);
+
+        // Deduplicate victims để không tạo conversation trùng
+        var seenVictims = new HashSet<Guid>();
+
+        foreach (var sos in sosRequests)
         {
-            MissionId = missionId
-        };
-        await conversationRepo.AddAsync(conversation);
-        await _unitOfWork.SaveAsync();
+            if (!sos.UserId.HasValue) continue;
+            if (!seenVictims.Add(sos.UserId.Value)) continue; // đã tạo rồi, bỏ qua
 
-        var participantIds = new HashSet<Guid>();
+            // Tạo 1 conversation riêng cho cặp coordinator <-> victim này
+            var conversation = new Conversation { MissionId = missionId };
+            await conversationRepo.AddAsync(conversation);
+            await _unitOfWork.SaveAsync();
 
-        // Add coordinator
-        participantIds.Add(coordinatorId);
-        await participantRepo.AddAsync(new ConversationParticipant
-        {
-            ConversationId = conversation.Id,
-            UserId = coordinatorId,
-            RoleInConversation = "coordinator",
-            JoinedAt = DateTime.UtcNow
-        });
-
-        // Add victims from cluster's SOS requests
-        if (clusterId.HasValue)
-        {
-            var sosRequests = await _unitOfWork.GetRepository<SosRequest>()
-                .GetAllByPropertyAsync(x => x.ClusterId == clusterId.Value);
-
-            foreach (var sos in sosRequests)
+            // Thêm coordinator
+            await participantRepo.AddAsync(new ConversationParticipant
             {
-                if (sos.UserId.HasValue && !participantIds.Contains(sos.UserId.Value))
-                {
-                    participantIds.Add(sos.UserId.Value);
-                    await participantRepo.AddAsync(new ConversationParticipant
-                    {
-                        ConversationId = conversation.Id,
-                        UserId = sos.UserId.Value,
-                        RoleInConversation = "victim",
-                        JoinedAt = DateTime.UtcNow
-                    });
-                }
-            }
-        }
+                ConversationId = conversation.Id,
+                UserId = coordinatorId,
+                RoleInConversation = "coordinator",
+                JoinedAt = DateTime.UtcNow
+            });
 
-        await _unitOfWork.SaveAsync();
+            // Thêm victim
+            await participantRepo.AddAsync(new ConversationParticipant
+            {
+                ConversationId = conversation.Id,
+                UserId = sos.UserId.Value,
+                RoleInConversation = "victim",
+                JoinedAt = DateTime.UtcNow
+            });
+
+            await _unitOfWork.SaveAsync();
+        }
     }
 }

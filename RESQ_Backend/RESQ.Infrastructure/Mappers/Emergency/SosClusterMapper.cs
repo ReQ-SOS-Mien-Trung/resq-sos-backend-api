@@ -45,6 +45,7 @@ public static class SosClusterMapper
             MedicalUrgencyScore = entity.MedicalUrgencyScore,
             CreatedAt = entity.CreatedAt,
             LastUpdatedAt = entity.LastUpdatedAt,
+            IsMissionCreated = entity.IsMissionCreated,
             SosRequestIds = sosRequestIds?.ToList() ?? entity.SosRequests.Select(s => s.Id).ToList()
         };
     }

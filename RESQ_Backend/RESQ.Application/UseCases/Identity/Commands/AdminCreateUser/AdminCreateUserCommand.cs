@@ -9,5 +9,17 @@ public record AdminCreateUserCommand(
     string? LastName,
     string? Username,
     string Password,
-    int RoleId
+    int RoleId,
+    string? RescuerType,
+    string? AvatarUrl,
+    string? Address,
+    string? Ward,
+    string? Province,
+    double? Latitude,
+    double? Longitude,
+    bool IsEmailVerified,
+    bool IsOnboarded,
+    bool IsEligibleRescuer,
+    Guid? ApprovedBy,
+    DateTime? ApprovedAt
 ) : IRequest<AdminCreateUserResponse>;

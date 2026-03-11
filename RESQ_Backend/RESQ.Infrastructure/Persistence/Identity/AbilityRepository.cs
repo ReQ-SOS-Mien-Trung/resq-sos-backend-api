@@ -23,7 +23,7 @@ public class AbilityRepository(IUnitOfWork unitOfWork) : IAbilityRepository
         var entities = await _unitOfWork.GetRepository<UserAbility>()
             .GetAllByPropertyAsync(
                 filter: ua => ua.UserId == userId,
-                includeProperties: "Ability"
+                includeProperties: "Ability.AbilitySubgroup.AbilityCategory"
             );
 
         return entities.Select(AbilityMapper.ToUserAbilityDomain).ToList();
