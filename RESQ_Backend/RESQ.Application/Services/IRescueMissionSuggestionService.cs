@@ -7,6 +7,31 @@ public interface IRescueMissionSuggestionService
         List<DepotSummary>? nearbyDepots = null,
         bool isMultiDepotRecommended = false,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams the AI generation process as SSE events:
+    /// "status" → progress messages, "chunk" → raw AI text tokens, "result" → final parsed result.
+    /// </summary>
+    IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(
+        List<SosRequestSummary> sosRequests,
+        List<DepotSummary>? nearbyDepots = null,
+        bool isMultiDepotRecommended = false,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// A single Server-Sent Event emitted during streaming mission suggestion generation.
+/// </summary>
+public class SseMissionEvent
+{
+    /// <summary>"status" | "chunk" | "result" | "error"</summary>
+    public string EventType { get; set; } = "chunk";
+
+    /// <summary>Plain-text message for "status"/"error", raw AI token for "chunk".</summary>
+    public string? Data { get; set; }
+
+    /// <summary>Populated only for the final "result" event.</summary>
+    public RescueMissionSuggestionResult? Result { get; set; }
 }
 
 /// <summary>Thông tin tóm tắt kho tiếp tế gần nhất, dùng để cung cấp context cho AI.</summary>

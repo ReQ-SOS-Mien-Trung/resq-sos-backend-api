@@ -18,6 +18,13 @@ public class GetUsersItemResponse
     public Guid? BannedBy { get; set; }
     public DateTime? BannedAt { get; set; }
     public string? BanReason { get; set; }
+    public string? Address { get; set; }
+    public string? Ward { get; set; }
+    public string? Province { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public Guid? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
