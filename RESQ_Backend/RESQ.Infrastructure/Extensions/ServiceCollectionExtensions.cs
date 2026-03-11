@@ -83,6 +83,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISosAiAnalysisService, SosAiAnalysisService>();
         services.AddScoped<IAiModelTestService, AiModelTestService>();
         services.AddScoped<IRescueMissionSuggestionService, RescueMissionSuggestionService>();
+        services.AddScoped<IMissionContextService, MissionContextService>();
         services.AddScoped<IChatSupportAiService, ChatSupportAiService>();
         
         // Domain Services

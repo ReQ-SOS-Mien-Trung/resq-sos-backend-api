@@ -37,6 +37,13 @@ public class GetUsersQueryHandler(IUserRepository userRepository)
             BannedBy = u.BannedBy,
             BannedAt = u.BannedAt,
             BanReason = u.BanReason,
+            Address = u.Address,
+            Ward = u.Ward,
+            Province = u.Province,
+            Latitude = u.Latitude,
+            Longitude = u.Longitude,
+            ApprovedBy = u.ApprovedBy,
+            ApprovedAt = u.ApprovedAt,
             CreatedAt = u.CreatedAt,
             UpdatedAt = u.UpdatedAt
         }).ToList();
