@@ -8,25 +8,28 @@ using RESQ.Application.UseCases.Personnel.RescueTeams.DTOs;
 
 namespace RESQ.Presentation.Controllers.Personnel;
 
-[Route("api/rescue-teams")]
+[Route("personnel/rescue-teams")]
 [ApiController]
 public class RescueTeamsController(IMediator mediator) : ControllerBase
 {
-    [HttpPost]
-    [Authorize(Roles = "2")] // Chỉ cho phép Role ID = 2 (Coordinator) tạo đội cứu hộ
-    public async Task<IActionResult> CreateTeam([FromBody] CreateTeamRequestDto request)
+    private Guid? GetCurrentUserId()
     {
         var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var managedBy))
-        {
-            return Unauthorized(new { Message = "Không xác định được danh tính người điều phối từ token." });
-        }
+        return Guid.TryParse(userIdStr, out var userId) ? userId : null;
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "2")] // Coordinator only
+    public async Task<IActionResult> CreateTeam([FromBody] CreateTeamRequestDto request)
+    {
+        var managedBy = GetCurrentUserId();
+        if (managedBy == null) return Unauthorized();
 
         var id = await mediator.Send(new CreateRescueTeamCommand(
             request.Name, 
             request.Type, 
             request.AssemblyPointId, 
-            managedBy, 
+            managedBy.Value, 
             request.MaxMembers, 
             request.Members
         ));
@@ -55,6 +58,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPatch("{id}/schedule-assembly")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> ScheduleAssembly(int id, [FromBody] DateTime assemblyDate)
     {
         await mediator.Send(new ScheduleAssemblyCommand(id, assemblyDate));
@@ -62,6 +66,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id}/members")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> AddMember(int id, [FromBody] AddMemberRequestDto request)
     {
         await mediator.Send(new AddTeamMemberCommand(id, request.UserId, request.IsLeader));
@@ -69,34 +74,51 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpDelete("{id}/members/{userId}")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> RemoveMember(int id, Guid userId)
     {
         await mediator.Send(new RemoveTeamMemberCommand(id, userId));
         return NoContent();
     }
 
-    [HttpPost("{id}/members/{userId}/accept")]
-    public async Task<IActionResult> AcceptInvitation(int id, Guid userId)
+    // UPDATED: User ID is now taken from Token for security
+    [HttpPost("{id}/members/accept")]
+    [Authorize] 
+    public async Task<IActionResult> AcceptInvitation(int id)
     {
-        await mediator.Send(new AcceptInvitationCommand(id, userId));
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        await mediator.Send(new AcceptInvitationCommand(id, userId.Value));
         return NoContent();
     }
 
-    [HttpPost("{id}/members/{userId}/decline")]
-    public async Task<IActionResult> DeclineInvitation(int id, Guid userId)
+    // UPDATED: User ID is now taken from Token for security
+    [HttpPost("{id}/members/decline")]
+    [Authorize]
+    public async Task<IActionResult> DeclineInvitation(int id)
     {
-        await mediator.Send(new DeclineInvitationCommand(id, userId));
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        await mediator.Send(new DeclineInvitationCommand(id, userId.Value));
         return NoContent();
     }
 
-    [HttpPost("{id}/members/{userId}/check-in")]
-    public async Task<IActionResult> CheckInMember(int id, Guid userId)
+    // UPDATED: User ID is now taken from Token for security
+    [HttpPost("{id}/members/check-in")]
+    [Authorize]
+    public async Task<IActionResult> CheckInMember(int id)
     {
-        await mediator.Send(new CheckInMemberCommand(id, userId));
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        await mediator.Send(new CheckInMemberCommand(id, userId.Value));
         return NoContent();
     }
 
     [HttpPost("{id}/assign-mission")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> AssignMission(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "Assign"));
@@ -104,6 +126,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id}/cancel-mission")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> CancelMission(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "Cancel"));
@@ -111,6 +134,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id}/start-mission")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> StartMission(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "Start"));
@@ -118,6 +142,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id}/finish-mission")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> FinishMission(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "Finish"));
@@ -125,6 +150,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id}/report-incident")]
+    [Authorize] // Usually the Team Leader (Rescuer) reports this
     public async Task<IActionResult> ReportIncident(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "ReportIncident"));
@@ -132,6 +158,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id}/resolve-incident")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> ResolveIncident(int id, [FromQuery] bool hasInjuredMember)
     {
         await mediator.Send(new ResolveIncidentCommand(id, hasInjuredMember));
@@ -139,6 +166,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id}/set-unavailable")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> SetUnavailable(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "SetUnavailable"));
@@ -146,6 +174,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id}/disband")]
+    [Authorize(Roles = "2")]
     public async Task<IActionResult> DisbandTeam(int id)
     {
         await mediator.Send(new DisbandTeamCommand(id));
