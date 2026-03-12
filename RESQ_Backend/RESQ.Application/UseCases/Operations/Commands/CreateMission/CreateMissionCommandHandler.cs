@@ -38,7 +38,7 @@ public class CreateMissionCommandHandler(
             ClusterId = request.ClusterId,
             MissionType = request.MissionType,
             PriorityScore = request.PriorityScore,
-            Status = MissionStatus.Pending,
+            Status = MissionStatus.Planned,
             StartTime = request.StartTime,
             ExpectedEndTime = request.ExpectedEndTime,
             IsCompleted = false,
@@ -54,7 +54,7 @@ public class CreateMissionCommandHandler(
                 Items = a.Items,
                 TargetLatitude = a.TargetLatitude,
                 TargetLongitude = a.TargetLongitude,
-                Status = MissionActivityStatus.Pending
+                Status = MissionActivityStatus.Planned
             }).ToList()
         };
 
@@ -73,7 +73,7 @@ public class CreateMissionCommandHandler(
             MissionId = missionId,
             ClusterId = request.ClusterId,
             MissionType = request.MissionType,
-            Status = "pending",
+            Status = "planned",
             ActivityCount = request.Activities.Count,
             CreatedAt = mission.CreatedAt
         };

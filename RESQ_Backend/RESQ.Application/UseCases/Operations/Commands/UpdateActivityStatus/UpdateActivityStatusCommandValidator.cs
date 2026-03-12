@@ -11,8 +11,7 @@ public class UpdateActivityStatusCommandValidator : AbstractValidator<UpdateActi
             .GreaterThan(0).WithMessage("ActivityId phải lớn hơn 0");
 
         RuleFor(x => x.Status)
-            .IsInEnum().WithMessage("Status phải là một trong: Pending, InProgress, Completed, Cancelled, Skipped");
-
+            .IsInEnum().WithMessage("Status phải là một trong: Planned, OnGoing, Succeed, Failed, Cancelled");
         RuleFor(x => x.DecisionBy)
             .NotEmpty().WithMessage("DecisionBy không được để trống");
     }

@@ -25,7 +25,7 @@ public class UpdateMissionStatusCommandHandler(
         if (mission is null)
             throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
 
-        bool isCompleted = request.Status == MissionStatus.Completed;
+        bool isCompleted = request.Status == MissionStatus.Completed || request.Status == MissionStatus.Incompleted;
         await _missionRepository.UpdateStatusAsync(request.MissionId, request.Status, isCompleted, cancellationToken);
         await _unitOfWork.SaveAsync();
 

@@ -201,8 +201,8 @@ public static class IdentitySeeder
             }
         };
 
-        // Thêm 24 Rescuers cho việc test Team Members
-        for (int i = 1; i <= 24; i++)
+        // Thêm 60 Rescuers cho việc test Team Members
+        for (int i = 1; i <= 60; i++)
         {
             var idStr = i.ToString("D4");
             users.Add(new User

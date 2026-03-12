@@ -254,6 +254,42 @@ public static class PersonnelSeeder
                 Location = new Point(105.7144, 18.1755) { SRID = 4326 }, // Huong Khe
                 CreatedAt = now,
                 UpdatedAt = now
+            },
+            // QUẢNG NGÃI
+            new AssemblyPoint
+            {
+                Id = 12,
+                Code = $"AP-QNG-TT-{timestampStr}",
+                Name = "UBND Thành phố Quảng Ngãi",
+                CapacityTeams = 15,
+                Status = AssemblyPointStatus.Active.ToString(),
+                Location = new Point(108.7987, 15.1207) { SRID = 4326 }, // Quang Ngai City
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            // BÌNH ĐọNH
+            new AssemblyPoint
+            {
+                Id = 13,
+                Code = $"AP-BDI-QN-{timestampStr}",
+                Name = "Trung tâm Văn hóa Thể thao Quy Nhơn",
+                CapacityTeams = 20,
+                Status = AssemblyPointStatus.Active.ToString(),
+                Location = new Point(109.2182, 13.7765) { SRID = 4326 }, // Quy Nhon
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            // PHÚ YÊN
+            new AssemblyPoint
+            {
+                Id = 14,
+                Code = $"AP-PYE-TH-{timestampStr}",
+                Name = "Sân vận động Tỉnh Phú Yên",
+                CapacityTeams = 12,
+                Status = AssemblyPointStatus.Active.ToString(),
+                Location = new Point(109.3241, 13.0955) { SRID = 4326 }, // Tuy Hoa
+                CreatedAt = now,
+                UpdatedAt = now
             }
         );
     }
@@ -312,6 +348,79 @@ public static class PersonnelSeeder
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
+            },
+            new RescueTeam
+            {
+                Id = 5,
+                Code = "RT-HOI-241015120004",
+                Name = "Đội Cứu hộ Cộng đồng Hội An",
+                TeamType = "Rescue",
+                Status = "Available",
+                AssemblyPointId = 9, // Hội An, Quảng Nam
+                ManagedBy = SeedConstants.CoordinatorUserId,
+                MaxMembers = 6,
+                CreatedAt = now
+            },
+            new RescueTeam
+            {
+                Id = 6,
+                Code = "RT-HVA-241015120005",
+                Name = "Đội Cứu nạn Hòa Vang - Đà Nẵng",
+                TeamType = "Mixed",
+                Status = "Ready",
+                AssemblyPointId = 8, // Hòa Vang, Đà Nẵng
+                ManagedBy = SeedConstants.CoordinatorUserId,
+                MaxMembers = 6,
+                CreatedAt = now
+            },
+            new RescueTeam
+            {
+                Id = 7,
+                Code = "RT-PDI-241015120006",
+                Name = "Đội Y tế Khẩn cấp Phong Điền",
+                TeamType = "Medical",
+                Status = "Available",
+                AssemblyPointId = 2, // Hương Trà, Thừa Thiên Huế
+                ManagedBy = SeedConstants.CoordinatorUserId,
+                MaxMembers = 6,
+                CreatedAt = now
+            },
+            new RescueTeam
+            {
+                Id = 8,
+                Code = "RT-QNG-241015120007",
+                Name = "Đội Phản ứng nhanh Quảng Ngãi",
+                TeamType = "Rescue",
+                Status = "Ready",
+                AssemblyPointId = 12, // TT. Quảng Ngãi
+                ManagedBy = SeedConstants.CoordinatorUserId,
+                MaxMembers = 6,
+                CreatedAt = now
+            },
+            new RescueTeam
+            {
+                Id = 9,
+                Code = "RT-BDI-241015120008",
+                Name = "Đội Cứu hộ Ven biển Bình Định",
+                TeamType = "Mixed",
+                Status = "Available",
+                AssemblyPointId = 13, // Quy Nhơn
+                ManagedBy = SeedConstants.CoordinatorUserId,
+                MaxMembers = 6,
+                CreatedAt = now
+            },
+            new RescueTeam
+            {
+                Id = 10,
+                Code = "RT-HTI-241015120009",
+                Name = "Đội Cứu nạn Hương Khê - Hà Tĩnh",
+                TeamType = "Transportation",
+                Status = "Gathering",
+                AssemblyPointId = 11, // Hương Khê, Hà Tĩnh
+                AssemblyDate = now.AddDays(2),
+                ManagedBy = SeedConstants.CoordinatorUserId,
+                MaxMembers = 6,
+                CreatedAt = now
             }
         );
 
@@ -348,6 +457,54 @@ public static class PersonnelSeeder
         members.Add(new RescueTeamMember { TeamId = 4, UserId = Guid.Parse("33333333-3333-3333-3333-333333330022"), CheckedIn = true, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
         members.Add(new RescueTeamMember { TeamId = 4, UserId = Guid.Parse("33333333-3333-3333-3333-333333330023"), CheckedIn = true, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
         members.Add(new RescueTeamMember { TeamId = 4, UserId = Guid.Parse("33333333-3333-3333-3333-333333330024"), CheckedIn = true, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+
+        // Team 5 - Đội Cứu hộ Hội An
+        members.Add(new RescueTeamMember { TeamId = 5, UserId = Guid.Parse("33333333-3333-3333-3333-333333330025"), CheckedIn = false, InvitedAt = now, IsLeader = true, RespondedAt = now.AddHours(1), RoleInTeam = "Leader", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 5, UserId = Guid.Parse("33333333-3333-3333-3333-333333330026"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 5, UserId = Guid.Parse("33333333-3333-3333-3333-333333330027"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 5, UserId = Guid.Parse("33333333-3333-3333-3333-333333330028"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 5, UserId = Guid.Parse("33333333-3333-3333-3333-333333330029"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 5, UserId = Guid.Parse("33333333-3333-3333-3333-333333330030"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+
+        // Team 6 - Đội Cứu nạn Hòa Vang
+        members.Add(new RescueTeamMember { TeamId = 6, UserId = Guid.Parse("33333333-3333-3333-3333-333333330031"), CheckedIn = false, InvitedAt = now, IsLeader = true, RespondedAt = now.AddHours(1), RoleInTeam = "Leader", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 6, UserId = Guid.Parse("33333333-3333-3333-3333-333333330032"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 6, UserId = Guid.Parse("33333333-3333-3333-3333-333333330033"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 6, UserId = Guid.Parse("33333333-3333-3333-3333-333333330034"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 6, UserId = Guid.Parse("33333333-3333-3333-3333-333333330035"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 6, UserId = Guid.Parse("33333333-3333-3333-3333-333333330036"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+
+        // Team 7 - Đội Y tế Phong Điền
+        members.Add(new RescueTeamMember { TeamId = 7, UserId = Guid.Parse("33333333-3333-3333-3333-333333330037"), CheckedIn = false, InvitedAt = now, IsLeader = true, RespondedAt = now.AddHours(1), RoleInTeam = "Leader", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 7, UserId = Guid.Parse("33333333-3333-3333-3333-333333330038"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 7, UserId = Guid.Parse("33333333-3333-3333-3333-333333330039"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 7, UserId = Guid.Parse("33333333-3333-3333-3333-333333330040"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 7, UserId = Guid.Parse("33333333-3333-3333-3333-333333330041"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 7, UserId = Guid.Parse("33333333-3333-3333-3333-333333330042"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+
+        // Team 8 - Đội Phản ứng nhanh Quảng Ngãi
+        members.Add(new RescueTeamMember { TeamId = 8, UserId = Guid.Parse("33333333-3333-3333-3333-333333330043"), CheckedIn = false, InvitedAt = now, IsLeader = true, RespondedAt = now.AddHours(1), RoleInTeam = "Leader", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 8, UserId = Guid.Parse("33333333-3333-3333-3333-333333330044"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 8, UserId = Guid.Parse("33333333-3333-3333-3333-333333330045"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 8, UserId = Guid.Parse("33333333-3333-3333-3333-333333330046"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 8, UserId = Guid.Parse("33333333-3333-3333-3333-333333330047"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 8, UserId = Guid.Parse("33333333-3333-3333-3333-333333330048"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+
+        // Team 9 - Đội Cứu hộ Bình Định
+        members.Add(new RescueTeamMember { TeamId = 9, UserId = Guid.Parse("33333333-3333-3333-3333-333333330049"), CheckedIn = false, InvitedAt = now, IsLeader = true, RespondedAt = now.AddHours(1), RoleInTeam = "Leader", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 9, UserId = Guid.Parse("33333333-3333-3333-3333-333333330050"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 9, UserId = Guid.Parse("33333333-3333-3333-3333-333333330051"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 9, UserId = Guid.Parse("33333333-3333-3333-3333-333333330052"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 9, UserId = Guid.Parse("33333333-3333-3333-3333-333333330053"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 9, UserId = Guid.Parse("33333333-3333-3333-3333-333333330054"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+
+        // Team 10 - Đội Cứu nạn Hả Tĩnh
+        members.Add(new RescueTeamMember { TeamId = 10, UserId = Guid.Parse("33333333-3333-3333-3333-333333330055"), CheckedIn = false, InvitedAt = now, IsLeader = true, RespondedAt = now.AddHours(1), RoleInTeam = "Leader", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 10, UserId = Guid.Parse("33333333-3333-3333-3333-333333330056"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 10, UserId = Guid.Parse("33333333-3333-3333-3333-333333330057"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 10, UserId = Guid.Parse("33333333-3333-3333-3333-333333330058"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 10, UserId = Guid.Parse("33333333-3333-3333-3333-333333330059"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
+        members.Add(new RescueTeamMember { TeamId = 10, UserId = Guid.Parse("33333333-3333-3333-3333-333333330060"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = "Accepted" });
 
         modelBuilder.Entity<RescueTeamMember>().HasData(members);
     }

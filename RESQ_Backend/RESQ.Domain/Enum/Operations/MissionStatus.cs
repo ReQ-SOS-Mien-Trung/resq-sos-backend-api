@@ -2,8 +2,8 @@ namespace RESQ.Domain.Enum.Operations;
 
 public enum MissionStatus
 {
-    Pending,
-    InProgress,
+    Planned,
+    OnGoing,
     Completed,
-    Cancelled
+    Incompleted
 }

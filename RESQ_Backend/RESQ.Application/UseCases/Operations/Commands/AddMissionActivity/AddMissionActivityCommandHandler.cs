@@ -39,7 +39,7 @@ public class AddMissionActivityCommandHandler(
             Items = request.Items,
             TargetLatitude = request.TargetLatitude,
             TargetLongitude = request.TargetLongitude,
-            Status = MissionActivityStatus.Pending
+            Status = MissionActivityStatus.Planned
         };
 
         var activityId = await _activityRepository.AddAsync(activity, cancellationToken);

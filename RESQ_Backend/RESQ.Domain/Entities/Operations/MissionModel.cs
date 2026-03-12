@@ -9,7 +9,7 @@ public class MissionModel
     public int? PreviousMissionId { get; set; }
     public string? MissionType { get; set; }
     public double? PriorityScore { get; set; }
-    public MissionStatus Status { get; set; } = MissionStatus.Pending;
+    public MissionStatus Status { get; set; } = MissionStatus.Planned;
     public DateTime? StartTime { get; set; }
     public DateTime? ExpectedEndTime { get; set; }
     public bool? IsCompleted { get; set; }

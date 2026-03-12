@@ -11,6 +11,6 @@ public class UpdateMissionStatusCommandValidator : AbstractValidator<UpdateMissi
             .GreaterThan(0).WithMessage("MissionId phải lớn hơn 0");
 
         RuleFor(x => x.Status)
-            .IsInEnum().WithMessage("Status phải là một trong: Pending, InProgress, Completed, Cancelled");
+            .IsInEnum().WithMessage("Status phải là một trong: Planned, OnGoing, Completed, Incompleted");
     }
 }

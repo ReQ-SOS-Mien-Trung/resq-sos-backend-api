@@ -10,9 +10,10 @@ public static class MissionActivityMapper
 {
     private static readonly Dictionary<MissionActivityStatus, string> StatusToString = new()
     {
-        [MissionActivityStatus.Pending] = "pending",
-        [MissionActivityStatus.InProgress] = "in_progress",
-        [MissionActivityStatus.Completed] = "completed",
+        [MissionActivityStatus.Planned] = "planned",
+        [MissionActivityStatus.OnGoing] = "on_going",
+        [MissionActivityStatus.Succeed] = "succeed",
+        [MissionActivityStatus.Failed] = "failed",
         [MissionActivityStatus.Cancelled] = "cancelled"
     };
 
@@ -20,10 +21,10 @@ public static class MissionActivityMapper
         StatusToString.ToDictionary(x => x.Value, x => x.Key);
 
     public static string ToDbString(MissionActivityStatus status) =>
-        StatusToString.GetValueOrDefault(status, "pending");
+        StatusToString.GetValueOrDefault(status, "planned");
 
     public static MissionActivityStatus ToEnum(string? status) =>
-        status is not null && StringToStatus.TryGetValue(status, out var val) ? val : MissionActivityStatus.Pending;
+        status is not null && StringToStatus.TryGetValue(status, out var val) ? val : MissionActivityStatus.Planned;
 
     public static MissionActivity ToEntity(MissionActivityModel model)
     {
