@@ -44,7 +44,8 @@ public class GetMissionsQueryHandler(
         {
             Missions = missionList.Select(m =>
             {
-                aiSuggestions.TryGetValue(m.ClusterId, out var aiModel);
+                aiSuggestions.TryGetValue(m.ClusterId, out var rawAi);
+                var aiModel = rawAi is not null ? MissionAiSuggestionSection.From(rawAi) : null;
                 return new MissionDto
                 {
                     Id = m.Id,
@@ -76,7 +77,19 @@ public class GetMissionsQueryHandler(
                         CompletedAt = a.CompletedAt,
                         LastDecisionBy = a.LastDecisionBy
                     }).ToList(),
-                    //AiSuggestion = aiModel is not null ? MissionAiSuggestionSection.From(aiModel) : null
+                    AiSuggestionId = aiModel?.Id,
+                    SuggestedMissionTitle = aiModel?.SuggestedMissionTitle,
+                    ModelName = aiModel?.ModelName,
+                    SuggestedMissionType = aiModel?.SuggestedMissionType,
+                    SuggestedPriorityScore = aiModel?.SuggestedPriorityScore,
+                    SuggestedSeverityLevel = aiModel?.SuggestedSeverityLevel,
+                    AiConfidenceScore = aiModel?.ConfidenceScore,
+                    OverallAssessment = aiModel?.OverallAssessment,
+                    EstimatedDuration = aiModel?.EstimatedDuration,
+                    SpecialNotes = aiModel?.SpecialNotes,
+                    SuggestedActivities = aiModel?.SuggestedActivities ?? [],
+                    SuggestedResources = aiModel?.SuggestedResources ?? [],
+                    AiCreatedAt = aiModel?.CreatedAt
                 };
             }).ToList()
         };

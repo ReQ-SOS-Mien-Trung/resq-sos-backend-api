@@ -172,7 +172,13 @@ public static class LogisticsSeeder
             new DepotSupplyInventory { Id = 46, DepotId = 10, ReliefItemId = 1, Quantity = 70000, ReservedQuantity = 7000, LastStockedAt = now },
             new DepotSupplyInventory { Id = 47, DepotId = 10, ReliefItemId = 2, Quantity = 50000, ReservedQuantity = 5000, LastStockedAt = now },
             new DepotSupplyInventory { Id = 48, DepotId = 10, ReliefItemId = 4, Quantity = 1500, ReservedQuantity = 150, LastStockedAt = now },
-            new DepotSupplyInventory { Id = 49, DepotId = 10, ReliefItemId = 3, Quantity = 130000, ReservedQuantity = 13000, LastStockedAt = now }
+            new DepotSupplyInventory { Id = 49, DepotId = 10, ReliefItemId = 3, Quantity = 130000, ReservedQuantity = 13000, LastStockedAt = now },
+            // Depot 3 & 8 — vật tư đặc thù cho Cluster 3 (Phong Điền, TT-Huế)
+            // SOS #4 đề cập 4 bé dưới 1 tuổi cần sữa gấp và người già hết thuốc huyết áp
+            new DepotSupplyInventory { Id = 50, DepotId = 3, ReliefItemId = 7, Quantity = 5000, ReservedQuantity = 500, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 51, DepotId = 8, ReliefItemId = 7, Quantity = 3000, ReservedQuantity = 300, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 52, DepotId = 3, ReliefItemId = 9, Quantity = 2000, ReservedQuantity = 200, LastStockedAt = now },
+            new DepotSupplyInventory { Id = 53, DepotId = 8, ReliefItemId = 9, Quantity = 2500, ReservedQuantity = 250, LastStockedAt = now }
         );
     }
 
@@ -240,10 +246,15 @@ public static class LogisticsSeeder
             new InventoryLog { Id = 47, DepotSupplyInventoryId = 47, ActionType = "Import", QuantityChange = 50000, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập nước uống kho Bình Sơn", CreatedAt = now },
             new InventoryLog { Id = 48, DepotSupplyInventoryId = 48, ActionType = "Import", QuantityChange = 1500, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập áo phao kho Bình Sơn", CreatedAt = now },
             new InventoryLog { Id = 49, DepotSupplyInventoryId = 49, ActionType = "Import", QuantityChange = 130000, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập thuốc kho Bình Sơn", CreatedAt = now },
-            // Export samples to demonstrate negative formatting
-            new InventoryLog { Id = 50, DepotSupplyInventoryId = 1, ActionType = "Export", QuantityChange = 5000, SourceType = "Mission", SourceId = 1, PerformedBy = SeedConstants.AdminUserId, Note = "Xuất mì tôm cho nhiệm vụ cứu hộ", CreatedAt = now.AddHours(1) },
-            new InventoryLog { Id = 51, DepotSupplyInventoryId = 22, ActionType = "TransferOut", QuantityChange = 2000, SourceType = "Transfer", SourceId = 2, PerformedBy = SeedConstants.ManagerUserId, Note = "Chuyển mì tôm sang kho Lệ Thủy", CreatedAt = now.AddHours(2) },
-            new InventoryLog { Id = 52, DepotSupplyInventoryId = 3, ActionType = "Adjust", QuantityChange = -1000, SourceType = "Adjustment", SourceId = null, PerformedBy = SeedConstants.AdminUserId, Note = "Điều chỉnh số lượng thuốc do hết hạn", CreatedAt = now.AddHours(3) }
+// Logs cho vật tư đặc thù Cluster 3 (depot 3 & 8)
+            new InventoryLog { Id = 50, DepotSupplyInventoryId = 50, ActionType = "Import", QuantityChange = 5000, SourceType = "Organization", SourceId = 3, PerformedBy = SeedConstants.ManagerUserId, Note = "Nhập sữa bột trẻ em kho Hải Lăng — dự trữ cho trẻ dưới 1 tuổi vùng lũ", CreatedAt = now },
+            new InventoryLog { Id = 51, DepotSupplyInventoryId = 51, ActionType = "Import", QuantityChange = 3000, SourceType = "Organization", SourceId = 8, PerformedBy = SeedConstants.RescuerUserId, Note = "Nhập sữa bột trẻ em kho Phong Điền — dự trữ khẩn cấp cho trẻ sơ sinh", CreatedAt = now },
+            new InventoryLog { Id = 52, DepotSupplyInventoryId = 52, ActionType = "Import", QuantityChange = 2000, SourceType = "Organization", SourceId = 3, PerformedBy = SeedConstants.ManagerUserId, Note = "Nhập dầu gió kho Hải Lăng — hỗ trợ y tế người già bệnh nền", CreatedAt = now },
+            new InventoryLog { Id = 53, DepotSupplyInventoryId = 53, ActionType = "Import", QuantityChange = 2500, SourceType = "Organization", SourceId = 8, PerformedBy = SeedConstants.RescuerUserId, Note = "Nhập dầu gió kho Phong Điền — hỗ trợ người già hết thuốc huyết áp", CreatedAt = now }
+// Export samples to demonstrate negative formatting
+                     new InventoryLog { Id = 54, DepotSupplyInventoryId = 1, ActionType = "Export", QuantityChange = 5000, SourceType = "Mission", SourceId = 1, PerformedBy = SeedConstants.AdminUserId, Note = "Xuất mì tôm cho nhiệm vụ cứu hộ", CreatedAt = now.AddHours(1) },
+            new InventoryLog { Id = 55, DepotSupplyInventoryId = 22, ActionType = "TransferOut", QuantityChange = 2000, SourceType = "Transfer", SourceId = 2, PerformedBy = SeedConstants.ManagerUserId, Note = "Chuyển mì tôm sang kho Lệ Thủy", CreatedAt = now.AddHours(2) },
+            new InventoryLog { Id = 56, DepotSupplyInventoryId = 3, ActionType = "Adjust", QuantityChange = -1000, SourceType = "Adjustment", SourceId = null, PerformedBy = SeedConstants.AdminUserId, Note = "Điều chỉnh số lượng thuốc do hết hạn", CreatedAt = now.AddHours(3) }
         );
     }
 
