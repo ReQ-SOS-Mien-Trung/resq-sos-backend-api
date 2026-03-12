@@ -6,8 +6,10 @@ public enum ItemCategoryCode
     Water = 2,
     Medical = 3,
     Hygiene = 4,
-    Shelter = 5,
-    Clothing = 6,
-    RescueEquipment = 7,
+    Clothing = 5,
+    Shelter = 6,
+    RepairTools = 7,
+    RescueEquipment = 8,
+    Heating = 9,
     Others = 99
 }

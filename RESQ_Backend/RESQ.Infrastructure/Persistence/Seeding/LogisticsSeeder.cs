@@ -24,16 +24,16 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<ItemCategory>().HasData(
-            new ItemCategory { Id = 1, Code = "Food", Name = "Thực phẩm", Description = "Lương thực, đồ ăn khô", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 2, Code = "Water", Name = "Nước uống", Description = "Nước sạch, nước đóng chai", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 3, Code = "Medical", Name = "Y tế", Description = "Thuốc men, dụng cụ sơ cứu", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 4, Code = "RescueEquipment", Name = "Thiết bị cứu hộ", Description = "Áo phao, xuồng, dây thừng", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 5, Code = "Hygiene", Name = "Vệ sinh cá nhân", Description = "Khăn giấy, xà phòng, băng vệ sinh", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 6, Code = "Clothing", Name = "Quần áo", Description = "Quần áo sạch, áo mưa", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 7, Code = "Shelter", Name = "Nơi trú ẩn", Description = "Lều bạt, túi ngủ", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 8, Code = "Heating", Name = "Sưởi ấm", Description = "Chăn, than, máy sưởi", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 9, Code = "Nutrition", Name = "Dinh dưỡng", Description = "Sữa, thức ăn dặm", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 10, Code = "RepairTools", Name = "Công cụ sửa chữa", Description = "Búa, đinh, cưa", CreatedAt = now, UpdatedAt = now }
+            new ItemCategory { Id = 1, Code = "Food", Name = "Thực phẩm", Description = "Lương thực, đồ ăn khô", CreatedAt = now },
+            new ItemCategory { Id = 2, Code = "Water", Name = "Nước uống", Description = "Nước sạch, nước đóng chai", CreatedAt = now },
+            new ItemCategory { Id = 3, Code = "Medical", Name = "Y tế", Description = "Thuốc men, dụng cụ sơ cứu", CreatedAt = now },
+            new ItemCategory { Id = 4, Code = "Hygiene", Name = "Vệ sinh cá nhân", Description = "Khăn giấy, xà phòng, băng vệ sinh", CreatedAt = now },
+            new ItemCategory { Id = 5, Code = "Clothing", Name = "Quần áo", Description = "Quần áo sạch, áo mưa", CreatedAt = now },
+            new ItemCategory { Id = 6, Code = "Shelter", Name = "Nơi trú ẩn", Description = "Lều bạt, túi ngủ", CreatedAt = now },
+            new ItemCategory { Id = 7, Code = "RepairTools", Name = "Công cụ sửa chữa", Description = "Búa, đinh, cưa", CreatedAt = now },
+            new ItemCategory { Id = 8, Code = "RescueEquipment", Name = "Thiết bị cứu hộ", Description = "Áo phao, xuồng, dây thừng", CreatedAt = now },
+            new ItemCategory { Id = 9, Code = "Heating", Name = "Sưởi ấm", Description = "Chăn, than, máy sưởi", CreatedAt = now },
+            new ItemCategory { Id = 99, Code = "Others", Name = "Khác", Description = "Các vật phẩm khác", CreatedAt = now }
         );
     }
 
@@ -63,10 +63,10 @@ public static class LogisticsSeeder
             new ReliefItem { Id = 1, CategoryId = 1, Name = "Mì tôm", Unit = "gói", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 2, CategoryId = 2, Name = "Nước tinh khiết", Unit = "chai 500ml", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 3, CategoryId = 3, Name = "Thuốc hạ sốt Paracetamol 500mg", Unit = "viên", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 4, CategoryId = 4, Name = "Áo phao cứu sinh", Unit = "chiếc", ItemType = ItemType.Equipment.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 5, CategoryId = 5, Name = "Băng vệ sinh", Unit = "miếng", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 6, CategoryId = 8, Name = "Chăn ấm giữ nhiệt", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 7, CategoryId = 9, Name = "Sữa bột trẻ em", Unit = "gói", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Children.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 4, CategoryId = 8, Name = "Áo phao cứu sinh", Unit = "chiếc", ItemType = ItemType.Equipment.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 5, CategoryId = 4, Name = "Băng vệ sinh", Unit = "miếng", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 6, CategoryId = 9, Name = "Chăn ấm giữ nhiệt", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 7, CategoryId = 1, Name = "Sữa bột trẻ em", Unit = "gói", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Children.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 8, CategoryId = 1, Name = "Lương khô", Unit = "phong", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 9, CategoryId = 3, Name = "Dầu gió", Unit = "chai 10ml", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Elderly.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 10, CategoryId = 3, Name = "Sắt & Vitamin tổng hợp", Unit = "viên", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Pregnant.ToString(), CreatedAt = now, UpdatedAt = now }
@@ -246,11 +246,15 @@ public static class LogisticsSeeder
             new InventoryLog { Id = 47, DepotSupplyInventoryId = 47, ActionType = "Import", QuantityChange = 50000, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập nước uống kho Bình Sơn", CreatedAt = now },
             new InventoryLog { Id = 48, DepotSupplyInventoryId = 48, ActionType = "Import", QuantityChange = 1500, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập áo phao kho Bình Sơn", CreatedAt = now },
             new InventoryLog { Id = 49, DepotSupplyInventoryId = 49, ActionType = "Import", QuantityChange = 130000, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập thuốc kho Bình Sơn", CreatedAt = now },
-            // Logs cho vật tư đặc thù Cluster 3 (depot 3 & 8)
+// Logs cho vật tư đặc thù Cluster 3 (depot 3 & 8)
             new InventoryLog { Id = 50, DepotSupplyInventoryId = 50, ActionType = "Import", QuantityChange = 5000, SourceType = "Organization", SourceId = 3, PerformedBy = SeedConstants.ManagerUserId, Note = "Nhập sữa bột trẻ em kho Hải Lăng — dự trữ cho trẻ dưới 1 tuổi vùng lũ", CreatedAt = now },
             new InventoryLog { Id = 51, DepotSupplyInventoryId = 51, ActionType = "Import", QuantityChange = 3000, SourceType = "Organization", SourceId = 8, PerformedBy = SeedConstants.RescuerUserId, Note = "Nhập sữa bột trẻ em kho Phong Điền — dự trữ khẩn cấp cho trẻ sơ sinh", CreatedAt = now },
             new InventoryLog { Id = 52, DepotSupplyInventoryId = 52, ActionType = "Import", QuantityChange = 2000, SourceType = "Organization", SourceId = 3, PerformedBy = SeedConstants.ManagerUserId, Note = "Nhập dầu gió kho Hải Lăng — hỗ trợ y tế người già bệnh nền", CreatedAt = now },
             new InventoryLog { Id = 53, DepotSupplyInventoryId = 53, ActionType = "Import", QuantityChange = 2500, SourceType = "Organization", SourceId = 8, PerformedBy = SeedConstants.RescuerUserId, Note = "Nhập dầu gió kho Phong Điền — hỗ trợ người già hết thuốc huyết áp", CreatedAt = now }
+// Export samples to demonstrate negative formatting
+                     new InventoryLog { Id = 54, DepotSupplyInventoryId = 1, ActionType = "Export", QuantityChange = 5000, SourceType = "Mission", SourceId = 1, PerformedBy = SeedConstants.AdminUserId, Note = "Xuất mì tôm cho nhiệm vụ cứu hộ", CreatedAt = now.AddHours(1) },
+            new InventoryLog { Id = 55, DepotSupplyInventoryId = 22, ActionType = "TransferOut", QuantityChange = 2000, SourceType = "Transfer", SourceId = 2, PerformedBy = SeedConstants.ManagerUserId, Note = "Chuyển mì tôm sang kho Lệ Thủy", CreatedAt = now.AddHours(2) },
+            new InventoryLog { Id = 56, DepotSupplyInventoryId = 3, ActionType = "Adjust", QuantityChange = -1000, SourceType = "Adjustment", SourceId = null, PerformedBy = SeedConstants.AdminUserId, Note = "Điều chỉnh số lượng thuốc do hết hạn", CreatedAt = now.AddHours(3) }
         );
     }
 

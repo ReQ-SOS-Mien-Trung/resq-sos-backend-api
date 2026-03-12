@@ -10,8 +10,8 @@ using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
-using RESQ.Application.Services.Logistics;
 using RESQ.Domain.Entities.Finance.Services;
+using RESQ.Domain.Entities.Logistics.Services;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Emergency;
@@ -25,7 +25,7 @@ using RESQ.Infrastructure.Services;
 using RESQ.Infrastructure.Services.Finance;
 using RESQ.Infrastructure.Services.Identity;
 using RESQ.Infrastructure.Services.Payments;
-using RESQ.Infrastructure.Services.Personnel; // Added
+using RESQ.Infrastructure.Services.Personnel;
 
 namespace RESQ.Infrastructure.Extensions;
 
@@ -53,8 +53,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
         services.AddScoped<IDepotInventoryRepository, DepotInventoryRepository>();
+        services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
+        services.AddScoped<IOrganizationReliefRepository, OrganizationReliefRepository>();
+        services.AddScoped<IOrganizationMetadataRepository, OrganizationMetadataRepository>();
         services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>();
-        services.AddScoped<IRescueTeamRepository, RescueTeamRepository>(); // Added Team Repository
+        services.AddScoped<IRescueTeamRepository, RescueTeamRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRescuerApplicationRepository, RescuerApplicationRepository>();
         services.AddScoped<IAbilityRepository, AbilityRepository>();
@@ -97,7 +100,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGoongMapService, GoongMapService>();
         
         // Domain Services
-        services.AddScoped<IFundDistributionManager, FundDistributionManager>(); // Registered
+        services.AddScoped<IFundDistributionManager, FundDistributionManager>();
         services.AddScoped<IInventoryQueryService, InventoryQueryService>();
 
         // Payment Services
@@ -112,8 +115,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISosAiAnalysisQueueInternal>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddHostedService<SosAiAnalysisBackgroundService>();
         services.AddHostedService<DonationExpirationBackgroundService>();
-        services.AddHostedService<TeamInvitationExpirationBackgroundService>(); // Added
-        services.AddHostedService<UnverifiedUserCleanupBackgroundService>(); // Auto-delete unverified users after 24h
+        services.AddHostedService<TeamInvitationExpirationBackgroundService>();
+        services.AddHostedService<UnverifiedUserCleanupBackgroundService>();
 
         return services;
     }
