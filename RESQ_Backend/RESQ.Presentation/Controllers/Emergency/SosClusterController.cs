@@ -50,21 +50,21 @@ public class SosClusterController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    ///// <summary>
-    ///// Chọn một cluster để AI phân tích và đề xuất kế hoạch nhiệm vụ giải cứu (blocking).
-    ///// </summary>
-    //[HttpPost("{clusterId:int}/rescue-suggestion")]
-    //[Authorize(Roles = "1,2,4")]
-    //public async Task<IActionResult> GenerateRescueMissionSuggestion([FromRoute] int clusterId)
-    //{
-    //    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    //    if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-    //        return Unauthorized();
+    /// <summary>
+    /// Chọn một cluster để AI phân tích và đề xuất kế hoạch nhiệm vụ giải cứu (blocking).
+    /// </summary>
+    [HttpPost("{clusterId:int}/rescue-suggestion")]
+    [Authorize(Roles = "1,2,4")]
+    public async Task<IActionResult> GenerateRescueMissionSuggestion([FromRoute] int clusterId)
+    {
+       var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+       if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+           return Unauthorized();
 
-    //    var command = new GenerateRescueMissionSuggestionCommand(clusterId, userId);
-    //    var result = await _mediator.Send(command);
-    //    return Ok(result);
-    //}
+       var command = new GenerateRescueMissionSuggestionCommand(clusterId, userId);
+       var result = await _mediator.Send(command);
+       return Ok(result);
+    }
 
     /// <summary>
     /// Server-Sent Events (SSE) endpoint — AI thinking streamed in real-time.<br/>

@@ -107,7 +107,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     join ri in _context.ReliefItems.AsNoTracking() on dsi.ReliefItemId equals ri.Id
                     join cat in _context.ItemCategories.AsNoTracking() on ri.CategoryId equals cat.Id
                     join depot in _context.Depots.AsNoTracking() on dsi.DepotId equals depot.Id
-                    where depot.Status == "Active"
+                    where (depot.Status == "Available" || depot.Status == "Full")
                        && (dsi.Quantity ?? 0) - (dsi.ReservedQuantity ?? 0) > 0
                        && EF.Functions.ILike(cat.Name ?? string.Empty, "%" + categoryKeyword + "%")
                     select new { dsi, ri, cat, depot };
@@ -117,23 +117,39 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         var total = await query.CountAsync(ct);
 
-        var items = await query
+        var rawItems = await query
             .OrderByDescending(x => (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0))
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new AgentInventoryItem
+            .Select(x => new
             {
-                ItemId        = x.ri.Id,
-                ItemName      = x.ri.Name ?? string.Empty,
-                CategoryName  = x.cat.Name ?? string.Empty,
-                ItemType      = x.ri.ItemType,
-                Unit          = x.ri.Unit,
+                ItemId           = x.ri.Id,
+                ItemName         = x.ri.Name ?? string.Empty,
+                CategoryName     = x.cat.Name ?? string.Empty,
+                x.ri.ItemType,
+                x.ri.Unit,
                 AvailableQuantity = (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0),
-                DepotId       = x.depot.Id,
-                DepotName     = x.depot.Name ?? string.Empty,
-                DepotAddress  = x.depot.Address
+                DepotId          = x.depot.Id,
+                DepotName        = x.depot.Name ?? string.Empty,
+                DepotAddress     = x.depot.Address,
+                DepotLocation    = x.depot.Location
             })
             .ToListAsync(ct);
+
+        var items = rawItems.Select(x => new AgentInventoryItem
+        {
+            ItemId            = x.ItemId,
+            ItemName          = x.ItemName,
+            CategoryName      = x.CategoryName,
+            ItemType          = x.ItemType,
+            Unit              = x.Unit,
+            AvailableQuantity = x.AvailableQuantity,
+            DepotId           = x.DepotId,
+            DepotName         = x.DepotName,
+            DepotAddress      = x.DepotAddress,
+            DepotLatitude     = x.DepotLocation?.Y,
+            DepotLongitude    = x.DepotLocation?.X
+        }).ToList();
 
         return (items, total);
     }
