@@ -22,7 +22,7 @@ public partial class ResQDbContext
         // 5. Operations (Missions, Chats)
         modelBuilder.SeedOperations();
 
-        // 6. System (Notifications, Prompts)
+        // 6. System (Notifications, Prompts, Service Zones)
         modelBuilder.SeedSystem();
 
         // 7. AI Analysis (Suggestions)
