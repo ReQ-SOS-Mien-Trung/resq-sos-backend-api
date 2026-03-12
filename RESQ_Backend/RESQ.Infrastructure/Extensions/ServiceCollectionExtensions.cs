@@ -53,6 +53,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
         services.AddScoped<IDepotInventoryRepository, DepotInventoryRepository>();
+        services.AddScoped<IOrganizationReliefRepository, OrganizationReliefRepository>(); // ADDED HERE
         services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>();
         services.AddScoped<IRescueTeamRepository, RescueTeamRepository>();
         services.AddScoped<IUserRepository, UserRepository>();

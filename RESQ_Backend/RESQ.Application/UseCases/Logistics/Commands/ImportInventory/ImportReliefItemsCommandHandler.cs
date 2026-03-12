@@ -1,35 +1,32 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RESQ.Application.Repositories.Base;
-using RESQ.Infrastructure.Entities.Logistics;
+using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 
 public class ImportReliefItemsCommandHandler(
-    IUnitOfWork unitOfWork,
+    IItemCategoryRepository categoryRepository,
+    IOrganizationReliefRepository organizationReliefRepository,
     ILogger<ImportReliefItemsCommandHandler> logger)
     : IRequestHandler<ImportReliefItemsCommand, ImportReliefItemsResponse>
 {
-    private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IItemCategoryRepository _categoryRepository = categoryRepository;
+    private readonly IOrganizationReliefRepository _organizationReliefRepository = organizationReliefRepository;
     private readonly ILogger<ImportReliefItemsCommandHandler> _logger = logger;
 
     public async Task<ImportReliefItemsResponse> Handle(ImportReliefItemsCommand request, CancellationToken cancellationToken)
     {
         var response = new ImportReliefItemsResponse();
 
-        var categoryRepo = _unitOfWork.GetRepository<ItemCategory>();
-        var reliefItemRepo = _unitOfWork.GetRepository<ReliefItem>();
-        var orgReliefItemRepo = _unitOfWork.GetRepository<OrganizationReliefItem>();
-
         // Pre-fetch all categories into memory for efficient matching
-        var categories = await categoryRepo.GetAllByPropertyAsync(null, null);
+        var categories = await _categoryRepository.GetAllAsync(cancellationToken);
 
         foreach (var item in request.Items)
         {
             try
             {
-                // 1. Find category by categoryCode
-                var category = categories.FirstOrDefault(c => string.Equals(c.Code, item.CategoryCode, StringComparison.OrdinalIgnoreCase));
+                // 1. Find category by categoryCode mapping
+                var category = categories.FirstOrDefault(c => string.Equals(c.Code.ToString(), item.CategoryCode, StringComparison.OrdinalIgnoreCase));
                 
                 if (category == null)
                 {
@@ -38,42 +35,25 @@ public class ImportReliefItemsCommandHandler(
                     continue;
                 }
 
-                // 2. Find relief_item by name + category_id
-                var reliefItem = await reliefItemRepo.GetByPropertyAsync(
-                    r => r.Name == item.ItemName && r.CategoryId == category.Id, 
-                    tracked: true);
+                // 2. Use the repository to get or create the item (Domain/DB logic is hidden from Handler)
+                var reliefItemId = await _organizationReliefRepository.GetOrCreateReliefItemAsync(
+                    category.Id,
+                    item.ItemName,
+                    item.Unit,
+                    item.ItemType,
+                    item.TargetGroup,
+                    cancellationToken
+                );
 
-                // 3. If not exists -> create relief_item
-                if (reliefItem == null)
-                {
-                    reliefItem = new ReliefItem
-                    {
-                        CategoryId = category.Id,
-                        Name = item.ItemName,
-                        Unit = item.Unit,
-                        ItemType = item.ItemType,
-                        TargetGroup = item.TargetGroup,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    
-                    await reliefItemRepo.AddAsync(reliefItem);
-                    await _unitOfWork.SaveAsync(); // Save to generate ID for the navigation property
-                }
-
-                // 4. Insert organization_relief_item
-                var orgReliefItem = new OrganizationReliefItem
-                {
-                    OrganizationId = request.OrganizationId,
-                    ReliefItemId = reliefItem.Id,
-                    ReceivedDate = item.ReceivedDate,
-                    ExpiredDate = item.ExpiredDate,
-                    Notes = item.Notes,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                await orgReliefItemRepo.AddAsync(orgReliefItem);
-                await _unitOfWork.SaveAsync();
+                // 3. Add the inventory record for the organization
+                await _organizationReliefRepository.AddOrganizationReliefItemAsync(
+                    request.OrganizationId,
+                    reliefItemId,
+                    item.ReceivedDate,
+                    item.ExpiredDate,
+                    item.Notes,
+                    cancellationToken
+                );
 
                 response.Imported++;
             }
@@ -88,4 +68,4 @@ public class ImportReliefItemsCommandHandler(
 
         return response;
     }
-}
+}

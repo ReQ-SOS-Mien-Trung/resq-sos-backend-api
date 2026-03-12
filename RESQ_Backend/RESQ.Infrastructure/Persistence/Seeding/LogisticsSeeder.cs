@@ -32,7 +32,8 @@ public static class LogisticsSeeder
             new ItemCategory { Id = 6, Code = "Shelter", Name = "Nơi trú ẩn", Description = "Lều bạt, túi ngủ", CreatedAt = now },
             new ItemCategory { Id = 7, Code = "RepairTools", Name = "Công cụ sửa chữa", Description = "Búa, đinh, cưa", CreatedAt = now },
             new ItemCategory { Id = 8, Code = "RescueEquipment", Name = "Thiết bị cứu hộ", Description = "Áo phao, xuồng, dây thừng", CreatedAt = now },
-            new ItemCategory { Id = 9, Code = "Heating", Name = "Sưởi ấm", Description = "Chăn, than, máy sưởi", CreatedAt = now }
+            new ItemCategory { Id = 9, Code = "Heating", Name = "Sưởi ấm", Description = "Chăn, than, máy sưởi", CreatedAt = now },
+            new ItemCategory { Id = 99, Code = "Others", Name = "Khác", Description = "Các vật phẩm khác", CreatedAt = now }
         );
     }
 
