@@ -14,7 +14,7 @@ public class MissionActivityModel
     public string? Items { get; set; }
     public double? TargetLatitude { get; set; }
     public double? TargetLongitude { get; set; }
-    public MissionActivityStatus Status { get; set; } = MissionActivityStatus.Pending;
+    public MissionActivityStatus Status { get; set; } = MissionActivityStatus.Planned;
     public DateTime? AssignedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public Guid? LastDecisionBy { get; set; }

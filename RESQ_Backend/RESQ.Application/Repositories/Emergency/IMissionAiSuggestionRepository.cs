@@ -12,4 +12,5 @@ public interface IMissionAiSuggestionRepository
     Task<MissionAiSuggestionModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<MissionAiSuggestionModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<MissionAiSuggestionModel>> GetByClusterIdsAsync(IEnumerable<int> clusterIds, CancellationToken cancellationToken = default);
 }

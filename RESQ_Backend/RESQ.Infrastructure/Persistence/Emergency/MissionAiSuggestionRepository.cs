@@ -46,6 +46,30 @@ public class MissionAiSuggestionRepository(IUnitOfWork unitOfWork) : IMissionAiS
         return MissionAiSuggestionMapper.ToDomain(entity, activities);
     }
 
+    public async Task<IEnumerable<MissionAiSuggestionModel>> GetByClusterIdsAsync(IEnumerable<int> clusterIds, CancellationToken cancellationToken = default)
+    {
+        var idSet = clusterIds.ToHashSet();
+        if (idSet.Count == 0) return [];
+
+        var missions = await _unitOfWork.GetRepository<MissionAiSuggestion>()
+            .GetAllByPropertyAsync(x => x.ClusterId.HasValue && idSet.Contains(x.ClusterId.Value));
+
+        if (missions.Count == 0) return [];
+
+        var missionIds = missions.Select(m => m.Id).ToHashSet();
+        var allActivities = await _unitOfWork.GetRepository<ActivityAiSuggestion>()
+            .GetAllByPropertyAsync(x => x.ParentMissionSuggestionId != null
+                && missionIds.Contains(x.ParentMissionSuggestionId!.Value));
+
+        var activitiesByMission = allActivities
+            .GroupBy(a => a.ParentMissionSuggestionId!.Value)
+            .ToDictionary(g => g.Key, g => g.AsEnumerable());
+
+        return missions.Select(m =>
+            MissionAiSuggestionMapper.ToDomain(m,
+                activitiesByMission.TryGetValue(m.Id, out var acts) ? acts : null));
+    }
+
     public async Task<IEnumerable<MissionAiSuggestionModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default)
     {
         var missions = await _unitOfWork.GetRepository<MissionAiSuggestion>()
