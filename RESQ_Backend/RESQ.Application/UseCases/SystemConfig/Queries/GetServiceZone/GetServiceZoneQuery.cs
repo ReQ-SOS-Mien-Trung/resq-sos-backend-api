@@ -6,3 +6,5 @@ namespace RESQ.Application.UseCases.SystemConfig.Queries.GetServiceZone;
 public record GetServiceZoneQuery : IRequest<GetServiceZoneResponse>;
 
 public record GetServiceZoneByIdQuery(int Id) : IRequest<GetServiceZoneResponse>;
+
+public record GetAllServiceZoneQuery : IRequest<List<GetServiceZoneResponse>>;

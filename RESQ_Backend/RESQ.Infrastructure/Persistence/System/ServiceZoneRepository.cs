@@ -46,6 +46,21 @@ public class ServiceZoneRepository(IUnitOfWork unitOfWork) : IServiceZoneReposit
         await _unitOfWork.GetRepository<ServiceZone>().UpdateAsync(entity);
     }
 
+    public async Task DeactivateAllExceptAsync(int excludeId, CancellationToken cancellationToken = default)
+    {
+        var others = await _unitOfWork.GetRepository<ServiceZone>()
+            .GetAllByPropertyAsync(x => x.IsActive && x.Id != excludeId);
+
+        foreach (var zone in others)
+        {
+            zone.IsActive = false;
+            await _unitOfWork.GetRepository<ServiceZone>().UpdateAsync(zone);
+        }
+
+        if (others.Count > 0)
+            await _unitOfWork.SaveAsync();
+    }
+
     public async Task<bool> IsLocationInServiceZoneAsync(double latitude, double longitude, CancellationToken cancellationToken = default)
     {
         var zone = await GetActiveAsync(cancellationToken);

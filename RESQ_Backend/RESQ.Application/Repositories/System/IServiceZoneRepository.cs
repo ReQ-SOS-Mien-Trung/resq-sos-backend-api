@@ -9,6 +9,7 @@ public interface IServiceZoneRepository
     Task<List<ServiceZoneModel>> GetAllAsync(CancellationToken cancellationToken = default);
     Task CreateAsync(ServiceZoneModel model, CancellationToken cancellationToken = default);
     Task UpdateAsync(ServiceZoneModel model, CancellationToken cancellationToken = default);
+    Task DeactivateAllExceptAsync(int excludeId, CancellationToken cancellationToken = default);
     /// <summary>
     /// Kiểm tra xem tọa độ có nằm trong vùng phục vụ đang active hay không.
     /// Trả về true nếu không có vùng nào được cấu hình (không giới hạn).
