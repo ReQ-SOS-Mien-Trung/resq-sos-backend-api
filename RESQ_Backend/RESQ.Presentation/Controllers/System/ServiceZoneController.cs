@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.UseCases.SystemConfig.Commands.CreateServiceZone;
 using RESQ.Application.UseCases.SystemConfig.Commands.UpdateServiceZone;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetServiceZone;
 
@@ -32,6 +33,28 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
     {
         var result = await _mediator.Send(new GetServiceZoneByIdQuery(id));
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Tạo mới vùng phục vụ — Admin vẽ polygon trên bản đồ và gửi danh sách tọa độ.
+    /// </summary>
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Create([FromBody] CreateServiceZoneRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdClaim, out var adminId))
+            return Unauthorized();
+
+        var command = new CreateServiceZoneCommand(
+            Name: dto.Name,
+            Coordinates: dto.Coordinates,
+            IsActive: dto.IsActive,
+            CreatedBy: adminId
+        );
+
+        var result = await _mediator.Send(command);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
     /// <summary>
