@@ -76,7 +76,7 @@ public class GetMissionsQueryHandler(
                         CompletedAt = a.CompletedAt,
                         LastDecisionBy = a.LastDecisionBy
                     }).ToList(),
-                    AiSuggestion = aiModel is not null ? MissionAiSuggestionSection.From(aiModel) : null
+                    //AiSuggestion = aiModel is not null ? MissionAiSuggestionSection.From(aiModel) : null
                 };
             }).ToList()
         };

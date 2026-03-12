@@ -48,7 +48,8 @@ public static class EmergencySeeder
                 ElderlyCount = 20,
                 MedicalUrgencyScore = 0.6,
                 CreatedAt = now,
-                LastUpdatedAt = now
+                LastUpdatedAt = now,
+                IsMissionCreated = false
             },
             // Cluster 3: Phong Điền, Thừa Thiên-Huế — Sạt lở + cô lập
             // Tâm cụm gần cặp SOS B (Id=3, Id=4), cách cặp A ~80km

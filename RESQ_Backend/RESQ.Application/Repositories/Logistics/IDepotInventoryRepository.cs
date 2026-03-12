@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
@@ -16,4 +17,14 @@ public interface IDepotInventoryRepository
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tìm kiếm vật tư theo từ khoá danh mục/loại để agent AI dùng trong quá trình lập kế hoạch.
+    /// </summary>
+    Task<(List<AgentInventoryItem> Items, int TotalCount)> SearchForAgentAsync(
+        string categoryKeyword,
+        string? typeKeyword,
+        int page,
+        int pageSize,
+        CancellationToken ct = default);
 }
