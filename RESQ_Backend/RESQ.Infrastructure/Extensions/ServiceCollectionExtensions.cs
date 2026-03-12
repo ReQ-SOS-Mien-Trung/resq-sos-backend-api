@@ -81,6 +81,7 @@ public static class ServiceCollectionExtensions
 
         // System Repositories
         services.AddScoped<IPromptRepository, PromptRepository>();
+        services.AddScoped<IServiceZoneRepository, ServiceZoneRepository>();
 
         // Services
         services.AddScoped<IFirebaseService, FirebaseService>();
