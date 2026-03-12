@@ -193,7 +193,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// vehicle: car | bike | taxi | hd (mặc định: car)
     /// </summary>
     [HttpGet("{missionId:int}/activities/{activityId:int}/route")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Roles = "1,2,3,4")]
     public async Task<IActionResult> GetRescuerRoute(
         [FromRoute] int missionId,
         [FromRoute] int activityId,

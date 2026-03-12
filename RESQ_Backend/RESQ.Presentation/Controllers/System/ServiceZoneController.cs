@@ -39,7 +39,6 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
     /// Tạo mới vùng phục vụ — Admin vẽ polygon trên bản đồ và gửi danh sách tọa độ.
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] CreateServiceZoneRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -63,7 +62,6 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
     /// không cần lặp lại điểm đầu ở cuối.
     /// </summary>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateServiceZoneRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
