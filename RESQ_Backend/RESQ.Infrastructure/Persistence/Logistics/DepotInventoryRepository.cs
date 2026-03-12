@@ -1,18 +1,22 @@
 using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 using RESQ.Application.Services.Logistics;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
+using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
-public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQueryService inventoryQueryService) : IDepotInventoryRepository
+public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQueryService inventoryQueryService, ResQDbContext context) : IDepotInventoryRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IInventoryQueryService _inventoryQueryService = inventoryQueryService;
+    private readonly ResQDbContext _context = context;
 
     public async Task<int?> GetActiveDepotIdByManagerAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -90,5 +94,47 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             pagedEntities.PageNumber, 
             pagedEntities.PageSize
         );
+    }
+
+    public async Task<(List<AgentInventoryItem> Items, int TotalCount)> SearchForAgentAsync(
+        string categoryKeyword,
+        string? typeKeyword,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var query = from dsi in _context.DepotSupplyInventories.AsNoTracking()
+                    join ri in _context.ReliefItems.AsNoTracking() on dsi.ReliefItemId equals ri.Id
+                    join cat in _context.ItemCategories.AsNoTracking() on ri.CategoryId equals cat.Id
+                    join depot in _context.Depots.AsNoTracking() on dsi.DepotId equals depot.Id
+                    where depot.Status == "Active"
+                       && (dsi.Quantity ?? 0) - (dsi.ReservedQuantity ?? 0) > 0
+                       && EF.Functions.ILike(cat.Name ?? string.Empty, "%" + categoryKeyword + "%")
+                    select new { dsi, ri, cat, depot };
+
+        if (!string.IsNullOrWhiteSpace(typeKeyword))
+            query = query.Where(x => EF.Functions.ILike(x.ri.ItemType ?? string.Empty, "%" + typeKeyword + "%"));
+
+        var total = await query.CountAsync(ct);
+
+        var items = await query
+            .OrderByDescending(x => (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0))
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new AgentInventoryItem
+            {
+                ItemId        = x.ri.Id,
+                ItemName      = x.ri.Name ?? string.Empty,
+                CategoryName  = x.cat.Name ?? string.Empty,
+                ItemType      = x.ri.ItemType,
+                Unit          = x.ri.Unit,
+                AvailableQuantity = (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0),
+                DepotId       = x.depot.Id,
+                DepotName     = x.depot.Name ?? string.Empty,
+                DepotAddress  = x.depot.Address
+            })
+            .ToListAsync(ct);
+
+        return (items, total);
     }
 }

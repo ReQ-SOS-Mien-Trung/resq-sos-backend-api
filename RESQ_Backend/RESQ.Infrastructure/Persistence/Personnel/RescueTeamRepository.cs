@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Infrastructure.Entities.Personnel;
@@ -115,5 +116,54 @@ public class RescueTeamRepository(ResQDbContext context) : IRescueTeamRepository
                 }
             }
         }
+    }
+
+    public async Task<(List<AgentTeamInfo> Teams, int TotalCount)> GetTeamsForAgentAsync(
+        string? abilityKeyword,
+        bool? available,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
+        var availableStatuses = new[] { "Available", "Ready" };
+
+        var query = context.RescueTeams.AsNoTracking()
+            .Where(t => t.Status != disbandedStatus);
+
+        if (!string.IsNullOrWhiteSpace(abilityKeyword))
+            query = query.Where(t => EF.Functions.ILike(t.TeamType ?? string.Empty, "%" + abilityKeyword + "%"));
+
+        if (available == true)
+            query = query.Where(t => availableStatuses.Contains(t.Status ?? string.Empty));
+
+        var total = await query.CountAsync(ct);
+
+        var teams = await query
+            .OrderBy(t => t.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(t => new
+            {
+                t.Id,
+                t.Name,
+                t.TeamType,
+                t.Status,
+                MemberCount = context.RescueTeamMembers
+                    .Count(m => m.TeamId == t.Id && m.Status == "Accepted")
+            })
+            .ToListAsync(ct);
+
+        var result = teams.Select(t => new AgentTeamInfo
+        {
+            TeamId      = t.Id,
+            TeamName    = t.Name ?? string.Empty,
+            TeamType    = t.TeamType,
+            Status      = t.Status ?? string.Empty,
+            IsAvailable = availableStatuses.Contains(t.Status ?? string.Empty),
+            MemberCount = t.MemberCount
+        }).ToList();
+
+        return (result, total);
     }
 }

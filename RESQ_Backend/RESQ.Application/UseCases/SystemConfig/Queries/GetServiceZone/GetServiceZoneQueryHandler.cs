@@ -7,7 +7,8 @@ namespace RESQ.Application.UseCases.SystemConfig.Queries.GetServiceZone;
 
 public class GetServiceZoneQueryHandler(IServiceZoneRepository serviceZoneRepository)
     : IRequestHandler<GetServiceZoneQuery, GetServiceZoneResponse>,
-      IRequestHandler<GetServiceZoneByIdQuery, GetServiceZoneResponse>
+      IRequestHandler<GetServiceZoneByIdQuery, GetServiceZoneResponse>,
+      IRequestHandler<GetAllServiceZoneQuery, List<GetServiceZoneResponse>>
 {
     private readonly IServiceZoneRepository _serviceZoneRepository = serviceZoneRepository;
 
@@ -25,6 +26,12 @@ public class GetServiceZoneQueryHandler(IServiceZoneRepository serviceZoneReposi
             ?? throw new NotFoundException($"Vùng phục vụ với Id={request.Id} không tồn tại.");
 
         return ToResponse(zone);
+    }
+
+    public async Task<List<GetServiceZoneResponse>> Handle(GetAllServiceZoneQuery request, CancellationToken cancellationToken)
+    {
+        var zones = await _serviceZoneRepository.GetAllAsync(cancellationToken);
+        return zones.Select(ToResponse).ToList();
     }
 
     private static GetServiceZoneResponse ToResponse(RESQ.Domain.Entities.System.ServiceZoneModel zone) =>

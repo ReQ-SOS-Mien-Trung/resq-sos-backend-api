@@ -101,6 +101,9 @@ public class RescueMissionSuggestionResult
     public string? LowConfidenceWarning { get; set; }
     /// <summary>true khi không có kho nào đủ đa dạng hàng để cấp phát trong một lần — AI sẽ được nhắc lấy từ nhiều kho.</summary>
     public bool MultiDepotRecommended { get; set; }
+
+    /// <summary>Đội cứu hộ được AI đề xuất cho sứ mệnh này (populated khi agent tìm được đội phù hợp).</summary>
+    public SuggestedTeamDto? SuggestedTeam { get; set; }
 }
 
 public class SupplyToCollectDto
@@ -137,4 +140,38 @@ public class SuggestedResourceDto
     public string Description { get; set; } = string.Empty;
     public int? Quantity { get; set; }
     public string? Priority { get; set; }
+}
+
+/// <summary>Đội cứu hộ được AI đề xuất thực hiện sứ mệnh.</summary>
+public class SuggestedTeamDto
+{
+    public int TeamId { get; set; }
+    public string TeamName { get; set; } = string.Empty;
+    public string? TeamType { get; set; }
+    public string? Reason { get; set; }
+}
+
+/// <summary>Thông tin vật tư trong kho trả về bởi searchInventory tool.</summary>
+public class AgentInventoryItem
+{
+    public int ItemId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string CategoryName { get; set; } = string.Empty;
+    public string? ItemType { get; set; }
+    public string? Unit { get; set; }
+    public int AvailableQuantity { get; set; }
+    public int DepotId { get; set; }
+    public string DepotName { get; set; } = string.Empty;
+    public string? DepotAddress { get; set; }
+}
+
+/// <summary>Thông tin đội cứu hộ trả về bởi getTeams tool.</summary>
+public class AgentTeamInfo
+{
+    public int TeamId { get; set; }
+    public string TeamName { get; set; } = string.Empty;
+    public string? TeamType { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public bool IsAvailable { get; set; }
+    public int MemberCount { get; set; }
 }

@@ -1,11 +1,12 @@
 using System.Diagnostics;
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
 using RESQ.Domain.Enum.System;
@@ -16,21 +17,38 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IPromptRepository _promptRepository;
+    private readonly IDepotInventoryRepository _depotInventoryRepository;
+    private readonly IRescueTeamRepository _rescueTeamRepository;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
 
-    // Fallback defaults - chỉ dùng khi field trong DB bị null
-    private const string FALLBACK_MODEL = "gemini-2.5-flash";
-    private const string FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
-    private const double FALLBACK_TEMPERATURE = 0.5;
-    private const int FALLBACK_MAX_TOKENS = 65535;
+    // Fallback defaults
+    private const string FallbackModel = "gemini-2.5-flash";
+    private const string FallbackApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
+    private const double FallbackTemperature = 0.5;
+    private const int FallbackMaxTokens = 65535;
+
+    // Agent loop constants
+    private const int MaxAgentTurns = 20;
+    private const int AgentPageSize = 10;
+
+    private static readonly JsonSerializerOptions _jsonOpts = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     public RescueMissionSuggestionService(
         IHttpClientFactory httpClientFactory,
         IPromptRepository promptRepository,
+        IDepotInventoryRepository depotInventoryRepository,
+        IRescueTeamRepository rescueTeamRepository,
         ILogger<RescueMissionSuggestionService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _promptRepository = promptRepository;
+        _depotInventoryRepository = depotInventoryRepository;
+        _rescueTeamRepository = rescueTeamRepository;
         _logger = logger;
     }
 
@@ -41,100 +59,26 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
+        RescueMissionSuggestionResult? finalResult = null;
 
         try
         {
-            _logger.LogInformation("Generating rescue mission suggestion for {count} SOS requests", sosRequests.Count);
-
-            // Load prompt config from database theo PromptType
-            var prompt = await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
-            if (prompt == null)
+            await foreach (var evt in GenerateSuggestionStreamAsync(
+                sosRequests, nearbyDepots, isMultiDepotRecommended, cancellationToken))
             {
-                _logger.LogWarning("Không tìm thấy prompt đang active cho loại MissionPlanning trong database.");
-                return new RescueMissionSuggestionResult
+                if (evt.EventType == "result" && evt.Result != null)
+                    finalResult = evt.Result;
+                else if (evt.EventType == "error")
                 {
-                    IsSuccess = false,
-                    ErrorMessage = "Chưa có prompt 'MissionPlanning' đang được kích hoạt. Vui lòng cấu hình trong quản trị hệ thống.",
-                    ResponseTimeMs = stopwatch.ElapsedMilliseconds
-                };
+                    stopwatch.Stop();
+                    return new RescueMissionSuggestionResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = evt.Data,
+                        ResponseTimeMs = stopwatch.ElapsedMilliseconds
+                    };
+                }
             }
-
-            var modelName = prompt.Model ?? FALLBACK_MODEL;
-            var apiUrl = prompt.ApiUrl ?? FALLBACK_API_URL;
-            var apiKey = prompt.ApiKey ?? string.Empty;
-            var temperature = prompt.Temperature ?? FALLBACK_TEMPERATURE;
-            // Always use at least FALLBACK_MAX_TOKENS regardless of DB setting to avoid truncation
-            // Vietnamese text is token-heavy (~2-3 tokens/char), so responses need much more than 4096
-            var maxTokens = Math.Max(prompt.MaxTokens ?? FALLBACK_MAX_TOKENS, FALLBACK_MAX_TOKENS);
-
-            _logger.LogInformation(
-                "Using AI config from DB: Model={model}, Temperature={temperature}, MaxTokens={maxTokens}",
-                modelName, temperature, maxTokens);
-
-            // Build data for prompt
-            var sosDataJson = BuildSosRequestsData(sosRequests);
-            var depotsDataJson = BuildDepotsData(nearbyDepots);
-
-            var userPrompt = (prompt.UserPromptTemplate ?? string.Empty)
-                .Replace("{{sos_requests_data}}", sosDataJson)
-                .Replace("{{total_count}}", sosRequests.Count.ToString())
-                .Replace("{{depots_data}}", depotsDataJson);
-
-            // Nếu prompt template không có placeholder {{depots_data}} nhưng có kho → đính kèm cuối prompt
-            if (!string.IsNullOrEmpty(depotsDataJson)
-                && !(prompt.UserPromptTemplate ?? string.Empty).Contains("{{depots_data}}"))
-            {
-                userPrompt += $"""
-
-
---- THÔNG TIN KHO TIẾP TẾ PHÙ HỢP ---
-Dưới đây là danh sách các kho tiếp tế đang hoạt động, còn hàng, được sắp xếp ưu tiên theo mức độ đáp ứng vật tư nhu cầu SOS rồi đến gần nhất.
-Mỗi kho có danh sách vật tư khả dụng (quantity - reserved). Hãy ưu tiên kho đáp ứng đúng vật tư cần thiết để đề xuất nguồn cung cấp tài nguyên:
-{depotsDataJson}
-""";
-            }
-
-            // Nếu không kho nào đủ đồ trong một lần, thông báo AI phối hợp nhiều kho
-            if (isMultiDepotRecommended)
-            {
-                userPrompt += """
-
-
---- LƯU Ý NGUỒN THỨ CẤP PHÁT ---
-Phân tích tồn kho cho thấy không có kho đơn lẻ nào có đủ tất cả các loại vật tư cần thiết.
-TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để điều phối viên biết cần lấy từ nhiều nguồn.
-""";
-            }
-
-            // Call Gemini API
-            var aiResponse = await CallAiApiAsync(modelName, apiUrl, apiKey, prompt.SystemPrompt ?? string.Empty, userPrompt, temperature, maxTokens, cancellationToken);
-
-            stopwatch.Stop();
-
-            if (aiResponse == null)
-            {
-                return new RescueMissionSuggestionResult
-                {
-                    IsSuccess = false,
-                    ErrorMessage = "AI không phản hồi. Vui lòng thử lại sau.",
-                    ModelName = modelName,
-                    ResponseTimeMs = stopwatch.ElapsedMilliseconds
-                };
-            }
-
-            // Parse AI response
-            var result = ParseMissionSuggestion(aiResponse);
-            result.IsSuccess = true;
-            result.ModelName = modelName;
-            result.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
-            result.RawAiResponse = aiResponse;
-
-            _logger.LogInformation(
-                "Rescue mission suggestion generated: Title={title}, Type={type}, Priority={priority}, Activities={activityCount}, Confidence={confidence}",
-                result.SuggestedMissionTitle, result.SuggestedMissionType, result.SuggestedPriorityScore,
-                result.SuggestedActivities.Count, result.ConfidenceScore);
-
-            return result;
         }
         catch (Exception ex)
         {
@@ -147,6 +91,20 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds
             };
         }
+
+        stopwatch.Stop();
+        if (finalResult != null)
+        {
+            finalResult.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
+            return finalResult;
+        }
+
+        return new RescueMissionSuggestionResult
+        {
+            IsSuccess = false,
+            ErrorMessage = "AI không phản hồi. Vui lòng thử lại sau.",
+            ResponseTimeMs = stopwatch.ElapsedMilliseconds
+        };
     }
 
     private static string BuildSosRequestsData(List<SosRequestSummary> sosRequests)
@@ -174,82 +132,15 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
         });
     }
 
-    /// <summary>
-    /// Tuần tự hoá danh sách kho tiếp tế gần nhất sang JSON để đưa vào prompt cho AI.
-    /// Trả về chuỗi rỗng nếu không có kho nào.
-    /// </summary>
-    private static string BuildDepotsData(List<DepotSummary>? depots)
-    {
-        if (depots is null || depots.Count == 0)
-            return string.Empty;
+    private static string BuildAgentInstructions() => """
+        ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
+        Bạn có thể gọi hai công cụ để tìm kiếm dữ liệu thực từ hệ thống trước khi lập kế hoạch:
 
-        var entries = depots.Select((d, index) => new
-        {
-            stt = index + 1,
-            id = d.Id,
-            ten_kho = d.Name,
-            dia_chi = d.Address,
-            vi_tri = d.Latitude.HasValue && d.Longitude.HasValue
-                ? $"{d.Latitude}, {d.Longitude}"
-                : "Không xác định",
-            khoang_cach_km = d.DistanceKm,
-            suc_chua_tong = d.Capacity,
-            dang_su_dung = d.CurrentUtilization,
-            con_trong = d.Capacity - d.CurrentUtilization,
-            trang_thai = d.Status,
-            vat_tu_kha_dung = d.Inventories.Count > 0
-                ? d.Inventories.Select(i => new
-                  {
-                      item_id = i.ItemId,
-                      ten = i.ItemName,
-                      don_vi = i.Unit ?? "cái",
-                      so_luong_kha_dung = i.AvailableQuantity
-                  }).ToList()
-                : null
-        });
+        - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế") và loại cụ thể (tuỳ chọn). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, số lượng và thông tin kho.
+        - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ. Có thể lọc theo khả năng (team_type) và trạng thái khả dụng. Trả về team_id, tên, loại, trạng thái và số thành viên.
 
-        return JsonSerializer.Serialize(entries, new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        });
-    }
-
-    private async Task<string?> CallAiApiAsync(string model, string apiUrlTemplate, string apiKey, string systemPrompt, string userPrompt, double temperature, int maxTokens, CancellationToken cancellationToken)
-    {
-        var client = _httpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(120);
-
-        var url = string.Format(apiUrlTemplate, model, apiKey);
-
-        var requestBody = new GeminiRequest
-        {
-            Contents =
-            [
-                new()
-                {
-                    Parts = [new() { Text = $"{systemPrompt}\n\n{userPrompt}" }]
-                }
-            ],
-            GenerationConfig = new GeminiGenerationConfig
-            {
-                Temperature = temperature,
-                MaxOutputTokens = maxTokens
-            }
-        };
-
-        var response = await client.PostAsJsonAsync(url, requestBody, cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var error = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogError("AI API error: {statusCode} - {error}", response.StatusCode, error);
-            return null;
-        }
-
-        var result = await response.Content.ReadFromJsonAsync<GeminiResponse>(cancellationToken: cancellationToken);
-        return result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
-    }
+        **Yêu cầu**: Hãy gọi ít nhất một lần searchInventory và một lần getTeams để lấy dữ liệu thực trước khi đề xuất kế hoạch. Sử dụng item_id thực từ kết quả trả về trong suppliesToCollect. Sử dụng team_id thực cho suggested_team.
+        """;
 
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
     {
@@ -334,6 +225,13 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
                 Quantity = r.Quantity,
                 Priority = r.Priority
             }).ToList() ?? [],
+            SuggestedTeam = parsed.SuggestedTeam == null ? null : new SuggestedTeamDto
+            {
+                TeamId   = parsed.SuggestedTeam.TeamId,
+                TeamName = parsed.SuggestedTeam.TeamName ?? string.Empty,
+                TeamType = parsed.SuggestedTeam.TeamType,
+                Reason   = parsed.SuggestedTeam.Reason
+            },
             EstimatedDuration = parsed.EstimatedDuration,
             SpecialNotes = parsed.SpecialNotes,
             ConfidenceScore = parsed.ConfidenceScore
@@ -400,6 +298,16 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
             }).ToList();
         }
 
+        if (root.TryGetProperty("suggested_team", out var st) && st.ValueKind == JsonValueKind.Object)
+        {
+            var teamDto = new SuggestedTeamDto();
+            if (st.TryGetProperty("team_id",   out var tid) && tid.TryGetInt32(out var tidv)) teamDto.TeamId   = tidv;
+            if (st.TryGetProperty("team_name", out var tn)  && tn.ValueKind  != JsonValueKind.Null) teamDto.TeamName = tn.GetString()  ?? string.Empty;
+            if (st.TryGetProperty("team_type", out var tt)  && tt.ValueKind  != JsonValueKind.Null) teamDto.TeamType = tt.GetString();
+            if (st.TryGetProperty("reason",    out var r)   && r.ValueKind   != JsonValueKind.Null) teamDto.Reason   = r.GetString();
+            result.SuggestedTeam = teamDto;
+        }
+
         return result;
     }
 
@@ -431,7 +339,15 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
         };
     }
 
-    // ─── Streaming (SSE) ──────────────────────────────────────────────────────
+    // ─── SSE helpers ───────────────────────────────────────────────────────────
+
+    private static SseMissionEvent Status(string msg) =>
+        new() { EventType = "status", Data = msg };
+
+    private static SseMissionEvent Error(string msg) =>
+        new() { EventType = "error", Data = msg };
+
+    // ─── Streaming (SSE agent loop) ────────────────────────────────────────────
 
     public async IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(
         List<SosRequestSummary> sosRequests,
@@ -439,194 +355,382 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
         bool isMultiDepotRecommended = false,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        yield return new SseMissionEvent { EventType = "status", Data = "Đang tải cấu hình AI..." };
+        yield return Status("Đang tải cấu hình AI agent...");
 
         var prompt = await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
         if (prompt == null)
         {
-            yield return new SseMissionEvent
-            {
-                EventType = "error",
-                Data = "Chưa có prompt 'MissionPlanning' đang được kích hoạt. Vui lòng cấu hình trong quản trị hệ thống."
-            };
+            yield return Error("Chưa có prompt 'MissionPlanning' đang được kích hoạt. Vui lòng cấu hình trong quản trị hệ thống.");
             yield break;
         }
 
-        var modelName    = prompt.Model       ?? FALLBACK_MODEL;
-        var apiUrlTpl    = prompt.ApiUrl      ?? FALLBACK_API_URL;
-        var apiKey       = prompt.ApiKey      ?? string.Empty;
-        var temperature  = prompt.Temperature ?? FALLBACK_TEMPERATURE;
-        var maxTokens    = Math.Max(prompt.MaxTokens ?? FALLBACK_MAX_TOKENS, FALLBACK_MAX_TOKENS);
+        var modelName   = prompt.Model       ?? FallbackModel;
+        var apiUrlTpl   = prompt.ApiUrl      ?? FallbackApiUrl;
+        var apiKey      = prompt.ApiKey      ?? string.Empty;
+        var temperature = prompt.Temperature ?? FallbackTemperature;
+        var maxTokens   = Math.Max(prompt.MaxTokens ?? FallbackMaxTokens, FallbackMaxTokens);
 
-        // Build prompt the same way as the blocking path
-        var sosDataJson    = BuildSosRequestsData(sosRequests);
-        var depotsDataJson = BuildDepotsData(nearbyDepots);
+        var baseUrl = string.Format(apiUrlTpl, modelName, apiKey);
 
-        var userPrompt = (prompt.UserPromptTemplate ?? string.Empty)
+        // Build the initial user message (no pre-loaded depot data; agent fetches via tools)
+        var sosDataJson = BuildSosRequestsData(sosRequests);
+        var userMessage = (prompt.UserPromptTemplate ?? string.Empty)
             .Replace("{{sos_requests_data}}", sosDataJson)
             .Replace("{{total_count}}", sosRequests.Count.ToString())
-            .Replace("{{depots_data}}", depotsDataJson);
+            .Replace("{{depots_data}}", string.Empty)
+            .TrimEnd();
 
-        if (!string.IsNullOrEmpty(depotsDataJson)
-            && !(prompt.UserPromptTemplate ?? string.Empty).Contains("{{depots_data}}"))
+        var systemPrompt = (prompt.SystemPrompt ?? string.Empty).TrimEnd()
+            + "\n\n" + BuildAgentInstructions();
+
+        yield return Status($"AI agent ({modelName}) đang phân tích {sosRequests.Count} SOS request...");
+
+        var contents = new List<GeminiMultiTurnContent>
         {
-            userPrompt += $"""
+            new() { Role = "user", Parts = [new GeminiMultiTurnPart { Text = userMessage }] }
+        };
 
+        var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(120);
 
---- THÔNG TIN KHO TIẾP TẾ PHÙ HỢP ---
-Dưới đây là danh sách các kho tiếp tế đang hoạt động, còn hàng, được sắp xếp ưu tiên theo mức độ đáp ứng vật tư nhu cầu SOS rồi đến gần nhất.
-Mỗi kho có danh sách vật tư khả dụng (quantity - reserved). Hãy ưu tiên kho đáp ứng đúng vật tư cần thiết để đề xuất nguồn cung cấp tài nguyên:
-{depotsDataJson}
-""";
+        string? finalText = null;
+
+        for (int turn = 0; turn < MaxAgentTurns; turn++)
+        {
+            if (cancellationToken.IsCancellationRequested) yield break;
+
+            var requestBody = new GeminiRequestWithTools
+            {
+                SystemInstruction = new GeminiSystemInstruction
+                {
+                    Parts = [new GeminiMultiTurnPart { Text = systemPrompt }]
+                },
+                Contents = contents,
+                Tools = [BuildToolDeclarations()],
+                GenerationConfig = new GeminiGenerationConfig
+                {
+                    Temperature = temperature,
+                    MaxOutputTokens = maxTokens
+                }
+            };
+
+            var bodyJson = JsonSerializer.Serialize(requestBody, _jsonOpts);
+            var httpReq  = new HttpRequestMessage(HttpMethod.Post, baseUrl)
+            {
+                Content = new StringContent(bodyJson, Encoding.UTF8, "application/json")
+            };
+
+            HttpResponseMessage response;
+            string? sendError = null;
+            try
+            {
+                response = await client.SendAsync(httpReq, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                sendError = ex.Message;
+                response = null!;
+            }
+            if (sendError != null)
+            {
+                yield return Error($"Lỗi kết nối tới AI: {sendError}");
+                yield break;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogError("Gemini API error turn={turn}: {status} – {error}", turn, response.StatusCode, err);
+                yield return Error($"AI trả về lỗi ({response.StatusCode}). Vui lòng thử lại sau.");
+                yield break;
+            }
+
+            GeminiMultiTurnResponse? geminiResp;
+            string? parseError = null;
+            try
+            {
+                var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+                geminiResp = JsonSerializer.Deserialize<GeminiMultiTurnResponse>(responseJson, _jsonOpts);
+            }
+            catch (Exception ex)
+            {
+                parseError = ex.Message;
+                geminiResp = null;
+            }
+            if (parseError != null)
+            {
+                yield return Error($"Không thể phân tích phản hồi AI: {parseError}");
+                yield break;
+            }
+
+            var candidate  = geminiResp?.Candidates?.FirstOrDefault();
+            var modelParts = candidate?.Content?.Parts;
+
+            if (modelParts == null || modelParts.Count == 0)
+            {
+                yield return Error("AI không trả về nội dung. Vui lòng thử lại.");
+                yield break;
+            }
+
+            // Append model response to conversation
+            contents.Add(new GeminiMultiTurnContent { Role = "model", Parts = modelParts });
+
+            var functionCallParts = modelParts.Where(p => p.FunctionCall != null).ToList();
+
+            if (functionCallParts.Count == 0)
+            {
+                // No function calls → final answer
+                finalText = string.Concat(modelParts.Where(p => p.Text != null).Select(p => p.Text));
+                break;
+            }
+
+            // Execute each function call
+            var responseParts = new List<GeminiMultiTurnPart>();
+            foreach (var part in functionCallParts)
+            {
+                var fc = part.FunctionCall!;
+                yield return Status($"Agent đang gọi công cụ: {fc.Name}(...)");
+
+                JsonElement toolResult;
+                try
+                {
+                    toolResult = await ExecuteToolAsync(fc.Name, fc.Args, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Tool {name} threw an exception", fc.Name);
+                    toolResult = JsonSerializer.SerializeToElement(new { error = ex.Message });
+                }
+
+                yield return Status($"Công cụ {fc.Name}() đã trả về kết quả.");
+
+                responseParts.Add(new GeminiMultiTurnPart
+                {
+                    FunctionResponse = new GeminiFunctionResponse { Name = fc.Name, Response = toolResult }
+                });
+            }
+
+            contents.Add(new GeminiMultiTurnContent { Role = "user", Parts = responseParts });
         }
 
-        if (isMultiDepotRecommended)
+        if (string.IsNullOrWhiteSpace(finalText))
         {
-            userPrompt += """
-
-
---- LƯU Ý NGUỒN THỨ CẤP PHÁT ---
-Phân tích tồn kho cho thấy không có kho đơn lẻ nào có đủ tất cả các loại vật tư cần thiết.
-TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để điều phối viên biết cần lấy từ nhiều nguồn.
-""";
-        }
-
-        yield return new SseMissionEvent { EventType = "status", Data = $"Đang gọi AI ({modelName})..." };
-
-        // Derive streaming URL: replace :generateContent? → :streamGenerateContent?alt=sse&
-        var baseUrl    = string.Format(apiUrlTpl, modelName, apiKey);
-        var streamUrl  = baseUrl.Replace(":generateContent?", ":streamGenerateContent?alt=sse&");
-
-        var fullText = new StringBuilder();
-        bool hadChunks = false;
-
-        await foreach (var chunk in StreamFromGeminiAsync(
-            streamUrl, prompt.SystemPrompt ?? string.Empty, userPrompt, temperature, maxTokens, cancellationToken))
-        {
-            hadChunks = true;
-            fullText.Append(chunk);
-            yield return new SseMissionEvent { EventType = "chunk", Data = chunk };
-        }
-
-        if (!hadChunks)
-        {
-            yield return new SseMissionEvent { EventType = "error", Data = "AI không phản hồi. Vui lòng thử lại sau." };
+            yield return Error("AI agent không đưa ra phản hồi cuối cùng sau tối đa số vòng lặp cho phép.");
             yield break;
         }
 
-        yield return new SseMissionEvent { EventType = "status", Data = "Đang xử lý kết quả..." };
+        yield return Status("Đang xử lý kết quả...");
 
-        var result     = ParseMissionSuggestion(fullText.ToString());
-        result.IsSuccess   = true;
-        result.ModelName   = modelName;
-        result.RawAiResponse = fullText.ToString();
+        var result       = ParseMissionSuggestion(finalText);
+        result.IsSuccess     = true;
+        result.ModelName     = modelName;
+        result.RawAiResponse = finalText;
+
+        _logger.LogInformation(
+            "Agent mission suggestion: Title={title}, Type={type}, Activities={count}, Team={team}, Confidence={conf}",
+            result.SuggestedMissionTitle, result.SuggestedMissionType,
+            result.SuggestedActivities.Count,
+            result.SuggestedTeam?.TeamName ?? "none",
+            result.ConfidenceScore);
 
         yield return new SseMissionEvent { EventType = "result", Result = result };
     }
 
-    /// <summary>
-    /// Calls the Gemini <c>streamGenerateContent?alt=sse</c> endpoint and yields raw text chunks
-    /// as they arrive from the HTTP response stream.
-    /// </summary>
-    private async IAsyncEnumerable<string> StreamFromGeminiAsync(
-        string streamUrl,
-        string systemPrompt,
-        string userPrompt,
-        double temperature,
-        int maxTokens,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+    // ─── Tool execution ────────────────────────────────────────────────────────
+
+    private async Task<JsonElement> ExecuteToolAsync(string toolName, JsonElement args, CancellationToken ct)
     {
-        var client  = _httpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(120);
-
-        var requestBody = new GeminiRequest
+        switch (toolName)
         {
-            Contents =
-            [
-                new() { Parts = [new() { Text = $"{systemPrompt}\n\n{userPrompt}" }] }
-            ],
-            GenerationConfig = new GeminiGenerationConfig
+            case "searchInventory":
             {
-                Temperature     = temperature,
-                MaxOutputTokens = maxTokens
+                var category = args.TryGetProperty("category", out var c) ? c.GetString() ?? string.Empty : string.Empty;
+                var type     = args.TryGetProperty("type",     out var t) ? t.GetString() : null;
+                var page     = args.TryGetProperty("page",     out var p) && p.TryGetInt32(out var pv) ? pv : 1;
+
+                var (items, total) = await _depotInventoryRepository.SearchForAgentAsync(
+                    category, type, page, AgentPageSize, ct);
+
+                var totalPages = (int)Math.Ceiling((double)total / AgentPageSize);
+                return JsonSerializer.SerializeToElement(new
+                {
+                    items,
+                    page,
+                    total_pages = totalPages,
+                    total_items = total
+                }, _jsonOpts);
             }
-        };
 
-        var bodyJson  = JsonSerializer.Serialize(requestBody);
-        var httpMsg   = new HttpRequestMessage(HttpMethod.Post, streamUrl)
-        {
-            Content = new StringContent(bodyJson, Encoding.UTF8, "application/json")
-        };
-
-        HttpResponseMessage response;
-        try
-        {
-            response = await client.SendAsync(httpMsg, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error initiating Gemini streaming request");
-            yield break;
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var err = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogError("Gemini streaming API error: {status} - {error}", response.StatusCode, err);
-            yield break;
-        }
-
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var reader = new System.IO.StreamReader(stream);
-
-        while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
-        {
-            var line = await reader.ReadLineAsync(cancellationToken);
-            if (line is null) break;
-            if (!line.StartsWith("data: ")) continue;
-
-            var json = line["data: ".Length..].Trim();
-            if (json is "[DONE]" or "") continue;
-
-            string? text = null;
-            try
+            case "getTeams":
             {
-                using var doc = JsonDocument.Parse(json);
-                text = doc.RootElement
-                    .GetProperty("candidates")[0]
-                    .GetProperty("content")
-                    .GetProperty("parts")[0]
-                    .GetProperty("text")
-                    .GetString();
-            }
-            catch { /* partial / malformed chunk — skip */ }
+                var ability = args.TryGetProperty("ability", out var a) ? a.GetString() : null;
+                bool? availFinal = null;
+                if (args.TryGetProperty("available", out var availElem))
+                {
+                    if (availElem.ValueKind == JsonValueKind.True)  availFinal = true;
+                    if (availElem.ValueKind == JsonValueKind.False) availFinal = false;
+                }
+                var page = args.TryGetProperty("page", out var pg) && pg.TryGetInt32(out var pgv) ? pgv : 1;
 
-            if (!string.IsNullOrEmpty(text))
-                yield return text;
+                var (teams, total) = await _rescueTeamRepository.GetTeamsForAgentAsync(
+                    ability, availFinal, page, AgentPageSize, ct);
+
+                var totalPages = (int)Math.Ceiling((double)total / AgentPageSize);
+                return JsonSerializer.SerializeToElement(new
+                {
+                    teams,
+                    page,
+                    total_pages = totalPages,
+                    total_teams = total
+                }, _jsonOpts);
+            }
+
+            default:
+                return JsonSerializer.SerializeToElement(new { error = $"Unknown tool: {toolName}" });
         }
     }
 
     #region Gemini API Models
 
-    private class GeminiRequest
+    private static GeminiTool BuildToolDeclarations() => new()
     {
+        FunctionDeclarations =
+        [
+            new()
+            {
+                Name        = "searchInventory",
+                Description = "Tìm kiếm vật tư đang khả dụng trong kho theo danh mục và loại. Trả về danh sách vật tư kèm item_id, tên, số lượng, kho chứa.",
+                Parameters  = new GeminiFunctionParameters
+                {
+                    Type       = "object",
+                    Properties = new Dictionary<string, GeminiFunctionProperty>
+                    {
+                        ["category"] = new() { Type = "string",  Description = "Tên danh mục vật tư, ví dụ: 'Nước', 'Thực phẩm', 'Y tế', 'Quần áo'" },
+                        ["type"]     = new() { Type = "string",  Description = "Loại cụ thể trong danh mục (tuỳ chọn)" },
+                        ["page"]     = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
+                    },
+                    Required = ["category"]
+                }
+            },
+            new()
+            {
+                Name        = "getTeams",
+                Description = "Tìm kiếm đội cứu hộ trong hệ thống. Có thể lọc theo loại kỹ năng và trạng thái sẵn sàng.",
+                Parameters  = new GeminiFunctionParameters
+                {
+                    Type       = "object",
+                    Properties = new Dictionary<string, GeminiFunctionProperty>
+                    {
+                        ["ability"]   = new() { Type = "string",  Description = "Lọc theo loại kỹ năng/team_type (tuỳ chọn)" },
+                        ["available"] = new() { Type = "boolean", Description = "Nếu true chỉ trả về đội đang Available hoặc Ready" },
+                        ["page"]      = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
+                    },
+                    Required = []
+                }
+            }
+        ]
+    };
+
+    private class GeminiRequestWithTools
+    {
+        [JsonPropertyName("system_instruction")]
+        public GeminiSystemInstruction? SystemInstruction { get; set; }
+
         [JsonPropertyName("contents")]
-        public List<GeminiContent> Contents { get; set; } = [];
+        public List<GeminiMultiTurnContent> Contents { get; set; } = [];
+
+        [JsonPropertyName("tools")]
+        public List<GeminiTool> Tools { get; set; } = [];
 
         [JsonPropertyName("generationConfig")]
         public GeminiGenerationConfig? GenerationConfig { get; set; }
     }
 
-    private class GeminiContent
+    private class GeminiSystemInstruction
     {
         [JsonPropertyName("parts")]
-        public List<GeminiPart> Parts { get; set; } = [];
+        public List<GeminiMultiTurnPart> Parts { get; set; } = [];
     }
 
-    private class GeminiPart
+    private class GeminiMultiTurnContent
+    {
+        [JsonPropertyName("role")]
+        public string Role { get; set; } = string.Empty;
+
+        [JsonPropertyName("parts")]
+        public List<GeminiMultiTurnPart> Parts { get; set; } = [];
+    }
+
+    private class GeminiMultiTurnPart
     {
         [JsonPropertyName("text")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Text { get; set; }
+
+        [JsonPropertyName("functionCall")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public GeminiFunctionCall? FunctionCall { get; set; }
+
+        [JsonPropertyName("functionResponse")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public GeminiFunctionResponse? FunctionResponse { get; set; }
+    }
+
+    private class GeminiFunctionCall
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("args")]
+        public JsonElement Args { get; set; }
+    }
+
+    private class GeminiFunctionResponse
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("response")]
+        public JsonElement Response { get; set; }
+    }
+
+    private class GeminiTool
+    {
+        [JsonPropertyName("functionDeclarations")]
+        public List<GeminiFunctionDeclaration> FunctionDeclarations { get; set; } = [];
+    }
+
+    private class GeminiFunctionDeclaration
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; } = string.Empty;
+
+        [JsonPropertyName("parameters")]
+        public GeminiFunctionParameters? Parameters { get; set; }
+    }
+
+    private class GeminiFunctionParameters
+    {
+        [JsonPropertyName("type")]
+        public string Type { get; set; } = "object";
+
+        [JsonPropertyName("properties")]
+        public Dictionary<string, GeminiFunctionProperty> Properties { get; set; } = [];
+
+        [JsonPropertyName("required")]
+        public List<string> Required { get; set; } = [];
+    }
+
+    private class GeminiFunctionProperty
+    {
+        [JsonPropertyName("type")]
+        public string Type { get; set; } = "string";
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
     }
 
     private class GeminiGenerationConfig
@@ -638,16 +742,16 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
         public int MaxOutputTokens { get; set; }
     }
 
-    private class GeminiResponse
+    private class GeminiMultiTurnResponse
     {
         [JsonPropertyName("candidates")]
-        public List<GeminiCandidate>? Candidates { get; set; }
+        public List<GeminiMultiTurnCandidate>? Candidates { get; set; }
     }
 
-    private class GeminiCandidate
+    private class GeminiMultiTurnCandidate
     {
         [JsonPropertyName("content")]
-        public GeminiContent? Content { get; set; }
+        public GeminiMultiTurnContent? Content { get; set; }
     }
 
     #endregion
@@ -677,6 +781,9 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
         [JsonPropertyName("resources")]
         public List<AiResource>? Resources { get; set; }
 
+        [JsonPropertyName("suggested_team")]
+        public AiSuggestedTeam? SuggestedTeam { get; set; }
+
         [JsonPropertyName("estimated_duration")]
         public string? EstimatedDuration { get; set; }
 
@@ -685,6 +792,21 @@ TRONG KẾ HOẠCH BÁO CÁO: viết rõ kho nào cung cấp loại gì để đ
 
         [JsonPropertyName("confidence_score")]
         public double ConfidenceScore { get; set; }
+    }
+
+    private class AiSuggestedTeam
+    {
+        [JsonPropertyName("team_id")]
+        public int TeamId { get; set; }
+
+        [JsonPropertyName("team_name")]
+        public string? TeamName { get; set; }
+
+        [JsonPropertyName("team_type")]
+        public string? TeamType { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string? Reason { get; set; }
     }
 
     private class AiSupplyToCollect

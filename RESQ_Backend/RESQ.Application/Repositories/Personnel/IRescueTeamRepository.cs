@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Personnel;
 
 namespace RESQ.Application.Repositories.Personnel;
@@ -13,4 +14,14 @@ public interface IRescueTeamRepository
     Task<string?> GetTopAbilityCategoryAsync(Guid userId, CancellationToken cancellationToken = default);
     Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default);
     Task UpdateAsync(RescueTeamModel team, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tìm kiếm đội cứu hộ theo khả năng/trạng thái để agent AI dùng trong quá trình lập kế hoạch.
+    /// </summary>
+    Task<(List<AgentTeamInfo> Teams, int TotalCount)> GetTeamsForAgentAsync(
+        string? abilityKeyword,
+        bool? available,
+        int page,
+        int pageSize,
+        CancellationToken ct = default);
 }

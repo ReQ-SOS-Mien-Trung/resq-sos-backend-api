@@ -16,6 +16,16 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
     private readonly IMediator _mediator = mediator;
 
     /// <summary>
+    /// Lấy tất cả vùng phục vụ
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var result = await _mediator.Send(new GetAllServiceZoneQuery());
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Lấy vùng phục vụ đang active (tọa độ polygon hiện tại)
     /// </summary>
     [HttpGet("active")]
