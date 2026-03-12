@@ -16,7 +16,8 @@ public class GoongMapService : IGoongMapService
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
     public GoongMapService(
@@ -71,9 +72,12 @@ public class GoongMapService : IGoongMapService
         }
 
         GoongDirectionResponse? goongResp;
+        string rawBody;
         try
         {
-            goongResp = await response.Content.ReadFromJsonAsync<GoongDirectionResponse>(JsonOptions, cancellationToken);
+            rawBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogDebug("Goong raw response: {Body}", rawBody);
+            goongResp = JsonSerializer.Deserialize<GoongDirectionResponse>(rawBody, JsonOptions);
         }
         catch (Exception ex)
         {
@@ -81,11 +85,11 @@ public class GoongMapService : IGoongMapService
             return new GoongRouteResult { Status = "ERROR", ErrorMessage = "Không thể đọc kết quả từ Goong API." };
         }
 
-        if (goongResp is null || goongResp.Status != "OK" || goongResp.Routes is null || goongResp.Routes.Count == 0)
+        if (goongResp?.Routes is null || goongResp.Routes.Count == 0)
         {
             return new GoongRouteResult
             {
-                Status = goongResp?.Status ?? "UNKNOWN",
+                Status = "NO_ROUTES",
                 ErrorMessage = "Goong API không trả về tuyến đường."
             };
         }
@@ -135,7 +139,6 @@ public class GoongMapService : IGoongMapService
 
     private sealed class GoongDirectionResponse
     {
-        public string? Status { get; set; }
         public List<GoongRoute>? Routes { get; set; }
     }
 
