@@ -132,6 +132,8 @@ public class SuggestedActivityDto
     public string? DepotAddress { get; set; }
     /// <summary>Danh sách vật tư cần lấy/giao</summary>
     public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
+    /// <summary>Đội cứu hộ được AI giao thực hiện activity này.</summary>
+    public SuggestedTeamDto? SuggestedTeam { get; set; }
 }
 
 public class SuggestedResourceDto
@@ -149,6 +151,12 @@ public class SuggestedTeamDto
     public string TeamName { get; set; } = string.Empty;
     public string? TeamType { get; set; }
     public string? Reason { get; set; }
+    /// <summary>Tên điểm tập kết của đội (nếu có).</summary>
+    public string? AssemblyPointName { get; set; }
+    /// <summary>Vĩ độ điểm tập kết / vị trí đội.</summary>
+    public double? Latitude { get; set; }
+    /// <summary>Kinh độ điểm tập kết / vị trí đội.</summary>
+    public double? Longitude { get; set; }
 }
 
 /// <summary>Thông tin vật tư trong kho trả về bởi searchInventory tool.</summary>
@@ -163,6 +171,10 @@ public class AgentInventoryItem
     public int DepotId { get; set; }
     public string DepotName { get; set; } = string.Empty;
     public string? DepotAddress { get; set; }
+    /// <summary>Vĩ độ kho chứa.</summary>
+    public double? DepotLatitude { get; set; }
+    /// <summary>Kinh độ kho chứa.</summary>
+    public double? DepotLongitude { get; set; }
 }
 
 /// <summary>Thông tin đội cứu hộ trả về bởi getTeams tool.</summary>
@@ -174,4 +186,10 @@ public class AgentTeamInfo
     public string Status { get; set; } = string.Empty;
     public bool IsAvailable { get; set; }
     public int MemberCount { get; set; }
+    /// <summary>Tên điểm tập kết của đội.</summary>
+    public string? AssemblyPointName { get; set; }
+    /// <summary>Vĩ độ điểm tập kết.</summary>
+    public double? Latitude { get; set; }
+    /// <summary>Kinh độ điểm tập kết.</summary>
+    public double? Longitude { get; set; }
 }

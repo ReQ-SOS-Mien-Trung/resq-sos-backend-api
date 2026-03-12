@@ -129,6 +129,7 @@ public class RescueTeamRepository(ResQDbContext context) : IRescueTeamRepository
         var availableStatuses = new[] { "Available", "Ready" };
 
         var query = context.RescueTeams.AsNoTracking()
+            .Include(t => t.AssemblyPoint)
             .Where(t => t.Status != disbandedStatus);
 
         if (!string.IsNullOrWhiteSpace(abilityKeyword))
@@ -150,18 +151,23 @@ public class RescueTeamRepository(ResQDbContext context) : IRescueTeamRepository
                 t.TeamType,
                 t.Status,
                 MemberCount = context.RescueTeamMembers
-                    .Count(m => m.TeamId == t.Id && m.Status == "Accepted")
+                    .Count(m => m.TeamId == t.Id && m.Status == "Accepted"),
+                AssemblyPointName = t.AssemblyPoint != null ? t.AssemblyPoint.Name : null,
+                AssemblyPointLocation = t.AssemblyPoint != null ? t.AssemblyPoint.Location : null
             })
             .ToListAsync(ct);
 
         var result = teams.Select(t => new AgentTeamInfo
         {
-            TeamId      = t.Id,
-            TeamName    = t.Name ?? string.Empty,
-            TeamType    = t.TeamType,
-            Status      = t.Status ?? string.Empty,
-            IsAvailable = availableStatuses.Contains(t.Status ?? string.Empty),
-            MemberCount = t.MemberCount
+            TeamId             = t.Id,
+            TeamName           = t.Name ?? string.Empty,
+            TeamType           = t.TeamType,
+            Status             = t.Status ?? string.Empty,
+            IsAvailable        = availableStatuses.Contains(t.Status ?? string.Empty),
+            MemberCount        = t.MemberCount,
+            AssemblyPointName  = t.AssemblyPointName,
+            Latitude           = t.AssemblyPointLocation?.Y,
+            Longitude          = t.AssemblyPointLocation?.X
         }).ToList();
 
         return (result, total);

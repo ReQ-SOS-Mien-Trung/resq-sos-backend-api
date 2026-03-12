@@ -136,10 +136,41 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
         Bạn có thể gọi hai công cụ để tìm kiếm dữ liệu thực từ hệ thống trước khi lập kế hoạch:
 
-        - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế") và loại cụ thể (tuỳ chọn). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, số lượng và thông tin kho.
-        - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ. Có thể lọc theo khả năng (team_type) và trạng thái khả dụng. Trả về team_id, tên, loại, trạng thái và số thành viên.
+        - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế") và loại cụ thể (tuỳ chọn). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, số lượng, thông tin kho và **tọa độ vị trí kho** (depot_latitude, depot_longitude).
+        - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ. Có thể lọc theo khả năng (team_type) và trạng thái khả dụng. Trả về team_id, tên, loại, trạng thái, số thành viên và **vị trí điểm tập kết** (assembly_point_name, latitude, longitude).
 
-        **Yêu cầu**: Hãy gọi ít nhất một lần searchInventory và một lần getTeams để lấy dữ liệu thực trước khi đề xuất kế hoạch. Sử dụng item_id thực từ kết quả trả về trong suppliesToCollect. Sử dụng team_id thực cho suggested_team.
+        **BẮT BUỘC trước khi lập kế hoạch**:
+        - Gọi **searchInventory** với từng danh mục vật tư liên quan (Thực phẩm, Nước, Y tế, Cứu hộ...) để lấy item_id và depot_id thực tế. Nếu không gọi, bạn sẽ không có item_id để điền vào `supplies_to_collect` và không thể tạo bước COLLECT_SUPPLIES.
+        - Gọi **getTeams** để lấy team_id cho `suggested_team`.
+        Sau khi có kết quả tool, mới được lập kế hoạch và xuất JSON. Dùng đúng item_id và team_id từ kết quả — không tự tạo ID.
+
+        ## SỬ DỤNG VỊ TRÍ ĐỂ LẬP KẾ HOẠCH
+        Mỗi SOS request có trường `vi_tri` chứa tọa độ (latitude, longitude) của sự cố.
+        Kết quả searchInventory trả về `depot_latitude`, `depot_longitude` — tọa độ của kho vật tư.
+        Kết quả getTeams trả về `latitude`, `longitude` — tọa độ điểm tập kết của đội cứu hộ.
+
+        **Quy tắc sử dụng vị trí**:
+        - Ưu tiên chọn kho vật tư **gần nhất** với vị trí sự cố (so sánh tọa độ).
+        - Ưu tiên chọn đội cứu hộ có điểm tập kết **gần nhất** với vị trí sự cố.
+        - Khi có nhiều sự cố, phân công đội và kho sao cho quãng đường di chuyển tổng cộng là nhỏ nhất.
+        - Ghi rõ lý do chọn kho và đội dựa trên vị trí địa lý trong trường `reason` và `description`.
+
+        **Trường bắt buộc trong suggested_team**: Ngoài team_id, team_name, team_type và reason, bạn **phải** điền thêm:
+        - `assembly_point_name`: tên điểm tập kết (lấy từ kết quả getTeams)
+        - `latitude`: vĩ độ điểm tập kết (lấy từ kết quả getTeams)
+        - `longitude`: kinh độ điểm tập kết (lấy từ kết quả getTeams)
+        Nếu đội không có điểm tập kết (giá trị null trong kết quả), hãy để các trường đó là null.
+
+        ## QUY TẮC LẬP KẾ HOẠCH
+        - Không lập kế hoạch tuần tự nếu có nhiều sự cố.
+        - Nếu có nhiều SOS request, hãy phân chia đội cứu hộ xử lý song song.
+        - Mỗi đội chỉ nên phụ trách một khu vực hoặc một sự cố.
+        - Ưu tiên xử lý sự cố có người bị thương nặng trước.
+
+        ## QUY TẮC SỬ DỤNG ID
+        - KHÔNG được tự tạo item_id hoặc team_id.
+        - Chỉ sử dụng ID xuất hiện trong kết quả tool.
+        - Nếu không tìm thấy vật tư phù hợp, hãy ghi rõ "Không có sẵn".
         """;
 
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
@@ -216,7 +247,17 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                     ItemName = s.ItemName ?? string.Empty,
                     Quantity = s.Quantity,
                     Unit = s.Unit
-                }).ToList()
+                }).ToList(),
+                SuggestedTeam = a.SuggestedTeam == null ? null : new SuggestedTeamDto
+                {
+                    TeamId            = a.SuggestedTeam.TeamId,
+                    TeamName          = a.SuggestedTeam.TeamName ?? string.Empty,
+                    TeamType          = a.SuggestedTeam.TeamType,
+                    Reason            = a.SuggestedTeam.Reason,
+                    AssemblyPointName = a.SuggestedTeam.AssemblyPointName,
+                    Latitude          = a.SuggestedTeam.Latitude,
+                    Longitude         = a.SuggestedTeam.Longitude
+                }
             }).ToList() ?? [],
             SuggestedResources = parsed.Resources?.Select(r => new SuggestedResourceDto
             {
@@ -227,10 +268,13 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             }).ToList() ?? [],
             SuggestedTeam = parsed.SuggestedTeam == null ? null : new SuggestedTeamDto
             {
-                TeamId   = parsed.SuggestedTeam.TeamId,
-                TeamName = parsed.SuggestedTeam.TeamName ?? string.Empty,
-                TeamType = parsed.SuggestedTeam.TeamType,
-                Reason   = parsed.SuggestedTeam.Reason
+                TeamId             = parsed.SuggestedTeam.TeamId,
+                TeamName           = parsed.SuggestedTeam.TeamName ?? string.Empty,
+                TeamType           = parsed.SuggestedTeam.TeamType,
+                Reason             = parsed.SuggestedTeam.Reason,
+                AssemblyPointName  = parsed.SuggestedTeam.AssemblyPointName,
+                Latitude           = parsed.SuggestedTeam.Latitude,
+                Longitude          = parsed.SuggestedTeam.Longitude
             },
             EstimatedDuration = parsed.EstimatedDuration,
             SpecialNotes = parsed.SpecialNotes,
@@ -281,6 +325,18 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                         if (s.TryGetProperty("unit", out var unit) && unit.ValueKind != JsonValueKind.Null) supply.Unit = unit.GetString();
                         return supply;
                     }).ToList();
+                if (a.TryGetProperty("suggested_team", out var ast) && ast.ValueKind == JsonValueKind.Object)
+                {
+                    var teamDto = new SuggestedTeamDto();
+                    if (ast.TryGetProperty("team_id",             out var tid)  && tid.TryGetInt32(out var tidv))                                        teamDto.TeamId            = tidv;
+                    if (ast.TryGetProperty("team_name",           out var tn)   && tn.ValueKind  != JsonValueKind.Null)                                  teamDto.TeamName          = tn.GetString() ?? string.Empty;
+                    if (ast.TryGetProperty("team_type",           out var tt)   && tt.ValueKind  != JsonValueKind.Null)                                  teamDto.TeamType          = tt.GetString();
+                    if (ast.TryGetProperty("reason",              out var r)    && r.ValueKind   != JsonValueKind.Null)                                  teamDto.Reason            = r.GetString();
+                    if (ast.TryGetProperty("assembly_point_name", out var apn)  && apn.ValueKind != JsonValueKind.Null)                                  teamDto.AssemblyPointName = apn.GetString();
+                    if (ast.TryGetProperty("latitude",            out var lat)  && lat.ValueKind != JsonValueKind.Null && lat.TryGetDouble(out var latv)) teamDto.Latitude          = latv;
+                    if (ast.TryGetProperty("longitude",           out var lon)  && lon.ValueKind != JsonValueKind.Null && lon.TryGetDouble(out var lonv)) teamDto.Longitude         = lonv;
+                    dto.SuggestedTeam = teamDto;
+                }
                 return dto;
             }).ToList();
         }
@@ -301,10 +357,13 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         if (root.TryGetProperty("suggested_team", out var st) && st.ValueKind == JsonValueKind.Object)
         {
             var teamDto = new SuggestedTeamDto();
-            if (st.TryGetProperty("team_id",   out var tid) && tid.TryGetInt32(out var tidv)) teamDto.TeamId   = tidv;
-            if (st.TryGetProperty("team_name", out var tn)  && tn.ValueKind  != JsonValueKind.Null) teamDto.TeamName = tn.GetString()  ?? string.Empty;
-            if (st.TryGetProperty("team_type", out var tt)  && tt.ValueKind  != JsonValueKind.Null) teamDto.TeamType = tt.GetString();
-            if (st.TryGetProperty("reason",    out var r)   && r.ValueKind   != JsonValueKind.Null) teamDto.Reason   = r.GetString();
+            if (st.TryGetProperty("team_id",            out var tid) && tid.TryGetInt32(out var tidv))                                              teamDto.TeamId            = tidv;
+            if (st.TryGetProperty("team_name",          out var tn)  && tn.ValueKind  != JsonValueKind.Null)                                        teamDto.TeamName          = tn.GetString() ?? string.Empty;
+            if (st.TryGetProperty("team_type",          out var tt)  && tt.ValueKind  != JsonValueKind.Null)                                        teamDto.TeamType          = tt.GetString();
+            if (st.TryGetProperty("reason",             out var r)   && r.ValueKind   != JsonValueKind.Null)                                        teamDto.Reason            = r.GetString();
+            if (st.TryGetProperty("assembly_point_name",out var apn) && apn.ValueKind != JsonValueKind.Null)                                        teamDto.AssemblyPointName = apn.GetString();
+            if (st.TryGetProperty("latitude",           out var lat) && lat.ValueKind != JsonValueKind.Null && lat.TryGetDouble(out var latv))       teamDto.Latitude          = latv;
+            if (st.TryGetProperty("longitude",          out var lon) && lon.ValueKind != JsonValueKind.Null && lon.TryGetDouble(out var lonv))       teamDto.Longitude         = lonv;
             result.SuggestedTeam = teamDto;
         }
 
@@ -368,7 +427,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         var apiUrlTpl   = prompt.ApiUrl      ?? FallbackApiUrl;
         var apiKey      = prompt.ApiKey      ?? string.Empty;
         var temperature = prompt.Temperature ?? FallbackTemperature;
-        var maxTokens   = Math.Max(prompt.MaxTokens ?? FallbackMaxTokens, FallbackMaxTokens);
+        // Enforce minimum 32K tokens — mission plans with tool calls can be very long
+        var maxTokens   = Math.Max(prompt.MaxTokens ?? FallbackMaxTokens, 32768);
 
         var baseUrl = string.Format(apiUrlTpl, modelName, apiKey);
 
@@ -377,7 +437,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         var userMessage = (prompt.UserPromptTemplate ?? string.Empty)
             .Replace("{{sos_requests_data}}", sosDataJson)
             .Replace("{{total_count}}", sosRequests.Count.ToString())
-            .Replace("{{depots_data}}", string.Empty)
+            .Replace("{{depots_data}}", "(Dữ liệu kho không được truyền trực tiếp. Hãy gọi công cụ searchInventory để tra cứu vật tư khả dụng theo từng danh mục, rồi dùng dữ liệu đó để lập bước COLLECT_SUPPLIES và DELIVER_SUPPLIES.)")
             .TrimEnd();
 
         var systemPrompt = (prompt.SystemPrompt ?? string.Empty).TrimEnd()
@@ -415,22 +475,42 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             };
 
             var bodyJson = JsonSerializer.Serialize(requestBody, _jsonOpts);
-            var httpReq  = new HttpRequestMessage(HttpMethod.Post, baseUrl)
-            {
-                Content = new StringContent(bodyJson, Encoding.UTF8, "application/json")
-            };
 
-            HttpResponseMessage response;
+            HttpResponseMessage response = null!;
             string? sendError = null;
-            try
+            const int maxSendRetries = 3;
+            for (int attempt = 0; attempt < maxSendRetries; attempt++)
             {
-                response = await client.SendAsync(httpReq, cancellationToken);
+                // HttpRequestMessage is single-use — rebuild each attempt
+                var httpReq = new HttpRequestMessage(HttpMethod.Post, baseUrl)
+                {
+                    Content = new StringContent(bodyJson, Encoding.UTF8, "application/json")
+                };
+                try
+                {
+                    sendError = null;
+                    response  = await client.SendAsync(httpReq, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    sendError = ex.Message;
+                    response  = null!;
+                    break; // Network errors are not retryable here
+                }
+
+                if (response.IsSuccessStatusCode || (int)response.StatusCode != 503)
+                    break;
+
+                if (attempt < maxSendRetries - 1)
+                {
+                    var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt + 2)); // 4s, 8s, 16s
+                    _logger.LogWarning(
+                        "Gemini 503 (turn={turn}, attempt={attempt}), retrying in {delay}s…",
+                        turn, attempt + 1, (int)delay.TotalSeconds);
+                    await Task.Delay(delay, cancellationToken);
+                }
             }
-            catch (Exception ex)
-            {
-                sendError = ex.Message;
-                response = null!;
-            }
+
             if (sendError != null)
             {
                 yield return Error($"Lỗi kết nối tới AI: {sendError}");
@@ -521,6 +601,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
         yield return Status("Đang xử lý kết quả...");
 
+        _logger.LogDebug("Raw AI response (final turn):\n{raw}", finalText);
+
         var result       = ParseMissionSuggestion(finalText);
         result.IsSuccess     = true;
         result.ModelName     = modelName;
@@ -599,7 +681,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             new()
             {
                 Name        = "searchInventory",
-                Description = "Tìm kiếm vật tư đang khả dụng trong kho theo danh mục và loại. Trả về danh sách vật tư kèm item_id, tên, số lượng, kho chứa.",
+                Description = "Tìm kiếm vật tư đang khả dụng trong kho theo danh mục và loại. Trả về danh sách vật tư kèm item_id, tên, số lượng, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude).",
                 Parameters  = new GeminiFunctionParameters
                 {
                     Type       = "object",
@@ -615,7 +697,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             new()
             {
                 Name        = "getTeams",
-                Description = "Tìm kiếm đội cứu hộ trong hệ thống. Có thể lọc theo loại kỹ năng và trạng thái sẵn sàng.",
+                Description = "Tìm kiếm đội cứu hộ trong hệ thống. Có thể lọc theo loại kỹ năng và trạng thái sẵn sàng. Trả về team_id, tên, loại, trạng thái, số thành viên và vị trí điểm tập kết (assembly_point_name, latitude, longitude).",
                 Parameters  = new GeminiFunctionParameters
                 {
                     Type       = "object",
@@ -807,6 +889,15 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
         [JsonPropertyName("reason")]
         public string? Reason { get; set; }
+
+        [JsonPropertyName("assembly_point_name")]
+        public string? AssemblyPointName { get; set; }
+
+        [JsonPropertyName("latitude")]
+        public double? Latitude { get; set; }
+
+        [JsonPropertyName("longitude")]
+        public double? Longitude { get; set; }
     }
 
     private class AiSupplyToCollect
@@ -855,6 +946,9 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
         [JsonPropertyName("supplies_to_collect")]
         public List<AiSupplyToCollect>? SuppliesToCollect { get; set; }
+
+        [JsonPropertyName("suggested_team")]
+        public AiSuggestedTeam? SuggestedTeam { get; set; }
     }
 
     private class AiResource
