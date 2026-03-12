@@ -34,6 +34,10 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddHttpClient();
+        services.AddHttpClient("Goong", client =>
+        {
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        });
 
         services.AddDbContext<ResQDbContext>(options =>
             options.UseNpgsql(
@@ -89,6 +93,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMissionContextService, MissionContextService>();
         services.AddScoped<IChatSupportAiService, ChatSupportAiService>();
 
+        services.AddScoped<IGoongMapService, GoongMapService>();
+        
         // Domain Services
         services.AddScoped<IFundDistributionManager, FundDistributionManager>(); // Registered
         services.AddScoped<IInventoryQueryService, InventoryQueryService>();

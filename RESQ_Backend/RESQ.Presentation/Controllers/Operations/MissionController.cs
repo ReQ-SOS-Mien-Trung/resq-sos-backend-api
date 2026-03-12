@@ -11,6 +11,7 @@ using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
+using RESQ.Application.UseCases.Operations.Queries.GetRescuerRoute;
 
 namespace RESQ.Presentation.Controllers.Operations;
 
@@ -178,6 +179,29 @@ public class MissionController(IMediator mediator) : ControllerBase
 
         var command = new UpdateActivityStatusCommand(activityId, dto.Status, userId);
         var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    // ============================================================
+    // ROUTING (GOONG MAP)
+    // ============================================================
+
+    /// <summary>
+    /// Lấy tuyến đường từ vị trí của rescuer đến địa điểm đích của một activity.
+    /// Rescuer truyền vào tọa độ hiện tại (originLat, originLng) và nhận lại
+    /// toàn bộ thông tin tuyến đường (khoảng cách, thời gian, polyline, bước chỉ đường).
+    /// vehicle: car | bike | taxi | hd (mặc định: car)
+    /// </summary>
+    [HttpGet("{missionId:int}/activities/{activityId:int}/route")]
+    [Authorize(Roles = "1,2,4")]
+    public async Task<IActionResult> GetRescuerRoute(
+        [FromRoute] int missionId,
+        [FromRoute] int activityId,
+        [FromQuery] double originLat,
+        [FromQuery] double originLng,
+        [FromQuery] string vehicle = "car")
+    {
+        var result = await _mediator.Send(new GetRescuerRouteQuery(activityId, originLat, originLng, vehicle));
         return Ok(result);
     }
 }

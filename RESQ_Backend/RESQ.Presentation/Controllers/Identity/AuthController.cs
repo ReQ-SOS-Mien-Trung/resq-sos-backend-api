@@ -8,6 +8,7 @@ using RESQ.Application.UseCases.Identity.Commands.Login;
 using RESQ.Application.UseCases.Identity.Commands.Logout;
 using RESQ.Application.UseCases.Identity.Commands.RefreshToken;
 using RESQ.Application.UseCases.Identity.Commands.Register;
+using RESQ.Application.UseCases.Identity.Commands.RegisterTest;
 using RESQ.Application.UseCases.Identity.Commands.LoginRescuer;
 using RESQ.Application.UseCases.Identity.Commands.RegisterRescuer;
 using RESQ.Application.UseCases.Identity.Commands.VerifyEmail;
@@ -39,6 +40,15 @@ namespace RESQ.Presentation.Controllers.Identity
         public async Task<IActionResult> RegisterRescuer([FromBody] RegisterRescuerRequestDto dto)
         {
             var command = new RegisterRescuerCommand(dto.Email, dto.Password);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("register-test")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RegisterTest([FromBody] RegisterTestRequestDto dto)
+        {
+            var command = new RegisterTestCommand(dto.Phone, dto.Password);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
