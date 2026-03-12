@@ -63,7 +63,19 @@ public class GetMissionByIdQueryHandler(
                 CompletedAt = a.CompletedAt,
                 LastDecisionBy = a.LastDecisionBy
             }).ToList(),
-            AiSuggestion = aiSection
+            AiSuggestionId = aiSection?.Id,
+            SuggestedMissionTitle = aiSection?.SuggestedMissionTitle,
+            ModelName = aiSection?.ModelName,
+            SuggestedMissionType = aiSection?.SuggestedMissionType,
+            SuggestedPriorityScore = aiSection?.SuggestedPriorityScore,
+            SuggestedSeverityLevel = aiSection?.SuggestedSeverityLevel,
+            AiConfidenceScore = aiSection?.ConfidenceScore,
+            OverallAssessment = aiSection?.OverallAssessment,
+            EstimatedDuration = aiSection?.EstimatedDuration,
+            SpecialNotes = aiSection?.SpecialNotes,
+            SuggestedActivities = aiSection?.SuggestedActivities ?? [],
+            SuggestedResources = aiSection?.SuggestedResources ?? [],
+            AiCreatedAt = aiSection?.CreatedAt
         };
     }
 }

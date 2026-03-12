@@ -19,6 +19,15 @@ public class UpdateServiceZoneCommandHandler(
         var existing = await _serviceZoneRepository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException($"Vùng phục vụ với Id={request.Id} không tồn tại.");
 
+        // Validate: phải có ít nhất 1 ServiceZone active
+        if (!request.IsActive && existing.IsActive)
+        {
+            var allZones = await _serviceZoneRepository.GetAllAsync(cancellationToken);
+            var otherActiveCount = allZones.Count(z => z.IsActive && z.Id != request.Id);
+            if (otherActiveCount == 0)
+                throw new BadRequestException("Phải có ít nhất 1 vùng phục vụ đang active.");
+        }
+
         existing.Name = request.Name;
         existing.Coordinates = request.Coordinates
             .Select(c => new CoordinatePoint { Latitude = c.Latitude, Longitude = c.Longitude })

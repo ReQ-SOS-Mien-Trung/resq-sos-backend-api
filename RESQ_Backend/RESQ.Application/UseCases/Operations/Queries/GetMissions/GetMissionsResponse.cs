@@ -24,8 +24,20 @@ public class MissionDto
     public int ActivityCount { get; set; }
     public List<MissionActivityDto> Activities { get; set; } = [];
 
-    /// <summary>AI suggestion data linked to this mission's cluster (most recent suggestion).</summary>
-    public MissionAiSuggestionSection? AiSuggestion { get; set; }
+    // AI suggestion fields (most recent suggestion linked to this mission's cluster)
+    public int? AiSuggestionId { get; set; }
+    public string? SuggestedMissionTitle { get; set; }
+    public string? ModelName { get; set; }
+    public string? SuggestedMissionType { get; set; }
+    public double? SuggestedPriorityScore { get; set; }
+    public string? SuggestedSeverityLevel { get; set; }
+    public double? AiConfidenceScore { get; set; }
+    public string? OverallAssessment { get; set; }
+    public string? EstimatedDuration { get; set; }
+    public string? SpecialNotes { get; set; }
+    public List<SuggestedActivityDto> SuggestedActivities { get; set; } = [];
+    public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
+    public DateTime? AiCreatedAt { get; set; }
 }
 
 public class MissionActivityDto
