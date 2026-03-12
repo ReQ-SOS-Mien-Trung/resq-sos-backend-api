@@ -3,41 +3,27 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
-using RESQ.Application.Services;
+using RESQ.Application.UseCases.Identity.Commands.Register;
 using RESQ.Domain.Entities.Identity;
 
-namespace RESQ.Application.UseCases.Identity.Commands.Register
+namespace RESQ.Application.UseCases.Identity.Commands.RegisterTest
 {
-    public class RegisterCommandHandler(
+    public class RegisterTestCommandHandler(
         IUserRepository userRepository,
-        IFirebaseService firebaseService,
         IUnitOfWork unitOfWork,
-        ILogger<RegisterCommandHandler> logger
-    ) : IRequestHandler<RegisterCommand, RegisterResponse>
+        ILogger<RegisterTestCommandHandler> logger
+    ) : IRequestHandler<RegisterTestCommand, RegisterResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
-        private readonly IFirebaseService _firebaseService = firebaseService;
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
-        private readonly ILogger<RegisterCommandHandler> _logger = logger;
+        private readonly ILogger<RegisterTestCommandHandler> _logger = logger;
 
         // Default role for victim
         private const int DEFAULT_VICTIM_ROLE_ID = 5;
 
-        public async Task<RegisterResponse> Handle(RegisterCommand request, CancellationToken cancellationToken)
+        public async Task<RegisterResponse> Handle(RegisterTestCommand request, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Handling RegisterCommand for Phone={phone}", request.Phone);
-
-            // Verify Firebase ID token and ensure phone matches
-            var tokenInfo = await _firebaseService.VerifyIdTokenAsync(request.FirebaseIdToken, cancellationToken);
-            if (string.IsNullOrWhiteSpace(tokenInfo.Phone))
-            {
-                throw new BadRequestException("Token Firebase không chứa số điện thoại hợp lệ");
-            }
-            if (tokenInfo.Phone != request.Phone)
-            {
-                _logger.LogWarning("Phone mismatch: token={tokenPhone}, request={requestPhone}", tokenInfo.Phone, request.Phone);
-                throw new BadRequestException("Số điện thoại không khớp với token xác thực");
-            }
+            _logger.LogInformation("Handling RegisterTestCommand for Phone={phone}", request.Phone);
 
             // Check if phone already exists
             var existingUser = await _userRepository.GetByPhoneAsync(request.Phone, cancellationToken);
@@ -59,7 +45,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.Register
                 RoleId = DEFAULT_VICTIM_ROLE_ID,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                Username = request.Phone // Set username to phone for simplicity
+                Username = request.Phone // Set username same as phone for test
             };
 
             await _userRepository.CreateAsync(user, cancellationToken);
@@ -70,7 +56,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.Register
                 throw new CreateFailedException("User");
             }
 
-            _logger.LogInformation("User registered successfully: UserId={userId} Phone={phone}", user.Id, request.Phone);
+            _logger.LogInformation("User registered successfully (test): UserId={userId} Phone={phone}", user.Id, request.Phone);
 
             return new RegisterResponse
             {
