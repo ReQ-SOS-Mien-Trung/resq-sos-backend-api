@@ -4,8 +4,8 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
-using RESQ.Application.Services.Logistics;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Entities.Logistics.Services;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Persistence.Context;
@@ -38,7 +38,6 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int pageSize, 
         CancellationToken cancellationToken = default)
     {
-        // Safely map optional lists locally before passing to the Expression Tree to prevent NullReferenceExceptions
         var safeCategoryIds = categoryIds ?? new List<int>();
         var hasCategoryFilter = safeCategoryIds.Count > 0;
 
@@ -48,7 +47,6 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var targetGroupStrings = targetGroups?.Select(e => e.ToString().ToLower()).ToList() ?? new List<string>();
         var hasTargetGroupFilter = targetGroupStrings.Count > 0;
 
-        // Build generic filter expression safely evaluating parameters and handling nullables
         Expression<Func<DepotSupplyInventory, bool>> filter = inv => 
             inv.DepotId == depotId &&
             (!hasCategoryFilter || (inv.ReliefItem != null && safeCategoryIds.Contains(inv.ReliefItem.CategoryId ?? 0))) &&
@@ -60,11 +58,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             pageSize,
             filter: filter,
             orderBy: q => q.OrderByDescending(x => x.LastStockedAt),
-            includeProperties: "ReliefItem" // Removed invalid ReliefItem.Category include
+            includeProperties: "ReliefItem"
         );
 
-        // Fetch categories separately via generic repository to map category names 
-        // (resolving the missing navigation property error while strictly using IUnitOfWork)
         var categoryIdsToFetch = pagedEntities.Items
             .Where(x => x.ReliefItem != null && x.ReliefItem.CategoryId.HasValue)
             .Select(x => x.ReliefItem!.CategoryId!.Value)
@@ -78,7 +74,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         var items = pagedEntities.Items.Select(x => new InventoryItemModel
         {
-            ReliefItemId = x.ReliefItemId ?? 0, // Solves CS0266 (int? to int mismatch)
+            ReliefItemId = x.ReliefItemId ?? 0, 
             ReliefItemName = x.ReliefItem?.Name ?? string.Empty,
             CategoryId = x.ReliefItem?.CategoryId ?? 0,
             CategoryName = (x.ReliefItem?.CategoryId.HasValue == true && categoryDict.TryGetValue(x.ReliefItem.CategoryId.Value, out var catName)) ? (catName ?? string.Empty) : string.Empty,

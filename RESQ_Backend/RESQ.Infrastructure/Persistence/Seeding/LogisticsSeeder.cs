@@ -24,16 +24,15 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<ItemCategory>().HasData(
-            new ItemCategory { Id = 1, Code = "Food", Name = "Thực phẩm", Description = "Lương thực, đồ ăn khô", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 2, Code = "Water", Name = "Nước uống", Description = "Nước sạch, nước đóng chai", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 3, Code = "Medical", Name = "Y tế", Description = "Thuốc men, dụng cụ sơ cứu", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 4, Code = "RescueEquipment", Name = "Thiết bị cứu hộ", Description = "Áo phao, xuồng, dây thừng", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 5, Code = "Hygiene", Name = "Vệ sinh cá nhân", Description = "Khăn giấy, xà phòng, băng vệ sinh", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 6, Code = "Clothing", Name = "Quần áo", Description = "Quần áo sạch, áo mưa", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 7, Code = "Shelter", Name = "Nơi trú ẩn", Description = "Lều bạt, túi ngủ", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 8, Code = "Heating", Name = "Sưởi ấm", Description = "Chăn, than, máy sưởi", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 9, Code = "Nutrition", Name = "Dinh dưỡng", Description = "Sữa, thức ăn dặm", CreatedAt = now, UpdatedAt = now },
-            new ItemCategory { Id = 10, Code = "RepairTools", Name = "Công cụ sửa chữa", Description = "Búa, đinh, cưa", CreatedAt = now, UpdatedAt = now }
+            new ItemCategory { Id = 1, Code = "Food", Name = "Thực phẩm", Description = "Lương thực, đồ ăn khô", CreatedAt = now },
+            new ItemCategory { Id = 2, Code = "Water", Name = "Nước uống", Description = "Nước sạch, nước đóng chai", CreatedAt = now },
+            new ItemCategory { Id = 3, Code = "Medical", Name = "Y tế", Description = "Thuốc men, dụng cụ sơ cứu", CreatedAt = now },
+            new ItemCategory { Id = 4, Code = "Hygiene", Name = "Vệ sinh cá nhân", Description = "Khăn giấy, xà phòng, băng vệ sinh", CreatedAt = now },
+            new ItemCategory { Id = 5, Code = "Clothing", Name = "Quần áo", Description = "Quần áo sạch, áo mưa", CreatedAt = now },
+            new ItemCategory { Id = 6, Code = "Shelter", Name = "Nơi trú ẩn", Description = "Lều bạt, túi ngủ", CreatedAt = now },
+            new ItemCategory { Id = 7, Code = "RepairTools", Name = "Công cụ sửa chữa", Description = "Búa, đinh, cưa", CreatedAt = now },
+            new ItemCategory { Id = 8, Code = "RescueEquipment", Name = "Thiết bị cứu hộ", Description = "Áo phao, xuồng, dây thừng", CreatedAt = now },
+            new ItemCategory { Id = 9, Code = "Heating", Name = "Sưởi ấm", Description = "Chăn, than, máy sưởi", CreatedAt = now }
         );
     }
 
@@ -63,10 +62,10 @@ public static class LogisticsSeeder
             new ReliefItem { Id = 1, CategoryId = 1, Name = "Mì tôm", Unit = "gói", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 2, CategoryId = 2, Name = "Nước tinh khiết", Unit = "chai 500ml", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 3, CategoryId = 3, Name = "Thuốc hạ sốt Paracetamol 500mg", Unit = "viên", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 4, CategoryId = 4, Name = "Áo phao cứu sinh", Unit = "chiếc", ItemType = ItemType.Equipment.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 5, CategoryId = 5, Name = "Băng vệ sinh", Unit = "miếng", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 6, CategoryId = 8, Name = "Chăn ấm giữ nhiệt", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 7, CategoryId = 9, Name = "Sữa bột trẻ em", Unit = "gói", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Children.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 4, CategoryId = 8, Name = "Áo phao cứu sinh", Unit = "chiếc", ItemType = ItemType.Equipment.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 5, CategoryId = 4, Name = "Băng vệ sinh", Unit = "miếng", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 6, CategoryId = 9, Name = "Chăn ấm giữ nhiệt", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 7, CategoryId = 1, Name = "Sữa bột trẻ em", Unit = "gói", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Children.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 8, CategoryId = 1, Name = "Lương khô", Unit = "phong", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 9, CategoryId = 3, Name = "Dầu gió", Unit = "chai 10ml", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Elderly.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 10, CategoryId = 3, Name = "Sắt & Vitamin tổng hợp", Unit = "viên", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Pregnant.ToString(), CreatedAt = now, UpdatedAt = now }
