@@ -77,7 +77,7 @@ public class AdminUpdateUserCommandHandler(
             Username = user.Username,
             Phone = user.Phone,
             Email = user.Email,
-            RescuerType = user.RescuerType,
+            RescuerType = user.RescuerType.ToString(),
             AvatarUrl = user.AvatarUrl,
             Address = user.Address,
             Ward = user.Ward,

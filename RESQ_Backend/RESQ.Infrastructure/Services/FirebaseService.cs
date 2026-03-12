@@ -1,4 +1,5 @@
 using FirebaseAdmin.Auth;
+using FirebaseAdmin.Messaging;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Services;
@@ -31,6 +32,37 @@ public class FirebaseService(ILogger<FirebaseService> logger) : IFirebaseService
         {
             _logger.LogWarning("Firebase token verification failed: {msg}", ex.Message);
             throw new UnauthorizedException("Firebase token không hợp lệ hoặc đã hết hạn");
+        }
+    }
+
+    public async Task SendNotificationToUserAsync(Guid userId, string title, string body, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Định dạng topic: user_11111111111111111111111111111111 (sử dụng định dạng N để loại bỏ dấu gạch ngang)
+            // Lưu ý: Ứng dụng client (iOS/Android/Web) sau khi login cần subscribe vào topic dạng "user_[UUID]" này.
+            var topic = $"resq.user.{userId}";
+
+            var message = new FirebaseAdmin.Messaging.Message()
+            {
+                Notification = new FirebaseAdmin.Messaging.Notification
+                {
+                    Title = title,
+                    Body = body
+                },
+                Topic = topic,
+                Apns = new ApnsConfig 
+                { 
+                    Aps = new Aps { Sound = "default" } // Kích hoạt âm báo mặc định trên iOS
+                }
+            };
+
+            var response = await FirebaseMessaging.DefaultInstance.SendAsync(message, cancellationToken);
+            _logger.LogInformation("Push notification sent to topic {Topic}. Response: {Response}", topic, response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send push notification to user {UserId}", userId);
         }
     }
 }

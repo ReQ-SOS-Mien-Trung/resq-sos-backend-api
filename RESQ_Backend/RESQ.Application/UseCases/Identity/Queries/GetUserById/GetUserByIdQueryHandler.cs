@@ -47,7 +47,7 @@ public class GetUserByIdQueryHandler(
             Username = user.Username,
             Phone = user.Phone,
             Email = user.Email,
-            RescuerType = user.RescuerType,
+            RescuerType = user.RescuerType.ToString(),
             AvatarUrl = user.AvatarUrl,
             IsEmailVerified = user.IsEmailVerified,
             IsOnboarded = user.IsOnboarded,

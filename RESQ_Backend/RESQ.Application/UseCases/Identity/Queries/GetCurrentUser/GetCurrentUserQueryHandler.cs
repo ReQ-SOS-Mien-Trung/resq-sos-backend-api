@@ -55,7 +55,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
                 LastName = user.LastName,
                 Username = user.Username,
                 Phone = user.Phone,
-                RescuerType = user.RescuerType,
+                RescuerType = user.RescuerType.ToString(),
                 Email = user.Email,
                 IsEmailVerified = user.IsEmailVerified,
                 IsOnboarded = user.IsOnboarded,

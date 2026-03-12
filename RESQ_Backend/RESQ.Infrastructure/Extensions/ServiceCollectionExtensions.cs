@@ -23,7 +23,9 @@ using RESQ.Infrastructure.Persistence.Personnel;
 using RESQ.Infrastructure.Persistence.System;
 using RESQ.Infrastructure.Services;
 using RESQ.Infrastructure.Services.Finance;
+using RESQ.Infrastructure.Services.Identity;
 using RESQ.Infrastructure.Services.Payments;
+using RESQ.Infrastructure.Services.Personnel; // Added
 
 namespace RESQ.Infrastructure.Extensions;
 
@@ -51,7 +53,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
         services.AddScoped<IDepotInventoryRepository, DepotInventoryRepository>();
-        services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>(); 
+        services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>();
+        services.AddScoped<IRescueTeamRepository, RescueTeamRepository>(); // Added Team Repository
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRescuerApplicationRepository, RescuerApplicationRepository>();
         services.AddScoped<IAbilityRepository, AbilityRepository>();
@@ -74,7 +77,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDonationRepository, DonationRepository>();
         services.AddScoped<IFundTransactionRepository, FundTransactionRepository>();
         services.AddScoped<IDepotFundAllocationRepository, DepotFundAllocationRepository>();
-        services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>(); 
+        services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 
         // System Repositories
         services.AddScoped<IPromptRepository, PromptRepository>();
@@ -89,11 +92,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRescueMissionSuggestionService, RescueMissionSuggestionService>();
         services.AddScoped<IMissionContextService, MissionContextService>();
         services.AddScoped<IChatSupportAiService, ChatSupportAiService>();
+
         services.AddScoped<IGoongMapService, GoongMapService>();
         
         // Domain Services
         services.AddScoped<IFundDistributionManager, FundDistributionManager>(); // Registered
-        services.AddScoped<IFundDistributionManager, FundDistributionManager>();
         services.AddScoped<IInventoryQueryService, InventoryQueryService>();
 
         // Payment Services
@@ -108,6 +111,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISosAiAnalysisQueueInternal>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddHostedService<SosAiAnalysisBackgroundService>();
         services.AddHostedService<DonationExpirationBackgroundService>();
+        services.AddHostedService<TeamInvitationExpirationBackgroundService>(); // Added
+        services.AddHostedService<UnverifiedUserCleanupBackgroundService>(); // Auto-delete unverified users after 24h
 
         return services;
     }

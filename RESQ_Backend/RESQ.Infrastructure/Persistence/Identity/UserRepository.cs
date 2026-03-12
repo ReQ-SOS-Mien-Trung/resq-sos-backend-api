@@ -65,7 +65,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 entity.Email = user.Email;
                 entity.Phone = user.Phone;
                 entity.Password = user.Password;
-                entity.RescuerType = user.RescuerType;
+                entity.RescuerType = user.RescuerType.ToString();
 
                 // Update status flags
                 entity.IsEmailVerified = user.IsEmailVerified;

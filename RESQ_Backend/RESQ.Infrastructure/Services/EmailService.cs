@@ -309,6 +309,99 @@ namespace RESQ.Infrastructure.Services
             await SendEmailAsync(donorEmail, subject, body, cancellationToken);
         }
 
+        public async Task SendTeamInvitationEmailAsync(string email, string name, string teamName, int teamId, Guid userId, CancellationToken cancellationToken = default)
+        {
+            var FEbaseUrl = _configuration["AppSettings:FEBaseUrl"] ?? "http://localhost:5173";
+            var acceptUrl = $"{FEbaseUrl}/rescue-teams/invitations/accept?teamId={teamId}&userId={userId}";
+            var declineUrl = $"{FEbaseUrl}/rescue-teams/invitations/decline?teamId={teamId}&userId={userId}";
+
+            var subject = $"Lời mời tham gia Đội Cứu Hộ - {teamName}";
+            var body = $@"<!DOCTYPE html>
+<html lang='vi'>
+<head>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>Lời mời tham gia đội — RESQ</title>
+</head>
+<body style='margin:0;padding:0;background:#ffffff;font-family:""Helvetica Neue"",Helvetica,Arial,sans-serif;'>
+  <table width='100%' cellpadding='0' cellspacing='0' border='0' style='background:#ffffff;'>
+    <tr>
+      <td align='center' style='padding:48px 16px;'>
+        <table width='600' cellpadding='0' cellspacing='0' border='0' style='max-width:600px;width:100%;border:3px solid #000000;'>
+          <tr>
+            <td style='background:#000000;padding:0;height:6px;font-size:0;line-height:0;'>&nbsp;</td>
+          </tr>
+          <tr>
+            <td style='padding:32px 40px 24px;border-bottom:3px solid #000000;'>
+              <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td>
+                    <span style='font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#000000;'>RESQ SYSTEM</span>
+                  </td>
+                  <td align='right'>
+                    <span style='font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#999999;'>TEAM INVITATION</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style='padding:48px 40px 32px;border-bottom:2px solid #000000;'>
+              <h1 style='margin:0 0 24px;font-size:32px;font-weight:900;line-height:1.2;letter-spacing:-1px;color:#000000;text-transform:uppercase;'>LỜI MỜI THAM GIA ĐỘI CỨU HỘ</h1>
+              <p style='margin:0 0 16px;font-size:16px;line-height:1.6;color:#333333;'>
+                Chào <strong>{name}</strong>,
+              </p>
+              <p style='margin:0 0 16px;font-size:15px;line-height:1.7;color:#333333;'>
+                Bạn vừa nhận được lời mời tham gia vào đội cứu hộ <strong>{teamName}</strong> trên hệ thống RESQ. Hãy phản hồi lời mời để xác nhận vị trí của bạn trong đội.
+              </p>
+              <p style='margin:0;font-size:14px;line-height:1.5;color:#FF5722;font-weight:bold;'>
+                Lưu ý: Lời mời này sẽ tự động hết hạn và bị từ chối sau 24 giờ.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style='padding:40px;border-bottom:2px solid #000000;'>
+              <table cellpadding='0' cellspacing='0' border='0' width='100%'>
+                <tr>
+                  <td align='center'>
+                    <a href='{acceptUrl}' style='display:inline-block;padding:14px 30px;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#ffffff;background:#4CAF50;text-decoration:none;margin-right:10px;'>
+                      CHẤP NHẬN
+                    </a>
+                    <a href='{declineUrl}' style='display:inline-block;padding:14px 30px;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#ffffff;background:#F44336;text-decoration:none;'>
+                      TỪ CHỐI
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style='padding:20px 40px;'>
+              <table width='100%' cellpadding='0' cellspacing='0' border='0'>
+                <tr>
+                  <td>
+                    <span style='font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#000000;'>RESQ</span>
+                  </td>
+                  <td align='right'>
+                    <span style='font-size:10px;letter-spacing:1px;color:#999999;'>© {DateTime.Now.Year}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style='background:#FF5722;padding:0;height:4px;font-size:0;line-height:0;'>&nbsp;</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>";
+
+            await SendEmailAsync(email, subject, body, cancellationToken);
+        }
+
         private async Task SendEmailAsync(string toEmail, string subject, string body, CancellationToken cancellationToken)
         {
             var emailSettings = _configuration.GetSection("EmailSettings");

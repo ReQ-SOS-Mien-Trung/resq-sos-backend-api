@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Domain.Entities.Identity;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Application.UseCases.Identity.Commands.AdminCreateUser;
 
@@ -54,7 +55,7 @@ public class AdminCreateUserCommandHandler(
             Username = request.Username,
             Password = hashedPassword,
             RoleId = request.RoleId,
-            RescuerType = request.RescuerType,
+            RescuerType = Enum.TryParse<RescuerType>(request.RescuerType, ignoreCase: true, out var type) ? type : null,
             AvatarUrl = request.AvatarUrl,
             Address = request.Address,
             Ward = request.Ward,
@@ -87,7 +88,7 @@ public class AdminCreateUserCommandHandler(
             FirstName = user.FirstName,
             LastName = user.LastName,
             Username = user.Username,
-            RescuerType = user.RescuerType,
+            RescuerType = user.RescuerType.ToString(),
             AvatarUrl = user.AvatarUrl,
             Address = user.Address,
             Ward = user.Ward,
