@@ -19,6 +19,9 @@ public partial class OrganizationReliefItem
     [Column("relief_item_id")]
     public int? ReliefItemId { get; set; }
 
+    [Column("quantity")]
+    public int? Quantity { get; set; }
+
     [Column("received_date")]
     public DateOnly? ReceivedDate { get; set; }
 
@@ -27,6 +30,12 @@ public partial class OrganizationReliefItem
 
     [Column("notes")]
     public string? Notes { get; set; }
+
+    [Column("received_by")]
+    public Guid? ReceivedBy { get; set; }
+
+    [Column("received_at")]
+    public int? ReceivedAt { get; set; }
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }

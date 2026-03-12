@@ -1,20 +1,14 @@
+using RESQ.Domain.Entities.Logistics;
+
 namespace RESQ.Application.Repositories.Logistics;
 
 public interface IOrganizationReliefRepository
 {
-    Task<int> GetOrCreateReliefItemAsync(
-        int categoryId, 
-        string name, 
-        string unit, 
-        string itemType, 
-        string targetGroup, 
-        CancellationToken cancellationToken = default);
+    Task<ReliefItemModel> GetOrCreateReliefItemAsync(ReliefItemModel model, CancellationToken cancellationToken = default);
 
-    Task AddOrganizationReliefItemAsync(
-        int organizationId, 
-        int reliefItemId, 
-        DateOnly? receivedDate, 
-        DateOnly? expiredDate, 
-        string notes, 
-        CancellationToken cancellationToken = default);
-}
+    Task AddOrganizationReliefItemAsync(OrganizationReliefItemModel model, CancellationToken cancellationToken = default);
+    
+    Task<List<ReliefItemModel>> GetOrCreateReliefItemsBulkAsync(List<ReliefItemModel> models, CancellationToken cancellationToken = default);
+    
+    Task AddOrganizationReliefItemsBulkAsync(List<OrganizationReliefItemModel> models, CancellationToken cancellationToken = default);
+}

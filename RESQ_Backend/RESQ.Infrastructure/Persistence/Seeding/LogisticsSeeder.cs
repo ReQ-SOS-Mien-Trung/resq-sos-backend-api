@@ -239,7 +239,11 @@ public static class LogisticsSeeder
             new InventoryLog { Id = 46, DepotSupplyInventoryId = 46, ActionType = "Import", QuantityChange = 70000, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập mì tôm kho Bình Sơn", CreatedAt = now },
             new InventoryLog { Id = 47, DepotSupplyInventoryId = 47, ActionType = "Import", QuantityChange = 50000, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập nước uống kho Bình Sơn", CreatedAt = now },
             new InventoryLog { Id = 48, DepotSupplyInventoryId = 48, ActionType = "Import", QuantityChange = 1500, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập áo phao kho Bình Sơn", CreatedAt = now },
-            new InventoryLog { Id = 49, DepotSupplyInventoryId = 49, ActionType = "Import", QuantityChange = 130000, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập thuốc kho Bình Sơn", CreatedAt = now }
+            new InventoryLog { Id = 49, DepotSupplyInventoryId = 49, ActionType = "Import", QuantityChange = 130000, SourceType = "Organization", SourceId = 10, PerformedBy = SeedConstants.CoordinatorUserId, Note = "Nhập thuốc kho Bình Sơn", CreatedAt = now },
+            // Export samples to demonstrate negative formatting
+            new InventoryLog { Id = 50, DepotSupplyInventoryId = 1, ActionType = "Export", QuantityChange = 5000, SourceType = "Mission", SourceId = 1, PerformedBy = SeedConstants.AdminUserId, Note = "Xuất mì tôm cho nhiệm vụ cứu hộ", CreatedAt = now.AddHours(1) },
+            new InventoryLog { Id = 51, DepotSupplyInventoryId = 22, ActionType = "TransferOut", QuantityChange = 2000, SourceType = "Transfer", SourceId = 2, PerformedBy = SeedConstants.ManagerUserId, Note = "Chuyển mì tôm sang kho Lệ Thủy", CreatedAt = now.AddHours(2) },
+            new InventoryLog { Id = 52, DepotSupplyInventoryId = 3, ActionType = "Adjust", QuantityChange = -1000, SourceType = "Adjustment", SourceId = null, PerformedBy = SeedConstants.AdminUserId, Note = "Điều chỉnh số lượng thuốc do hết hạn", CreatedAt = now.AddHours(3) }
         );
     }
 

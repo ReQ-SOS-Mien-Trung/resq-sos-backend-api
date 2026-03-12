@@ -15,7 +15,7 @@ public class GetItemCategoriesMetadataQueryHandler(IItemCategoryRepository itemC
 
         return categories.Select(c => new MetadataDto
         {
-            Key = c.Id.ToString(),
+            Key = c.Code.ToString(),
             Value = c.Name
         }).ToList();
     }
