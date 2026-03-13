@@ -40,11 +40,13 @@ public class ImportReliefItemDtoValidator : AbstractValidator<ImportReliefItemDt
             .Must(group => ValidTargetGroups.Contains(group, StringComparer.OrdinalIgnoreCase))
             .WithMessage(x => $"Nhóm đối tượng '{x.TargetGroup}' không hợp lệ. Giá trị hợp lệ: {string.Join(", ", ValidTargetGroups)}.");
 
+        // Rule: ReceivedDate <= Today (can be past, cannot be future)
         RuleFor(x => x.ReceivedDate)
             .Must(date => date!.Value <= DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
             .When(x => x.ReceivedDate.HasValue)
             .WithMessage("Ngày nhận không được là ngày trong tương lai.");
 
+        // Rule: ExpiredDate > ReceivedDate
         RuleFor(x => x.ExpiredDate)
             .GreaterThan(x => x.ReceivedDate!.Value)
             .When(x => x.ExpiredDate.HasValue && x.ReceivedDate.HasValue)
