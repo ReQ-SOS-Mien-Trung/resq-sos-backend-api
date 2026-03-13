@@ -1,4 +1,5 @@
 using RESQ.Domain.Entities.Personnel;
+using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Infrastructure.Entities.Personnel;
 using System.Reflection;
@@ -35,7 +36,6 @@ public static class RescueTeamMapper
         Enum.TryParse<RescueTeamType>(entity.TeamType, ignoreCase: true, out var type);
         Enum.TryParse<RescueTeamStatus>(entity.Status, ignoreCase: true, out var status);
 
-        // Using reflection to set private constructor data
         var domain = (RescueTeamModel)Activator.CreateInstance(typeof(RescueTeamModel), nonPublic: true)!;
         
         SetPrivateProperty(domain, nameof(domain.Id), entity.Id);
@@ -45,10 +45,14 @@ public static class RescueTeamMapper
         SetPrivateProperty(domain, nameof(domain.Status), status);
         SetPrivateProperty(domain, nameof(domain.AssemblyPointId), entity.AssemblyPointId ?? 0);
         
-        // FIXED: Read directly from ManagedBy
         if (entity.ManagedBy.HasValue)
         {
             SetPrivateProperty(domain, nameof(domain.ManagedBy), entity.ManagedBy.Value);
+        }
+
+        if (entity.AssemblyPoint != null && !string.IsNullOrEmpty(entity.AssemblyPoint.Name))
+        {
+            domain.LoadAssemblyPointName(entity.AssemblyPoint.Name);
         }
 
         SetPrivateProperty(domain, nameof(domain.MaxMembers), entity.MaxMembers ?? 8);
@@ -68,6 +72,19 @@ public static class RescueTeamMapper
             SetPrivateProperty(mem, nameof(mem.IsLeader), m.IsLeader);
             SetPrivateProperty(mem, nameof(mem.RoleInTeam), m.RoleInTeam);
             SetPrivateProperty(mem, nameof(mem.CheckedIn), m.CheckedIn);
+
+            if (m.User != null)
+            {
+                var profile = new RescuerProfile(
+                    m.User.FirstName, 
+                    m.User.LastName, 
+                    m.User.Phone, 
+                    m.User.AvatarUrl, 
+                    m.User.RescuerType
+                );
+                mem.LoadProfile(profile);
+            }
+
             return mem;
         });
 

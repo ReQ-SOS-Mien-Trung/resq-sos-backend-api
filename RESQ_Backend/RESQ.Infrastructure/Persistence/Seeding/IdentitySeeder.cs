@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RESQ.Domain.Enum.Identity;
 using RESQ.Infrastructure.Entities.Identity;
 
 namespace RESQ.Infrastructure.Persistence.Seeding;
@@ -49,7 +50,9 @@ public static class IdentitySeeder
                 Username = "admin",
                 Phone = "0901234567",
                 Password = SeedConstants.AdminPasswordHash,
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -62,7 +65,9 @@ public static class IdentitySeeder
                 Username = "coordinator",
                 Phone = "0912345678",
                 Password = SeedConstants.CoordinatorPasswordHash,
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -75,7 +80,10 @@ public static class IdentitySeeder
                 Username = "rescuer",
                 Phone = "0923456789",
                 Password = SeedConstants.RescuerPasswordHash,
+                RescuerType = RescuerType.Core.ToString(),
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -88,7 +96,9 @@ public static class IdentitySeeder
                 Username = "manager",
                 Phone = "0934567890",
                 Password = SeedConstants.ManagerPasswordHash,
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -101,7 +111,9 @@ public static class IdentitySeeder
                 Username = "victim",
                 Phone = "0945678901",
                 Password = SeedConstants.VictimPasswordHash,
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -116,11 +128,13 @@ public static class IdentitySeeder
                 Phone = "0961111111",
                 Email = "tung.nguyen@email.com",
                 Password = SeedConstants.ApplicantPasswordHash,
-                RescuerType = "Volunteer",
+                RescuerType = RescuerType.Volunteer.ToString(),
                 Address = "123 Nguyễn Huệ, Quận 1",
                 Ward = "Bến Nghé",
                 Province = "TP. Hồ Chí Minh",
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -134,11 +148,13 @@ public static class IdentitySeeder
                 Phone = "0962222222",
                 Email = "duc.tran@email.com",
                 Password = SeedConstants.ApplicantPasswordHash,
-                RescuerType = "Professional",
+                RescuerType = RescuerType.Core.ToString(),
                 Address = "456 Lê Lợi, Quận 3",
                 Ward = "Phường 7",
                 Province = "TP. Hồ Chí Minh",
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -152,11 +168,13 @@ public static class IdentitySeeder
                 Phone = "0963333333",
                 Email = "huong.le@email.com",
                 Password = SeedConstants.ApplicantPasswordHash,
-                RescuerType = "Volunteer",
+                RescuerType = RescuerType.Volunteer.ToString(),
                 Address = "789 Trần Hưng Đạo, Quận 5",
                 Ward = "Phường 11",
                 Province = "TP. Hồ Chí Minh",
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -170,10 +188,11 @@ public static class IdentitySeeder
                 Phone = "0964444444",
                 Email = "hai.pham@email.com",
                 Password = SeedConstants.ApplicantPasswordHash,
-                RescuerType = "Professional",
+                RescuerType = RescuerType.Core.ToString(),
                 Address = "321 Hai Bà Trưng, Quận 1",
                 Ward = "Đa Kao",
                 Province = "TP. Hồ Chí Minh",
+                IsEmailVerified = true,
                 IsOnboarded = true,
                 IsEligibleRescuer = true,
                 ApprovedBy = SeedConstants.AdminUserId,
@@ -191,18 +210,20 @@ public static class IdentitySeeder
                 Phone = "0965555555",
                 Email = "mai.vo@email.com",
                 Password = SeedConstants.ApplicantPasswordHash,
-                RescuerType = "Volunteer",
+                RescuerType = RescuerType.Volunteer.ToString(),
                 Address = "654 Cách Mạng Tháng Tám, Quận 10",
                 Ward = "Phường 13",
                 Province = "TP. Hồ Chí Minh",
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             }
         };
 
-        // Thêm 60 Rescuers cho việc test Team Members
-        for (int i = 1; i <= 60; i++)
+        // Thêm 80 Rescuers (60 trong team, 20 free cho việc test tạo Team)
+        for (int i = 1; i <= 80; i++)
         {
             var idStr = i.ToString("D4");
             users.Add(new User
@@ -213,9 +234,12 @@ public static class IdentitySeeder
                 LastName = $"Test {i}",
                 Username = $"rescuertest{i}",
                 Phone = $"09000000{i:D2}",
-                Email = "chaulbse182712@fpt.edu.vn",
+                Email = $"rescuertest{i}@fpt.edu.vn",
                 Password = SeedConstants.RescuerPasswordHash,
+                RescuerType = (i % 2 == 0) ? RescuerType.Core.ToString() : RescuerType.Volunteer.ToString(),
+                IsEmailVerified = true,
                 IsOnboarded = true,
+                IsEligibleRescuer = true,
                 CreatedAt = now,
                 UpdatedAt = now
             });
@@ -235,7 +259,7 @@ public static class IdentitySeeder
             {
                 Id = 1,
                 UserId = SeedConstants.Applicant1UserId,
-                Status = "Pending",
+                Status = RescuerApplicationStatus.Pending.ToString(),
                 SubmittedAt = now.AddDays(1)
             },
             // 2. Đơn Pending - chờ duyệt
@@ -243,7 +267,7 @@ public static class IdentitySeeder
             {
                 Id = 2,
                 UserId = SeedConstants.Applicant2UserId,
-                Status = "Pending",
+                Status = RescuerApplicationStatus.Pending.ToString(),
                 SubmittedAt = now.AddDays(2)
             },
             // 3. Đơn Pending - chờ duyệt
@@ -251,7 +275,7 @@ public static class IdentitySeeder
             {
                 Id = 3,
                 UserId = SeedConstants.Applicant3UserId,
-                Status = "Pending",
+                Status = RescuerApplicationStatus.Pending.ToString(),
                 SubmittedAt = now.AddDays(3)
             },
             // 4. Đơn Approved - đã duyệt
@@ -259,7 +283,7 @@ public static class IdentitySeeder
             {
                 Id = 4,
                 UserId = SeedConstants.Applicant4UserId,
-                Status = "Approved",
+                Status = RescuerApplicationStatus.Approved.ToString(),
                 SubmittedAt = now.AddDays(1),
                 ReviewedAt = now.AddDays(5),
                 ReviewedBy = SeedConstants.AdminUserId,
@@ -270,7 +294,7 @@ public static class IdentitySeeder
             {
                 Id = 5,
                 UserId = SeedConstants.Applicant5UserId,
-                Status = "Rejected",
+                Status = RescuerApplicationStatus.Rejected.ToString(),
                 SubmittedAt = now.AddDays(2),
                 ReviewedAt = now.AddDays(6),
                 ReviewedBy = SeedConstants.AdminUserId,

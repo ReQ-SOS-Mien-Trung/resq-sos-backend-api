@@ -12,6 +12,7 @@ public class RescueTeamModel
     public RescueTeamType TeamType { get; private set; }
     public RescueTeamStatus Status { get; private set; }
     public int AssemblyPointId { get; private set; }
+    public string? AssemblyPointName { get; private set; } // Added for display hydration
     public Guid ManagedBy { get; private set; }
     public int MaxMembers { get; private set; }
     public DateTime? AssemblyDate { get; private set; }
@@ -46,9 +47,13 @@ public class RescueTeamModel
         };
     }
 
+    public void LoadAssemblyPointName(string name)
+    {
+        AssemblyPointName = name;
+    }
+
     public void AddMember(Guid userId, bool isLeader, string rescuerType, string? roleInTeam)
     {
-        // RULE: Adjust members ONLY in AwaitingAcceptance or Unavailable state
         if (Status is not (RescueTeamStatus.AwaitingAcceptance or RescueTeamStatus.Unavailable))
             throw new RescueTeamBusinessRuleException("Chỉ có thể thêm thành viên khi đội đang ở trạng thái AwaitingAcceptance hoặc Unavailable.");
 
@@ -63,7 +68,6 @@ public class RescueTeamModel
 
         _members.Add(new RescueTeamMemberModel(userId, isLeader, rescuerType, roleInTeam));
         
-        // If a new member is added, they start as Pending. We must await their acceptance.
         if (Status == RescueTeamStatus.Unavailable)
         {
             Status = RescueTeamStatus.AwaitingAcceptance;
@@ -74,7 +78,6 @@ public class RescueTeamModel
 
     public void RemoveMember(Guid userId)
     {
-        // RULE: Adjust members ONLY in AwaitingAcceptance or Unavailable state
         if (Status is not (RescueTeamStatus.AwaitingAcceptance or RescueTeamStatus.Unavailable))
             throw new RescueTeamBusinessRuleException("Chỉ có thể xóa thành viên khi đội đang ở trạng thái AwaitingAcceptance hoặc Unavailable.");
 
@@ -128,8 +131,6 @@ public class RescueTeamModel
         UpdatedAt = DateTime.UtcNow;
     }
 
-    // STATE TRANSITIONS
-
     public void AssignMission() => ChangeStatus(RescueTeamStatus.Available, RescueTeamStatus.Assigned);
     public void CancelMission() => ChangeStatus(RescueTeamStatus.Assigned, RescueTeamStatus.Available);
     public void StartMission() => ChangeStatus(RescueTeamStatus.Assigned, RescueTeamStatus.OnMission);
@@ -155,8 +156,6 @@ public class RescueTeamModel
         DisbandAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
     }
-
-    // INTERNAL STATE EVALUATORS
 
     private void EvaluateAcceptanceState()
     {

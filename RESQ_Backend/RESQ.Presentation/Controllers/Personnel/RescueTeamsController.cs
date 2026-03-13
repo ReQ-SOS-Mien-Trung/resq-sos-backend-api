@@ -2,6 +2,8 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.UseCases.Personnel.Queries.GetAllRescueTeams;
+using RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamDetail;
 using RESQ.Application.UseCases.Personnel.Queries.RescueTeamMetadata;
 using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 using RESQ.Application.UseCases.Personnel.RescueTeams.DTOs;
@@ -18,7 +20,21 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Guid.TryParse(userIdStr, out var userId) ? userId : null;
     }
 
-    [HttpPost]
+    [HttpGet("")]
+    public async Task<IActionResult> GetAllTeams([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    {
+        var result = await mediator.Send(new GetAllRescueTeamsQuery(pageNumber, pageSize));
+        return Ok(result);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetDetail(int id)
+    {
+        var result = await mediator.Send(new GetRescueTeamDetailQuery(id));
+        return Ok(result);
+    }
+
+    [HttpPost()]
     [Authorize(Roles = "2")] // Coordinator only
     public async Task<IActionResult> CreateTeam([FromBody] CreateTeamRequestDto request)
     {
@@ -81,7 +97,6 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    // UPDATED: User ID is now taken from Token for security
     [HttpPost("{id}/members/accept")]
     [Authorize] 
     public async Task<IActionResult> AcceptInvitation(int id)
@@ -93,7 +108,6 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    // UPDATED: User ID is now taken from Token for security
     [HttpPost("{id}/members/decline")]
     [Authorize]
     public async Task<IActionResult> DeclineInvitation(int id)
@@ -105,7 +119,6 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    // UPDATED: User ID is now taken from Token for security
     [HttpPost("{id}/members/check-in")]
     [Authorize]
     public async Task<IActionResult> CheckInMember(int id)

@@ -1,4 +1,5 @@
 using RESQ.Domain.Entities.Personnel.Exceptions;
+using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Domain.Entities.Personnel;
@@ -13,6 +14,9 @@ public class RescueTeamMemberModel
     public bool IsLeader { get; private set; }
     public string? RoleInTeam { get; private set; }
     public bool CheckedIn { get; private set; }
+    
+    // Loaded from other aggregate (User) for display purposes
+    public RescuerProfile? Profile { get; private set; }
 
     // EF constructor
     protected RescueTeamMemberModel() { }
@@ -28,6 +32,11 @@ public class RescueTeamMemberModel
         IsLeader = isLeader;
         RoleInTeam = roleInTeam;
         CheckedIn = false;
+    }
+
+    public void LoadProfile(RescuerProfile profile)
+    {
+        Profile = profile;
     }
 
     public void Accept()
@@ -67,4 +76,4 @@ public class RescueTeamMemberModel
     {
         Status = TeamMemberStatus.Removed;
     }
-}
+}

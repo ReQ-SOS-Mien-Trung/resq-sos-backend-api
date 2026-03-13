@@ -61,4 +61,4 @@ public class UnverifiedUserCleanupBackgroundService : BackgroundService
 
         _logger.LogInformation("Auto-deleted {Count} unverified users who expired after 24 hours.", expiredUsers.Count);
     }
-}
+}

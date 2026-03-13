@@ -58,6 +58,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOrganizationMetadataRepository, OrganizationMetadataRepository>();
         services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>();
         services.AddScoped<IRescueTeamRepository, RescueTeamRepository>();
+        services.AddScoped<IPersonnelQueryRepository, PersonnelQueryRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRescuerApplicationRepository, RescuerApplicationRepository>();
         services.AddScoped<IAbilityRepository, AbilityRepository>();
