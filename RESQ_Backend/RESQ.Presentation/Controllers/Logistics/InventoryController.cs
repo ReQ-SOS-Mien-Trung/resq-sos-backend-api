@@ -143,7 +143,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    [HttpGet("logs")]
+    [HttpGet("stock-movements")]
     public async Task<IActionResult> GetInventoryLogs(
         [FromQuery] int? depotId,
         [FromQuery] int? reliefItemId,
