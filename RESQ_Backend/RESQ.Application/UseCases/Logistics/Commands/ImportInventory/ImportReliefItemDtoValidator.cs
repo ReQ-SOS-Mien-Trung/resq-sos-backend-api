@@ -41,7 +41,7 @@ public class ImportReliefItemDtoValidator : AbstractValidator<ImportReliefItemDt
             .WithMessage(x => $"Nhóm đối tượng '{x.TargetGroup}' không hợp lệ. Giá trị hợp lệ: {string.Join(", ", ValidTargetGroups)}.");
 
         RuleFor(x => x.ReceivedDate)
-            .LessThanOrEqualTo(DateOnly.FromDateTime(DateTime.Today))
+            .Must(date => date!.Value <= DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)))
             .When(x => x.ReceivedDate.HasValue)
             .WithMessage("Ngày nhận không được là ngày trong tương lai.");
 

@@ -57,7 +57,7 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
                 Note = x.Note,
                 CreatedAt = x.CreatedAt,
                 PerformedByName = x.PerformedByUser != null 
-                    ? $"{x.PerformedByUser.FirstName} {x.PerformedByUser.LastName}".Trim() 
+                    ? $"{x.PerformedByUser.LastName} {x.PerformedByUser.FirstName}".Trim() 
                     : string.Empty,
                 DepotId = x.DepotSupplyInventory!.DepotId,
                 DepotName = x.DepotSupplyInventory!.Depot != null ? x.DepotSupplyInventory.Depot.Name : string.Empty,
