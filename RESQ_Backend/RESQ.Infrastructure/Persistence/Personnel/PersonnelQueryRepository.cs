@@ -1,0 +1,97 @@
+using RESQ.Application.Common.Models;
+using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Personnel;
+using RESQ.Domain.Entities.Personnel;
+using RESQ.Domain.Enum.Personnel;
+using RESQ.Infrastructure.Entities.Identity;
+using RESQ.Infrastructure.Entities.Personnel;
+using RESQ.Infrastructure.Mappers.Personnel;
+
+namespace RESQ.Infrastructure.Persistence.Personnel;
+
+public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryRepository
+{
+    public async Task<PagedResult<FreeRescuerModel>> GetFreeRescuersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var activeTeamStatus = TeamMemberStatus.Accepted.ToString();
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
+
+        // 1. Get User IDs of users who are currently in active teams
+        var teamMembers = await unitOfWork.GetRepository<RescueTeamMember>().GetAllByPropertyAsync(
+            filter: m => m.Status == activeTeamStatus && m.Team != null && m.Team.Status != disbandedStatus,
+            includeProperties: "Team"
+        );
+        
+        var activeTeamUserIds = teamMembers.Select(m => m.UserId).Distinct().ToList();
+
+        // 2. Fetch Paginated Users who are eligible and not in the active teams list
+        var pagedUsers = await unitOfWork.GetRepository<User>().GetPagedAsync(
+            pageNumber,
+            pageSize,
+            filter: u => u.IsEligibleRescuer && !activeTeamUserIds.Contains(u.Id),
+            orderBy: q => q.OrderByDescending(u => u.CreatedAt)
+        );
+
+        // 3. Map to Domain Models using Mapper
+        var userModels = pagedUsers.Items.Select(FreeRescuerMapper.ToModel).ToList();
+
+        // 4. Populate top abilities for the fetched users
+        if (userModels.Any())
+        {
+            var userIds = userModels.Select(u => u.Id).ToList();
+            var abilities = await unitOfWork.GetRepository<UserAbility>().GetAllByPropertyAsync(
+                filter: ua => userIds.Contains(ua.UserId),
+                includeProperties: "Ability"
+            );
+
+            var groupedAbilities = abilities.GroupBy(ua => ua.UserId).ToList();
+
+            foreach (var user in userModels)
+            {
+                var userAbilities = groupedAbilities.FirstOrDefault(a => a.Key == user.Id);
+                if (userAbilities != null)
+                {
+                    user.TopAbilities = userAbilities
+                        .OrderByDescending(ua => ua.Level)
+                        .Select(ua => ua.Ability.Code)
+                        .Take(3)
+                        .ToList();
+                }
+            }
+        }
+
+        return new PagedResult<FreeRescuerModel>(userModels, pagedUsers.TotalCount, pageNumber, pageSize);
+    }
+
+    public async Task<PagedResult<RescueTeamModel>> GetAllRescueTeamsAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        // 1. Fetch Paginated Teams including related data
+        var pagedTeams = await unitOfWork.GetRepository<RescueTeam>().GetPagedAsync(
+            pageNumber,
+            pageSize,
+            filter: null,
+            orderBy: q => q.OrderByDescending(t => t.CreatedAt),
+            includeProperties: "AssemblyPoint,RescueTeamMembers"
+        );
+
+        // 2. Map to Domain Models using Mapper
+        var teamModels = pagedTeams.Items.Select(t => RescueTeamMapper.ToDomain(t, t.RescueTeamMembers.ToList())).ToList();
+
+        return new PagedResult<RescueTeamModel>(teamModels, pagedTeams.TotalCount, pageNumber, pageSize);
+    }
+
+    public async Task<RescueTeamModel?> GetRescueTeamDetailAsync(int teamId, CancellationToken cancellationToken = default)
+    {
+        // 1. Fetch Single Team with detailed members (User info included for Profile Value Object mapping)
+        var team = await unitOfWork.GetRepository<RescueTeam>().GetByPropertyAsync(
+            filter: t => t.Id == teamId,
+            tracked: false,
+            includeProperties: "AssemblyPoint,RescueTeamMembers,RescueTeamMembers.User"
+        );
+
+        if (team == null) return null;
+
+        // 2. Map to Domain Model with loaded profiles
+        return RescueTeamMapper.ToDomain(team, team.RescueTeamMembers.ToList());
+    }
+}
