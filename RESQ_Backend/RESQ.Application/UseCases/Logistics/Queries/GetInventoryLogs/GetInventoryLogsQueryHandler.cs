@@ -1,19 +1,36 @@
 using MediatR;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
 
-public class GetInventoryLogsQueryHandler(IInventoryLogRepository inventoryLogRepository) 
+public class GetInventoryLogsQueryHandler(
+    IInventoryLogRepository inventoryLogRepository,
+    IDepotInventoryRepository depotInventoryRepository) 
     : IRequestHandler<GetInventoryLogsQuery, PagedResult<InventoryLogDto>>
 {
     private readonly IInventoryLogRepository _inventoryLogRepository = inventoryLogRepository;
+    private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
 
     public async Task<PagedResult<InventoryLogDto>> Handle(GetInventoryLogsQuery request, CancellationToken cancellationToken)
     {
+        int? finalDepotId = request.DepotId;
+
+        // Ensure managers can only see logs for their active depot
+        if (request.IsManager)
+        {
+            var activeDepotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken);
+            if (!activeDepotId.HasValue)
+            {
+                throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
+            }
+            finalDepotId = activeDepotId.Value; // Override any user-provided depot ID
+        }
+
         var pagedData = await _inventoryLogRepository.GetInventoryLogsPagedAsync(
-            request.DepotId,
+            finalDepotId,
             request.ReliefItemId,
             request.PageNumber,
             request.PageSize,
