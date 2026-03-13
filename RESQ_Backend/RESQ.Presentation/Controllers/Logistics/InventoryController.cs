@@ -150,8 +150,18 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+        {
+            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        }
+
+        var isManager = User.HasClaim("RoleId", "4") || User.HasClaim(ClaimTypes.Role, "4");
+
         var query = new GetInventoryLogsQuery
         {
+            UserId = userId,
+            IsManager = isManager,
             DepotId = depotId,
             ReliefItemId = reliefItemId,
             PageNumber = pageNumber,
