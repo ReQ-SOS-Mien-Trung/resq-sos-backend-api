@@ -2,6 +2,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Mappers.Emergency;
 
@@ -91,5 +92,31 @@ public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepositor
         return entities
             .OrderByDescending(x => x.CreatedAt)
             .Select(SosRequestMapper.ToDomain);
+    }
+
+    public async Task UpdateStatusAsync(int id, SosRequestStatus status, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<SosRequest>()
+            .GetByPropertyAsync(x => x.Id == id, tracked: true);
+
+        if (entity is null) return;
+
+        entity.Status = status.ToString();
+        entity.LastUpdatedAt = DateTime.UtcNow;
+        await _unitOfWork.GetRepository<SosRequest>().UpdateAsync(entity);
+    }
+
+    public async Task UpdateStatusByClusterIdAsync(int clusterId, SosRequestStatus status, CancellationToken cancellationToken = default)
+    {
+        var entities = await _unitOfWork.GetRepository<SosRequest>()
+            .GetAllByPropertyAsync(x => x.ClusterId == clusterId);
+
+        var statusStr = status.ToString();
+        foreach (var entity in entities)
+        {
+            entity.Status = statusStr;
+            entity.LastUpdatedAt = DateTime.UtcNow;
+            await _unitOfWork.GetRepository<SosRequest>().UpdateAsync(entity);
+        }
     }
 }

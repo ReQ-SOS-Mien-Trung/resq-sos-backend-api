@@ -11,6 +11,7 @@ using RESQ.Application.UseCases.Identity.Commands.UnbanUser;
 using RESQ.Application.UseCases.Identity.Queries.GetUserById;
 using RESQ.Application.UseCases.Identity.Queries.GetUserPermissions;
 using RESQ.Application.UseCases.Identity.Queries.GetUsers;
+using RESQ.Application.UseCases.Identity.Queries.GetRescuers;
 using RESQ.Application.UseCases.Identity.Commands.SetUserPermissions;
 
 namespace RESQ.Presentation.Controllers.Identity
@@ -22,7 +23,7 @@ namespace RESQ.Presentation.Controllers.Identity
     {
         private readonly IMediator _mediator = mediator;
 
-        /// <summary>Lấy danh sách user có phân trang, lọc theo role / trạng thái ban / từ khóa</summary>
+        /// <summary>Lấy danh sách user có phân trang (không bao gồm Rescuer)</summary>
         [HttpGet]
         public async Task<IActionResult> GetUsers(
             [FromQuery] int pageNumber = 1,
@@ -32,6 +33,20 @@ namespace RESQ.Presentation.Controllers.Identity
             [FromQuery] string? search = null)
         {
             var query = new GetUsersQuery(pageNumber, pageSize, roleId, isBanned, search);
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>Lấy danh sách Rescuer (RoleId=3) với đầy đủ thông tin</summary>
+        [HttpGet("rescuers")]
+        public async Task<IActionResult> GetRescuers(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] bool? isBanned = null,
+            [FromQuery] bool? isEligible = null,
+            [FromQuery] string? search = null)
+        {
+            var query = new GetRescuersQuery(pageNumber, pageSize, isBanned, isEligible, search);
             var result = await _mediator.Send(query);
             return Ok(result);
         }

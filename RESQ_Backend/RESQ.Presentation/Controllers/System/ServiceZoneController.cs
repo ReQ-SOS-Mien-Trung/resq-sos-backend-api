@@ -26,7 +26,7 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Lấy vùng phục vụ đang active (tọa độ polygon hiện tại)
+    /// Lấy tất cả vùng phục vụ đang active (có thể có nhiều vùng active cùng lúc)
     /// </summary>
     [HttpGet("active")]
     public async Task<IActionResult> GetActive()

@@ -31,9 +31,6 @@ public class CreateServiceZoneCommandHandler(
 
         await _serviceZoneRepository.CreateAsync(model, cancellationToken);
 
-        if (model.IsActive)
-            await _serviceZoneRepository.DeactivateAllExceptAsync(model.Id, cancellationToken);
-
         return new CreateServiceZoneResponse
         {
             Id = model.Id,

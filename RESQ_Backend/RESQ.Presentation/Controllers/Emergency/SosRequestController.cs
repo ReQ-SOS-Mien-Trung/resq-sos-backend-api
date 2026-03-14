@@ -3,6 +3,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.UseCases.Emergency.Commands.CancelSosRequest;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 using RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
@@ -119,6 +120,20 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetPriorityLevelMetadata()
     {
         var result = await _mediator.Send(new GetSosPriorityLevelMetadataQuery());
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Victim huỷ SOS request của mình (chỉ cho phép khi Pending hoặc Assigned).
+    /// </summary>
+    [HttpPatch("{id:int}/cancel")]
+    [Authorize(Roles = "5")]
+    public async Task<IActionResult> CancelSosRequest([FromRoute] int id)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var result = await _mediator.Send(new CancelSosRequestCommand(id, userId));
         return Ok(result);
     }
 

@@ -75,6 +75,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMissionAiSuggestionRepository, MissionAiSuggestionRepository>();
         services.AddScoped<IMissionRepository, MissionRepository>();
         services.AddScoped<IMissionActivityRepository, MissionActivityRepository>();
+        services.AddScoped<IMissionTeamRepository, MissionTeamRepository>();
+        services.AddScoped<ITeamIncidentRepository, TeamIncidentRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
 
         // Finance Repositories
