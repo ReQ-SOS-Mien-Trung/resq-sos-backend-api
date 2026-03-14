@@ -11,5 +11,5 @@ public class ImportReliefItemDto
     public string TargetGroup { get; set; } = string.Empty;
     public DateOnly? ReceivedDate { get; set; }
     public DateOnly? ExpiredDate { get; set; }
-    public string Notes { get; set; } = string.Empty;
+    public string? Notes { get; set; }
 }
