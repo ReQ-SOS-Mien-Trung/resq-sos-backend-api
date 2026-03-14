@@ -9,7 +9,10 @@ public class GetFreeRescuersQueryHandler(IPersonnelQueryRepository personnelQuer
 {
     public async Task<PagedResult<FreeRescuerDto>> Handle(GetFreeRescuersQuery request, CancellationToken cancellationToken)
     {
-        var pagedModels = await personnelQueryRepository.GetFreeRescuersAsync(request.PageNumber, request.PageSize, cancellationToken);
+        var pagedModels = await personnelQueryRepository.GetFreeRescuersAsync(
+            request.PageNumber, request.PageSize,
+            request.FirstName, request.LastName, request.Phone, request.Email, request.RescuerType,
+            cancellationToken);
 
         // Map Domain Model to DTO in Application Layer
         var dtos = pagedModels.Items.Select(m => new FreeRescuerDto

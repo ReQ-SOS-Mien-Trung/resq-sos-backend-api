@@ -11,10 +11,16 @@ namespace RESQ.Infrastructure.Persistence.Personnel;
 
 public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryRepository
 {
-    public async Task<PagedResult<FreeRescuerModel>> GetFreeRescuersAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<FreeRescuerModel>> GetFreeRescuersAsync(
+        int pageNumber, int pageSize,
+        string? firstName = null, string? lastName = null,
+        string? phone = null, string? email = null,
+        RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
+        CancellationToken cancellationToken = default)
     {
         var activeTeamStatus = TeamMemberStatus.Accepted.ToString();
         var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
+        var rescuerTypeStr = rescuerType?.ToString();
 
         // 1. Get User IDs of users who are currently in active teams
         var teamMembers = await unitOfWork.GetRepository<RescueTeamMember>().GetAllByPropertyAsync(
@@ -24,11 +30,16 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         
         var activeTeamUserIds = teamMembers.Select(m => m.UserId).Distinct().ToList();
 
-        // 2. Fetch Paginated Users who are eligible and not in the active teams list
+        // 2. Fetch Paginated Users who are eligible, have role = 3 (Rescuer), and not in the active teams list
         var pagedUsers = await unitOfWork.GetRepository<User>().GetPagedAsync(
             pageNumber,
             pageSize,
-            filter: u => u.IsEligibleRescuer && !activeTeamUserIds.Contains(u.Id),
+            filter: u => u.RoleId == 3 && u.IsEligibleRescuer && !activeTeamUserIds.Contains(u.Id)
+                && (firstName == null || (u.FirstName != null && u.FirstName.Contains(firstName)))
+                && (lastName == null || (u.LastName != null && u.LastName.Contains(lastName)))
+                && (phone == null || (u.Phone != null && u.Phone.Contains(phone)))
+                && (email == null || (u.Email != null && u.Email.Contains(email)))
+                && (rescuerTypeStr == null || u.RescuerType == rescuerTypeStr),
             orderBy: q => q.OrderByDescending(u => u.CreatedAt)
         );
 
