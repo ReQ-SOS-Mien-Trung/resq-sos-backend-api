@@ -8,7 +8,6 @@ public class PurchasedInventoryItemModel
     public int VatInvoiceId { get; set; }
     public int ReliefItemId { get; set; }
     public int Quantity { get; set; }
-    public decimal? UnitPrice { get; set; }
     public DateOnly? ReceivedDate { get; set; }
     public DateOnly? ExpiredDate { get; set; }
     public string? Notes { get; set; }
@@ -20,7 +19,6 @@ public class PurchasedInventoryItemModel
         int vatInvoiceId,
         int reliefItemId,
         int quantity,
-        decimal? unitPrice,
         DateOnly? receivedDate,
         DateOnly? expiredDate,
         string? notes,
@@ -35,7 +33,6 @@ public class PurchasedInventoryItemModel
             VatInvoiceId = vatInvoiceId,
             ReliefItemId = reliefItemId,
             Quantity = quantity,
-            UnitPrice = unitPrice,
             ReceivedDate = receivedDate,
             ExpiredDate = expiredDate,
             Notes = notes,

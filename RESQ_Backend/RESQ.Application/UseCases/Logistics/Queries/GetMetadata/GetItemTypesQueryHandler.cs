@@ -8,17 +8,17 @@ public class GetItemTypesQueryHandler : IRequestHandler<GetItemTypesQuery, List<
 {
     public Task<List<MetadataDto>> Handle(GetItemTypesQuery request, CancellationToken cancellationToken)
     {
-        var result = Enum.GetValues<ItemType>().Select(e => new MetadataDto
-        {
-            Key = e.ToString(),
-            Value = e switch
+        var result = Enum.GetValues<ItemType>()
+            .Select(e => new MetadataDto
             {
-                ItemType.Consumable => "Tiêu hao",
-                ItemType.Reusable => "Tái sử dụng",
-                ItemType.Equipment => "Trang thiết bị",
-                _ => e.ToString()
-            }
-        }).ToList();
+                Key = e.ToString(),
+                Value = e switch
+                {
+                    ItemType.Consumable => "Tiêu thụ",
+                    ItemType.Reusable => "Tái sử dụng",
+                    _ => e.ToString()
+                }
+            }).ToList();
 
         return Task.FromResult(result);
     }

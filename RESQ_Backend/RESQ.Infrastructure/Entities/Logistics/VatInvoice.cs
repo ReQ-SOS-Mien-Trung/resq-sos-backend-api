@@ -45,5 +45,8 @@ public partial class VatInvoice
     public virtual ICollection<InventoryLog> InventoryLogs { get; set; } = new List<InventoryLog>();
 
     [InverseProperty("VatInvoice")]
+    public virtual ICollection<VatInvoiceItem> VatInvoiceItems { get; set; } = new List<VatInvoiceItem>();
+
+    [InverseProperty("VatInvoice")]
     public virtual ICollection<VehicleActivityLog> VehicleActivityLogs { get; set; } = new List<VehicleActivityLog>();
 }

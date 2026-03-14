@@ -21,7 +21,8 @@ public interface IPurchasedInventoryRepository
     Task<List<ReliefItemModel>> GetOrCreateReliefItemsBulkAsync(List<ReliefItemModel> models, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Bulk insert danh sách PurchasedInventoryItem, cập nhật DepotSupplyInventory và tạo InventoryLog với SourceType = Purchase.
+    /// Bulk insert danh sách PurchasedInventoryItem, cập nhật DepotSupplyInventory, tạo InventoryLog với SourceType = Purchase
+    /// và lưu dòng giá tương ứng vào bảng vat_invoice_items.
     /// </summary>
-    Task AddPurchasedInventoryItemsBulkAsync(List<PurchasedInventoryItemModel> models, CancellationToken cancellationToken = default);
+    Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryItemModel model, decimal? unitPrice)> items, CancellationToken cancellationToken = default);
 }
