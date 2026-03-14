@@ -9,6 +9,7 @@ using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosPriorityLevelMetadata;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 
 namespace RESQ.Presentation.Controllers.Emergency;
@@ -49,7 +50,11 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             structuredDataJson,
             networkMetadataJson,
             senderInfoJson,
-            dto.Timestamp
+            dto.Timestamp,
+            CreatedByCoordinatorId: TryGetRoleId(out var callerRoleId) && callerRoleId == 2 && TryGetUserId(out var callerUserId)
+                ? callerUserId
+                : null,
+            ClientCreatedAt: dto.CreatedAt
         );
 
         var result = await _mediator.Send(command);
@@ -104,6 +109,16 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             return Unauthorized();
 
         var result = await _mediator.Send(new GetSosEvaluationQuery(id, userId, roleId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy metadata các mức độ ưu tiên SOS (key tiếng Anh, value tiếng Việt) dùng cho dropdown giao diện.
+    /// </summary>
+    [HttpGet("metadata/priority-levels")]
+    public async Task<IActionResult> GetPriorityLevelMetadata()
+    {
+        var result = await _mediator.Send(new GetSosPriorityLevelMetadataQuery());
         return Ok(result);
     }
 

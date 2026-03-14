@@ -35,15 +35,16 @@ public class GetAllSosRequestsQueryHandler(
                 OriginId = x.OriginId,
                 Status = x.Status.ToString(),
                 PriorityLevel = x.PriorityLevel?.ToString(),
-                WaitTimeMinutes = x.WaitTimeMinutes,
                 Latitude = x.Location?.Latitude,
                 Longitude = x.Location?.Longitude,
                 LocationAccuracy = x.LocationAccuracy,
                 Timestamp = x.Timestamp,
                 CreatedAt = x.CreatedAt,
+                ReceivedAt = x.ReceivedAt,
                 LastUpdatedAt = x.LastUpdatedAt,
                 ReviewedAt = x.ReviewedAt,
-                ReviewedById = x.ReviewedById
+                ReviewedById = x.ReviewedById,
+                CreatedByCoordinatorId = x.CreatedByCoordinatorId
             }).ToList()
         };
     }

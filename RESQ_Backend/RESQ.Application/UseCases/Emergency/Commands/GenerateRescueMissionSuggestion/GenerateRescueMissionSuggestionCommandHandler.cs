@@ -231,7 +231,6 @@ public class GenerateRescueMissionSuggestionCommandHandler(
         var sosWithGps = sosRequests.Where(s => s.Latitude.HasValue && s.Longitude.HasValue).ToList();
         var fallbackSos = sosRequests
             .OrderByDescending(s => PriorityRank.TryGetValue(s.PriorityLevel ?? string.Empty, out var r) ? r : 0)
-            .ThenByDescending(s => s.WaitTimeMinutes ?? 0)
             .First();
 
         foreach (var activity in activities)

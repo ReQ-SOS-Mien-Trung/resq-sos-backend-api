@@ -5,15 +5,19 @@ namespace RESQ.Application.Repositories.Operations;
 
 public interface IConversationRepository
 {
-    // ─── Victim conversation (1 per victim) ───────────────────────────────────
+    // ─── Victim conversation ───────────────────────────────────────────────────
 
     /// <summary>
-    /// Lấy hoặc tạo mới conversation của victim.
-    /// Mỗi victim chỉ có 1 phòng chat duy nhất; victim sẽ tự động là participant.
+    /// Lấy conversation đang ở trạng thái AiAssist của victim, hoặc tạo mới.
+    /// Mỗi lần victim chọn chủ đề, conversation chuyển trạng thái và lần gọi tiếp theo
+    /// sẽ tạo ra một conversation mới — đảm bảo mỗi chủ đề là một đoạn chat riêng biệt.
     /// </summary>
     Task<ConversationModel> GetOrCreateForVictimAsync(Guid victimId, CancellationToken cancellationToken = default);
 
-    /// <summary>Lấy conversation của victim theo victimId.</summary>
+    /// <summary>Lấy tất cả conversations của một victim, sắp xếp mới nhất trước.</summary>
+    Task<IEnumerable<ConversationModel>> GetVictimConversationsAsync(Guid victimId, CancellationToken cancellationToken = default);
+
+    /// <summary>Lấy conversation của victim theo victimId (conversation mới nhất).</summary>
     Task<ConversationModel?> GetByVictimIdAsync(Guid victimId, CancellationToken cancellationToken = default);
 
     /// <summary>Lấy conversation theo Id (kèm participants).</summary>

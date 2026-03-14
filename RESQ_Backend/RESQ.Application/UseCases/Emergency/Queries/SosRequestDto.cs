@@ -17,13 +17,14 @@ public class SosRequestDto
     public string? OriginId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? PriorityLevel { get; set; }
-    public int? WaitTimeMinutes { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public double? LocationAccuracy { get; set; }
     public long? Timestamp { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public DateTime? ReceivedAt { get; set; }
     public DateTime? LastUpdatedAt { get; set; }
     public DateTime? ReviewedAt { get; set; }
     public Guid? ReviewedById { get; set; }
+    public Guid? CreatedByCoordinatorId { get; set; }
 }

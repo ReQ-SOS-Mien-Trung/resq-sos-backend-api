@@ -2,12 +2,14 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.CoordinatorJoinConversation;
 
 public class CoordinatorJoinConversationCommandHandler(
     IConversationRepository conversationRepository,
+    IFirebaseService firebaseService,
     ILogger<CoordinatorJoinConversationCommandHandler> logger
 ) : IRequestHandler<CoordinatorJoinConversationCommand, CoordinatorJoinConversationResponse>
 {
@@ -50,6 +52,16 @@ public class CoordinatorJoinConversationCommandHandler(
         logger.LogInformation(
             "Coordinator {CoordinatorId} joined Conversation {ConvId}",
             request.CoordinatorId, request.ConversationId);
+
+        // Push notification đến victim
+        if (conversation.VictimId.HasValue)
+        {
+            await firebaseService.SendNotificationToUserAsync(
+                conversation.VictimId.Value,
+                "Coordinator đã tham gia",
+                "Một Coordinator đã tham gia hỗ trợ bạn. Bạn có thể mô tả thêm nhu cầu của mình.",
+                cancellationToken);
+        }
 
         return new CoordinatorJoinConversationResponse
         {

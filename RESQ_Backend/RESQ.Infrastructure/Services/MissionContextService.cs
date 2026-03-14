@@ -47,7 +47,6 @@ public class MissionContextService(
             Status = sos.Status.ToString(),
             Latitude = sos.Location?.Latitude,
             Longitude = sos.Location?.Longitude,
-            WaitTimeMinutes = sos.WaitTimeMinutes,
             CreatedAt = sos.CreatedAt
         }).ToList();
 
@@ -188,7 +187,6 @@ public class MissionContextService(
         sosRequests
             .Where(s => s.Latitude.HasValue && s.Longitude.HasValue)
             .OrderByDescending(s => PriorityRank.TryGetValue(s.PriorityLevel ?? string.Empty, out var rank) ? rank : 0)
-            .ThenByDescending(s => s.WaitTimeMinutes ?? 0)
             .ThenBy(s => s.CreatedAt ?? DateTime.MaxValue)
             .FirstOrDefault();
 

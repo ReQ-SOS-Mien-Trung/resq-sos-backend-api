@@ -24,12 +24,13 @@ public static class SosRequestMapper
             OriginId = model.OriginId,
             PriorityLevel = model.PriorityLevel?.ToString(),
             Status = model.Status.ToString(),
-            WaitTimeMinutes = model.WaitTimeMinutes,
             Timestamp = model.Timestamp,
+            ReceivedAt = model.ReceivedAt,
             CreatedAt = model.CreatedAt,
             LastUpdatedAt = model.LastUpdatedAt,
             ReviewedAt = model.ReviewedAt,
-            ReviewedById = model.ReviewedById
+            ReviewedById = model.ReviewedById,
+            CreatedByCoordinatorId = model.CreatedByCoordinatorId
         };
 
         if (model.Id > 0)
@@ -69,12 +70,13 @@ public static class SosRequestMapper
             OriginId = entity.OriginId,
             PriorityLevel = Enum.TryParse<SosPriorityLevel>(entity.PriorityLevel, out var priority) ? priority : null,
             Status = Enum.TryParse<SosRequestStatus>(entity.Status, out var status) ? status : SosRequestStatus.Pending,
-            WaitTimeMinutes = entity.WaitTimeMinutes,
             Timestamp = entity.Timestamp,
+            ReceivedAt = entity.ReceivedAt,
             CreatedAt = entity.CreatedAt,
             LastUpdatedAt = entity.LastUpdatedAt,
             ReviewedAt = entity.ReviewedAt,
-            ReviewedById = entity.ReviewedById
+            ReviewedById = entity.ReviewedById,
+            CreatedByCoordinatorId = entity.CreatedByCoordinatorId
         };
     }
 
@@ -91,11 +93,11 @@ public static class SosRequestMapper
         entity.OriginId = model.OriginId;
         entity.PriorityLevel = model.PriorityLevel?.ToString();
         entity.Status = model.Status.ToString();
-        entity.WaitTimeMinutes = model.WaitTimeMinutes;
         entity.Timestamp = model.Timestamp;
         entity.LastUpdatedAt = DateTime.UtcNow;
         entity.ReviewedAt = model.ReviewedAt;
         entity.ReviewedById = model.ReviewedById;
+        entity.CreatedByCoordinatorId = model.CreatedByCoordinatorId;
 
         if (model.Location != null)
         {

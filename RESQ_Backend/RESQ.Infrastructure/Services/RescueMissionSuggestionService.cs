@@ -109,6 +109,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
     private static string BuildSosRequestsData(List<SosRequestSummary> sosRequests)
     {
+        var now = DateTime.UtcNow;
         var entries = sosRequests.Select((sos, index) => new
         {
             stt = index + 1,
@@ -121,7 +122,9 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             vi_tri = sos.Latitude.HasValue && sos.Longitude.HasValue
                 ? $"{sos.Latitude}, {sos.Longitude}"
                 : "Không xác định",
-            thoi_gian_cho_phut = sos.WaitTimeMinutes,
+            thoi_gian_cho_doi_phut = sos.CreatedAt.HasValue
+                ? (int)(now - sos.CreatedAt.Value).TotalMinutes
+                : (int?)null,
             thoi_gian_tao = sos.CreatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
         });
 

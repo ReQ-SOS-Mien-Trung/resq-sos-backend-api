@@ -2,15 +2,18 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Operations.Commands.SendMessage;
 
 public class SendMessageCommandHandler(
     IConversationRepository conversationRepository,
+    IFirebaseService firebaseService,
     ILogger<SendMessageCommandHandler> logger
 ) : IRequestHandler<SendMessageCommand, SendMessageResponse>
 {
     private readonly IConversationRepository _conversationRepository = conversationRepository;
+    private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ILogger<SendMessageCommandHandler> _logger = logger;
 
     public async Task<SendMessageResponse> Handle(
@@ -33,6 +36,27 @@ public class SendMessageCommandHandler(
         _logger.LogInformation(
             "Message saved: ConversationId={conversationId}, SenderId={senderId}",
             request.ConversationId, request.SenderId);
+
+        // Push notification đến các participants khác (không phải người gửi)
+        var conversation = await _conversationRepository.GetByIdAsync(
+            request.ConversationId, cancellationToken);
+
+        if (conversation != null)
+        {
+            var title = string.IsNullOrWhiteSpace(message.SenderName)
+                ? "Tin nhắn mới"
+                : message.SenderName;
+            var body = request.Content.Length > 100
+                ? string.Concat(request.Content.AsSpan(0, 100), "...")
+                : request.Content;
+
+            var pushTasks = conversation.Participants
+                .Where(p => p.UserId.HasValue && p.UserId != request.SenderId)
+                .Select(p => _firebaseService.SendNotificationToUserAsync(
+                    p.UserId!.Value, title, body, cancellationToken));
+
+            await Task.WhenAll(pushTasks);
+        }
 
         return new SendMessageResponse
         {

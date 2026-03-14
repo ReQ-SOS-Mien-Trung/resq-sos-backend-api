@@ -121,9 +121,9 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1729067400L, // 2024-10-16 08:30 UTC
                 PriorityLevel = "Critical",
-                WaitTimeMinutes = 55,
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc)
             },
 
@@ -170,9 +170,9 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1729067700L, // 2024-10-16 08:35 UTC
                 PriorityLevel = "Critical",
-                WaitTimeMinutes = 35,
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 35, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2024, 10, 16, 8, 35, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc)
             },
 
@@ -224,9 +224,9 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1729068300L, // 2024-10-16 08:45 UTC
                 PriorityLevel = "High",
-                WaitTimeMinutes = 90,
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc)
             },
 
@@ -273,9 +273,9 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1729068600L, // 2024-10-16 08:50 UTC
                 PriorityLevel = "High",
-                WaitTimeMinutes = 180,
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 50, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2024, 10, 16, 8, 52, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc)
             },
 
@@ -327,9 +327,9 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1729069800L, // 2024-10-16 09:10 UTC
                 PriorityLevel = "High",
-                WaitTimeMinutes = 0,
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc)
             }
         );
