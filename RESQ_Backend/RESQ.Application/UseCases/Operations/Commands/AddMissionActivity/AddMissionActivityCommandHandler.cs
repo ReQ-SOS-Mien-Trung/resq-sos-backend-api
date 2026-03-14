@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 
@@ -11,12 +13,18 @@ namespace RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
 public class AddMissionActivityCommandHandler(
     IMissionRepository missionRepository,
     IMissionActivityRepository activityRepository,
+    IMissionTeamRepository missionTeamRepository,
+    IRescueTeamRepository rescueTeamRepository,
+    IMediator mediator,
     IUnitOfWork unitOfWork,
     ILogger<AddMissionActivityCommandHandler> logger
 ) : IRequestHandler<AddMissionActivityCommand, AddMissionActivityResponse>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
+    private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
+    private readonly IMediator _mediator = mediator;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<AddMissionActivityCommandHandler> _logger = logger;
 
@@ -45,7 +53,7 @@ public class AddMissionActivityCommandHandler(
         var activityId = await _activityRepository.AddAsync(activity, cancellationToken);
         await _unitOfWork.SaveAsync();
 
-        return new AddMissionActivityResponse
+        var response = new AddMissionActivityResponse
         {
             ActivityId = activityId,
             MissionId = request.MissionId,
@@ -53,5 +61,21 @@ public class AddMissionActivityCommandHandler(
             ActivityType = request.ActivityType,
             Status = "pending"
         };
+
+        if (request.RescueTeamId.HasValue)
+        {
+            var assignCommand = new AssignTeamToMissionCommand(
+                request.MissionId,
+                request.RescueTeamId.Value,
+                request.TeamType,
+                request.Note,
+                request.AssignedById
+            );
+            var assignResult = await _mediator.Send(assignCommand, cancellationToken);
+            response.MissionTeamId = assignResult.MissionTeamId;
+            response.AssignedRescueTeamId = assignResult.RescueTeamId;
+        }
+
+        return response;
     }
 }

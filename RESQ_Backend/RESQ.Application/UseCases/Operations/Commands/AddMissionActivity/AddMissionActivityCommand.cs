@@ -11,5 +11,9 @@ public record AddMissionActivityCommand(
     string? Target,
     string? Items,
     double? TargetLatitude,
-    double? TargetLongitude
+    double? TargetLongitude,
+    int? RescueTeamId,
+    string? TeamType,
+    string? Note,
+    Guid AssignedById
 ) : IRequest<AddMissionActivityResponse>;
