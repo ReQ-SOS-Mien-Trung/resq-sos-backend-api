@@ -17,10 +17,15 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
     public async Task<ConversationModel> GetOrCreateForVictimAsync(
         Guid victimId, CancellationToken cancellationToken = default)
     {
+        // Chỉ lấy conversation đang ở trạng thái AiAssist (chưa chọn chủ đề).
+        // Nếu không tìm thấy (victim đã chọn chủ đề trước đó), tạo conversation mới.
+        // Điều này đảm bảo mỗi chủ đề chat là một đoạn hội thoại riêng biệt.
         var entity = await _context.Conversations
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
-            .FirstOrDefaultAsync(c => c.VictimId == victimId, cancellationToken);
+            .FirstOrDefaultAsync(
+                c => c.VictimId == victimId && c.Status == nameof(ConversationStatus.AiAssist),
+                cancellationToken);
 
         if (entity == null)
         {
@@ -54,6 +59,20 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
         return ToConversationModel(entity);
     }
 
+    public async Task<IEnumerable<ConversationModel>> GetVictimConversationsAsync(
+        Guid victimId, CancellationToken cancellationToken = default)
+    {
+        var entities = await _context.Conversations
+            .AsNoTracking()
+            .Where(c => c.VictimId == victimId)
+            .Include(c => c.ConversationParticipants)
+                .ThenInclude(p => p.User)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToConversationModel);
+    }
+
     public async Task<ConversationModel?> GetByVictimIdAsync(
         Guid victimId, CancellationToken cancellationToken = default)
     {
@@ -61,6 +80,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
             .AsNoTracking()
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
+            .OrderByDescending(c => c.CreatedAt)
             .FirstOrDefaultAsync(c => c.VictimId == victimId, cancellationToken);
 
         return entity == null ? null : ToConversationModel(entity);

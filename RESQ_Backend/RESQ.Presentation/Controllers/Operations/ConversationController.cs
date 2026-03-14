@@ -9,6 +9,7 @@ using RESQ.Application.UseCases.Operations.Queries.GetConversationByMission;
 using RESQ.Application.UseCases.Operations.Queries.GetConversationMessages;
 using RESQ.Application.UseCases.Operations.Queries.GetConversationsWaiting;
 using RESQ.Application.UseCases.Operations.Queries.GetOrCreateVictimConversation;
+using RESQ.Application.UseCases.Operations.Queries.GetVictimConversations;
 
 namespace RESQ.Presentation.Controllers.Operations;
 
@@ -17,13 +18,15 @@ namespace RESQ.Presentation.Controllers.Operations;
 /// Chat real-time sử dụng SignalR hub tại /hubs/chat.
 /// 
 /// Luồng cơ bản:
-///   1. Victim:      GET  /my-conversation          → lấy/tạo phòng chat, nhận gợi ý AI
-///   2. Victim:      POST /{id}/select-topic         → chọn chủ đề; nếu SOS → AI trả danh sách
+///   1. Victim:      GET  /my-conversation          → lấy conversation AiAssist hiện tại hoặc tạo mới
+///   2. Victim:      POST /{id}/select-topic         → chọn chủ đề; conversation chuyển WaitingCoordinator
+///                                                     (lần gọi /my-conversation tiếp theo tạo conversation mới)
 ///   3. Victim:      POST /{id}/link-sos-request     → chọn SOS request cụ thể
-///   4. Coordinator: GET  /waiting                   → danh sách phòng đang chờ
-///   5. Coordinator: POST /{id}/join                 → join hỗ trợ Victim
-///   6. Both:        GET  /{id}/messages             → lịch sử tin nhắn
-///   7. Both:        SignalR hub /hubs/chat          → real-time messaging
+///   4. Victim:      GET  /my-conversations          → xem lịch sử tất cả các cuộc hội thoại
+///   5. Coordinator: GET  /waiting                   → danh sách phòng đang chờ
+///   6. Coordinator: POST /{id}/join                 → join hỗ trợ Victim
+///   7. Both:        GET  /{id}/messages             → lịch sử tin nhắn
+///   8. Both:        SignalR hub /hubs/chat          → real-time messaging
 /// </summary>
 [Route("operations/conversations")]
 [ApiController]
@@ -49,8 +52,24 @@ public class ConversationController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Victim xem lịch sử tất cả các cuộc hội thoại của mình.
+    /// Mỗi lần chọn chủ đề mới sẽ tạo một conversation riêng biệt.
+    /// </summary>
+    [HttpGet("my-conversations")]
+    public async Task<IActionResult> GetMyConversations()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(new GetVictimConversationsQuery(userId.Value));
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Victim chọn chủ đề hỗ trợ (ví dụ: SosRequestSupport, SupplyRequest...).
     /// AI sẽ phản hồi và nếu topic = SosRequestSupport, trả về danh sách SOS của victim.
+    /// Sau khi chọn topic, conversation này chuyển sang WaitingCoordinator;
+    /// gọi lại /my-conversation sẽ tạo một conversation MỚI cho chủ đề tiếp theo.
     /// </summary>
     [HttpPost("{conversationId:int}/select-topic")]
     public async Task<IActionResult> SelectTopic(

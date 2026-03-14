@@ -64,12 +64,12 @@ public class SelectSupportTopicCommandHandler(
                     OriginId = r.OriginId,
                     Status = r.Status.ToString(),
                     PriorityLevel = r.PriorityLevel?.ToString(),
-                    WaitTimeMinutes = r.WaitTimeMinutes,
                     Latitude = r.Location?.Latitude,
                     Longitude = r.Location?.Longitude,
                     LocationAccuracy = r.LocationAccuracy,
                     Timestamp = r.Timestamp,
                     CreatedAt = r.CreatedAt,
+                    ReceivedAt = r.ReceivedAt,
                     LastUpdatedAt = r.LastUpdatedAt
                 })
                 .ToList();

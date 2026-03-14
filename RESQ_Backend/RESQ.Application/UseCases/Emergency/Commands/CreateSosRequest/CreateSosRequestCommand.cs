@@ -14,5 +14,7 @@ public record CreateSosRequestCommand(
     string? StructuredData = null,
     string? NetworkMetadata = null,
     string? SenderInfo = null,
-    long? Timestamp = null
+    long? Timestamp = null,
+    Guid? CreatedByCoordinatorId = null,
+    DateTime? ClientCreatedAt = null
 ) : IRequest<CreateSosRequestResponse>;

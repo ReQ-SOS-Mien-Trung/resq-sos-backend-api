@@ -6,7 +6,7 @@ public class ConversationModel
 {
     public int Id { get; set; }
 
-    /// <summary>Victim là chủ phòng chat. Mỗi victim có đúng 1 conversation.</summary>
+    /// <summary>Victim sở hữu conversation này. Mỗi victim có thể có nhiều conversations (1 per topic session).</summary>
     public Guid? VictimId { get; set; }
 
     /// <summary>Mission được gán sau khi coordinator xác nhận hỗ trợ (optional).</summary>

@@ -13,6 +13,10 @@ public class CreateSosRequestRequestDto
     [JsonPropertyName("ts")]
     public long? Timestamp { get; set; }
 
+    /// <summary>ISO-8601 datetime từ thiết bị (thời điểm SOS được tạo phía client).</summary>
+    [JsonPropertyName("created_at")]
+    public DateTime? CreatedAt { get; set; }
+
     [JsonPropertyName("location")]
     public LocationDto Location { get; set; } = null!;
 

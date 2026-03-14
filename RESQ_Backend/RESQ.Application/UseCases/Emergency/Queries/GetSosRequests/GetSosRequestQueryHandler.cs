@@ -47,15 +47,16 @@ public class GetSosRequestQueryHandler(
                 OriginId = sosRequest.OriginId,
                 Status = sosRequest.Status.ToString(),
                 PriorityLevel = sosRequest.PriorityLevel?.ToString(),
-                WaitTimeMinutes = sosRequest.WaitTimeMinutes,
                 Latitude = sosRequest.Location?.Latitude,
                 Longitude = sosRequest.Location?.Longitude,
                 LocationAccuracy = sosRequest.LocationAccuracy,
                 Timestamp = sosRequest.Timestamp,
                 CreatedAt = sosRequest.CreatedAt,
+                ReceivedAt = sosRequest.ReceivedAt,
                 LastUpdatedAt = sosRequest.LastUpdatedAt,
                 ReviewedAt = sosRequest.ReviewedAt,
-                ReviewedById = sosRequest.ReviewedById
+                ReviewedById = sosRequest.ReviewedById,
+                CreatedByCoordinatorId = sosRequest.CreatedByCoordinatorId
             }
         };
     }

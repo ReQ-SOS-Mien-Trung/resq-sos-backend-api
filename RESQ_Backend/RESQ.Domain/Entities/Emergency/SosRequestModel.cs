@@ -20,12 +20,14 @@ public class SosRequestModel
     public string? OriginId { get; set; }
     public SosPriorityLevel? PriorityLevel { get; set; }
     public SosRequestStatus Status { get; set; } = SosRequestStatus.Pending;
-    public int? WaitTimeMinutes { get; set; }
+    /// <summary>Thời điểm server nhận được request (khác CreatedAt khi thiết bị gửi qua mesh/offline).</summary>
+    public DateTime? ReceivedAt { get; set; }
     public long? Timestamp { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? LastUpdatedAt { get; set; }
     public DateTime? ReviewedAt { get; set; }
     public Guid? ReviewedById { get; set; }
+    public Guid? CreatedByCoordinatorId { get; set; }
 
     public SosRequestModel() { }
 
@@ -42,13 +44,17 @@ public class SosRequestModel
         string? senderInfo = null,
         long? timestamp = null,
         SosRequestStatus status = SosRequestStatus.Pending,
-        SosPriorityLevel? priorityLevel = null)
+        SosPriorityLevel? priorityLevel = null,
+        Guid? createdByCoordinatorId = null,
+        DateTime? clientCreatedAt = null)
     {
         if (userId == Guid.Empty)
             throw new InvalidSosRequestUserException();
 
         if (string.IsNullOrWhiteSpace(rawMessage))
             throw new InvalidSosRequestMessageException();
+
+        var now = DateTime.UtcNow;
 
         return new SosRequestModel
         {
@@ -65,8 +71,13 @@ public class SosRequestModel
             Timestamp = timestamp,
             Status = status,
             PriorityLevel = priorityLevel,
-            CreatedAt = DateTime.UtcNow,
-            LastUpdatedAt = DateTime.UtcNow
+            CreatedByCoordinatorId = createdByCoordinatorId,
+            // Ưu tiên dùng thời điểm từ thiết bị (clientCreatedAt) để bảo toàn thời gian thực tế
+            // khi thiết bị gửi offline rồi sync sau. Nếu không có thì dùng giờ server.
+            CreatedAt = clientCreatedAt?.ToUniversalTime() ?? now,
+            // ReceivedAt luôn là giờ server — ghi lại đúng lúc backend nhận được request.
+            ReceivedAt = now,
+            LastUpdatedAt = now
         };
     }
 

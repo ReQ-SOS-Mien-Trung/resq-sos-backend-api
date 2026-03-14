@@ -61,8 +61,9 @@ public partial class SosRequest
     [Column("ai_analysis", TypeName = "jsonb")]
     public string? AiAnalysis { get; set; }
 
-    [Column("wait_time_minutes")]
-    public int? WaitTimeMinutes { get; set; }
+    /// <summary>Thời điểm server nhận được SOS request (có thể muộn hơn CreatedAt nếu gửi qua mesh network offline).</summary>
+    [Column("received_at", TypeName = "timestamp with time zone")]
+    public DateTime? ReceivedAt { get; set; }
 
     [Column("timestamp")]
     public long? Timestamp { get; set; }
@@ -78,6 +79,9 @@ public partial class SosRequest
 
     [Column("reviewed_by")]
     public Guid? ReviewedById { get; set; }
+
+    [Column("created_by_coordinator_id")]
+    public Guid? CreatedByCoordinatorId { get; set; }
 
     [ForeignKey("ClusterId")]
     [InverseProperty("SosRequests")]
