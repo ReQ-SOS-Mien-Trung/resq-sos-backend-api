@@ -16,14 +16,15 @@ public class PaymentGatewayFactory : IPaymentGatewayFactory
     {
         if (string.IsNullOrWhiteSpace(paymentMethodCode))
         {
-             throw new ArgumentNullException(nameof(paymentMethodCode));
+             throw new ArgumentNullException(nameof(paymentMethodCode), "Mã phương thức thanh toán không được để trống.");
         }
 
         return paymentMethodCode.ToUpper() switch
         {
             "PAYOS" => _serviceProvider.GetRequiredService<PayOSService>(),
             "MOMO" => _serviceProvider.GetRequiredService<MomoPaymentService>(),
-            _ => throw new ArgumentException($"Payment method '{paymentMethodCode}' is not supported by the system.")
+            "ZALOPAY" => _serviceProvider.GetRequiredService<ZaloPayService>(),
+            _ => throw new ArgumentException($"Phương thức thanh toán '{paymentMethodCode}' không được hỗ trợ.")
         };
     }
 }

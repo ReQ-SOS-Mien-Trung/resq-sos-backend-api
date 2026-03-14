@@ -2,10 +2,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models.Finance.Momo;
+using RESQ.Application.Common.Models.Finance.ZaloPay;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Finance.Commands.CreateDonation;
 using RESQ.Application.UseCases.Finance.Commands.ProcessMomoPayment;
 using RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
+using RESQ.Application.UseCases.Finance.Commands.ProcessZaloPayPayment;
+using RESQ.Application.UseCases.Finance.Commands.VerifyZaloPayPayment;
 using RESQ.Application.UseCases.Finance.Queries.GetDonations;
 using RESQ.Application.UseCases.Finance.Queries.GetPaymentMethods;
 using RESQ.Application.UseCases.Finance.Queries.GetPublicDonations;
@@ -15,12 +18,20 @@ namespace RESQ.Presentation.Controllers.Finance;
 
 [Route("finance/donations")]
 [ApiController]
-public class DonationController(IMediator mediator, IPaymentGatewayService paymentGatewayService, ILogger<DonationController> logger, IConfiguration configuration) : ControllerBase
+public class DonationController : ControllerBase
 {
-    private readonly IMediator _mediator = mediator;
-    private readonly IPaymentGatewayService _paymentGatewayService = paymentGatewayService;
-    private readonly ILogger<DonationController> _logger = logger;
-    private readonly IConfiguration _configuration = configuration;
+    private readonly IMediator _mediator;
+    private readonly IPaymentGatewayFactory _paymentGatewayFactory;
+    private readonly ILogger<DonationController> _logger;
+    private readonly IConfiguration _configuration;
+
+    public DonationController(IMediator mediator, IPaymentGatewayFactory paymentGatewayFactory, ILogger<DonationController> logger, IConfiguration configuration)
+    {
+        _mediator = mediator;
+        _paymentGatewayFactory = paymentGatewayFactory;
+        _logger = logger;
+        _configuration = configuration;
+    }
 
     [HttpGet("payment-methods")]
     public async Task<IActionResult> GetPaymentMethods()
@@ -68,8 +79,6 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ProcessPayosPaymentReturn()
     {
-        // PayOS requires raw body for signature verification if you implemented it that way.
-        // Keeping your Stream logic here since you confirmed it works, but adding safety check.
         try
         {
             Request.EnableBuffering();
@@ -82,15 +91,17 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
 
             if (string.IsNullOrWhiteSpace(jsonBody))
             {
-                return Ok(new { success = false, message = "Empty webhook payload." });
+                return Ok(new { success = false, message = "Dữ liệu webhook trống." });
             }
 
-            var isValidSignature = _paymentGatewayService.VerifyWebhookSignature(jsonBody);
+            // Retrieve PayOS service dynamically via Factory
+            var gatewayService = _paymentGatewayFactory.GetService("PAYOS");
+            var isValidSignature = gatewayService.VerifyWebhookSignature(jsonBody);
 
             if (!isValidSignature)
             {
                 _logger.LogWarning("PayOS Webhook signature verification failed.");
-                return Ok(new { success = false, message = "Webhook signature mismatch." });
+                return Ok(new { success = false, message = "Chữ ký webhook không hợp lệ." });
             }
 
             var webhook = JsonSerializer.Deserialize<WebhookType>(jsonBody, new JsonSerializerOptions
@@ -100,7 +111,7 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
 
             if (webhook == null || webhook.Data == null)
             {
-                return Ok(new { success = false, message = "Invalid webhook data." });
+                return Ok(new { success = false, message = "Dữ liệu webhook không hợp lệ." });
             }
 
             var command = new ProcessPayosPaymentReturnCommand
@@ -109,19 +120,14 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
             };
 
             await _mediator.Send(command);
-            return Ok(new { success = true, message = "Webhook received." });
+            return Ok(new { success = true, message = "Đã nhận webhook." });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing PayOS webhook");
-            return Ok(new { success = true, message = "Webhook received with internal error." });
+            return Ok(new { success = true, message = "Đã nhận webhook." });
         }
     }
-
-    /// <summary>
-    /// FIXED: Webhook xử lý kết quả thanh toán từ MoMo
-    /// Changed from Manual Stream Reading to [FromBody] for robustness on IIS/Somee
-    /// </summary>
     [HttpPost("momo-ipn")]
     [AllowAnonymous]
     [IgnoreAntiforgeryToken]
@@ -130,9 +136,6 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
     {
         try
         {
-            // [FromBody] handles buffering and deserialization automatically.
-            // This avoids "Stream was not readable" or "Synchronous IO" errors on IIS.
-
             if (ipnData == null)
             {
                 _logger.LogWarning("MoMo IPN payload was null.");
@@ -153,8 +156,6 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing MoMo IPN");
-            // Always return 204 to MoMo to prevent them from retrying continuously 
-            // if the error is internal logic (database, etc).
             return NoContent();
         }
     }
@@ -176,4 +177,87 @@ public class DonationController(IMediator mediator, IPaymentGatewayService payme
             return Redirect(cancelUrl ?? "http://localhost:5173/fail");
         }
     }
-}
+
+    [HttpPost("zalopay-callback")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ProcessZaloPayCallback()
+    {
+        try
+        {
+            Request.EnableBuffering();
+            string jsonBody;
+            using (var reader = new StreamReader(Request.Body, leaveOpen: true))
+            {
+                jsonBody = await reader.ReadToEndAsync();
+                Request.Body.Position = 0;
+            }
+
+            if (string.IsNullOrWhiteSpace(jsonBody))
+            {
+                return Ok(new { return_code = 2, return_message = "invalid payload" });
+            }
+
+            var gatewayService = _paymentGatewayFactory.GetService("ZALOPAY");
+
+            var isValidSignature = gatewayService.VerifyWebhookSignature(jsonBody);
+
+            if (!isValidSignature)
+            {
+                _logger.LogWarning("ZaloPay Webhook signature mismatch.");
+                return Ok(new { return_code = 2, return_message = "mac not equal" });
+            }
+
+            var callbackData = JsonSerializer.Deserialize<ZaloPayCallbackRequest>(jsonBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (callbackData == null || string.IsNullOrEmpty(callbackData.Data) || string.IsNullOrEmpty(callbackData.Mac))
+            {
+                return Ok(new { return_code = 2, return_message = "invalid payload format" });
+            }
+
+            var command = new ProcessZaloPayPaymentCommand
+            {
+                CallbackData = callbackData
+            };
+
+            var success = await _mediator.Send(command);
+
+            return Ok(new
+            {
+                return_code = success ? 1 : 2,
+                return_message = success ? "success" : "failed"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing ZaloPay webhook");
+            return Ok(new { return_code = 2, return_message = "internal error" });
+        }
+    }
+    /// <summary>
+    /// Fallback endpoint called by the frontend after ZaloPay redirects the user back.
+    /// Queries ZaloPay Order Query API directly to confirm payment and update entities
+    /// when the ZaloPay callback (IPN) was not received (common in sandbox).
+    /// </summary>
+    [HttpGet("zalopay-verify")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> VerifyZaloPayPayment([FromQuery] string apptransid)
+    {
+        if (string.IsNullOrWhiteSpace(apptransid))
+            return BadRequest(new { success = false, message = "Vui lòng cung cấp mã giao dịch apptransid." });
+
+        try
+        {
+            var command = new VerifyZaloPayPaymentCommand { AppTransId = apptransid };
+            var success = await _mediator.Send(command);
+            return Ok(new { success, message = success ? "Xác minh và ghi nhận thanh toán thành công." : "Thanh toán chưa được xác nhận hoặc đã xử lý trước đó." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying ZaloPay payment for apptransid={AppTransId}", apptransid);
+            return Ok(new { success = false, message = "Đã xảy ra lỗi trong quá trình xác minh." });
+        }
+    }}

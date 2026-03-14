@@ -37,15 +37,15 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
         // 1. Validate Campaign
         var campaign = await _fundCampaignRepository.GetByIdAsync(request.FundCampaignId, cancellationToken);
         if (campaign == null)
-            throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y chiáº¿n dá»‹ch vá»›i ID {request.FundCampaignId}");
+            throw new NotFoundException($"Không tìm thấy chiến dịch với ID {request.FundCampaignId}");
 
         if (campaign.Status != FundCampaignStatus.Active)
-            throw new InvalidCampaignStatusException(campaign.Id, campaign.Status.ToString(), "Nháº­n á»§ng há»™");
+            throw new InvalidCampaignStatusException(campaign.Id, campaign.Status.ToString(), "Nhận ủng hộ");
 
         // 2. Validate Payment Method from DB
         var paymentMethodEntity = await _paymentMethodRepository.GetByIdAsync(request.PaymentMethodId, cancellationToken);
         if (paymentMethodEntity == null || !paymentMethodEntity.IsActive)
-            throw new BadRequestException("PhÆ°Æ¡ng thá»©c thanh toÃ¡n khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ ngÆ°ng hoáº¡t Ä‘á»™ng.");
+            throw new BadRequestException("Phương thức thanh toán không hợp lệ hoặc đã ngừng hoạt động.");
 
         // 3. Create Donation
         long orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -68,10 +68,10 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
 
         await _donationRepository.CreateAsync(donationModel, cancellationToken);
         if (await _unitOfWork.SaveAsync() < 1)
-            throw new CreateFailedException("ÄÆ¡n á»§ng há»™");
+            throw new CreateFailedException("đơn ủng hộ");
         
         var addedDonation = await _donationRepository.GetByOrderIdAsync(orderCode.ToString(), cancellationToken);
-        if (addedDonation == null) throw new Exception("Lá»—i khi truy xuáº¥t Ä‘Æ¡n á»§ng há»™.");
+        if (addedDonation == null) throw new Exception("Lỗi khi truy xuất đơn ủng hộ.");
 
         // 4. Resolve Gateway Service using the Code from DB Entity
         addedDonation.FundCampaignCode = campaign.Code;

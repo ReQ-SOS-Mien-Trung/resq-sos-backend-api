@@ -88,7 +88,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RefreshToken
         private ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
-            var secretKey = jwtSettings["SecretKey"] ?? throw new BadRequestException("JWT SecretKey is not configured");
+            var secretKey = jwtSettings["SecretKey"] ?? throw new BadRequestException("Lỗi cấu hình máy chủ: JWT SecretKey chưa được thiết lập.");
 
             var tokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
             {

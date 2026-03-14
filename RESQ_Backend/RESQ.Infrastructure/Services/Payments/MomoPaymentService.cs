@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Models.Finance.Momo;
+using RESQ.Application.Common.Models.Finance.ZaloPay;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 using System.Net.Http.Json;
@@ -45,10 +46,10 @@ public class MomoPaymentService : IPaymentGatewayService
         var requestType = "captureWallet";
 
         if (string.IsNullOrEmpty(accessKey) || string.IsNullOrEmpty(secretKey) || string.IsNullOrEmpty(partnerCode) || string.IsNullOrEmpty(endpoint))
-            throw new Exception("Momo configuration is missing (AccessKey, SecretKey, PartnerCode, MomoApiUrl).");
+            throw new Exception("Cấu hình MoMo bị thiếu (AccessKey, SecretKey, PartnerCode, MomoApiUrl).");
 
-        if (string.IsNullOrEmpty(redirectUrl)) throw new Exception("Momo configuration requires RedirectUrl.");
-        if (string.IsNullOrEmpty(ipnUrl)) throw new Exception("Momo configuration requires IpnUrl.");
+        if (string.IsNullOrEmpty(redirectUrl)) throw new Exception("Cấu hình MoMo thiếu RedirectUrl.");
+        if (string.IsNullOrEmpty(ipnUrl)) throw new Exception("Cấu hình MoMo thiếu IpnUrl.");
 
         // 2. Prepare Data
         // OrderId must follow regex ^[0-9a-zA-Z]([-_.]*[0-9a-zA-Z]+)*$
@@ -66,7 +67,7 @@ public class MomoPaymentService : IPaymentGatewayService
         // Validation: Amount 1,000 - 50,000,000
         if (amount < 1000 || amount > 50000000)
         {
-            throw new Exception("Sá»‘ tiá»n khÃ´ng há»£p lá»‡. MoMo yÃªu cáº§u tá»« 1,000 Ä‘áº¿n 50,000,000 VND.");
+            throw new Exception("Số tiền không hợp lệ. MoMo yêu cầu từ 1,000 đến 50,000,000 VND.");
         }
 
         var orderInfo = $"Ung ho {donation.FundCampaignCode ?? "RESQ"}";
@@ -126,7 +127,7 @@ public class MomoPaymentService : IPaymentGatewayService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to connect to MoMo API.");
-            throw new Exception("Could not connect to payment gateway.");
+            throw new Exception("Không thể kết nối tới cổng thanh toán MoMo.");
         }
 
         // 7. Read & Log Response
@@ -139,7 +140,7 @@ public class MomoPaymentService : IPaymentGatewayService
         {
             _logger.LogError("Momo API HTTP Error: {StatusCode} - {Content}", response.StatusCode, responseContent);
             // Append the response body to the error message so the user can easily debug 400 Bad Request
-            throw new Exception($"Momo API call failed with status code {response.StatusCode}. Response: {responseContent}");
+            throw new Exception($"Lỗi kết nối MoMo (HTTP {(int)response.StatusCode}).");
         }
 
         // 8. Deserialize & Validate
@@ -152,18 +153,18 @@ public class MomoPaymentService : IPaymentGatewayService
         catch (JsonException ex)
         {
              _logger.LogError(ex, "Failed to deserialize MoMo response.");
-             throw new Exception("Invalid response format from MoMo gateway.");
+             throw new Exception("Phản hồi từ MoMo không đúng định dạng.");
         }
 
         if (momoResponse == null)
         {
-            throw new Exception("Received null response from MoMo.");
+            throw new Exception("Không nhận được phản hồi từ MoMo.");
         }
 
         if (momoResponse.ResultCode != 0)
         {
              _logger.LogError("Momo Business Error: Code {Code}, Message {Msg}", momoResponse.ResultCode, momoResponse.Message);
-             throw new Exception($"Momo payment creation failed: {momoResponse.Message} (Code: {momoResponse.ResultCode})");
+             throw new Exception($"MoMo từ chối tạo thanh toán: {momoResponse.Message} (Mã lỗi: {momoResponse.ResultCode})");
         }
 
         // 9. Return Result
@@ -181,6 +182,9 @@ public class MomoPaymentService : IPaymentGatewayService
         // Not used for generic validation in this architecture, specific logic is in ProcessMomoPaymentHandler
         return true; 
     }
+
+    public Task<ZaloPayQueryResponse?> QueryOrderAsync(string appTransId, CancellationToken cancellationToken = default)
+        => Task.FromResult<ZaloPayQueryResponse?>(null); // Not supported by MoMo
 
     private string ComputeHmacSha256(string message, string secretKey)
     {

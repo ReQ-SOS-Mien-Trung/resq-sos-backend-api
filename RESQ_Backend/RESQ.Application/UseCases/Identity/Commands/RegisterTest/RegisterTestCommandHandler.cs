@@ -53,7 +53,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterTest
 
             if (succeedCount < 1)
             {
-                throw new CreateFailedException("User");
+                throw new CreateFailedException("tài khoản người dùng");
             }
 
             _logger.LogInformation("User registered successfully (test): UserId={userId} Phone={phone}", user.Id, request.Phone);

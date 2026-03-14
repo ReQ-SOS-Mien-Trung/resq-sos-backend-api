@@ -23,7 +23,7 @@ public class GetSosRequestQueryHandler(
 
         var sosRequest = await _sosRequestRepository.GetByIdAsync(request.Id, cancellationToken);
         if (sosRequest is null)
-            throw new NotFoundException("SosRequest");
+            throw new NotFoundException("Không tìm thấy yêu cầu SOS");
 
         if (request.RequestingRoleId == VICTIM_ROLE_ID && sosRequest.UserId != request.RequestingUserId)
             throw new ForbiddenException("Bạn không có quyền xem SOS request này");

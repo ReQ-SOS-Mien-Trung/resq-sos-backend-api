@@ -63,7 +63,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
 
             if (succeedCount < 1)
             {
-                throw new CreateFailedException("Rescuer");
+                throw new CreateFailedException("hồ sơ cứu hộ");
             }
 
             // Send verification email

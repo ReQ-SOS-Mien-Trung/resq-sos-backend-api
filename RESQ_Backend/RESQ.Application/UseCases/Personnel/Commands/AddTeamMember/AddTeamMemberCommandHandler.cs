@@ -22,7 +22,7 @@ public class AddTeamMemberCommandHandler(
             ?? throw new NotFoundException($"Không tìm thấy đội id = {request.TeamId}");
 
         var user = await userRepository.GetByIdAsync(request.UserId, ct)
-            ?? throw new NotFoundException("User not found");
+            ?? throw new NotFoundException($"Không tìm thấy người dùng với ID = {request.UserId}");
 
         if (user.RoleId != 3)
             throw new BadRequestException($"Người dùng {user.FirstName} {user.LastName} không phải là nhân sự cứu hộ (Role Rescuer).");
