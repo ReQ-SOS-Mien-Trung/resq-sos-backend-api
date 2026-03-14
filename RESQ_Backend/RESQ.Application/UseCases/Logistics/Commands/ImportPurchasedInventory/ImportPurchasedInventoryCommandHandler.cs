@@ -33,121 +33,150 @@ public class ImportPurchasedInventoryCommandHandler(
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động. Không thể nhập hàng.");
         }
 
-        // 2. Business Rule: Guard duplicate VAT invoice (InvoiceSerial + InvoiceNumber must be unique)
-        var vat = request.VatInvoice;
-        if (!string.IsNullOrWhiteSpace(vat.InvoiceSerial) && !string.IsNullOrWhiteSpace(vat.InvoiceNumber))
-        {
-            var isDuplicate = await _purchasedInventoryRepository.ExistsBySerialAndNumberAsync(
-                vat.InvoiceSerial.Trim(), vat.InvoiceNumber.Trim(), cancellationToken);
-            if (isDuplicate)
-            {
-                throw new ConflictException($"Hóa đơn VAT với ký hiệu '{vat.InvoiceSerial}' và số '{vat.InvoiceNumber}' đã tồn tại trong hệ thống.");
-            }
-        }
-
         // 2. Tải tất cả danh mục để mapping hiệu quả
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
 
-        // 3. Validate từng item và chuẩn bị domain models
-        var validItems = new List<(ImportPurchasedItemDto dto, ReliefItemModel reliefItem)>();
-        var errors = new List<ImportPurchasedErrorDto>();
+        // 3. Guard trùng serial+number ngay trong cùng request
+        var seenInvoices = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var item in request.Items)
+        try
         {
-            try
+            for (int i = 0; i < request.Invoices.Count; i++)
             {
-                var category = categories.FirstOrDefault(c =>
-                    string.Equals(c.Code.ToString(), item.CategoryCode, StringComparison.OrdinalIgnoreCase));
+                var group = request.Invoices[i];
+                var groupResult = new ImportPurchaseGroupResultDto { GroupIndex = i };
 
-                if (category == null)
+                // 3a. Kiểm tra trùng hóa đơn VAT
+                var vat = group.VatInvoice;
+                if (!string.IsNullOrWhiteSpace(vat.InvoiceSerial) && !string.IsNullOrWhiteSpace(vat.InvoiceNumber))
                 {
-                    errors.Add(new ImportPurchasedErrorDto { Row = item.Row, Message = $"Không tìm thấy danh mục vật phẩm có mã: {item.CategoryCode}" });
+                    var key = $"{vat.InvoiceSerial.Trim()}|{vat.InvoiceNumber.Trim()}";
+
+                    if (!seenInvoices.Add(key))
+                    {
+                        throw new ConflictException(
+                            $"Nhóm {i + 1}: Hóa đơn VAT ký hiệu '{vat.InvoiceSerial}' số '{vat.InvoiceNumber}' bị trùng lặp trong cùng yêu cầu nhập hàng.");
+                    }
+
+                    var isDuplicate = await _purchasedInventoryRepository.ExistsBySerialAndNumberAsync(
+                        vat.InvoiceSerial.Trim(), vat.InvoiceNumber.Trim(), cancellationToken);
+                    if (isDuplicate)
+                    {
+                        throw new ConflictException(
+                            $"Nhóm {i + 1}: Hóa đơn VAT ký hiệu '{vat.InvoiceSerial}' số '{vat.InvoiceNumber}' đã tồn tại trong hệ thống.");
+                    }
+                }
+
+                // 3b. Validate từng vật phẩm trong nhóm
+                var validItems = new List<(ImportPurchasedItemDto dto, ReliefItemModel reliefItem)>();
+                var errors = new List<ImportPurchasedErrorDto>();
+
+                foreach (var item in group.Items)
+                {
+                    try
+                    {
+                        var category = categories.FirstOrDefault(c =>
+                            string.Equals(c.Code.ToString(), item.CategoryCode, StringComparison.OrdinalIgnoreCase));
+
+                        if (category == null)
+                        {
+                            errors.Add(new ImportPurchasedErrorDto
+                            {
+                                Row = item.Row,
+                                Message = $"Không tìm thấy danh mục vật phẩm có mã: {item.CategoryCode}"
+                            });
+                            continue;
+                        }
+
+                        var reliefItemModel = ReliefItemModel.Create(
+                            category.Id,
+                            item.ItemName,
+                            item.Unit,
+                            item.ItemType,
+                            item.TargetGroup);
+
+                        validItems.Add((item, reliefItemModel));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Lỗi khi validate vật phẩm dòng {Row} nhóm {GroupIndex}", item.Row, i);
+                        errors.Add(new ImportPurchasedErrorDto { Row = item.Row, Message = ex.Message });
+                    }
+                }
+
+                groupResult.Failed = errors.Count;
+                groupResult.Errors = errors;
+
+                if (validItems.Count == 0)
+                {
+                    response.Groups.Add(groupResult);
+                    response.TotalFailed += errors.Count;
                     continue;
                 }
 
-                var reliefItemModel = ReliefItemModel.Create(
-                    category.Id,
-                    item.ItemName,
-                    item.Unit,
-                    item.ItemType,
-                    item.TargetGroup);
+                // 4. Tạo hóa đơn VAT cho nhóm này
+                var vatInvoiceModel = VatInvoiceModel.Create(
+                    vat.InvoiceSerial,
+                    vat.InvoiceNumber,
+                    vat.SupplierName,
+                    vat.SupplierTaxCode,
+                    vat.InvoiceDate,
+                    vat.TotalAmount,
+                    vat.FileUrl);
 
-                validItems.Add((item, reliefItemModel));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Lỗi khi validate vật phẩm dòng {Row}", item.Row);
-                errors.Add(new ImportPurchasedErrorDto { Row = item.Row, Message = ex.Message });
-            }
-        }
+                var savedVatInvoice = await _purchasedInventoryRepository.CreateVatInvoiceAsync(vatInvoiceModel, cancellationToken);
 
-        response.Failed = errors.Count;
-        response.Errors = errors;
+                // 5. Bulk lấy/tạo relief items cho nhóm này
+                var reliefItemModels = validItems.Select(x => x.reliefItem).ToList();
+                var savedReliefItems = await _purchasedInventoryRepository.GetOrCreateReliefItemsBulkAsync(reliefItemModels, cancellationToken);
 
-        if (validItems.Count == 0)
-        {
-            return response;
-        }
-
-        // 4. Thực hiện tất cả thao tác bulk trong transaction để đảm bảo tính atomicity
-        try
-        {
-            // Tạo hóa đơn VAT
-            var vatInvoiceModel = VatInvoiceModel.Create(
-                request.VatInvoice.InvoiceSerial,
-                request.VatInvoice.InvoiceNumber,
-                request.VatInvoice.SupplierName,
-                request.VatInvoice.SupplierTaxCode,
-                request.VatInvoice.InvoiceDate,
-                request.VatInvoice.TotalAmount,
-                request.VatInvoice.FileUrl);
-
-            var savedVatInvoice = await _purchasedInventoryRepository.CreateVatInvoiceAsync(vatInvoiceModel, cancellationToken);
-
-            // Bulk tạo/lấy relief items
-            var reliefItemModels = validItems.Select(x => x.reliefItem).ToList();
-            var savedReliefItems = await _purchasedInventoryRepository.GetOrCreateReliefItemsBulkAsync(reliefItemModels, cancellationToken);
-
-            // Map lại ReliefItemId và tạo PurchasedInventoryItemModel
-            var purchasedModels = new List<PurchasedInventoryItemModel>();
-            foreach (var (dto, reliefItem) in validItems)
-            {
-                var savedReliefItem = savedReliefItems.FirstOrDefault(r =>
-                    r.Name == reliefItem.Name &&
-                    r.CategoryId == reliefItem.CategoryId &&
-                    r.Unit == reliefItem.Unit &&
-                    r.ItemType == reliefItem.ItemType &&
-                    r.TargetGroup == reliefItem.TargetGroup);
-
-                if (savedReliefItem != null)
+                // 6. Map lại ReliefItemId và tạo PurchasedInventoryItemModel
+                var purchasedModels = new List<(PurchasedInventoryItemModel model, decimal? unitPrice)>();
+                foreach (var (dto, reliefItem) in validItems)
                 {
-                    var purchasedModel = PurchasedInventoryItemModel.Create(
-                        savedVatInvoice.Id,
-                        savedReliefItem.Id,
-                        dto.Quantity,
-                        dto.UnitPrice,
-                        dto.ReceivedDate,
-                        dto.ExpiredDate,
-                        dto.Notes,
-                        request.UserId,
-                        depotId.Value);
+                    var savedReliefItem = savedReliefItems.FirstOrDefault(r =>
+                        r.Name == reliefItem.Name &&
+                        r.CategoryId == reliefItem.CategoryId &&
+                        r.Unit == reliefItem.Unit &&
+                        r.ItemType == reliefItem.ItemType &&
+                        r.TargetGroup == reliefItem.TargetGroup);
 
-                    purchasedModels.Add(purchasedModel);
+                    if (savedReliefItem != null)
+                    {
+                        var purchasedModel = PurchasedInventoryItemModel.Create(
+                            savedVatInvoice.Id,
+                            savedReliefItem.Id,
+                            dto.Quantity,
+                            dto.ReceivedDate,
+                            dto.ExpiredDate,
+                            dto.Notes,
+                            request.UserId,
+                            depotId.Value);
+
+                        purchasedModels.Add((purchasedModel, dto.UnitPrice));
+                    }
                 }
+
+                // 7. Bulk insert — kiểm tra sức chứa kho và lưu inventory log
+                await _purchasedInventoryRepository.AddPurchasedInventoryItemsBulkAsync(purchasedModels, cancellationToken);
+
+                groupResult.VatInvoiceId = savedVatInvoice.Id;
+                groupResult.Imported = purchasedModels.Count;
+
+                response.Groups.Add(groupResult);
+                response.TotalImported += purchasedModels.Count;
+                response.TotalFailed += errors.Count;
             }
 
-            // Bulk insert purchased items, cập nhật tồn kho và tạo inventory log
-            await _purchasedInventoryRepository.AddPurchasedInventoryItemsBulkAsync(purchasedModels, cancellationToken);
-
-            // Lưu toàn bộ trong transaction
+            // 8. Commit tất cả các nhóm trong 1 transaction
             await _unitOfWork.SaveChangesWithTransactionAsync();
-
-            response.Imported = purchasedModels.Count;
-            response.VatInvoiceId = savedVatInvoice.Id;
         }
         catch (DomainException)
         {
-            // Let DomainExceptionBehaviour convert this to HTTP 400 with the domain message
+            throw;
+        }
+        catch (ConflictException)
+        {
             throw;
         }
         catch (Exception ex)

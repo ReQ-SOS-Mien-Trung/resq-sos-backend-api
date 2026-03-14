@@ -114,7 +114,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    [HttpGet("transactions/my-depot")]
+    [HttpGet("stock-movements/my-depot")]
     public async Task<IActionResult> GetTransactionHistory(
         [FromQuery] List<InventoryActionType>? actionTypes,
         [FromQuery] List<InventorySourceType>? sourceTypes,
@@ -206,8 +206,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         var command = new ImportPurchasedInventoryCommand
         {
             UserId = userId,
-            VatInvoice = request.VatInvoice,
-            Items = request.Items
+            Invoices = request.Invoices
         };
 
         var result = await _mediator.Send(command);

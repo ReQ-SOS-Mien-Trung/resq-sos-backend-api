@@ -70,6 +70,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<UserNotification> UserNotifications { get; set; }
     public virtual DbSet<UserPermission> UserPermissions { get; set; }
     public virtual DbSet<VatInvoice> VatInvoices { get; set; }
+    public virtual DbSet<VatInvoiceItem> VatInvoiceItems { get; set; }
     public virtual DbSet<Vehicle> Vehicles { get; set; }
     public virtual DbSet<VehicleActivityLog> VehicleActivityLogs { get; set; }
     public virtual DbSet<VehicleCategory> VehicleCategories { get; set; }

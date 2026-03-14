@@ -49,4 +49,7 @@ public partial class ReliefItem
 
     [InverseProperty("ReliefItem")]
     public virtual ICollection<OrganizationReliefItem> OrganizationReliefItems { get; set; } = new List<OrganizationReliefItem>();
+
+    [InverseProperty("ReliefItem")]
+    public virtual ICollection<VatInvoiceItem> VatInvoiceItems { get; set; } = new List<VatInvoiceItem>();
 }
