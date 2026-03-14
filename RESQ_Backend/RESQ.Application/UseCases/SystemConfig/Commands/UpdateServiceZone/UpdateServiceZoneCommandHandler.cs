@@ -39,9 +39,6 @@ public class UpdateServiceZoneCommandHandler(
         await _serviceZoneRepository.UpdateAsync(existing, cancellationToken);
         await _unitOfWork.SaveAsync();
 
-        if (existing.IsActive)
-            await _serviceZoneRepository.DeactivateAllExceptAsync(existing.Id, cancellationToken);
-
         return new UpdateServiceZoneResponse
         {
             Id = existing.Id,

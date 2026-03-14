@@ -110,14 +110,16 @@ namespace RESQ.Infrastructure.Persistence.Identity
             }
         }
 
-        public async Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, CancellationToken cancellationToken = default)
         {
             var paged = await _unitOfWork.GetRepository<User>().GetPagedAsync(
                 pageNumber,
                 pageSize,
                 filter: u =>
                     (roleId == null || u.RoleId == roleId) &&
+                    (excludeRoleId == null || u.RoleId != excludeRoleId) &&
                     (isBanned == null || u.IsBanned == isBanned) &&
+                    (isEligible == null || u.IsEligibleRescuer == isEligible) &&
                     (search == null || (u.Phone != null && u.Phone.Contains(search)) ||
                      (u.Email != null && u.Email.Contains(search)) ||
                      (u.FirstName != null && u.FirstName.Contains(search)) ||

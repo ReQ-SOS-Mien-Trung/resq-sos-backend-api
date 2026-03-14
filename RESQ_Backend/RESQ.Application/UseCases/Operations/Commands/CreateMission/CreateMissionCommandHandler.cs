@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.CreateMission;
@@ -12,12 +13,14 @@ namespace RESQ.Application.UseCases.Operations.Commands.CreateMission;
 public class CreateMissionCommandHandler(
     IMissionRepository missionRepository,
     ISosClusterRepository sosClusterRepository,
+    ISosRequestRepository sosRequestRepository,
     IUnitOfWork unitOfWork,
     ILogger<CreateMissionCommandHandler> logger
 ) : IRequestHandler<CreateMissionCommand, CreateMissionResponse>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<CreateMissionCommandHandler> _logger = logger;
 
@@ -63,6 +66,9 @@ public class CreateMissionCommandHandler(
         // Mark cluster as having a mission created
         cluster.IsMissionCreated = true;
         await _sosClusterRepository.UpdateAsync(cluster, cancellationToken);
+
+        // Update all SOS requests in cluster to Assigned
+        await _sosRequestRepository.UpdateStatusByClusterIdAsync(request.ClusterId, SosRequestStatus.Assigned, cancellationToken);
 
         await _unitOfWork.SaveAsync();
 

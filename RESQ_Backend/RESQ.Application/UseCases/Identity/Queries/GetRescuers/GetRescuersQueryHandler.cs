@@ -1,23 +1,24 @@
 using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Identity;
+using RESQ.Application.UseCases.Identity.Queries.GetUsers;
 
-namespace RESQ.Application.UseCases.Identity.Queries.GetUsers;
+namespace RESQ.Application.UseCases.Identity.Queries.GetRescuers;
 
-public class GetUsersQueryHandler(IUserRepository userRepository)
-    : IRequestHandler<GetUsersQuery, PagedResult<GetUsersItemResponse>>
+public class GetRescuersQueryHandler(IUserRepository userRepository)
+    : IRequestHandler<GetRescuersQuery, PagedResult<GetUsersItemResponse>>
 {
     private readonly IUserRepository _userRepository = userRepository;
 
-    public async Task<PagedResult<GetUsersItemResponse>> Handle(GetUsersQuery request, CancellationToken cancellationToken)
+    public async Task<PagedResult<GetUsersItemResponse>> Handle(GetRescuersQuery request, CancellationToken cancellationToken)
     {
         var paged = await _userRepository.GetPagedAsync(
             request.PageNumber,
             request.PageSize,
-            request.RoleId,
-            request.IsBanned,
-            request.Search,
-            excludeRoleId: 3, // exclude Rescuers — use dedicated /rescuers endpoint
+            roleId: 3,
+            isBanned: request.IsBanned,
+            search: request.Search,
+            isEligible: request.IsEligible,
             cancellationToken: cancellationToken);
 
         var items = paged.Items.Select(u => new GetUsersItemResponse

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
@@ -24,6 +25,8 @@ public class UpdateActivityStatusCommandHandler(
         var activity = await _activityRepository.GetByIdAsync(request.ActivityId, cancellationToken);
         if (activity is null)
             throw new NotFoundException($"Không tìm thấy activity với ID: {request.ActivityId}");
+
+        MissionActivityStateMachine.EnsureValidTransition(activity.Status, request.Status);
 
         await _activityRepository.UpdateStatusAsync(request.ActivityId, request.Status, request.DecisionBy, cancellationToken);
         await _unitOfWork.SaveAsync();

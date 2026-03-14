@@ -3,13 +3,16 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
+using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Application.UseCases.Operations.Commands.CreateMission;
+using RESQ.Application.UseCases.Operations.Commands.UnassignTeamFromMission;
 using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMission;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionActivity;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
+using RESQ.Application.UseCases.Operations.Queries.GetMissionTeams;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetRescuerRoute;
 
@@ -202,6 +205,54 @@ public class MissionController(IMediator mediator) : ControllerBase
         [FromQuery] string vehicle = "car")
     {
         var result = await _mediator.Send(new GetRescuerRouteQuery(activityId, originLat, originLng, vehicle));
+        return Ok(result);
+    }
+
+    // ============================================================
+    // TEAM ASSIGNMENTS
+    // ============================================================
+
+    /// <summary>
+    /// Lấy danh sách đội cứu hộ được giao cho một mission.
+    /// </summary>
+    [HttpGet("{missionId:int}/teams")]
+    [Authorize(Roles = "1,2,3,4")]
+    public async Task<IActionResult> GetMissionTeams([FromRoute] int missionId)
+    {
+        var result = await _mediator.Send(new GetMissionTeamsQuery(missionId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Coordinator giao một đội cứu hộ vào mission.
+    /// Đội phải ở trạng thái Available. Sau khi giao, đội chuyển sang Assigned.
+    /// </summary>
+    [HttpPost("{missionId:int}/teams")]
+    [Authorize(Roles = "1,2")]
+    public async Task<IActionResult> AssignTeamToMission([FromRoute] int missionId, [FromBody] AssignTeamToMissionRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var command = new AssignTeamToMissionCommand(missionId, dto.RescueTeamId, dto.TeamType, dto.Note, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Gỡ một đội cứu hộ khỏi mission (chỉ khi đội chưa bắt đầu thực thi).
+    /// </summary>
+    [HttpDelete("{missionId:int}/teams/{missionTeamId:int}")]
+    [Authorize(Roles = "1,2")]
+    public async Task<IActionResult> UnassignTeamFromMission([FromRoute] int missionId, [FromRoute] int missionTeamId)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var command = new UnassignTeamFromMissionCommand(missionTeamId, userId);
+        var result = await _mediator.Send(command);
         return Ok(result);
     }
 }

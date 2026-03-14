@@ -1,0 +1,31 @@
+using MediatR;
+using RESQ.Application.Repositories.Operations;
+
+namespace RESQ.Application.UseCases.Operations.Queries.GetMissionTeams;
+
+public class GetMissionTeamsQueryHandler(
+    IMissionTeamRepository missionTeamRepository
+) : IRequestHandler<GetMissionTeamsQuery, GetMissionTeamsResponse>
+{
+    public async Task<GetMissionTeamsResponse> Handle(GetMissionTeamsQuery request, CancellationToken cancellationToken)
+    {
+        var teams = await missionTeamRepository.GetByMissionIdAsync(request.MissionId, cancellationToken);
+
+        return new GetMissionTeamsResponse
+        {
+            MissionId = request.MissionId,
+            Teams = teams.Select(t => new MissionTeamDto
+            {
+                MissionTeamId = t.Id,
+                RescueTeamId = t.RescuerTeamId,
+                TeamName = t.TeamName,
+                TeamCode = t.TeamCode,
+                TeamType = t.TeamType,
+                Status = t.Status,
+                Note = t.Note,
+                AssignedAt = t.AssignedAt,
+                UnassignedAt = t.UnassignedAt
+            }).ToList()
+        };
+    }
+}

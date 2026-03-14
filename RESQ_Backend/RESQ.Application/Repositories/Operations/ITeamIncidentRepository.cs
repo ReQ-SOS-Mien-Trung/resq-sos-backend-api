@@ -1,0 +1,13 @@
+using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
+
+namespace RESQ.Application.Repositories.Operations;
+
+public interface ITeamIncidentRepository
+{
+    Task<TeamIncidentModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<IEnumerable<TeamIncidentModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<TeamIncidentModel>> GetByMissionTeamIdAsync(int missionTeamId, CancellationToken cancellationToken = default);
+    Task<int> CreateAsync(TeamIncidentModel model, CancellationToken cancellationToken = default);
+    Task UpdateStatusAsync(int id, TeamIncidentStatus status, CancellationToken cancellationToken = default);
+}

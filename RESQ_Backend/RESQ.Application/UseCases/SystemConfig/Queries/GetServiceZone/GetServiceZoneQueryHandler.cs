@@ -6,18 +6,19 @@ using RESQ.Application.UseCases.SystemConfig.Commands.UpdateServiceZone;
 namespace RESQ.Application.UseCases.SystemConfig.Queries.GetServiceZone;
 
 public class GetServiceZoneQueryHandler(IServiceZoneRepository serviceZoneRepository)
-    : IRequestHandler<GetServiceZoneQuery, GetServiceZoneResponse>,
+    : IRequestHandler<GetServiceZoneQuery, List<GetServiceZoneResponse>>,
       IRequestHandler<GetServiceZoneByIdQuery, GetServiceZoneResponse>,
       IRequestHandler<GetAllServiceZoneQuery, List<GetServiceZoneResponse>>
 {
     private readonly IServiceZoneRepository _serviceZoneRepository = serviceZoneRepository;
 
-    public async Task<GetServiceZoneResponse> Handle(GetServiceZoneQuery request, CancellationToken cancellationToken)
+    public async Task<List<GetServiceZoneResponse>> Handle(GetServiceZoneQuery request, CancellationToken cancellationToken)
     {
-        var zone = await _serviceZoneRepository.GetActiveAsync(cancellationToken)
-            ?? throw new NotFoundException("Chưa có vùng phục vụ nào được cấu hình.");
+        var zones = await _serviceZoneRepository.GetAllActiveAsync(cancellationToken);
+        if (zones.Count == 0)
+            throw new NotFoundException("Chưa có vùng phục vụ nào đang active.");
 
-        return ToResponse(zone);
+        return zones.Select(ToResponse).ToList();
     }
 
     public async Task<GetServiceZoneResponse> Handle(GetServiceZoneByIdQuery request, CancellationToken cancellationToken)

@@ -18,6 +18,13 @@ public class ServiceZoneRepository(IUnitOfWork unitOfWork) : IServiceZoneReposit
         return entity == null ? null : ServiceZoneMapper.ToDomain(entity);
     }
 
+    public async Task<List<ServiceZoneModel>> GetAllActiveAsync(CancellationToken cancellationToken = default)
+    {
+        var entities = await _unitOfWork.GetRepository<ServiceZone>()
+            .GetAllByPropertyAsync(x => x.IsActive);
+        return entities.Select(ServiceZoneMapper.ToDomain).ToList();
+    }
+
     public async Task<ServiceZoneModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<ServiceZone>()
@@ -63,24 +70,32 @@ public class ServiceZoneRepository(IUnitOfWork unitOfWork) : IServiceZoneReposit
 
     public async Task<bool> IsLocationInServiceZoneAsync(double latitude, double longitude, CancellationToken cancellationToken = default)
     {
-        var zone = await GetActiveAsync(cancellationToken);
-        if (zone == null || zone.Coordinates.Count < 3)
-            return true; // Không có vùng → không giới hạn
+        var activeZones = await GetAllActiveAsync(cancellationToken);
+        var validZones = activeZones.Where(z => z.Coordinates.Count >= 3).ToList();
+
+        if (validZones.Count == 0)
+            return true; // Không có vùng nào được cấu hình → không giới hạn
 
         var factory = new GeometryFactory(new PrecisionModel(), 4326);
-
-        // Đảm bảo polygon khép kín (điểm đầu = điểm cuối)
-        var coords = zone.Coordinates
-            .Select(c => new Coordinate(c.Longitude, c.Latitude))
-            .ToList();
-
-        if (!coords.First().Equals2D(coords.Last()))
-            coords.Add(coords.First());
-
-        var ring = factory.CreateLinearRing(coords.ToArray());
-        var polygon = factory.CreatePolygon(ring);
-
         var point = factory.CreatePoint(new Coordinate(longitude, latitude));
-        return polygon.Covers(point);
+
+        // Tọa độ nằm trong ít nhất một vùng active là được chấp nhận
+        foreach (var zone in validZones)
+        {
+            var coords = zone.Coordinates
+                .Select(c => new Coordinate(c.Longitude, c.Latitude))
+                .ToList();
+
+            if (!coords.First().Equals2D(coords.Last()))
+                coords.Add(coords.First());
+
+            var ring = factory.CreateLinearRing(coords.ToArray());
+            var polygon = factory.CreatePolygon(ring);
+
+            if (polygon.Covers(point))
+                return true;
+        }
+
+        return false;
     }
 }
