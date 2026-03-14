@@ -31,7 +31,7 @@ public class GetSosEvaluationQueryHandler(
         // 1. Kiểm tra SOS request tồn tại
         var sosRequest = await _sosRequestRepository.GetByIdAsync(request.SosRequestId, cancellationToken);
         if (sosRequest is null)
-            throw new NotFoundException("SosRequest");
+            throw new NotFoundException("Không tìm thấy yêu cầu SOS");
 
         // 2. Kiểm tra quyền truy cập
         if (request.RequestingRoleId == VICTIM_ROLE_ID && sosRequest.UserId != request.RequestingUserId)

@@ -24,7 +24,7 @@ public class CreateRoleCommandHandler(
         var id = await _roleRepository.CreateAsync(model, cancellationToken);
 
         if (id == 0)
-            throw new CreateFailedException("role");
+            throw new CreateFailedException("vai trò");
 
         return new CreateRoleResponse { Id = id, Name = request.Name };
     }

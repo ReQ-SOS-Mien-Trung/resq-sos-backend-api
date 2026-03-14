@@ -75,7 +75,7 @@ public class AdminCreateUserCommandHandler(
         await _userRepository.CreateAsync(user, cancellationToken);
         var saved = await _unitOfWork.SaveAsync();
         if (saved < 1)
-            throw new CreateFailedException("User");
+            throw new CreateFailedException("tài khoản người dùng");
 
         _logger.LogInformation("Admin created user UserId={UserId}", user.Id);
 

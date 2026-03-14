@@ -55,7 +55,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RescuerConsent
 
             if (succeedCount < 1)
             {
-                throw new CreateFailedException("RescuerConsent");
+                throw new CreateFailedException("đồng ý điều khoản cứu hộ");
             }
 
             _logger.LogInformation("Rescuer consent accepted successfully: UserId={userId}", user.Id);

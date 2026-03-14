@@ -25,7 +25,7 @@ using RESQ.Infrastructure.Services;
 using RESQ.Infrastructure.Services.Finance;
 using RESQ.Infrastructure.Services.Identity;
 using RESQ.Infrastructure.Services.Payments;
-using RESQ.Infrastructure.Services.Personnel;
+//using RESQ.Infrastructure.Services.Personnel;
 
 namespace RESQ.Infrastructure.Extensions;
 
@@ -107,6 +107,7 @@ public static class ServiceCollectionExtensions
         // Payment Services
         services.AddScoped<PayOSService>();
         services.AddScoped<MomoPaymentService>();
+        services.AddScoped<ZaloPayService>();
         services.AddScoped<IPaymentGatewayFactory, PaymentGatewayFactory>();
         services.AddScoped<IPaymentGatewayService>(sp => sp.GetRequiredService<PayOSService>());
 
@@ -116,7 +117,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISosAiAnalysisQueueInternal>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddHostedService<SosAiAnalysisBackgroundService>();
         services.AddHostedService<DonationExpirationBackgroundService>();
-        services.AddHostedService<TeamInvitationExpirationBackgroundService>();
+        //services.AddHostedService<TeamInvitationExpirationBackgroundService>();
         services.AddHostedService<UnverifiedUserCleanupBackgroundService>();
 
         return services;

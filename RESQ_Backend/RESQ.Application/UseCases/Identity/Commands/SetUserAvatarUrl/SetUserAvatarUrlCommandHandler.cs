@@ -35,7 +35,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.SetUserAvatarUrl
 
             if (savedCount < 1)
             {
-                throw new CreateFailedException("SetUserAvatarUrl");
+                throw new CreateFailedException("ảnh đại diện");
             }
 
             _logger.LogInformation("Avatar updated successfully for UserId={UserId}", request.UserId);

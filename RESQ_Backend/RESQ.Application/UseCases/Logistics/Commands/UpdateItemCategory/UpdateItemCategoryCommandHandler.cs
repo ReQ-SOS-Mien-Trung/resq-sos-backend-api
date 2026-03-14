@@ -18,7 +18,7 @@ public class UpdateItemCategoryCommandHandler(
 
         if (category == null)
         {
-            throw new NotFoundException("ItemCategory", request.Id);
+            throw new NotFoundException($"Không tìm thấy danh mục vật tư với ID = {request.Id}");
         }
 
         // Preserve existing Code and update Name/Description

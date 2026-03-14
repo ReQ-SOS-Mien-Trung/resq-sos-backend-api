@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Models.Finance.PayOS;
+using RESQ.Application.Common.Models.Finance.ZaloPay;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 using System.Net.Http.Json;
@@ -40,7 +41,7 @@ public class PayOSService : IPaymentGatewayService
 
         if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(checksumKey))
         {
-            throw new InvalidOperationException("Cáº¥u hÃ¬nh PayOS bá»‹ thiáº¿u hoáº·c khÃ´ng há»£p lá»‡.");
+            throw new InvalidOperationException("Cấu hình PayOS bị thiếu hoặc không hợp lệ.");
         }
 
         long orderCode;
@@ -88,14 +89,14 @@ public class PayOSService : IPaymentGatewayService
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("PayOS Error: {Content}", responseContent);
-            throw new Exception($"Lá»—i táº¡o link thanh toÃ¡n ({response.StatusCode})");
+            throw new Exception($"Lỗi tạo link thanh toán (HTTP {(int)response.StatusCode}).");
         }
 
         var result = JsonSerializer.Deserialize<PayOSResponse<PayOSPaymentLinkData>>(responseContent, 
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         if (result == null || result.Code != "00" || result.Data == null)
-            throw new Exception($"Lá»—i PayOS: {result?.Desc}");
+            throw new Exception($"Lỗi PayOS: {result?.Desc}");
 
         return new PaymentLinkResult
         {
@@ -174,5 +175,8 @@ public class PayOSService : IPaymentGatewayService
         var hash = hmac.ComputeHash(dataBytes);
         return BitConverter.ToString(hash).Replace("-", "").ToLower();
     }
+
+    public Task<ZaloPayQueryResponse?> QueryOrderAsync(string appTransId, CancellationToken cancellationToken = default)
+        => Task.FromResult<ZaloPayQueryResponse?>(null); // Not supported by PayOS
 }
 

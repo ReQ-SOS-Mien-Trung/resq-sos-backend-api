@@ -28,7 +28,7 @@ public class CreatePermissionCommandHandler(
         };
         var id = await _permissionRepository.CreateAsync(model, cancellationToken);
         if (id == 0)
-            throw new CreateFailedException("permission");
+            throw new CreateFailedException("quyền hạn");
 
         return new CreatePermissionResponse
         {

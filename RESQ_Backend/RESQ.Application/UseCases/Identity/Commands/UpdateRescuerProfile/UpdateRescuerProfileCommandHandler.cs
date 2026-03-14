@@ -46,7 +46,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
 
             if (succeedCount < 1)
             {
-                throw new CreateFailedException("UpdateRescuerProfile");
+                throw new CreateFailedException("hồ sơ cứu hộ");
             }
 
             _logger.LogInformation("Rescuer profile updated successfully: UserId={userId}", user.Id);
