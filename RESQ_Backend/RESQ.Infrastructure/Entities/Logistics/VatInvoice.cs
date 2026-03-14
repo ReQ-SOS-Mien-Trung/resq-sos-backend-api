@@ -13,6 +13,10 @@ public partial class VatInvoice
     [Column("id")]
     public int Id { get; set; }
 
+    [Column("invoice_serial")]
+    [StringLength(50)]
+    public string? InvoiceSerial { get; set; }
+
     [Column("invoice_number")]
     [StringLength(50)]
     public string? InvoiceNumber { get; set; }
@@ -42,4 +46,4 @@ public partial class VatInvoice
 
     [InverseProperty("VatInvoice")]
     public virtual ICollection<VehicleActivityLog> VehicleActivityLogs { get; set; } = new List<VehicleActivityLog>();
-}
+}

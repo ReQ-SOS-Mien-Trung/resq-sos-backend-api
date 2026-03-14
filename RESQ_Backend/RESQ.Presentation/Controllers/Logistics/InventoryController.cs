@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
+using RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryActionTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
@@ -186,6 +187,26 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
             UserId = userId,
             OrganizationId = request.OrganizationId,
             OrganizationName = request.OrganizationName,
+            Items = request.Items
+        };
+
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [HttpPost("import-purchase")]
+    public async Task<IActionResult> ImportPurchase([FromBody] ImportPurchasedInventoryRequest request)
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+        {
+            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        }
+
+        var command = new ImportPurchasedInventoryCommand
+        {
+            UserId = userId,
+            VatInvoice = request.VatInvoice,
             Items = request.Items
         };
 
