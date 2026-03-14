@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
+using RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryActionTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
@@ -171,6 +172,40 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
 
         var result = await _mediator.Send(query);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Xuất báo cáo biến động kho ra file Excel.
+    /// Hỗ trợ 3 chế độ: ByMonth, ByYear, ByMonthRange.
+    /// </summary>
+    [HttpGet("export/movements")]
+    public async Task<IActionResult> ExportMovements(
+        [FromQuery] ExportPeriodType periodType,
+        [FromQuery] int? month     = null,
+        [FromQuery] int? year      = null,
+        [FromQuery] int? fromMonth = null,
+        [FromQuery] int? fromYear  = null,
+        [FromQuery] int? toMonth   = null,
+        [FromQuery] int? toYear    = null)
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+
+        var query = new ExportInventoryMovementQuery
+        {
+            UserId     = userId,
+            PeriodType = periodType,
+            Month      = month,
+            Year       = year,
+            FromMonth  = fromMonth,
+            FromYear   = fromYear,
+            ToMonth    = toMonth,
+            ToYear     = toYear,
+        };
+
+        var result = await _mediator.Send(query);
+        return File(result.FileContent, result.ContentType, result.FileName);
     }
 
     [HttpPost("import")]

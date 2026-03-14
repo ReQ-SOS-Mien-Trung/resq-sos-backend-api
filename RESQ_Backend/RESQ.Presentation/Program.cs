@@ -5,6 +5,7 @@ using Microsoft.OpenApi.Models;
 using RESQ.Application.Extensions;
 using RESQ.Infrastructure.Extensions;
 using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Infrastructure.Persistence.Seeding;
 using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
 using System.Text;
@@ -157,6 +158,15 @@ var app = builder.Build();
 //    var db = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
 //    await db.Database.MigrateAsync();
 //}
+
+// Seed test inventory-movement data for development testing
+if (app.Environment.IsDevelopment())
+{
+    using var seedScope = app.Services.CreateScope();
+    var seedDb = seedScope.ServiceProvider.GetRequiredService<ResQDbContext>();
+    try { await RuntimeDataSeeder.SeedInventoryMovementTestDataAsync(seedDb); }
+    catch (Exception ex) { Console.WriteLine($"[RuntimeDataSeeder] Skipped: {ex.Message}"); }
+}
 
 // Middleware pipeline
 

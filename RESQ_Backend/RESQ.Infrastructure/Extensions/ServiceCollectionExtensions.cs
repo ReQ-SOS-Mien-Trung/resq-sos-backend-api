@@ -54,6 +54,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
         services.AddScoped<IDepotInventoryRepository, DepotInventoryRepository>();
         services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
+        services.AddScoped<IInventoryMovementExportRepository, InventoryMovementExportRepository>();
         services.AddScoped<IOrganizationReliefRepository, OrganizationReliefRepository>();
         services.AddScoped<IOrganizationMetadataRepository, OrganizationMetadataRepository>();
         services.AddScoped<IPurchasedInventoryRepository, PurchasedInventoryRepository>();
@@ -102,6 +103,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IChatSupportAiService, ChatSupportAiService>();
 
         services.AddScoped<IGoongMapService, GoongMapService>();
+        services.AddScoped<IExcelExportService, ExcelExportService>();
         
         // Domain Services
         services.AddScoped<IFundDistributionManager, FundDistributionManager>();
