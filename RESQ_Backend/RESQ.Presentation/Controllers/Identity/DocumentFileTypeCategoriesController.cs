@@ -14,9 +14,7 @@ public class DocumentFileTypeCategoriesController(IMediator mediator) : Controll
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>
-    /// Lấy tất cả danh mục loại tài liệu
-    /// </summary>
+    /// <summary>Lấy tất cả danh mục loại tài liệu.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -25,9 +23,7 @@ public class DocumentFileTypeCategoriesController(IMediator mediator) : Controll
         return Ok(result);
     }
 
-    /// <summary>
-    /// Tạo danh mục loại tài liệu mới
-    /// </summary>
+    /// <summary>Tạo danh mục loại tài liệu mới.</summary>
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Create([FromBody] CreateDocumentFileTypeCategoryCommand command)
@@ -36,9 +32,7 @@ public class DocumentFileTypeCategoriesController(IMediator mediator) : Controll
         return CreatedAtAction(nameof(GetAll), result);
     }
 
-    /// <summary>
-    /// Cập nhật danh mục loại tài liệu
-    /// </summary>
+    /// <summary>Cập nhật danh mục loại tài liệu.</summary>
     [HttpPut("{id:int}")]
     [Authorize]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateDocumentFileTypeCategoryRequest request)
@@ -48,9 +42,7 @@ public class DocumentFileTypeCategoriesController(IMediator mediator) : Controll
         return NoContent();
     }
 
-    /// <summary>
-    /// Xóa danh mục loại tài liệu
-    /// </summary>
+    /// <summary>Xóa danh mục loại tài liệu.</summary>
     [HttpDelete("{id:int}")]
     [Authorize]
     public async Task<IActionResult> Delete(int id)

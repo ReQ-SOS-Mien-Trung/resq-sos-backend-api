@@ -22,6 +22,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
+    /// <summary>Tạo SOS request mới (có thể do Victim tự gửi hoặc Coordinator tạo thay).</summary>
     [HttpPost]
     [Authorize(Policy = PermissionConstants.SosRequestCreate)]
     public async Task<IActionResult> Create([FromBody] CreateSosRequestRequestDto dto)
@@ -63,6 +64,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Lấy danh sách SOS request của người dùng hiện tại.</summary>
     [HttpGet("me")]
     [Authorize(Policy = PermissionConstants.SosRequestCreate)]
     public async Task<IActionResult> GetMySosRequests()
@@ -74,6 +76,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Lấy danh sách tất cả SOS request có phân trang.</summary>
     [HttpGet()]
     [Authorize(Policy = PermissionConstants.SosRequestView)]
     public async Task<IActionResult> GetSosRequestsPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -87,6 +90,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Xem chi tiết một SOS request theo ID.</summary>
     [HttpGet("{id:int}")]
     [Authorize(Policy = PermissionConstants.PolicySosRequestAccess)]
     public async Task<IActionResult> GetSosRequestDetail([FromRoute] int id)
@@ -98,11 +102,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Xem chi tiết đánh giá ưu tiên của một SOS request:
-    /// bao gồm điểm rule-based (Medical/Injury/Mobility/Environment/Food + TotalScore + PriorityLevel)
-    /// và tất cả bản phân tích AI (nếu đã hoàn thành xử lý bất đồng bộ).
-    /// </summary>
+    /// <summary>Xem kết quả đánh giá ưu tiên (điểm rule-based + phân tích AI) của một SOS request.</summary>
     [HttpGet("{id:int}/evaluation")]
     [Authorize(Policy = PermissionConstants.PolicySosRequestAccess)]
     public async Task<IActionResult> GetSosEvaluation([FromRoute] int id)

@@ -12,6 +12,7 @@ namespace RESQ.Presentation.Controllers.Logistics
     {
         private readonly IMediator _mediator = mediator;
 
+        /// <summary>Lấy lịch sử thủ kho của một kho (depotId) có phân trang.</summary>
         [HttpGet]
         [Authorize(Policy = PermissionConstants.PersonnelDepotBranchManage)]
         public async Task<IActionResult> Get([FromQuery] int depotId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)

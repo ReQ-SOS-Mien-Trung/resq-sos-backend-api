@@ -15,9 +15,7 @@ namespace RESQ.Presentation.Controllers.System
     {
         private readonly IMediator _mediator = mediator;
 
-        /// <summary>
-        /// Lấy danh sách tất cả prompt (có phân trang)
-        /// </summary>
+        /// <summary>Lấy danh sách prompt AI có phân trang.</summary>
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
@@ -31,9 +29,7 @@ namespace RESQ.Presentation.Controllers.System
             return Ok(result);
         }
 
-        /// <summary>
-        /// Lấy chi tiết prompt theo Id
-        /// </summary>
+        /// <summary>Xem chi tiết prompt theo ID.</summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -41,9 +37,7 @@ namespace RESQ.Presentation.Controllers.System
             return Ok(result);
         }
 
-        /// <summary>
-        /// Tạo prompt mới
-        /// </summary>
+        /// <summary>Tạo prompt AI mới.</summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreatePromptRequestDto dto)
         {
@@ -66,9 +60,7 @@ namespace RESQ.Presentation.Controllers.System
             return StatusCode(201, result);
         }
 
-        /// <summary>
-        /// Chỉnh sửa prompt (cập nhật từng trường, chỉ gửi trường cần thay đổi)
-        /// </summary>
+        /// <summary>Cập nhật prompt AI (chỉ gửi trường cần thay đổi).</summary>
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdatePromptRequestDto dto)
         {
@@ -92,9 +84,7 @@ namespace RESQ.Presentation.Controllers.System
             return NoContent();
         }
 
-        /// <summary>
-        /// Xóa prompt theo Id
-        /// </summary>
+        /// <summary>Xóa prompt AI theo ID.</summary>
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -102,9 +92,7 @@ namespace RESQ.Presentation.Controllers.System
             return NoContent();
         }
 
-        /// <summary>
-        /// Kiểm tra AI model có hoạt động không (gửi request test đến AI API)
-        /// </summary>
+        /// <summary>Kiểm tra kết nối AI model theo cấu hình prompt.</summary>
         [HttpPost("{id}/test")]
         public async Task<IActionResult> TestModel(int id)
         {

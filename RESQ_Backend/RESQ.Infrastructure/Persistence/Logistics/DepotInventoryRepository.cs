@@ -4,6 +4,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Services;
 using RESQ.Domain.Enum.Logistics;
@@ -148,5 +149,26 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         }).ToList();
 
         return (items, total);
+    }
+
+    public async Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default)
+    {
+        var result = await (
+            from dsi in _context.DepotSupplyInventories.AsNoTracking()
+            where dsi.DepotId == depotId
+            join ri in _context.ReliefItems.AsNoTracking() on dsi.ReliefItemId equals ri.Id
+            join cat in _context.ItemCategories.AsNoTracking() on ri.CategoryId equals cat.Id
+            group dsi by new { cat.Id, cat.Code, cat.Name } into g
+            orderby g.Key.Name
+            select new DepotCategoryQuantityDto
+            {
+                CategoryId = g.Key.Id,
+                CategoryCode = g.Key.Code ?? string.Empty,
+                CategoryName = g.Key.Name ?? string.Empty,
+                TotalQuantity = g.Sum(x => x.Quantity ?? 0)
+            }
+        ).ToListAsync(cancellationToken);
+
+        return result;
     }
 }

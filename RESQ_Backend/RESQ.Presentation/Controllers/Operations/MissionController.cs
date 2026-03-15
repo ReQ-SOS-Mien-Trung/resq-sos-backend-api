@@ -29,10 +29,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     // MISSIONS
     // ============================================================
 
-    /// <summary>
-    /// Coordinator tạo mission mới kèm danh sách activities cho một cluster.
-    /// Tự động tạo conversation giữa coordinator và các victim trong cluster.
-    /// </summary>
+    /// <summary>Coordinator tạo mission mới kèm danh sách activities cho một cluster.</summary>
     [HttpPost]
     [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
     public async Task<IActionResult> CreateMission([FromBody] CreateMissionRequestDto dto)
@@ -124,10 +121,7 @@ public class MissionController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Thêm một activity vào mission đã có.
-    /// Có thể đồng thời giao đội cứu hộ bằng cách truyền thêm RescueTeamId (và tuỳ chọn TeamType, Note).
-    /// </summary>
+    /// <summary>Thêm activity vào mission (tuỳ chọn giao đội ngay bằng RescueTeamId).</summary>
     [HttpPost("{missionId:int}/activities")]
     [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
     public async Task<IActionResult> AddMissionActivity([FromRoute] int missionId, [FromBody] AddMissionActivityRequestDto dto)
@@ -197,12 +191,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     // ROUTING (GOONG MAP)
     // ============================================================
 
-    /// <summary>
-    /// Lấy tuyến đường từ vị trí của rescuer đến địa điểm đích của một activity.
-    /// Rescuer truyền vào tọa độ hiện tại (originLat, originLng) và nhận lại
-    /// toàn bộ thông tin tuyến đường (khoảng cách, thời gian, polyline, bước chỉ đường).
-    /// vehicle: car | bike | taxi | hd (mặc định: car)
-    /// </summary>
+    /// <summary>Lấy tuyến đường từ vị trí rescuer đến đích activity (vehicle: car|bike|taxi|hd).</summary>
     [HttpGet("{missionId:int}/activities/{activityId:int}/route")]
     [Authorize(Policy = PermissionConstants.PolicyRouteAccess)]
     public async Task<IActionResult> GetRescuerRoute(
@@ -231,10 +220,7 @@ public class MissionController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Coordinator giao một đội cứu hộ vào mission.
-    /// Đội phải ở trạng thái Available. Sau khi giao, đội chuyển sang Assigned.
-    /// </summary>
+    /// <summary>Giao một đội cứu hộ (trạng thái Available) vào mission.</summary>
     [HttpPost("{missionId:int}/teams")]
     [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
     public async Task<IActionResult> AssignTeamToMission([FromRoute] int missionId, [FromBody] AssignTeamToMissionRequestDto dto)

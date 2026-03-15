@@ -14,9 +14,7 @@ public class AbilitiesController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>
-    /// Lấy tất cả các ability cho rescuer chọn
-    /// </summary>
+    /// <summary>Xem danh sách tất cả ability dùng cho rescuer chọn.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAllAbilities()
     {
@@ -25,9 +23,7 @@ public class AbilitiesController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Lưu danh sách ability mà rescuer đã chọn
-    /// </summary>
+    /// <summary>Lưu danh sách ability đã chọn của rescuer hiện tại.</summary>
     [HttpPost("rescuer")]
     [Authorize]
     public async Task<IActionResult> SaveRescuerAbilities([FromBody] SaveRescuerAbilitiesRequestDto dto)
@@ -49,9 +45,7 @@ public class AbilitiesController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Lấy danh sách ability của rescuer hiện tại
-    /// </summary>
+    /// <summary>Xem danh sách ability của rescuer hiện tại.</summary>
     [HttpGet("rescuer/me")]
     [Authorize]
     public async Task<IActionResult> GetMyAbilities()

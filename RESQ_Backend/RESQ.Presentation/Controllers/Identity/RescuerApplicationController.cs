@@ -16,11 +16,7 @@ namespace RESQ.Presentation.Controllers.Identity
     {
         private readonly IMediator _mediator = mediator;
 
-        /// <summary>
-        /// Submit đơn đăng ký làm rescuer với thông tin và tài liệu chứng minh (URLs)
-        /// </summary>
-        /// <param name="dto">Thông tin đơn đăng ký (documents là URLs đã upload lên cloud)</param>
-        /// <returns>Kết quả submit đơn đăng ký</returns>
+        /// <summary>Nộp đơn đăng ký làm rescuer kèm thông tin và tài liệu (URLs đã upload).</summary>
         [HttpPost("apply")]
         public async Task<IActionResult> SubmitRescuerApplication([FromBody] SubmitRescuerApplicationRequestDto dto)
         {
@@ -47,10 +43,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
-        /// <summary>
-        /// Xem đơn đăng ký rescuer của mình (đơn mới nhất)
-        /// </summary>
-        /// <returns>Thông tin đơn đăng ký</returns>
+        /// <summary>Xem đơn đăng ký rescuer của mình (đơn mới nhất).</summary>
         [HttpGet("application")]
         [Authorize(Roles = "3")] // Rescuer only
         public async Task<IActionResult> GetMyRescuerApplication()
@@ -72,11 +65,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
-        /// <summary>
-        /// Thêm tài liệu cho đơn đăng ký rescuer (thêm vào danh sách hiện tại)
-        /// </summary>
-        /// <param name="dto">Danh sách tài liệu cần thêm (URLs đã upload lên cloud)</param>
-        /// <returns>Kết quả thêm tài liệu</returns>
+        /// <summary>Thêm tài liệu vào đơn đăng ký rescuer (bổ sung vào danh sách hiện tại).</summary>
         [HttpPost("documents")]
         public async Task<IActionResult> AddRescuerDocuments([FromBody] AddRescuerDocumentsRequestDto dto)
         {
@@ -91,11 +80,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
-        /// <summary>
-        /// Thay thế toàn bộ tài liệu của đơn đăng ký rescuer (xoá cũ, thêm mới)
-        /// </summary>
-        /// <param name="dto">Danh sách tài liệu mới thay thế hoàn toàn (URLs đã upload lên cloud)</param>
-        /// <returns>Kết quả cập nhật tài liệu</returns>
+        /// <summary>Thay thế toàn bộ tài liệu của đơn đăng ký rescuer (xoá cũ, thêm mới).</summary>
         [HttpPut("documents")]
         public async Task<IActionResult> ReplaceRescuerDocuments([FromBody] ReplaceRescuerDocumentsRequestDto dto)
         {

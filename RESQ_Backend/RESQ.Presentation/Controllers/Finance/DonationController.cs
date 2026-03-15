@@ -33,6 +33,7 @@ public class DonationController : ControllerBase
         _configuration = configuration;
     }
 
+    /// <summary>Lấy danh sách phương thức thanh toán khả dụng.</summary>
     [HttpGet("payment-methods")]
     public async Task<IActionResult> GetPaymentMethods()
     {
@@ -40,6 +41,7 @@ public class DonationController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Lấy danh sách lượt quyên góp có phân trang (dành cho admin).</summary>
     [HttpGet]
     public async Task<IActionResult> GetDonations([FromQuery] GetDonationsQuery query)
     {
@@ -47,6 +49,7 @@ public class DonationController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Lấy danh sách lượt quyên góp công khai (hiển thị tên người đóng góp).</summary>
     [HttpGet("public")]
     public async Task<IActionResult> GetPublicDonations([FromQuery] GetPublicDonationsQuery query)
     {
@@ -54,6 +57,7 @@ public class DonationController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Tạo lượt quyên góp mới và khởi tạo link thanh toán.</summary>
     [HttpPost]
     [ProducesResponseType(typeof(CreateDonationResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -74,6 +78,7 @@ public class DonationController : ControllerBase
         return StatusCode(201, result);
     }
 
+    /// <summary>Webhook nhận kết quả thanh toán từ PayOS (IPN callback).</summary>
     [HttpPost("payment-return")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -128,6 +133,7 @@ public class DonationController : ControllerBase
             return Ok(new { success = true, message = "Đã nhận webhook." });
         }
     }
+    /// <summary>Webhook nhận kết quả thanh toán từ MoMo (IPN callback).</summary>
     [HttpPost("momo-ipn")]
     [AllowAnonymous]
     [IgnoreAntiforgeryToken]
@@ -178,6 +184,7 @@ public class DonationController : ControllerBase
         }
     }
 
+    /// <summary>Webhook nhận kết quả thanh toán từ ZaloPay (IPN callback).</summary>
     [HttpPost("zalopay-callback")]
     [AllowAnonymous]
     public async Task<IActionResult> ProcessZaloPayCallback()
@@ -236,11 +243,7 @@ public class DonationController : ControllerBase
             return Ok(new { return_code = 2, return_message = "internal error" });
         }
     }
-    /// <summary>
-    /// Fallback endpoint called by the frontend after ZaloPay redirects the user back.
-    /// Queries ZaloPay Order Query API directly to confirm payment and update entities
-    /// when the ZaloPay callback (IPN) was not received (common in sandbox).
-    /// </summary>
+    /// <summary>Xác minh kết quả thanh toán ZaloPay trực tiếp (fallback khi IPN không đến).</summary>
     [HttpGet("zalopay-verify")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]

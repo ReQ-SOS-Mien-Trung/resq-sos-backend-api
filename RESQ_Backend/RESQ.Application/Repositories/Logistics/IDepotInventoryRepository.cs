@@ -1,5 +1,6 @@
 using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
@@ -17,6 +18,11 @@ public interface IDepotInventoryRepository
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy tổng số lượng tồn kho theo danh mục của một kho cụ thể.
+    /// </summary>
+    Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Tìm kiếm vật tư theo từ khoá danh mục/loại để agent AI dùng trong quá trình lập kế hoạch.

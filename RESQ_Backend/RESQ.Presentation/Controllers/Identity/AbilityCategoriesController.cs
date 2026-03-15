@@ -14,9 +14,7 @@ public class AbilityCategoriesController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>
-    /// Lấy tất cả danh mục ability
-    /// </summary>
+    /// <summary>Lấy tất cả danh mục ability.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -25,9 +23,7 @@ public class AbilityCategoriesController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Tạo danh mục ability mới
-    /// </summary>
+    /// <summary>Tạo danh mục ability mới.</summary>
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Create([FromBody] CreateAbilityCategoryCommand command)
@@ -36,9 +32,7 @@ public class AbilityCategoriesController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetAll), result);
     }
 
-    /// <summary>
-    /// Cập nhật danh mục ability
-    /// </summary>
+    /// <summary>Cập nhật danh mục ability.</summary>
     [HttpPut("{id:int}")]
     [Authorize]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateAbilityCategoryRequest request)
@@ -48,9 +42,7 @@ public class AbilityCategoriesController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>
-    /// Xóa danh mục ability
-    /// </summary>
+    /// <summary>Xóa danh mục ability.</summary>
     [HttpDelete("{id:int}")]
     [Authorize]
     public async Task<IActionResult> Delete(int id)

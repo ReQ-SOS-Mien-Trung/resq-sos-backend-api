@@ -17,6 +17,7 @@ namespace RESQ.Presentation.Controllers.Logistics
     {
         private readonly IMediator _mediator = mediator;
 
+        /// <summary>Lấy danh sách tất cả kho có phân trang.</summary>
         [HttpGet]
         [Authorize(Policy = PermissionConstants.PolicyDepotView)]
         public async Task<IActionResult> Get([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -31,6 +32,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
+        /// <summary>Xem chi tiết một kho theo ID.</summary>
         [HttpGet("{id}")]
         [Authorize(Policy = PermissionConstants.PolicyDepotView)]
         public async Task<IActionResult> GetById(int id)
@@ -39,6 +41,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
+        /// <summary>Tạo kho mới.</summary>
         [HttpPost]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         public async Task<IActionResult> Create([FromBody] CreateDepotRequestDto dto)
@@ -56,6 +59,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return StatusCode(201, result);
         }
 
+        /// <summary>Cập nhật thông tin kho.</summary>
         [HttpPut("{id}")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateDepotRequestDto dto)
@@ -74,6 +78,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return NoContent();
         }
 
+        /// <summary>Thay đổi trạng thái kho (Available / Full / Closed / ...).</summary>
         [HttpPatch("{id}/status")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         public async Task<IActionResult> ChangeStatus(int id, [FromQuery] ChangeDepotStatusRequestDto dto)
@@ -83,6 +88,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
+        /// <summary>[Metadata] Danh sách trạng thái kho dùng cho dropdown.</summary>
         [HttpGet("metadata/depot-statuses")]
         public async Task<IActionResult> GetDepotStatuses()
         {

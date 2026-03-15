@@ -15,15 +15,7 @@ namespace RESQ.Presentation.Controllers.Identity
     {
         private readonly IMediator _mediator = mediator;
 
-        /// <summary>
-        /// Lấy danh sách đơn đăng ký rescuer (có phân trang)
-        /// </summary>
-        /// <param name="pageNumber">Số trang (mặc định: 1)</param>
-        /// <param name="pageSize">Số lượng mỗi trang (mặc định: 10)</param>
-        /// <param name="status">Lọc theo trạng thái: Pending, Approved, Rejected (để trống = tất cả)</param>
-        /// <param name="name">Lọc theo tên (first name hoặc last name)</param>
-        /// <param name="email">Lọc theo email</param>
-        /// <param name="phone">Lọc theo số điện thoại</param>
+        /// <summary>Lấy danh sách đơn đăng ký rescuer có phân trang (lọc theo status, tên, email, phone).</summary>
         [HttpGet]
         [Authorize(Policy = PermissionConstants.SystemUserView)]
         public async Task<IActionResult> GetRescuerApplications(
@@ -40,10 +32,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
-        /// <summary>
-        /// Duyệt hoặc từ chối đơn đăng ký rescuer
-        /// </summary>
-        /// <param name="dto">Thông tin duyệt đơn</param>
+        /// <summary>Duyệt hoặc từ chối đơn đăng ký rescuer.</summary>
         [HttpPost("review")]
         [Authorize(Policy = PermissionConstants.SystemUserManage)]
         public async Task<IActionResult> ReviewRescuerApplication([FromBody] ReviewRescuerApplicationRequestDto dto)
