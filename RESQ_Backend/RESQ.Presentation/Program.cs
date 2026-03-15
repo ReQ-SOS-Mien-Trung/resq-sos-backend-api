@@ -280,6 +280,15 @@ using (var scope = app.Services.CreateScope())
    await PermissionSeeder.SeedAsync(db);
 }
 
+// Seed test inventory-movement data for development testing
+if (app.Environment.IsDevelopment())
+{
+    using var seedScope = app.Services.CreateScope();
+    var seedDb = seedScope.ServiceProvider.GetRequiredService<ResQDbContext>();
+    try { await RuntimeDataSeeder.SeedInventoryMovementTestDataAsync(seedDb); }
+    catch (Exception ex) { Console.WriteLine($"[RuntimeDataSeeder] Skipped: {ex.Message}"); }
+}
+
 // Middleware pipeline
 
 app.UseCors("AllowAll");
