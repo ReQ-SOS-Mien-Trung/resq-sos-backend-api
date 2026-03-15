@@ -24,29 +24,29 @@ public class PermissionsController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Tạo permission mới</summary>
-    [HttpPost]
-    public async Task<IActionResult> CreatePermission([FromBody] CreatePermissionRequestDto dto)
-    {
-        var command = new CreatePermissionCommand(dto.Code, dto.Name, dto.Description);
-        var result = await _mediator.Send(command);
-        return Ok(result);
-    }
+    ///// <summary>Tạo permission mới</summary>
+    //[HttpPost]
+    //public async Task<IActionResult> CreatePermission([FromBody] CreatePermissionRequestDto dto)
+    //{
+    //    var command = new CreatePermissionCommand(dto.Code, dto.Name, dto.Description);
+    //    var result = await _mediator.Send(command);
+    //    return Ok(result);
+    //}
 
-    /// <summary>Cập nhật permission</summary>
-    [HttpPut("{permissionId:int}")]
-    public async Task<IActionResult> UpdatePermission(int permissionId, [FromBody] UpdatePermissionRequestDto dto)
-    {
-        var command = new UpdatePermissionCommand(permissionId, dto.Code, dto.Name, dto.Description);
-        var result = await _mediator.Send(command);
-        return Ok(result);
-    }
+    ///// <summary>Cập nhật permission</summary>
+    //[HttpPut("{permissionId:int}")]
+    //public async Task<IActionResult> UpdatePermission(int permissionId, [FromBody] UpdatePermissionRequestDto dto)
+    //{
+    //    var command = new UpdatePermissionCommand(permissionId, dto.Code, dto.Name, dto.Description);
+    //    var result = await _mediator.Send(command);
+    //    return Ok(result);
+    //}
 
-    /// <summary>Xoá permission</summary>
-    [HttpDelete("{permissionId:int}")]
-    public async Task<IActionResult> DeletePermission(int permissionId)
-    {
-        await _mediator.Send(new DeletePermissionCommand(permissionId));
-        return NoContent();
-    }
+    ///// <summary>Xoá permission</summary>
+    //[HttpDelete("{permissionId:int}")]
+    //public async Task<IActionResult> DeletePermission(int permissionId)
+    //{
+    //    await _mediator.Send(new DeletePermissionCommand(permissionId));
+    //    return NoContent();
+    //}
 }
