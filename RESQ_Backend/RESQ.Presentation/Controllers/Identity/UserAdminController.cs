@@ -13,6 +13,7 @@ using RESQ.Application.UseCases.Identity.Queries.GetUserById;
 using RESQ.Application.UseCases.Identity.Queries.GetUserPermissions;
 using RESQ.Application.UseCases.Identity.Queries.GetUsers;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuers;
+using RESQ.Application.UseCases.Identity.Queries.GetUsersForPermission;
 using RESQ.Application.UseCases.Identity.Commands.SetUserPermissions;
 
 namespace RESQ.Presentation.Controllers.Identity
@@ -35,6 +36,23 @@ namespace RESQ.Presentation.Controllers.Identity
             [FromQuery] string? search = null)
         {
             var query = new GetUsersQuery(pageNumber, pageSize, roleId, isBanned, search);
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Lấy danh sách user cho trang phân quyền admin.
+        /// Loại trừ: user bị ban và volunteer chưa kích hoạt (IsEligibleRescuer=false VÀ IsOnboarded=false).
+        /// </summary>
+        [HttpGet("for-permission")]
+        [Authorize(Policy = PermissionConstants.SystemUserManage)]
+        public async Task<IActionResult> GetUsersForPermission(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] int? roleId = null,
+            [FromQuery] string? search = null)
+        {
+            var query = new GetUsersForPermissionQuery(pageNumber, pageSize, roleId, search);
             var result = await _mediator.Send(query);
             return Ok(result);
         }
