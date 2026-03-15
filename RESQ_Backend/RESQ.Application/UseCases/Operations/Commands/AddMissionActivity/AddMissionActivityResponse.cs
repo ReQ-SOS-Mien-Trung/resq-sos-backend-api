@@ -7,4 +7,6 @@ public class AddMissionActivityResponse
     public int? Step { get; set; }
     public string? ActivityType { get; set; }
     public string? Status { get; set; }
+    public int? MissionTeamId { get; set; }
+    public int? AssignedRescueTeamId { get; set; }
 }

@@ -11,5 +11,6 @@
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public int? RoleId { get; set; }
+        public List<string> Permissions { get; set; } = [];
     }
 }

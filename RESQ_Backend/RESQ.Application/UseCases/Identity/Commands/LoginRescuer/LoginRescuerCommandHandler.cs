@@ -10,6 +10,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.LoginRescuer
 {
     public class LoginRescuerCommandHandler(
         IUserRepository userRepository,
+        IPermissionRepository permissionRepository,
         ITokenService tokenService,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
@@ -17,6 +18,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.LoginRescuer
     ) : IRequestHandler<LoginRescuerCommand, LoginRescuerResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
+        private readonly IPermissionRepository _permissionRepository = permissionRepository;
         private readonly ITokenService _tokenService = tokenService;
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly IConfiguration _configuration = configuration;
@@ -75,6 +77,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.LoginRescuer
 
             _logger.LogInformation("Rescuer login successful for UserId={userId} Email={email}", user.Id, user.Email);
 
+            var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
+
             return new LoginRescuerResponse
             {
                 AccessToken = accessToken,
@@ -87,7 +91,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.LoginRescuer
                 LastName = user.LastName,
                 RoleId = user.RoleId,
                 IsEmailVerified = user.IsEmailVerified,
-                IsOnboarded = user.IsOnboarded
+                IsOnboarded = user.IsOnboarded,
+                Permissions = permissions
             };
         }
 

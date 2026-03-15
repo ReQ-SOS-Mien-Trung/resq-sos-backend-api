@@ -13,5 +13,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.LoginRescuer
         public int? RoleId { get; set; }
         public bool IsEmailVerified { get; set; }
         public bool IsOnboarded { get; set; }
+        public List<string> Permissions { get; set; } = [];
     }
 }

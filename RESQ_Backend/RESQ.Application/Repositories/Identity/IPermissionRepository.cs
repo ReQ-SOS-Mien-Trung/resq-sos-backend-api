@@ -12,4 +12,5 @@ public interface IPermissionRepository
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
     Task<List<PermissionModel>> GetUserPermissionsAsync(Guid userId, CancellationToken cancellationToken = default);
     Task SetUserPermissionsAsync(Guid userId, Guid grantedBy, List<int> permissionIds, CancellationToken cancellationToken = default);
+    Task<List<string>> GetEffectivePermissionCodesAsync(Guid userId, int? roleId, CancellationToken cancellationToken = default);
 }

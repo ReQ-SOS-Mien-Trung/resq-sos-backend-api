@@ -9,6 +9,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
         string? Status = null, // Filter by status: Pending, Approved, Rejected
         string? Name = null,
         string? Email = null,
-        string? Phone = null
+        string? Phone = null,
+        string? RescuerType = null // Filter by rescuer type: Core, Volunteer
     ) : IRequest<PagedResult<RescuerApplicationDto>>;
 }

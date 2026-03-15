@@ -32,5 +32,6 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         public Guid? ApprovedBy { get; set; }
         public DateTime? ApprovedAt { get; set; }
         public List<RescuerDocumentDto> RescuerApplicationDocuments { get; set; } = [];
+        public List<string> Permissions { get; set; } = [];
     }
 }

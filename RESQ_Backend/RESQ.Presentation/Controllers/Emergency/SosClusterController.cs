@@ -3,6 +3,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosCluster;
 using RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
@@ -27,7 +28,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     /// Coordinator gom cụm các SOS request thành một cluster để phân tích.
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
     public async Task<IActionResult> CreateCluster([FromBody] CreateSosClusterRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -43,7 +44,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     /// Lấy danh sách tất cả cluster hiện có.
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
     public async Task<IActionResult> GetClusters()
     {
         var result = await _mediator.Send(new GetSosClustersQuery());
@@ -54,7 +55,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     /// Chọn một cluster để AI phân tích và đề xuất kế hoạch nhiệm vụ giải cứu (blocking).
     /// </summary>
     [HttpPost("{clusterId:int}/rescue-suggestion")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
     public async Task<IActionResult> GenerateRescueMissionSuggestion([FromRoute] int clusterId)
     {
        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -72,7 +73,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     /// Event types: <c>status</c> | <c>chunk</c> | <c>result</c> | <c>error</c>.
     /// </summary>
     [HttpGet("{clusterId:int}/rescue-suggestion/stream")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
     public async Task StreamRescueMissionSuggestion([FromRoute] int clusterId, CancellationToken cancellationToken)
     {
         Response.Headers["Content-Type"]      = "text/event-stream; charset=utf-8";
@@ -93,7 +94,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     /// Xem lại toàn bộ mission và activity suggestions mà AI đã đề xuất cho một cluster.
     /// </summary>
     [HttpGet("{clusterId:int}/mission-suggestions")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
     public async Task<IActionResult> GetMissionSuggestions([FromRoute] int clusterId)
     {
         var result = await _mediator.Send(new GetMissionSuggestionsQuery(clusterId));

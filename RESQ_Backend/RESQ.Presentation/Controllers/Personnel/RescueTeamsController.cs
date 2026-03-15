@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Personnel.Queries.GetAllRescueTeams;
 using RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamDetail;
 using RESQ.Application.UseCases.Personnel.Queries.RescueTeamMetadata;
@@ -21,6 +22,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelAccess)]
     public async Task<IActionResult> GetAllTeams([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         var result = await mediator.Send(new GetAllRescueTeamsQuery(pageNumber, pageSize));
@@ -28,6 +30,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelAccess)]
     public async Task<IActionResult> GetDetail(int id)
     {
         var result = await mediator.Send(new GetRescueTeamDetailQuery(id));
@@ -35,7 +38,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost()]
-    [Authorize(Roles = "2")] // Coordinator only
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)] // Coordinator_Global | Coordinator_Point
     public async Task<IActionResult> CreateTeam([FromBody] CreateTeamRequestDto request)
     {
         var managedBy = GetCurrentUserId();
@@ -74,7 +77,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPatch("{id}/schedule-assembly")]
-    [Authorize(Roles = "2")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> ScheduleAssembly(int id, [FromBody] DateTime assemblyDate)
     {
         await mediator.Send(new ScheduleAssemblyCommand(id, assemblyDate));
@@ -82,7 +85,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id}/members")]
-    [Authorize(Roles = "2")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> AddMember(int id, [FromBody] AddMemberRequestDto request)
     {
         await mediator.Send(new AddTeamMemberCommand(id, request.UserId, request.IsLeader));
@@ -90,7 +93,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     }
 
     [HttpDelete("{id}/members/{userId}")]
-    [Authorize(Roles = "2")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> RemoveMember(int id, Guid userId)
     {
         await mediator.Send(new RemoveTeamMemberCommand(id, userId));

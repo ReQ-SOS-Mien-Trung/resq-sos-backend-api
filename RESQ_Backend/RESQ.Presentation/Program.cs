@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Extensions;
 using RESQ.Infrastructure.Extensions;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Seeding;
+using RESQ.Presentation.Authorization;
 using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
 using System.Text;
@@ -102,6 +105,122 @@ if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
 
+// ── Memory cache (dùng bởi PermissionAuthorizationHandler) ──────────────
+builder.Services.AddMemoryCache();
+
+// ── Dynamic Permission Authorization ────────────────────────────────────
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+builder.Services.AddAuthorization(options =>
+{
+    // ── Single-permission policies ──────────────────────────────────────
+    void AddSingle(string code) =>
+        options.AddPolicy(code, p => p.Requirements.Add(new PermissionRequirement(code)));
+
+    AddSingle(PermissionConstants.SystemConfigManage);
+    AddSingle(PermissionConstants.SystemUserManage);
+    AddSingle(PermissionConstants.SystemUserView);
+    AddSingle(PermissionConstants.InventoryGlobalManage);
+    AddSingle(PermissionConstants.InventoryGlobalView);
+    AddSingle(PermissionConstants.InventoryDepotManage);
+    AddSingle(PermissionConstants.InventoryDepotPointView);
+    AddSingle(PermissionConstants.InventorySupplyRequestCreate);
+    AddSingle(PermissionConstants.PersonnelDepotBranchManage);
+    AddSingle(PermissionConstants.PersonnelGlobalManage);
+    AddSingle(PermissionConstants.PersonnelPointManage);
+    AddSingle(PermissionConstants.PersonnelTeamView);
+    AddSingle(PermissionConstants.PersonnelStatusReport);
+    AddSingle(PermissionConstants.MissionGlobalManage);
+    AddSingle(PermissionConstants.MissionPointManage);
+    AddSingle(PermissionConstants.MissionTeamUpdate);
+    AddSingle(PermissionConstants.MissionView);
+    AddSingle(PermissionConstants.ActivityGlobalView);
+    AddSingle(PermissionConstants.ActivityPointView);
+    AddSingle(PermissionConstants.ActivityTeamManage);
+    AddSingle(PermissionConstants.ActivityOwnManage);
+    AddSingle(PermissionConstants.SosRequestCreate);
+    AddSingle(PermissionConstants.SosRequestView);
+
+    // ── Composite / OR-logic policies ──────────────────────────────────
+    options.AddPolicy(PermissionConstants.PolicyMissionManage, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.MissionGlobalManage,
+            PermissionConstants.MissionPointManage)));
+
+    options.AddPolicy(PermissionConstants.PolicyMissionAccess, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.MissionGlobalManage,
+            PermissionConstants.MissionPointManage,
+            PermissionConstants.MissionTeamUpdate,
+            PermissionConstants.MissionView)));
+
+    options.AddPolicy(PermissionConstants.PolicyActivityManage, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.MissionGlobalManage,
+            PermissionConstants.MissionPointManage,
+            PermissionConstants.ActivityTeamManage)));
+
+    options.AddPolicy(PermissionConstants.PolicyActivityAccess, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.ActivityGlobalView,
+            PermissionConstants.ActivityPointView,
+            PermissionConstants.MissionGlobalManage,
+            PermissionConstants.MissionPointManage,
+            PermissionConstants.ActivityTeamManage,
+            PermissionConstants.ActivityOwnManage)));
+
+    options.AddPolicy(PermissionConstants.PolicyInventoryRead, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.InventoryGlobalManage,
+            PermissionConstants.InventoryGlobalView,
+            PermissionConstants.InventoryDepotManage,
+            PermissionConstants.InventoryDepotPointView)));
+
+    options.AddPolicy(PermissionConstants.PolicyInventoryWrite, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.InventoryGlobalManage,
+            PermissionConstants.InventoryDepotManage)));
+
+    options.AddPolicy(PermissionConstants.PolicyPersonnelManage, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.PersonnelGlobalManage,
+            PermissionConstants.PersonnelPointManage)));
+
+    options.AddPolicy(PermissionConstants.PolicyPersonnelAccess, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.PersonnelGlobalManage,
+            PermissionConstants.PersonnelPointManage,
+            PermissionConstants.PersonnelTeamView)));
+
+    options.AddPolicy(PermissionConstants.PolicyDepotView, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.InventoryGlobalManage,
+            PermissionConstants.InventoryGlobalView,
+            PermissionConstants.MissionGlobalManage,
+            PermissionConstants.MissionPointManage,
+            PermissionConstants.MissionTeamUpdate,
+            PermissionConstants.PersonnelGlobalManage,
+            PermissionConstants.PersonnelPointManage)));
+
+    options.AddPolicy(PermissionConstants.PolicySosClusterManage, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.MissionGlobalManage,
+            PermissionConstants.InventoryGlobalManage)));
+
+    options.AddPolicy(PermissionConstants.PolicySosRequestAccess, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.SosRequestView,
+            PermissionConstants.SosRequestCreate)));
+
+    options.AddPolicy(PermissionConstants.PolicyRouteAccess, p => p.Requirements.Add(
+        new PermissionRequirement(
+            PermissionConstants.MissionGlobalManage,
+            PermissionConstants.MissionPointManage,
+            PermissionConstants.MissionTeamUpdate,
+            PermissionConstants.ActivityTeamManage,
+            PermissionConstants.ActivityOwnManage)));
+});
+
 
 // JWT CONFIGURATION
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -152,12 +271,14 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-//// Auto-apply EF Core migrations on startup
-//using (var scope = app.Services.CreateScope())
-//{
-//    var db = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-//    await db.Database.MigrateAsync();
-//}
+// Auto-apply EF Core migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+   var db = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
+   await db.Database.MigrateAsync();
+   // Seed permissions and role-permission mappings (idempotent)
+   await PermissionSeeder.SeedAsync(db);
+}
 
 // Seed test inventory-movement data for development testing
 if (app.Environment.IsDevelopment())
