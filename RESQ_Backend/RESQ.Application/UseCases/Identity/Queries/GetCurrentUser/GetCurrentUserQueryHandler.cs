@@ -8,11 +8,13 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
     public class GetCurrentUserQueryHandler(
         IUserRepository userRepository,
         IRescuerApplicationRepository rescuerApplicationRepository,
+        IPermissionRepository permissionRepository,
         ILogger<GetCurrentUserQueryHandler> logger
     ) : IRequestHandler<GetCurrentUserQuery, GetCurrentUserResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
         private readonly IRescuerApplicationRepository _rescuerApplicationRepository = rescuerApplicationRepository;
+        private readonly IPermissionRepository _permissionRepository = permissionRepository;
         private readonly ILogger<GetCurrentUserQueryHandler> _logger = logger;
 
         public async Task<GetCurrentUserResponse> Handle(GetCurrentUserQuery request, CancellationToken cancellationToken)
@@ -47,6 +49,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
 
             _logger.LogInformation("Successfully retrieved user info for UserId={userId}", request.UserId);
 
+            var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
+
             return new GetCurrentUserResponse
             {
                 Id = user.Id,
@@ -67,7 +71,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
                 UpdatedAt = user.UpdatedAt,
                 ApprovedBy = user.ApprovedBy,
                 ApprovedAt = user.ApprovedAt,
-                RescuerApplicationDocuments = documents
+                RescuerApplicationDocuments = documents,
+                Permissions = permissions
             };
         }
     }

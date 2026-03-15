@@ -95,6 +95,32 @@ public class PermissionRepository(IUnitOfWork unitOfWork) : IPermissionRepositor
             await _unitOfWork.GetRepository<UserPermission>().AddRangeAsync(newEntries);
     }
 
+    public async Task<List<string>> GetEffectivePermissionCodesAsync(Guid userId, int? roleId, CancellationToken cancellationToken = default)
+    {
+        // 1. Quyền từ role
+        var permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (roleId.HasValue)
+        {
+            var rolePerms = await _unitOfWork.GetRepository<RolePermission>()
+                .GetAllByPropertyAsync(rp => rp.RoleId == roleId.Value && rp.IsGranted == true, includeProperties: "Claim");
+            foreach (var rp in rolePerms)
+                if (rp.Claim?.Code is not null)
+                    permissions.Add(rp.Claim.Code);
+        }
+
+        // 2. Override cấp user (grant thêm hoặc revoke)
+        var userOverrides = await _unitOfWork.GetRepository<UserPermission>()
+            .GetAllByPropertyAsync(up => up.UserId == userId, includeProperties: "Claim");
+        foreach (var up in userOverrides)
+        {
+            if (up.Claim?.Code is null) continue;
+            if (up.IsGranted == true)  permissions.Add(up.Claim.Code);
+            else if (up.IsGranted == false) permissions.Remove(up.Claim.Code);
+        }
+
+        return [..permissions];
+    }
+
     private static PermissionModel MapToModel(Permission entity) => new()
     {
         Id = entity.Id,

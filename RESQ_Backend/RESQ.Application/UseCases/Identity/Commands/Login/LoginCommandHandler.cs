@@ -10,6 +10,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
 {
     public class LoginCommandHandler(
         IUserRepository userRepository,
+        IPermissionRepository permissionRepository,
         ITokenService tokenService,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
@@ -17,6 +18,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
     ) : IRequestHandler<LoginCommand, LoginResonse>
     {
         private readonly IUserRepository _userRepository = userRepository;
+        private readonly IPermissionRepository _permissionRepository = permissionRepository;
         private readonly ITokenService _tokenService = tokenService;
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly IConfiguration _configuration = configuration;
@@ -66,6 +68,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
 
             _logger.LogInformation("Login successful for UserId={userId}", user.Id);
 
+            var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
+
             return new LoginResonse
             {
                 AccessToken = accessToken,
@@ -76,7 +80,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
                 Username = user.Username,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                RoleId = user.RoleId
+                RoleId = user.RoleId,
+                Permissions = permissions
             };
         }
 
