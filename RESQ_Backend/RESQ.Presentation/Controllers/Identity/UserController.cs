@@ -15,6 +15,7 @@ namespace RESQ.Presentation.Controllers.Identity
     {
         private readonly IMediator _mediator = mediator;
 
+        /// <summary>Lấy thông tin người dùng hiện tại từ token.</summary>
         [HttpGet("me")]
         [Authorize]
         public async Task<IActionResult> GetCurrentUser()
@@ -30,6 +31,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>[Metadata] Danh sách loại rescuer (Core, Volunteer).</summary>
         [HttpGet("rescuer/metadata/types")]
         public async Task<IActionResult> GetRescuerTypeMetadata()
         {
@@ -38,6 +40,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Rescuer xác nhận đồng ý các điều khoản tham gia.</summary>
         [HttpPost("rescuer/consent")]
         [Authorize]
         public async Task<IActionResult> RescuerConsent([FromBody] RescuerConsentRequestDto dto)
@@ -59,6 +62,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Cập nhật thông tin hồ sơ rescuer.</summary>
         [HttpPut("rescuer/profile")]
         [Authorize]
         public async Task<IActionResult> UpdateRescuerProfile([FromBody] UpdateRescuerProfileRequestDto dto)

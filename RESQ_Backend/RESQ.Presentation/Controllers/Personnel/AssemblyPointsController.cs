@@ -18,9 +18,7 @@ namespace RESQ.Presentation.Controllers.Personnel
     {
         private readonly IMediator _mediator = mediator;
 
-        /// <summary>
-        /// Get a paginated list of assembly points.
-        /// </summary>
+        /// <summary>Lấy danh sách điểm tập kết có phân trang.</summary>
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
@@ -29,9 +27,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(result);
         }
 
-        /// <summary>
-        /// Get metadata for assembly point statuses (for UI dropdowns).
-        /// </summary>
+        /// <summary>[Metadata] Danh sách trạng thái điểm tập kết dùng cho dropdown.</summary>
         [HttpGet("status-metadata")]
         public async Task<IActionResult> GetStatusMetadata()
         {
@@ -40,9 +36,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(result);
         }
 
-        /// <summary>
-        /// Get a specific assembly point by ID.
-        /// </summary>
+        /// <summary>Xem chi tiết điểm tập kết theo ID.</summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -51,9 +45,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(result);
         }
 
-        /// <summary>
-        /// Create a new assembly point.
-        /// </summary>
+        /// <summary>Tạo điểm tập kết mới.</summary>
         [HttpPost]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> Create([FromBody] CreateAssemblyPointRequestDto dto)
@@ -69,9 +61,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
 
-        /// <summary>
-        /// Update an existing assembly point (Code is immutable).
-        /// </summary>
+        /// <summary>Cập nhật điểm tập kết (Code không thay đổi).</summary>
         [HttpPut("{id}")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateAssemblyPointRequestDto dto)
@@ -88,9 +78,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             return NoContent();
         }
 
-        /// <summary>
-        /// Change the status of an assembly point.
-        /// </summary>
+        /// <summary>Thay đổi trạng thái điểm tập kết.</summary>
         [HttpPatch("{id}/status")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> ChangeStatus(int id, [FromBody] ChangeAssemblyPointStatusRequestDto dto)
@@ -100,9 +88,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(result);
         }
 
-        /// <summary>
-        /// Delete an assembly point.
-        /// </summary>
+        /// <summary>Xóa điểm tập kết.</summary>
         [HttpDelete("{id}")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> Delete(int id)

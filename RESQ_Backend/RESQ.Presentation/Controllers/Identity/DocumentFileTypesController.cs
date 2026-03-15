@@ -13,10 +13,7 @@ public class DocumentFileTypesController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>
-    /// Lấy tất cả loại tài liệu
-    /// </summary>
-    /// <param name="activeOnly">Chỉ lấy loại đang hoạt động (mặc định: true)</param>
+    /// <summary>Lấy tất cả loại tài liệu (mặc định chỉ loại đang hoạt động).</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] bool? activeOnly = true)
     {
@@ -25,9 +22,7 @@ public class DocumentFileTypesController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Tạo loại tài liệu mới
-    /// </summary>
+    /// <summary>Tạo loại tài liệu mới.</summary>
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] CreateDocumentFileTypeRequestDto dto)
@@ -42,9 +37,7 @@ public class DocumentFileTypesController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { }, result);
     }
 
-    /// <summary>
-    /// Cập nhật loại tài liệu
-    /// </summary>
+    /// <summary>Cập nhật loại tài liệu.</summary>
     [HttpPut("{id:int}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateDocumentFileTypeRequestDto dto)

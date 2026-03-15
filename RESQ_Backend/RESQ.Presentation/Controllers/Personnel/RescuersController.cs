@@ -9,6 +9,7 @@ namespace RESQ.Presentation.Controllers.Personnel;
 [ApiController]
 public class RescuersController(IMediator mediator) : ControllerBase
 {
+    /// <summary>Lấy danh sách rescuer đang rảnh (chưa trong đội) có phân trang.</summary>
     [HttpGet("free")]
     public async Task<IActionResult> GetFreeRescuers(
         [FromQuery] int pageNumber = 1,

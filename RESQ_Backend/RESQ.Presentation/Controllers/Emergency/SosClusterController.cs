@@ -67,11 +67,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
        return Ok(result);
     }
 
-    /// <summary>
-    /// Server-Sent Events (SSE) endpoint — AI thinking streamed in real-time.<br/>
-    /// Connect with <c>EventSource</c> or <c>fetch</c> + <c>ReadableStream</c>.<br/>
-    /// Event types: <c>status</c> | <c>chunk</c> | <c>result</c> | <c>error</c>.
-    /// </summary>
+    /// <summary>SSE streaming — AI đề xuất mission theo thời gian thực (event: status | chunk | result | error).</summary>
     [HttpGet("{clusterId:int}/rescue-suggestion/stream")]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
     public async Task StreamRescueMissionSuggestion([FromRoute] int clusterId, CancellationToken cancellationToken)

@@ -15,10 +15,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>
-    /// Đội cứu hộ báo cáo sự cố trong quá trình thực hiện nhiệm vụ.
-    /// Trạng thái ban đầu: Reported. Tự động cập nhật trạng thái đội → Stuck.
-    /// </summary>
+    /// <summary>Đội cứu hộ báo cáo sự cố trong khi thực hiện nhiệm vụ.</summary>
     [HttpPost]
     [Authorize(Roles = "1,2,3")]
     public async Task<IActionResult> ReportIncident([FromBody] ReportTeamIncidentRequestDto dto)
@@ -34,13 +31,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Cập nhật trạng thái sự cố.
-    /// - Reported → Acknowledged: Coordinator xác nhận
-    /// - Acknowledged + NeedsAssistance=true → InProgress; false → Closed
-    /// - InProgress → Resolved: sự cố được giải quyết
-    /// - Resolved → Closed: Coordinator xác nhận đóng
-    /// </summary>
+    /// <summary>Cập nhật trạng thái sự cố (Reported → Acknowledged → InProgress → Resolved → Closed).</summary>
     [HttpPatch("{incidentId:int}/status")]
     [Authorize(Roles = "1,2,3")]
     public async Task<IActionResult> UpdateIncidentStatus([FromRoute] int incidentId, [FromBody] UpdateTeamIncidentStatusRequestDto dto)

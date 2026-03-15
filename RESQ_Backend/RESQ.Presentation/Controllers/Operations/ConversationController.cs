@@ -13,21 +13,7 @@ using RESQ.Application.UseCases.Operations.Queries.GetVictimConversations;
 
 namespace RESQ.Presentation.Controllers.Operations;
 
-/// <summary>
-/// REST endpoints cho luồng chat Victim–AI–Coordinator.
-/// Chat real-time sử dụng SignalR hub tại /hubs/chat.
-/// 
-/// Luồng cơ bản:
-///   1. Victim:      GET  /my-conversation          → lấy conversation AiAssist hiện tại hoặc tạo mới
-///   2. Victim:      POST /{id}/select-topic         → chọn chủ đề; conversation chuyển WaitingCoordinator
-///                                                     (lần gọi /my-conversation tiếp theo tạo conversation mới)
-///   3. Victim:      POST /{id}/link-sos-request     → chọn SOS request cụ thể
-///   4. Victim:      GET  /my-conversations          → xem lịch sử tất cả các cuộc hội thoại
-///   5. Coordinator: GET  /waiting                   → danh sách phòng đang chờ
-///   6. Coordinator: POST /{id}/join                 → join hỗ trợ Victim
-///   7. Both:        GET  /{id}/messages             → lịch sử tin nhắn
-///   8. Both:        SignalR hub /hubs/chat          → real-time messaging
-/// </summary>
+/// <summary>Quản lý chat hỗ trợ giữa Victim, AI và Coordinator. Real-time qua SignalR tại /hubs/chat.</summary>
 [Route("operations/conversations")]
 [ApiController]
 [Authorize]

@@ -21,9 +21,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>
-    /// View all campaigns with pagination.
-    /// </summary>
+    /// <summary>Lấy danh sách chiến dịch gây quỹ có phân trang.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<CampaignListDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -33,9 +31,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// View active campaigns metadata (Id, Name) for dropdowns (e.g. Donation form).
-    /// </summary>
+    /// <summary>[Metadata] Danh sách chiến dịch đang hoạt động dùng cho dropdown.</summary>
     [HttpGet("metadata")]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMetadata()
@@ -45,9 +41,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Create a new campaign.
-    /// </summary>
+    /// <summary>Tạo chiến dịch gây quỹ mới.</summary>
     [HttpPost]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
@@ -68,9 +62,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { id }, id);
     }
 
-    /// <summary>
-    /// Updates basic information (Name, Region) of a campaign.
-    /// </summary>
+    /// <summary>Cập nhật thông tin cơ bản (tên, khu vực) của chiến dịch.</summary>
     [HttpPut("{id}/info")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -89,9 +81,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>
-    /// Extends the end date of a campaign.
-    /// </summary>
+    /// <summary>Gia hạn ngày kết thúc chiến dịch.</summary>
     [HttpPut("{id}/extension")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -109,9 +99,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>
-    /// Increases the fundraising target amount.
-    /// </summary>
+    /// <summary>Tăng mục tiêu số tiền cần gây quỹ.</summary>
     [HttpPut("{id}/target")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -129,9 +117,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>
-    /// Changes the status of the campaign (e.g., Active -> Closed).
-    /// </summary>
+    /// <summary>Thay đổi trạng thái chiến dịch (Active / Closed / ...).</summary>
     [HttpPatch("{id}/status")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -149,9 +135,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>
-    /// Soft delete a campaign.
-    /// </summary>
+    /// <summary>Xóa mềm chiến dịch.</summary>
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

@@ -7,12 +7,14 @@ using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 using RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventory;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryActionTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventorySourceTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
 using RESQ.Domain.Enum.Logistics;
 using System.Security.Claims;
 
@@ -25,8 +27,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     private readonly IMediator _mediator = mediator;
     private readonly ITokenService _tokenService = tokenService;
 
+    /// <summary>Xem tồn kho (phân trang) của một kho theo ID.</summary>
     [HttpGet("depot/{depotId:int}")]
-    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
+    //[Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetDepotInventory(
         int depotId,
         [FromQuery] List<int>? categoryIds,
@@ -49,8 +52,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>Xem tồn kho (phân trang) của kho do người dùng hiện tại quản lý.</summary>
     [HttpGet("my-depot")]
-    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
+    //[Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetMyDepotInventory(
         [FromQuery] List<int>? categoryIds,
         [FromQuery] List<ItemType>? itemTypes,
@@ -77,6 +81,31 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>Xem tổng số lượng tồn kho theo danh mục của một kho theo ID.</summary>
+    [HttpGet("depot/{depotId:int}/quantity-by-category")]
+    [Authorize]
+    public async Task<IActionResult> GetDepotInventoryByCategory(int depotId)
+    {
+        var result = await _mediator.Send(new GetDepotInventoryByCategoryQuery(depotId));
+        return Ok(result);
+    }
+
+    /// <summary>Xem tổng số lượng tồn kho theo danh mục của kho do người dùng hiện tại quản lý.</summary>
+    [HttpGet("my-depot/quantity-by-category")]
+    [Authorize]
+    public async Task<IActionResult> GetMyDepotInventoryByCategory()
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+        {
+            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        }
+
+        var result = await _mediator.Send(new GetMyDepotInventoryByCategoryQuery(userId));
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách danh mục vật tư.</summary>
     [HttpGet("metadata/categories")]
     public async Task<IActionResult> GetCategories()
     {
@@ -84,6 +113,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách tổ chức tài trợ/quyên góp.</summary>
     [HttpGet("metadata/organizations")]
     public async Task<IActionResult> GetOrganizations()
     {
@@ -91,6 +121,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách loại vật tư (Equipment, Supply, Medicine, ...).</summary>
     [HttpGet("metadata/item-types")]
     public async Task<IActionResult> GetItemTypes()
     {
@@ -98,6 +129,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách nhóm đối tượng thụ hưởng (Adult, Child, Elderly, ...).</summary>
     [HttpGet("metadata/target-groups")]
     public async Task<IActionResult> GetTargetGroups()
     {
@@ -105,6 +137,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách loại hành động kho (Import, Export, Adjust, ...).</summary>
     [HttpGet("metadata/inventory-action-types")]
     public async Task<IActionResult> GetInventoryActionTypes()
     {
@@ -112,6 +145,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách nguồn gốc vật tư (Purchase, Donation, Mission, ...).</summary>
     [HttpGet("metadata/inventory-source-types")]
     public async Task<IActionResult> GetInventorySourceTypes()
     {
@@ -119,8 +153,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>Xem lịch sử biến động tồn kho (phân trang) của kho do người dùng hiện tại quản lý.</summary>
     [HttpGet("stock-movements/my-depot")]
-    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> GetTransactionHistory(
         [FromQuery] List<InventoryActionType>? actionTypes,
         [FromQuery] List<InventorySourceType>? sourceTypes,
@@ -150,8 +185,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>Xem nhật ký xuất/nhập kho (phân trang) toàn hệ thống. Thủ kho chỉ xem được kho của mình.</summary>
     [HttpGet("stock-movements")]
-    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> GetInventoryLogs(
         [FromQuery] int? depotId,
         [FromQuery] int? reliefItemId,
@@ -180,10 +216,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>
-    /// Xuất báo cáo biến động kho ra file Excel.
-    /// Hỗ trợ 3 chế độ: ByMonth, ByYear, ByMonthRange.
-    /// </summary>
+    /// <summary>Xuất báo cáo biến động kho ra file Excel (ByMonth / ByYear / ByMonthRange).</summary>
     [HttpGet("export/movements")]
     public async Task<IActionResult> ExportMovements(
         [FromQuery] ExportPeriodType periodType,
@@ -214,8 +247,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return File(result.FileContent, result.ContentType, result.FileName);
     }
 
+    /// <summary>Nhập kho vật tư từ nguồn quyên góp của tổ chức.</summary>
     [HttpPost("import")]
-    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> Import([FromBody] ImportReliefItemsRequest request)
     {
         var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -236,8 +270,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>Nhập kho vật tư từ nguồn mua sắm theo hoá đơn.</summary>
     [HttpPost("import-purchase")]
-    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> ImportPurchase([FromBody] ImportPurchasedInventoryRequest request)
     {
         var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

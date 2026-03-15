@@ -86,6 +86,10 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
 });
 
 // Health check
@@ -272,13 +276,13 @@ builder.Services.AddAuthentication(options =>
 var app = builder.Build();
 
 // Auto-apply EF Core migrations on startup
-using (var scope = app.Services.CreateScope())
-{
-   var db = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-   await db.Database.MigrateAsync();
-   // Seed permissions and role-permission mappings (idempotent)
-   await PermissionSeeder.SeedAsync(db);
-}
+//using (var scope = app.Services.CreateScope())
+//{
+//   var db = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
+//   await db.Database.MigrateAsync();
+//   // Seed permissions and role-permission mappings (idempotent)
+//   await PermissionSeeder.SeedAsync(db);
+//}
 
 // Seed test inventory-movement data for development testing
 if (app.Environment.IsDevelopment())

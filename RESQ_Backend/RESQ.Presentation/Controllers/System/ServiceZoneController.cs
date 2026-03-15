@@ -15,9 +15,7 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>
-    /// Lấy tất cả vùng phục vụ
-    /// </summary>
+    /// <summary>Xem tất cả vùng phục vụ.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -25,9 +23,7 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Lấy tất cả vùng phục vụ đang active (có thể có nhiều vùng active cùng lúc)
-    /// </summary>
+    /// <summary>Xem danh sách vùng phục vụ đang active.</summary>
     [HttpGet("active")]
     public async Task<IActionResult> GetActive()
     {
@@ -35,9 +31,7 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Lấy chi tiết vùng phục vụ theo Id
-    /// </summary>
+    /// <summary>Xem chi tiết vùng phục vụ theo ID.</summary>
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -45,9 +39,7 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Tạo mới vùng phục vụ — Admin vẽ polygon trên bản đồ và gửi danh sách tọa độ.
-    /// </summary>
+    /// <summary>Tạo vùng phục vụ mới (Admin vẽ polygon trên bản đồ và gửi toạ độ).</summary>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateServiceZoneRequestDto dto)
     {
@@ -66,11 +58,7 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    /// <summary>
-    /// Cập nhật vùng phục vụ — Admin vẽ polygon trên bản đồ và gửi danh sách tọa độ.
-    /// Tọa độ là danh sách các đỉnh polygon theo thứ tự (clock- hoặc counter-clockwise),
-    /// không cần lặp lại điểm đầu ở cuối.
-    /// </summary>
+    /// <summary>Cập nhật vùng phục vụ (Admin vẽ lại polygon và gửi toạ độ mới).</summary>
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateServiceZoneRequestDto dto)
     {

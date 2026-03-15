@@ -26,6 +26,7 @@ namespace RESQ.Presentation.Controllers.Identity
         private readonly IMediator _mediator = mediator;
         private readonly string _feBaseUrl = configuration["AppSettings:FEBaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
 
+        /// <summary>Đăng ký tài khoản Victim bằng số điện thoại.</summary>
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto)
@@ -35,6 +36,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Đăng ký tài khoản Rescuer bằng email.</summary>
         [HttpPost("register-rescuer")]
         [AllowAnonymous]
         public async Task<IActionResult> RegisterRescuer([FromBody] RegisterRescuerRequestDto dto)
@@ -44,6 +46,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Đăng ký tài khoản test (bỏ qua xác thực Firebase).</summary>
         [HttpPost("register-test")]
         [AllowAnonymous]
         public async Task<IActionResult> RegisterTest([FromBody] RegisterTestRequestDto dto)
@@ -53,6 +56,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Xác thực email qua link gửi về hộp thư (redirect về FE sau khi xử lý).</summary>
         [HttpGet("verify-email")]
         [AllowAnonymous]
         public async Task<IActionResult> VerifyEmail([FromQuery] string token)
@@ -66,6 +70,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Redirect($"{_feBaseUrl}/auth/resend-email");
         }
 
+        /// <summary>Gửi lại email xác thực tài khoản.</summary>
         [HttpPost("resend-verification-email")]
         [AllowAnonymous]
         public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendVerificationEmailRequestDto dto)
@@ -75,6 +80,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Gửi email đặt lại mật khẩu.</summary>
         [HttpPost("forgot-password")]
         [AllowAnonymous]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto)
@@ -84,6 +90,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Đặt lại mật khẩu bằng token nhận qua email.</summary>
         [HttpPost("reset-password")]
         [AllowAnonymous]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto dto)
@@ -93,6 +100,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Đăng nhập bằng username/phone + mật khẩu.</summary>
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
@@ -102,6 +110,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Đăng nhập dành cho Rescuer bằng email + mật khẩu.</summary>
         [HttpPost("login-rescuer")]
         [AllowAnonymous]
         public async Task<IActionResult> LoginRescuer([FromBody] LoginRescuerRequestDto dto)
@@ -111,6 +120,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Đăng nhập bằng Firebase Phone Auth (IdToken từ SDK Firebase).</summary>
         [HttpPost("firebase-phone-login")]
         [AllowAnonymous]
         public async Task<IActionResult> FirebasePhoneLogin([FromBody] FirebasePhoneLoginRequestDto dto)
@@ -120,6 +130,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Đăng nhập bằng Google OAuth (IdToken từ SDK Google).</summary>
         [HttpPost("google-login")]
         [AllowAnonymous]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto dto)
@@ -129,6 +140,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Làm mới access token bằng refresh token.</summary>
         [HttpPost("refresh-token")]
         [AllowAnonymous]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto dto)
@@ -138,6 +150,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
+        /// <summary>Đăng xuất và thu hồi refresh token.</summary>
         [HttpPost("logout")]
         [Authorize]
         public async Task<IActionResult> Logout()

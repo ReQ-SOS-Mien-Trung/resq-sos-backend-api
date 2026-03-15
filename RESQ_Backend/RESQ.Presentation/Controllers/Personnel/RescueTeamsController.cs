@@ -21,6 +21,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Guid.TryParse(userIdStr, out var userId) ? userId : null;
     }
 
+    /// <summary>Lấy danh sách tất cả đội cứu hộ có phân trang.</summary>
     [HttpGet("")]
     [Authorize(Policy = PermissionConstants.PolicyPersonnelAccess)]
     public async Task<IActionResult> GetAllTeams([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -29,6 +30,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Xem chi tiết đội cứu hộ theo ID.</summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PermissionConstants.PolicyPersonnelAccess)]
     public async Task<IActionResult> GetDetail(int id)
@@ -37,6 +39,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Tạo đội cứu hộ mới.</summary>
     [HttpPost()]
     [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)] // Coordinator_Global | Coordinator_Point
     public async Task<IActionResult> CreateTeam([FromBody] CreateTeamRequestDto request)
@@ -55,6 +58,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Ok(new { Id = id });
     }
 
+    /// <summary>[Metadata] Danh sách trạng thái đội cứu hộ.</summary>
     [HttpGet("metadata/status")]
     public async Task<IActionResult> GetStatusMetadata()
     {
@@ -62,6 +66,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách loại đội cứu hộ.</summary>
     [HttpGet("metadata/types")]
     public async Task<IActionResult> GetTypeMetadata()
     {
@@ -69,6 +74,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách trạng thái thành viên đội.</summary>
     [HttpGet("metadata/member-status")]
     public async Task<IActionResult> GetMemberStatusMetadata()
     {
@@ -76,6 +82,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Lên lịch tập kết cho đội cứu hộ.</summary>
     [HttpPatch("{id}/schedule-assembly")]
     [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> ScheduleAssembly(int id, [FromBody] DateTime assemblyDate)
@@ -84,6 +91,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Thêm thành viên vào đội cứu hộ.</summary>
     [HttpPost("{id}/members")]
     [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> AddMember(int id, [FromBody] AddMemberRequestDto request)
@@ -92,6 +100,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Xóa thành viên khỏi đội cứu hộ.</summary>
     [HttpDelete("{id}/members/{userId}")]
     [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> RemoveMember(int id, Guid userId)
@@ -100,8 +109,9 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Thành viên chấp nhận lời mời vào đội.</summary>
     [HttpPost("{id}/members/accept")]
-    [Authorize] 
+    [Authorize]
     public async Task<IActionResult> AcceptInvitation(int id)
     {
         var userId = GetCurrentUserId();
@@ -111,6 +121,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Thành viên từ chối lời mời vào đội.</summary>
     [HttpPost("{id}/members/decline")]
     [Authorize]
     public async Task<IActionResult> DeclineInvitation(int id)
@@ -122,6 +133,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Thành viên check-in có mặt tại điểm tập kết.</summary>
     [HttpPost("{id}/members/check-in")]
     [Authorize]
     public async Task<IActionResult> CheckInMember(int id)
@@ -133,6 +145,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Giao nhiệm vụ cho đội (chuyển sang trạng thái Assigned).</summary>
     [HttpPost("{id}/assign-mission")]
     [Authorize(Roles = "2")]
     public async Task<IActionResult> AssignMission(int id)
@@ -141,6 +154,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Huỷ nhiệm vụ của đội.</summary>
     [HttpPost("{id}/cancel-mission")]
     [Authorize(Roles = "2")]
     public async Task<IActionResult> CancelMission(int id)
@@ -149,6 +163,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Bắt đầu thực hiện nhiệm vụ.</summary>
     [HttpPost("{id}/start-mission")]
     [Authorize(Roles = "2")]
     public async Task<IActionResult> StartMission(int id)
@@ -157,6 +172,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Hoàn thành nhiệm vụ.</summary>
     [HttpPost("{id}/finish-mission")]
     [Authorize(Roles = "2")]
     public async Task<IActionResult> FinishMission(int id)
@@ -165,6 +181,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Đội báo cáo sự cố phát sinh trong nhiệm vụ.</summary>
     [HttpPost("{id}/report-incident")]
     [Authorize] // Usually the Team Leader (Rescuer) reports this
     public async Task<IActionResult> ReportIncident(int id)
@@ -173,6 +190,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Xử lý xong sự cố của đội.</summary>
     [HttpPost("{id}/resolve-incident")]
     [Authorize(Roles = "2")]
     public async Task<IActionResult> ResolveIncident(int id, [FromQuery] bool hasInjuredMember)
@@ -181,6 +199,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Đánh dấu đội không sẵn sàng nhận nhiệm vụ.</summary>
     [HttpPost("{id}/set-unavailable")]
     [Authorize(Roles = "2")]
     public async Task<IActionResult> SetUnavailable(int id)
@@ -189,6 +208,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Giải tán đội cứu hộ.</summary>
     [HttpPost("{id}/disband")]
     [Authorize(Roles = "2")]
     public async Task<IActionResult> DisbandTeam(int id)
