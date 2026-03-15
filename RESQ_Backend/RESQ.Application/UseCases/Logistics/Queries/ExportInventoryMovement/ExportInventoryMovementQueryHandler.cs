@@ -40,16 +40,11 @@ public class ExportInventoryMovementQueryHandler(
         // 2. Xây dựng value object khoảng thời gian
         var period = request.PeriodType switch
         {
+            ExportPeriodType.ByDateRange =>
+                InventoryMovementExportPeriod.ForDateRange(request.FromDate!.Value, request.ToDate!.Value),
+
             ExportPeriodType.ByMonth =>
                 InventoryMovementExportPeriod.ForMonth(request.Year!.Value, request.Month!.Value),
-
-            ExportPeriodType.ByYear =>
-                InventoryMovementExportPeriod.ForYear(request.Year!.Value),
-
-            ExportPeriodType.ByMonthRange =>
-                InventoryMovementExportPeriod.ForMonthRange(
-                    request.FromYear!.Value, request.FromMonth!.Value,
-                    request.ToYear!.Value, request.ToMonth!.Value),
 
             _ => throw new ArgumentOutOfRangeException(nameof(request.PeriodType), "Loại kỳ xuất không hợp lệ.")
         };

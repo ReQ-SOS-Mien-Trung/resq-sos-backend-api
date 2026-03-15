@@ -4,7 +4,7 @@ namespace RESQ.Domain.Entities.Logistics.ValueObjects;
 
 /// <summary>
 /// Value object đóng gói khoảng thời gian xuất báo cáo biến động kho.
-/// Hỗ trợ 3 chế độ: theo tháng, theo năm, theo khoảng tháng.
+/// Hỗ trợ 2 chế độ: theo khoảng ngày tùy chọn (ByDateRange) và theo tháng/năm (ByMonth).
 /// </summary>
 public sealed class InventoryMovementExportPeriod
 {
@@ -25,6 +25,18 @@ public sealed class InventoryMovementExportPeriod
         DisplayTitle = displayTitle;
     }
 
+    /// <summary>Xuất theo khoảng ngày tùy chọn (VD: 01/03/2026 → 15/03/2026).</summary>
+    public static InventoryMovementExportPeriod ForDateRange(DateOnly fromDate, DateOnly toDate)
+    {
+        var from = fromDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var to   = toDate.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+        return new InventoryMovementExportPeriod(
+            ExportPeriodType.ByDateRange,
+            from,
+            to,
+            $"Từ {fromDate:dd/MM/yyyy} đến {toDate:dd/MM/yyyy}");
+    }
+
     /// <summary>Xuất theo một tháng cụ thể (VD: tháng 3/2026).</summary>
     public static InventoryMovementExportPeriod ForMonth(int year, int month)
     {
@@ -37,33 +49,6 @@ public sealed class InventoryMovementExportPeriod
             $"Tháng {month:00}/{year}");
     }
 
-    /// <summary>Xuất theo toàn bộ một năm (VD: năm 2025).</summary>
-    public static InventoryMovementExportPeriod ForYear(int year)
-    {
-        var from = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var to = new DateTime(year, 12, 31, 23, 59, 59, 999, DateTimeKind.Utc);
-        return new InventoryMovementExportPeriod(
-            ExportPeriodType.ByYear,
-            from,
-            to,
-            $"Năm {year}");
-    }
-
-    /// <summary>Xuất theo khoảng từ tháng X đến tháng Y.</summary>
-    public static InventoryMovementExportPeriod ForMonthRange(
-        int fromYear, int fromMonth,
-        int toYear, int toMonth)
-    {
-        var from = new DateTime(fromYear, fromMonth, 1, 0, 0, 0, DateTimeKind.Utc);
-        var to = new DateTime(toYear, toMonth, 1, 0, 0, 0, DateTimeKind.Utc)
-            .AddMonths(1).AddTicks(-1);
-        return new InventoryMovementExportPeriod(
-            ExportPeriodType.ByMonthRange,
-            from,
-            to,
-            $"Từ tháng {fromMonth:00}/{fromYear} đến tháng {toMonth:00}/{toYear}");
-    }
-
     public string GetFileName(string depotName = "")
     {
         var safeName = string.IsNullOrWhiteSpace(depotName)
@@ -73,10 +58,6 @@ public sealed class InventoryMovementExportPeriod
                 .Replace(":", "").Replace("*", "").Replace("?", "")
                 .Replace("\"", "").Replace("<", "").Replace(">", "").Replace("|", "")
                 .Trim();
-        // Readable display name: "Biến động Kho {depot} Tháng {period}"
-        var displayPeriod = PeriodType == ExportPeriodType.ByYear
-            ? DisplayTitle          // "Năm 2026"
-            : DisplayTitle;         // "Tháng 03/2026" or range
-        return $"Biến động Kho {safeName} {displayPeriod}.xlsx";
+        return $"Biến động Kho {safeName} {DisplayTitle}.xlsx";
     }
 }

@@ -12,21 +12,15 @@ public class ExportInventoryMovementQuery : IRequest<ExportInventoryMovementResu
     /// <summary>Tháng (1-12). Bắt buộc khi PeriodType = ByMonth.</summary>
     public int? Month { get; set; }
 
-    /// <summary>Năm. Bắt buộc khi PeriodType = ByMonth hoặc ByYear.</summary>
+    /// <summary>Năm (VD: 2026). Bắt buộc khi PeriodType = ByMonth.</summary>
     public int? Year { get; set; }
 
-    // --- ByMonthRange ---
-    /// <summary>Tháng bắt đầu (1-12). Bắt buộc khi PeriodType = ByMonthRange.</summary>
-    public int? FromMonth { get; set; }
+    // --- ByDateRange ---
+    /// <summary>Ngày bắt đầu (yyyy-MM-dd). Bắt buộc khi PeriodType = ByDateRange.</summary>
+    public DateOnly? FromDate { get; set; }
 
-    /// <summary>Năm bắt đầu. Bắt buộc khi PeriodType = ByMonthRange.</summary>
-    public int? FromYear { get; set; }
-
-    /// <summary>Tháng kết thúc (1-12). Bắt buộc khi PeriodType = ByMonthRange.</summary>
-    public int? ToMonth { get; set; }
-
-    /// <summary>Năm kết thúc. Bắt buộc khi PeriodType = ByMonthRange.</summary>
-    public int? ToYear { get; set; }
+    /// <summary>Ngày kết thúc (yyyy-MM-dd). Bắt buộc khi PeriodType = ByDateRange.</summary>
+    public DateOnly? ToDate { get; set; }
 }
 
 public class ExportInventoryMovementResult
