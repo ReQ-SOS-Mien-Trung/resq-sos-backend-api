@@ -130,5 +130,31 @@ namespace RESQ.Infrastructure.Persistence.Identity
             var models = paged.Items.Select(UsersMapper.ToModel).ToList();
             return new PagedResult<UserModel>(models, paged.TotalCount, paged.PageNumber, paged.PageSize);
         }
+
+        public async Task<PagedResult<UserModel>> GetPagedForPermissionAsync(
+            int pageNumber, int pageSize,
+            int? roleId = null, string? search = null,
+            CancellationToken cancellationToken = default)
+        {
+            var paged = await _unitOfWork.GetRepository<User>().GetPagedAsync(
+                pageNumber,
+                pageSize,
+                filter: u =>
+                    // Loại trừ user bị ban
+                    !u.IsBanned &&
+                    // Loại trừ volunteer chưa kích hoạt (cả 2 cờ đều false)
+                    (u.IsEligibleRescuer || u.IsOnboarded) &&
+                    (roleId == null || u.RoleId == roleId) &&
+                    (search == null ||
+                     (u.Phone != null && u.Phone.Contains(search)) ||
+                     (u.Email != null && u.Email.Contains(search)) ||
+                     (u.FirstName != null && u.FirstName.Contains(search)) ||
+                     (u.LastName != null && u.LastName.Contains(search))),
+                orderBy: q => q.OrderByDescending(u => u.CreatedAt)
+            );
+
+            var models = paged.Items.Select(UsersMapper.ToModel).ToList();
+            return new PagedResult<UserModel>(models, paged.TotalCount, paged.PageNumber, paged.PageSize);
+        }
     }
 }
