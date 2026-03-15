@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.CreatePermission;
 using RESQ.Application.UseCases.Identity.Commands.DeletePermission;
 using RESQ.Application.UseCases.Identity.Commands.UpdatePermission;
@@ -10,7 +11,7 @@ namespace RESQ.Presentation.Controllers.Identity;
 
 [Route("identity/permissions")]
 [ApiController]
-[Authorize(Roles = "1")]
+[Authorize(Policy = PermissionConstants.SystemConfigManage)]
 public class PermissionsController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;

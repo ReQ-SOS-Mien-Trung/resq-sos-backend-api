@@ -3,6 +3,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Emergency.Commands.CancelSosRequest;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 using RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
@@ -22,7 +23,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     private readonly IMediator _mediator = mediator;
 
     [HttpPost]
-    [Authorize(Roles = "2,5")]
+    [Authorize(Policy = PermissionConstants.SosRequestCreate)]
     public async Task<IActionResult> Create([FromBody] CreateSosRequestRequestDto dto)
     {
         if (dto.SenderInfo?.UserId == null || !Guid.TryParse(dto.SenderInfo.UserId, out var senderUserId))
@@ -63,7 +64,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("me")]
-    [Authorize(Roles = "5")]
+    [Authorize(Policy = PermissionConstants.SosRequestCreate)]
     public async Task<IActionResult> GetMySosRequests()
     {
         if (!TryGetUserId(out var userId))
@@ -74,7 +75,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet()]
-    [Authorize(Roles = "1,2")]
+    [Authorize(Policy = PermissionConstants.SosRequestView)]
     public async Task<IActionResult> GetSosRequestsPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         var query = new GetSosRequestsPagedQuery
@@ -87,7 +88,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-    [Authorize(Roles = "1,2,5")]
+    [Authorize(Policy = PermissionConstants.PolicySosRequestAccess)]
     public async Task<IActionResult> GetSosRequestDetail([FromRoute] int id)
     {
         if (!TryGetUserId(out var userId) || !TryGetRoleId(out var roleId))
@@ -103,7 +104,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     /// và tất cả bản phân tích AI (nếu đã hoàn thành xử lý bất đồng bộ).
     /// </summary>
     [HttpGet("{id:int}/evaluation")]
-    [Authorize(Roles = "1,2,5")]
+    [Authorize(Policy = PermissionConstants.PolicySosRequestAccess)]
     public async Task<IActionResult> GetSosEvaluation([FromRoute] int id)
     {
         if (!TryGetUserId(out var userId) || !TryGetRoleId(out var roleId))

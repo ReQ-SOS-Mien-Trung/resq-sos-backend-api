@@ -1,5 +1,7 @@
 ﻿using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Personnel.Commands.ChangeAssemblyPointStatus;
 using RESQ.Application.UseCases.Personnel.Commands.CreateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.DeleteAssemblyPoint;
@@ -53,6 +55,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         /// Create a new assembly point.
         /// </summary>
         [HttpPost]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> Create([FromBody] CreateAssemblyPointRequestDto dto)
         {
             var command = new CreateAssemblyPointCommand(
@@ -70,6 +73,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         /// Update an existing assembly point (Code is immutable).
         /// </summary>
         [HttpPut("{id}")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateAssemblyPointRequestDto dto)
         {
             var command = new UpdateAssemblyPointCommand(
@@ -88,6 +92,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         /// Change the status of an assembly point.
         /// </summary>
         [HttpPatch("{id}/status")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> ChangeStatus(int id, [FromBody] ChangeAssemblyPointStatusRequestDto dto)
         {
             var command = new ChangeAssemblyPointStatusCommand(id, dto.Status);
@@ -99,6 +104,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         /// Delete an assembly point.
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> Delete(int id)
         {
             var command = new DeleteAssemblyPointCommand(id);

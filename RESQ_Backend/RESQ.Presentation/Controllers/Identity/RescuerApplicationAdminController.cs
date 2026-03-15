@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications;
 
@@ -9,7 +10,7 @@ namespace RESQ.Presentation.Controllers.Identity
 {
     [Route("identity/admin/rescuer-applications")]
     [ApiController]
-    [Authorize(Roles = "1")] // Admin only
+    [Authorize]
     public class RescuerApplicationAdminController(IMediator mediator) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;
@@ -24,15 +25,17 @@ namespace RESQ.Presentation.Controllers.Identity
         /// <param name="email">Lọc theo email</param>
         /// <param name="phone">Lọc theo số điện thoại</param>
         [HttpGet]
+        [Authorize(Policy = PermissionConstants.SystemUserView)]
         public async Task<IActionResult> GetRescuerApplications(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] string? status = null,
             [FromQuery] string? name = null,
             [FromQuery] string? email = null,
-            [FromQuery] string? phone = null)
+            [FromQuery] string? phone = null,
+            [FromQuery] string? rescuerType = null)
         {
-            var query = new GetRescuerApplicationsQuery(pageNumber, pageSize, status, name, email, phone);
+            var query = new GetRescuerApplicationsQuery(pageNumber, pageSize, status, name, email, phone, rescuerType);
             var result = await _mediator.Send(query);
             return Ok(result);
         }
@@ -42,6 +45,7 @@ namespace RESQ.Presentation.Controllers.Identity
         /// </summary>
         /// <param name="dto">Thông tin duyệt đơn</param>
         [HttpPost("review")]
+        [Authorize(Policy = PermissionConstants.SystemUserManage)]
         public async Task<IActionResult> ReviewRescuerApplication([FromBody] ReviewRescuerApplicationRequestDto dto)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

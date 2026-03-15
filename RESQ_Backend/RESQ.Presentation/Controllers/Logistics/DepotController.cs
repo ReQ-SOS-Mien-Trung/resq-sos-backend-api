@@ -1,5 +1,7 @@
 ﻿using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
 using RESQ.Application.UseCases.Logistics.Commands.CreateDepot;
 using RESQ.Application.UseCases.Logistics.Commands.UpdateDepot;
@@ -16,6 +18,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         private readonly IMediator _mediator = mediator;
 
         [HttpGet]
+        [Authorize(Policy = PermissionConstants.PolicyDepotView)]
         public async Task<IActionResult> Get([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             var query = new GetAllDepotsQuery
@@ -29,6 +32,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         [HttpGet("{id}")]
+        [Authorize(Policy = PermissionConstants.PolicyDepotView)]
         public async Task<IActionResult> GetById(int id)
         {
             var result = await _mediator.Send(new GetDepotByIdQuery(id));
@@ -36,6 +40,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         [HttpPost]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         public async Task<IActionResult> Create([FromBody] CreateDepotRequestDto dto)
         {
             // Pass primitives to command. GeoLocation creation moved to Handler.
@@ -52,6 +57,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateDepotRequestDto dto)
         {
             // Pass primitives to command.
@@ -69,6 +75,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         [HttpPatch("{id}/status")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         public async Task<IActionResult> ChangeStatus(int id, [FromQuery] ChangeDepotStatusRequestDto dto)
         {
             var command = new ChangeDepotStatusCommand(id, dto.Status);
