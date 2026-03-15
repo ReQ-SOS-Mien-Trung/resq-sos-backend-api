@@ -101,7 +101,17 @@ public static class EmergencySeeder
                       "people_count": { "adult": 2, "child": 0, "elderly": 1 },
                       "medical_issues": ["CHRONIC_DISEASE", "MOBILITY_IMPAIRMENT", "BREATHING_DIFFICULTY"],
                       "supplies": ["MEDICINE", "TRANSPORTATION"],
-                      "additional_description": "Cu ba 82 tuoi bi liet nua nguoi, kho tho, nuoc lu dang len nhanh khong tu di chuyen duoc"
+                      "additional_description": "Cu ba 82 tuoi bi liet nua nguoi, kho tho, nuoc lu dang len nhanh khong tu di chuyen duoc",
+                      "injured_persons": [
+                        {
+                          "index": 1,
+                          "name": "Người lớn 1",
+                          "custom_name": "Cụ bà 82 tuổi",
+                          "person_type": "elderly",
+                          "medical_issues": ["CHRONIC_DISEASE", "MOBILITY_IMPAIRMENT", "BREATHING_DIFFICULTY"],
+                          "severity": "Critical"
+                        }
+                      ]
                     }
                     """,
                 NetworkMetadata = """
@@ -124,7 +134,11 @@ public static class EmergencySeeder
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc)
+                LastUpdatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc),
+                ReviewedById = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                AiAnalysis = """{"urgency":"critical","suggested_severity":"Critical","confidence":0.96,"risk_factors":["deep_flooding","elderly_paralyzed","water_rising"],"needs":["boat_rescue","medical_team"]}"""
             },
 
             // A-2: Phụ nữ mang thai tháng 8 + 3 trẻ nhỏ, đang trú trên mái — ~700m từ A-1
@@ -150,7 +164,17 @@ public static class EmergencySeeder
                       "people_count": { "adult": 3, "child": 3, "elderly": 0 },
                       "medical_issues": ["PREGNANCY", "BREATHING_DIFFICULTY"],
                       "supplies": ["MEDICINE", "WATER"],
-                      "additional_description": "Dang tru tren mai nha, 3 tre nho kho tho vi met moi, vo mang thai thang 8, nuoc van dang dang"
+                      "additional_description": "Dang tru tren mai nha, 3 tre nho kho tho vi met moi, vo mang thai thang 8, nuoc van dang dang",
+                      "injured_persons": [
+                        {
+                          "index": 1,
+                          "name": "Người lớn 1",
+                          "custom_name": "Vợ mang thai tháng 8",
+                          "person_type": "adult",
+                          "medical_issues": ["PREGNANCY", "BREATHING_DIFFICULTY"],
+                          "severity": "Critical"
+                        }
+                      ]
                     }
                     """,
                 NetworkMetadata = """
@@ -173,7 +197,11 @@ public static class EmergencySeeder
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 35, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 8, 35, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc)
+                LastUpdatedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
+                ReviewedById = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                AiAnalysis = """{"urgency":"critical","suggested_severity":"Critical","confidence":0.94,"risk_factors":["pregnant_woman","young_children","rooftop_refuge"],"needs":["boat_rescue","obstetrics_support"]}"""
             },
 
             // ============================================================
@@ -204,7 +232,25 @@ public static class EmergencySeeder
                       "people_count": { "adult": 5, "child": 0, "elderly": 0 },
                       "medical_issues": ["FRACTURE", "BLEEDING"],
                       "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
-                      "additional_description": "Sat lo dat chan duong tinh lo, 2 nguoi bi thuong nang, can truc thang hoac di bo rung"
+                      "additional_description": "Sat lo dat chan duong tinh lo, 2 nguoi bi thuong nang, can truc thang hoac di bo rung",
+                      "injured_persons": [
+                        {
+                          "index": 1,
+                          "name": "Người lớn 1",
+                          "custom_name": null,
+                          "person_type": "adult",
+                          "medical_issues": ["FRACTURE"],
+                          "severity": "Moderate"
+                        },
+                        {
+                          "index": 2,
+                          "name": "Người lớn 2",
+                          "custom_name": null,
+                          "person_type": "adult",
+                          "medical_issues": ["BLEEDING"],
+                          "severity": "Critical"
+                        }
+                      ]
                     }
                     """,
                 NetworkMetadata = """
@@ -227,7 +273,11 @@ public static class EmergencySeeder
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc)
+                LastUpdatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2024, 10, 16, 8, 55, 0, DateTimeKind.Utc),
+                ReviewedById = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.89,"risk_factors":["landslide","bleeding_injury","road_blocked"],"needs":["medical_evacuation","helicopter"]}"""
             },
 
             // B-2: Cầu bị ngập, cả thôn cô lập 3 ngày, thiếu sữa + thuốc — ~800m từ B-1
@@ -247,13 +297,23 @@ public static class EmergencySeeder
                     {
                       "situation": "FLOODING",
                       "can_move": false,
-                      "has_injured": false,
+                      "has_injured": true,
                       "need_medical": true,
                       "others_are_stable": false,
                       "people_count": { "adult": 91, "child": 4, "elderly": 25 },
                       "medical_issues": ["CHRONIC_DISEASE"],
                       "supplies": ["FOOD", "WATER", "MEDICINE"],
-                      "additional_description": "Ca thon co lap 3 ngay, het luong thuc va nuoc sach, 4 be duoi 1 tuoi can sua gap, nguoi gia het thuoc huyet ap"
+                      "additional_description": "Ca thon co lap 3 ngay, het luong thuc va nuoc sach, 4 be duoi 1 tuoi can sua gap, nguoi gia het thuoc huyet ap",
+                      "injured_persons": [
+                        {
+                          "index": 1,
+                          "name": "Người lớn 1",
+                          "custom_name": "Người già bệnh huyết áp",
+                          "person_type": "elderly",
+                          "medical_issues": ["CHRONIC_DISEASE"],
+                          "severity": "Moderate"
+                        }
+                      ]
                     }
                     """,
                 NetworkMetadata = """
@@ -276,7 +336,11 @@ public static class EmergencySeeder
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 8, 50, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 8, 52, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc)
+                LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc),
+                ReviewedById = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.91,"risk_factors":["prolonged_isolation","infant_malnutrition","medication_shortage"],"needs":["food_drop","water","medicine"]}"""
             },
 
             // ============================================================
@@ -307,7 +371,17 @@ public static class EmergencySeeder
                       "people_count": { "adult": 1, "child": 0, "elderly": 0 },
                       "medical_issues": ["FRACTURE"],
                       "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
-                      "additional_description": "Lac trong rung Hoa Phu tu sang, gay chan trai khong tu di duoc, dien thoai con 8% pin, toa do GPS 16.0240N 108.0100E"
+                      "additional_description": "Lac trong rung Hoa Phu tu sang, gay chan trai khong tu di duoc, dien thoai con 8% pin, toa do GPS 16.0240N 108.0100E",
+                      "injured_persons": [
+                        {
+                          "index": 1,
+                          "name": "Người lớn 1",
+                          "custom_name": "Bản thân",
+                          "person_type": "adult",
+                          "medical_issues": ["FRACTURE"],
+                          "severity": "Critical"
+                        }
+                      ]
                     }
                     """,
                 NetworkMetadata = """
@@ -330,7 +404,11 @@ public static class EmergencySeeder
                 Status = "Pending",
                 CreatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc)
+                LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2024, 10, 16, 9, 20, 0, DateTimeKind.Utc),
+                ReviewedById = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                AiAnalysis = """{"urgency":"medium","suggested_severity":"Moderate","confidence":0.85,"risk_factors":["isolated_forest","broken_leg","low_battery"],"needs":["search_rescue","medical"]}"""
             }
         );
     }
@@ -433,55 +511,80 @@ public static class EmergencySeeder
                 Id = 1,
                 SosRequestId = 1,
                 Metadata = "{\"urgency\": \"critical\", \"risk_factors\": [\"deep_flooding\", \"elderly_paralyzed\", \"water_rising\"], \"needs\": [\"boat_rescue\", \"medical_team\"]}",
+                ModelName = "GeminiPro",
                 ModelVersion = "v1.0",
+                AnalysisType = "SOS_ASSESSMENT",
                 SuggestedSeverityLevel = "Critical",
+                SuggestedPriority = "Critical",
+                SuggestionScope = "SOS_REQUEST",
                 ConfidenceScore = 0.96,
                 Explanation = "Phát hiện: người già liệt không tự di chuyển, nước vẫn dâng, không có thuyền. Nguy cơ chết đuối rất cao. Cần can thiệp ngay lập tức.",
-                CreatedAt = now
+                CreatedAt = now,
+                AdoptedAt = now.AddMinutes(5)
             },
             new SosAiAnalysis
             {
                 Id = 2,
                 SosRequestId = 2,
                 Metadata = "{\"urgency\": \"critical\", \"risk_factors\": [\"pregnant_woman\", \"young_children\", \"rooftop_refuge\"], \"needs\": [\"boat_rescue\", \"obstetrics_support\"]}",
+                ModelName = "GeminiPro",
                 ModelVersion = "v1.0",
+                AnalysisType = "SOS_ASSESSMENT",
                 SuggestedSeverityLevel = "Critical",
+                SuggestedPriority = "Critical",
+                SuggestionScope = "SOS_REQUEST",
                 ConfidenceScore = 0.94,
                 Explanation = "Phát hiện: phụ nữ mang thai tháng 8, 3 trẻ em từ 2-7 tuổi đang trú trên mái nhà. Rủi ro sinh non và chấn thương trẻ em rất cao.",
-                CreatedAt = now.AddSeconds(30)
+                CreatedAt = now.AddSeconds(30),
+                AdoptedAt = now.AddMinutes(5).AddSeconds(30)
             },
             new SosAiAnalysis
             {
                 Id = 3,
                 SosRequestId = 3,
                 Metadata = "{\"urgency\": \"high\", \"risk_factors\": [\"landslide\", \"bleeding_injury\", \"road_blocked\"], \"needs\": [\"medical_evacuation\", \"helicopter\"]}",
+                ModelName = "GeminiPro",
                 ModelVersion = "v1.0",
+                AnalysisType = "SOS_ASSESSMENT",
                 SuggestedSeverityLevel = "High",
+                SuggestedPriority = "High",
+                SuggestionScope = "SOS_REQUEST",
                 ConfidenceScore = 0.89,
                 Explanation = "Phát hiện: sạt lở đường, người bị thương chảy máu đầu (nguy cơ chấn thương sọ não). Đường bộ bị chặn hoàn toàn, cần trực thăng hoặc đường thủy.",
-                CreatedAt = now.AddMinutes(1)
+                CreatedAt = now.AddMinutes(1),
+                AdoptedAt = now.AddMinutes(6)
             },
             new SosAiAnalysis
             {
                 Id = 4,
                 SosRequestId = 4,
                 Metadata = "{\"urgency\": \"high\", \"risk_factors\": [\"prolonged_isolation\", \"infant_malnutrition\", \"medication_shortage\"], \"needs\": [\"food_drop\", \"water\", \"medicine\"]}",
+                ModelName = "GeminiPro",
                 ModelVersion = "v1.0",
+                AnalysisType = "SOS_ASSESSMENT",
                 SuggestedSeverityLevel = "High",
+                SuggestedPriority = "High",
+                SuggestionScope = "SOS_REQUEST",
                 ConfidenceScore = 0.91,
                 Explanation = "Phát hiện: cô lập 3 ngày, 4 trẻ sơ sinh thiếu sữa, người cao tuổi hết thuốc huyết áp. Nguy cơ suy dinh dưỡng trẻ em và biến chứng tim mạch ở người già.",
-                CreatedAt = now.AddMinutes(1).AddSeconds(30)
+                CreatedAt = now.AddMinutes(1).AddSeconds(30),
+                AdoptedAt = now.AddMinutes(6).AddSeconds(30)
             },
             new SosAiAnalysis
             {
                 Id = 5,
                 SosRequestId = 5,
                 Metadata = "{\"urgency\": \"medium\", \"risk_factors\": [\"isolated_forest\", \"broken_leg\", \"low_battery\"], \"needs\": [\"search_rescue\", \"medical\"]}",
+                ModelName = "GeminiPro",
                 ModelVersion = "v1.0",
+                AnalysisType = "SOS_ASSESSMENT",
                 SuggestedSeverityLevel = "Moderate",
+                SuggestedPriority = "Moderate",
+                SuggestionScope = "SOS_REQUEST",
                 ConfidenceScore = 0.85,
                 Explanation = "Phát hiện: người một mình bị gãy chân trong rừng sâu, điện thoại sắp hết pin. Vị trí GPS xác định. Ưu tiên triển khai đội tìm kiếm cứu nạn rừng núi.",
-                CreatedAt = now.AddMinutes(2)
+                CreatedAt = now.AddMinutes(2),
+                AdoptedAt = now.AddMinutes(7)
             }
         );
     }

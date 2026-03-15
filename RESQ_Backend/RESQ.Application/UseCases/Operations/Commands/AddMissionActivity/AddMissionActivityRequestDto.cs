@@ -10,4 +10,9 @@ public class AddMissionActivityRequestDto
     public string? Items { get; set; }
     public double? TargetLatitude { get; set; }
     public double? TargetLongitude { get; set; }
+
+    // Team assignment (optional)
+    public int? RescueTeamId { get; set; }
+    public string? TeamType { get; set; }
+    public string? Note { get; set; }
 }

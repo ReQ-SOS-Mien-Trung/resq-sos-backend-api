@@ -125,11 +125,16 @@ public class MissionController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Thêm một activity vào mission đã có.
+    /// Có thể đồng thời giao đội cứu hộ bằng cách truyền thêm RescueTeamId (và tuỳ chọn TeamType, Note).
     /// </summary>
     [HttpPost("{missionId:int}/activities")]
     [Authorize(Roles = "1,2,4")]
     public async Task<IActionResult> AddMissionActivity([FromRoute] int missionId, [FromBody] AddMissionActivityRequestDto dto)
     {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
         var command = new AddMissionActivityCommand(
             missionId,
             dto.Step,
@@ -139,7 +144,11 @@ public class MissionController(IMediator mediator) : ControllerBase
             dto.Target,
             dto.Items,
             dto.TargetLatitude,
-            dto.TargetLongitude
+            dto.TargetLongitude,
+            dto.RescueTeamId,
+            dto.TeamType,
+            dto.Note,
+            userId
         );
 
         var result = await _mediator.Send(command);
