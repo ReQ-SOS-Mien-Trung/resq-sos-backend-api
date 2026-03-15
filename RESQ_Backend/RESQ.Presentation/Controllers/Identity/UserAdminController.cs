@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.AdminCreateUser;
 using RESQ.Application.UseCases.Identity.Commands.AdminUpdateUser;
 using RESQ.Application.UseCases.Identity.Commands.AssignRoleToUser;
@@ -18,13 +19,14 @@ namespace RESQ.Presentation.Controllers.Identity
 {
     [Route("identity/admin/users")]
     [ApiController]
-    [Authorize(Roles = "1")] // Admin only
+    [Authorize]
     public class UserAdminController(IMediator mediator) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;
 
         /// <summary>Lấy danh sách user có phân trang (không bao gồm Rescuer)</summary>
         [HttpGet]
+        [Authorize(Policy = PermissionConstants.SystemUserView)]
         public async Task<IActionResult> GetUsers(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20,
@@ -39,6 +41,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Lấy danh sách Rescuer (RoleId=3) với đầy đủ thông tin</summary>
         [HttpGet("rescuers")]
+        [Authorize(Policy = PermissionConstants.SystemUserView)]
         public async Task<IActionResult> GetRescuers(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20,
@@ -53,6 +56,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Lấy thông tin chi tiết một user theo ID</summary>
         [HttpGet("{userId:guid}")]
+        [Authorize(Policy = PermissionConstants.SystemUserView)]
         public async Task<IActionResult> GetUserById(Guid userId)
         {
             var query = new GetUserByIdQuery(userId);
@@ -62,6 +66,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Admin tạo tài khoản mới với role chỉ định</summary>
         [HttpPost]
+        [Authorize(Policy = PermissionConstants.SystemUserManage)]
         public async Task<IActionResult> CreateUser([FromBody] AdminCreateUserRequestDto dto)
         {
             var command = new AdminCreateUserCommand(
@@ -77,6 +82,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Admin cập nhật thông tin user</summary>
         [HttpPut("{userId:guid}")]
+        [Authorize(Policy = PermissionConstants.SystemUserManage)]
         public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] AdminUpdateUserRequestDto dto)
         {
             var command = new AdminUpdateUserCommand(
@@ -92,6 +98,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Admin ban một user</summary>
         [HttpPost("{userId:guid}/ban")]
+        [Authorize(Policy = PermissionConstants.SystemUserManage)]
         public async Task<IActionResult> BanUser(Guid userId, [FromBody] BanUserRequestDto dto)
         {
             var adminIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -105,6 +112,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Admin gỡ ban một user</summary>
         [HttpPost("{userId:guid}/unban")]
+        [Authorize(Policy = PermissionConstants.SystemUserManage)]
         public async Task<IActionResult> UnbanUser(Guid userId)
         {
             var command = new UnbanUserCommand(userId);
@@ -114,6 +122,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Admin gán role cho user</summary>
         [HttpPut("{userId:guid}/role")]
+        [Authorize(Policy = PermissionConstants.SystemConfigManage)]
         public async Task<IActionResult> AssignRole(Guid userId, [FromBody] AssignRoleToUserRequestDto dto)
         {
             var command = new AssignRoleToUserCommand(userId, dto.RoleId);
@@ -123,6 +132,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Admin cập nhật avatar cho một user</summary>
         [HttpPut("{userId:guid}/avatar")]
+        [Authorize(Policy = PermissionConstants.SystemUserManage)]
         public async Task<IActionResult> SetUserAvatarUrl(Guid userId, [FromBody] SetUserAvatarUrlRequestDto dto)
         {
             var command = new SetUserAvatarUrlCommand(userId, dto.AvatarUrl);
@@ -132,6 +142,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Lấy danh sách permission trực tiếp của user</summary>
         [HttpGet("{userId:guid}/permissions")]
+        [Authorize(Policy = PermissionConstants.SystemConfigManage)]
         public async Task<IActionResult> GetUserPermissions(Guid userId)
         {
             var query = new GetUserPermissionsQuery(userId);
@@ -141,6 +152,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Gán/thay thế danh sách permission trực tiếp cho user</summary>
         [HttpPut("{userId:guid}/permissions")]
+        [Authorize(Policy = PermissionConstants.SystemConfigManage)]
         public async Task<IActionResult> SetUserPermissions(Guid userId, [FromBody] SetUserPermissionsRequestDto dto)
         {
             var adminIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

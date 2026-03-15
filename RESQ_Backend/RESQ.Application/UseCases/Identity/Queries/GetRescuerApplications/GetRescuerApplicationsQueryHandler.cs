@@ -17,8 +17,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
 
         public async Task<PagedResult<RescuerApplicationDto>> Handle(GetRescuerApplicationsQuery request, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Getting rescuer applications: Page={Page}, Size={Size}, Status={Status}, Name={Name}, Email={Email}, Phone={Phone}",
-                request.PageNumber, request.PageSize, request.Status, request.Name, request.Email, request.Phone);
+            _logger.LogInformation("Getting rescuer applications: Page={Page}, Size={Size}, Status={Status}, Name={Name}, Email={Email}, Phone={Phone}, RescuerType={RescuerType}",
+                request.PageNumber, request.PageSize, request.Status, request.Name, request.Email, request.Phone, request.RescuerType);
 
             var result = await _rescuerApplicationRepository.GetPagedAsync(
                 request.PageNumber,
@@ -27,6 +27,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
                 request.Name,
                 request.Email,
                 request.Phone,
+                request.RescuerType,
                 cancellationToken
             );
 

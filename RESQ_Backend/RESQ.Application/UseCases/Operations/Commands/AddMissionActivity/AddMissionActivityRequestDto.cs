@@ -13,6 +13,4 @@ public class AddMissionActivityRequestDto
 
     // Team assignment (optional)
     public int? RescueTeamId { get; set; }
-    public string? TeamType { get; set; }
-    public string? Note { get; set; }
 }

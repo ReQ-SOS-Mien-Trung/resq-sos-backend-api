@@ -1,5 +1,7 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
@@ -23,6 +25,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     private readonly ITokenService _tokenService = tokenService;
 
     [HttpGet("depot/{depotId:int}")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetDepotInventory(
         int depotId,
         [FromQuery] List<int>? categoryIds,
@@ -46,6 +49,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     [HttpGet("my-depot")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetMyDepotInventory(
         [FromQuery] List<int>? categoryIds,
         [FromQuery] List<ItemType>? itemTypes,
@@ -115,6 +119,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     [HttpGet("stock-movements/my-depot")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> GetTransactionHistory(
         [FromQuery] List<InventoryActionType>? actionTypes,
         [FromQuery] List<InventorySourceType>? sourceTypes,
@@ -145,6 +150,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     [HttpGet("stock-movements")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> GetInventoryLogs(
         [FromQuery] int? depotId,
         [FromQuery] int? reliefItemId,
@@ -174,6 +180,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     [HttpPost("import")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> Import([FromBody] ImportReliefItemsRequest request)
     {
         var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -195,6 +202,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     [HttpPost("import-purchase")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> ImportPurchase([FromBody] ImportPurchasedInventoryRequest request)
     {
         var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

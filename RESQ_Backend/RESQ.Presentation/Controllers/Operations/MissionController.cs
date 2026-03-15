@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Application.UseCases.Operations.Commands.CreateMission;
@@ -33,7 +34,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Tự động tạo conversation giữa coordinator và các victim trong cluster.
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
     public async Task<IActionResult> CreateMission([FromBody] CreateMissionRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -58,7 +59,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Lấy danh sách tất cả missions, có thể filter theo clusterId.
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicyMissionAccess)]
     public async Task<IActionResult> GetMissions([FromQuery] int? clusterId)
     {
         var result = await _mediator.Send(new GetMissionsQuery(clusterId));
@@ -69,7 +70,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Xem chi tiết một mission kèm toàn bộ activities.
     /// </summary>
     [HttpGet("{missionId:int}")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicyMissionAccess)]
     public async Task<IActionResult> GetMissionById([FromRoute] int missionId)
     {
         var result = await _mediator.Send(new GetMissionByIdQuery(missionId));
@@ -81,7 +82,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Cập nhật thông tin chung của mission (type, priority, thời gian).
     /// </summary>
     [HttpPut("{missionId:int}")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
     public async Task<IActionResult> UpdateMission([FromRoute] int missionId, [FromBody] UpdateMissionRequestDto dto)
     {
         var command = new UpdateMissionCommand(
@@ -100,7 +101,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Cập nhật trạng thái mission: pending | in_progress | completed | cancelled.
     /// </summary>
     [HttpPatch("{missionId:int}/status")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityManage)] // Global | Point | TeamUpdate
     public async Task<IActionResult> UpdateMissionStatus([FromRoute] int missionId, [FromBody] UpdateMissionStatusRequestDto dto)
     {
         var command = new UpdateMissionStatusCommand(missionId, dto.Status);
@@ -116,7 +117,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Lấy danh sách activities của một mission.
     /// </summary>
     [HttpGet("{missionId:int}/activities")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityAccess)]
     public async Task<IActionResult> GetMissionActivities([FromRoute] int missionId)
     {
         var result = await _mediator.Send(new GetMissionActivitiesQuery(missionId));
@@ -128,7 +129,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Có thể đồng thời giao đội cứu hộ bằng cách truyền thêm RescueTeamId (và tuỳ chọn TeamType, Note).
     /// </summary>
     [HttpPost("{missionId:int}/activities")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
     public async Task<IActionResult> AddMissionActivity([FromRoute] int missionId, [FromBody] AddMissionActivityRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -146,8 +147,6 @@ public class MissionController(IMediator mediator) : ControllerBase
             dto.TargetLatitude,
             dto.TargetLongitude,
             dto.RescueTeamId,
-            dto.TeamType,
-            dto.Note,
             userId
         );
 
@@ -159,7 +158,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Cập nhật nội dung một activity.
     /// </summary>
     [HttpPut("{missionId:int}/activities/{activityId:int}")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
     public async Task<IActionResult> UpdateMissionActivity([FromRoute] int missionId, [FromRoute] int activityId, [FromBody] UpdateMissionActivityRequestDto dto)
     {
         var command = new UpdateMissionActivityCommand(
@@ -182,7 +181,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Cập nhật trạng thái activity: pending | in_progress | completed | cancelled | skipped.
     /// </summary>
     [HttpPatch("{missionId:int}/activities/{activityId:int}/status")]
-    [Authorize(Roles = "1,2,4")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityAccess)] // includes ActivityTeamManage | ActivityOwnManage
     public async Task<IActionResult> UpdateActivityStatus([FromRoute] int missionId, [FromRoute] int activityId, [FromBody] UpdateActivityStatusRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -205,7 +204,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// vehicle: car | bike | taxi | hd (mặc định: car)
     /// </summary>
     [HttpGet("{missionId:int}/activities/{activityId:int}/route")]
-    [Authorize(Roles = "1,2,3,4")]
+    [Authorize(Policy = PermissionConstants.PolicyRouteAccess)]
     public async Task<IActionResult> GetRescuerRoute(
         [FromRoute] int missionId,
         [FromRoute] int activityId,
@@ -225,7 +224,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Lấy danh sách đội cứu hộ được giao cho một mission.
     /// </summary>
     [HttpGet("{missionId:int}/teams")]
-    [Authorize(Roles = "1,2,3,4")]
+    [Authorize(Policy = PermissionConstants.PolicyMissionAccess)]
     public async Task<IActionResult> GetMissionTeams([FromRoute] int missionId)
     {
         var result = await _mediator.Send(new GetMissionTeamsQuery(missionId));
@@ -237,7 +236,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Đội phải ở trạng thái Available. Sau khi giao, đội chuyển sang Assigned.
     /// </summary>
     [HttpPost("{missionId:int}/teams")]
-    [Authorize(Roles = "1,2")]
+    [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
     public async Task<IActionResult> AssignTeamToMission([FromRoute] int missionId, [FromBody] AssignTeamToMissionRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -253,7 +252,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Gỡ một đội cứu hộ khỏi mission (chỉ khi đội chưa bắt đầu thực thi).
     /// </summary>
     [HttpDelete("{missionId:int}/teams/{missionTeamId:int}")]
-    [Authorize(Roles = "1,2")]
+    [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
     public async Task<IActionResult> UnassignTeamFromMission([FromRoute] int missionId, [FromRoute] int missionTeamId)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

@@ -1,0 +1,122 @@
+namespace RESQ.Application.Common.Constants;
+
+/// <summary>
+/// Mã quyền hệ thống. Mỗi const là một policy name dùng trong [Authorize(Policy = ...)].
+/// Composite policy (OR logic) được khai báo riêng ở nhóm "Policy*".
+/// </summary>
+public static class PermissionConstants
+{
+    // ── Cấu hình & Hệ thống ──────────────────────────────────────────
+    /// <summary>Admin: Tạo/sửa/xóa Role, gán quyền động</summary>
+    public const string SystemConfigManage = "system.config.manage";
+
+    /// <summary>Admin: Ban/unban, tạo/sửa tài khoản, thay đổi role</summary>
+    public const string SystemUserManage = "system.user.manage";
+
+    /// <summary>Admin + Coordinator_Global: Chỉ xem danh sách Role/User</summary>
+    public const string SystemUserView = "system.user.view";
+
+    // ── Quản lý Kho & Vật tư (Inventory / Logistics) ─────────────────
+    /// <summary>Admin + DepotManager_Global: Toàn quyền xuất/nhập/tồn, điều chuyển giữa các kho</summary>
+    public const string InventoryGlobalManage = "inventory.global.manage";
+
+    /// <summary>Admin + Coordinator_Global + DepotManager_Global: Xem tổng quan tồn kho</summary>
+    public const string InventoryGlobalView = "inventory.global.view";
+
+    /// <summary>Admin + DepotManager_Depot: Thêm mới, xuất/nhập, kiểm kê kho được giao, duyệt yêu cầu vật tư</summary>
+    public const string InventoryDepotManage = "inventory.depot.manage";
+
+    /// <summary>Admin + Coordinator_Point: Xem tồn kho tại điểm tập kết của mình</summary>
+    public const string InventoryDepotPointView = "inventory.depot_point.view";
+
+    /// <summary>Admin + Rescuer_Core: Tạo phiếu yêu cầu cấp phát vật tư cho đội</summary>
+    public const string InventorySupplyRequestCreate = "inventory.supply_request.create";
+
+    // ── Quản lý Đội nhóm (Teams / Personnel) ─────────────────────────
+    /// <summary>Admin + DepotManager_Global: Quản lý danh sách thủ kho nhánh</summary>
+    public const string PersonnelDepotBranchManage = "personnel.depot_branch.manage";
+
+    /// <summary>Admin + Coordinator_Global: Toàn quyền điều phối nhân sự, tạo Team, chỉ định Core/Volunteer</summary>
+    public const string PersonnelGlobalManage = "personnel.global.manage";
+
+    /// <summary>Admin + Coordinator_Point: Tạo Team và phân bổ lực lượng nội bộ điểm tập kết</summary>
+    public const string PersonnelPointManage = "personnel.point.manage";
+
+    /// <summary>Admin + Rescuer_Core: Xem danh sách thành viên trong Team</summary>
+    public const string PersonnelTeamView = "personnel.team.view";
+
+    /// <summary>Admin + Rescuer_Volunteer: Báo cáo trạng thái sẵn sàng của cá nhân</summary>
+    public const string PersonnelStatusReport = "personnel.status.report";
+
+    // ── Điều phối Chiến dịch (Missions / Operations) ─────────────────
+    /// <summary>Admin + Coordinator_Global: Nhận yêu cầu cứu hộ, tạo và duyệt Mission tổng</summary>
+    public const string MissionGlobalManage = "mission.global.manage";
+
+    /// <summary>Admin + Coordinator_Point: Tạo Mission cấp cơ sở, giao Mission cho Team thuộc điểm</summary>
+    public const string MissionPointManage = "mission.point.manage";
+
+    /// <summary>Admin + Rescuer_Core: Nhận Mission, cập nhật trạng thái tổng của Mission</summary>
+    public const string MissionTeamUpdate = "mission.team.update";
+
+    /// <summary>Admin + Rescuer_Core + Rescuer_Volunteer: Xem thông tin, bối cảnh Mission của đội</summary>
+    public const string MissionView = "mission.view";
+
+    // ── Thực thi Thực địa (Activities) ───────────────────────────────
+    /// <summary>Admin + Coordinator_Global: Theo dõi tiến độ chung toàn hệ thống</summary>
+    public const string ActivityGlobalView = "activity.global.view";
+
+    /// <summary>Admin + Coordinator_Point: Theo dõi tiến độ đội nhà tại điểm</summary>
+    public const string ActivityPointView = "activity.point.view";
+
+    /// <summary>Admin + Rescuer_Core: Tạo Activity, assign cho Volunteer, duyệt kết quả (trong Team)</summary>
+    public const string ActivityTeamManage = "activity.team.manage";
+
+    /// <summary>Admin + Rescuer_Volunteer: Nhận Activity được assign, báo cáo, cập nhật trạng thái</summary>
+    public const string ActivityOwnManage = "activity.own.manage";
+
+    // ── SOS ───────────────────────────────────────────────────────────
+    /// <summary>Admin + Coordinator_Global + Victim: Gửi yêu cầu cứu hộ khẩn cấp</summary>
+    public const string SosRequestCreate = "sos.request.create";
+
+    /// <summary>Admin + Coordinator_Global: Xem danh sách và chi tiết yêu cầu cứu hộ</summary>
+    public const string SosRequestView = "sos.request.view";
+
+    // ── Combined / Composite policy names (OR logic) ─────────────────
+    // Dùng khi một endpoint cần cho phép nhiều role khác nhau.
+
+    /// <summary>MissionGlobalManage | MissionPointManage</summary>
+    public const string PolicyMissionManage = "policy.mission.manage";
+
+    /// <summary>MissionGlobalManage | MissionPointManage | MissionTeamUpdate | MissionView</summary>
+    public const string PolicyMissionAccess = "policy.mission.access";
+
+    /// <summary>MissionGlobalManage | MissionPointManage | ActivityTeamManage</summary>
+    public const string PolicyActivityManage = "policy.activity.manage";
+
+    /// <summary>ActivityGlobalView | ActivityPointView | MissionGlobalManage | MissionPointManage | ActivityTeamManage | ActivityOwnManage</summary>
+    public const string PolicyActivityAccess = "policy.activity.access";
+
+    /// <summary>InventoryGlobalManage | InventoryGlobalView | InventoryDepotManage | InventoryDepotPointView</summary>
+    public const string PolicyInventoryRead = "policy.inventory.read";
+
+    /// <summary>InventoryGlobalManage | InventoryDepotManage</summary>
+    public const string PolicyInventoryWrite = "policy.inventory.write";
+
+    /// <summary>PersonnelGlobalManage | PersonnelPointManage</summary>
+    public const string PolicyPersonnelManage = "policy.personnel.manage";
+
+    /// <summary>PersonnelGlobalManage | PersonnelPointManage | PersonnelTeamView</summary>
+    public const string PolicyPersonnelAccess = "policy.personnel.access";
+
+    /// <summary>InventoryGlobalManage | InventoryGlobalView | MissionGlobalManage | MissionPointManage | MissionTeamUpdate | PersonnelGlobalManage | PersonnelPointManage</summary>
+    public const string PolicyDepotView = "policy.depot.view";
+
+    /// <summary>MissionGlobalManage | InventoryGlobalManage</summary>
+    public const string PolicySosClusterManage = "policy.sos.cluster.manage";
+
+    /// <summary>SosRequestView | SosRequestCreate (coordinator + victim view detail)</summary>
+    public const string PolicySosRequestAccess = "policy.sos.request.access";
+
+    /// <summary>MissionGlobalManage | MissionPointManage | MissionTeamUpdate | ActivityTeamManage | ActivityOwnManage</summary>
+    public const string PolicyRouteAccess = "policy.route.access";
+}

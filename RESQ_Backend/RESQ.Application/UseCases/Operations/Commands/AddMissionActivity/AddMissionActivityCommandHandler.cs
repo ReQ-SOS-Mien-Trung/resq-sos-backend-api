@@ -67,8 +67,8 @@ public class AddMissionActivityCommandHandler(
             var assignCommand = new AssignTeamToMissionCommand(
                 request.MissionId,
                 request.RescueTeamId.Value,
-                request.TeamType,
-                request.Note,
+                null,
+                null,
                 request.AssignedById
             );
             var assignResult = await _mediator.Send(assignCommand, cancellationToken);
