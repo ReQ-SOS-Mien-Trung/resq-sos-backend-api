@@ -24,7 +24,8 @@ namespace RESQ.Infrastructure.Services
             var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey is not configured");
             var issuer = jwtSettings["Issuer"];
             var audience = jwtSettings["Audience"];
-            var expirationMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "60");
+            // Default to 7 days if not configured.
+            var expirationMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "10080");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

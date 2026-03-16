@@ -5,6 +5,7 @@ namespace RESQ.Application.Repositories.Operations;
 
 public interface ITeamIncidentRepository
 {
+    Task<IEnumerable<TeamIncidentModel>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<TeamIncidentModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<IEnumerable<TeamIncidentModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default);
     Task<IEnumerable<TeamIncidentModel>> GetByMissionTeamIdAsync(int missionTeamId, CancellationToken cancellationToken = default);

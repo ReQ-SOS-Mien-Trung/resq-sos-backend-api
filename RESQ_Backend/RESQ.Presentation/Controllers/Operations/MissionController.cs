@@ -14,6 +14,7 @@ using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeams;
+using RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetRescuerRoute;
 
@@ -60,6 +61,21 @@ public class MissionController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMissions([FromQuery] int? clusterId)
     {
         var result = await _mediator.Send(new GetMissionsQuery(clusterId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy danh sách missions mà đội của user hiện tại đang được giao.
+    /// </summary>
+    [HttpGet("my-team")]
+    [Authorize]
+    public async Task<IActionResult> GetMyTeamMissions()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var result = await _mediator.Send(new GetMyTeamMissionsQuery(userId));
         return Ok(result);
     }
 

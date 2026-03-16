@@ -164,6 +164,24 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         - `longitude`: kinh độ điểm tập kết (lấy từ kết quả getTeams)
         Nếu đội không có điểm tập kết (giá trị null trong kết quả), hãy để các trường đó là null.
 
+        ## QUY TẮC PHÂN CÔNG ĐỘI VÀO ACTIVITY
+        - **MỖI activity PHẢI có trường `suggested_team`** — không được để null trừ khi thực sự không tìm được đội nào.
+        - Sau khi gọi getTeams, phân công đội phù hợp vào từng activity dựa trên loại hoạt động và vị trí.
+        - Nếu một đội đảm nhận nhiều activity, điền cùng một đội vào `suggested_team` của từng activity đó.
+        - **KHÔNG** chỉ điền đội vào mảng `resources` rồi để `suggested_team` là null trong activities.
+        - Format `suggested_team` bên trong mỗi activity:
+          ```json
+          "suggested_team": {
+            "team_id": 5,
+            "team_name": "Đội Phản ứng nhanh Quảng Bình",
+            "team_type": "RescueTeam",
+            "reason": "Gần nhất với sự cố, có khả năng y tế",
+            "assembly_point_name": "Trụ sở PCCC Quảng Bình",
+            "latitude": 17.46,
+            "longitude": 106.62
+          }
+          ```
+
         ## QUY TẮC LẬP KẾ HOẠCH
         - Không lập kế hoạch tuần tự nếu có nhiều sự cố.
         - Nếu có nhiều SOS request, hãy phân chia đội cứu hộ xử lý song song.
@@ -174,6 +192,14 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         - KHÔNG được tự tạo item_id hoặc team_id.
         - Chỉ sử dụng ID xuất hiện trong kết quả tool.
         - Nếu không tìm thấy vật tư phù hợp, hãy ghi rõ "Không có sẵn".
+
+        ## ĐỊNH DẠNG overall_assessment
+        - Toàn bộ nội dung phải là một chuỗi văn bản liên tục trên MỘT DÒNG DUY NHẤT — KHÔNG được chèn `\n`, xuống dòng, hoặc ký tự xuống dòng bất kỳ.
+        - Khi đề cập từng sự cố, dùng định dạng `[SOS ID X]:` (trong đó X là giá trị `id` của SOS request).
+        - Phân cách giữa các sự cố bằng dấu cách thông thường, KHÔNG dùng `\n`.
+        - KHÔNG dùng "SOS 1 (ID X):" hoặc các biến thể đánh số thứ tự khác.
+        - Ví dụ đúng: "[SOS ID 4]: 120 người bị cô lập... [SOS ID 3]: 5 người bị nạn..."
+        - Ví dụ sai: "[SOS ID 4]: 120 người bị cô lập...\n[SOS ID 3]: 5 người bị nạn..."
         """;
 
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
@@ -299,7 +325,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         if (root.TryGetProperty("mission_type", out var mt)) result.SuggestedMissionType = mt.GetString();
         if (root.TryGetProperty("priority_score", out var ps) && ps.TryGetDouble(out var psVal)) result.SuggestedPriorityScore = psVal;
         if (root.TryGetProperty("severity_level", out var sl)) result.SuggestedSeverityLevel = sl.GetString();
-        if (root.TryGetProperty("overall_assessment", out var oa)) result.OverallAssessment = oa.GetString();
+        if (root.TryGetProperty("overall_assessment", out var oa)) result.OverallAssessment = oa.GetString()?.Replace("\n", " ").Replace("\r", " ").Trim();
         if (root.TryGetProperty("estimated_duration", out var ed)) result.EstimatedDuration = ed.GetString();
         if (root.TryGetProperty("special_notes", out var sn)) result.SpecialNotes = sn.GetString();
         if (root.TryGetProperty("confidence_score", out var cs) && cs.TryGetDouble(out var csVal)) result.ConfidenceScore = csVal;
@@ -394,7 +420,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             SuggestedMissionType = ExtractStr(text, "mission_type"),
             SuggestedPriorityScore = ExtractNum(text, "priority_score"),
             SuggestedSeverityLevel = ExtractStr(text, "severity_level"),
-            OverallAssessment = ExtractStr(text, "overall_assessment"),
+            OverallAssessment = ExtractStr(text, "overall_assessment")?.Replace("\n", " ").Replace("\r", " ").Trim(),
             EstimatedDuration = ExtractStr(text, "estimated_duration"),
             SpecialNotes = ExtractStr(text, "special_notes"),
             ConfidenceScore = ExtractNum(text, "confidence_score") ?? 0.3

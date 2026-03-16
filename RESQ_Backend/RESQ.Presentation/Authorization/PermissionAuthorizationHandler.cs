@@ -1,8 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Application.Services;
 
 namespace RESQ.Presentation.Authorization;
 
@@ -13,12 +12,12 @@ namespace RESQ.Presentation.Authorization;
 /// </summary>
 public sealed class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IUserPermissionResolver _permissionResolver;
     private readonly IMemoryCache _cache;
 
-    public PermissionAuthorizationHandler(IServiceScopeFactory scopeFactory, IMemoryCache cache)
+    public PermissionAuthorizationHandler(IUserPermissionResolver permissionResolver, IMemoryCache cache)
     {
-        _scopeFactory = scopeFactory;
+        _permissionResolver = permissionResolver;
         _cache = cache;
     }
 
@@ -47,32 +46,8 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
         if (_cache.TryGetValue(cacheKey, out HashSet<string>? cached) && cached is not null)
             return cached;
 
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-
-        // 1. Quyền từ role
-        var roleCodes = await db.Users
-            .Where(u => u.Id == userId)
-            .SelectMany(u => u.Role!.RolePermissions)
-            .Where(rp => rp.IsGranted == true)
-            .Select(rp => rp.Claim!.Code!)
-            .ToListAsync();
-
-        var permissions = new HashSet<string>(roleCodes, StringComparer.OrdinalIgnoreCase);
-
-        // 2. Override cấp user (grant thêm hoặc revoke)
-        var userOverrides = await db.UserPermissions
-            .Where(up => up.UserId == userId)
-            .Select(up => new { up.IsGranted, Code = up.Claim!.Code! })
-            .ToListAsync();
-
-        foreach (var override_ in userOverrides)
-        {
-            if (override_.IsGranted == true)
-                permissions.Add(override_.Code);
-            else if (override_.IsGranted == false)
-                permissions.Remove(override_.Code);
-        }
+        var permissionCodes = await _permissionResolver.GetEffectivePermissionCodesAsync(userId);
+        var permissions = new HashSet<string>(permissionCodes, StringComparer.OrdinalIgnoreCase);
 
         _cache.Set(cacheKey, permissions, TimeSpan.FromMinutes(5));
         return permissions;

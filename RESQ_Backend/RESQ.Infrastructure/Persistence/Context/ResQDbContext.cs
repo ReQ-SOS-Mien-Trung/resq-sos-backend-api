@@ -53,6 +53,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Permission> Permissions { get; set; }
     public virtual DbSet<Prompt> Prompts { get; set; }
     public virtual DbSet<ServiceZone> ServiceZones { get; set; }
+    public virtual DbSet<SosPriorityRuleConfig> SosPriorityRuleConfigs { get; set; }
     public virtual DbSet<ReliefItem> ReliefItems { get; set; }
     public virtual DbSet<RescuerApplication> RescuerApplications { get; set; }
     public virtual DbSet<RescuerApplicationDocument> RescuerApplicationDocuments { get; set; }
