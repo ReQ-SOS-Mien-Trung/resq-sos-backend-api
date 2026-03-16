@@ -22,4 +22,5 @@ public class CreateActivityItemDto
     public string? Items { get; set; }
     public double? TargetLatitude { get; set; }
     public double? TargetLongitude { get; set; }
+    public int? RescueTeamId { get; set; }
 }

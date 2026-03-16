@@ -229,7 +229,7 @@ public class MissionController(IMediator mediator) : ControllerBase
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
-        var command = new AssignTeamToMissionCommand(missionId, dto.RescueTeamId, dto.TeamType, dto.Note, userId);
+        var command = new AssignTeamToMissionCommand(missionId, dto.RescueTeamId, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

@@ -8,11 +8,13 @@ namespace RESQ.Application.UseCases.Operations.Queries.GetMissions;
 
 public class GetMissionsQueryHandler(
     IMissionRepository missionRepository,
+    IMissionTeamRepository missionTeamRepository,
     IMissionAiSuggestionRepository aiSuggestionRepository,
     ILogger<GetMissionsQueryHandler> logger
 ) : IRequestHandler<GetMissionsQuery, GetMissionsResponse>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
+    private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IMissionAiSuggestionRepository _aiSuggestionRepository = aiSuggestionRepository;
     private readonly ILogger<GetMissionsQueryHandler> _logger = logger;
 
@@ -28,6 +30,14 @@ public class GetMissionsQueryHandler(
             missions = await _missionRepository.GetAllAsync(cancellationToken);
 
         var missionList = missions.ToList();
+
+        // Load teams per mission
+        var teamsByMission = new Dictionary<int, List<MissionTeamModel>>();
+        foreach (var m in missionList)
+        {
+            var teams = await _missionTeamRepository.GetByMissionIdAsync(m.Id, cancellationToken);
+            teamsByMission[m.Id] = teams.ToList();
+        }
 
         // Load AI suggestions grouped by cluster
         var clusterIds = missionList
@@ -60,6 +70,20 @@ public class GetMissionsQueryHandler(
                     CreatedAt = m.CreatedAt,
                     CompletedAt = m.CompletedAt,
                     ActivityCount = m.Activities.Count,
+                    Teams = teamsByMission.TryGetValue(m.Id, out var missionTeams)
+                        ? missionTeams.Select(t => new AssignedTeamDto
+                        {
+                            MissionTeamId = t.Id,
+                            RescueTeamId = t.RescuerTeamId,
+                            TeamName = t.TeamName,
+                            TeamCode = t.TeamCode,
+                            TeamType = t.TeamType,
+                            Status = t.Status,
+                            Note = t.Note,
+                            AssignedAt = t.AssignedAt,
+                            UnassignedAt = t.UnassignedAt
+                        }).ToList()
+                        : [],
                     Activities = m.Activities.Select(a => new MissionActivityDto
                     {
                         Id = a.Id,

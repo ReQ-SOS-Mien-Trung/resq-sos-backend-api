@@ -8,11 +8,13 @@ namespace RESQ.Application.UseCases.Operations.Queries.GetMissionById;
 
 public class GetMissionByIdQueryHandler(
     IMissionRepository missionRepository,
+    IMissionTeamRepository missionTeamRepository,
     IMissionAiSuggestionRepository aiSuggestionRepository,
     ILogger<GetMissionByIdQueryHandler> logger
 ) : IRequestHandler<GetMissionByIdQuery, MissionDto?>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
+    private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IMissionAiSuggestionRepository _aiSuggestionRepository = aiSuggestionRepository;
     private readonly ILogger<GetMissionByIdQueryHandler> _logger = logger;
 
@@ -22,6 +24,8 @@ public class GetMissionByIdQueryHandler(
 
         var mission = await _missionRepository.GetByIdAsync(request.MissionId, cancellationToken);
         if (mission is null) return null;
+
+        var missionTeams = await _missionTeamRepository.GetByMissionIdAsync(mission.Id, cancellationToken);
 
         MissionAiSuggestionSection? aiSection = null;
         if (mission.ClusterId.HasValue)
@@ -46,6 +50,18 @@ public class GetMissionByIdQueryHandler(
             CreatedAt = mission.CreatedAt,
             CompletedAt = mission.CompletedAt,
             ActivityCount = mission.Activities.Count,
+            Teams = missionTeams.Select(t => new AssignedTeamDto
+            {
+                MissionTeamId = t.Id,
+                RescueTeamId = t.RescuerTeamId,
+                TeamName = t.TeamName,
+                TeamCode = t.TeamCode,
+                TeamType = t.TeamType,
+                Status = t.Status,
+                Note = t.Note,
+                AssignedAt = t.AssignedAt,
+                UnassignedAt = t.UnassignedAt
+            }).ToList(),
             Activities = mission.Activities.Select(a => new MissionActivityDto
             {
                 Id = a.Id,

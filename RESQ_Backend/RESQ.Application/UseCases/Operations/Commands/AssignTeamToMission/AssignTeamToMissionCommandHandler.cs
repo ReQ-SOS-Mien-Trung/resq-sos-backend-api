@@ -29,9 +29,7 @@ public class AssignTeamToMissionCommandHandler(
         {
             MissionId = request.MissionId,
             RescuerTeamId = request.RescueTeamId,
-            TeamType = request.TeamType,
             Status = "Assigned",
-            Note = request.Note,
             AssignedAt = now
         };
 
@@ -46,7 +44,6 @@ public class AssignTeamToMissionCommandHandler(
             MissionTeamId = missionTeamId,
             MissionId = request.MissionId,
             RescueTeamId = request.RescueTeamId,
-            TeamType = request.TeamType,
             Status = "Assigned",
             AssignedAt = now
         };
