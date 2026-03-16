@@ -137,7 +137,7 @@ public static class EmergencySeeder
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
                 ReviewedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
-                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"critical","suggested_severity":"Critical","confidence":0.96,"risk_factors":["deep_flooding","elderly_paralyzed","water_rising"],"needs":["boat_rescue","medical_team"]}"""
             },
 
@@ -200,7 +200,7 @@ public static class EmergencySeeder
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc),
                 ReviewedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
-                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"critical","suggested_severity":"Critical","confidence":0.94,"risk_factors":["pregnant_woman","young_children","rooftop_refuge"],"needs":["boat_rescue","obstetrics_support"]}"""
             },
 
@@ -276,7 +276,7 @@ public static class EmergencySeeder
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
                 ReviewedAt = new DateTime(2024, 10, 16, 8, 55, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
-                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.89,"risk_factors":["landslide","bleeding_injury","road_blocked"],"needs":["medical_evacuation","helicopter"]}"""
             },
 
@@ -339,7 +339,7 @@ public static class EmergencySeeder
                 LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
                 ReviewedAt = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
-                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.91,"risk_factors":["prolonged_isolation","infant_malnutrition","medication_shortage"],"needs":["food_drop","water","medicine"]}"""
             },
 
@@ -407,7 +407,7 @@ public static class EmergencySeeder
                 LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
                 ReviewedAt = new DateTime(2024, 10, 16, 9, 20, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
-                CreatedByCoordinatorId = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"medium","suggested_severity":"Moderate","confidence":0.85,"risk_factors":["isolated_forest","broken_leg","low_battery"],"needs":["search_rescue","medical"]}"""
             }
         );
