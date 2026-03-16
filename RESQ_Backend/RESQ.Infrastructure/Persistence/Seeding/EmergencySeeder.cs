@@ -35,11 +35,11 @@ public static class EmergencySeeder
                 CreatedAt = now,
                 LastUpdatedAt = now
             },
-            // Cluster 2: Hương Trà, Huế — Sử dụng cho AI analysis, không có SOS request gắn trực tiếp
+            // Cluster 2: Quảng Trị — Sử dụng cho AI analysis, không có SOS request gắn trực tiếp
             new SosCluster
             {
                 Id = 2,
-                CenterLocation = new Point(107.4566, 16.3986) { SRID = 4326 },
+                CenterLocation = new Point(107.1021, 17.0190) { SRID = 4326 },
                 RadiusKm = 3.0,
                 SeverityLevel = "High",
                 WaterLevel = "Ngập 1.0m, chảy xiết",
@@ -51,12 +51,12 @@ public static class EmergencySeeder
                 LastUpdatedAt = now,
                 IsMissionCreated = true
             },
-            // Cluster 3: Phong Điền, Thừa Thiên-Huế — Sạt lở + cô lập
-            // Tâm cụm gần cặp SOS B (Id=3, Id=4), cách cặp A ~80km
+            // Cluster 3: Quảng Bình — Sạt lở + cô lập
+            // Tâm cụm gần cặp SOS B (Id=3, Id=4)
             new SosCluster
             {
                 Id = 3,
-                CenterLocation = new Point(107.2908, 16.6365) { SRID = 4326 },
+                CenterLocation = new Point(106.6067, 17.4812) { SRID = 4326 },
                 RadiusKm = 3.5,
                 SeverityLevel = "High",
                 WaterLevel = "Ngập 0.8m, đường bị chia cắt",
@@ -217,7 +217,7 @@ public static class EmergencySeeder
                 PacketId = Guid.Parse("B3000000-0000-0000-0000-000000000003"),
                 ClusterId = 3,
                 UserId = SeedConstants.Applicant2UserId,
-                Location = new Point(107.2870, 16.6340) { SRID = 4326 }, // Thôn Phong Mỹ, Phong Điền
+                Location = new Point(106.6100, 17.4780) { SRID = 4326 }, // Thôn Bắc Trạch, Bố Trạch, Quảng Bình
                 LocationAccuracy = 6,
                 SosType = "RESCUE",
                 OriginId = "D1B00003-0000-4A8A-B0BF-000000000003",
@@ -288,7 +288,7 @@ public static class EmergencySeeder
                 PacketId = Guid.Parse("B4000000-0000-0000-0000-000000000004"),
                 ClusterId = 3,
                 UserId = SeedConstants.Applicant3UserId,
-                Location = new Point(107.2945, 16.6395) { SRID = 4326 }, // Thôn Hiền Lương, Phong Điền
+                Location = new Point(106.6150, 17.4850) { SRID = 4326 }, // Thôn Đại Trạch, Bố Trạch, Quảng Bình
                 LocationAccuracy = 15,
                 SosType = "RESCUE",
                 OriginId = "D1B00004-0000-4A8A-B0BF-000000000004",
@@ -356,7 +356,7 @@ public static class EmergencySeeder
                 PacketId = Guid.Parse("C5000000-0000-0000-0000-000000000005"),
                 ClusterId = 2,
                 UserId = SeedConstants.Applicant4UserId,
-                Location = new Point(108.0100, 16.0240) { SRID = 4326 }, // Thôn Phú Túc, Hòa Phú, Hòa Vang
+                Location = new Point(107.1050, 17.0150) { SRID = 4326 }, // Vĩnh Linh, Quảng Trị
                 LocationAccuracy = 5,
                 SosType = "RESCUE",
                 OriginId = "D1C00005-0000-4A8A-B0BF-000000000005",

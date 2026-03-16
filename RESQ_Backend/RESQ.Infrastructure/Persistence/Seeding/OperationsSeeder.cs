@@ -76,9 +76,9 @@ public static class OperationsSeeder
                 Step = 1,
                 ActivityCode = "DISTRIBUTE",
                 ActivityType = "Distribution",
-                Description = "Phân phát lương thực cứu trợ (Gạo, mỳ) tại Hương Toàn.",
+                Description = "Phân phát lương thực cứu trợ (gạo, mì) tại vùng lũ TT-Huế.",
                 Target = "{\"items\": [\"rice\", \"food\"], \"count\": 200}",
-                TargetLocation = new Point(107.4566, 16.3986) { SRID = 4326 },
+                TargetLocation = new Point(107.5680, 16.4546) { SRID = 4326 },
                 Status = "Planned",
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.AdminUserId
@@ -89,7 +89,8 @@ public static class OperationsSeeder
     private static void SeedMissionItems(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<MissionItem>().HasData(
-            // Mission 1 (Rescue): Cần vật tư y tế/cứu hộ
+            // Mission 1 (Rescue): Needs Medical/Rescue Kits. 
+            // ReliefItem ID 2 (First Aid/Medical)
             new MissionItem
             {
                 Id = 1,
@@ -97,9 +98,10 @@ public static class OperationsSeeder
                 MissionId = 1, 
                 RequiredQuantity = 20,
                 AllocatedQuantity = 20,
-                SourceDepotId = 4 // Kho UBMTTQVN TT-Huế (gần nhất với SOS cluster)
+                SourceDepotId = 2 // Le Thuy Depot
             },
-            // Mission 2 (Relief): Cần lương thực
+            // Mission 2 (Relief): Needs Food.
+            // ReliefItem ID 1 (Rice/Food)
             new MissionItem
             {
                 Id = 2,
@@ -107,7 +109,7 @@ public static class OperationsSeeder
                 MissionId = 2, 
                 RequiredQuantity = 100,
                 AllocatedQuantity = 100,
-                SourceDepotId = 4 // Kho UBMTTQVN TT-Huế
+                SourceDepotId = 1 // Hue Depot
             }
         );
     }
@@ -149,7 +151,7 @@ public static class OperationsSeeder
                 Id = 2,
                 ConversationId = 2,
                 SenderId = SeedConstants.CoordinatorUserId,
-                Content = "Đã xuất kho 100 bao gạo từ kho Huế, xe đang di chuyển.",
+                Content = "Đã xuất kho 100 thùng mì tôm từ kho MTTQ Huế, xe đang di chuyển.",
                 CreatedAt = now
             }
         );

@@ -71,8 +71,8 @@ public static class RuntimeDataSeeder
         // Save invoices first so EF assigns their IDs
         await db.SaveChangesAsync();
 
-        // ─── InventoryLogs for Depot 1 ──────────────────────────────────────
-        // DepotSupplyInventory IDs: 1=mì tôm, 2=nước, 3=thuốc, 4=áo phao, 6=chăn
+        // ─── InventoryLogs for Depot 1 (Huế) ───────────────────────────────
+        // DSI IDs: 1=mì tôm, 2=nước, 3=thuốc, 4=áo phao, 6=chăn ấm
         db.InventoryLogs.AddRange(
 
             // ── Jan 2025 ──────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ public static class RuntimeDataSeeder
             },
             new InventoryLog
             {
-                DepotSupplyInventoryId = 2, VatInvoiceId = inv1.Id,
+                DepotSupplyInventoryId = 2,  VatInvoiceId = inv1.Id,
                 ActionType = "Import",      QuantityChange = 15000,
                 SourceType = "Purchase",    SourceId = 1,
                 PerformedBy = ManagerUserId,
@@ -111,7 +111,7 @@ public static class RuntimeDataSeeder
                 ActionType = "Import",      QuantityChange = 30000,
                 SourceType = "Donation",    SourceId = 1,
                 PerformedBy = ManagerUserId,
-                Note = "Nhận thuốc từ Hội Chữ Thập Đỏ TT-Huế đợt 2",
+                Note = "Nhận thuốc từ Hội Chữ Thập Đỏ Huế đợt 2",
                 CreatedAt = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc)
             },
             new InventoryLog
@@ -131,7 +131,7 @@ public static class RuntimeDataSeeder
                 ActionType = "Import",      QuantityChange = 1000,
                 SourceType = "Donation",    SourceId = 2,
                 PerformedBy = ManagerUserId,
-                Note = "Nhận áo phao từ UBMTTQVN Đà Nẵng hỗ trợ",
+                Note = "Nhận áo phao từ MTTQ Quảng Bình hỗ trợ",
                 CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc)
             },
             new InventoryLog
