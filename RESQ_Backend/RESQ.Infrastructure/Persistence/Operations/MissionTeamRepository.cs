@@ -68,17 +68,15 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
 
     public async Task<IEnumerable<MissionTeamModel>> GetActiveByRescuerTeamIdAsync(int rescuerTeamId, CancellationToken cancellationToken = default)
     {
-        var entities = await _context.MissionTeams
-            .AsNoTracking()
-            .Include(mt => mt.RescuerTeam)
-            .Where(mt => mt.RescuerTeamId == rescuerTeamId
-                         && mt.MissionId != null
-                         && mt.UnassignedAt == null
-                         && mt.Status != "Cancelled")
-            .OrderByDescending(mt => mt.AssignedAt)
-            .ToListAsync(cancellationToken);
+        var entities = await _unitOfWork.GetRepository<MissionTeam>()
+            .GetAllByPropertyAsync(
+                mt => mt.RescuerTeamId == rescuerTeamId
+                      && mt.MissionId != null
+                      && mt.UnassignedAt == null
+                      && mt.Status != "Cancelled",
+                includeProperties: "RescuerTeam");
 
-        return entities.Select(ToModel);
+        return entities.OrderByDescending(mt => mt.AssignedAt).Select(ToModel);
     }
 
     private static MissionTeamModel ToModel(MissionTeam entity) => new()
