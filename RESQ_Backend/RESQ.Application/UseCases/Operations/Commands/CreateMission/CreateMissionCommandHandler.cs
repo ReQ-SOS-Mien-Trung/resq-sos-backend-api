@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
@@ -15,6 +16,7 @@ public class CreateMissionCommandHandler(
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
     IUnitOfWork unitOfWork,
+    IMediator mediator,
     ILogger<CreateMissionCommandHandler> logger
 ) : IRequestHandler<CreateMissionCommand, CreateMissionResponse>
 {
@@ -22,6 +24,7 @@ public class CreateMissionCommandHandler(
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IMediator _mediator = mediator;
     private readonly ILogger<CreateMissionCommandHandler> _logger = logger;
 
     public async Task<CreateMissionResponse> Handle(CreateMissionCommand request, CancellationToken cancellationToken)
@@ -71,6 +74,25 @@ public class CreateMissionCommandHandler(
         await _sosRequestRepository.UpdateStatusByClusterIdAsync(request.ClusterId, SosRequestStatus.Assigned, cancellationToken);
 
         await _unitOfWork.SaveAsync();
+
+        // Assign rescue teams to mission for activities that specify a RescueTeamId
+        var distinctTeamIds = request.Activities
+            .Where(a => a.RescueTeamId.HasValue)
+            .Select(a => a.RescueTeamId!.Value)
+            .Distinct();
+
+        foreach (var rescueTeamId in distinctTeamIds)
+        {
+            try
+            {
+                var assignCommand = new AssignTeamToMissionCommand(missionId, rescueTeamId, request.CreatedById);
+                await _mediator.Send(assignCommand, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not assign RescueTeamId={rescueTeamId} to MissionId={missionId}", rescueTeamId, missionId);
+            }
+        }
 
         _logger.LogInformation("Mission created: MissionId={missionId}", missionId);
 

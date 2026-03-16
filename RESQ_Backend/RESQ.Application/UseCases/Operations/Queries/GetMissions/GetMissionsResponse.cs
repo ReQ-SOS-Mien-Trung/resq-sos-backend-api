@@ -23,6 +23,7 @@ public class MissionDto
     public DateTime? CompletedAt { get; set; }
     public int ActivityCount { get; set; }
     public List<MissionActivityDto> Activities { get; set; } = [];
+    public List<AssignedTeamDto> Teams { get; set; } = [];
 
     // AI suggestion fields (most recent suggestion linked to this mission's cluster)
     public int? AiSuggestionId { get; set; }
@@ -147,4 +148,17 @@ internal static class MissionActivityDtoHelper
         try { return JsonSerializer.Deserialize<List<SupplyToCollectDto>>(itemsJson, JsonOpts); }
         catch { return null; }
     }
+}
+
+public class AssignedTeamDto
+{
+    public int MissionTeamId { get; set; }
+    public int RescueTeamId { get; set; }
+    public string? TeamName { get; set; }
+    public string? TeamCode { get; set; }
+    public string? TeamType { get; set; }
+    public string? Status { get; set; }
+    public string? Note { get; set; }
+    public DateTime? AssignedAt { get; set; }
+    public DateTime? UnassignedAt { get; set; }
 }
