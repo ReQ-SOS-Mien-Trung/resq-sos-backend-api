@@ -12,6 +12,7 @@ public static class SystemSeeder
         SeedNotifications(modelBuilder);
         SeedPrompts(modelBuilder);
         SeedServiceZone(modelBuilder);
+        SeedSosPriorityRuleConfig(modelBuilder);
     }
 
     private static void SeedNotifications(ModelBuilder modelBuilder)
@@ -132,7 +133,8 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
       ""priority"": ""Critical"",
-      ""estimated_time"": ""30 phút""
+      ""estimated_time"": ""30 phút"",
+      ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
     {
       ""step"": 2,
@@ -146,7 +148,8 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
       ""priority"": ""Critical"",
-      ""estimated_time"": ""1 giờ""
+      ""estimated_time"": ""1 giờ"",
+      ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
     {
       ""step"": 3,
@@ -158,7 +161,8 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""depot_address"": null,
       ""supplies_to_collect"": null,
       ""priority"": ""Critical"",
-      ""estimated_time"": ""2 giờ""
+      ""estimated_time"": ""2 giờ"",
+      ""suggested_team"": { ""team_id"": 6, ""team_name"": ""Đội B"", ""team_type"": ""MedicalTeam"", ""reason"": ""Có y tế"", ""assembly_point_name"": ""Trụ sở B"", ""latitude"": 16.50, ""longitude"": 107.55 }
     }
   ],
   ""resources"": [
@@ -268,4 +272,80 @@ Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này
             }
         );
     }
+
+    private static void SeedSosPriorityRuleConfig(ModelBuilder modelBuilder)
+    {
+        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var issueWeights = new Dictionary<string, double>
+        {
+            ["unconscious"] = 5, ["drowning"] = 5,
+            ["breathingDifficulty"] = 5, ["breathing_difficulty"] = 5,
+            ["chestPainStroke"] = 5, ["chest_pain_stroke"] = 5,
+            ["severelyBleeding"] = 4, ["severely_bleeding"] = 4,
+            ["bleeding"] = 4, ["burns"] = 4,
+            ["headInjury"] = 4, ["head_injury"] = 4,
+            ["cannotMove"] = 4, ["cannot_move"] = 4,
+            ["highFever"] = 3, ["high_fever"] = 3,
+            ["dehydration"] = 3, ["fracture"] = 3,
+            ["infantNeedsMilk"] = 3, ["infant_needs_milk"] = 3,
+            ["lostParent"] = 3, ["lost_parent"] = 3,
+            ["chronicDisease"] = 2, ["chronic_disease"] = 2,
+            ["confusion"] = 2,
+            ["needsMedicalDevice"] = 2, ["needs_medical_device"] = 2,
+            ["other"] = 1
+        };
+
+        var medicalSevereIssues = new[]
+        {
+            "unconscious", "drowning",
+            "breathingDifficulty", "breathing_difficulty",
+            "chestPainStroke", "chest_pain_stroke",
+            "severelyBleeding", "severely_bleeding"
+        };
+
+        var ageWeights = new Dictionary<string, double>
+        {
+            ["child"] = 1.4, ["trẻ em"] = 1.4,
+            ["elderly"] = 1.3, ["elder"] = 1.3, ["người già"] = 1.3,
+            ["adult"] = 1.0
+        };
+
+        var requestTypeScores = new Dictionary<string, int>
+        {
+            ["rescue"] = 30, ["relief"] = 20, ["other"] = 10
+        };
+
+        // keys: all aliases for the same situation → share same multiplier/severe flag
+        var situationMultipliers = new[]
+        {
+            new { keys = new[] { "flooding", "flood" }, multiplier = 1.5, severe = true },
+            new { keys = new[] { "building_collapse", "collapsed", "collapse" }, multiplier = 1.5, severe = true },
+            new { keys = new[] { "trapped" }, multiplier = 1.3, severe = false },
+            new { keys = new[] { "danger_zone", "dangerous_area", "dangerous" }, multiplier = 1.3, severe = false },
+            new { keys = new[] { "cannot_move", "cannotmove" }, multiplier = 1.2, severe = false }
+        };
+
+        var priorityThresholds = new
+        {
+            critical = new { minScore = 70.0, requireSevere = true },
+            high = new { minScore = 45.0, requireSevere = true },
+            medium = new { minScore = 25.0, requireSevere = false }
+        };
+
+        modelBuilder.Entity<SosPriorityRuleConfig>().HasData(
+            new SosPriorityRuleConfig
+            {
+                Id = 1,
+                IssueWeightsJson = JsonSerializer.Serialize(issueWeights),
+                MedicalSevereIssuesJson = JsonSerializer.Serialize(medicalSevereIssues),
+                AgeWeightsJson = JsonSerializer.Serialize(ageWeights),
+                RequestTypeScoresJson = JsonSerializer.Serialize(requestTypeScores),
+                SituationMultipliersJson = JsonSerializer.Serialize(situationMultipliers),
+                PriorityThresholdsJson = JsonSerializer.Serialize(priorityThresholds),
+                UpdatedAt = now
+            }
+        );
+    }
 }
+
