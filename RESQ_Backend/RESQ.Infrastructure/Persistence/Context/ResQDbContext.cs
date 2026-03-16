@@ -31,6 +31,8 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<DocumentFileTypeCategory> DocumentFileTypeCategories { get; set; }
     public virtual DbSet<DepotManager> DepotManagers { get; set; }
     public virtual DbSet<DepotSupplyInventory> DepotSupplyInventories { get; set; }
+    public virtual DbSet<DepotSupplyRequest> DepotSupplyRequests { get; set; }
+    public virtual DbSet<DepotSupplyRequestItem> DepotSupplyRequestItems { get; set; }
     public virtual DbSet<Donation> Donations { get; set; }
     public virtual DbSet<FundCampaign> FundCampaigns { get; set; }
     public virtual DbSet<FundTransaction> FundTransactions { get; set; }

@@ -1,6 +1,7 @@
 using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
+using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
@@ -33,4 +34,23 @@ public interface IDepotInventoryRepository
         int page,
         int pageSize,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the lat/lng of a depot by its ID, or null if not found / no location set.
+    /// </summary>
+    Task<(double Latitude, double Longitude)?> GetDepotLocationAsync(int depotId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tìm kiếm các kho cứu trợ có chứa vật tư theo danh sách mã vật tư.
+    /// Chỉ trả về kho có số lượng khả dụng >= quantity.
+    /// Trả về danh sách phẳng (item, depot) để handler nhóm lại.
+    /// </summary>
+    Task<(List<WarehouseItemRow> Rows, int TotalItemCount)> SearchWarehousesByItemsAsync(
+        List<int>? reliefItemIds,
+        Dictionary<int, int> itemQuantities,
+        bool activeDepotsOnly,
+        int? excludeDepotId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

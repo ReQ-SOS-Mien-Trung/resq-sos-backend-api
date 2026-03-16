@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
+using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Services;
 using RESQ.Domain.Enum.Logistics;
@@ -170,5 +171,125 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         ).ToListAsync(cancellationToken);
 
         return result;
+    }
+
+    public async Task<(double Latitude, double Longitude)?> GetDepotLocationAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+    {
+        var location = await _context.Depots.AsNoTracking()
+            .Where(d => d.Id == depotId)
+            .Select(d => d.Location)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (location == null) return null;
+        return (location.Y, location.X);
+    }
+
+    public async Task<(List<WarehouseItemRow> Rows, int TotalItemCount)> SearchWarehousesByItemsAsync(
+        List<int>? reliefItemIds,
+        Dictionary<int, int> itemQuantities,
+        bool activeDepotsOnly,
+        int? excludeDepotId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var safeIds = reliefItemIds ?? new List<int>();
+        var hasIdFilter = safeIds.Count > 0;
+
+        // Base query: join inventory → relief item → category → depot
+        var baseQuery = from dsi in _context.DepotSupplyInventories.AsNoTracking()
+                        join ri   in _context.ReliefItems.AsNoTracking()    on dsi.ReliefItemId equals ri.Id
+                        join cat  in _context.ItemCategories.AsNoTracking() on ri.CategoryId equals cat.Id
+                        join depot in _context.Depots.AsNoTracking()        on dsi.DepotId equals depot.Id
+                        select new { dsi, ri, cat, depot };
+
+        // Exclude the requesting manager's own depot
+        if (excludeDepotId.HasValue)
+            baseQuery = baseQuery.Where(x => x.depot.Id != excludeDepotId.Value);
+
+        // Only include depots that are operationally active
+        if (activeDepotsOnly)
+            baseQuery = baseQuery.Where(x => x.depot.Status == "Available" || x.depot.Status == "Full");
+
+        // Filter by item IDs and ensure at least 1 unit available (SQL pre-filter)
+        if (hasIdFilter)
+            baseQuery = baseQuery.Where(x => safeIds.Contains(x.ri.Id));
+
+        baseQuery = baseQuery.Where(x => (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0) >= 1);
+
+        // Fetch all candidate rows — Step 1 (location coords loaded in-memory to avoid ST_Y on geography)
+        var rawRows = await baseQuery
+            .OrderBy(x => x.ri.Name)
+            .ThenBy(x => x.ri.Id)
+            .ThenByDescending(x => (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0))
+            .Select(x => new
+            {
+                ReliefItemId      = x.ri.Id,
+                ReliefItemName    = x.ri.Name ?? string.Empty,
+                CategoryName      = x.cat.Name ?? string.Empty,
+                x.ri.ItemType,
+                x.ri.Unit,
+                DepotId           = x.depot.Id,
+                DepotName         = x.depot.Name ?? string.Empty,
+                DepotAddress      = x.depot.Address ?? string.Empty,
+                DepotStatus       = x.depot.Status,
+                DepotLocation     = x.depot.Location,
+                TotalQuantity     = x.dsi.Quantity ?? 0,
+                ReservedQuantity  = x.dsi.ReservedQuantity ?? 0,
+                AvailableQuantity = (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0),
+                LastStockedAt     = x.dsi.LastStockedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        // Apply per-item quantity filter in memory
+        var filtered = rawRows
+            .Where(r =>
+            {
+                var minQty = itemQuantities.TryGetValue(r.ReliefItemId, out var q) ? q : 1;
+                return r.AvailableQuantity >= minQty;
+            })
+            .ToList();
+
+        // Paginate distinct items
+        var totalItemCount = filtered.Select(r => r.ReliefItemId).Distinct().Count();
+
+        if (totalItemCount == 0)
+            return (new List<WarehouseItemRow>(), 0);
+
+        var pagedItemIds = filtered
+            .Select(r => new { r.ReliefItemId, r.ReliefItemName })
+            .DistinctBy(r => r.ReliefItemId)
+            .OrderBy(r => r.ReliefItemName)
+            .ThenBy(r => r.ReliefItemId)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(r => r.ReliefItemId)
+            .ToHashSet();
+
+        var rows = filtered
+            .Where(r => pagedItemIds.Contains(r.ReliefItemId))
+            .Select(x => new WarehouseItemRow
+            {
+                ReliefItemId      = x.ReliefItemId,
+                ReliefItemName    = x.ReliefItemName,
+                CategoryName      = x.CategoryName,
+                ItemType          = x.ItemType,
+                Unit              = x.Unit,
+                DepotId           = x.DepotId,
+                DepotName         = x.DepotName,
+                DepotAddress      = x.DepotAddress,
+                DepotStatus       = x.DepotStatus,
+                DepotLatitude     = x.DepotLocation?.Y,
+                DepotLongitude    = x.DepotLocation?.X,
+                TotalQuantity     = x.TotalQuantity,
+                ReservedQuantity  = x.ReservedQuantity,
+                AvailableQuantity = x.AvailableQuantity,
+                LastStockedAt     = x.LastStockedAt
+            })
+            .ToList();
+
+        return (rows, totalItemCount);
     }
 }

@@ -1,78 +1,69 @@
-using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Infrastructure.Entities.Operations;
-using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Operations;
 
-public class MissionTeamRepository(IUnitOfWork unitOfWork, ResQDbContext context) : IMissionTeamRepository
+public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ResQDbContext _context = context;
 
     public async Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.MissionTeams
-            .AsNoTracking()
-            .Include(mt => mt.RescuerTeam)
-            .FirstOrDefaultAsync(mt => mt.Id == id, cancellationToken);
+        var entity = await _unitOfWork.GetRepository<MissionTeam>()
+            .GetByPropertyAsync(mt => mt.Id == id, tracked: false, includeProperties: "RescuerTeam");
 
         return entity is null ? null : ToModel(entity);
     }
 
     public async Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
     {
-        var entities = await _context.MissionTeams
-            .AsNoTracking()
-            .Include(mt => mt.RescuerTeam)
-            .Where(mt => mt.MissionId == missionId)
-            .OrderBy(mt => mt.AssignedAt)
-            .ToListAsync(cancellationToken);
+        var entities = await _unitOfWork.GetRepository<MissionTeam>()
+            .GetAllByPropertyAsync(mt => mt.MissionId == missionId, includeProperties: "RescuerTeam");
 
-        return entities.Select(ToModel);
+        return entities.OrderBy(mt => mt.AssignedAt).Select(ToModel);
     }
 
     public async Task<int> CreateAsync(MissionTeamModel model, CancellationToken cancellationToken = default)
     {
         var entity = new MissionTeam
         {
-            MissionId = model.MissionId,
+            MissionId     = model.MissionId,
             RescuerTeamId = model.RescuerTeamId,
-            TeamType = model.TeamType,
-            Status = model.Status,
-            Note = model.Note,
-            AssignedAt = model.AssignedAt ?? DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow
+            TeamType      = model.TeamType,
+            Status        = model.Status,
+            Note          = model.Note,
+            AssignedAt    = model.AssignedAt ?? DateTime.UtcNow,
+            CreatedAt     = DateTime.UtcNow
         };
 
-        _context.MissionTeams.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.GetRepository<MissionTeam>().AddAsync(entity);
+        await _unitOfWork.SaveAsync();
         return entity.Id;
     }
 
     public async Task UpdateStatusAsync(int id, string status, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.MissionTeams
-            .FirstOrDefaultAsync(mt => mt.Id == id, cancellationToken);
+        var entity = await _unitOfWork.GetRepository<MissionTeam>()
+            .GetByPropertyAsync(mt => mt.Id == id, tracked: true);
 
         if (entity is null) return;
 
         entity.Status = status;
-        await _context.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveAsync();
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.MissionTeams
-            .FirstOrDefaultAsync(mt => mt.Id == id, cancellationToken);
+        var entity = await _unitOfWork.GetRepository<MissionTeam>()
+            .GetByPropertyAsync(mt => mt.Id == id, tracked: true);
 
         if (entity is null) return;
 
         entity.UnassignedAt = DateTime.UtcNow;
-        entity.Status = "Cancelled";
-        await _context.SaveChangesAsync(cancellationToken);
+        entity.Status       = "Cancelled";
+        await _unitOfWork.SaveAsync();
     }
 
     public async Task<IEnumerable<MissionTeamModel>> GetActiveByRescuerTeamIdAsync(int rescuerTeamId, CancellationToken cancellationToken = default)

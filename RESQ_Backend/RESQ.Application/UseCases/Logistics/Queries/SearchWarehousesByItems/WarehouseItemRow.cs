@@ -1,0 +1,25 @@
+namespace RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
+
+/// <summary>
+/// Flat row returned by the repository — one row per (item, depot) combination.
+/// The handler groups these into the hierarchical DTO.
+/// </summary>
+public class WarehouseItemRow
+{
+    public int ReliefItemId { get; set; }
+    public string ReliefItemName { get; set; } = string.Empty;
+    public string CategoryName { get; set; } = string.Empty;
+    public string? ItemType { get; set; }
+    public string? Unit { get; set; }
+
+    public int DepotId { get; set; }
+    public string DepotName { get; set; } = string.Empty;
+    public string DepotAddress { get; set; } = string.Empty;
+    public string DepotStatus { get; set; } = string.Empty;
+    public double? DepotLatitude { get; set; }
+    public double? DepotLongitude { get; set; }
+    public int TotalQuantity { get; set; }
+    public int ReservedQuantity { get; set; }
+    public int AvailableQuantity { get; set; }
+    public DateTime? LastStockedAt { get; set; }
+}

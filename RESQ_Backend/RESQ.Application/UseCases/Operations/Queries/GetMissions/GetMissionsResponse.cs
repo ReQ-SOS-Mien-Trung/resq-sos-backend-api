@@ -127,14 +127,6 @@ public class MissionAiSuggestionSection
 
         return section;
     }
-
-    private class AiMetadata
-    {
-        public string? OverallAssessment { get; set; }
-        public string? EstimatedDuration { get; set; }
-        public string? SpecialNotes { get; set; }
-        public List<SuggestedResourceDto>? SuggestedResources { get; set; }
-    }
 }
 
 /// <summary>Helper to parse Items jsonb → SuppliesToCollect for MissionActivityDto.</summary>

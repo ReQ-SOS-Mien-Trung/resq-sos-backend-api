@@ -1,15 +1,14 @@
-using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Infrastructure.Entities.Operations;
-using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Operations;
 
-public class TeamIncidentRepository(ResQDbContext context) : ITeamIncidentRepository
+public class TeamIncidentRepository(IUnitOfWork unitOfWork) : ITeamIncidentRepository
 {
-    private readonly ResQDbContext _context = context;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
     public async Task<IEnumerable<TeamIncidentModel>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -23,33 +22,26 @@ public class TeamIncidentRepository(ResQDbContext context) : ITeamIncidentReposi
 
     public async Task<TeamIncidentModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.TeamIncidents
-            .AsNoTracking()
-            .FirstOrDefaultAsync(ti => ti.Id == id, cancellationToken);
+        var entity = await _unitOfWork.GetRepository<TeamIncident>()
+            .GetByPropertyAsync(ti => ti.Id == id, tracked: false);
 
         return entity is null ? null : ToModel(entity);
     }
 
     public async Task<IEnumerable<TeamIncidentModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
     {
-        var entities = await _context.TeamIncidents
-            .AsNoTracking()
-            .Where(ti => ti.MissionTeam != null && ti.MissionTeam.MissionId == missionId)
-            .OrderByDescending(ti => ti.ReportedAt)
-            .ToListAsync(cancellationToken);
+        var entities = await _unitOfWork.GetRepository<TeamIncident>()
+            .GetAllByPropertyAsync(ti => ti.MissionTeam != null && ti.MissionTeam.MissionId == missionId);
 
-        return entities.Select(ToModel);
+        return entities.OrderByDescending(ti => ti.ReportedAt).Select(ToModel);
     }
 
     public async Task<IEnumerable<TeamIncidentModel>> GetByMissionTeamIdAsync(int missionTeamId, CancellationToken cancellationToken = default)
     {
-        var entities = await _context.TeamIncidents
-            .AsNoTracking()
-            .Where(ti => ti.MissionTeamId == missionTeamId)
-            .OrderByDescending(ti => ti.ReportedAt)
-            .ToListAsync(cancellationToken);
+        var entities = await _unitOfWork.GetRepository<TeamIncident>()
+            .GetAllByPropertyAsync(ti => ti.MissionTeamId == missionTeamId);
 
-        return entities.Select(ToModel);
+        return entities.OrderByDescending(ti => ti.ReportedAt).Select(ToModel);
     }
 
     public async Task<int> CreateAsync(TeamIncidentModel model, CancellationToken cancellationToken = default)
@@ -64,38 +56,38 @@ public class TeamIncidentRepository(ResQDbContext context) : ITeamIncidentReposi
         var entity = new TeamIncident
         {
             MissionTeamId = model.MissionTeamId,
-            Description = model.Description,
-            Location = location,
-            Status = model.Status.ToString(),
-            ReportedBy = model.ReportedBy,
-            ReportedAt = model.ReportedAt ?? DateTime.UtcNow
+            Description   = model.Description,
+            Location      = location,
+            Status        = model.Status.ToString(),
+            ReportedBy    = model.ReportedBy,
+            ReportedAt    = model.ReportedAt ?? DateTime.UtcNow
         };
 
-        _context.TeamIncidents.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.GetRepository<TeamIncident>().AddAsync(entity);
+        await _unitOfWork.SaveAsync();
         return entity.Id;
     }
 
     public async Task UpdateStatusAsync(int id, TeamIncidentStatus status, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.TeamIncidents
-            .FirstOrDefaultAsync(ti => ti.Id == id, cancellationToken);
+        var entity = await _unitOfWork.GetRepository<TeamIncident>()
+            .GetByPropertyAsync(ti => ti.Id == id, tracked: true);
 
         if (entity is null) return;
 
         entity.Status = status.ToString();
-        await _context.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveAsync();
     }
 
     private static TeamIncidentModel ToModel(TeamIncident entity) => new()
     {
-        Id = entity.Id,
+        Id            = entity.Id,
         MissionTeamId = entity.MissionTeamId ?? 0,
-        Latitude = entity.Location?.Y,
-        Longitude = entity.Location?.X,
-        Description = entity.Description,
-        Status = Enum.TryParse<TeamIncidentStatus>(entity.Status, out var s) ? s : TeamIncidentStatus.Reported,
-        ReportedBy = entity.ReportedBy,
-        ReportedAt = entity.ReportedAt
+        Latitude      = entity.Location?.Y,
+        Longitude     = entity.Location?.X,
+        Description   = entity.Description,
+        Status        = Enum.TryParse<TeamIncidentStatus>(entity.Status, out var s) ? s : TeamIncidentStatus.Reported,
+        ReportedBy    = entity.ReportedBy,
+        ReportedAt    = entity.ReportedAt
     };
 }

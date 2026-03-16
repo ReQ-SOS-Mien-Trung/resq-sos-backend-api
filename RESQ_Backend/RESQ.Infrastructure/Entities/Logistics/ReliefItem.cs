@@ -52,4 +52,7 @@ public partial class ReliefItem
 
     [InverseProperty("ReliefItem")]
     public virtual ICollection<VatInvoiceItem> VatInvoiceItems { get; set; } = new List<VatInvoiceItem>();
+
+    [InverseProperty("ReliefItem")]
+    public virtual ICollection<DepotSupplyRequestItem> DepotSupplyRequestItems { get; set; } = new List<DepotSupplyRequestItem>();
 }

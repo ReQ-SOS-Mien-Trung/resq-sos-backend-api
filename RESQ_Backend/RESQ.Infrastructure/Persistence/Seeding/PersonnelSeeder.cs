@@ -132,162 +132,47 @@ public static class PersonnelSeeder
             new AssemblyPoint
             {
                 Id = 1,
-                Code = $"AP-HUE-QH-{timestampStr}",
-                Name = "Trường THPT Chuyên Quốc Học Huế",
+                Code = $"AP-HUE-TD-{timestampStr}",
+                Name = "Sân vận động Tự Do (Thừa Thiên Huế)",
                 CapacityTeams = 15,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(107.5925, 16.4608) { SRID = 4326 }, // Hue City
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new AssemblyPoint
-            {
-                Id = 2,
-                Code = $"AP-HUE-HT-{timestampStr}",
-                Name = "UBND Thị xã Hương Trà",
-                CapacityTeams = 10,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(107.4566, 16.3986) { SRID = 4326 }, // Huong Tra
+                Location = new Point(107.59761456770599, 16.46751083681696) { SRID = 4326 },
                 CreatedAt = now,
                 UpdatedAt = now
             },
             // QUẢNG BÌNH
             new AssemblyPoint
             {
-                Id = 3,
-                Code = $"AP-QBI-LT-{timestampStr}",
-                Name = "Nhà Văn hóa Huyện Lệ Thủy",
-                CapacityTeams = 20,
-                Status = AssemblyPointStatus.Overloaded.ToString(),
-                Location = new Point(106.7845, 17.2165) { SRID = 4326 }, // Le Thuy (Deep flood)
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new AssemblyPoint
-            {
-                Id = 4,
+                Id = 2,
                 Code = $"AP-QBI-DH-{timestampStr}",
-                Name = "Quảng trường Hồ Chí Minh (Đồng Hới)",
-                CapacityTeams = 25,
+                Name = "Nhà thi đấu đa năng Đại học Quảng Bình",
+                CapacityTeams = 20,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.6186, 17.4706) { SRID = 4326 }, // Dong Hoi
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            // QUẢNG TRỊ
-            new AssemblyPoint
-            {
-                Id = 5,
-                Code = $"AP-QTR-DH-{timestampStr}",
-                Name = "Nhà Thi đấu Đa năng Quảng Trị",
-                CapacityTeams = 15,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(107.1018, 16.8080) { SRID = 4326 }, // Dong Ha
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new AssemblyPoint
-            {
-                Id = 6,
-                Code = $"AP-QTR-HH-{timestampStr}",
-                Name = "Trường Dân tộc Nội trú Hướng Hóa",
-                CapacityTeams = 8,
-                Status = AssemblyPointStatus.Unavailable.ToString(), // Landslide risk
-                Location = new Point(106.7323, 16.6212) { SRID = 4326 }, // Khe Sanh
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            // ĐÀ NẴNG
-            new AssemblyPoint
-            {
-                Id = 7,
-                Code = $"AP-DNA-LC-{timestampStr}",
-                Name = "Trung tâm Hội chợ Triển lãm Đà Nẵng",
-                CapacityTeams = 30,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(108.2205, 16.0500) { SRID = 4326 }, // Cam Le
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new AssemblyPoint
-            {
-                Id = 8,
-                Code = $"AP-DNA-HV-{timestampStr}",
-                Name = "UBND Huyện Hòa Vang",
-                CapacityTeams = 12,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(108.1097, 16.0264) { SRID = 4326 }, // Hoa Vang
+                Location = new Point(106.60670631004842, 17.48118821678471) { SRID = 4326 },
                 CreatedAt = now,
                 UpdatedAt = now
             },
             // QUẢNG NAM
             new AssemblyPoint
             {
-                Id = 9,
-                Code = $"AP-QNA-HA-{timestampStr}",
-                Name = "Trường THPT Trần Quý Cáp (Hội An)",
-                CapacityTeams = 10,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(108.3380, 15.8801) { SRID = 4326 }, // Hoi An
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new AssemblyPoint
-            {
-                Id = 10,
-                Code = $"AP-QNA-TM-{timestampStr}",
-                Name = "Trung tâm Y tế Nam Trà My",
-                CapacityTeams = 5,
-                Status = AssemblyPointStatus.Unavailable.ToString(), // Isolated
-                Location = new Point(108.0645, 15.1950) { SRID = 4326 }, // Nam Tra My
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            // HÀ TĨNH
-            new AssemblyPoint
-            {
-                Id = 11,
-                Code = $"AP-HTI-HK-{timestampStr}",
-                Name = "Trường THPT Hương Khê",
-                CapacityTeams = 10,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(105.7144, 18.1755) { SRID = 4326 }, // Huong Khe
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            // QUẢNG NGÃI
-            new AssemblyPoint
-            {
-                Id = 12,
-                Code = $"AP-QNG-TT-{timestampStr}",
-                Name = "UBND Thành phố Quảng Ngãi",
+                Id = 3,
+                Code = $"AP-QNA-TN-{timestampStr}",
+                Name = "Nhà thi đấu tỉnh Quảng Nam",
                 CapacityTeams = 15,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(108.7987, 15.1207) { SRID = 4326 }, // Quang Ngai City
+                Location = new Point(108.50531084160426, 15.560779818999155) { SRID = 4326 },
                 CreatedAt = now,
                 UpdatedAt = now
             },
-            // BÌNH ĐỊNH
+            // QUẢNG TRỊ
             new AssemblyPoint
             {
-                Id = 13,
-                Code = $"AP-BDI-QN-{timestampStr}",
-                Name = "Trung tâm Văn hóa Thể thao Quy Nhơn",
-                CapacityTeams = 20,
+                Id = 4,
+                Code = $"AP-QTR-CT-{timestampStr}",
+                Name = "Trường Tiểu Học Cửa Tùng (Quảng Trị)",
+                CapacityTeams = 10,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(109.2182, 13.7765) { SRID = 4326 }, // Quy Nhon
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            // PHÚ YÊN
-            new AssemblyPoint
-            {
-                Id = 14,
-                Code = $"AP-PYE-TH-{timestampStr}",
-                Name = "Sân vận động Tỉnh Phú Yên",
-                CapacityTeams = 12,
-                Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(109.3241, 13.0955) { SRID = 4326 }, // Tuy Hoa
+                Location = new Point(107.10210032723418, 17.019065158799602) { SRID = 4326 },
                 CreatedAt = now,
                 UpdatedAt = now
             }
@@ -306,7 +191,7 @@ public static class PersonnelSeeder
                 Name = "Đội Cứu hộ Sông Hương (Huế)",
                 TeamType = RescueTeamType.Rescue.ToString(),
                 Status = RescueTeamStatus.AwaitingAcceptance.ToString(),
-                AssemblyPointId = 1, // Liên kết tới AP số 1 (Huế)
+                AssemblyPointId = 1, // Sân vận động Tự Do — Huế
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -315,10 +200,10 @@ public static class PersonnelSeeder
             {
                 Id = 2,
                 Code = "RT-PHA-241015120001",
-                Name = "Đội Phản ứng nhanh Quảng Bình",
+                Name = "Đội Phản ứng nhanh Y tế Huế",
                 TeamType = RescueTeamType.Medical.ToString(),
                 Status = RescueTeamStatus.Ready.ToString(),
-                AssemblyPointId = 4, // Liên kết tới AP số 4 (Đồng Hới)
+                AssemblyPointId = 1, // Sân vận động Tự Do — Huế
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -327,10 +212,10 @@ public static class PersonnelSeeder
             {
                 Id = 3,
                 Code = "RT-CUU-241015120002",
-                Name = "Đội Cứu nạn Vùng cao Nam Trà My",
+                Name = "Đội Vận chuyển Cứu trợ Huế",
                 TeamType = RescueTeamType.Transportation.ToString(),
                 Status = RescueTeamStatus.Gathering.ToString(),
-                AssemblyPointId = 10, // Liên kết tới AP số 10 (Trà My)
+                AssemblyPointId = 1, // Sân vận động Tự Do — Huế
                 AssemblyDate = now.AddDays(1),
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
@@ -340,10 +225,10 @@ public static class PersonnelSeeder
             {
                 Id = 4,
                 Code = "RT-BIE-241015120003",
-                Name = "Biệt đội Ca nô Đà Nẵng",
+                Name = "Biệt đội Ca nô Quảng Bình",
                 TeamType = RescueTeamType.Mixed.ToString(),
                 Status = RescueTeamStatus.Available.ToString(),
-                AssemblyPointId = 7, // Liên kết tới AP số 7 (Đà Nẵng)
+                AssemblyPointId = 2, // Nhà thi đấu ĐH Quảng Bình
                 AssemblyDate = now.AddHours(2),
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
@@ -353,10 +238,10 @@ public static class PersonnelSeeder
             {
                 Id = 5,
                 Code = "RT-HOI-241015120004",
-                Name = "Đội Cứu hộ Cộng đồng Hội An",
+                Name = "Đội Cứu hộ Lũ lụt Quảng Bình",
                 TeamType = RescueTeamType.Rescue.ToString(),
                 Status = RescueTeamStatus.Assigned.ToString(),
-                AssemblyPointId = 9, // Hội An, Quảng Nam
+                AssemblyPointId = 2, // Nhà thi đấu ĐH Quảng Bình
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -365,10 +250,10 @@ public static class PersonnelSeeder
             {
                 Id = 6,
                 Code = "RT-HVA-241015120005",
-                Name = "Đội Cứu nạn Hòa Vang - Đà Nẵng",
+                Name = "Đội Cứu nạn Sông Thu Bồn (Quảng Nam)",
                 TeamType = RescueTeamType.Mixed.ToString(),
                 Status = RescueTeamStatus.OnMission.ToString(),
-                AssemblyPointId = 8, // Hòa Vang, Đà Nẵng
+                AssemblyPointId = 3, // Nhà thi đấu Quảng Nam
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -377,10 +262,10 @@ public static class PersonnelSeeder
             {
                 Id = 7,
                 Code = "RT-PDI-241015120006",
-                Name = "Đội Y tế Khẩn cấp Phong Điền",
+                Name = "Đội Y tế Khẩn cấp Quảng Nam",
                 TeamType = RescueTeamType.Medical.ToString(),
                 Status = RescueTeamStatus.Stuck.ToString(),
-                AssemblyPointId = 2, // Hương Trà, Thừa Thiên Huế
+                AssemblyPointId = 3, // Nhà thi đấu Quảng Nam
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -389,10 +274,10 @@ public static class PersonnelSeeder
             {
                 Id = 8,
                 Code = "RT-QNG-241015120007",
-                Name = "Đội Phản ứng nhanh Quảng Ngãi",
+                Name = "Đội Phản ứng nhanh Quảng Trị",
                 TeamType = RescueTeamType.Rescue.ToString(),
                 Status = RescueTeamStatus.Unavailable.ToString(),
-                AssemblyPointId = 12, // TT. Quảng Ngãi
+                AssemblyPointId = 4, // Trường TH Cửa Tùng — Quảng Trị
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -401,10 +286,10 @@ public static class PersonnelSeeder
             {
                 Id = 9,
                 Code = "RT-BDI-241015120008",
-                Name = "Đội Cứu hộ Ven biển Bình Định",
+                Name = "Đội Cứu hộ Ven biển Quảng Trị",
                 TeamType = RescueTeamType.Mixed.ToString(),
                 Status = RescueTeamStatus.Disbanded.ToString(),
-                AssemblyPointId = 13, // Quy Nhơn
+                AssemblyPointId = 4, // Trường TH Cửa Tùng — Quảng Trị
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -413,10 +298,10 @@ public static class PersonnelSeeder
             {
                 Id = 10,
                 Code = "RT-HTI-241015120009",
-                Name = "Đội Cứu nạn Hương Khê - Hà Tĩnh",
+                Name = "Đội Vận chuyển Cứu trợ Quảng Trị",
                 TeamType = RescueTeamType.Transportation.ToString(),
                 Status = RescueTeamStatus.Available.ToString(),
-                AssemblyPointId = 11, // Hương Khê, Hà Tĩnh
+                AssemblyPointId = 4, // Trường TH Cửa Tùng — Quảng Trị
                 AssemblyDate = now.AddDays(2),
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,

@@ -76,9 +76,9 @@ public static class OperationsSeeder
                 Step = 1,
                 ActivityCode = "DISTRIBUTE",
                 ActivityType = "Distribution",
-                Description = "Phân phát lương thực cứu trợ (Gạo, mỳ) tại Hương Toàn.",
+                Description = "Phân phát lương thực cứu trợ (gạo, mì) tại vùng lũ TT-Huế.",
                 Target = "{\"items\": [\"rice\", \"food\"], \"count\": 200}",
-                TargetLocation = new Point(107.4566, 16.3986) { SRID = 4326 },
+                TargetLocation = new Point(107.5680, 16.4546) { SRID = 4326 },
                 Status = "Planned",
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.AdminUserId
@@ -151,7 +151,7 @@ public static class OperationsSeeder
                 Id = 2,
                 ConversationId = 2,
                 SenderId = SeedConstants.CoordinatorUserId,
-                Content = "Đã xuất kho 100 bao gạo từ kho Huế, xe đang di chuyển.",
+                Content = "Đã xuất kho 100 thùng mì tôm từ kho MTTQ Huế, xe đang di chuyển.",
                 CreatedAt = now
             }
         );
