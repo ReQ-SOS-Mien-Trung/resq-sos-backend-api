@@ -105,4 +105,27 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         // 2. Map to Domain Model with loaded profiles
         return RescueTeamMapper.ToDomain(team, team.RescueTeamMembers.ToList());
     }
+
+    public async Task<RescueTeamModel?> GetActiveRescueTeamByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var accepted = TeamMemberStatus.Accepted.ToString();
+        var disbanded = RescueTeamStatus.Disbanded.ToString();
+
+        var members = await unitOfWork.GetRepository<RescueTeamMember>().GetAllByPropertyAsync(
+            filter: m => m.UserId == userId
+                         && m.Status == accepted
+                         && m.Team != null
+                         && m.Team.Status != disbanded,
+            includeProperties: "Team,Team.AssemblyPoint,Team.RescueTeamMembers,Team.RescueTeamMembers.User"
+        );
+
+        var team = members
+            .Select(m => m.Team)
+            .Where(t => t is not null)
+            .OrderByDescending(t => t!.CreatedAt)
+            .FirstOrDefault();
+        if (team is null) return null;
+
+        return RescueTeamMapper.ToDomain(team, team.RescueTeamMembers.ToList());
+    }
 }
