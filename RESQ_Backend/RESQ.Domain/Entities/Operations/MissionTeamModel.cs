@@ -10,8 +10,13 @@ public class MissionTeamModel
     public string? Note { get; set; }
     public DateTime? AssignedAt { get; set; }
     public DateTime? UnassignedAt { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public DateTime? LocationUpdatedAt { get; set; }
+    public string? LocationSource { get; set; }
 
     // Display hydration
     public string? TeamName { get; set; }
     public string? TeamCode { get; set; }
+    public string? AssemblyPointName { get; set; }
 }

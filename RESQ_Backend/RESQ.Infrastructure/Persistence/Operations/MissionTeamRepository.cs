@@ -12,7 +12,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
     public async Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<MissionTeam>()
-            .GetByPropertyAsync(mt => mt.Id == id, tracked: false, includeProperties: "RescuerTeam");
+            .GetByPropertyAsync(mt => mt.Id == id, tracked: false, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint");
 
         return entity is null ? null : ToModel(entity);
     }
@@ -20,7 +20,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
     public async Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<MissionTeam>()
-            .GetAllByPropertyAsync(mt => mt.MissionId == missionId, includeProperties: "RescuerTeam");
+            .GetAllByPropertyAsync(mt => mt.MissionId == missionId, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint");
 
         return entities.OrderBy(mt => mt.AssignedAt).Select(ToModel);
     }
@@ -74,7 +74,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
                       && mt.MissionId != null
                       && mt.UnassignedAt == null
                       && mt.Status != "Cancelled",
-                includeProperties: "RescuerTeam");
+                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint");
 
         return entities.OrderByDescending(mt => mt.AssignedAt).Select(ToModel);
     }
@@ -89,7 +89,14 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
         Note = entity.Note,
         AssignedAt = entity.AssignedAt,
         UnassignedAt = entity.UnassignedAt,
+        Latitude = entity.CurrentLocation?.Y ?? entity.RescuerTeam?.AssemblyPoint?.Location?.Y,
+        Longitude = entity.CurrentLocation?.X ?? entity.RescuerTeam?.AssemblyPoint?.Location?.X,
+        LocationUpdatedAt = entity.LocationUpdatedAt,
+        LocationSource = entity.CurrentLocation is not null
+            ? (string.IsNullOrWhiteSpace(entity.LocationSource) ? "MissionTeam.CurrentLocation" : entity.LocationSource)
+            : "AssemblyPoint",
         TeamName = entity.RescuerTeam?.Name,
-        TeamCode = entity.RescuerTeam?.Code
+        TeamCode = entity.RescuerTeam?.Code,
+        AssemblyPointName = entity.RescuerTeam?.AssemblyPoint?.Name
     };
 }
