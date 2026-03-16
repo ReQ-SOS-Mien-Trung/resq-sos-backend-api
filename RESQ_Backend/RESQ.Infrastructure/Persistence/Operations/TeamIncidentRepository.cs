@@ -11,6 +11,16 @@ public class TeamIncidentRepository(ResQDbContext context) : ITeamIncidentReposi
 {
     private readonly ResQDbContext _context = context;
 
+    public async Task<IEnumerable<TeamIncidentModel>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var entities = await _context.TeamIncidents
+            .AsNoTracking()
+            .OrderByDescending(ti => ti.ReportedAt)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToModel);
+    }
+
     public async Task<TeamIncidentModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _context.TeamIncidents

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 using RESQ.Application.UseCases.Operations.Commands.UpdateTeamIncidentStatus;
+using RESQ.Application.UseCases.Operations.Queries.GetAllTeamIncidents;
 using RESQ.Application.UseCases.Operations.Queries.GetTeamIncidents;
 using RESQ.Domain.Enum.Operations;
 
@@ -14,6 +15,17 @@ namespace RESQ.Presentation.Controllers.Operations;
 public class TeamIncidentController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
+
+    /// <summary>
+    /// Lấy danh sách tất cả sự cố.
+    /// </summary>
+    [HttpGet]
+    [Authorize(Roles = "1,2,3")]
+    public async Task<IActionResult> GetAllIncidents()
+    {
+        var result = await _mediator.Send(new GetAllTeamIncidentsQuery());
+        return Ok(result);
+    }
 
     /// <summary>Đội cứu hộ báo cáo sự cố trong khi thực hiện nhiệm vụ.</summary>
     [HttpPost]
