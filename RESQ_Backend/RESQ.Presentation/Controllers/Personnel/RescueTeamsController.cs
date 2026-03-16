@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Personnel.Queries.GetAllRescueTeams;
+using RESQ.Application.UseCases.Personnel.Queries.GetMyRescueTeam;
 using RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamDetail;
 using RESQ.Application.UseCases.Personnel.Queries.RescueTeamMetadata;
 using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
@@ -36,6 +37,18 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetDetail(int id)
     {
         var result = await mediator.Send(new GetRescueTeamDetailQuery(id));
+        return Ok(result);
+    }
+
+    /// <summary>Lấy đội cứu hộ hiện tại của user đang đăng nhập.</summary>
+    [HttpGet("my")]
+    [Authorize]
+    public async Task<IActionResult> GetMyTeam()
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var result = await mediator.Send(new GetMyRescueTeamQuery(userId.Value));
         return Ok(result);
     }
 

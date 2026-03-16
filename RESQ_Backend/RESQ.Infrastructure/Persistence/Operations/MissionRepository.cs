@@ -40,6 +40,20 @@ public class MissionRepository(IUnitOfWork unitOfWork) : IMissionRepository
             .Select(MissionMapper.ToDomain);
     }
 
+    public async Task<IEnumerable<MissionModel>> GetByIdsAsync(IEnumerable<int> missionIds, CancellationToken cancellationToken = default)
+    {
+        var ids = missionIds?.Distinct().ToList() ?? [];
+        if (ids.Count == 0) return [];
+
+        var entities = await _unitOfWork.GetRepository<Mission>()
+            .GetAllByPropertyAsync(x => ids.Contains(x.Id), includeProperties: "MissionActivities");
+
+        // Preserve a stable ordering: newest first.
+        return entities
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(MissionMapper.ToDomain);
+    }
+
     public async Task<int> CreateAsync(MissionModel mission, Guid coordinatorId, CancellationToken cancellationToken = default)
     {
         // 1. Create mission entity

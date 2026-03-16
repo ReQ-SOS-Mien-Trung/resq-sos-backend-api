@@ -14,4 +14,9 @@ public interface IPersonnelQueryRepository
         CancellationToken cancellationToken = default);
     Task<PagedResult<RescueTeamModel>> GetAllRescueTeamsAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
     Task<RescueTeamModel?> GetRescueTeamDetailAsync(int teamId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy đội cứu hộ "active" mà user hiện tại đang thuộc về (Accepted + team chưa Disbanded).
+    /// </summary>
+    Task<RescueTeamModel?> GetActiveRescueTeamByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
 }
