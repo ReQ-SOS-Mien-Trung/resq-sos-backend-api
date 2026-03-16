@@ -72,7 +72,7 @@ public static class RuntimeDataSeeder
         await db.SaveChangesAsync();
 
         // ─── InventoryLogs for Depot 1 ──────────────────────────────────────
-        // DepotSupplyInventory IDs: 1=mì tôm, 11=nước, 12=thuốc, 13=áo phao, 14=chăn
+        // DepotSupplyInventory IDs: 1=mì tôm, 2=nước, 3=thuốc, 4=áo phao, 6=chăn
         db.InventoryLogs.AddRange(
 
             // ── Jan 2025 ──────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ public static class RuntimeDataSeeder
             },
             new InventoryLog
             {
-                DepotSupplyInventoryId = 11, VatInvoiceId = inv1.Id,
+                DepotSupplyInventoryId = 2, VatInvoiceId = inv1.Id,
                 ActionType = "Import",      QuantityChange = 15000,
                 SourceType = "Purchase",    SourceId = 1,
                 PerformedBy = ManagerUserId,
@@ -107,16 +107,16 @@ public static class RuntimeDataSeeder
             // ── Jun 2025 ──────────────────────────────────────────────────────
             new InventoryLog
             {
-                DepotSupplyInventoryId = 12,
+                DepotSupplyInventoryId = 3,
                 ActionType = "Import",      QuantityChange = 30000,
                 SourceType = "Donation",    SourceId = 1,
                 PerformedBy = ManagerUserId,
-                Note = "Nhận thuốc từ Hội Chữ Thập Đỏ Huế đợt 2",
+                Note = "Nhận thuốc từ Hội Chữ Thập Đỏ TT-Huế đợt 2",
                 CreatedAt = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc)
             },
             new InventoryLog
             {
-                DepotSupplyInventoryId = 14,
+                DepotSupplyInventoryId = 6,
                 ActionType = "Adjust",      QuantityChange = -500,
                 SourceType = "Adjustment",
                 PerformedBy = ManagerUserId,
@@ -127,27 +127,27 @@ public static class RuntimeDataSeeder
             // ── Oct 2025 ──────────────────────────────────────────────────────
             new InventoryLog
             {
-                DepotSupplyInventoryId = 13,
+                DepotSupplyInventoryId = 4,
                 ActionType = "Import",      QuantityChange = 1000,
                 SourceType = "Donation",    SourceId = 2,
                 PerformedBy = ManagerUserId,
-                Note = "Nhận áo phao từ MTTQ Quảng Bình hỗ trợ",
+                Note = "Nhận áo phao từ UBMTTQVN Đà Nẵng hỗ trợ",
                 CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc)
             },
             new InventoryLog
             {
-                DepotSupplyInventoryId = 11,
+                DepotSupplyInventoryId = 2,
                 ActionType = "TransferOut", QuantityChange = 5000,
                 SourceType = "Transfer",    SourceId = 2,
                 PerformedBy = ManagerUserId,
-                Note = "Chuyển nước uống sang kho Lệ Thủy hỗ trợ bão số 4",
+                Note = "Chuyển nước uống sang kho Đà Nẵng hỗ trợ bão số 4",
                 CreatedAt = new DateTime(2025, 10, 10, 6, 0, 0, DateTimeKind.Utc)
             },
 
             // ── Jan 2026 ──────────────────────────────────────────────────────
             new InventoryLog
             {
-                DepotSupplyInventoryId = 12, VatInvoiceId = inv2.Id,
+                DepotSupplyInventoryId = 3, VatInvoiceId = inv2.Id,
                 ActionType = "Import",      QuantityChange = 30000,
                 SourceType = "Purchase",    SourceId = 2,
                 PerformedBy = ManagerUserId,
@@ -156,7 +156,7 @@ public static class RuntimeDataSeeder
             },
             new InventoryLog
             {
-                DepotSupplyInventoryId = 14,
+                DepotSupplyInventoryId = 6,
                 ActionType = "Export",      QuantityChange = 200,
                 SourceType = "Mission",     MissionId = 2,
                 PerformedBy = ManagerUserId,
@@ -167,7 +167,7 @@ public static class RuntimeDataSeeder
             // ── Feb 2026 ──────────────────────────────────────────────────────
             new InventoryLog
             {
-                DepotSupplyInventoryId = 13, VatInvoiceId = inv3.Id,
+                DepotSupplyInventoryId = 4, VatInvoiceId = inv3.Id,
                 ActionType = "Import",      QuantityChange = 500,
                 SourceType = "Purchase",    SourceId = 3,
                 PerformedBy = ManagerUserId,
@@ -176,7 +176,7 @@ public static class RuntimeDataSeeder
             },
             new InventoryLog
             {
-                DepotSupplyInventoryId = 13,
+                DepotSupplyInventoryId = 4,
                 ActionType = "Return",      QuantityChange = 100,
                 SourceType = "Mission",     MissionId = 1,
                 PerformedBy = ManagerUserId,
@@ -196,7 +196,7 @@ public static class RuntimeDataSeeder
             },
             new InventoryLog
             {
-                DepotSupplyInventoryId = 12,
+                DepotSupplyInventoryId = 3,
                 ActionType = "Export",      QuantityChange = 5000,
                 SourceType = "Mission",     MissionId = 1,
                 PerformedBy = ManagerUserId,
@@ -205,7 +205,7 @@ public static class RuntimeDataSeeder
             },
             new InventoryLog
             {
-                DepotSupplyInventoryId = 11,
+                DepotSupplyInventoryId = 2,
                 ActionType = "Adjust",      QuantityChange = -2000,
                 SourceType = "Adjustment",
                 PerformedBy = ManagerUserId,

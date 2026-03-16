@@ -89,8 +89,7 @@ public static class OperationsSeeder
     private static void SeedMissionItems(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<MissionItem>().HasData(
-            // Mission 1 (Rescue): Needs Medical/Rescue Kits. 
-            // ReliefItem ID 2 (First Aid/Medical)
+            // Mission 1 (Rescue): Cần vật tư y tế/cứu hộ
             new MissionItem
             {
                 Id = 1,
@@ -98,10 +97,9 @@ public static class OperationsSeeder
                 MissionId = 1, 
                 RequiredQuantity = 20,
                 AllocatedQuantity = 20,
-                SourceDepotId = 2 // Le Thuy Depot
+                SourceDepotId = 4 // Kho UBMTTQVN TT-Huế (gần nhất với SOS cluster)
             },
-            // Mission 2 (Relief): Needs Food.
-            // ReliefItem ID 1 (Rice/Food)
+            // Mission 2 (Relief): Cần lương thực
             new MissionItem
             {
                 Id = 2,
@@ -109,7 +107,7 @@ public static class OperationsSeeder
                 MissionId = 2, 
                 RequiredQuantity = 100,
                 AllocatedQuantity = 100,
-                SourceDepotId = 1 // Hue Depot
+                SourceDepotId = 4 // Kho UBMTTQVN TT-Huế
             }
         );
     }
