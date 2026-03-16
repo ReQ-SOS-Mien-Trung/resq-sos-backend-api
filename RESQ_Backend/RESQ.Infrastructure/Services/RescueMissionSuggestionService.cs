@@ -147,6 +147,12 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         - Gọi **getTeams** để lấy team_id cho `suggested_team`.
         Sau khi có kết quả tool, mới được lập kế hoạch và xuất JSON. Dùng đúng item_id và team_id từ kết quả — không tự tạo ID.
 
+        **QUY TẮC RETRY khi tìm đội (rất quan trọng)**:
+        - Luôn thử `getTeams(available=true, page=1)` trước để ưu tiên đội sẵn sàng.
+        - Nếu kết quả trả về `total_teams = 0` hoặc `teams` rỗng, bắt buộc gọi lại `getTeams(available=false, page=1)` (hoặc bỏ tham số `available`) để lấy danh sách đội không bị giải thể.
+        - Nếu bạn có dùng lọc `ability` mà không thấy đội nào, hãy gọi lại `getTeams` **không truyền `ability`** để lấy tất cả đội, sau đó chọn đội phù hợp nhất.
+        - Chỉ khi đã thử các bước trên mà vẫn không có đội nào trong hệ thống, lúc đó mới được để `suggested_team` = null.
+
         ## SỬ DỤNG VỊ TRÍ ĐỂ LẬP KẾ HOẠCH
         Mỗi SOS request có trường `vi_tri` chứa tọa độ (latitude, longitude) của sự cố.
         Kết quả searchInventory trả về `depot_latitude`, `depot_longitude` — tọa độ của kho vật tư.
@@ -169,6 +175,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         - Sau khi gọi getTeams, phân công đội phù hợp vào từng activity dựa trên loại hoạt động và vị trí.
         - Nếu một đội đảm nhận nhiều activity, điền cùng một đội vào `suggested_team` của từng activity đó.
         - **KHÔNG** chỉ điền đội vào mảng `resources` rồi để `suggested_team` là null trong activities.
+                - Nếu không có đủ đội cho tất cả activity, ưu tiên gán đội cho các bước có `priority = Critical` và các bước RESCUE/MEDICAL_AID/EVACUATE trước.
         - Format `suggested_team` bên trong mỗi activity:
           ```json
           "suggested_team": {

@@ -140,15 +140,15 @@ public static class PersonnelSeeder
                 CreatedAt = now,
                 UpdatedAt = now
             },
-            // QUẢNG BÌNH
+            // HÀ TĨNH (Chuyển từ Quảng Bình)
             new AssemblyPoint
             {
                 Id = 2,
-                Code = $"AP-QBI-DH-{timestampStr}",
-                Name = "Nhà thi đấu đa năng Đại học Quảng Bình",
+                Code = $"AP-HTI-DH-{timestampStr}",
+                Name = "Nhà thi đấu đa năng TP. Hà Tĩnh",
                 CapacityTeams = 20,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(106.60670631004842, 17.48118821678471) { SRID = 4326 },
+                Location = new Point(105.901, 18.350) { SRID = 4326 },
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -164,15 +164,15 @@ public static class PersonnelSeeder
                 CreatedAt = now,
                 UpdatedAt = now
             },
-            // QUẢNG TRỊ
+            // ĐÀ NẴNG (Chuyển từ Quảng Trị)
             new AssemblyPoint
             {
                 Id = 4,
-                Code = $"AP-QTR-CT-{timestampStr}",
-                Name = "Trường Tiểu Học Cửa Tùng (Quảng Trị)",
+                Code = $"AP-DNA-CT-{timestampStr}",
+                Name = "Cung Thể thao Tiên Sơn (Đà Nẵng)",
                 CapacityTeams = 10,
                 Status = AssemblyPointStatus.Active.ToString(),
-                Location = new Point(107.10210032723418, 17.019065158799602) { SRID = 4326 },
+                Location = new Point(108.222, 16.080) { SRID = 4326 },
                 CreatedAt = now,
                 UpdatedAt = now
             }
@@ -225,10 +225,10 @@ public static class PersonnelSeeder
             {
                 Id = 4,
                 Code = "RT-BIE-241015120003",
-                Name = "Biệt đội Ca nô Quảng Bình",
+                Name = "Biệt đội Ca nô Hà Tĩnh",
                 TeamType = RescueTeamType.Mixed.ToString(),
                 Status = RescueTeamStatus.Available.ToString(),
-                AssemblyPointId = 2, // Nhà thi đấu ĐH Quảng Bình
+                AssemblyPointId = 2, // Nhà thi đấu TP. Hà Tĩnh
                 AssemblyDate = now.AddHours(2),
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
@@ -238,10 +238,10 @@ public static class PersonnelSeeder
             {
                 Id = 5,
                 Code = "RT-HOI-241015120004",
-                Name = "Đội Cứu hộ Lũ lụt Quảng Bình",
+                Name = "Đội Cứu hộ Lũ lụt Hà Tĩnh",
                 TeamType = RescueTeamType.Rescue.ToString(),
                 Status = RescueTeamStatus.Assigned.ToString(),
-                AssemblyPointId = 2, // Nhà thi đấu ĐH Quảng Bình
+                AssemblyPointId = 2, // Nhà thi đấu TP. Hà Tĩnh
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -274,10 +274,10 @@ public static class PersonnelSeeder
             {
                 Id = 8,
                 Code = "RT-QNG-241015120007",
-                Name = "Đội Phản ứng nhanh Quảng Trị",
+                Name = "Đội Phản ứng nhanh Đà Nẵng",
                 TeamType = RescueTeamType.Rescue.ToString(),
                 Status = RescueTeamStatus.Unavailable.ToString(),
-                AssemblyPointId = 4, // Trường TH Cửa Tùng — Quảng Trị
+                AssemblyPointId = 4, // Cung Thể thao Tiên Sơn — Đà Nẵng
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -286,10 +286,10 @@ public static class PersonnelSeeder
             {
                 Id = 9,
                 Code = "RT-BDI-241015120008",
-                Name = "Đội Cứu hộ Ven biển Quảng Trị",
+                Name = "Đội Cứu hộ Ven biển Đà Nẵng",
                 TeamType = RescueTeamType.Mixed.ToString(),
                 Status = RescueTeamStatus.Disbanded.ToString(),
-                AssemblyPointId = 4, // Trường TH Cửa Tùng — Quảng Trị
+                AssemblyPointId = 4, // Cung Thể thao Tiên Sơn — Đà Nẵng
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
                 CreatedAt = now
@@ -298,10 +298,10 @@ public static class PersonnelSeeder
             {
                 Id = 10,
                 Code = "RT-HTI-241015120009",
-                Name = "Đội Vận chuyển Cứu trợ Quảng Trị",
+                Name = "Đội Vận chuyển Cứu trợ Đà Nẵng",
                 TeamType = RescueTeamType.Transportation.ToString(),
                 Status = RescueTeamStatus.Available.ToString(),
-                AssemblyPointId = 4, // Trường TH Cửa Tùng — Quảng Trị
+                AssemblyPointId = 4, // Cung Thể thao Tiên Sơn — Đà Nẵng
                 AssemblyDate = now.AddDays(2),
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
