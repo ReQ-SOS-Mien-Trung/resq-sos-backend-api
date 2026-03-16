@@ -4,5 +4,5 @@ namespace RESQ.Application.Services;
 
 public interface ISosPriorityEvaluationService
 {
-    SosRuleEvaluationModel Evaluate(int sosRequestId, string? structuredDataJson, string? sosType);
+    Task<SosRuleEvaluationModel> EvaluateAsync(int sosRequestId, string? structuredDataJson, string? sosType, CancellationToken cancellationToken = default);
 }

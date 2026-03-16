@@ -65,11 +65,12 @@ public class CreateSosRequestCommandHandler(
 
         _logger.LogInformation("SOS Request created with Id={sosRequestId}, evaluating priority...", created.Id);
 
-        // Evaluate priority based on structured data (rule-based, synchronous)
-        var evaluation = _priorityEvaluationService.Evaluate(
+        // Evaluate priority based on structured data (rule-based, async)
+        var evaluation = await _priorityEvaluationService.EvaluateAsync(
             created.Id,
             request.StructuredData,
-            request.SosType);
+            request.SosType,
+            cancellationToken);
 
         // Save rule evaluation
         await _sosRuleEvaluationRepository.CreateAsync(evaluation, cancellationToken);
