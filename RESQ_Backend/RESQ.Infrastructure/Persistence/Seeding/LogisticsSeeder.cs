@@ -100,22 +100,17 @@ public static class LogisticsSeeder
         var end  = new DateTime(2024,  9, 30, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<DepotManager>().HasData(
-            // ── Active: 1 depot per manager, admin manages no depot ──────────────
-            // ManagerUserId manages Depot 1 (Kho Huế) — chứa test data export
-            new DepotManager { Id = 1, DepotId = 1, UserId = SeedConstants.ManagerUserId,     AssignedAt = now },
-            // CoordinatorUserId manages Depot 2 (Lệ Thủy, Quảng Bình)
-            new DepotManager { Id = 2, DepotId = 2, UserId = SeedConstants.CoordinatorUserId, AssignedAt = now },
-            // RescuerUserId manages Depot 3 (Hải Lăng, Quảng Trị)
-            new DepotManager { Id = 3, DepotId = 3, UserId = SeedConstants.RescuerUserId,     AssignedAt = now },
+            // ── ManagerUserId (role 4): Depot 5 → Depot 1 ─────────────────────────
+            new DepotManager { Id = 1, DepotId = 5, UserId = SeedConstants.ManagerUserId,  AssignedAt = past, UnassignedAt = end },
+            new DepotManager { Id = 2, DepotId = 1, UserId = SeedConstants.ManagerUserId,  AssignedAt = now },
 
-            // ── Historical: previous managers, now unassigned ────────────────────
-            new DepotManager { Id = 4,  DepotId = 4,  UserId = SeedConstants.CoordinatorUserId, AssignedAt = past, UnassignedAt = end },
-            new DepotManager { Id = 5,  DepotId = 5,  UserId = SeedConstants.ManagerUserId,     AssignedAt = past, UnassignedAt = end },
-            new DepotManager { Id = 6,  DepotId = 6,  UserId = SeedConstants.RescuerUserId,     AssignedAt = past, UnassignedAt = end },
-            new DepotManager { Id = 7,  DepotId = 7,  UserId = SeedConstants.CoordinatorUserId, AssignedAt = past, UnassignedAt = end },
-            new DepotManager { Id = 8,  DepotId = 8,  UserId = SeedConstants.ManagerUserId,     AssignedAt = past, UnassignedAt = end },
-            new DepotManager { Id = 9,  DepotId = 9,  UserId = SeedConstants.RescuerUserId,     AssignedAt = past, UnassignedAt = end },
-            new DepotManager { Id = 10, DepotId = 10, UserId = SeedConstants.CoordinatorUserId, AssignedAt = past, UnassignedAt = end }
+            // ── Manager2UserId (role 4): Depot 4 → Depot 2 ────────────────────────
+            new DepotManager { Id = 3, DepotId = 4, UserId = SeedConstants.Manager2UserId, AssignedAt = past, UnassignedAt = end },
+            new DepotManager { Id = 4, DepotId = 2, UserId = SeedConstants.Manager2UserId, AssignedAt = now },
+
+            // ── Manager3UserId (role 4): Depot 6 → Depot 3 ────────────────────────
+            new DepotManager { Id = 5, DepotId = 6, UserId = SeedConstants.Manager3UserId, AssignedAt = past, UnassignedAt = end },
+            new DepotManager { Id = 6, DepotId = 3, UserId = SeedConstants.Manager3UserId, AssignedAt = now }
         );
     }
 

@@ -104,6 +104,36 @@ public static class IdentitySeeder
             },
             new User
             {
+                Id = SeedConstants.Manager2UserId,
+                RoleId = 4,
+                FirstName = "Manager2",
+                LastName = "Nguyễn Văn",
+                Username = "manager2",
+                Phone = "0934567891",
+                Password = SeedConstants.ManagerPasswordHash,
+                IsEmailVerified = true,
+                IsOnboarded = true,
+                IsEligibleRescuer = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            new User
+            {
+                Id = SeedConstants.Manager3UserId,
+                RoleId = 4,
+                FirstName = "Manager3",
+                LastName = "Trần Thị",
+                Username = "manager3",
+                Phone = "0934567892",
+                Password = SeedConstants.ManagerPasswordHash,
+                IsEmailVerified = true,
+                IsOnboarded = true,
+                IsEligibleRescuer = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            new User
+            {
                 Id = SeedConstants.VictimUserId,
                 RoleId = 5,
                 FirstName = "Victim",

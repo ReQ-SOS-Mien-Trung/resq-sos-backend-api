@@ -53,4 +53,10 @@ public partial class Depot
 
     [InverseProperty("Depot")]
     public virtual ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
+
+    [InverseProperty("RequestingDepot")]
+    public virtual ICollection<DepotSupplyRequest> SupplyRequestsAsRequester { get; set; } = new List<DepotSupplyRequest>();
+
+    [InverseProperty("SourceDepot")]
+    public virtual ICollection<DepotSupplyRequest> SupplyRequestsAsSource { get; set; } = new List<DepotSupplyRequest>();
 }

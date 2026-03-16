@@ -163,14 +163,14 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Auto-apply EF Core migrations on startup
-using (var scope = app.Services.CreateScope())
-{
-  var db = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-  await db.Database.MigrateAsync();
-  // Seed permissions and role-permission mappings (idempotent)
-  await PermissionSeeder.SeedAsync(db);
-}
+//// Auto-apply EF Core migrations on startup
+//using (var scope = app.Services.CreateScope())
+//{
+//  var db = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
+//  await db.Database.MigrateAsync();
+//  // Seed permissions and role-permission mappings (idempotent)
+//  await PermissionSeeder.SeedAsync(db);
+//}
 
 // Seed test inventory-movement data for development testing
 if (app.Environment.IsDevelopment())

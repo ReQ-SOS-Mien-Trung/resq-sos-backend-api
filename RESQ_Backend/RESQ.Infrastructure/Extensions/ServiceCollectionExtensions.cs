@@ -56,8 +56,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
         services.AddScoped<IInventoryMovementExportRepository, InventoryMovementExportRepository>();
         services.AddScoped<IOrganizationReliefRepository, OrganizationReliefRepository>();
+        services.AddScoped<IReliefItemMetadataRepository, ReliefItemMetadataRepository>();
         services.AddScoped<IOrganizationMetadataRepository, OrganizationMetadataRepository>();
         services.AddScoped<IPurchasedInventoryRepository, PurchasedInventoryRepository>();
+        services.AddScoped<ISupplyRequestRepository, SupplyRequestRepository>();
         services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>();
         services.AddScoped<IRescueTeamRepository, RescueTeamRepository>();
         services.AddScoped<IPersonnelQueryRepository, PersonnelQueryRepository>();

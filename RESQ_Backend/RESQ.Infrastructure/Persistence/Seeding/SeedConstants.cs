@@ -10,11 +10,13 @@ public static class SeedConstants
     public const string VictimPasswordHash = "$2a$11$on1XCfJiZ.y.280Rx2rKkOFOPn2UnX42ay7V8pZ2QJUkDW4IbD38O"; // Victim@123
 
     // User GUIDs
-    public static readonly Guid AdminUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid AdminUserId       = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid CoordinatorUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    public static readonly Guid RescuerUserId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-    public static readonly Guid ManagerUserId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-    public static readonly Guid VictimUserId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+    public static readonly Guid RescuerUserId     = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    public static readonly Guid ManagerUserId     = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    public static readonly Guid Manager2UserId    = Guid.Parse("44444444-4444-4444-4444-444444444442");
+    public static readonly Guid Manager3UserId    = Guid.Parse("44444444-4444-4444-4444-444444444443");
+    public static readonly Guid VictimUserId      = Guid.Parse("55555555-5555-5555-5555-555555555555");
 
     // Rescuer Applicant GUIDs (dùng để seed đơn đăng ký rescuer)
     public static readonly Guid Applicant1UserId = Guid.Parse("66666666-6666-6666-6666-666666666661");

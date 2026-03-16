@@ -1,0 +1,41 @@
+namespace RESQ.Application.Repositories.Logistics;
+
+public class SupplyRequestDetail
+{
+    public int Id { get; set; }
+    public int RequestingDepotId { get; set; }
+    public int SourceDepotId { get; set; }
+    public string SourceStatus { get; set; } = string.Empty;
+    public string RequestingStatus { get; set; } = string.Empty;
+    public Guid RequestedBy { get; set; }
+    public List<(int ReliefItemId, int Quantity)> Items { get; set; } = new();
+}
+
+public interface ISupplyRequestRepository
+{
+    Task<int> CreateAsync(
+        int requestingDepotId,
+        int sourceDepotId,
+        List<(int ReliefItemId, int Quantity)> items,
+        string? note,
+        Guid requestedBy,
+        CancellationToken cancellationToken = default);
+
+    Task<SupplyRequestDetail?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+
+    Task UpdateStatusAsync(int id, string sourceStatus, string requestingStatus, string? rejectedReason, CancellationToken cancellationToken = default);
+
+    Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Xuất kho (TransferOut) từ kho nguồn khi ship.
+    /// Giảm Quantity ở DepotSupplyInventory, tạo InventoryLog.
+    /// </summary>
+    Task TransferOutAsync(int sourceDepotId, List<(int ReliefItemId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Nhập kho (TransferIn) cho kho yêu cầu khi confirm.
+    /// Tăng Quantity ở DepotSupplyInventory (tạo mới nếu chưa có), tạo InventoryLog.
+    /// </summary>
+    Task TransferInAsync(int requestingDepotId, List<(int ReliefItemId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
+}
