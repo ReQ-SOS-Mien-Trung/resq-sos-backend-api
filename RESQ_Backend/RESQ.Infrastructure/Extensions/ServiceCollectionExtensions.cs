@@ -102,6 +102,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRescueMissionSuggestionService, RescueMissionSuggestionService>();
         services.AddScoped<IMissionContextService, MissionContextService>();
         services.AddScoped<IChatSupportAiService, ChatSupportAiService>();
+        services.AddScoped<IUserPermissionResolver, UserPermissionResolver>();
 
         services.AddScoped<IGoongMapService, GoongMapService>();
         services.AddScoped<IExcelExportService, ExcelExportService>();
