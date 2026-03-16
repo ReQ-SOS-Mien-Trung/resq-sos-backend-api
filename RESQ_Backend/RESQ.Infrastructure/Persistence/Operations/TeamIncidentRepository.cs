@@ -12,12 +12,10 @@ public class TeamIncidentRepository(IUnitOfWork unitOfWork) : ITeamIncidentRepos
 
     public async Task<IEnumerable<TeamIncidentModel>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var entities = await _context.TeamIncidents
-            .AsNoTracking()
-            .OrderByDescending(ti => ti.ReportedAt)
-            .ToListAsync(cancellationToken);
+        var entities = await _unitOfWork.GetRepository<TeamIncident>()
+            .GetAllByPropertyAsync();
 
-        return entities.Select(ToModel);
+        return entities.OrderByDescending(ti => ti.ReportedAt).Select(ToModel);
     }
 
     public async Task<TeamIncidentModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
