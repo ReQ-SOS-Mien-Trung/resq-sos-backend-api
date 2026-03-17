@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
+using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Application.UseCases.Operations.Commands.CreateMission;
 using RESQ.Application.UseCases.Operations.Commands.UnassignTeamFromMission;
@@ -152,8 +153,14 @@ public class MissionController(IMediator mediator) : ControllerBase
             dto.ActivityCode,
             dto.ActivityType,
             dto.Description,
+            dto.Priority,
+            dto.EstimatedTime,
+            dto.SosRequestId,
+            dto.DepotId,
+            dto.DepotName,
+            dto.DepotAddress,
+            dto.SuppliesToCollect,
             dto.Target,
-            dto.Items,
             dto.TargetLatitude,
             dto.TargetLongitude,
             dto.RescueTeamId,
@@ -199,6 +206,20 @@ public class MissionController(IMediator mediator) : ControllerBase
             return Unauthorized();
 
         var command = new UpdateActivityStatusCommand(activityId, dto.Status, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>Giao một rescue team (đã hoặc chưa assigned vào mission) để thực hiện một activity cụ thể.</summary>
+    [HttpPost("{missionId:int}/activities/{activityId:int}/team")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
+    public async Task<IActionResult> AssignTeamToActivity([FromRoute] int missionId, [FromRoute] int activityId, [FromBody] AssignTeamToActivityRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var command = new AssignTeamToActivityCommand(activityId, missionId, dto.RescueTeamId, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

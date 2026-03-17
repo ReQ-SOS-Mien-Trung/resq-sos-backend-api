@@ -55,4 +55,14 @@ public interface IDepotInventoryRepository
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Kiểm tra tồn kho tại một kho cụ thể cho danh sách vật tư.
+    /// Trả về danh sách vật tư không đủ số lượng hoặc không có trong kho.
+    /// Số lượng khả dụng = Quantity - ReservedQuantity.
+    /// </summary>
+    Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(
+        int depotId,
+        List<(int ReliefItemId, string ItemName, int RequestedQuantity)> items,
+        CancellationToken cancellationToken = default);
 }

@@ -77,6 +77,17 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
         await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);
     }
 
+    public async Task AssignTeamAsync(int activityId, int missionTeamId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<MissionActivity>()
+            .GetByPropertyAsync(x => x.Id == activityId, tracked: true);
+
+        if (entity is null) return;
+
+        entity.MissionTeamId = missionTeamId;
+        await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);
+    }
+
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         await _unitOfWork.GetRepository<MissionActivity>().DeleteAsyncById(id);
