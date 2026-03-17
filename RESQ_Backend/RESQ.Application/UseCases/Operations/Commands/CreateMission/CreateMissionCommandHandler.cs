@@ -164,7 +164,7 @@ public class CreateMissionCommandHandler(
                          .Where(s => s.Id.HasValue)
                          .GroupBy(s => s.Id!.Value)
                          .Select(sg => (
-                             ReliefItemId: sg.Key,
+                             ItemModelId: sg.Key,
                              ItemName: sg.First().Name ?? $"Item#{sg.Key}",
                              RequestedQuantity: sg.Sum(s => s.Quantity ?? 0)
                          ))
@@ -183,8 +183,8 @@ public class CreateMissionCommandHandler(
             foreach (var s in shortages)
             {
                 allErrors.Add(s.NotFound
-                    ? $"Kho {depot.DepotId}: Vật tư '{s.ItemName}' (ID={s.ReliefItemId}) không có trong kho."
-                    : $"Kho {depot.DepotId}: Vật tư '{s.ItemName}' (ID={s.ReliefItemId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
+                    ? $"Kho {depot.DepotId}: Vật tư '{s.ItemName}' (ID={s.ItemModelId}) không có trong kho."
+                    : $"Kho {depot.DepotId}: Vật tư '{s.ItemName}' (ID={s.ItemModelId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
             }
         }
 

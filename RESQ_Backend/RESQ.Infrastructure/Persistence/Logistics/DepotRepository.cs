@@ -95,7 +95,7 @@ public class DepotRepository(IUnitOfWork unitOfWork) : IDepotRepository
         var entities = await _unitOfWork.GetRepository<Depot>()
             .GetAllByPropertyAsync(
                 x => (x.Status == "Available" || x.Status == "Full") && x.CurrentUtilization > 0,
-                includeProperties: "DepotManagers.User,DepotSupplyInventories.ReliefItem"
+                includeProperties: "DepotManagers.User,SupplyInventories.ItemModel"
             );
 
         return entities.Select(DepotMapper.ToDomain);

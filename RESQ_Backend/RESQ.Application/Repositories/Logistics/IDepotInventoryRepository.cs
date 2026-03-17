@@ -63,6 +63,6 @@ public interface IDepotInventoryRepository
     /// </summary>
     Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(
         int depotId,
-        List<(int ReliefItemId, string ItemName, int RequestedQuantity)> items,
+        List<(int ItemModelId, string ItemName, int RequestedQuantity)> items,
         CancellationToken cancellationToken = default);
 }

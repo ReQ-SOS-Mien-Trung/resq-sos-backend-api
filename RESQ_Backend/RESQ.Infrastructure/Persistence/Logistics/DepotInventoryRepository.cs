@@ -451,29 +451,29 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
     public async Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(
         int depotId,
-        List<(int ReliefItemId, string ItemName, int RequestedQuantity)> items,
+        List<(int ItemModelId, string ItemName, int RequestedQuantity)> items,
         CancellationToken cancellationToken = default)
     {
-        var reliefItemIds = items.Select(i => i.ReliefItemId).ToList();
+        var itemModelIds = items.Select(i => i.ItemModelId).ToList();
 
-        var inventory = await _context.DepotSupplyInventories
+        var inventory = await _context.SupplyInventories
             .AsNoTracking()
-            .Where(inv => inv.DepotId == depotId && inv.ReliefItemId != null && reliefItemIds.Contains(inv.ReliefItemId!.Value))
+            .Where(inv => inv.DepotId == depotId && inv.ItemModelId != null && itemModelIds.Contains(inv.ItemModelId!.Value))
             .Select(inv => new
             {
-                ReliefItemId = inv.ReliefItemId!.Value,
+                ItemModelId = inv.ItemModelId!.Value,
                 Available = (inv.Quantity ?? 0) - (inv.ReservedQuantity ?? 0)
             })
-            .ToDictionaryAsync(x => x.ReliefItemId, x => x.Available, cancellationToken);
+            .ToDictionaryAsync(x => x.ItemModelId, x => x.Available, cancellationToken);
 
         var shortages = new List<SupplyShortageResult>();
-        foreach (var (reliefItemId, itemName, requestedQty) in items)
+        foreach (var (itemModelId, itemName, requestedQty) in items)
         {
-            if (!inventory.TryGetValue(reliefItemId, out var available))
+            if (!inventory.TryGetValue(itemModelId, out var available))
             {
                 shortages.Add(new SupplyShortageResult
                 {
-                    ReliefItemId = reliefItemId,
+                    ItemModelId = itemModelId,
                     ItemName = itemName,
                     RequestedQuantity = requestedQty,
                     AvailableQuantity = 0,
@@ -484,7 +484,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             {
                 shortages.Add(new SupplyShortageResult
                 {
-                    ReliefItemId = reliefItemId,
+                    ItemModelId = itemModelId,
                     ItemName = itemName,
                     RequestedQuantity = requestedQty,
                     AvailableQuantity = available,
