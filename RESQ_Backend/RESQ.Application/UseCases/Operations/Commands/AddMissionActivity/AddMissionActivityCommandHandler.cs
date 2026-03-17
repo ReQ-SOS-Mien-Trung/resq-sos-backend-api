@@ -48,7 +48,7 @@ public class AddMissionActivityCommandHandler(
             var itemsToCheck = request.SuppliesToCollect
                 .Where(s => s.Id.HasValue)
                 .Select(s => (
-                    ReliefItemId: s.Id!.Value,
+                    ItemModelId: s.Id!.Value,
                     ItemName: s.Name ?? $"Item#{s.Id}",
                     RequestedQuantity: s.Quantity ?? 0
                 ))
@@ -62,8 +62,8 @@ public class AddMissionActivityCommandHandler(
                 if (shortages.Count > 0)
                 {
                     var errors = shortages.Select(s => s.NotFound
-                        ? $"Vật tư '{s.ItemName}' (ID={s.ReliefItemId}) không có trong kho {request.DepotId}."
-                        : $"Vật tư '{s.ItemName}' (ID={s.ReliefItemId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
+                        ? $"Vật tư '{s.ItemName}' (ID={s.ItemModelId}) không có trong kho {request.DepotId}."
+                        : $"Vật tư '{s.ItemName}' (ID={s.ItemModelId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
                     throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", errors)}");
                 }
             }
