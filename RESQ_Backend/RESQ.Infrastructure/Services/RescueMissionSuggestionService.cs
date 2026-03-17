@@ -135,79 +135,157 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         });
     }
 
-    private static string BuildAgentInstructions() => """
-        ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
-        Bạn có thể gọi hai công cụ để tìm kiếm dữ liệu thực từ hệ thống trước khi lập kế hoạch:
+    private static string BuildAgentInstructions(bool isMultiDepotRecommended = false)
+    {
+        var multiDepotSection = isMultiDepotRecommended
+            ? """
 
-        - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế") và loại cụ thể (tuỳ chọn). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, số lượng, thông tin kho và **tọa độ vị trí kho** (depot_latitude, depot_longitude).
-        - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ. Có thể lọc theo khả năng (team_type) và trạng thái khả dụng. Trả về team_id, tên, loại, trạng thái, số thành viên và **vị trí điểm tập kết** (assembly_point_name, latitude, longitude).
+              ## CHẾ ĐỘ ĐA KHO (MULTI-DEPOT) — BẮT BUỘC ÁP DỤNG
+              Hệ thống đã xác định rằng KHÔNG CÓ KHO ĐƠN LẺ NÀO có thể cung cấp đủ tất cả vật tư cần thiết. Bạn BẮT BUỘC phải sử dụng nhiều kho.
 
-        **BẮT BUỘC trước khi lập kế hoạch**:
-        - Gọi **searchInventory** với từng danh mục vật tư liên quan (Thực phẩm, Nước, Y tế, Cứu hộ...) để lấy item_id và depot_id thực tế. Nếu không gọi, bạn sẽ không có item_id để điền vào `supplies_to_collect` và không thể tạo bước COLLECT_SUPPLIES.
-        - Gọi **getTeams** để lấy team_id cho `suggested_team`.
-        Sau khi có kết quả tool, mới được lập kế hoạch và xuất JSON. Dùng đúng item_id và team_id từ kết quả — không tự tạo ID.
+              **Bước 1 — Thu thập dữ liệu đa kho**:
+              - Gọi searchInventory cho TỪNG danh mục riêng lẻ, và nếu `total_pages > 1`, gọi tiếp các trang sau để lấy đủ dữ liệu từ tất cả các kho.
+              - Sau khi thu thập xong, lập bảng phân tích: với từng loại vật tư cần thiết, liệt kê **từng kho** có vật tư đó và `available_quantity` của kho đó.
 
-        **QUY TẮC RETRY khi tìm đội (rất quan trọng)**:
-        - Luôn thử `getTeams(available=true, page=1)` trước để ưu tiên đội sẵn sàng.
-        - Nếu kết quả trả về `total_teams = 0` hoặc `teams` rỗng, bắt buộc gọi lại `getTeams(available=false, page=1)` (hoặc bỏ tham số `available`) để lấy danh sách đội không bị giải thể.
-        - Nếu bạn có dùng lọc `ability` mà không thấy đội nào, hãy gọi lại `getTeams` **không truyền `ability`** để lấy tất cả đội, sau đó chọn đội phù hợp nhất.
-        - Chỉ khi đã thử các bước trên mà vẫn không có đội nào trong hệ thống, lúc đó mới được để `suggested_team` = null.
+              **Bước 2 — Xác định kho cho từng loại vật tư**:
+              - Với mỗi loại vật tư, chọn kho có đủ số lượng và gần sự cố nhất.
+              - Nếu không có kho nào đủ số lượng cho một loại vật tư, phân bổ từ nhiều kho: lấy hết tại kho A rồi lấy phần còn thiếu tại kho B.
+              - Ví dụ: Cần 360 gói mì tôm. Kho A có 200, Kho B có 200 → lấy 200 từ Kho A (step 1), lấy 160 từ Kho B (step 2).
+              - Ví dụ: Cần 120 chai nước (Kho A có đủ 120), cần 4 gói sữa (chỉ Kho B có) → 2 bước COLLECT từ 2 kho khác nhau.
 
-        ## SỬ DỤNG VỊ TRÍ ĐỂ LẬP KẾ HOẠCH
-        Mỗi SOS request có trường `vi_tri` chứa tọa độ (latitude, longitude) của sự cố.
-        Kết quả searchInventory trả về `depot_latitude`, `depot_longitude` — tọa độ của kho vật tư.
-        Kết quả getTeams trả về `latitude`, `longitude` — tọa độ điểm tập kết của đội cứu hộ.
+              **Bước 3 — Tạo bước COLLECT_SUPPLIES tách biệt theo kho**:
+              - Mỗi kho = một bước COLLECT_SUPPLIES riêng với đúng `depot_id`, `depot_name`, `depot_address` của kho đó.
+              - `supplies_to_collect` trong bước đó chỉ chứa vật tư thực tế lấy từ KHO ĐÓ với số lượng thực tế lấy.
+              - Ghi rõ trong `description`: "Di chuyển đến kho [Tên kho]. Lấy: [Vật tư A] x[qty], [Vật tư B] x[qty]".
+              - **TUYỆT ĐỐI KHÔNG** gộp vật tư từ nhiều kho vào cùng một bước COLLECT_SUPPLIES.
 
-        **Quy tắc sử dụng vị trí**:
-        - Ưu tiên chọn kho vật tư **gần nhất** với vị trí sự cố (so sánh tọa độ).
-        - Ưu tiên chọn đội cứu hộ có điểm tập kết **gần nhất** với vị trí sự cố.
-        - Khi có nhiều sự cố, phân công đội và kho sao cho quãng đường di chuyển tổng cộng là nhỏ nhất.
-        - Ghi rõ lý do chọn kho và đội dựa trên vị trí địa lý trong trường `reason` và `description`.
+              **Lưu ý khi xuất JSON**:
+              - Ưu tiên dùng nhiều kho khác nhau nếu dữ liệu searchInventory trả về vật tư từ nhiều kho. Nếu chỉ tìm thấy 1 kho có vật tư, thì 1 kho là chấp nhận được — ghi chú trong `special_notes`: "Chỉ tìm thấy vật tư tại 1 kho trong khu vực".
 
-        **Trường bắt buộc trong suggested_team**: Ngoài team_id, team_name, team_type và reason, bạn **phải** điền thêm:
-        - `assembly_point_name`: tên điểm tập kết (lấy từ kết quả getTeams)
-        - `latitude`: vĩ độ điểm tập kết (lấy từ kết quả getTeams)
-        - `longitude`: kinh độ điểm tập kết (lấy từ kết quả getTeams)
-        Nếu đội không có điểm tập kết (giá trị null trong kết quả), hãy để các trường đó là null.
+              """
+            : string.Empty;
 
-        ## QUY TẮC PHÂN CÔNG ĐỘI VÀO ACTIVITY
-        - **MỖI activity PHẢI có trường `suggested_team`** — không được để null trừ khi thực sự không tìm được đội nào.
-        - Sau khi gọi getTeams, phân công đội phù hợp vào từng activity dựa trên loại hoạt động và vị trí.
-        - Nếu một đội đảm nhận nhiều activity, điền cùng một đội vào `suggested_team` của từng activity đó.
-        - **KHÔNG** chỉ điền đội vào mảng `resources` rồi để `suggested_team` là null trong activities.
-                - Nếu không có đủ đội cho tất cả activity, ưu tiên gán đội cho các bước có `priority = Critical` và các bước RESCUE/MEDICAL_AID/EVACUATE trước.
-        - Format `suggested_team` bên trong mỗi activity:
-          ```json
-          "suggested_team": {
-            "team_id": 5,
-            "team_name": "Đội Phản ứng nhanh Quảng Bình",
-            "team_type": "RescueTeam",
-            "reason": "Gần nhất với sự cố, có khả năng y tế",
-            "assembly_point_name": "Trụ sở PCCC Quảng Bình",
-            "latitude": 17.46,
-            "longitude": 106.62
-          }
-          ```
+        return $$"""
+            ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
+            Bạn có thể gọi hai công cụ để tìm kiếm dữ liệu thực từ hệ thống trước khi lập kế hoạch:
 
-        ## QUY TẮC LẬP KẾ HOẠCH
-        - Không lập kế hoạch tuần tự nếu có nhiều sự cố.
-        - Nếu có nhiều SOS request, hãy phân chia đội cứu hộ xử lý song song.
-        - Mỗi đội chỉ nên phụ trách một khu vực hoặc một sự cố.
-        - Ưu tiên xử lý sự cố có người bị thương nặng trước.
+            - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế", "Cứu hộ"). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, **available_quantity** (số lượng thực tế có thể lấy), depot_id, tên kho, địa chỉ kho, depot_latitude, depot_longitude. Mỗi hàng trong kết quả là một (vật tư, kho) riêng biệt — cùng một vật tư có thể xuất hiện ở nhiều hàng nếu có ở nhiều kho khác nhau.
+            - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ. Có thể lọc theo khả năng (team_type) và trạng thái khả dụng. Trả về team_id, tên, loại, trạng thái, số thành viên và vị trí điểm tập kết (assembly_point_name, latitude, longitude).
 
-        ## QUY TẮC SỬ DỤNG ID
-        - KHÔNG được tự tạo item_id hoặc team_id.
-        - Chỉ sử dụng ID xuất hiện trong kết quả tool.
-        - Nếu không tìm thấy vật tư phù hợp, hãy ghi rõ "Không có sẵn".
+            **BẮT BUỘC trước khi lập kế hoạch**:
+            - Gọi **searchInventory** cho TỪNG danh mục: Thực phẩm, Nước, Y tế, Cứu hộ (và các danh mục khác phù hợp). Không bỏ qua danh mục nào có thể liên quan.
+            - Gọi **getTeams** để lấy team_id cho `suggested_team`.
+            - Dùng đúng item_id, depot_id, team_id từ kết quả — KHÔNG tự tạo ID.
+            {{multiDepotSection}}
+            ## QUY TẮC KIỂM TRA VÀ BÁO CÁO THIẾU HỤT VẬT TƯ (BẮT BUỘC)
+            Sau khi nhận kết quả searchInventory, PHẢI so sánh `available_quantity` của từng vật tư với số lượng cần thiết:
 
-        ## ĐỊNH DẠNG overall_assessment
-        - Toàn bộ nội dung phải là một chuỗi văn bản liên tục trên MỘT DÒNG DUY NHẤT — KHÔNG được chèn `\n`, xuống dòng, hoặc ký tự xuống dòng bất kỳ.
-        - Khi đề cập từng sự cố, dùng định dạng `[SOS ID X]:` (trong đó X là giá trị `id` của SOS request).
-        - Phân cách giữa các sự cố bằng dấu cách thông thường, KHÔNG dùng `\n`.
-        - KHÔNG dùng "SOS 1 (ID X):" hoặc các biến thể đánh số thứ tự khác.
-        - Ví dụ đúng: "[SOS ID 4]: 120 người bị cô lập... [SOS ID 3]: 5 người bị nạn..."
-        - Ví dụ sai: "[SOS ID 4]: 120 người bị cô lập...\n[SOS ID 3]: 5 người bị nạn..."
-        """;
+            **Trường hợp 1 — Đủ hàng** (`tổng available_quantity từ các kho >= needed_quantity`):
+            - Điền đúng số lượng cần vào `supplies_to_collect.quantity`.
+
+            **Trường hợp 2 — Thiếu một phần** (`0 < tổng available_quantity < needed_quantity`):
+            - `supplies_to_collect.quantity` = số lượng thực tế lấy được (= tổng available, KHÔNG phải needed).
+            - BẮT BUỘC ghi vào `special_notes`:
+              `"[SOS ID X]: Thiếu [TÊN VẬT TƯ] x[SỐ LƯỢNG THIẾU] [đơn vị] (kho chỉ có [tổng_available]/[needed_quantity] [đơn vị])"`
+
+            **Trường hợp 3 — Không có trong kho** (không tìm thấy vật tư trong bất kỳ kho nào):
+            - KHÔNG tạo bước COLLECT_SUPPLIES cho vật tư này.
+            - BẮT BUỘC ghi vào `special_notes`: `"[SOS ID X]: Không có [TÊN VẬT TƯ] trong hệ thống kho"`
+            - **PHÂN BIỆT RÕ**: "Không có trong kho" khác với "thiếu một phần" — KHÔNG viết "kho chỉ có 0/X" cho trường hợp này.
+
+            ## QUY TẮC CHO TỪNG LOẠI ACTIVITY
+
+            ### COLLECT_SUPPLIES
+            - Chỉ tạo khi có vật tư thực tế trong kho (available_quantity > 0).
+            - `depot_id`, `depot_name`, `depot_address` phải khớp với kho thực tế trả về từ searchInventory.
+            - `supplies_to_collect` chỉ chứa vật tư lấy từ kho đó với số lượng thực tế lấy.
+
+            ### DELIVER_SUPPLIES
+            - Tạo sau mỗi COLLECT_SUPPLIES để giao hàng đến điểm sự cố.
+            - `supplies_to_collect` liệt kê đúng những gì đã lấy từ bước COLLECT tương ứng.
+
+            ### RESCUE
+            - **LUÔN tạo bước RESCUE** ngay cả khi thiếu thiết bị cứu hộ.
+            - Nếu cần thiết bị cứu hộ chuyên dụng (dụng cụ phá dỡ, thiết bị nâng đỡ v.v.) và có trong kho → đưa vào `supplies_to_collect`.
+            - Nếu thiết bị cần thiết KHÔNG có trong kho → tạo thêm bước **REQUEST_SUPPORT** ngay sau bước RESCUE:
+              - `activity_type`: "REQUEST_SUPPORT"
+              - `description`: Ghi rõ thiết bị còn thiếu và đề nghị hỗ trợ từ cơ quan chức năng (PCCC, đơn vị tìm kiếm cứu nạn chuyên dụng, cơ sở y tế gần nhất).
+              - `supplies_to_collect`: null
+              - `priority`: cùng priority với bước RESCUE
+
+            ### MEDICAL_AID
+            - **LUÔN có `supplies_to_collect`** nếu tình huống cần vật tư y tế (sơ cứu, thuốc, dụng cụ y tế).
+            - Trước khi tạo bước MEDICAL_AID, PHẢI gọi searchInventory với danh mục "Y tế" để lấy danh sách vật tư y tế khả dụng.
+            - Nếu có vật tư y tế trong kho → điền vào `supplies_to_collect` với item_id và depot_id thực tế.
+            - Nếu vật tư y tế KHÔNG có hoặc THIẾU → vẫn tạo bước MEDICAL_AID, để `supplies_to_collect: null`, và ghi vào `special_notes` rằng thiếu vật tư y tế cụ thể nào.
+            - Đừng bỏ qua bước COLLECT_SUPPLIES cho vật tư y tế nếu có trong kho — phải lấy trước khi thực hiện MEDICAL_AID.
+
+            ### EVACUATE
+            - Tạo khi cần vận chuyển người bị thương đến cơ sở y tế.
+            - `supplies_to_collect`: null (không lấy vật tư ở bước này).
+
+            **QUY TẮC RETRY khi tìm đội (rất quan trọng)**:
+            - Luôn thử `getTeams(available=true, page=1)` trước để ưu tiên đội sẵn sàng.
+            - Nếu kết quả trả về `total_teams = 0` hoặc `teams` rỗng, bắt buộc gọi lại `getTeams(available=false, page=1)` để lấy danh sách đội không bị giải thể.
+            - Nếu bạn có dùng lọc `ability` mà không thấy đội nào, gọi lại `getTeams` **không truyền `ability`** để lấy tất cả đội.
+            - Chỉ khi đã thử các bước trên mà vẫn không có đội nào, lúc đó mới được để `suggested_team` = null.
+
+            ## SỬ DỤNG VỊ TRÍ ĐỂ LẬP KẾ HOẠCH
+            Mỗi SOS request có trường `vi_tri` chứa tọa độ (latitude, longitude) của sự cố.
+            Kết quả searchInventory trả về `depot_latitude`, `depot_longitude` — tọa độ của kho vật tư.
+            Kết quả getTeams trả về `latitude`, `longitude` — tọa độ điểm tập kết của đội cứu hộ.
+
+            **Quy tắc sử dụng vị trí**:
+            - Ưu tiên chọn kho vật tư **gần nhất** với vị trí sự cố (so sánh tọa độ).
+            - Ưu tiên chọn đội cứu hộ có điểm tập kết **gần nhất** với vị trí sự cố.
+            - Khi có nhiều sự cố, phân công đội và kho sao cho quãng đường di chuyển tổng cộng là nhỏ nhất.
+            - Ghi rõ lý do chọn kho và đội dựa trên vị trí địa lý trong trường `reason` và `description`.
+
+            **Trường bắt buộc trong suggested_team**: Ngoài team_id, team_name, team_type và reason, bạn **phải** điền thêm:
+            - `assembly_point_name`: tên điểm tập kết (lấy từ kết quả getTeams)
+            - `latitude`: vĩ độ điểm tập kết (lấy từ kết quả getTeams)
+            - `longitude`: kinh độ điểm tập kết (lấy từ kết quả getTeams)
+            Nếu đội không có điểm tập kết (giá trị null trong kết quả), hãy để các trường đó là null.
+
+            ## QUY TẮC PHÂN CÔNG ĐỘI VÀO ACTIVITY
+            - **MỖI activity PHẢI có trường `suggested_team`** — không được để null trừ khi thực sự không tìm được đội nào.
+            - Sau khi gọi getTeams, phân công đội phù hợp vào từng activity dựa trên loại hoạt động và vị trí.
+            - Nếu một đội đảm nhận nhiều activity, điền cùng một đội vào `suggested_team` của từng activity đó.
+            - **KHÔNG** chỉ điền đội vào mảng `resources` rồi để `suggested_team` là null trong activities.
+            - Nếu không có đủ đội cho tất cả activity, ưu tiên gán đội cho các bước có `priority = Critical` và các bước RESCUE/MEDICAL_AID/EVACUATE trước.
+            - Format `suggested_team` bên trong mỗi activity:
+              ```json
+              "suggested_team": {
+                "team_id": 5,
+                "team_name": "Đội Phản ứng nhanh Quảng Bình",
+                "team_type": "RescueTeam",
+                "reason": "Gần nhất với sự cố, có khả năng y tế",
+                "assembly_point_name": "Trụ sở PCCC Quảng Bình",
+                "latitude": 17.46,
+                "longitude": 106.62
+              }
+              ```
+
+            ## QUY TẮC LẬP KẾ HOẠCH
+            - Không lập kế hoạch tuần tự nếu có nhiều sự cố.
+            - Nếu có nhiều SOS request, hãy phân chia đội cứu hộ xử lý song song.
+            - Mỗi đội chỉ nên phụ trách một khu vực hoặc một sự cố.
+            - Ưu tiên xử lý sự cố có người bị thương nặng trước.
+
+            ## QUY TẮC SỬ DỤNG ID
+            - KHÔNG được tự tạo item_id hoặc team_id.
+            - Chỉ sử dụng ID xuất hiện trong kết quả tool.
+            - Nếu không tìm thấy vật tư phù hợp, hãy ghi rõ "Không có sẵn".
+
+            ## ĐỊNH DẠNG overall_assessment
+            - Toàn bộ nội dung phải là một chuỗi văn bản liên tục trên MỘT DÒNG DUY NHẤT — KHÔNG được chèn `\n`, xuống dòng, hoặc ký tự xuống dòng bất kỳ.
+            - Khi đề cập từng sự cố, dùng định dạng `[SOS ID X]:` (trong đó X là giá trị `id` của SOS request).
+            - Phân cách giữa các sự cố bằng dấu cách thông thường, KHÔNG dùng `\n`.
+            - KHÔNG dùng "SOS 1 (ID X):" hoặc các biến thể đánh số thứ tự khác.
+            - Ví dụ đúng: "[SOS ID 4]: 120 người bị cô lập... [SOS ID 3]: 5 người bị nạn..."
+            - Ví dụ sai: "[SOS ID 4]: 120 người bị cô lập...\n[SOS ID 3]: 5 người bị nạn..."
+            """;
+    }
 
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
     {
@@ -477,7 +555,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             .TrimEnd();
 
         var systemPrompt = (prompt.SystemPrompt ?? string.Empty).TrimEnd()
-            + "\n\n" + BuildAgentInstructions();
+            + "\n\n" + BuildAgentInstructions(isMultiDepotRecommended);
 
         yield return Status($"AI agent ({modelName}) đang phân tích {sosRequests.Count} SOS request...");
 
@@ -562,10 +640,11 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             }
 
             GeminiMultiTurnResponse? geminiResp;
+            string? responseJson = null;
             string? parseError = null;
             try
             {
-                var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+                responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
                 geminiResp = JsonSerializer.Deserialize<GeminiMultiTurnResponse>(responseJson, _jsonOpts);
             }
             catch (Exception ex)
@@ -579,12 +658,38 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 yield break;
             }
 
+            // Check for prompt-level block before looking at candidates
+            if (geminiResp?.PromptFeedback?.BlockReason is string blockReason && blockReason != "BLOCK_REASON_UNSPECIFIED")
+            {
+                _logger.LogWarning("Gemini prompt blocked (turn={turn}): BlockReason={reason}", turn, blockReason);
+                yield return Error($"Yêu cầu bị chặn bởi bộ lọc AI ({blockReason}). Vui lòng thử lại hoặc điều chỉnh nội dung SOS.");
+                yield break;
+            }
+
             var candidate  = geminiResp?.Candidates?.FirstOrDefault();
             var modelParts = candidate?.Content?.Parts;
 
             if (modelParts == null || modelParts.Count == 0)
             {
-                yield return Error("AI không trả về nội dung. Vui lòng thử lại.");
+                var finishReason = candidate?.FinishReason ?? "(no candidate)";
+                _logger.LogWarning(
+                    "Gemini returned empty content (turn={turn}), finishReason={reason}. Raw snippet: {raw}",
+                    turn, finishReason,
+                    responseJson?.Length > 500 ? responseJson[..500] : responseJson);
+
+                // Retry once on transient failures, otherwise surface the error
+                if (finishReason is "SAFETY" or "RECITATION" or "OTHER" or "BLOCKLIST" or "PROHIBITED_CONTENT")
+                {
+                    yield return Error($"Nội dung bị lọc bởi AI ({finishReason}). Vui lòng thử lại sau.");
+                    yield break;
+                }
+                if (turn == 0 && finishReason is "MAX_TOKENS")
+                {
+                    yield return Error("AI vượt giới hạn token ở lượt đầu. Vui lòng thử lại.");
+                    yield break;
+                }
+
+                yield return Error($"AI không trả về nội dung (finishReason={finishReason}). Vui lòng thử lại.");
                 yield break;
             }
 
@@ -864,12 +969,24 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     {
         [JsonPropertyName("candidates")]
         public List<GeminiMultiTurnCandidate>? Candidates { get; set; }
+
+        [JsonPropertyName("promptFeedback")]
+        public GeminiPromptFeedback? PromptFeedback { get; set; }
+    }
+
+    private class GeminiPromptFeedback
+    {
+        [JsonPropertyName("blockReason")]
+        public string? BlockReason { get; set; }
     }
 
     private class GeminiMultiTurnCandidate
     {
         [JsonPropertyName("content")]
         public GeminiMultiTurnContent? Content { get; set; }
+
+        [JsonPropertyName("finishReason")]
+        public string? FinishReason { get; set; }
     }
 
     #endregion
