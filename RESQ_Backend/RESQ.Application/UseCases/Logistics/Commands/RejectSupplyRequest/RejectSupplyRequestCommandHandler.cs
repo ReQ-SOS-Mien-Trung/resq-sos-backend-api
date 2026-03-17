@@ -32,6 +32,7 @@ public class RejectSupplyRequestCommandHandler(
             sr.RequestedBy,
             "Yêu cầu tiếp tế bị từ chối",
             $"Yêu cầu #{sr.Id} đã bị từ chối. Lý do: {request.Reason}",
+            "supply_rejected",
             cancellationToken);
 
         return new RejectSupplyRequestResponse { Message = $"Đã từ chối yêu cầu #{sr.Id}." };

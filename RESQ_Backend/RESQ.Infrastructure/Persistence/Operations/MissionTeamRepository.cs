@@ -12,7 +12,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
     public async Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<MissionTeam>()
-            .GetByPropertyAsync(mt => mt.Id == id, tracked: false, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint");
+            .GetByPropertyAsync(mt => mt.Id == id, tracked: false, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User");
 
         return entity is null ? null : ToModel(entity);
     }
@@ -20,7 +20,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
     public async Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<MissionTeam>()
-            .GetAllByPropertyAsync(mt => mt.MissionId == missionId, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint");
+            .GetAllByPropertyAsync(mt => mt.MissionId == missionId, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User");
 
         return entities.OrderBy(mt => mt.AssignedAt).Select(ToModel);
     }
@@ -74,7 +74,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
                       && mt.MissionId != null
                       && mt.UnassignedAt == null
                       && mt.Status != "Cancelled",
-                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint");
+                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User");
 
         return entities.OrderByDescending(mt => mt.AssignedAt).Select(ToModel);
     }
@@ -97,6 +97,23 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
             : "AssemblyPoint",
         TeamName = entity.RescuerTeam?.Name,
         TeamCode = entity.RescuerTeam?.Code,
-        AssemblyPointName = entity.RescuerTeam?.AssemblyPoint?.Name
+        AssemblyPointName = entity.RescuerTeam?.AssemblyPoint?.Name,
+        TeamStatus = entity.RescuerTeam?.Status,
+        MaxMembers = entity.RescuerTeam?.MaxMembers,
+        MemberCount = entity.RescuerTeam?.RescueTeamMembers.Count ?? 0,
+        AssemblyDate = entity.RescuerTeam?.AssemblyDate,
+        RescueTeamMembers = entity.RescuerTeam?.RescueTeamMembers.Select(m => new MissionTeamMemberInfo
+        {
+            UserId = m.UserId,
+            FullName = m.User is null ? null : $"{m.User.LastName} {m.User.FirstName}".Trim(),
+            Username = m.User?.Username,
+            Phone = m.User?.Phone,
+            AvatarUrl = m.User?.AvatarUrl,
+            RescuerType = m.User?.RescuerType,
+            RoleInTeam = m.RoleInTeam,
+            IsLeader = m.IsLeader,
+            Status = m.Status,
+            CheckedIn = m.CheckedIn
+        }).ToList() ?? []
     };
 }

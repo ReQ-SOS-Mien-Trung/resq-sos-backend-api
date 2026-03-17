@@ -15,9 +15,15 @@ public interface IFirebaseService
     Task<FirebasePhoneTokenInfo> VerifyIdTokenAsync(string idToken, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gửi Push Notification (iOS, Android, Web) qua Firebase Cloud Messaging (FCM).
+    /// Gửi Push Notification (iOS, Android, Web) qua FCM, lưu vào DB và đẩy real-time qua SignalR.
     /// </summary>
-    Task SendNotificationToUserAsync(Guid userId, string title, string body, CancellationToken cancellationToken = default);
+    Task SendNotificationToUserAsync(Guid userId, string title, string body, string type = "general", CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gửi Push Notification đến toàn bộ user subscribe topic (dùng cho broadcast).
+    /// Không lưu DB và không đẩy SignalR — chỉ FCM topic send.
+    /// </summary>
+    Task SendToTopicAsync(string topic, string title, string body, string type = "general", CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Đăng ký FCM device token của trình duyệt web vào topic của user.

@@ -6,6 +6,7 @@ using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Repositories.Notifications;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
@@ -18,6 +19,7 @@ using RESQ.Infrastructure.Persistence.Emergency;
 using RESQ.Infrastructure.Persistence.Finance;
 using RESQ.Infrastructure.Persistence.Identity;
 using RESQ.Infrastructure.Persistence.Logistics;
+using RESQ.Infrastructure.Persistence.Notifications;
 using RESQ.Infrastructure.Persistence.Operations;
 using RESQ.Infrastructure.Persistence.Personnel;
 using RESQ.Infrastructure.Persistence.System;
@@ -81,6 +83,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMissionTeamRepository, MissionTeamRepository>();
         services.AddScoped<ITeamIncidentRepository, TeamIncidentRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
+
+        // Notification Repository
+        services.AddScoped<INotificationRepository, NotificationRepository>();
 
         // Finance Repositories
         services.AddScoped<IFundCampaignRepository, FundCampaignRepository>();

@@ -107,7 +107,7 @@ Chúng tôi chân thành cảm ơn sự hỗ trợ và tinh thần sẵn sàng t
                 }
 
                 // 2. Gửi Push Notification (iOS/Android)
-                await firebaseService.SendNotificationToUserAsync(user.Id, notiTitle, notiBody, ct);
+                await firebaseService.SendNotificationToUserAsync(user.Id, notiTitle, notiBody, "team_invitation", ct);
             }
         }
 

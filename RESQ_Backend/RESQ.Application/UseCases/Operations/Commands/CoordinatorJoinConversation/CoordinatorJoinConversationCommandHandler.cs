@@ -60,6 +60,7 @@ public class CoordinatorJoinConversationCommandHandler(
                 conversation.VictimId.Value,
                 "Coordinator đã tham gia",
                 "Một Coordinator đã tham gia hỗ trợ bạn. Bạn có thể mô tả thêm nhu cầu của mình.",
+                "coordinator_join",
                 cancellationToken);
         }
 

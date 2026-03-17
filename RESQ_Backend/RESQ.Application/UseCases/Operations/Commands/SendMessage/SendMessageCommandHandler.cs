@@ -53,7 +53,7 @@ public class SendMessageCommandHandler(
             var pushTasks = conversation.Participants
                 .Where(p => p.UserId.HasValue && p.UserId != request.SenderId)
                 .Select(p => _firebaseService.SendNotificationToUserAsync(
-                    p.UserId!.Value, title, body, cancellationToken));
+                    p.UserId!.Value, title, body, "chat_message", cancellationToken));
 
             await Task.WhenAll(pushTasks);
         }

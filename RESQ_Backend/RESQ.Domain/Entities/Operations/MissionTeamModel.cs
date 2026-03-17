@@ -19,4 +19,25 @@ public class MissionTeamModel
     public string? TeamName { get; set; }
     public string? TeamCode { get; set; }
     public string? AssemblyPointName { get; set; }
+
+    // Rescue team detail
+    public string? TeamStatus { get; set; }
+    public int? MaxMembers { get; set; }
+    public int MemberCount { get; set; }
+    public DateTime? AssemblyDate { get; set; }
+    public List<MissionTeamMemberInfo> RescueTeamMembers { get; set; } = [];
+}
+
+public class MissionTeamMemberInfo
+{
+    public Guid UserId { get; set; }
+    public string? FullName { get; set; }
+    public string? Username { get; set; }
+    public string? Phone { get; set; }
+    public string? AvatarUrl { get; set; }
+    public string? RescuerType { get; set; }
+    public string? RoleInTeam { get; set; }
+    public bool IsLeader { get; set; }
+    public string? Status { get; set; }
+    public bool CheckedIn { get; set; }
 }

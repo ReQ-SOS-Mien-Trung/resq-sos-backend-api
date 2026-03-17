@@ -3,12 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RESQ.Application.Extensions;
+using RESQ.Application.Services;
 using RESQ.Infrastructure.Extensions;
 using RESQ.Presentation.Extensions;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Seeding;
 using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
+using RESQ.Presentation.Services;
 using System.Text;
 using System.Text.Json.Serialization;
 
@@ -39,6 +41,9 @@ builder.Services.AddCors(options =>
 
 // Add SignalR
 builder.Services.AddSignalR();
+
+// Register NotificationHubService (Presentation implementation of Application interface)
+builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
 
 //jwt swagger
 // CORS
@@ -163,6 +168,13 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
+// Ensure database schema is applied when the API starts in Docker/production.
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
+    dbContext.Database.Migrate();
+}
+
 // Middleware pipeline
 
 app.UseCors("AllowAll");
@@ -187,6 +199,7 @@ app.MapControllers();
 
 // 7. Map SignalR Hubs
 app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();
 app.Run();
