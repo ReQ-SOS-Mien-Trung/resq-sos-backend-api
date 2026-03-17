@@ -27,6 +27,10 @@ public class CreateMissionCommandValidator : AbstractValidator<CreateMissionComm
 
             activity.RuleFor(a => a.ActivityType)
                 .NotEmpty().WithMessage("ActivityType không được để trống");
+
+            activity.RuleFor(a => a.RescueTeamId)
+                .NotNull().WithMessage("Mỗi activity phải được gán đội cứu hộ (RescueTeamId không được để trống)")
+                .GreaterThan(0).WithMessage("RescueTeamId phải lớn hơn 0").When(a => a.RescueTeamId.HasValue);
         });
     }
 }

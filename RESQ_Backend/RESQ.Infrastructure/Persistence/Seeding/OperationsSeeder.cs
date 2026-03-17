@@ -68,7 +68,8 @@ public static class OperationsSeeder
                 TargetLocation = new Point(106.7865, 17.2140) { SRID = 4326 },
                 Status = "InProgress",
                 AssignedAt = now,
-                LastDecisionBy = SeedConstants.CoordinatorUserId
+                LastDecisionBy = SeedConstants.CoordinatorUserId,
+                MissionTeamId = 1 // Biệt đội Ca nô Hà Tĩnh
             },
             new MissionActivity
             {

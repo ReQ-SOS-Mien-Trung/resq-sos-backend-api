@@ -16,5 +16,9 @@ public class AddMissionActivityCommandValidator : AbstractValidator<AddMissionAc
         RuleFor(x => x.Step)
             .GreaterThan(0).WithMessage("Step phải lớn hơn 0")
             .When(x => x.Step.HasValue);
+
+        RuleFor(x => x.RescueTeamId)
+            .NotNull().WithMessage("Activity phải được gán đội cứu hộ (RescueTeamId không được để trống)")
+            .GreaterThan(0).WithMessage("RescueTeamId phải lớn hơn 0").When(x => x.RescueTeamId.HasValue);
     }
 }
