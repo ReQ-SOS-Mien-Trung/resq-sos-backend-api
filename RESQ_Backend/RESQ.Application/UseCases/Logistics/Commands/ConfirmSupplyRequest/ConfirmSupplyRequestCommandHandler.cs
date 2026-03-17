@@ -6,7 +6,8 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 
 /// <summary>
 /// Manager kho yêu cầu xác nhận đã nhận hàng (TransferIn).
-/// Inventory kho yêu cầu tăng tương ứng → hoàn tất quy trình.
+/// Chỉ cho phép khi kho nguồn đã hoàn tất giao hàng (SourceStatus = Completed).
+/// Inventory kho yêu cầu tăng tương ứng → RequestingStatus chuyển sang Received.
 /// </summary>
 public class ConfirmSupplyRequestCommandHandler(
     ISupplyRequestRepository supplyRequestRepository,
@@ -17,6 +18,9 @@ public class ConfirmSupplyRequestCommandHandler(
     {
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{request.SupplyRequestId}.");
+
+        if (sr.SourceStatus != "Completed")
+            throw new BadRequestException($"Yêu cầu #{sr.Id}: kho nguồn chưa hoàn tất giao hàng (hiện tại: {sr.SourceStatus}).");
 
         if (sr.RequestingStatus != "InTransit")
             throw new BadRequestException($"Yêu cầu #{sr.Id} không ở trạng thái đang vận chuyển (hiện tại: {sr.RequestingStatus}).");

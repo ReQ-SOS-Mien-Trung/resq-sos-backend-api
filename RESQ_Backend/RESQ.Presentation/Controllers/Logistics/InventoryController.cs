@@ -6,8 +6,10 @@ using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 using RESQ.Application.UseCases.Logistics.Commands.AcceptSupplyRequest;
+using RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
+using RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.RejectSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
@@ -19,10 +21,10 @@ using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventorySourceTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
-using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetReliefItemsByCategoryCode;
+using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Enum.Logistics;
 using System.Security.Claims;
@@ -249,10 +251,10 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [HttpGet("export/movements")]
     public async Task<IActionResult> ExportMovements(
         [FromQuery] ExportPeriodType periodType,
-        [FromQuery] int?     month    = null,
-        [FromQuery] int?     year     = null,
+        [FromQuery] int? month = null,
+        [FromQuery] int? year = null,
         [FromQuery] DateOnly? fromDate = null,
-        [FromQuery] DateOnly? toDate   = null)
+        [FromQuery] DateOnly? toDate = null)
     {
         var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
@@ -260,12 +262,12 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
 
         var query = new ExportInventoryMovementQuery
         {
-            UserId     = userId,
+            UserId = userId,
             PeriodType = periodType,
-            Month      = month,
-            Year       = year,
-            FromDate   = fromDate,
-            ToDate     = toDate,
+            Month = month,
+            Year = year,
+            FromDate = fromDate,
+            ToDate = toDate,
         };
 
         var result = await _mediator.Send(query);
@@ -299,12 +301,12 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
 
         var query = new SearchWarehousesByItemsQuery
         {
-            ReliefItemIds    = reliefItemIds,
-            ItemQuantities   = itemQuantities,
-            ManagerUserId    = userId,
+            ReliefItemIds = reliefItemIds,
+            ItemQuantities = itemQuantities,
+            ManagerUserId = userId,
             ActiveDepotsOnly = activeDepotsOnly,
-            PageNumber       = pageNumber,
-            PageSize         = pageSize
+            PageNumber = pageNumber,
+            PageSize = pageSize
         };
 
         var result = await _mediator.Send(query);
@@ -367,10 +369,52 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         var command = new CreateSupplyRequestCommand
         {
             RequestingUserId = userId,
-            Requests         = request.Requests
+            Requests = request.Requests
         };
 
         var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy danh sách yêu cầu tiếp tế của kho đang đăng nhập (cả hai chiều: gửi đi và nhận về).
+    /// Trả về field <c>role</c>: "Requester" — kho này đã gửi yêu cầu | "Source" — kho này nhận yêu cầu.
+    /// </summary>
+    [HttpGet("supply-requests")]
+    [Authorize]
+    public async Task<IActionResult> GetSupplyRequests(
+        [FromQuery] SourceDepotStatus? sourceStatus,
+        [FromQuery] RequestingDepotStatus? requestingStatus,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+
+        var query = new GetSupplyRequestsQuery
+        {
+            UserId = userId,
+            SourceStatus = sourceStatus,
+            RequestingStatus = requestingStatus,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>Manager kho nguồn bắt đầu đóng gói / picking (Accepted → Preparing).</summary>
+    [HttpPut("supply-requests/{id:int}/prepare")]
+    [Authorize]
+    public async Task<IActionResult> PrepareSupplyRequest(int id)
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+
+        var result = await _mediator.Send(new PrepareSupplyRequestCommand(id, userId));
         return Ok(result);
     }
 
@@ -399,8 +443,8 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         var command = new RejectSupplyRequestCommand
         {
             SupplyRequestId = id,
-            UserId          = userId,
-            Reason          = request.Reason
+            UserId = userId,
+            Reason = request.Reason
         };
 
         var result = await _mediator.Send(command);
@@ -417,6 +461,19 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
             return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
 
         var result = await _mediator.Send(new ShipSupplyRequestCommand(id, userId));
+        return Ok(result);
+    }
+
+    /// <summary>Manager kho nguồn xác nhận đã hoàn tất giao hàng (Shipped → Completed).</summary>
+    [HttpPut("supply-requests/{id:int}/complete")]
+    [Authorize]
+    public async Task<IActionResult> CompleteSupplyRequest(int id)
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+
+        var result = await _mediator.Send(new CompleteSupplyRequestCommand(id, userId));
         return Ok(result);
     }
 

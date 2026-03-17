@@ -31,6 +31,14 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         return managerRecord?.DepotId;
     }
 
+    public async Task<List<int>> GetActiveDepotIdsByManagerAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var records = await _unitOfWork.GetRepository<DepotManager>()
+            .GetAllByPropertyAsync(dm => dm.UserId == userId && dm.UnassignedAt == null);
+
+        return records.Where(dm => dm.DepotId.HasValue).Select(dm => dm.DepotId!.Value).ToList();
+    }
+
     public async Task<PagedResult<InventoryItemModel>> GetInventoryPagedAsync(
         int depotId, 
         List<int>? categoryIds, 
@@ -155,18 +163,19 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     public async Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default)
     {
         var result = await (
-            from dsi in _context.DepotSupplyInventories.AsNoTracking()
-            where dsi.DepotId == depotId
-            join ri in _context.ReliefItems.AsNoTracking() on dsi.ReliefItemId equals ri.Id
-            join cat in _context.ItemCategories.AsNoTracking() on ri.CategoryId equals cat.Id
-            group dsi by new { cat.Id, cat.Code, cat.Name } into g
-            orderby g.Key.Name
+            from cat in _context.ItemCategories.AsNoTracking()
+            orderby cat.Name
             select new DepotCategoryQuantityDto
             {
-                CategoryId = g.Key.Id,
-                CategoryCode = g.Key.Code ?? string.Empty,
-                CategoryName = g.Key.Name ?? string.Empty,
-                TotalQuantity = g.Sum(x => x.Quantity ?? 0)
+                CategoryId = cat.Id,
+                CategoryCode = cat.Code ?? string.Empty,
+                CategoryName = cat.Name ?? string.Empty,
+                TotalQuantity = (
+                    from dsi in _context.DepotSupplyInventories
+                    join ri in _context.ReliefItems on dsi.ReliefItemId equals ri.Id
+                    where dsi.DepotId == depotId && ri.CategoryId == cat.Id
+                    select (int?)dsi.Quantity
+                ).Sum() ?? 0
             }
         ).ToListAsync(cancellationToken);
 

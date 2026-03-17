@@ -1,3 +1,4 @@
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
@@ -89,7 +90,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 entity.ShippedAt = now;
                 break;
             case "Completed":
-                entity.CompletedAt = now;
+                entity.CompletedAt ??= now;
                 break;
         }
 
@@ -187,5 +188,51 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         }
 
         await _unitOfWork.SaveAsync();
+    }
+
+    public async Task<PagedResult<SupplyRequestListItem>> GetPagedByDepotsAsync(
+        List<int> depotIds,
+        string? sourceStatus,
+        string? requestingStatus,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var paged = await _unitOfWork.GetRepository<DepotSupplyRequest>()
+            .GetPagedAsync(
+                pageNumber,
+                pageSize,
+                filter: r => (depotIds.Contains(r.RequestingDepotId) || depotIds.Contains(r.SourceDepotId))
+                             && (sourceStatus      == null || r.SourceStatus      == sourceStatus)
+                             && (requestingStatus  == null || r.RequestingStatus  == requestingStatus),
+                orderBy: q => q.OrderByDescending(r => r.CreatedAt),
+                includeProperties: "RequestingDepot,SourceDepot,Items.ReliefItem");
+
+        var items = paged.Items.Select(entity => new SupplyRequestListItem
+        {
+            Id                  = entity.Id,
+            RequestingDepotId   = entity.RequestingDepotId,
+            RequestingDepotName = entity.RequestingDepot?.Name,
+            SourceDepotId       = entity.SourceDepotId,
+            SourceDepotName     = entity.SourceDepot?.Name,
+            SourceStatus        = entity.SourceStatus,
+            RequestingStatus    = entity.RequestingStatus,
+            Note                = entity.Note,
+            RejectedReason      = entity.RejectedReason,
+            RequestedBy         = entity.RequestedBy,
+            CreatedAt           = entity.CreatedAt,
+            RespondedAt         = entity.RespondedAt,
+            ShippedAt           = entity.ShippedAt,
+            CompletedAt         = entity.CompletedAt,
+            Items               = entity.Items.Select(i => new SupplyRequestItemDetail
+            {
+                ReliefItemId   = i.ReliefItemId,
+                ReliefItemName = i.ReliefItem?.Name,
+                Unit           = i.ReliefItem?.Unit,
+                Quantity       = i.Quantity
+            }).ToList()
+        }).ToList();
+
+        return new PagedResult<SupplyRequestListItem>(items, paged.TotalCount, pageNumber, pageSize);
     }
 }

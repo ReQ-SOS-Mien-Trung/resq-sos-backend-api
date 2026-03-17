@@ -65,4 +65,32 @@ public class FirebaseService(ILogger<FirebaseService> logger) : IFirebaseService
             _logger.LogError(ex, "Failed to send push notification to user {UserId}", userId);
         }
     }
+
+    public async Task SubscribeToUserTopicAsync(string fcmToken, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var topic = $"resq.user.{userId}";
+        try
+        {
+            var response = await FirebaseMessaging.DefaultInstance.SubscribeToTopicAsync(new[] { fcmToken }, topic);
+            _logger.LogInformation("FCM token subscribed to topic {Topic}. Success={Success}, Fail={Fail}", topic, response.SuccessCount, response.FailureCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to subscribe FCM token to topic {Topic}", topic);
+        }
+    }
+
+    public async Task UnsubscribeFromUserTopicAsync(string fcmToken, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var topic = $"resq.user.{userId}";
+        try
+        {
+            var response = await FirebaseMessaging.DefaultInstance.UnsubscribeFromTopicAsync(new[] { fcmToken }, topic);
+            _logger.LogInformation("FCM token unsubscribed from topic {Topic}. Success={Success}, Fail={Fail}", topic, response.SuccessCount, response.FailureCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to unsubscribe FCM token from topic {Topic}", topic);
+        }
+    }
 }
