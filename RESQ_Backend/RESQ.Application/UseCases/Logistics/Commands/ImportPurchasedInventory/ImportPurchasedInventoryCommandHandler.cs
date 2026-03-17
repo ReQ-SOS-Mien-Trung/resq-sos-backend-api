@@ -68,7 +68,7 @@ public class ImportPurchasedInventoryCommandHandler(
                 }
 
                 // 3b. Validate từng vật phẩm trong nhóm
-                var validItems = new List<(ImportPurchasedItemDto dto, ReliefItemModel reliefItem)>();
+                var validItems = new List<(ImportPurchasedItemDto dto, ItemModelRecord itemModel)>();
                 var errors = new List<ImportPurchasedErrorDto>();
 
                 foreach (var item in group.Items)
@@ -88,7 +88,7 @@ public class ImportPurchasedInventoryCommandHandler(
                             continue;
                         }
 
-                        var reliefItemModel = ReliefItemModel.Create(
+                        var reliefItemModel = ItemModelRecord.Create(
                             category.Id,
                             item.ItemName,
                             item.Unit,
@@ -127,11 +127,11 @@ public class ImportPurchasedInventoryCommandHandler(
                 var savedVatInvoice = await _purchasedInventoryRepository.CreateVatInvoiceAsync(vatInvoiceModel, cancellationToken);
 
                 // 5. Bulk lấy/tạo relief items cho nhóm này
-                var reliefItemModels = validItems.Select(x => x.reliefItem).ToList();
+                var reliefItemModels = validItems.Select(x => x.itemModel).ToList();
                 var savedReliefItems = await _purchasedInventoryRepository.GetOrCreateReliefItemsBulkAsync(reliefItemModels, cancellationToken);
 
-                // 6. Map lại ReliefItemId và tạo PurchasedInventoryItemModel
-                var purchasedModels = new List<(PurchasedInventoryItemModel model, decimal? unitPrice)>();
+                // 6. Map lại ItemModelId và tạo PurchasedInventoryItemModel
+                var purchasedModels = new List<(PurchasedInventoryItemModel model, decimal? unitPrice, string itemType)>();
                 foreach (var (dto, reliefItem) in validItems)
                 {
                     var savedReliefItem = savedReliefItems.FirstOrDefault(r =>
@@ -153,7 +153,7 @@ public class ImportPurchasedInventoryCommandHandler(
                             request.UserId,
                             depotId.Value);
 
-                        purchasedModels.Add((purchasedModel, dto.UnitPrice));
+                        purchasedModels.Add((purchasedModel, dto.UnitPrice, savedReliefItem.ItemType));
                     }
                 }
 

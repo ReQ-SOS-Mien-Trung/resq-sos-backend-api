@@ -17,9 +17,9 @@ public class InventoryMovementExportRepository(ResQDbContext context) : IInvento
         CancellationToken cancellationToken = default)
     {
         var query = _context.InventoryLogs
-            .Include(l => l.DepotSupplyInventory)
-                .ThenInclude(d => d!.ReliefItem)
-                    .ThenInclude(r => r!.ItemCategory)
+            .Include(l => l.SupplyInventory)
+                .ThenInclude(d => d!.ItemModel)
+                    .ThenInclude(r => r!.Category)
             .Include(l => l.VatInvoice)
                 .ThenInclude(v => v!.VatInvoiceItems)
             .Where(l => l.CreatedAt >= period.From && l.CreatedAt <= period.To)
@@ -27,8 +27,8 @@ public class InventoryMovementExportRepository(ResQDbContext context) : IInvento
 
         if (depotId.HasValue)
         {
-            query = query.Where(l => l.DepotSupplyInventory != null
-                                     && l.DepotSupplyInventory.DepotId == depotId.Value);
+            query = query.Where(l => l.SupplyInventory != null
+                                     && l.SupplyInventory.DepotId == depotId.Value);
         }
 
         var logs = await query
@@ -37,23 +37,23 @@ public class InventoryMovementExportRepository(ResQDbContext context) : IInvento
 
         return logs.Select(log =>
         {
-            var ri = log.DepotSupplyInventory?.ReliefItem;
+            var ri = log.SupplyInventory?.ItemModel;
             var quantityChange = log.QuantityChange ?? 0;
             var actionType = log.ActionType ?? string.Empty;
 
-            // UnitPrice: lấy từ VatInvoiceItem khớp với ReliefItemId (nếu có)
+            // UnitPrice: lấy từ VatInvoiceItem khớp với ItemModelId (nếu có)
             decimal? unitPrice = null;
             if (log.VatInvoice != null && ri != null)
             {
                 unitPrice = log.VatInvoice.VatInvoiceItems
-                    .FirstOrDefault(vi => vi.ReliefItemId == ri.Id)
+                    .FirstOrDefault(vi => vi.ItemModelId == ri.Id)
                     ?.UnitPrice;
             }
 
             return new InventoryMovementRow
             {
                 ItemName      = ri?.Name ?? string.Empty,
-                Category      = ri?.ItemCategory?.Name ?? string.Empty,
+                Category      = ri?.Category?.Name ?? string.Empty,
                 TargetGroup   = ri?.TargetGroup ?? string.Empty,
                 ItemType      = ri?.ItemType ?? string.Empty,
                 Unit          = ri?.Unit ?? string.Empty,

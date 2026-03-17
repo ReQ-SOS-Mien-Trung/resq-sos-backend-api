@@ -4,11 +4,11 @@ namespace RESQ.Application.Repositories.Logistics;
 
 public interface IOrganizationReliefRepository
 {
-    Task<ReliefItemModel> GetOrCreateReliefItemAsync(ReliefItemModel model, CancellationToken cancellationToken = default);
+    Task<ItemModelRecord> GetOrCreateReliefItemAsync(ItemModelRecord model, CancellationToken cancellationToken = default);
 
     Task AddOrganizationReliefItemAsync(OrganizationReliefItemModel model, CancellationToken cancellationToken = default);
     
-    Task<List<ReliefItemModel>> GetOrCreateReliefItemsBulkAsync(List<ReliefItemModel> models, CancellationToken cancellationToken = default);
+    Task<List<ItemModelRecord>> GetOrCreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default);
     
     Task AddOrganizationReliefItemsBulkAsync(List<OrganizationReliefItemModel> models, CancellationToken cancellationToken = default);
 }

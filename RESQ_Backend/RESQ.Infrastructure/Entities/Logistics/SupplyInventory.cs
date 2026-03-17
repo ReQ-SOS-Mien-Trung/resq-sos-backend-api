@@ -2,12 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace RESQ.Infrastructure.Entities.Logistics;
 
-[Table("depot_supply_inventory")]
-public partial class DepotSupplyInventory
+[Table("supply_inventory")]
+public partial class SupplyInventory
 {
     [Key]
     [Column("id")]
@@ -16,8 +15,8 @@ public partial class DepotSupplyInventory
     [Column("depot_id")]
     public int? DepotId { get; set; }
 
-    [Column("relief_item_id")]
-    public int? ReliefItemId { get; set; }
+    [Column("item_model_id")]
+    public int? ItemModelId { get; set; }
 
     [Column("quantity")]
     public int? Quantity { get; set; }
@@ -29,13 +28,13 @@ public partial class DepotSupplyInventory
     public DateTime? LastStockedAt { get; set; }
 
     [ForeignKey("DepotId")]
-    [InverseProperty("DepotSupplyInventories")]
+    [InverseProperty("SupplyInventories")]
     public virtual Depot? Depot { get; set; }
 
-    [ForeignKey("ReliefItemId")]
-    [InverseProperty("DepotSupplyInventories")]
-    public virtual ReliefItem? ReliefItem { get; set; }
+    [ForeignKey("ItemModelId")]
+    [InverseProperty("SupplyInventories")]
+    public virtual ItemModel? ItemModel { get; set; }
 
-    [InverseProperty("DepotSupplyInventory")]
+    [InverseProperty("SupplyInventory")]
     public virtual ICollection<InventoryLog> InventoryLogs { get; set; } = new List<InventoryLog>();
 }

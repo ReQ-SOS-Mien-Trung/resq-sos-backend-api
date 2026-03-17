@@ -35,7 +35,7 @@ public class SearchWarehousesByItemsQueryHandler(
 
         // ── Fetch paged flat rows from the repository ─────────────────────────
         var (flatRows, totalItemCount) = await _depotInventoryRepository.SearchWarehousesByItemsAsync(
-            request.ReliefItemIds,
+            request.ItemModelIds,
             request.ItemQuantities,
             request.ActiveDepotsOnly,
             managerDepotId,
@@ -45,7 +45,7 @@ public class SearchWarehousesByItemsQueryHandler(
 
         // ── Group flat rows by relief item and sort depots by proximity ───────
         var grouped = flatRows
-            .GroupBy(r => r.ReliefItemId)
+            .GroupBy(r => r.ItemModelId)
             .Select(g =>
             {
                 var first = g.First();
@@ -81,8 +81,8 @@ public class SearchWarehousesByItemsQueryHandler(
 
                 return new ItemWarehouseAvailabilityDto
                 {
-                    ReliefItemId                  = first.ReliefItemId,
-                    ReliefItemName                = first.ReliefItemName,
+                    ItemModelId                   = first.ItemModelId,
+                    ItemModelName                 = first.ItemModelName,
                     CategoryName                  = first.CategoryName,
                     ItemType                      = first.ItemType,
                     Unit                          = first.Unit,
@@ -90,7 +90,7 @@ public class SearchWarehousesByItemsQueryHandler(
                     Warehouses                    = warehouses
                 };
             })
-            .OrderBy(x => x.ReliefItemName)
+            .OrderBy(x => x.ItemModelName)
             .ToList();
 
         return new PagedResult<ItemWarehouseAvailabilityDto>(

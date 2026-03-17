@@ -96,7 +96,7 @@ public static class OperationsSeeder
             new MissionItem
             {
                 Id = 1,
-                ReliefItemId = 2, 
+                ItemModelId = 2, 
                 MissionId = 1, 
                 RequiredQuantity = 20,
                 AllocatedQuantity = 20,
@@ -107,7 +107,7 @@ public static class OperationsSeeder
             new MissionItem
             {
                 Id = 2,
-                ReliefItemId = 1, 
+                ItemModelId = 1, 
                 MissionId = 2, 
                 RequiredQuantity = 100,
                 AllocatedQuantity = 100,

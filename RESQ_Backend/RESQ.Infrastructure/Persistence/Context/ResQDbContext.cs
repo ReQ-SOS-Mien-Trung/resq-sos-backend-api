@@ -30,7 +30,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<DocumentFileType> DocumentFileTypes { get; set; }
     public virtual DbSet<DocumentFileTypeCategory> DocumentFileTypeCategories { get; set; }
     public virtual DbSet<DepotManager> DepotManagers { get; set; }
-    public virtual DbSet<DepotSupplyInventory> DepotSupplyInventories { get; set; }
+    public virtual DbSet<SupplyInventory> SupplyInventories { get; set; }
     public virtual DbSet<DepotSupplyRequest> DepotSupplyRequests { get; set; }
     public virtual DbSet<DepotSupplyRequestItem> DepotSupplyRequestItems { get; set; }
     public virtual DbSet<Donation> Donations { get; set; }
@@ -38,7 +38,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<FundTransaction> FundTransactions { get; set; }
     public virtual DbSet<PaymentMethod> PaymentMethods { get; set; }
     public virtual DbSet<InventoryLog> InventoryLogs { get; set; }
-    public virtual DbSet<ItemCategory> ItemCategories { get; set; }
+    public virtual DbSet<Category> Categories { get; set; }
     public virtual DbSet<Message> Messages { get; set; }
     public virtual DbSet<Mission> Missions { get; set; }
     public virtual DbSet<MissionActivity> MissionActivities { get; set; }
@@ -46,7 +46,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<MissionItem> MissionItems { get; set; }
     public virtual DbSet<MissionTeam> MissionTeams { get; set; }
     public virtual DbSet<MissionTeamMember> MissionTeamMembers { get; set; }
-    public virtual DbSet<MissionVehicle> MissionVehicles { get; set; }
+    public virtual DbSet<ReusableItem> ReusableItems { get; set; }
     public virtual DbSet<Notification> Notifications { get; set; }
     public virtual DbSet<Organization> Organizations { get; set; }
     public virtual DbSet<OrganizationReliefItem> OrganizationReliefItems { get; set; }
@@ -54,7 +54,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Prompt> Prompts { get; set; }
     public virtual DbSet<ServiceZone> ServiceZones { get; set; }
     public virtual DbSet<SosPriorityRuleConfig> SosPriorityRuleConfigs { get; set; }
-    public virtual DbSet<ReliefItem> ReliefItems { get; set; }
+    public virtual DbSet<ItemModel> ItemModels { get; set; }
     public virtual DbSet<RescuerApplication> RescuerApplications { get; set; }
     public virtual DbSet<RescuerApplicationDocument> RescuerApplicationDocuments { get; set; }
     public virtual DbSet<RescueTeam> RescueTeams { get; set; }
@@ -74,9 +74,6 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<UserPermission> UserPermissions { get; set; }
     public virtual DbSet<VatInvoice> VatInvoices { get; set; }
     public virtual DbSet<VatInvoiceItem> VatInvoiceItems { get; set; }
-    public virtual DbSet<Vehicle> Vehicles { get; set; }
-    public virtual DbSet<VehicleActivityLog> VehicleActivityLogs { get; set; }
-    public virtual DbSet<VehicleCategory> VehicleCategories { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -2,9 +2,8 @@ using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
-using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 
-namespace RESQ.Application.UseCases.Personnel.RescueTeams.Handlers;
+namespace RESQ.Application.UseCases.Personnel.Commands.AcceptInvitation;
 
 public class AcceptInvitationCommandHandler(
     IRescueTeamRepository teamRepository,

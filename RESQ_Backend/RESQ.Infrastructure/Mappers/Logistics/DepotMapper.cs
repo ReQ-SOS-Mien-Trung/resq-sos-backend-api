@@ -105,14 +105,14 @@ namespace RESQ.Infrastructure.Mappers.Resources
             }
 
             // Map item-level inventory (only items with positive available stock)
-            if (entity.DepotSupplyInventories != null && entity.DepotSupplyInventories.Count != 0)
+            if (entity.SupplyInventories != null && entity.SupplyInventories.Count != 0)
             {
-                var lines = entity.DepotSupplyInventories
+                var lines = entity.SupplyInventories
                     .Where(i => (i.Quantity ?? 0) - (i.ReservedQuantity ?? 0) > 0)
                     .Select(i => new DepotInventoryLine(
-                        i.ReliefItemId,
-                        i.ReliefItem?.Name ?? $"Item #{i.ReliefItemId}",
-                        i.ReliefItem?.Unit,
+                        i.ItemModelId,
+                        i.ItemModel?.Name ?? $"Item #{i.ItemModelId}",
+                        i.ItemModel?.Unit,
                         (i.Quantity ?? 0) - (i.ReservedQuantity ?? 0)
                     ));
                 model.SetInventoryLines(lines);

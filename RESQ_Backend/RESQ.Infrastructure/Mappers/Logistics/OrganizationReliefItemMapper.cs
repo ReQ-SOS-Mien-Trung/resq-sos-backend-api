@@ -11,7 +11,7 @@ public static class OrganizationReliefItemMapper
         {
             Id = model.Id,
             OrganizationId = model.OrganizationId,
-            ReliefItemId = model.ReliefItemId,
+            ItemModelId = model.ItemModelId,
             Quantity = model.Quantity,
             ReceivedDate = model.ReceivedDate,
             ExpiredDate = model.ExpiredDate,
@@ -21,4 +21,4 @@ public static class OrganizationReliefItemMapper
             CreatedAt = model.CreatedAt
         };
     }
-}
+}

@@ -298,7 +298,7 @@ public class MissionContextService(
         Inventories = depot.InventoryLines
             .Select(l => new DepotInventoryItemDto
             {
-                ItemId = l.ReliefItemId,
+                ItemId = l.ItemModelId,
                 ItemName = l.ItemName,
                 Unit = l.Unit,
                 AvailableQuantity = l.AvailableQuantity

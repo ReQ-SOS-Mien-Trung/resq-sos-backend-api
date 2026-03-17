@@ -76,7 +76,4 @@ public partial class Mission
 
     [InverseProperty("Mission")]
     public virtual ICollection<MissionTeam> MissionTeams { get; set; } = new List<MissionTeam>();
-
-    [InverseProperty("Mission")]
-    public virtual ICollection<MissionVehicle> MissionVehicles { get; set; } = new List<MissionVehicle>();
 }

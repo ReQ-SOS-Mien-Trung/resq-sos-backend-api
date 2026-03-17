@@ -36,7 +36,7 @@ public class CreateSupplyRequestCommandHandler(
         foreach (var group in request.Requests)
         {
             var items = group.Items
-                .Select(i => (i.ReliefItemId, i.Quantity))
+                .Select(i => (i.ItemModelId, i.Quantity))
                 .ToList();
 
             var supplyRequestId = await _supplyRequestRepository.CreateAsync(

@@ -5,6 +5,8 @@ using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Mappers.Logistics;
 using RESQ.Infrastructure.Mappers.Resources;
+using ReliefItem = RESQ.Infrastructure.Entities.Logistics.ItemModel;
+using DepotSupplyInventory = RESQ.Infrastructure.Entities.Logistics.SupplyInventory;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
@@ -12,22 +14,22 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
-    public async Task<ReliefItemModel> GetOrCreateReliefItemAsync(ReliefItemModel model, CancellationToken cancellationToken = default)
+    public async Task<ItemModelRecord> GetOrCreateReliefItemAsync(ItemModelRecord model, CancellationToken cancellationToken = default)
     {
-        var repo = _unitOfWork.GetRepository<ReliefItem>();
-        
+        var repo = _unitOfWork.GetRepository<ItemModel>();
+
         var item = await repo.GetByPropertyAsync(
             r => r.Name == model.Name && r.CategoryId == model.CategoryId, 
             tracked: true);
 
         if (item == null)
         {
-            item = ReliefItemMapper.ToEntity(model);
+            item = ItemModelMapper.ToEntity(model);
             await repo.AddAsync(item);
             await _unitOfWork.SaveAsync();
         }
 
-        return ReliefItemMapper.ToDomain(item);
+        return ItemModelMapper.ToDomain(item);
     }
 
     public async Task AddOrganizationReliefItemAsync(OrganizationReliefItemModel model, CancellationToken cancellationToken = default)
@@ -53,17 +55,17 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         }
 
         // 3. Add or Update to Depot Supply Inventory
-        var inventoryRepo = _unitOfWork.GetRepository<DepotSupplyInventory>();
+        var inventoryRepo = _unitOfWork.GetRepository<SupplyInventory>();
         var inventory = await inventoryRepo.GetByPropertyAsync(
-            i => i.DepotId == model.ReceivedAt && i.ReliefItemId == model.ReliefItemId, 
+            i => i.DepotId == model.ReceivedAt && i.ItemModelId == model.ItemModelId, 
             tracked: true);
 
         if (inventory == null)
         {
-            inventory = new DepotSupplyInventory
+            inventory = new SupplyInventory
             {
                 DepotId = model.ReceivedAt,
-                ReliefItemId = model.ReliefItemId,
+                ItemModelId = model.ItemModelId,
                 Quantity = model.Quantity,
                 ReservedQuantity = 0,
                 LastStockedAt = DateTime.UtcNow
@@ -100,10 +102,10 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         await _unitOfWork.SaveAsync();
     }
 
-    public async Task<List<ReliefItemModel>> GetOrCreateReliefItemsBulkAsync(List<ReliefItemModel> models, CancellationToken cancellationToken = default)
+    public async Task<List<ItemModelRecord>> GetOrCreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<ReliefItem>();
-        var results = new List<ReliefItemModel>();
+        var results = new List<ItemModelRecord>();
 
         // Group by unique combination to avoid duplicates
         var uniqueItems = models
@@ -128,7 +130,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
             }
             else
             {
-                var newItem = ReliefItemMapper.ToEntity(model);
+                var newItem = ItemModelMapper.ToEntity(model);
                 newItems.Add(newItem);
             }
         }
@@ -146,7 +148,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         // Convert back to domain models
         foreach (var item in existingItems)
         {
-            results.Add(ReliefItemMapper.ToDomain(item));
+            results.Add(ItemModelMapper.ToDomain(item));
         }
 
         return results;
@@ -173,7 +175,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
 
             // 2. Find or create inventory record
             var existingInventory = await inventoryRepo.GetByPropertyAsync(
-                i => i.DepotId == model.ReceivedAt && i.ReliefItemId == model.ReliefItemId,
+                i => i.DepotId == model.ReceivedAt && i.ItemModelId == model.ItemModelId,
                 tracked: true);
 
             DepotSupplyInventory inventory;
@@ -188,7 +190,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                 inventory = new DepotSupplyInventory
                 {
                     DepotId = model.ReceivedAt,
-                    ReliefItemId = model.ReliefItemId,
+                    ItemModelId = model.ItemModelId,
                     Quantity = model.Quantity,
                     ReservedQuantity = 0,
                     LastStockedAt = DateTime.UtcNow
@@ -226,9 +228,9 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         {
             var model = models[i];
             var inventory = inventoryEntities.FirstOrDefault(inv => 
-                inv.DepotId == model.ReceivedAt && inv.ReliefItemId == model.ReliefItemId) ??
+                inv.DepotId == model.ReceivedAt && inv.ItemModelId == model.ItemModelId) ??
                 await inventoryRepo.GetByPropertyAsync(
-                    inv => inv.DepotId == model.ReceivedAt && inv.ReliefItemId == model.ReliefItemId);
+                    inv => inv.DepotId == model.ReceivedAt && inv.ItemModelId == model.ItemModelId);
                     
             if (inventory != null)
             {

@@ -13,8 +13,8 @@ public partial class DepotSupplyRequestItem
     [Column("depot_supply_request_id")]
     public int DepotSupplyRequestId { get; set; }
 
-    [Column("relief_item_id")]
-    public int ReliefItemId { get; set; }
+    [Column("item_model_id")]
+    public int ItemModelId { get; set; }
 
     [Column("quantity")]
     public int Quantity { get; set; }
@@ -23,7 +23,7 @@ public partial class DepotSupplyRequestItem
     [InverseProperty("Items")]
     public virtual DepotSupplyRequest DepotSupplyRequest { get; set; } = null!;
 
-    [ForeignKey("ReliefItemId")]
+    [ForeignKey("ItemModelId")]
     [InverseProperty("DepotSupplyRequestItems")]
-    public virtual ReliefItem ReliefItem { get; set; } = null!;
+    public virtual ItemModel ItemModel { get; set; } = null!;
 }

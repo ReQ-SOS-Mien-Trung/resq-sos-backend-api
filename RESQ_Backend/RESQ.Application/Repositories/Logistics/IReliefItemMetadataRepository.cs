@@ -3,17 +3,17 @@ using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Repositories.Logistics;
 
-public interface IReliefItemMetadataRepository
+public interface IItemModelMetadataRepository
 {
     /// <summary>
-    /// Returns all relief items as lightweight key/value pairs for dropdown metadata.
-    /// Key = relief item ID, Value = relief item name.
+    /// Returns all item models as lightweight key/value pairs for dropdown metadata.
+    /// Key = item model ID, Value = item model name.
     /// </summary>
     Task<List<MetadataDto>> GetAllForMetadataAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns relief items filtered by category code as lightweight key/value pairs.
-    /// Key = relief item ID, Value = relief item name.
+    /// Returns item models filtered by category code as lightweight key/value pairs.
+    /// Key = item model ID, Value = item model name.
     /// </summary>
     Task<List<MetadataDto>> GetByCategoryCodeAsync(ItemCategoryCode categoryCode, CancellationToken cancellationToken = default);
 }

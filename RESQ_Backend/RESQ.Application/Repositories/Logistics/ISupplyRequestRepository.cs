@@ -10,13 +10,13 @@ public class SupplyRequestDetail
     public string SourceStatus { get; set; } = string.Empty;
     public string RequestingStatus { get; set; } = string.Empty;
     public Guid RequestedBy { get; set; }
-    public List<(int ReliefItemId, int Quantity)> Items { get; set; } = new();
+    public List<(int ItemModelId, int Quantity)> Items { get; set; } = new();
 }
 
 public class SupplyRequestItemDetail
 {
-    public int ReliefItemId { get; set; }
-    public string? ReliefItemName { get; set; }
+    public int ItemModelId { get; set; }
+    public string? ItemModelName { get; set; }
     public string? Unit { get; set; }
     public int Quantity { get; set; }
 }
@@ -45,7 +45,7 @@ public interface ISupplyRequestRepository
     Task<int> CreateAsync(
         int requestingDepotId,
         int sourceDepotId,
-        List<(int ReliefItemId, int Quantity)> items,
+        List<(int ItemModelId, int Quantity)> items,
         string? note,
         Guid requestedBy,
         CancellationToken cancellationToken = default);
@@ -68,11 +68,11 @@ public interface ISupplyRequestRepository
     /// Xuất kho (TransferOut) từ kho nguồn khi ship.
     /// Giảm Quantity ở DepotSupplyInventory, tạo InventoryLog.
     /// </summary>
-    Task TransferOutAsync(int sourceDepotId, List<(int ReliefItemId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
+    Task TransferOutAsync(int sourceDepotId, List<(int ItemModelId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Nhập kho (TransferIn) cho kho yêu cầu khi confirm.
     /// Tăng Quantity ở DepotSupplyInventory (tạo mới nếu chưa có), tạo InventoryLog.
     /// </summary>
-    Task TransferInAsync(int requestingDepotId, List<(int ReliefItemId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
+    Task TransferInAsync(int requestingDepotId, List<(int ItemModelId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
 }

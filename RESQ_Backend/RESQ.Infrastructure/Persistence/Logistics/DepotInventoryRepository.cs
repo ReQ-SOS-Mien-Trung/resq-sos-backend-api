@@ -57,49 +57,117 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var targetGroupStrings = targetGroups?.Select(e => e.ToString().ToLower()).ToList() ?? new List<string>();
         var hasTargetGroupFilter = targetGroupStrings.Count > 0;
 
-        Expression<Func<DepotSupplyInventory, bool>> filter = inv => 
-            inv.DepotId == depotId &&
-            (!hasCategoryFilter || (inv.ReliefItem != null && safeCategoryIds.Contains(inv.ReliefItem.CategoryId ?? 0))) &&
-            (!hasItemTypeFilter || (inv.ReliefItem != null && inv.ReliefItem.ItemType != null && itemTypeStrings.Contains(inv.ReliefItem.ItemType))) &&
-            (!hasTargetGroupFilter || (inv.ReliefItem != null && inv.ReliefItem.TargetGroup != null && targetGroupStrings.Contains(inv.ReliefItem.TargetGroup.ToLower())));
+        // Determine which tables to query based on the ItemType filter.
+        // No filter → include both; explicit filter → include only matching types.
+        bool includeConsumable = !hasItemTypeFilter || itemTypeStrings.Contains(ItemType.Consumable.ToString());
+        bool includeReusable   = !hasItemTypeFilter || itemTypeStrings.Contains(ItemType.Reusable.ToString());
 
-        var pagedEntities = await _unitOfWork.GetRepository<DepotSupplyInventory>().GetPagedAsync(
-            pageNumber,
-            pageSize,
-            filter: filter,
-            orderBy: q => q.OrderByDescending(x => x.LastStockedAt),
-            includeProperties: "ReliefItem"
-        );
+        var combined = new List<InventoryItemModel>();
 
-        var categoryIdsToFetch = pagedEntities.Items
-            .Where(x => x.ReliefItem != null && x.ReliefItem.CategoryId.HasValue)
-            .Select(x => x.ReliefItem!.CategoryId!.Value)
-            .Distinct()
+        // ── Consumable items from depot_supply_inventory ──────────────────────
+        if (includeConsumable)
+        {
+            var consumableRaw = await (
+                from inv in _context.SupplyInventories.AsNoTracking()
+                join ri  in _context.ItemModels.AsNoTracking() on inv.ItemModelId equals ri.Id
+                where inv.DepotId == depotId
+                   && (!hasCategoryFilter  || safeCategoryIds.Contains(ri.CategoryId ?? 0))
+                   && (!hasTargetGroupFilter || (ri.TargetGroup != null && targetGroupStrings.Contains(ri.TargetGroup.ToLower())))
+                select new
+                {
+                    ri.Id, ri.Name, ri.CategoryId, ri.ItemType, ri.TargetGroup,
+                    Quantity         = inv.Quantity         ?? 0,
+                    ReservedQuantity = inv.ReservedQuantity ?? 0,
+                    LastStockedAt    = inv.LastStockedAt
+                }
+            ).ToListAsync(cancellationToken);
+
+            var catIds = consumableRaw.Where(x => x.CategoryId.HasValue).Select(x => x.CategoryId!.Value).Distinct().ToList();
+            var catDict = await _context.Categories.AsNoTracking()
+                .Where(c => catIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, c => c.Name ?? string.Empty, cancellationToken);
+
+            combined.AddRange(consumableRaw.Select(x => new InventoryItemModel
+            {
+                ItemModelId   = x.Id,
+                ItemModelName = x.Name ?? string.Empty,
+                CategoryId     = x.CategoryId,
+                CategoryName   = x.CategoryId.HasValue && catDict.TryGetValue(x.CategoryId.Value, out var cn) ? cn : string.Empty,
+                ItemType       = x.ItemType,
+                TargetGroup    = x.TargetGroup,
+                Availability   = _inventoryQueryService.ComputeAvailability(x.Quantity, x.ReservedQuantity),
+                LastStockedAt  = x.LastStockedAt
+            }));
+        }
+
+        // ── Reusable items from reusable_items (aggregated per relief item) ─────
+        if (includeReusable)
+        {
+            var reusableRaw = await (
+                from dri in _context.ReusableItems.AsNoTracking()
+                join ri  in _context.ItemModels.AsNoTracking() on dri.ItemModelId equals ri.Id
+                where dri.DepotId == depotId
+                   && (!hasCategoryFilter  || safeCategoryIds.Contains(ri.CategoryId ?? 0))
+                   && (!hasTargetGroupFilter || (ri.TargetGroup != null && targetGroupStrings.Contains(ri.TargetGroup.ToLower())))
+                group new { dri, ri } by new { ri.Id, ri.Name, ri.CategoryId, ri.ItemType, ri.TargetGroup } into g
+                select new
+                {
+                    Id                  = g.Key.Id,
+                    Name                = g.Key.Name,
+                    CategoryId          = g.Key.CategoryId,
+                    ItemType            = g.Key.ItemType,
+                    TargetGroup         = g.Key.TargetGroup,
+                    TotalUnits          = g.Count(),
+                    AvailableUnits      = g.Count(x => x.dri.Status == "Available"),
+                    InUseUnits          = g.Count(x => x.dri.Status == "InUse"),
+                    MaintenanceUnits    = g.Count(x => x.dri.Status == "Maintenance"),
+                    DecommissionedUnits = g.Count(x => x.dri.Status == "Decommissioned"),
+                    GoodCount           = g.Count(x => x.dri.Condition == "Good"),
+                    FairCount           = g.Count(x => x.dri.Condition == "Fair"),
+                    PoorCount           = g.Count(x => x.dri.Condition == "Poor"),
+                    LastStockedAt       = g.Max(x => x.dri.CreatedAt)
+                }
+            ).ToListAsync(cancellationToken);
+
+            var catIds = reusableRaw.Where(x => x.CategoryId.HasValue).Select(x => x.CategoryId!.Value).Distinct().ToList();
+            var catDict = await _context.Categories.AsNoTracking()
+                .Where(c => catIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, c => c.Name ?? string.Empty, cancellationToken);
+
+            combined.AddRange(reusableRaw.Select(x => new InventoryItemModel
+            {
+                ItemModelId      = x.Id,
+                ItemModelName    = x.Name ?? string.Empty,
+                CategoryId        = x.CategoryId,
+                CategoryName      = x.CategoryId.HasValue && catDict.TryGetValue(x.CategoryId.Value, out var cn) ? cn : string.Empty,
+                ItemType          = x.ItemType,
+                TargetGroup       = x.TargetGroup,
+                Availability      = _inventoryQueryService.ComputeAvailability(
+                                        x.TotalUnits,
+                                        x.InUseUnits + x.MaintenanceUnits),
+                LastStockedAt     = x.LastStockedAt,
+                ReusableBreakdown = new RESQ.Domain.Entities.Logistics.ValueObjects.ReusableBreakdown
+                {
+                    TotalUnits          = x.TotalUnits,
+                    AvailableUnits      = x.AvailableUnits,
+                    InUseUnits          = x.InUseUnits,
+                    MaintenanceUnits    = x.MaintenanceUnits,
+                    DecommissionedUnits = x.DecommissionedUnits,
+                    GoodCount           = x.GoodCount,
+                    FairCount           = x.FairCount,
+                    PoorCount           = x.PoorCount
+                }
+            }));
+        }
+
+        var totalCount = combined.Count;
+        var pagedItems = combined
+            .OrderByDescending(x => x.LastStockedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToList();
 
-        var categories = await _unitOfWork.GetRepository<ItemCategory>()
-            .GetAllByPropertyAsync(c => categoryIdsToFetch.Contains(c.Id));
-
-        var categoryDict = categories.ToDictionary(c => c.Id, c => c.Name);
-
-        var items = pagedEntities.Items.Select(x => new InventoryItemModel
-        {
-            ReliefItemId = x.ReliefItemId ?? 0, 
-            ReliefItemName = x.ReliefItem?.Name ?? string.Empty,
-            CategoryId = x.ReliefItem?.CategoryId ?? 0,
-            CategoryName = (x.ReliefItem?.CategoryId.HasValue == true && categoryDict.TryGetValue(x.ReliefItem.CategoryId.Value, out var catName)) ? (catName ?? string.Empty) : string.Empty,
-            ItemType = x.ReliefItem?.ItemType,
-            TargetGroup = x.ReliefItem?.TargetGroup,
-            Availability = _inventoryQueryService.ComputeAvailability(x.Quantity, x.ReservedQuantity),
-            LastStockedAt = x.LastStockedAt
-        }).ToList();
-
-        return new PagedResult<InventoryItemModel>(
-            items, 
-            pagedEntities.TotalCount, 
-            pagedEntities.PageNumber, 
-            pagedEntities.PageSize
-        );
+        return new PagedResult<InventoryItemModel>(pagedItems, totalCount, pageNumber, pageSize);
     }
 
     public async Task<(List<AgentInventoryItem> Items, int TotalCount)> SearchForAgentAsync(
@@ -109,9 +177,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int pageSize,
         CancellationToken ct = default)
     {
-        var query = from dsi in _context.DepotSupplyInventories.AsNoTracking()
-                    join ri in _context.ReliefItems.AsNoTracking() on dsi.ReliefItemId equals ri.Id
-                    join cat in _context.ItemCategories.AsNoTracking() on ri.CategoryId equals cat.Id
+        var query = from dsi in _context.SupplyInventories.AsNoTracking()
+                    join ri in _context.ItemModels.AsNoTracking() on dsi.ItemModelId equals ri.Id
+                    join cat in _context.Categories.AsNoTracking() on ri.CategoryId equals cat.Id
                     join depot in _context.Depots.AsNoTracking() on dsi.DepotId equals depot.Id
                     where (depot.Status == "Available" || depot.Status == "Full")
                        && (dsi.Quantity ?? 0) - (dsi.ReservedQuantity ?? 0) > 0
@@ -163,19 +231,41 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     public async Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default)
     {
         var result = await (
-            from cat in _context.ItemCategories.AsNoTracking()
+            from cat in _context.Categories.AsNoTracking()
             orderby cat.Name
             select new DepotCategoryQuantityDto
             {
-                CategoryId = cat.Id,
+                CategoryId   = cat.Id,
                 CategoryCode = cat.Code ?? string.Empty,
                 CategoryName = cat.Name ?? string.Empty,
-                TotalQuantity = (
-                    from dsi in _context.DepotSupplyInventories
-                    join ri in _context.ReliefItems on dsi.ReliefItemId equals ri.Id
+                // Consumable items: sum of quantities in supply_inventory
+                TotalConsumableQuantity = (
+                    from dsi in _context.SupplyInventories
+                    join ri in _context.ItemModels on dsi.ItemModelId equals ri.Id
                     where dsi.DepotId == depotId && ri.CategoryId == cat.Id
                     select (int?)dsi.Quantity
-                ).Sum() ?? 0
+                ).Sum() ?? 0,
+                // Consumable items: available = Quantity - ReservedQuantity
+                AvailableConsumableQuantity = (
+                    from dsi in _context.SupplyInventories
+                    join ri in _context.ItemModels on dsi.ItemModelId equals ri.Id
+                    where dsi.DepotId == depotId && ri.CategoryId == cat.Id
+                    select (int?)(dsi.Quantity - dsi.ReservedQuantity)
+                ).Sum() ?? 0,
+                // Reusable items: total physical units in reusable_items
+                TotalReusableUnits = (
+                    from dri in _context.ReusableItems
+                    join ri in _context.ItemModels on dri.ItemModelId equals ri.Id
+                    where dri.DepotId == depotId && ri.CategoryId == cat.Id
+                    select (int?)dri.Id
+                ).Count(),
+                AvailableReusableUnits = (
+                    from dri in _context.ReusableItems
+                    join ri in _context.ItemModels on dri.ItemModelId equals ri.Id
+                    where dri.DepotId == depotId && ri.CategoryId == cat.Id
+                          && dri.Status == "Available"
+                    select (int?)dri.Id
+                ).Count()
             }
         ).ToListAsync(cancellationToken);
 
@@ -196,7 +286,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     }
 
     public async Task<(List<WarehouseItemRow> Rows, int TotalItemCount)> SearchWarehousesByItemsAsync(
-        List<int>? reliefItemIds,
+        List<int>? itemModelIds,
         Dictionary<int, int> itemQuantities,
         bool activeDepotsOnly,
         int? excludeDepotId,
@@ -204,42 +294,33 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var safeIds = reliefItemIds ?? new List<int>();
+        var safeIds = itemModelIds ?? new List<int>();
         var hasIdFilter = safeIds.Count > 0;
 
-        // Base query: join inventory → relief item → category → depot
-        var baseQuery = from dsi in _context.DepotSupplyInventories.AsNoTracking()
-                        join ri   in _context.ReliefItems.AsNoTracking()    on dsi.ReliefItemId equals ri.Id
-                        join cat  in _context.ItemCategories.AsNoTracking() on ri.CategoryId equals cat.Id
-                        join depot in _context.Depots.AsNoTracking()        on dsi.DepotId equals depot.Id
-                        select new { dsi, ri, cat, depot };
+        // ── 1. Consumable rows — tracked by quantity in supply_inventory ──────
+        var consumableQuery = from dsi in _context.SupplyInventories.AsNoTracking()
+                              join ri    in _context.ItemModels.AsNoTracking()  on dsi.ItemModelId equals ri.Id
+                              join cat   in _context.Categories.AsNoTracking()  on ri.CategoryId  equals cat.Id
+                              join depot in _context.Depots.AsNoTracking()      on dsi.DepotId    equals depot.Id
+                              select new { dsi, ri, cat, depot };
 
-        // Exclude the requesting manager's own depot
         if (excludeDepotId.HasValue)
-            baseQuery = baseQuery.Where(x => x.depot.Id != excludeDepotId.Value);
-
-        // Only include depots that are operationally active
+            consumableQuery = consumableQuery.Where(x => x.depot.Id != excludeDepotId.Value);
         if (activeDepotsOnly)
-            baseQuery = baseQuery.Where(x => x.depot.Status == "Available" || x.depot.Status == "Full");
-
-        // Filter by item IDs and ensure at least 1 unit available (SQL pre-filter)
+            consumableQuery = consumableQuery.Where(x => x.depot.Status == "Available" || x.depot.Status == "Full");
         if (hasIdFilter)
-            baseQuery = baseQuery.Where(x => safeIds.Contains(x.ri.Id));
+            consumableQuery = consumableQuery.Where(x => safeIds.Contains(x.ri.Id));
+        consumableQuery = consumableQuery.Where(x => (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0) >= 1);
 
-        baseQuery = baseQuery.Where(x => (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0) >= 1);
-
-        // Fetch all candidate rows — Step 1 (location coords loaded in-memory to avoid ST_Y on geography)
-        var rawRows = await baseQuery
-            .OrderBy(x => x.ri.Name)
-            .ThenBy(x => x.ri.Id)
-            .ThenByDescending(x => (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0))
+        // Load consumable rows; geometry coords extracted in-memory to avoid ST_Y in SQL
+        var consumableRaw = await consumableQuery
             .Select(x => new
             {
-                ReliefItemId      = x.ri.Id,
-                ReliefItemName    = x.ri.Name ?? string.Empty,
+                ItemModelId       = x.ri.Id,
+                ItemModelName     = x.ri.Name ?? string.Empty,
                 CategoryName      = x.cat.Name ?? string.Empty,
-                x.ri.ItemType,
-                x.ri.Unit,
+                ItemType          = x.ri.ItemType,
+                Unit              = x.ri.Unit,
                 DepotId           = x.depot.Id,
                 DepotName         = x.depot.Name ?? string.Empty,
                 DepotAddress      = x.depot.Address ?? string.Empty,
@@ -252,37 +333,103 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             })
             .ToListAsync(cancellationToken);
 
-        // Apply per-item quantity filter in memory
+        // ── 2. Reusable rows — each physical unit tracked individually ────────
+        var reusableQuery = from dri in _context.ReusableItems.AsNoTracking()
+                            join ri    in _context.ItemModels.AsNoTracking()  on dri.ItemModelId equals ri.Id
+                            join cat   in _context.Categories.AsNoTracking()  on ri.CategoryId  equals cat.Id
+                            join depot in _context.Depots.AsNoTracking()      on dri.DepotId    equals depot.Id
+                            select new { dri, ri, cat, depot };
+
+        if (excludeDepotId.HasValue)
+            reusableQuery = reusableQuery.Where(x => x.depot.Id != excludeDepotId.Value);
+        if (activeDepotsOnly)
+            reusableQuery = reusableQuery.Where(x => x.depot.Status == "Available" || x.depot.Status == "Full");
+        if (hasIdFilter)
+            reusableQuery = reusableQuery.Where(x => safeIds.Contains(x.ri.Id));
+
+        // Load individual unit rows (one row per physical unit)
+        var reusableUnits = await reusableQuery
+            .Select(x => new
+            {
+                ItemModelId   = x.ri.Id,
+                ItemModelName = x.ri.Name ?? string.Empty,
+                CategoryName  = x.cat.Name ?? string.Empty,
+                ItemType      = x.ri.ItemType,
+                Unit          = x.ri.Unit,
+                DepotId       = x.depot.Id,
+                DepotName     = x.depot.Name ?? string.Empty,
+                DepotAddress  = x.depot.Address ?? string.Empty,
+                DepotStatus   = x.depot.Status,
+                DepotLocation = x.depot.Location,
+                IsAvailable   = x.dri.Status == "Available",
+                CreatedAt     = x.dri.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        // Aggregate individual units → one row per (ItemModelId, DepotId) in memory
+        var reusableRaw = reusableUnits
+            .GroupBy(x => new { x.ItemModelId, x.DepotId })
+            .Where(g => g.Any(x => x.IsAvailable)) // only depots that have ≥ 1 available unit
+            .Select(g =>
+            {
+                var f         = g.First();
+                var total     = g.Count();
+                var available = g.Count(x => x.IsAvailable);
+                return new
+                {
+                    ItemModelId       = f.ItemModelId,
+                    ItemModelName     = f.ItemModelName,
+                    CategoryName      = f.CategoryName,
+                    ItemType          = f.ItemType,
+                    Unit              = f.Unit,
+                    DepotId           = f.DepotId,
+                    DepotName         = f.DepotName,
+                    DepotAddress      = f.DepotAddress,
+                    DepotStatus       = f.DepotStatus,
+                    DepotLocation     = f.DepotLocation,
+                    TotalQuantity     = total,
+                    ReservedQuantity  = total - available,
+                    AvailableQuantity = available,
+                    LastStockedAt     = g.Max(x => x.CreatedAt)
+                };
+            })
+            .ToList();
+
+        // ── 3. Merge consumable + reusable into a single candidate list ───────
+        // Both projections share the same anonymous-type shape so Concat is type-safe
+        var rawRows = consumableRaw.Concat(reusableRaw).ToList();
+
+        // Apply per-item minimum-quantity filter in memory
         var filtered = rawRows
             .Where(r =>
             {
-                var minQty = itemQuantities.TryGetValue(r.ReliefItemId, out var q) ? q : 1;
+                var minQty = itemQuantities.TryGetValue(r.ItemModelId, out var q) ? q : 1;
                 return r.AvailableQuantity >= minQty;
             })
             .ToList();
 
-        // Paginate distinct items
-        var totalItemCount = filtered.Select(r => r.ReliefItemId).Distinct().Count();
+        // Paginate by distinct item
+        var totalItemCount = filtered.Select(r => r.ItemModelId).Distinct().Count();
 
         if (totalItemCount == 0)
             return (new List<WarehouseItemRow>(), 0);
 
         var pagedItemIds = filtered
-            .Select(r => new { r.ReliefItemId, r.ReliefItemName })
-            .DistinctBy(r => r.ReliefItemId)
-            .OrderBy(r => r.ReliefItemName)
-            .ThenBy(r => r.ReliefItemId)
+            .Select(r => new { r.ItemModelId, r.ItemModelName })
+            .DistinctBy(r => r.ItemModelId)
+            .OrderBy(r => r.ItemModelName)
+            .ThenBy(r => r.ItemModelId)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(r => r.ReliefItemId)
+            .Select(r => r.ItemModelId)
             .ToHashSet();
 
         var rows = filtered
-            .Where(r => pagedItemIds.Contains(r.ReliefItemId))
+            .Where(r => pagedItemIds.Contains(r.ItemModelId))
             .Select(x => new WarehouseItemRow
             {
-                ReliefItemId      = x.ReliefItemId,
-                ReliefItemName    = x.ReliefItemName,
+                ItemModelId       = x.ItemModelId,
+                ItemModelName     = x.ItemModelName,
                 CategoryName      = x.CategoryName,
                 ItemType          = x.ItemType,
                 Unit              = x.Unit,

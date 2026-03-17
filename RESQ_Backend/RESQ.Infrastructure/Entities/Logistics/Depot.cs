@@ -7,6 +7,7 @@ using NetTopologySuite.Geometries;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Entities.Operations;
 
+
 namespace RESQ.Infrastructure.Entities.Logistics;
 
 [Table("depots")]
@@ -46,13 +47,13 @@ public partial class Depot
     public virtual ICollection<DepotManager> DepotManagers { get; set; } = new List<DepotManager>();
 
     [InverseProperty("Depot")]
-    public virtual ICollection<DepotSupplyInventory> DepotSupplyInventories { get; set; } = new List<DepotSupplyInventory>();
+    public virtual ICollection<SupplyInventory> SupplyInventories { get; set; } = new List<SupplyInventory>();
 
     [InverseProperty("SourceDepot")]
     public virtual ICollection<MissionItem> MissionItems { get; set; } = new List<MissionItem>();
 
     [InverseProperty("Depot")]
-    public virtual ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
+    public virtual ICollection<ReusableItem> ReusableItems { get; set; } = new List<ReusableItem>();
 
     [InverseProperty("RequestingDepot")]
     public virtual ICollection<DepotSupplyRequest> SupplyRequestsAsRequester { get; set; } = new List<DepotSupplyRequest>();

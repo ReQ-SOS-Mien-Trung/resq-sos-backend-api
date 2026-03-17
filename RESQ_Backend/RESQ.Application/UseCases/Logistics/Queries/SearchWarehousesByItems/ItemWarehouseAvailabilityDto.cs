@@ -5,8 +5,8 @@ namespace RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 /// </summary>
 public class ItemWarehouseAvailabilityDto
 {
-    public int ReliefItemId { get; set; }
-    public string ReliefItemName { get; set; } = string.Empty;
+    public int ItemModelId { get; set; }
+    public string ItemModelName { get; set; } = string.Empty;
     public string CategoryName { get; set; } = string.Empty;
     public string? ItemType { get; set; }
     public string? Unit { get; set; }

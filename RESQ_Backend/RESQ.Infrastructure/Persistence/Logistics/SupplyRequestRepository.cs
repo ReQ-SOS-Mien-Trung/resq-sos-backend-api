@@ -13,7 +13,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
     public async Task<int> CreateAsync(
         int requestingDepotId,
         int sourceDepotId,
-        List<(int ReliefItemId, int Quantity)> items,
+        List<(int ItemModelId, int Quantity)> items,
         string? note,
         Guid requestedBy,
         CancellationToken cancellationToken = default)
@@ -37,7 +37,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         var requestItems = items.Select(i => new DepotSupplyRequestItem
         {
             DepotSupplyRequestId = request.Id,
-            ReliefItemId         = i.ReliefItemId,
+            ItemModelId          = i.ItemModelId,
             Quantity             = i.Quantity
         }).ToList();
 
@@ -62,7 +62,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             SourceStatus      = entity.SourceStatus,
             RequestingStatus  = entity.RequestingStatus,
             RequestedBy       = entity.RequestedBy,
-            Items             = entity.Items.Select(i => (i.ReliefItemId, i.Quantity)).ToList()
+            Items             = entity.Items.Select(i => (i.ItemModelId, i.Quantity)).ToList()
         };
     }
 
@@ -107,22 +107,22 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
     public async Task TransferOutAsync(
         int sourceDepotId,
-        List<(int ReliefItemId, int Quantity)> items,
+        List<(int ItemModelId, int Quantity)> items,
         int supplyRequestId,
         Guid performedBy,
         CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
 
-        foreach (var (reliefItemId, quantity) in items)
+        foreach (var (itemModelId, quantity) in items)
         {
-            var inventory = await _unitOfWork.GetRepository<DepotSupplyInventory>()
-                .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ReliefItemId == reliefItemId, tracked: true)
-                ?? throw new BadRequestException($"Kho nguồn không có vật tư #{reliefItemId} trong tồn kho.");
+            var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
+                .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
+                ?? throw new BadRequestException($"Kho nguồn không có vật tư #{itemModelId} trong tồn kho.");
 
             var available = (inventory.Quantity ?? 0) - (inventory.ReservedQuantity ?? 0);
             if (available < quantity)
-                throw new BadRequestException($"Vật tư #{reliefItemId}: tồn kho khả dụng ({available}) không đủ so với yêu cầu ({quantity}).");
+                throw new BadRequestException($"Vật tư #{itemModelId}: tồn kho khả dụng ({available}) không đủ so với yêu cầu ({quantity}).");
 
             inventory.Quantity      = (inventory.Quantity ?? 0) - quantity;
             inventory.LastStockedAt = now;
@@ -145,29 +145,29 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
     public async Task TransferInAsync(
         int requestingDepotId,
-        List<(int ReliefItemId, int Quantity)> items,
+        List<(int ItemModelId, int Quantity)> items,
         int supplyRequestId,
         Guid performedBy,
         CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
 
-        foreach (var (reliefItemId, quantity) in items)
+        foreach (var (itemModelId, quantity) in items)
         {
-            var inventory = await _unitOfWork.GetRepository<DepotSupplyInventory>()
-                .GetByPropertyAsync(x => x.DepotId == requestingDepotId && x.ReliefItemId == reliefItemId, tracked: true);
+            var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
+                .GetByPropertyAsync(x => x.DepotId == requestingDepotId && x.ItemModelId == itemModelId, tracked: true);
 
             if (inventory == null)
             {
-                inventory = new DepotSupplyInventory
+                inventory = new SupplyInventory
                 {
                     DepotId          = requestingDepotId,
-                    ReliefItemId     = reliefItemId,
+                    ItemModelId      = itemModelId,
                     Quantity         = 0,
                     ReservedQuantity = 0,
                     LastStockedAt    = now
                 };
-                await _unitOfWork.GetRepository<DepotSupplyInventory>().AddAsync(inventory);
+                await _unitOfWork.GetRepository<SupplyInventory>().AddAsync(inventory);
                 await _unitOfWork.SaveAsync();
             }
 
@@ -206,7 +206,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                              && (sourceStatus      == null || r.SourceStatus      == sourceStatus)
                              && (requestingStatus  == null || r.RequestingStatus  == requestingStatus),
                 orderBy: q => q.OrderByDescending(r => r.CreatedAt),
-                includeProperties: "RequestingDepot,SourceDepot,Items.ReliefItem");
+                includeProperties: "RequestingDepot,SourceDepot,Items.ItemModel");
 
         var items = paged.Items.Select(entity => new SupplyRequestListItem
         {
@@ -226,9 +226,9 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             CompletedAt         = entity.CompletedAt,
             Items               = entity.Items.Select(i => new SupplyRequestItemDetail
             {
-                ReliefItemId   = i.ReliefItemId,
-                ReliefItemName = i.ReliefItem?.Name,
-                Unit           = i.ReliefItem?.Unit,
+                ItemModelId   = i.ItemModelId,
+                ItemModelName = i.ItemModel?.Name,
+                Unit           = i.ItemModel?.Unit,
                 Quantity       = i.Quantity
             }).ToList()
         }).ToList();

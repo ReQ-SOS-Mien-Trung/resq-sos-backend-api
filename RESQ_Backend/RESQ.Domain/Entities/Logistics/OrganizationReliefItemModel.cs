@@ -6,7 +6,7 @@ public class OrganizationReliefItemModel
 {
     public int Id { get; set; }
     public int OrganizationId { get; set; }
-    public int ReliefItemId { get; set; }
+    public int ItemModelId { get; set; }
     public int Quantity { get; set; }
     public DateOnly? ReceivedDate { get; set; }
     public DateOnly? ExpiredDate { get; set; }
@@ -18,7 +18,7 @@ public class OrganizationReliefItemModel
     // Domain Factory Method
     public static OrganizationReliefItemModel Create(
         int organizationId, 
-        int reliefItemId, 
+        int itemModelId, 
         int quantity, 
         DateOnly? receivedDate, 
         DateOnly? expiredDate, 
@@ -32,7 +32,7 @@ public class OrganizationReliefItemModel
         return new OrganizationReliefItemModel
         {
             OrganizationId = organizationId,
-            ReliefItemId = reliefItemId,
+            ItemModelId = itemModelId,
             Quantity = quantity,
             ReceivedDate = receivedDate,
             ExpiredDate = expiredDate,
@@ -42,4 +42,4 @@ public class OrganizationReliefItemModel
             CreatedAt = DateTime.UtcNow
         };
     }
-}
+}

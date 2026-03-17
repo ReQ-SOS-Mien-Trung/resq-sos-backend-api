@@ -191,9 +191,6 @@ public partial class User
     [InverseProperty("User")]
     public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
 
-    [InverseProperty("PerformedByUser")]
-    public virtual ICollection<VehicleActivityLog> VehicleActivityLogs { get; set; } = new List<VehicleActivityLog>();
-
     [InverseProperty("RequestedByUser")]
     public virtual ICollection<DepotSupplyRequest> DepotSupplyRequests { get; set; } = new List<DepotSupplyRequest>();
 }

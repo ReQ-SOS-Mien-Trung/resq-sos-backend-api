@@ -16,13 +16,15 @@ public interface IPurchasedInventoryRepository
     Task<VatInvoiceModel> CreateVatInvoiceAsync(VatInvoiceModel model, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Tìm hoặc tạo các ReliefItem theo danh sách bulk.
+    /// Tìm hoặc tạo các ItemModel theo danh sách bulk.
     /// </summary>
-    Task<List<ReliefItemModel>> GetOrCreateReliefItemsBulkAsync(List<ReliefItemModel> models, CancellationToken cancellationToken = default);
+    Task<List<ItemModelRecord>> GetOrCreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Bulk insert danh sách PurchasedInventoryItem, cập nhật DepotSupplyInventory, tạo InventoryLog với SourceType = Purchase
-    /// và lưu dòng giá tương ứng vào bảng vat_invoice_items.
+    /// Bulk insert danh sách PurchasedInventoryItem.
+    /// - Consumable: cập nhật DepotSupplyInventory (quantity cộng dồn).
+    /// - Reusable: tạo N bản ghi ReusableItem với serial number do hệ thống sinh tự động.
+    /// Tạo InventoryLog (SourceType = Purchase), VatInvoiceItem, và cộng dồn Category.Quantity.
     /// </summary>
-    Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryItemModel model, decimal? unitPrice)> items, CancellationToken cancellationToken = default);
+    Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryItemModel model, decimal? unitPrice, string itemType)> items, CancellationToken cancellationToken = default);
 }

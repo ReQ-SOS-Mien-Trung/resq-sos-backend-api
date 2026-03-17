@@ -2,12 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace RESQ.Infrastructure.Entities.Logistics;
 
-[Table("item_categories")]
-public partial class ItemCategory
+[Table("categories")]
+public partial class Category
 {
     [Key]
     [Column("id")]
@@ -33,7 +32,6 @@ public partial class ItemCategory
     [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
-    // FIXED: Changed "Category" to "ItemCategory" to match the property in ReliefItem.cs
-    [InverseProperty("ItemCategory")]
-    public virtual ICollection<ReliefItem> ReliefItems { get; set; } = new List<ReliefItem>();
+    [InverseProperty("Category")]
+    public virtual ICollection<ItemModel> ItemModels { get; set; } = new List<ItemModel>();
 }

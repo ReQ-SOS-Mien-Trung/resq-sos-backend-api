@@ -51,8 +51,8 @@ public class GetSupplyRequestsQueryHandler(
             Role                = depotIds.Contains(item.RequestingDepotId) ? "Requester" : "Source",
             Items               = item.Items.Select(i => new SupplyRequestItemDto
             {
-                ReliefItemId   = i.ReliefItemId,
-                ReliefItemName = i.ReliefItemName,
+                ItemModelId   = i.ItemModelId,
+                ItemModelName = i.ItemModelName,
                 Unit           = i.Unit,
                 Quantity       = i.Quantity
             }).ToList()

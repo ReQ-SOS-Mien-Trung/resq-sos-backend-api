@@ -48,7 +48,7 @@ public partial class InventoryLog
 
     [ForeignKey("DepotSupplyInventoryId")]
     [InverseProperty("InventoryLogs")]
-    public virtual DepotSupplyInventory? DepotSupplyInventory { get; set; }
+    public virtual SupplyInventory? SupplyInventory { get; set; }
 
     [ForeignKey("PerformedBy")]
     [InverseProperty("InventoryLogs")]
