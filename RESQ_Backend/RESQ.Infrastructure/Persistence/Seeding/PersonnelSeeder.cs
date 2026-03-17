@@ -227,7 +227,7 @@ public static class PersonnelSeeder
                 Code = "RT-BIE-241015120003",
                 Name = "Biệt đội Ca nô Hà Tĩnh",
                 TeamType = RescueTeamType.Mixed.ToString(),
-                Status = RescueTeamStatus.Available.ToString(),
+                Status = RescueTeamStatus.Assigned.ToString(),
                 AssemblyPointId = 2, // Nhà thi đấu TP. Hà Tĩnh
                 AssemblyDate = now.AddHours(2),
                 ManagedBy = SeedConstants.CoordinatorUserId,
@@ -335,8 +335,8 @@ public static class PersonnelSeeder
         members.Add(new RescueTeamMember { TeamId = 3, UserId = Guid.Parse("33333333-3333-3333-3333-333333330017"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
         members.Add(new RescueTeamMember { TeamId = 3, UserId = Guid.Parse("33333333-3333-3333-3333-333333330018"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
         
-        // Team 4
-        members.Add(new RescueTeamMember { TeamId = 4, UserId = Guid.Parse("33333333-3333-3333-3333-333333330019"), CheckedIn = true, InvitedAt = now, IsLeader = true, RespondedAt = now.AddHours(1), RoleInTeam = "Leader", Status = TeamMemberStatus.Accepted.ToString() });
+        // Team 4 — đội chứa tài khoản rescuer chính (dùng để test luồng nhận nhiệm vụ)
+        members.Add(new RescueTeamMember { TeamId = 4, UserId = SeedConstants.RescuerUserId, CheckedIn = true, InvitedAt = now, IsLeader = true, RespondedAt = now.AddHours(1), RoleInTeam = "Leader", Status = TeamMemberStatus.Accepted.ToString() });
         members.Add(new RescueTeamMember { TeamId = 4, UserId = Guid.Parse("33333333-3333-3333-3333-333333330020"), CheckedIn = true, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
         members.Add(new RescueTeamMember { TeamId = 4, UserId = Guid.Parse("33333333-3333-3333-3333-333333330021"), CheckedIn = true, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
         members.Add(new RescueTeamMember { TeamId = 4, UserId = Guid.Parse("33333333-3333-3333-3333-333333330022"), CheckedIn = true, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
