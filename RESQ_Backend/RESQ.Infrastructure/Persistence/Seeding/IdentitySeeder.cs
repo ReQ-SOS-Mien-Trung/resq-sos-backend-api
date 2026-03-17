@@ -78,6 +78,7 @@ public static class IdentitySeeder
                 FirstName = "Hải",
                 LastName = "Lê Quang",
                 Username = "rescuer",
+                Email = "rescuer@resq.vn",
                 Phone = "0923456789",
                 Password = SeedConstants.RescuerPasswordHash,
                 RescuerType = RescuerType.Core.ToString(),

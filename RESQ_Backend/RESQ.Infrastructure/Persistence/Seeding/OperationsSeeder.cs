@@ -11,6 +11,7 @@ public static class OperationsSeeder
         SeedMissions(modelBuilder);
         SeedMissionActivities(modelBuilder);
         SeedMissionItems(modelBuilder);
+        SeedMissionTeams(modelBuilder);
         SeedConversations(modelBuilder);
         SeedConversationParticipants(modelBuilder);
         SeedMessages(modelBuilder);
@@ -110,6 +111,26 @@ public static class OperationsSeeder
                 RequiredQuantity = 100,
                 AllocatedQuantity = 100,
                 SourceDepotId = 1 // Hue Depot
+            }
+        );
+    }
+
+    private static void SeedMissionTeams(ModelBuilder modelBuilder)
+    {
+        var now = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<MissionTeam>().HasData(
+            // Team 4 (Biệt đội Ca nô Hà Tĩnh) được giao Mission 1 (Rescue — để test luồng nhận nhiệm vụ của rescuer)
+            new MissionTeam
+            {
+                Id = 1,
+                MissionId = 1,
+                RescuerTeamId = 4,
+                TeamType = "Rescue",
+                Status = "Assigned",
+                AssignedAt = now,
+                CreatedAt = now,
+                Note = "Đội được giao nhiệm vụ cứu hộ tại Lệ Thủy"
             }
         );
     }
