@@ -33,6 +33,7 @@ public class AcceptSupplyRequestCommandHandler(
             sr.RequestedBy,
             "Yêu cầu tiếp tế được chấp nhận",
             $"Yêu cầu #{sr.Id} đã được kho nguồn chấp nhận và đang chuẩn bị hàng.",
+            "supply_accepted",
             cancellationToken);
 
         return new AcceptSupplyRequestResponse { Message = $"Đã chấp nhận yêu cầu #{sr.Id}." };

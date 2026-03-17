@@ -40,6 +40,7 @@ public class ShipSupplyRequestCommandHandler(
             sr.RequestedBy,
             "Vật tư đang được vận chuyển",
             $"Yêu cầu #{sr.Id}: hàng đã xuất kho và đang vận chuyển đến kho của bạn.",
+            "supply_shipped",
             cancellationToken);
 
         return new ShipSupplyRequestResponse { Message = $"Đã xuất hàng cho yêu cầu #{sr.Id}." };

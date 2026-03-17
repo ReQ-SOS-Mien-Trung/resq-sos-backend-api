@@ -61,6 +61,7 @@ public class CreateSupplyRequestCommandHandler(
                     sourceManagerUserId.Value,
                     "Yêu cầu cung cấp vật tư mới",
                     $"Kho của bạn vừa nhận được yêu cầu cung cấp vật tư #{supplyRequestId}. Vui lòng kiểm tra và xử lý.",
+                    "supply_request",
                     cancellationToken);
             }
             else

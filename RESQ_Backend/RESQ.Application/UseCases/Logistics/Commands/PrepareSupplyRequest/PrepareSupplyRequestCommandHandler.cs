@@ -35,6 +35,7 @@ public class PrepareSupplyRequestCommandHandler(
             sr.RequestedBy,
             "Kho nguồn đang chuẩn bị hàng",
             $"Yêu cầu #{sr.Id}: kho nguồn đang đóng gói và chuẩn bị xuất hàng.",
+            "supply_preparing",
             cancellationToken);
 
         return new PrepareSupplyRequestResponse { Message = $"Yêu cầu #{sr.Id} đã chuyển sang trạng thái đang chuẩn bị hàng." };

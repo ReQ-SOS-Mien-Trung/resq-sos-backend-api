@@ -59,13 +59,30 @@ public class GetMissionByIdQueryHandler(
                 AssemblyPointName = t.AssemblyPointName,
                 TeamType = t.TeamType,
                 Status = t.Status,
+                TeamStatus = t.TeamStatus,
+                MaxMembers = t.MaxMembers,
+                MemberCount = t.MemberCount,
+                AssemblyDate = t.AssemblyDate,
                 Note = t.Note,
                 Latitude = t.Latitude,
                 Longitude = t.Longitude,
                 LocationUpdatedAt = t.LocationUpdatedAt,
                 LocationSource = t.LocationSource,
                 AssignedAt = t.AssignedAt,
-                UnassignedAt = t.UnassignedAt
+                UnassignedAt = t.UnassignedAt,
+                Members = t.RescueTeamMembers.Select(m => new RescueTeamMemberDto
+                {
+                    UserId = m.UserId,
+                    FullName = m.FullName,
+                    Username = m.Username,
+                    Phone = m.Phone,
+                    AvatarUrl = m.AvatarUrl,
+                    RescuerType = m.RescuerType,
+                    RoleInTeam = m.RoleInTeam,
+                    IsLeader = m.IsLeader,
+                    Status = m.Status,
+                    CheckedIn = m.CheckedIn
+                }).ToList()
             }).ToList(),
             Activities = mission.Activities.Select(a => new MissionActivityDto
             {
