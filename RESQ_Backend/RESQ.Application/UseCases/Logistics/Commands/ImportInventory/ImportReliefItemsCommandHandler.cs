@@ -69,7 +69,7 @@ public class ImportReliefItemsCommandHandler(
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
 
         // 4. Validate all items and prepare domain models
-        var validItems = new List<(ImportReliefItemDto dto, ReliefItemModel reliefItem, OrganizationReliefItemModel donation)>();
+        var validItems = new List<(ImportReliefItemDto dto, ItemModelRecord reliefItem, OrganizationReliefItemModel donation)>();
         var errors = new List<ImportErrorDto>();
 
         foreach (var item in request.Items)
@@ -85,7 +85,7 @@ public class ImportReliefItemsCommandHandler(
                 }
 
                 // Domain Orchestration: Create Relief Item Model
-                var reliefItemModel = ReliefItemModel.Create(
+                var reliefItemModel = ItemModelRecord.Create(
                     category.Id, 
                     item.ItemName, 
                     item.Unit, 

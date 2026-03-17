@@ -30,10 +30,10 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
         return VatInvoiceMapper.ToDomain(entity);
     }
 
-    public async Task<List<ReliefItemModel>> GetOrCreateReliefItemsBulkAsync(List<ReliefItemModel> models, CancellationToken cancellationToken = default)
+    public async Task<List<ItemModelRecord>> GetOrCreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default)
     {
-        var repo = _unitOfWork.GetRepository<ReliefItem>();
-        var results = new List<ReliefItemModel>();
+        var repo = _unitOfWork.GetRepository<ItemModel>();
+        var results = new List<ItemModelRecord>();
 
         // Nhóm theo các thuộc tính duy nhất để tránh trùng lặp
         var uniqueItems = models
@@ -41,8 +41,8 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
             .Select(g => g.First())
             .ToList();
 
-        var existingItems = new List<ReliefItem>();
-        var newItems = new List<ReliefItem>();
+        var existingItems = new List<ItemModel>();
+        var newItems = new List<ItemModel>();
 
         foreach (var model in uniqueItems)
         {
@@ -60,7 +60,7 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
             }
             else
             {
-                var newItem = ReliefItemMapper.ToEntity(model);
+                var newItem = ItemModelMapper.ToEntity(model);
                 newItems.Add(newItem);
             }
         }
@@ -77,13 +77,13 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
 
         foreach (var item in existingItems)
         {
-            results.Add(ReliefItemMapper.ToDomain(item));
+            results.Add(ItemModelMapper.ToDomain(item));
         }
 
         return results;
     }
 
-public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryItemModel model, decimal? unitPrice)> items, CancellationToken cancellationToken = default)
+public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryItemModel model, decimal? unitPrice, string itemType)> items, CancellationToken cancellationToken = default)
     {
         if (items.Count == 0) return;
 
@@ -102,114 +102,174 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
             await depotRepo.UpdateAsync(depotEntity);
         }
 
-        var orgReliefRepo = _unitOfWork.GetRepository<OrganizationReliefItem>();
-        var inventoryRepo = _unitOfWork.GetRepository<DepotSupplyInventory>();
-        var logRepo = _unitOfWork.GetRepository<InventoryLog>();
+        var orgReliefRepo      = _unitOfWork.GetRepository<OrganizationReliefItem>();
+        var inventoryRepo      = _unitOfWork.GetRepository<SupplyInventory>();
+        var reusableRepo       = _unitOfWork.GetRepository<ReusableItem>();
+        var logRepo            = _unitOfWork.GetRepository<InventoryLog>();
         var vatInvoiceItemRepo = _unitOfWork.GetRepository<VatInvoiceItem>();
 
-        var orgReliefEntities = new List<OrganizationReliefItem>();
-        var inventoryEntities = new List<DepotSupplyInventory>();
-        var logEntities = new List<InventoryLog>();
+        var orgReliefEntities      = new List<OrganizationReliefItem>();
+        var newInventoryEntities   = new List<SupplyInventory>(); // only truly-new consumable rows
+        var reusableEntities       = new List<ReusableItem>();
+        var logEntities            = new List<InventoryLog>();
         var vatInvoiceItemEntities = new List<VatInvoiceItem>();
 
-        foreach (var (model, unitPrice) in items)
+        foreach (var (model, unitPrice, itemType) in items)
         {
-            // 1. Tạo OrganizationReliefItem với OrganizationId = null (nhập mua, không có tổ chức)
-            var orgReliefEntity = new OrganizationReliefItem
+            var isReusable = string.Equals(itemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+
+            // 1. Tạo OrganizationReliefItem (biên nhận nhập mua, OrganizationId = null)
+            orgReliefEntities.Add(new OrganizationReliefItem
             {
                 OrganizationId = null,
-                ReliefItemId = model.ReliefItemId,
-                Quantity = model.Quantity,
-                ReceivedDate = model.ReceivedDate,
-                ExpiredDate = model.ExpiredDate,
-                Notes = model.Notes,
-                ReceivedBy = model.ReceivedBy,
-                ReceivedAt = model.ReceivedAt,
-                CreatedAt = model.CreatedAt ?? DateTime.UtcNow
-            };
-            orgReliefEntities.Add(orgReliefEntity);
+                ItemModelId    = model.ItemModelId,
+                Quantity       = model.Quantity,
+                ReceivedDate   = model.ReceivedDate,
+                ExpiredDate    = model.ExpiredDate,
+                Notes          = model.Notes,
+                ReceivedBy     = model.ReceivedBy,
+                ReceivedAt     = model.ReceivedAt,
+                CreatedAt      = model.CreatedAt ?? DateTime.UtcNow
+            });
 
-            // 2. Tìm hoặc tạo bản ghi tồn kho
-            var existingInventory = await inventoryRepo.GetByPropertyAsync(
-                i => i.DepotId == model.ReceivedAt && i.ReliefItemId == model.ReliefItemId,
-                tracked: true);
-
-            DepotSupplyInventory inventory;
-            if (existingInventory != null)
+            // 2a. Consumable → cập nhật/tạo bản ghi SupplyInventory
+            if (!isReusable)
             {
-                existingInventory.Quantity = (existingInventory.Quantity ?? 0) + model.Quantity;
-                existingInventory.LastStockedAt = DateTime.UtcNow;
-                inventory = existingInventory;
+                var existingInventory = await inventoryRepo.GetByPropertyAsync(
+                    i => i.DepotId == model.ReceivedAt && i.ItemModelId == model.ItemModelId,
+                    tracked: true);
+
+                if (existingInventory != null)
+                {
+                    existingInventory.Quantity      = (existingInventory.Quantity ?? 0) + model.Quantity;
+                    existingInventory.LastStockedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    newInventoryEntities.Add(new SupplyInventory
+                    {
+                        DepotId          = model.ReceivedAt,
+                        ItemModelId      = model.ItemModelId,
+                        Quantity         = model.Quantity,
+                        ReservedQuantity = 0,
+                        LastStockedAt    = DateTime.UtcNow
+                    });
+                }
             }
+            // 2b. Reusable → tạo N bản ghi ReusableItem (serial number do system sinh)
             else
             {
-                inventory = new DepotSupplyInventory
+                for (int u = 0; u < model.Quantity; u++)
                 {
-                    DepotId = model.ReceivedAt,
-                    ReliefItemId = model.ReliefItemId,
-                    Quantity = model.Quantity,
-                    ReservedQuantity = 0,
-                    LastStockedAt = DateTime.UtcNow
-                };
-                inventoryEntities.Add(inventory);
+                    var serial = $"SN-{model.ItemModelId:D5}-{Guid.NewGuid().ToString("N")[..12].ToUpper()}";
+                    reusableEntities.Add(new ReusableItem
+                    {
+                        DepotId      = model.ReceivedAt,
+                        ItemModelId  = model.ItemModelId,
+                        SerialNumber = serial,
+                        Status       = "Available",
+                        Condition    = "Good",
+                        Note         = model.Notes,
+                        CreatedAt    = DateTime.UtcNow,
+                        UpdatedAt    = DateTime.UtcNow
+                    });
+                }
             }
 
-            // 3. Chuẩn bị log entry
-            var logEntity = new InventoryLog
+            // 3. Chuẩn bị InventoryLog (DepotSupplyInventoryId sẽ gắn sau khi save consumable)
+            logEntities.Add(new InventoryLog
             {
-                VatInvoiceId = model.VatInvoiceId,
-                ActionType = InventoryActionType.Import.ToString(),
-                SourceType = InventorySourceType.Purchase.ToString(),
+                VatInvoiceId  = model.VatInvoiceId,
+                ActionType    = InventoryActionType.Import.ToString(),
+                SourceType    = InventorySourceType.Purchase.ToString(),
                 QuantityChange = model.Quantity,
-                SourceId = null,
-                PerformedBy = model.ReceivedBy,
-                Note = model.Notes,
-                CreatedAt = DateTime.UtcNow
-            };
-            logEntities.Add(logEntity);
+                SourceId      = null,
+                PerformedBy   = model.ReceivedBy,
+                Note          = model.Notes,
+                CreatedAt     = DateTime.UtcNow
+            });
 
-            // 4. Tạo VatInvoiceItem — lưu giá từng món trong hóa đơn VAT
+            // 4. Tạo VatInvoiceItem — lưu giá từng dòng trong hóa đơn VAT
             vatInvoiceItemEntities.Add(new VatInvoiceItem
             {
                 VatInvoiceId = model.VatInvoiceId,
-                ReliefItemId = model.ReliefItemId,
-                Quantity = model.Quantity,
-                UnitPrice = unitPrice,
-                CreatedAt = DateTime.UtcNow
+                ItemModelId  = model.ItemModelId,
+                Quantity     = model.Quantity,
+                UnitPrice    = unitPrice,
+                CreatedAt    = DateTime.UtcNow
             });
         }
 
-        // Bulk insert OrganizationReliefItem
+        // ── Persist ──────────────────────────────────────────────────────────
+
         await orgReliefRepo.AddRangeAsync(orgReliefEntities);
         await _unitOfWork.SaveAsync();
 
-        // Bulk insert VatInvoiceItem (dòng giá hóa đơn)
         await vatInvoiceItemRepo.AddRangeAsync(vatInvoiceItemEntities);
         await _unitOfWork.SaveAsync();
 
-        // Bulk insert các bản ghi tồn kho mới
-        if (inventoryEntities.Count > 0)
+        if (newInventoryEntities.Count > 0)
         {
-            await inventoryRepo.AddRangeAsync(inventoryEntities);
+            await inventoryRepo.AddRangeAsync(newInventoryEntities);
             await _unitOfWork.SaveAsync();
         }
 
-        // Gắn InventoryId cho log entries rồi bulk insert
+        if (reusableEntities.Count > 0)
+        {
+            await reusableRepo.AddRangeAsync(reusableEntities);
+            await _unitOfWork.SaveAsync();
+        }
+
+        // Gắn DepotSupplyInventoryId cho log của consumable item
         for (int i = 0; i < items.Count; i++)
         {
-            var model = items[i].model;
-            var inventory = inventoryEntities.FirstOrDefault(inv =>
-                inv.DepotId == model.ReceivedAt && inv.ReliefItemId == model.ReliefItemId) ??
-                await inventoryRepo.GetByPropertyAsync(
-                    inv => inv.DepotId == model.ReceivedAt && inv.ReliefItemId == model.ReliefItemId);
-
-            if (inventory != null)
+            var (model, _, itemType) = items[i];
+            var isReusable = string.Equals(itemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+            if (!isReusable)
             {
-                logEntities[i].DepotSupplyInventoryId = inventory.Id;
+                var inv = newInventoryEntities.FirstOrDefault(x =>
+                              x.DepotId == model.ReceivedAt && x.ItemModelId == model.ItemModelId)
+                          ?? await inventoryRepo.GetByPropertyAsync(
+                              x => x.DepotId == model.ReceivedAt && x.ItemModelId == model.ItemModelId);
+                if (inv != null)
+                    logEntities[i].DepotSupplyInventoryId = inv.Id;
             }
+            // Reusable: DepotSupplyInventoryId stays null
         }
 
         await logRepo.AddRangeAsync(logEntities);
+        await _unitOfWork.SaveAsync();
+
+        // ── Cập nhật Category.Quantity ────────────────────────────────────────
+        // Gom tổng quantity nhập theo ItemModelId, rồi tra CategoryId, rồi cộng vào Category.Quantity
+        var itemModelRepo = _unitOfWork.GetRepository<ItemModel>();
+        var categoryRepo  = _unitOfWork.GetRepository<Category>();
+
+        var qtyByItemModel = items
+            .GroupBy(x => x.model.ItemModelId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.model.Quantity));
+
+        var qtyByCategory = new Dictionary<int, int>();
+        foreach (var (itemModelId, qty) in qtyByItemModel)
+        {
+            var im = await itemModelRepo.GetByPropertyAsync(x => x.Id == itemModelId, tracked: false);
+            if (im?.CategoryId != null)
+            {
+                qtyByCategory.TryGetValue(im.CategoryId.Value, out var current);
+                qtyByCategory[im.CategoryId.Value] = current + qty;
+            }
+        }
+
+        foreach (var (catId, qty) in qtyByCategory)
+        {
+            var cat = await categoryRepo.GetByPropertyAsync(c => c.Id == catId, tracked: true);
+            if (cat != null)
+            {
+                cat.Quantity  = (cat.Quantity ?? 0) + qty;
+                cat.UpdatedAt = DateTime.UtcNow;
+                await categoryRepo.UpdateAsync(cat);
+            }
+        }
         await _unitOfWork.SaveAsync();
     }
 }

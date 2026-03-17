@@ -32,16 +32,27 @@ public class GetMyDepotInventoryQueryHandler(IDepotInventoryRepository depotInve
 
         var dtos = pagedData.Items.Select(x => new InventoryItemDto
         {
-            ReliefItemId = x.ReliefItemId,
-            ReliefItemName = x.ReliefItemName,
-            CategoryId = x.CategoryId,
-            CategoryName = x.CategoryName,
-            ItemType = x.ItemType,
-            TargetGroup = x.TargetGroup,
-            Quantity = x.Availability.Quantity,
-            ReservedQuantity = x.Availability.ReservedQuantity,
+            ItemModelId       = x.ItemModelId,
+            ItemModelName     = x.ItemModelName,
+            CategoryId        = x.CategoryId,
+            CategoryName      = x.CategoryName,
+            ItemType          = x.ItemType,
+            TargetGroup       = x.TargetGroup,
+            Quantity          = x.Availability.Quantity,
+            ReservedQuantity  = x.Availability.ReservedQuantity,
             AvailableQuantity = x.Availability.AvailableQuantity,
-            LastStockedAt = x.LastStockedAt
+            LastStockedAt     = x.LastStockedAt,
+            ReusableBreakdown = x.ReusableBreakdown != null ? new ReusableBreakdownDto
+            {
+                TotalUnits          = x.ReusableBreakdown.TotalUnits,
+                AvailableUnits      = x.ReusableBreakdown.AvailableUnits,
+                InUseUnits          = x.ReusableBreakdown.InUseUnits,
+                MaintenanceUnits    = x.ReusableBreakdown.MaintenanceUnits,
+                DecommissionedUnits = x.ReusableBreakdown.DecommissionedUnits,
+                GoodCount           = x.ReusableBreakdown.GoodCount,
+                FairCount           = x.ReusableBreakdown.FairCount,
+                PoorCount           = x.ReusableBreakdown.PoorCount
+            } : null
         }).ToList();
 
         return new PagedResult<InventoryItemDto>(dtos, pagedData.TotalCount, pagedData.PageNumber, pagedData.PageSize);

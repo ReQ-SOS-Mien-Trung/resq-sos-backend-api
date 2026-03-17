@@ -16,8 +16,8 @@ public partial class OrganizationReliefItem
     [Column("organization_id")]
     public int? OrganizationId { get; set; }
 
-    [Column("relief_item_id")]
-    public int? ReliefItemId { get; set; }
+    [Column("item_model_id")]
+    public int? ItemModelId { get; set; }
 
     [Column("quantity")]
     public int? Quantity { get; set; }
@@ -44,7 +44,7 @@ public partial class OrganizationReliefItem
     [InverseProperty("OrganizationReliefItems")]
     public virtual Organization? Organization { get; set; }
 
-    [ForeignKey("ReliefItemId")]
+    [ForeignKey("ItemModelId")]
     [InverseProperty("OrganizationReliefItems")]
-    public virtual ReliefItem? ReliefItem { get; set; }
+    public virtual ItemModel? ItemModel { get; set; }
 }

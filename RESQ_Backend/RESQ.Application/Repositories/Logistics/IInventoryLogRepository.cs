@@ -8,7 +8,7 @@ public interface IInventoryLogRepository
 {
     Task<PagedResult<InventoryLogModel>> GetInventoryLogsPagedAsync(
         int? depotId,
-        int? reliefItemId,
+        int? itemModelId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);

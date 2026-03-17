@@ -6,24 +6,24 @@ public class SearchWarehousesByItemsQueryValidator : AbstractValidator<SearchWar
 {
     public SearchWarehousesByItemsQueryValidator()
     {
-        RuleFor(x => x.ReliefItemIds)
+        RuleFor(x => x.ItemModelIds)
             .NotNull().NotEmpty()
-            .WithMessage("Vui lòng cung cấp ít nhất một mã vật tư (reliefItemIds).");
+            .WithMessage("Vui lòng cung cấp ít nhất một mã vật tư (itemModelIds).");
 
-        When(x => x.ReliefItemIds != null && x.ReliefItemIds.Count > 0, () =>
+        When(x => x.ItemModelIds != null && x.ItemModelIds.Count > 0, () =>
         {
-            RuleFor(x => x.ReliefItemIds!.Count)
+            RuleFor(x => x.ItemModelIds!.Count)
                 .LessThanOrEqualTo(50)
                 .WithMessage("Số lượng mã vật tư tìm kiếm không được vượt quá 50.");
 
-            RuleForEach(x => x.ReliefItemIds)
+            RuleForEach(x => x.ItemModelIds)
                 .GreaterThan(0)
                 .WithMessage("Mã vật tư phải là số nguyên dương.");
 
             RuleFor(x => x.ItemQuantities)
                 .Must((query, dict) =>
-                    dict.Count == 0 || dict.Count == (query.ReliefItemIds?.Count ?? 0))
-                .WithMessage("Số lượng quantities phải bằng số lượng reliefItemIds (hoặc để trống để dùng mặc định là 1).");
+                    dict.Count == 0 || dict.Count == (query.ItemModelIds?.Count ?? 0))
+                .WithMessage("Số lượng quantities phải bằng số lượng itemModelIds (hoặc để trống để dùng mặc định là 1).");
 
             RuleFor(x => x.ItemQuantities)
                 .Must(dict => dict.Values.All(v => v > 0))

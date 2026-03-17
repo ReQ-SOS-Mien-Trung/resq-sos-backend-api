@@ -3,11 +3,11 @@ using RESQ.Infrastructure.Entities.Logistics;
 
 namespace RESQ.Infrastructure.Mappers.Logistics;
 
-public static class ReliefItemMapper
+public static class ItemModelMapper
 {
-    public static ReliefItem ToEntity(ReliefItemModel model)
+    public static ItemModel ToEntity(ItemModelRecord model)
     {
-        return new ReliefItem
+        return new ItemModel
         {
             Id = model.Id,
             CategoryId = model.CategoryId,
@@ -20,9 +20,9 @@ public static class ReliefItemMapper
         };
     }
 
-    public static ReliefItemModel ToDomain(ReliefItem entity)
+    public static ItemModelRecord ToDomain(ItemModel entity)
     {
-        return new ReliefItemModel
+        return new ItemModelRecord
         {
             Id = entity.Id,
             CategoryId = entity.CategoryId ?? 0,
@@ -34,4 +34,4 @@ public static class ReliefItemMapper
             UpdatedAt = entity.UpdatedAt
         };
     }
-}
+}

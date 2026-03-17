@@ -13,6 +13,6 @@ public class InventoryLogModel
     public string? PerformedByName { get; set; }
     public int? DepotId { get; set; }
     public string? DepotName { get; set; }
-    public int? ReliefItemId { get; set; }
-    public string? ReliefItemName { get; set; }
+    public int? ItemModelId { get; set; }
+    public string? ItemModelName { get; set; }
 }

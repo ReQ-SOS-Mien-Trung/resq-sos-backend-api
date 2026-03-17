@@ -13,29 +13,29 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
 
     public async Task<PagedResult<InventoryLogModel>> GetInventoryLogsPagedAsync(
         int? depotId,
-        int? reliefItemId,
+        int? itemModelId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
     {
         var query = _context.InventoryLogs
-            .Include(x => x.DepotSupplyInventory)
+            .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.Depot)
-            .Include(x => x.DepotSupplyInventory)
-                .ThenInclude(x => x!.ReliefItem)
+            .Include(x => x.SupplyInventory)
+                .ThenInclude(x => x!.ItemModel)
             .Include(x => x.PerformedByUser)
             .AsQueryable();
 
         // Filter by depot if specified
         if (depotId.HasValue)
         {
-            query = query.Where(x => x.DepotSupplyInventory!.DepotId == depotId.Value);
+            query = query.Where(x => x.SupplyInventory!.DepotId == depotId.Value);
         }
 
-        // Filter by relief item if specified
-        if (reliefItemId.HasValue)
+        // Filter by item model if specified
+        if (itemModelId.HasValue)
         {
-            query = query.Where(x => x.DepotSupplyInventory!.ReliefItemId == reliefItemId.Value);
+            query = query.Where(x => x.SupplyInventory!.ItemModelId == itemModelId.Value);
         }
 
         // Order by most recent first
@@ -59,10 +59,10 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
                 PerformedByName = x.PerformedByUser != null 
                     ? $"{x.PerformedByUser.LastName} {x.PerformedByUser.FirstName}".Trim() 
                     : string.Empty,
-                DepotId = x.DepotSupplyInventory!.DepotId,
-                DepotName = x.DepotSupplyInventory!.Depot != null ? x.DepotSupplyInventory.Depot.Name : string.Empty,
-                ReliefItemId = x.DepotSupplyInventory!.ReliefItemId,
-                ReliefItemName = x.DepotSupplyInventory!.ReliefItem != null ? x.DepotSupplyInventory.ReliefItem.Name : string.Empty
+                DepotId = x.SupplyInventory!.DepotId,
+                DepotName = x.SupplyInventory!.Depot != null ? x.SupplyInventory.Depot.Name : string.Empty,
+                ItemModelId = x.SupplyInventory!.ItemModelId,
+                ItemModelName = x.SupplyInventory!.ItemModel != null ? x.SupplyInventory.ItemModel.Name : string.Empty
             })
             .ToListAsync(cancellationToken);
 
@@ -80,18 +80,18 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
         CancellationToken cancellationToken = default)
     {
         var query = _context.InventoryLogs
-            .Include(x => x.DepotSupplyInventory)
+            .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.Depot)
-            .Include(x => x.DepotSupplyInventory)
-                .ThenInclude(x => x!.ReliefItem)
-                    .ThenInclude(x => x!.ItemCategory)
+            .Include(x => x.SupplyInventory)
+                .ThenInclude(x => x!.ItemModel)
+                    .ThenInclude(x => x!.Category)
             .Include(x => x.PerformedByUser)
             .AsQueryable();
 
         // Filters
         if (depotId.HasValue)
         {
-            query = query.Where(x => x.DepotSupplyInventory!.DepotId == depotId.Value);
+            query = query.Where(x => x.SupplyInventory!.DepotId == depotId.Value);
         }
 
         if (actionTypes != null && actionTypes.Count > 0)
@@ -161,14 +161,14 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
                 CreatedAt = firstItem.CreatedAt ?? DateTime.MinValue,
                 Items = t.Items.Select(item => new InventoryTransactionItemDto
                 {
-                    ItemId = item.DepotSupplyInventory?.ReliefItemId ?? 0,
-                    ItemName = item.DepotSupplyInventory?.ReliefItem?.Name ?? string.Empty,
+                    ItemId = item.SupplyInventory?.ItemModelId ?? 0,
+                    ItemName = item.SupplyInventory?.ItemModel?.Name ?? string.Empty,
                     QuantityChange = item.QuantityChange ?? 0,
                     FormattedQuantityChange = FormatQuantityChange(item.ActionType ?? string.Empty, item.QuantityChange ?? 0),
-                    Unit = item.DepotSupplyInventory?.ReliefItem?.Unit ?? string.Empty,
-                    ItemType = item.DepotSupplyInventory?.ReliefItem?.ItemType ?? string.Empty,
-                    TargetGroup = item.DepotSupplyInventory?.ReliefItem?.TargetGroup ?? string.Empty,
-                    CategoryName = item.DepotSupplyInventory?.ReliefItem?.ItemCategory?.Name
+                    Unit = item.SupplyInventory?.ItemModel?.Unit ?? string.Empty,
+                    ItemType = item.SupplyInventory?.ItemModel?.ItemType ?? string.Empty,
+                    TargetGroup = item.SupplyInventory?.ItemModel?.TargetGroup ?? string.Empty,
+                    CategoryName = item.SupplyInventory?.ItemModel?.Category?.Name
                 }).ToList()
             };
         }).ToList();

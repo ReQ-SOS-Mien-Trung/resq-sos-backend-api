@@ -14,8 +14,8 @@ public partial class VatInvoiceItem
     [Column("vat_invoice_id")]
     public int? VatInvoiceId { get; set; }
 
-    [Column("relief_item_id")]
-    public int? ReliefItemId { get; set; }
+    [Column("item_model_id")]
+    public int? ItemModelId { get; set; }
 
     [Column("quantity")]
     public int? Quantity { get; set; }
@@ -30,7 +30,7 @@ public partial class VatInvoiceItem
     [InverseProperty("VatInvoiceItems")]
     public virtual VatInvoice? VatInvoice { get; set; }
 
-    [ForeignKey("ReliefItemId")]
+    [ForeignKey("ItemModelId")]
     [InverseProperty("VatInvoiceItems")]
-    public virtual ReliefItem? ReliefItem { get; set; }
+    public virtual ItemModel? ItemModel { get; set; }
 }

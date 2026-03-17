@@ -23,7 +23,7 @@ public class CreateSupplyRequestCommandValidator : AbstractValidator<CreateSuppl
 
             group.RuleForEach(g => g.Items).ChildRules(item =>
             {
-                item.RuleFor(i => i.ReliefItemId)
+                item.RuleFor(i => i.ItemModelId)
                     .GreaterThan(0).WithMessage("ID vật tư không hợp lệ.");
 
                 item.RuleFor(i => i.Quantity)

@@ -48,7 +48,7 @@ public interface IDepotInventoryRepository
     /// Trả về danh sách phẳng (item, depot) để handler nhóm lại.
     /// </summary>
     Task<(List<WarehouseItemRow> Rows, int TotalItemCount)> SearchWarehousesByItemsAsync(
-        List<int>? reliefItemIds,
+        List<int>? itemModelIds,
         Dictionary<int, int> itemQuantities,
         bool activeDepotsOnly,
         int? excludeDepotId,

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Exceptions;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
@@ -74,11 +75,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         [FromQuery] List<TargetGroup>? targetGroups,
         [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-        {
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
-        }
+        var userId = GetCurrentUserId();
 
         var categoryIds = await ResolveCategoryIdsAsync(categoryCodes, HttpContext.RequestAborted);
 
@@ -110,11 +107,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [Authorize]
     public async Task<IActionResult> GetMyDepotInventoryByCategory()
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-        {
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
-        }
+        var userId = GetCurrentUserId();
 
         var result = await _mediator.Send(new GetMyDepotInventoryByCategoryQuery(userId));
         return Ok(result);
@@ -168,8 +161,64 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách trạng thái kho cứu trợ.</summary>
+    [HttpGet("metadata/depot-statuses")]
+    public async Task<IActionResult> GetDepotStatuses()
+    {
+        var result = await _mediator.Send(new GetDepotStatusesQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách kiểu khoảng thời gian xuất báo cáo.</summary>
+    [HttpGet("metadata/export-period-types")]
+    public async Task<IActionResult> GetExportPeriodTypes()
+    {
+        var result = await _mediator.Send(new GetExportPeriodTypesQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách mã danh mục vật tư (enum).</summary>
+    [HttpGet("metadata/item-category-codes")]
+    public async Task<IActionResult> GetItemCategoryCodes()
+    {
+        var result = await _mediator.Send(new GetItemCategoryCodesQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Trạng thái yêu cầu tiếp tế theo góc nhìn kho yêu cầu.</summary>
+    [HttpGet("metadata/requesting-depot-statuses")]
+    public async Task<IActionResult> GetRequestingDepotStatuses()
+    {
+        var result = await _mediator.Send(new GetRequestingDepotStatusesQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Tình trạng vật phẩm tái sử dụng (Good, Fair, Poor).</summary>
+    [HttpGet("metadata/reusable-item-conditions")]
+    public async Task<IActionResult> GetReusableItemConditions()
+    {
+        var result = await _mediator.Send(new GetReusableItemConditionsQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Trạng thái vật phẩm tái sử dụng (Available, InUse, Maintenance, Decommissioned).</summary>
+    [HttpGet("metadata/reusable-item-statuses")]
+    public async Task<IActionResult> GetReusableItemStatuses()
+    {
+        var result = await _mediator.Send(new GetReusableItemStatusesQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Trạng thái yêu cầu tiếp tế theo góc nhìn kho nguồn.</summary>
+    [HttpGet("metadata/source-depot-statuses")]
+    public async Task<IActionResult> GetSourceDepotStatuses()
+    {
+        var result = await _mediator.Send(new GetSourceDepotStatusesQuery());
+        return Ok(result);
+    }
+
     /// <summary>[Metadata] Danh sách vật tư cứu trợ (ID - Tên).</summary>
-    [HttpGet("metadata/relief-items")]
+    [HttpGet("metadata/item-models")]
     public async Task<IActionResult> GetReliefItems()
     {
         var result = await _mediator.Send(new GetReliefItemMetadataQuery());
@@ -177,7 +226,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     /// <summary>[Metadata] Danh sách vật tư cứu trợ theo danh mục (ID - Tên).</summary>
-    [HttpGet("metadata/relief-items/category/{categoryCode}")]
+    [HttpGet("metadata/item-models/category/{categoryCode}")]
     public async Task<IActionResult> GetReliefItemsByCategoryCode(ItemCategoryCode categoryCode)
     {
         var result = await _mediator.Send(new GetReliefItemsByCategoryCodeQuery(categoryCode));
@@ -195,11 +244,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-        {
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
-        }
+        var userId = GetCurrentUserId();
 
         var query = new GetInventoryTransactionHistoryQuery
         {
@@ -221,15 +266,11 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> GetInventoryLogs(
         [FromQuery] int? depotId,
-        [FromQuery] int? reliefItemId,
+        [FromQuery] int? itemModelId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-        {
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
-        }
+        var userId = GetCurrentUserId();
 
         var isManager = User.HasClaim("RoleId", "4") || User.HasClaim(ClaimTypes.Role, "4");
 
@@ -238,7 +279,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
             UserId = userId,
             IsManager = isManager,
             DepotId = depotId,
-            ReliefItemId = reliefItemId,
+            ItemModelId = itemModelId,
             PageNumber = pageNumber,
             PageSize = pageSize
         };
@@ -256,9 +297,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         [FromQuery] DateOnly? fromDate = null,
         [FromQuery] DateOnly? toDate = null)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
         var query = new ExportInventoryMovementQuery
         {
@@ -278,30 +317,28 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [HttpGet("search-depots")]
     [Authorize]
     public async Task<IActionResult> SearchDepotsByItems(
-        [FromQuery] List<int> reliefItemIds,
+        [FromQuery] List<int> itemModelIds,
         [FromQuery] List<int>? quantities,
         [FromQuery] bool activeDepotsOnly = true,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
-        if (quantities != null && quantities.Count > 0 && quantities.Count != reliefItemIds.Count)
-            return BadRequest(new { message = "Số lượng quantities phải bằng số lượng reliefItemIds." });
+        if (quantities != null && quantities.Count > 0 && quantities.Count != itemModelIds.Count)
+            throw new BadRequestException("Số lượng quantities phải bằng số lượng itemModelIds.");
 
         // Build per-item quantity dictionary (position-matched)
         var itemQuantities = new Dictionary<int, int>();
-        if (quantities != null && quantities.Count == reliefItemIds.Count)
+        if (quantities != null && quantities.Count == itemModelIds.Count)
         {
-            for (var i = 0; i < reliefItemIds.Count; i++)
-                itemQuantities[reliefItemIds[i]] = quantities[i];
+            for (var i = 0; i < itemModelIds.Count; i++)
+                itemQuantities[itemModelIds[i]] = quantities[i];
         }
 
         var query = new SearchWarehousesByItemsQuery
         {
-            ReliefItemIds = reliefItemIds,
+            ItemModelIds = itemModelIds,
             ItemQuantities = itemQuantities,
             ManagerUserId = userId,
             ActiveDepotsOnly = activeDepotsOnly,
@@ -318,11 +355,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> Import([FromBody] ImportReliefItemsRequest request)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-        {
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
-        }
+        var userId = GetCurrentUserId();
 
         var command = new ImportReliefItemsCommand
         {
@@ -341,11 +374,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> ImportPurchase([FromBody] ImportPurchasedInventoryRequest request)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-        {
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
-        }
+        var userId = GetCurrentUserId();
 
         var command = new ImportPurchasedInventoryCommand
         {
@@ -362,9 +391,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [Authorize]
     public async Task<IActionResult> CreateSupplyRequest([FromBody] CreateSupplyRequestRequest request)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
         var command = new CreateSupplyRequestCommand
         {
@@ -388,9 +415,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
         var query = new GetSupplyRequestsQuery
         {
@@ -410,9 +435,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [Authorize]
     public async Task<IActionResult> PrepareSupplyRequest(int id)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
         var result = await _mediator.Send(new PrepareSupplyRequestCommand(id, userId));
         return Ok(result);
@@ -423,9 +446,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [Authorize]
     public async Task<IActionResult> AcceptSupplyRequest(int id)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
         var result = await _mediator.Send(new AcceptSupplyRequestCommand(id, userId));
         return Ok(result);
@@ -436,9 +457,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [Authorize]
     public async Task<IActionResult> RejectSupplyRequest(int id, [FromBody] RejectSupplyRequestRequest request)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
         var command = new RejectSupplyRequestCommand
         {
@@ -456,9 +475,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [Authorize]
     public async Task<IActionResult> ShipSupplyRequest(int id)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
         var result = await _mediator.Send(new ShipSupplyRequestCommand(id, userId));
         return Ok(result);
@@ -469,9 +486,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [Authorize]
     public async Task<IActionResult> CompleteSupplyRequest(int id)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
         var result = await _mediator.Send(new CompleteSupplyRequestCommand(id, userId));
         return Ok(result);
@@ -482,12 +497,18 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     [Authorize]
     public async Task<IActionResult> ConfirmSupplyRequest(int id)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized(new { message = "Token không hợp lệ hoặc không tìm thấy thông tin người dùng." });
+        var userId = GetCurrentUserId();
 
         var result = await _mediator.Send(new ConfirmSupplyRequestCommand(id, userId));
         return Ok(result);
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+        return userId;
     }
 
     private async Task<List<int>?> ResolveCategoryIdsAsync(

@@ -12,12 +12,12 @@ namespace RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 public record SearchWarehousesByItemsQuery : IRequest<PagedResult<ItemWarehouseAvailabilityDto>>
 {
     /// <summary>
-    /// List of relief-item IDs to look up (e.g. [12, 45, 78]).
+    /// List of item-model IDs to look up (e.g. [12, 45, 78]).
     /// </summary>
-    public List<int>? ReliefItemIds { get; set; }
+    public List<int>? ItemModelIds { get; set; }
 
     /// <summary>
-    /// Minimum available quantity required for each item, keyed by ReliefItemId.
+    /// Minimum available quantity required for each item, keyed by ItemModelId.
     /// If an item ID is not present, a default minimum of 1 is used.
     /// </summary>
     public Dictionary<int, int> ItemQuantities { get; set; } = new();

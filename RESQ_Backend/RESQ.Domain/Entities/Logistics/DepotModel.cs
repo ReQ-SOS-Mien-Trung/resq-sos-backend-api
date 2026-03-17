@@ -155,7 +155,7 @@ public class DepotModel
 /// AvailableQuantity = Quantity - ReservedQuantity.
 /// </summary>
 public record DepotInventoryLine(
-    int? ReliefItemId,
+    int? ItemModelId,
     string ItemName,
     string? Unit,
     int AvailableQuantity

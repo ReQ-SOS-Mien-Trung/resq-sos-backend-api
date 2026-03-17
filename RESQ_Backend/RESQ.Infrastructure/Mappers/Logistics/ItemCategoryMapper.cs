@@ -6,9 +6,9 @@ namespace RESQ.Infrastructure.Mappers.Logistics;
 
 public static class ItemCategoryMapper
 {
-    public static ItemCategory ToEntity(ItemCategoryModel model)
+    public static Category ToEntity(ItemCategoryModel model)
     {
-        return new ItemCategory
+        return new Category
         {
             Id = model.Id,
             Code = model.Code.ToString(), // Persist Enum name (e.g., "Food")
@@ -20,7 +20,7 @@ public static class ItemCategoryMapper
         };
     }
 
-    public static void UpdateEntity(ItemCategory entity, ItemCategoryModel model)
+    public static void UpdateEntity(Category entity, ItemCategoryModel model)
     {
         entity.Code = model.Code.ToString();
         entity.Name = model.Name;
@@ -28,7 +28,7 @@ public static class ItemCategoryMapper
         entity.UpdatedAt = model.UpdatedAt;
     }
 
-    public static ItemCategoryModel ToDomain(ItemCategory entity)
+    public static ItemCategoryModel ToDomain(Category entity)
     {
         // Handle parsing string back to Enum safely
         if (!Enum.TryParse<ItemCategoryCode>(entity.Code, ignoreCase: true, out var code))

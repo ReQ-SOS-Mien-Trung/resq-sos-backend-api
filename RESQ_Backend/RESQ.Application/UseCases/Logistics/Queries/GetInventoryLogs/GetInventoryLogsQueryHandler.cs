@@ -31,7 +31,7 @@ public class GetInventoryLogsQueryHandler(
 
         var pagedData = await _inventoryLogRepository.GetInventoryLogsPagedAsync(
             finalDepotId,
-            request.ReliefItemId,
+            request.ItemModelId,
             request.PageNumber,
             request.PageSize,
             cancellationToken);

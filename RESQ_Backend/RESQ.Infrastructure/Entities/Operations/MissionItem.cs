@@ -11,8 +11,8 @@ public partial class MissionItem
     [Column("id")]
     public int Id { get; set; }
 
-    [Column("relief_item_id")]
-    public int? ReliefItemId { get; set; }
+    [Column("item_model_id")]
+    public int? ItemModelId { get; set; }
 
     [Column("mission_id")]
     public int? MissionId { get; set; }
@@ -30,9 +30,9 @@ public partial class MissionItem
     [InverseProperty("MissionItems")]
     public virtual Mission? Mission { get; set; }
 
-    [ForeignKey("ReliefItemId")]
+    [ForeignKey("ItemModelId")]
     [InverseProperty("MissionItems")]
-    public virtual ReliefItem? ReliefItem { get; set; }
+    public virtual ItemModel? ItemModel { get; set; }
 
     [ForeignKey("SourceDepotId")]
     [InverseProperty("MissionItems")]

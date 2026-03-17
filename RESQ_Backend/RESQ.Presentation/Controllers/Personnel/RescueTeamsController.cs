@@ -9,6 +9,7 @@ using RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamDetail;
 using RESQ.Application.UseCases.Personnel.Queries.RescueTeamMetadata;
 using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 using RESQ.Application.UseCases.Personnel.RescueTeams.DTOs;
+using RESQ.Application.UseCases.Personnel.Commands.AcceptInvitation;
 
 namespace RESQ.Presentation.Controllers.Personnel;
 

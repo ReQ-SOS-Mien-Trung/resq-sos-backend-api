@@ -6,7 +6,7 @@ public class PurchasedInventoryItemModel
 {
     public int Id { get; set; }
     public int VatInvoiceId { get; set; }
-    public int ReliefItemId { get; set; }
+    public int ItemModelId { get; set; }
     public int Quantity { get; set; }
     public DateOnly? ReceivedDate { get; set; }
     public DateOnly? ExpiredDate { get; set; }
@@ -17,7 +17,7 @@ public class PurchasedInventoryItemModel
 
     public static PurchasedInventoryItemModel Create(
         int vatInvoiceId,
-        int reliefItemId,
+        int itemModelId,
         int quantity,
         DateOnly? receivedDate,
         DateOnly? expiredDate,
@@ -31,7 +31,7 @@ public class PurchasedInventoryItemModel
         return new PurchasedInventoryItemModel
         {
             VatInvoiceId = vatInvoiceId,
-            ReliefItemId = reliefItemId,
+            ItemModelId = itemModelId,
             Quantity = quantity,
             ReceivedDate = receivedDate,
             ExpiredDate = expiredDate,

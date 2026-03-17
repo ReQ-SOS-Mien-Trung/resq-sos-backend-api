@@ -8,14 +8,14 @@ using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
-public class ReliefItemMetadataRepository(IUnitOfWork unitOfWork, ResQDbContext context) : IReliefItemMetadataRepository
+public class ItemModelMetadataRepository(IUnitOfWork unitOfWork, ResQDbContext context) : IItemModelMetadataRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ResQDbContext _context = context;
 
     public async Task<List<MetadataDto>> GetAllForMetadataAsync(CancellationToken cancellationToken = default)
     {
-        var items = await _unitOfWork.GetRepository<ReliefItem>()
+        var items = await _unitOfWork.GetRepository<ItemModel>()
             .GetAllByPropertyAsync(r => true);
 
         return items
@@ -35,8 +35,8 @@ public class ReliefItemMetadataRepository(IUnitOfWork unitOfWork, ResQDbContext 
         var categoryCodeString = categoryCode.ToString();
 
         var items = await (
-            from ri in _context.ReliefItems.AsNoTracking()
-            join cat in _context.ItemCategories.AsNoTracking() on ri.CategoryId equals cat.Id
+            from ri in _context.ItemModels.AsNoTracking()
+            join cat in _context.Categories.AsNoTracking() on ri.CategoryId equals cat.Id
             where cat.Code == categoryCodeString
             orderby ri.Id
             select new MetadataDto

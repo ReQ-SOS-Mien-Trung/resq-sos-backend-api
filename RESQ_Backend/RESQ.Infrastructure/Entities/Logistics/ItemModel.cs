@@ -1,14 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 using RESQ.Infrastructure.Entities.Operations;
 
 namespace RESQ.Infrastructure.Entities.Logistics;
 
-[Table("relief_items")]
-public partial class ReliefItem
+[Table("item_models")]
+public partial class ItemModel
 {
     [Key]
     [Column("id")]
@@ -28,6 +27,7 @@ public partial class ReliefItem
     [Column("item_type")]
     [StringLength(50)]
     public string? ItemType { get; set; }
+
     [Column("target_group")]
     [StringLength(50)]
     public string? TargetGroup { get; set; }
@@ -39,20 +39,24 @@ public partial class ReliefItem
     public DateTime? UpdatedAt { get; set; }
 
     [ForeignKey("CategoryId")]
-    [InverseProperty("ReliefItems")]
-    public virtual ItemCategory? ItemCategory { get; set; }
-    [InverseProperty("ReliefItem")]
-    public virtual ICollection<DepotSupplyInventory> DepotSupplyInventories { get; set; } = new List<DepotSupplyInventory>();
+    [InverseProperty("ItemModels")]
+    public virtual Category? Category { get; set; }
 
-    [InverseProperty("ReliefItem")]
+    [InverseProperty("ItemModel")]
+    public virtual ICollection<SupplyInventory> SupplyInventories { get; set; } = new List<SupplyInventory>();
+
+    [InverseProperty("ItemModel")]
     public virtual ICollection<MissionItem> MissionItems { get; set; } = new List<MissionItem>();
 
-    [InverseProperty("ReliefItem")]
+    [InverseProperty("ItemModel")]
     public virtual ICollection<OrganizationReliefItem> OrganizationReliefItems { get; set; } = new List<OrganizationReliefItem>();
 
-    [InverseProperty("ReliefItem")]
+    [InverseProperty("ItemModel")]
     public virtual ICollection<VatInvoiceItem> VatInvoiceItems { get; set; } = new List<VatInvoiceItem>();
 
-    [InverseProperty("ReliefItem")]
+    [InverseProperty("ItemModel")]
     public virtual ICollection<DepotSupplyRequestItem> DepotSupplyRequestItems { get; set; } = new List<DepotSupplyRequestItem>();
+
+    [InverseProperty("ItemModel")]
+    public virtual ICollection<ReusableItem> ReusableItems { get; set; } = new List<ReusableItem>();
 }
