@@ -301,4 +301,51 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         return (rows, totalItemCount);
     }
+
+    public async Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(
+        int depotId,
+        List<(int ReliefItemId, string ItemName, int RequestedQuantity)> items,
+        CancellationToken cancellationToken = default)
+    {
+        var reliefItemIds = items.Select(i => i.ReliefItemId).ToList();
+
+        var inventory = await _context.DepotSupplyInventories
+            .AsNoTracking()
+            .Where(inv => inv.DepotId == depotId && inv.ReliefItemId != null && reliefItemIds.Contains(inv.ReliefItemId!.Value))
+            .Select(inv => new
+            {
+                ReliefItemId = inv.ReliefItemId!.Value,
+                Available = (inv.Quantity ?? 0) - (inv.ReservedQuantity ?? 0)
+            })
+            .ToDictionaryAsync(x => x.ReliefItemId, x => x.Available, cancellationToken);
+
+        var shortages = new List<SupplyShortageResult>();
+        foreach (var (reliefItemId, itemName, requestedQty) in items)
+        {
+            if (!inventory.TryGetValue(reliefItemId, out var available))
+            {
+                shortages.Add(new SupplyShortageResult
+                {
+                    ReliefItemId = reliefItemId,
+                    ItemName = itemName,
+                    RequestedQuantity = requestedQty,
+                    AvailableQuantity = 0,
+                    NotFound = true
+                });
+            }
+            else if (available < requestedQty)
+            {
+                shortages.Add(new SupplyShortageResult
+                {
+                    ReliefItemId = reliefItemId,
+                    ItemName = itemName,
+                    RequestedQuantity = requestedQty,
+                    AvailableQuantity = available,
+                    NotFound = false
+                });
+            }
+        }
+
+        return shortages;
+    }
 }

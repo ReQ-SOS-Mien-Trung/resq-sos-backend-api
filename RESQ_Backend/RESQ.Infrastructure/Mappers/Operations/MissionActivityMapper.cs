@@ -40,7 +40,14 @@ public static class MissionActivityMapper
             Status = ToDbString(model.Status),
             AssignedAt = model.AssignedAt,
             CompletedAt = model.CompletedAt,
-            LastDecisionBy = model.LastDecisionBy
+            LastDecisionBy = model.LastDecisionBy,
+            MissionTeamId = model.MissionTeamId,
+            Priority = model.Priority,
+            EstimatedTime = model.EstimatedTime,
+            SosRequestId = model.SosRequestId,
+            DepotId = model.DepotId,
+            DepotName = model.DepotName,
+            DepotAddress = model.DepotAddress
         };
 
         if (model.TargetLatitude.HasValue && model.TargetLongitude.HasValue)
@@ -68,7 +75,14 @@ public static class MissionActivityMapper
             Status = ToEnum(entity.Status),
             AssignedAt = entity.AssignedAt,
             CompletedAt = entity.CompletedAt,
-            LastDecisionBy = entity.LastDecisionBy
+            LastDecisionBy = entity.LastDecisionBy,
+            MissionTeamId = entity.MissionTeamId,
+            Priority = entity.Priority,
+            EstimatedTime = entity.EstimatedTime,
+            SosRequestId = entity.SosRequestId,
+            DepotId = entity.DepotId,
+            DepotName = entity.DepotName,
+            DepotAddress = entity.DepotAddress
         };
     }
 

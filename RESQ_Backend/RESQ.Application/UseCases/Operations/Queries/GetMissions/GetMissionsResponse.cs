@@ -17,28 +17,18 @@ public class MissionDto
     public string? Status { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? ExpectedEndTime { get; set; }
-    public bool? IsCompleted { get; set; }
-    public Guid? CreatedById { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public int ActivityCount { get; set; }
     public List<MissionActivityDto> Activities { get; set; } = [];
     public List<AssignedTeamDto> Teams { get; set; } = [];
 
-    // AI suggestion fields (most recent suggestion linked to this mission's cluster)
+    // AI suggestion summary (most recent suggestion linked to this mission's cluster)
     public int? AiSuggestionId { get; set; }
     public string? SuggestedMissionTitle { get; set; }
-    public string? ModelName { get; set; }
     public string? SuggestedMissionType { get; set; }
     public double? SuggestedPriorityScore { get; set; }
     public string? SuggestedSeverityLevel { get; set; }
-    public double? AiConfidenceScore { get; set; }
-    public string? OverallAssessment { get; set; }
-    public string? EstimatedDuration { get; set; }
-    public string? SpecialNotes { get; set; }
-    public List<SuggestedActivityDto> SuggestedActivities { get; set; } = [];
-    public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
-    public DateTime? AiCreatedAt { get; set; }
 }
 
 public class MissionActivityDto
@@ -48,16 +38,19 @@ public class MissionActivityDto
     public string? ActivityCode { get; set; }
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
-    public string? Target { get; set; }
-    public string? Items { get; set; }
-    /// <summary>Parsed supply list from Items JSON — matches SuggestedActivityDto.SuppliesToCollect.</summary>
+    public string? Priority { get; set; }
+    public int? EstimatedTime { get; set; }
+    public int? SosRequestId { get; set; }
+    public int? DepotId { get; set; }
+    public string? DepotName { get; set; }
+    public string? DepotAddress { get; set; }
     public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
     public double? TargetLatitude { get; set; }
     public double? TargetLongitude { get; set; }
     public string? Status { get; set; }
+    public int? MissionTeamId { get; set; }
     public DateTime? AssignedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
-    public Guid? LastDecisionBy { get; set; }
 }
 
 /// <summary>AI suggestion metadata attached to a mission response — mirrors GenerateRescueMissionSuggestionResponse.</summary>
@@ -154,16 +147,11 @@ public class AssignedTeamDto
     public string? Status { get; set; }
     /// <summary>Overall RescueTeam status (Available, Assigned, OnMission, Stuck, etc.)</summary>
     public string? TeamStatus { get; set; }
-    public int? MaxMembers { get; set; }
     public int MemberCount { get; set; }
-    public DateTime? AssemblyDate { get; set; }
-    public string? Note { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public DateTime? LocationUpdatedAt { get; set; }
-    public string? LocationSource { get; set; }
     public DateTime? AssignedAt { get; set; }
-    public DateTime? UnassignedAt { get; set; }
     public List<RescueTeamMemberDto> Members { get; set; } = [];
 }
 
@@ -171,8 +159,6 @@ public class RescueTeamMemberDto
 {
     public Guid UserId { get; set; }
     public string? FullName { get; set; }
-    public string? Username { get; set; }
-    public string? Phone { get; set; }
     public string? AvatarUrl { get; set; }
     public string? RescuerType { get; set; }
     public string? RoleInTeam { get; set; }

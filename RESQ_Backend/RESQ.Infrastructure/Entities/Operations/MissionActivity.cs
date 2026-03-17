@@ -54,6 +54,29 @@ public partial class MissionActivity
     [Column("last_decision_by")]
     public Guid? LastDecisionBy { get; set; }
 
+    [Column("mission_team_id")]
+    public int? MissionTeamId { get; set; }
+
+    [Column("priority")]
+    [StringLength(20)]
+    public string? Priority { get; set; }
+
+    [Column("estimated_time")]
+    public int? EstimatedTime { get; set; }
+
+    [Column("sos_request_id")]
+    public int? SosRequestId { get; set; }
+
+    [Column("depot_id")]
+    public int? DepotId { get; set; }
+
+    [Column("depot_name")]
+    [StringLength(255)]
+    public string? DepotName { get; set; }
+
+    [Column("depot_address")]
+    public string? DepotAddress { get; set; }
+
     [ForeignKey("LastDecisionBy")]
     [InverseProperty("MissionActivities")]
     public virtual User? LastDecisionByUser { get; set; }
@@ -61,4 +84,7 @@ public partial class MissionActivity
     [ForeignKey("MissionId")]
     [InverseProperty("MissionActivities")]
     public virtual Mission? Mission { get; set; }
+
+    [ForeignKey("MissionTeamId")]
+    public virtual MissionTeam? MissionTeam { get; set; }
 }

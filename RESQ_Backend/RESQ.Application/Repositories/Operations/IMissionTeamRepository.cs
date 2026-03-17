@@ -11,4 +11,5 @@ public interface IMissionTeamRepository
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<MissionTeamModel>> GetActiveByRescuerTeamIdAsync(int rescuerTeamId, CancellationToken cancellationToken = default);
+    Task<MissionTeamModel?> GetByMissionAndTeamAsync(int missionId, int rescuerTeamId, CancellationToken cancellationToken = default);
 }
