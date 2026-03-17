@@ -6,6 +6,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
@@ -82,7 +83,13 @@ public class AddMissionActivityCommandHandler(
             DepotName = request.DepotName,
             DepotAddress = request.DepotAddress,
             Items = request.SuppliesToCollect is { Count: > 0 }
-                ? JsonSerializer.Serialize(request.SuppliesToCollect)
+                ? JsonSerializer.Serialize(request.SuppliesToCollect.Select(s => new SupplyToCollectDto
+                {
+                    ItemId = s.Id,
+                    ItemName = s.Name ?? string.Empty,
+                    Quantity = s.Quantity ?? 0,
+                    Unit = s.Unit
+                }))
                 : null,
             Target = request.Target,
             TargetLatitude = request.TargetLatitude,
