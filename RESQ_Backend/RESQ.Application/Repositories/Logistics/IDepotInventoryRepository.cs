@@ -10,6 +10,8 @@ namespace RESQ.Application.Repositories.Logistics;
 public interface IDepotInventoryRepository
 {
     Task<int?> GetActiveDepotIdByManagerAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<List<int>> GetActiveDepotIdsByManagerAsync(Guid userId, CancellationToken cancellationToken = default);
     
     Task<PagedResult<InventoryItemModel>> GetInventoryPagedAsync(
         int depotId,

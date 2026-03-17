@@ -2,6 +2,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Identity.Commands.RescuerConsent;
 using RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile;
 using RESQ.Application.UseCases.Identity.Queries.GetCurrentUser;
@@ -11,9 +12,10 @@ namespace RESQ.Presentation.Controllers.Identity
 {
     [Route("identity/user")]
     [ApiController]
-    public class UserController(IMediator mediator) : ControllerBase
+    public class UserController(IMediator mediator, IFirebaseService firebaseService) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;
+        private readonly IFirebaseService _firebaseService = firebaseService;
 
         /// <summary>Lấy thông tin người dùng hiện tại từ token.</summary>
         [HttpGet("me")]
@@ -87,5 +89,39 @@ namespace RESQ.Presentation.Controllers.Identity
             var result = await _mediator.Send(command);
             return Ok(result);
         }
+
+        /// <summary>
+        /// Đăng ký FCM device token (web) vào topic của user hiện tại.
+        /// Gọi sau khi login thành công trên Next.js.
+        /// </summary>
+        [HttpPost("me/fcm-token")]
+        [Authorize]
+        public async Task<IActionResult> RegisterFcmToken([FromBody] FcmTokenRequest request)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            await _firebaseService.SubscribeToUserTopicAsync(request.Token, userId, HttpContext.RequestAborted);
+            return Ok(new { message = "FCM token registered successfully." });
+        }
+
+        /// <summary>
+        /// Hủy đăng ký FCM device token (web) khỏi topic của user hiện tại.
+        /// Gọi khi logout trên Next.js.
+        /// </summary>
+        [HttpDelete("me/fcm-token")]
+        [Authorize]
+        public async Task<IActionResult> UnregisterFcmToken([FromBody] FcmTokenRequest request)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            await _firebaseService.UnsubscribeFromUserTopicAsync(request.Token, userId, HttpContext.RequestAborted);
+            return Ok(new { message = "FCM token unregistered successfully." });
+        }
     }
 }
+
+public record FcmTokenRequest(string Token);
