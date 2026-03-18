@@ -24,16 +24,20 @@ public class GetAssemblyPointByIdQueryHandler(
             throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.Id}");
         }
 
+        var teamsDict = await _repository.GetTeamsByAssemblyPointIdsAsync([entity.Id], cancellationToken);
+        var teams = teamsDict.TryGetValue(entity.Id, out var t) ? t : [];
+
         return new AssemblyPointDto
         {
             Id = entity.Id,
-            Code = entity.Code, // Added
+            Code = entity.Code,
             Name = entity.Name,
             Latitude = entity.Location?.Latitude,
             Longitude = entity.Location?.Longitude,
             CapacityTeams = entity.CapacityTeams,
             Status = entity.Status.ToString(),
-            LastUpdatedAt = entity.UpdatedAt
+            LastUpdatedAt = entity.UpdatedAt,
+            Teams = teams
         };
     }
 }

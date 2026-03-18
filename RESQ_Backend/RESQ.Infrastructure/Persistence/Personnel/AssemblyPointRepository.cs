@@ -1,15 +1,19 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Infrastructure.Entities.Personnel;
 using RESQ.Infrastructure.Mappers.Personnel;
+using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Personnel;
 
-public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRepository
+public class AssemblyPointRepository(IUnitOfWork unitOfWork, ResQDbContext context) : IAssemblyPointRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly ResQDbContext _context = context;
 
     public async Task CreateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default)
     {
@@ -83,5 +87,44 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
             pagedEntities.PageNumber,
             pagedEntities.PageSize
         );
+    }
+
+    public async Task<Dictionary<int, List<AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(
+        IEnumerable<int> ids,
+        CancellationToken cancellationToken = default)
+    {
+        var idList = ids.ToList();
+
+        var teams = await _context.RescueTeams
+            .AsNoTracking()
+            .Where(t => t.AssemblyPointId.HasValue && idList.Contains(t.AssemblyPointId.Value))
+            .Include(t => t.RescueTeamMembers)
+                .ThenInclude(m => m.User)
+            .ToListAsync(cancellationToken);
+
+        return teams
+            .GroupBy(t => t.AssemblyPointId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(t => new AssemblyPointTeamDto
+                {
+                    Id = t.Id,
+                    Code = t.Code,
+                    Name = t.Name,
+                    TeamType = t.TeamType,
+                    Status = t.Status,
+                    MaxMembers = t.MaxMembers,
+                    Members = t.RescueTeamMembers.Select(m => new AssemblyPointTeamMemberDto
+                    {
+                        UserId = m.UserId,
+                        FirstName = m.User?.FirstName,
+                        LastName = m.User?.LastName,
+                        AvatarUrl = m.User?.AvatarUrl,
+                        RoleInTeam = m.RoleInTeam,
+                        IsLeader = m.IsLeader,
+                        Status = m.Status
+                    }).ToList()
+                }).ToList()
+            );
     }
 }
