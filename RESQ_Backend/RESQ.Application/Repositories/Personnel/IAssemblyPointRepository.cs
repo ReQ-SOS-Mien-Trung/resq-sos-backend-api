@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
 using RESQ.Domain.Entities.Personnel;
 
 namespace RESQ.Application.Repositories.Personnel;
@@ -11,7 +12,13 @@ public interface IAssemblyPointRepository
     
     Task<AssemblyPointModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<AssemblyPointModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
-    Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default); // Added
+    Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default);
     
     Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách đội cứu hộ (kèm thành viên) được gán vào các điểm tập kết.
+    /// Key = AssemblyPointId.
+    /// </summary>
+    Task<Dictionary<int, List<AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
 }

@@ -22,7 +22,7 @@ public class GetAllAssemblyPointsQueryHandler(
         var dtos = pagedResult.Items.Select(ap => new AssemblyPointDto
         {
             Id = ap.Id,
-            Code = ap.Code, // Added
+            Code = ap.Code,
             Name = ap.Name,
             Latitude = ap.Location?.Latitude,
             Longitude = ap.Location?.Longitude,
