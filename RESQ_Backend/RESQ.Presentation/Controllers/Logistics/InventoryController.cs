@@ -481,7 +481,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>Manager kho nguồn xác nhận đã hoàn tất giao hàng (Shipped → Completed).</summary>
+    /// <summary>Manager kho nguồn xác nhận đã hoàn tất giao hàng (Shipping → Completed).</summary>
     [HttpPut("supply-requests/{id:int}/complete")]
     [Authorize]
     public async Task<IActionResult> CompleteSupplyRequest(int id)

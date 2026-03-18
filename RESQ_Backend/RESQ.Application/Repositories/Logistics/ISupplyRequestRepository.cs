@@ -65,8 +65,15 @@ public interface ISupplyRequestRepository
     Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Đặt trữ (Reserve) vật tư tại kho nguồn khi Accept.
+    /// Tăng ReservedQuantity ở DepotSupplyInventory, tạo InventoryLog (Reserve).
+    /// Nếu không đủ hàng khả dụng (Quantity - ReservedQuantity &lt; request) sẽ throw BadRequestException.
+    /// </summary>
+    Task ReserveItemsAsync(int sourceDepotId, List<(int ItemModelId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Xuất kho (TransferOut) từ kho nguồn khi ship.
-    /// Giảm Quantity ở DepotSupplyInventory, tạo InventoryLog.
+    /// Giảm Quantity và ReservedQuantity ở DepotSupplyInventory, tạo InventoryLog (TransferOut).
     /// </summary>
     Task TransferOutAsync(int sourceDepotId, List<(int ItemModelId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
 

@@ -9,7 +9,7 @@ public enum RequestingDepotStatus
     /// <summary>Kho nguồn đã chấp nhận ↔ SourceDepotStatus: <see cref="SourceDepotStatus.Accepted"/> / <see cref="SourceDepotStatus.Preparing"/>.</summary>
     Approved           = 1,
 
-    /// <summary>Hàng đang trên đường vận chuyển ↔ SourceDepotStatus: <see cref="SourceDepotStatus.Shipped"/>.</summary>
+    /// <summary>Hàng đang trên đường vận chuyển ↔ SourceDepotStatus: <see cref="SourceDepotStatus.Shipping"/>.</summary>
     InTransit          = 2,
 
     /// <summary>Kho yêu cầu đã nhận đủ hàng ↔ SourceDepotStatus: <see cref="SourceDepotStatus.Completed"/>.</summary>

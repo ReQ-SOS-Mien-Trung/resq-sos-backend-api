@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -16,8 +17,7 @@ public class AcceptSupplyRequestCommandHandler(
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{request.SupplyRequestId}.");
 
-        if (sr.SourceStatus != "Pending")
-            throw new BadRequestException($"Yêu cầu #{sr.Id} không ở trạng thái chờ duyệt (hiện tại: {sr.SourceStatus}).");
+        SupplyRequestStateMachine.EnsureCanAccept(sr.SourceStatus, sr.RequestingStatus);
 
         // Chỉ manager của kho nguồn mới được accept
         var managerDepotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
@@ -25,6 +25,10 @@ public class AcceptSupplyRequestCommandHandler(
 
         if (managerDepotId != sr.SourceDepotId)
             throw new BadRequestException("Bạn không phải manager của kho nguồn trong yêu cầu này.");
+
+        // Đặt trữ (reserve) vật tư tại kho nguồn — kiểm tra và tăng ReservedQuantity
+        await supplyRequestRepository.ReserveItemsAsync(
+            sr.SourceDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
 
         await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Accepted", "Approved", null, cancellationToken);
 

@@ -12,10 +12,10 @@ public enum SourceDepotStatus
     /// <summary>Kho nguồn đang đóng gói / picking — chưa xuất kho.</summary>
     Preparing = 2,
 
-    /// <summary>Đã xuất kho và đang vận chuyển → RequestingDepotStatus: <see cref="RequestingDepotStatus.InTransit"/>.</summary>
-    Shipped   = 3,
+    /// <summary>Đã xuất kho và đang trong quá trình vận chuyển → RequestingDepotStatus: <see cref="RequestingDepotStatus.InTransit"/>.</summary>
+    Shipping  = 3,
 
-    /// <summary>Kho yêu cầu đã xác nhận nhận hàng → RequestingDepotStatus: <see cref="RequestingDepotStatus.Received"/>.</summary>
+    /// <summary>Kho nguồn xác nhận đã hoàn tất giao hàng — chờ kho yêu cầu xác nhận nhận → RequestingDepotStatus: <see cref="RequestingDepotStatus.Received"/>.</summary>
     Completed = 4,
 
     /// <summary>Kho nguồn từ chối yêu cầu → RequestingDepotStatus: <see cref="RequestingDepotStatus.Rejected"/>.</summary>

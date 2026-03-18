@@ -240,5 +240,36 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
 
         await logRepo.AddRangeAsync(logEntities);
         await _unitOfWork.SaveAsync();
+
+        // ── Cập nhật Category.Quantity (tổng toàn hệ thống) ──────────────────
+        var itemModelRepo = _unitOfWork.GetRepository<ReliefItem>();
+        var categoryRepo  = _unitOfWork.GetRepository<Category>();
+
+        var qtyByItemModel = models
+            .GroupBy(m => m.ItemModelId)
+            .ToDictionary(g => g.Key, g => g.Sum(m => m.Quantity));
+
+        var qtyByCategory = new Dictionary<int, int>();
+        foreach (var (itemModelId, qty) in qtyByItemModel)
+        {
+            var im = await itemModelRepo.GetByPropertyAsync(x => x.Id == itemModelId, tracked: false);
+            if (im?.CategoryId != null)
+            {
+                qtyByCategory.TryGetValue(im.CategoryId.Value, out var current);
+                qtyByCategory[im.CategoryId.Value] = current + qty;
+            }
+        }
+
+        foreach (var (catId, qty) in qtyByCategory)
+        {
+            var cat = await categoryRepo.GetByPropertyAsync(c => c.Id == catId, tracked: true);
+            if (cat != null)
+            {
+                cat.Quantity  = (cat.Quantity ?? 0) + qty;
+                cat.UpdatedAt = DateTime.UtcNow;
+                await categoryRepo.UpdateAsync(cat);
+            }
+        }
+        await _unitOfWork.SaveAsync();
     }
 }
