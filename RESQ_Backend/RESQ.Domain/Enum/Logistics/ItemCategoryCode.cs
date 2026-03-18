@@ -11,5 +11,6 @@ public enum ItemCategoryCode
     RepairTools = 7,
     RescueEquipment = 8,
     Heating = 9,
+    Vehicle = 10,
     Others = 99
 }
