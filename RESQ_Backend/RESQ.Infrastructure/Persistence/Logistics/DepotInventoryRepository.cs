@@ -51,16 +51,20 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var safeCategoryIds = categoryIds ?? new List<int>();
         var hasCategoryFilter = safeCategoryIds.Count > 0;
 
-        var itemTypeStrings = itemTypes?.Select(e => e.ToString()).ToList() ?? new List<string>();
-        var hasItemTypeFilter = itemTypeStrings.Count > 0;
+        // No filter when itemTypes is null, empty, or contains ALL possible values (equivalent to no filter).
+        var totalItemTypeCount = Enum.GetValues<ItemType>().Length;
+        var itemTypeSet = (itemTypes != null && itemTypes.Count > 0)
+            ? itemTypes.ToHashSet()
+            : null;
+        var hasItemTypeFilter = itemTypeSet != null && itemTypeSet.Count < totalItemTypeCount;
 
         var targetGroupStrings = targetGroups?.Select(e => e.ToString().ToLower()).ToList() ?? new List<string>();
         var hasTargetGroupFilter = targetGroupStrings.Count > 0;
 
         // Determine which tables to query based on the ItemType filter.
-        // No filter → include both; explicit filter → include only matching types.
-        bool includeConsumable = !hasItemTypeFilter || itemTypeStrings.Contains(ItemType.Consumable.ToString());
-        bool includeReusable   = !hasItemTypeFilter || itemTypeStrings.Contains(ItemType.Reusable.ToString());
+        // No filter (null/empty/all-types) → include both; explicit filter → include only matching types.
+        bool includeConsumable = !hasItemTypeFilter || itemTypeSet!.Contains(ItemType.Consumable);
+        bool includeReusable   = !hasItemTypeFilter || itemTypeSet!.Contains(ItemType.Reusable);
 
         var combined = new List<InventoryItemModel>();
 
