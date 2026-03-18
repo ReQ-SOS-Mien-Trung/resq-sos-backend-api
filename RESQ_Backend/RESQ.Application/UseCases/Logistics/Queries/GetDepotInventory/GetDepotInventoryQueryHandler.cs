@@ -31,29 +31,40 @@ public class GetDepotInventoryQueryHandler(
             cancellationToken
         );
 
-        var dtos = pagedData.Items.Select(x => new InventoryItemDto
+        var dtos = pagedData.Items.Select(x =>
         {
-            ItemModelId       = x.ItemModelId,
-            ItemModelName     = x.ItemModelName,
-            CategoryId        = x.CategoryId,
-            CategoryName      = x.CategoryName,
-            ItemType          = x.ItemType,
-            TargetGroup       = x.TargetGroup,
-            Quantity          = x.Availability.Quantity,
-            ReservedQuantity  = x.Availability.ReservedQuantity,
-            AvailableQuantity = x.Availability.AvailableQuantity,
-            LastStockedAt     = x.LastStockedAt,
-            ReusableBreakdown = x.ReusableBreakdown != null ? new ReusableBreakdownDto
+            bool isReusable = string.Equals(x.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+            return new InventoryItemDto
             {
-                TotalUnits          = x.ReusableBreakdown.TotalUnits,
-                AvailableUnits      = x.ReusableBreakdown.AvailableUnits,
-                InUseUnits          = x.ReusableBreakdown.InUseUnits,
-                MaintenanceUnits    = x.ReusableBreakdown.MaintenanceUnits,
-                DecommissionedUnits = x.ReusableBreakdown.DecommissionedUnits,
-                GoodCount           = x.ReusableBreakdown.GoodCount,
-                FairCount           = x.ReusableBreakdown.FairCount,
-                PoorCount           = x.ReusableBreakdown.PoorCount
-            } : null
+                ItemModelId       = x.ItemModelId,
+                ItemModelName     = x.ItemModelName,
+                CategoryId        = x.CategoryId,
+                CategoryName      = x.CategoryName,
+                ItemType          = x.ItemType,
+                TargetGroup       = x.TargetGroup,
+                // Consumable fields
+                Quantity          = isReusable ? null : x.Availability.Quantity,
+                ReservedQuantity  = isReusable ? null : x.Availability.ReservedQuantity,
+                AvailableQuantity = isReusable ? null : x.Availability.AvailableQuantity,
+                // Reusable fields
+                Unit              = isReusable ? x.Availability.Quantity : null,
+                ReservedUnit      = isReusable ? x.Availability.ReservedQuantity : null,
+                AvailableUnit     = isReusable ? x.Availability.AvailableQuantity : null,
+                LastStockedAt     = x.LastStockedAt,
+                ReusableBreakdown = x.ReusableBreakdown != null ? new ReusableBreakdownDto
+                {
+                    TotalUnits          = x.ReusableBreakdown.TotalUnits,
+                    AvailableUnits      = x.ReusableBreakdown.AvailableUnits,
+                    ReservedUnits       = x.ReusableBreakdown.ReservedUnits,
+                    InTransitUnits      = x.ReusableBreakdown.InTransitUnits,
+                    InUseUnits          = x.ReusableBreakdown.InUseUnits,
+                    MaintenanceUnits    = x.ReusableBreakdown.MaintenanceUnits,
+                    DecommissionedUnits = x.ReusableBreakdown.DecommissionedUnits,
+                    GoodCount           = x.ReusableBreakdown.GoodCount,
+                    FairCount           = x.ReusableBreakdown.FairCount,
+                    PoorCount           = x.ReusableBreakdown.PoorCount
+                } : null
+            };
         }).ToList();
 
         return new PagedResult<InventoryItemDto>(dtos, pagedData.TotalCount, pagedData.PageNumber, pagedData.PageSize);

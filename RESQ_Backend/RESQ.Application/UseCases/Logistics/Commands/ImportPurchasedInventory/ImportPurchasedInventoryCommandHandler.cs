@@ -2,8 +2,10 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Exceptions;
+using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
@@ -12,6 +14,7 @@ public class ImportPurchasedInventoryCommandHandler(
     IItemCategoryRepository categoryRepository,
     IPurchasedInventoryRepository purchasedInventoryRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    ICampaignDisbursementRepository campaignDisbursementRepository,
     IUnitOfWork unitOfWork,
     ILogger<ImportPurchasedInventoryCommandHandler> logger)
     : IRequestHandler<ImportPurchasedInventoryCommand, ImportPurchasedInventoryResponse>
@@ -19,6 +22,7 @@ public class ImportPurchasedInventoryCommandHandler(
     private readonly IItemCategoryRepository _categoryRepository = categoryRepository;
     private readonly IPurchasedInventoryRepository _purchasedInventoryRepository = purchasedInventoryRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly ICampaignDisbursementRepository _disbursementRepo = campaignDisbursementRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ImportPurchasedInventoryCommandHandler> _logger = logger;
 
@@ -114,6 +118,17 @@ public class ImportPurchasedInventoryCommandHandler(
                     continue;
                 }
 
+                // 3c. Validate CampaignDisbursementId trước khi ghi bất kỳ dữ liệu nào
+                CampaignDisbursementModel? linkedDisbursement = null;
+                if (group.CampaignDisbursementId.HasValue)
+                {
+                    linkedDisbursement = await _disbursementRepo.GetByIdAsync(group.CampaignDisbursementId.Value, cancellationToken)
+                        ?? throw new NotFoundException($"Không tìm thấy giải ngân #{group.CampaignDisbursementId.Value}.");
+
+                    if (linkedDisbursement.DepotId != depotId.Value)
+                        throw new ForbiddenException("Giải ngân này không thuộc kho của bạn.");
+                }
+
                 // 4. Tạo hóa đơn VAT cho nhóm này
                 var vatInvoiceModel = VatInvoiceModel.Create(
                     vat.InvoiceSerial,
@@ -160,6 +175,26 @@ public class ImportPurchasedInventoryCommandHandler(
                 // 7. Bulk insert — kiểm tra sức chứa kho và lưu inventory log
                 await _purchasedInventoryRepository.AddPurchasedInventoryItemsBulkAsync(purchasedModels, cancellationToken);
 
+                // 7b. Tự động ghi vào bảng công khai disbursement_items nếu nhóm liên kết với CampaignDisbursement
+                //     linkedDisbursement đã được validate ở step 3c — không query lại DB
+                if (linkedDisbursement != null)
+                {
+                    var disbursementItems = validItems.Select(x => new DisbursementItemModel
+                    {
+                        CampaignDisbursementId = linkedDisbursement.Id,
+                        ItemName      = x.dto.ItemName,
+                        Unit          = x.dto.Unit,
+                        Quantity      = x.dto.Quantity,
+                        UnitPrice     = x.dto.UnitPrice ?? 0m,
+                        TotalPrice    = (x.dto.UnitPrice ?? 0m) * x.dto.Quantity,
+                        Note          = x.dto.Notes,
+                        CreatedAt     = DateTime.UtcNow
+                    }).ToList();
+
+                    await _disbursementRepo.AddItemsAsync(linkedDisbursement.Id, disbursementItems, cancellationToken);
+                    groupResult.DisbursementItemsLogged = disbursementItems.Count;
+                }
+
                 groupResult.VatInvoiceId = savedVatInvoice.Id;
                 groupResult.Imported = purchasedModels.Count;
 
@@ -176,6 +211,18 @@ public class ImportPurchasedInventoryCommandHandler(
             throw;
         }
         catch (ConflictException)
+        {
+            throw;
+        }
+        catch (NotFoundException)
+        {
+            throw;
+        }
+        catch (ForbiddenException)
+        {
+            throw;
+        }
+        catch (BadRequestException)
         {
             throw;
         }

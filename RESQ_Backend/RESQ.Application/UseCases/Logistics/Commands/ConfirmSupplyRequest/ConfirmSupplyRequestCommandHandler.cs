@@ -2,6 +2,7 @@ using MediatR;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Domain.Entities.Exceptions.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 
@@ -27,7 +28,7 @@ public class ConfirmSupplyRequestCommandHandler(
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         if (managerDepotId != sr.RequestingDepotId)
-            throw new BadRequestException("Bạn không phải manager của kho yêu cầu tiếp tế.");
+            throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho yêu cầu tiếp tế.");
 
         // Nhập kho — tăng tồn kho kho yêu cầu
         await supplyRequestRepository.TransferInAsync(

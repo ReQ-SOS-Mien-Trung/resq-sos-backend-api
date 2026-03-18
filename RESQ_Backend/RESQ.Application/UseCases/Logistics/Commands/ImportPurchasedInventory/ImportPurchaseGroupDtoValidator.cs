@@ -42,5 +42,10 @@ public class ImportPurchaseGroupDtoValidator : AbstractValidator<ImportPurchaseG
             .NotEmpty().WithMessage("Danh sách vật phẩm trong nhóm không được để trống.");
 
         RuleForEach(x => x.Items).SetValidator(new ImportPurchasedItemDtoValidator());
+
+        RuleFor(x => x.CampaignDisbursementId)
+            .GreaterThan(0)
+            .When(x => x.CampaignDisbursementId.HasValue)
+            .WithMessage("CampaignDisbursementId phải là số nguyên dương.");
     }
 }

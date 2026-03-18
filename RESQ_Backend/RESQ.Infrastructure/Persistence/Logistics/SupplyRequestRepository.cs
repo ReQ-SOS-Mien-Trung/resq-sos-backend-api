@@ -3,6 +3,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
+using ItemModelEntity = RESQ.Infrastructure.Entities.Logistics.ItemModel;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
@@ -116,29 +117,75 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
         foreach (var (itemModelId, quantity) in items)
         {
-            var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
-                .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
-                ?? throw new BadRequestException($"Kho nguồn không có vật tư #{itemModelId} trong tồn kho.");
+            // Determine item type to choose the correct tracking path
+            var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
+                .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
+                ?? throw new NotFoundException($"Vật tư #{itemModelId} không tồn tại trong hệ thống.");
 
-            var available = (inventory.Quantity ?? 0) - (inventory.ReservedQuantity ?? 0);
-            if (available < quantity)
-                throw new BadRequestException(
-                    $"Vật tư #{itemModelId}: tồn kho khả dụng ({available}) không đủ so với yêu cầu ({quantity}).");
-
-            inventory.ReservedQuantity = (inventory.ReservedQuantity ?? 0) + quantity;
-            inventory.LastStockedAt    = now;
-
-            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            if (itemModel.ItemType == "Reusable")
             {
-                DepotSupplyInventoryId = inventory.Id,
-                ActionType             = "Reserve",
-                QuantityChange         = quantity,
-                SourceType             = "SupplyRequest",
-                SourceId               = supplyRequestId,
-                PerformedBy            = performedBy,
-                Note                   = $"Đặt trữ vật tư cho yêu cầu #{supplyRequestId}",
-                CreatedAt              = now
-            });
+                // ── Reusable: per-unit asset tracking ──
+                var availableUnits = await _unitOfWork.GetRepository<ReusableItem>()
+                    .GetAllByPropertyAsync(x =>
+                        x.DepotId == sourceDepotId &&
+                        x.ItemModelId == itemModelId &&
+                        x.Status == "Available");
+
+                if (availableUnits.Count < quantity)
+                    throw new BadRequestException(
+                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): kho nguồn chỉ có {availableUnits.Count} đơn vị khả dụng, yêu cầu {quantity}.");
+
+                // Reserve exactly 'quantity' units
+                var unitsToReserve = availableUnits.Take(quantity).ToList();
+                foreach (var unit in unitsToReserve)
+                {
+                    unit.Status           = "Reserved";
+                    unit.SupplyRequestId  = supplyRequestId;
+                    unit.UpdatedAt        = now;
+
+                    await _unitOfWork.GetRepository<ReusableItem>().UpdateAsync(unit);
+
+                    await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                    {
+                        ReusableItemId = unit.Id,
+                        ActionType     = "Reserve",
+                        QuantityChange = 1,
+                        SourceType     = "SupplyRequest",
+                        SourceId       = supplyRequestId,
+                        PerformedBy    = performedBy,
+                        Note           = $"Đặt trữ {itemModel.Name} (S/N: {unit.SerialNumber}) cho yêu cầu #{supplyRequestId}",
+                        CreatedAt      = now
+                    });
+                }
+            }
+            else
+            {
+                // ── Consumable: quantity-based supply_inventory tracking ──
+                var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
+                    .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
+                    ?? throw new BadRequestException(
+                        $"Kho nguồn không có vật tư '{itemModel.Name}' (#{itemModelId}) trong tồn kho.");
+
+                var available = (inventory.Quantity ?? 0) - (inventory.ReservedQuantity ?? 0);
+                if (available < quantity)
+                    throw new BadRequestException(
+                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): tồn kho khả dụng ({available}) không đủ so với yêu cầu ({quantity}).");
+
+                inventory.ReservedQuantity = (inventory.ReservedQuantity ?? 0) + quantity;
+                inventory.LastStockedAt    = now;
+
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    DepotSupplyInventoryId = inventory.Id,
+                    ActionType             = "Reserve",
+                    QuantityChange         = quantity,
+                    SourceType             = "SupplyRequest",
+                    SourceId               = supplyRequestId,
+                    PerformedBy            = performedBy,
+                    Note                   = $"Đặt trữ {itemModel.Name} (#{itemModelId}) cho yêu cầu #{supplyRequestId}",
+                    CreatedAt              = now
+                });
+            }
         }
 
         await _unitOfWork.SaveAsync();
@@ -155,35 +202,80 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
         foreach (var (itemModelId, quantity) in items)
         {
-            var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
-                .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
-                ?? throw new BadRequestException($"Kho nguồn không có vật tư #{itemModelId} trong tồn kho.");
+            var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
+                .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
+                ?? throw new NotFoundException($"Vật tư #{itemModelId} không tồn tại trong hệ thống.");
 
-            // Vật tư đã được đặt trữ lúc Accept — kiểm tra reservation vẫn còn hợp lệ
-            var reserved = inventory.ReservedQuantity ?? 0;
-            if (reserved < quantity)
-                throw new BadRequestException(
-                    $"Vật tư #{itemModelId}: số lượng đặt trữ ({reserved}) không đủ so với yêu cầu ({quantity}). Quy trình có thể bị bỏ qua bước Accept.");
-
-            if ((inventory.Quantity ?? 0) < quantity)
-                throw new BadRequestException(
-                    $"Vật tư #{itemModelId}: tồn kho ({inventory.Quantity ?? 0}) không đủ so với yêu cầu ({quantity}).");
-
-            inventory.Quantity         = (inventory.Quantity ?? 0) - quantity;
-            inventory.ReservedQuantity = reserved - quantity;
-            inventory.LastStockedAt    = now;
-
-            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            if (itemModel.ItemType == "Reusable")
             {
-                DepotSupplyInventoryId = inventory.Id,
-                ActionType             = "TransferOut",
-                QuantityChange         = quantity,
-                SourceType             = "SupplyRequest",
-                SourceId               = supplyRequestId,
-                PerformedBy            = performedBy,
-                Note                   = $"Xuất tiếp tế cho yêu cầu #{supplyRequestId}",
-                CreatedAt              = now
-            });
+                // ── Reusable: transition Reserved → InTransit per unit ──
+                var reservedUnits = await _unitOfWork.GetRepository<ReusableItem>()
+                    .GetAllByPropertyAsync(x =>
+                        x.SupplyRequestId == supplyRequestId &&
+                        x.ItemModelId     == itemModelId &&
+                        x.Status          == "Reserved");
+
+                if (reservedUnits.Count != quantity)
+                    throw new BadRequestException(
+                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): tìm thấy {reservedUnits.Count} đơn vị đặt trữ, " +
+                        $"không khớp với yêu cầu {quantity}. Quy trình có thể bị bỏ qua bước Accept.");
+
+                foreach (var unit in reservedUnits)
+                {
+                    unit.Status    = "InTransit";
+                    unit.DepotId   = null;   // en route — not at any depot
+                    unit.UpdatedAt = now;
+
+                    await _unitOfWork.GetRepository<ReusableItem>().UpdateAsync(unit);
+
+                    await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                    {
+                        ReusableItemId = unit.Id,
+                        ActionType     = "TransferOut",
+                        QuantityChange = 1,
+                        SourceType     = "SupplyRequest",
+                        SourceId       = supplyRequestId,
+                        PerformedBy    = performedBy,
+                        Note           = $"Xuất tiếp tế {itemModel.Name} (S/N: {unit.SerialNumber}) cho yêu cầu #{supplyRequestId}",
+                        CreatedAt      = now
+                    });
+                }
+            }
+            else
+            {
+                // ── Consumable: deduct Quantity + ReservedQuantity from supply_inventory ──
+                var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
+                    .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
+                    ?? throw new BadRequestException(
+                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): không tìm thấy tồn kho tại kho nguồn. " +
+                        "Quy trình có thể bị bỏ qua bước Accept.");
+
+                var reserved = inventory.ReservedQuantity ?? 0;
+                if (reserved < quantity)
+                    throw new BadRequestException(
+                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): số lượng đặt trữ ({reserved}) không đủ so với yêu cầu ({quantity}). " +
+                        "Quy trình có thể bị bỏ qua bước Accept.");
+
+                if ((inventory.Quantity ?? 0) < quantity)
+                    throw new BadRequestException(
+                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): tồn kho ({inventory.Quantity ?? 0}) không đủ so với yêu cầu ({quantity}).");
+
+                inventory.Quantity         = (inventory.Quantity ?? 0) - quantity;
+                inventory.ReservedQuantity = reserved - quantity;
+                inventory.LastStockedAt    = now;
+
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    DepotSupplyInventoryId = inventory.Id,
+                    ActionType             = "TransferOut",
+                    QuantityChange         = quantity,
+                    SourceType             = "SupplyRequest",
+                    SourceId               = supplyRequestId,
+                    PerformedBy            = performedBy,
+                    Note                   = $"Xuất tiếp tế {itemModel.Name} (#{itemModelId}) cho yêu cầu #{supplyRequestId}",
+                    CreatedAt              = now
+                });
+            }
         }
 
         await _unitOfWork.SaveAsync();
@@ -200,37 +292,81 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
         foreach (var (itemModelId, quantity) in items)
         {
-            var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
-                .GetByPropertyAsync(x => x.DepotId == requestingDepotId && x.ItemModelId == itemModelId, tracked: true);
+            var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
+                .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
+                ?? throw new NotFoundException($"Vật tư #{itemModelId} không tồn tại trong hệ thống.");
 
-            if (inventory == null)
+            if (itemModel.ItemType == "Reusable")
             {
-                inventory = new SupplyInventory
+                // ── Reusable: transition InTransit → Available at destination depot ──
+                var inTransitUnits = await _unitOfWork.GetRepository<ReusableItem>()
+                    .GetAllByPropertyAsync(x =>
+                        x.SupplyRequestId == supplyRequestId &&
+                        x.ItemModelId     == itemModelId &&
+                        x.Status          == "InTransit");
+
+                if (inTransitUnits.Count != quantity)
+                    throw new BadRequestException(
+                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): tìm thấy {inTransitUnits.Count} đơn vị đang vận chuyển, " +
+                        $"không khớp với yêu cầu {quantity}. Quy trình có thể bị bỏ qua bước Ship.");
+
+                foreach (var unit in inTransitUnits)
                 {
-                    DepotId          = requestingDepotId,
-                    ItemModelId      = itemModelId,
-                    Quantity         = 0,
-                    ReservedQuantity = 0,
-                    LastStockedAt    = now
-                };
-                await _unitOfWork.GetRepository<SupplyInventory>().AddAsync(inventory);
-                await _unitOfWork.SaveAsync();
+                    unit.DepotId         = requestingDepotId;
+                    unit.Status          = "Available";
+                    unit.SupplyRequestId = null;   // no longer tied to a transfer
+                    unit.UpdatedAt       = now;
+
+                    await _unitOfWork.GetRepository<ReusableItem>().UpdateAsync(unit);
+
+                    await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                    {
+                        ReusableItemId = unit.Id,
+                        ActionType     = "TransferIn",
+                        QuantityChange = 1,
+                        SourceType     = "SupplyRequest",
+                        SourceId       = supplyRequestId,
+                        PerformedBy    = performedBy,
+                        Note           = $"Nhận tiếp tế {itemModel.Name} (S/N: {unit.SerialNumber}) tại kho #{requestingDepotId} từ yêu cầu #{supplyRequestId}",
+                        CreatedAt      = now
+                    });
+                }
             }
-
-            inventory.Quantity      = (inventory.Quantity ?? 0) + quantity;
-            inventory.LastStockedAt = now;
-
-            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            else
             {
-                DepotSupplyInventoryId = inventory.Id,
-                ActionType             = "TransferIn",
-                QuantityChange         = quantity,
-                SourceType             = "SupplyRequest",
-                SourceId               = supplyRequestId,
-                PerformedBy            = performedBy,
-                Note                   = $"Nhận tiếp tế từ yêu cầu #{supplyRequestId}",
-                CreatedAt              = now
-            });
+                // ── Consumable: increase Quantity at destination supply_inventory ──
+                var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
+                    .GetByPropertyAsync(x => x.DepotId == requestingDepotId && x.ItemModelId == itemModelId, tracked: true);
+
+                if (inventory == null)
+                {
+                    inventory = new SupplyInventory
+                    {
+                        DepotId          = requestingDepotId,
+                        ItemModelId      = itemModelId,
+                        Quantity         = 0,
+                        ReservedQuantity = 0,
+                        LastStockedAt    = now
+                    };
+                    await _unitOfWork.GetRepository<SupplyInventory>().AddAsync(inventory);
+                    await _unitOfWork.SaveAsync(); // flush to get inventory.Id
+                }
+
+                inventory.Quantity      = (inventory.Quantity ?? 0) + quantity;
+                inventory.LastStockedAt = now;
+
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    DepotSupplyInventoryId = inventory.Id,
+                    ActionType             = "TransferIn",
+                    QuantityChange         = quantity,
+                    SourceType             = "SupplyRequest",
+                    SourceId               = supplyRequestId,
+                    PerformedBy            = performedBy,
+                    Note                   = $"Nhận tiếp tế {itemModel.Name} (#{itemModelId}) từ yêu cầu #{supplyRequestId}",
+                    CreatedAt              = now
+                });
+            }
         }
 
         await _unitOfWork.SaveAsync();

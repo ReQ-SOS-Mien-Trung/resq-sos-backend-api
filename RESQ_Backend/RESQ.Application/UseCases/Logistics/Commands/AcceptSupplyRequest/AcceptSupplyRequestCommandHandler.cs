@@ -3,6 +3,7 @@ using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
+using RESQ.Domain.Entities.Exceptions.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.AcceptSupplyRequest;
 
@@ -24,7 +25,7 @@ public class AcceptSupplyRequestCommandHandler(
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         if (managerDepotId != sr.SourceDepotId)
-            throw new BadRequestException("Bạn không phải manager của kho nguồn trong yêu cầu này.");
+            throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho nguồn trong yêu cầu này.");
 
         // Đặt trữ (reserve) vật tư tại kho nguồn — kiểm tra và tăng ReservedQuantity
         await supplyRequestRepository.ReserveItemsAsync(

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Personnel.Queries.GetAllRescueTeams;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyRescueTeam;
 using RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamDetail;
@@ -17,10 +18,12 @@ namespace RESQ.Presentation.Controllers.Personnel;
 [ApiController]
 public class RescueTeamsController(IMediator mediator) : ControllerBase
 {
-    private Guid? GetCurrentUserId()
+    private Guid GetCurrentUserId()
     {
         var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(userIdStr, out var userId) ? userId : null;
+        if (!Guid.TryParse(userIdStr, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+        return userId;
     }
 
     /// <summary>Lấy danh sách tất cả đội cứu hộ có phân trang.</summary>
@@ -47,9 +50,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMyTeam()
     {
         var userId = GetCurrentUserId();
-        if (userId is null) return Unauthorized();
-
-        var result = await mediator.Send(new GetMyRescueTeamQuery(userId.Value));
+        var result = await mediator.Send(new GetMyRescueTeamQuery(userId));
         return Ok(result);
     }
 
@@ -59,13 +60,11 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> CreateTeam([FromBody] CreateTeamRequestDto request)
     {
         var managedBy = GetCurrentUserId();
-        if (managedBy == null) return Unauthorized();
-
         var id = await mediator.Send(new CreateRescueTeamCommand(
             request.Name, 
             request.Type, 
             request.AssemblyPointId, 
-            managedBy.Value, 
+            managedBy, 
             request.MaxMembers, 
             request.Members
         ));
@@ -129,9 +128,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> AcceptInvitation(int id)
     {
         var userId = GetCurrentUserId();
-        if (userId == null) return Unauthorized();
-
-        await mediator.Send(new AcceptInvitationCommand(id, userId.Value));
+        await mediator.Send(new AcceptInvitationCommand(id, userId));
         return NoContent();
     }
 
@@ -141,9 +138,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> DeclineInvitation(int id)
     {
         var userId = GetCurrentUserId();
-        if (userId == null) return Unauthorized();
-
-        await mediator.Send(new DeclineInvitationCommand(id, userId.Value));
+        await mediator.Send(new DeclineInvitationCommand(id, userId));
         return NoContent();
     }
 
@@ -153,9 +148,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> CheckInMember(int id)
     {
         var userId = GetCurrentUserId();
-        if (userId == null) return Unauthorized();
-
-        await mediator.Send(new CheckInMemberCommand(id, userId.Value));
+        await mediator.Send(new CheckInMemberCommand(id, userId));
         return NoContent();
     }
 

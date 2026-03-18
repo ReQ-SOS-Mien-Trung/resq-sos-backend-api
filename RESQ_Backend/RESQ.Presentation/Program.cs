@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RESQ.Application.Extensions;
+using RESQ.Presentation.Middlewares;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Extensions;
 using RESQ.Presentation.Extensions;
@@ -201,5 +202,4 @@ app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat");
 app.MapHub<NotificationHub>("/hubs/notifications");
 
-app.Run();
 app.Run();

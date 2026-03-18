@@ -18,4 +18,24 @@ public class WarehouseStockDto
     /// Null when the manager's depot has no location data.
     /// </summary>
     public double? DistanceKm { get; set; }
+
+    /// <summary>
+    /// Breakdown of available units by condition for Reusable items.
+    /// Null for Consumable items.
+    /// </summary>
+    public ReusableConditionDto? ConditionBreakdown { get; set; }
+}
+
+/// <summary>
+/// Count of currently-available (Status = Available) units per condition value for a reusable item in a single depot.
+/// Only returned when ItemType = "Reusable".
+/// </summary>
+public class ReusableConditionDto
+{
+    /// <summary>Units with Condition = "Good" that are not reserved or in transit.</summary>
+    public int GoodAvailableCount { get; set; }
+    /// <summary>Units with Condition = "Fair" that are not reserved or in transit.</summary>
+    public int FairAvailableCount { get; set; }
+    /// <summary>Units with Condition = "Poor" that are not reserved or in transit.</summary>
+    public int PoorAvailableCount { get; set; }
 }

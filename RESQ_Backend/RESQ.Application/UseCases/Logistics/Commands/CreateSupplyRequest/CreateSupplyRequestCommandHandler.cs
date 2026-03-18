@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
+using RESQ.Domain.Entities.Exceptions.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
 
@@ -28,7 +29,7 @@ public class CreateSupplyRequestCommandHandler(
         // 2. Validate không có group nào trỏ về chính kho của manager
         var selfRequest = request.Requests.FirstOrDefault(r => r.SourceDepotId == requestingDepotId.Value);
         if (selfRequest != null)
-            throw new BadRequestException("Không thể tạo yêu cầu cung cấp từ chính kho của bạn.");
+            throw new InvalidSupplyRequestException("Không thể tạo yêu cầu cung cấp từ chính kho của bạn.");
 
         // 3. Xử lý từng kho nguồn
         var createdRequests = new List<CreatedSupplyRequestDto>();

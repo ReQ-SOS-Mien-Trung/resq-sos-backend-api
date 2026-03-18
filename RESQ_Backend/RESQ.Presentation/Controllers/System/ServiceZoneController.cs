@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.SystemConfig.Commands.CreateServiceZone;
 using RESQ.Application.UseCases.SystemConfig.Commands.UpdateServiceZone;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetServiceZone;
@@ -45,7 +46,7 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(userIdClaim, out var adminId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new CreateServiceZoneCommand(
             Name: dto.Name,
@@ -64,7 +65,7 @@ public class ServiceZoneController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(userIdClaim, out var adminId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new UpdateServiceZoneCommand(
             Id: id,

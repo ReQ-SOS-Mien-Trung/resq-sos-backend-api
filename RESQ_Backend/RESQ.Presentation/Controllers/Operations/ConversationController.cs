@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Operations.Commands.CoordinatorJoinConversation;
 using RESQ.Application.UseCases.Operations.Commands.LinkSosRequestToConversation;
 using RESQ.Application.UseCases.Operations.Commands.SelectSupportTopic;
@@ -31,9 +32,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetOrCreateMyConversation()
     {
         var userId = GetUserId();
-        if (userId == null) return Unauthorized();
-
-        var result = await _mediator.Send(new GetOrCreateVictimConversationQuery(userId.Value));
+        var result = await _mediator.Send(new GetOrCreateVictimConversationQuery(userId));
         return Ok(result);
     }
 
@@ -45,9 +44,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMyConversations()
     {
         var userId = GetUserId();
-        if (userId == null) return Unauthorized();
-
-        var result = await _mediator.Send(new GetVictimConversationsQuery(userId.Value));
+        var result = await _mediator.Send(new GetVictimConversationsQuery(userId));
         return Ok(result);
     }
 
@@ -63,10 +60,8 @@ public class ConversationController(IMediator mediator) : ControllerBase
         [FromBody] SelectTopicRequest dto)
     {
         var userId = GetUserId();
-        if (userId == null) return Unauthorized();
-
         var result = await _mediator.Send(
-            new SelectSupportTopicCommand(conversationId, userId.Value, dto.TopicKey));
+            new SelectSupportTopicCommand(conversationId, userId, dto.TopicKey));
         return Ok(result);
     }
 
@@ -81,10 +76,8 @@ public class ConversationController(IMediator mediator) : ControllerBase
         [FromBody] LinkSosRequestDto dto)
     {
         var userId = GetUserId();
-        if (userId == null) return Unauthorized();
-
         var result = await _mediator.Send(
-            new LinkSosRequestToConversationCommand(conversationId, userId.Value, dto.SosRequestId));
+            new LinkSosRequestToConversationCommand(conversationId, userId, dto.SosRequestId));
         return Ok(result);
     }
 
@@ -108,10 +101,8 @@ public class ConversationController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> CoordinatorJoin([FromRoute] int conversationId)
     {
         var userId = GetUserId();
-        if (userId == null) return Unauthorized();
-
         var result = await _mediator.Send(
-            new CoordinatorJoinConversationCommand(conversationId, userId.Value));
+            new CoordinatorJoinConversationCommand(conversationId, userId));
         return Ok(result);
     }
 
@@ -127,10 +118,8 @@ public class ConversationController(IMediator mediator) : ControllerBase
         [FromQuery] int pageSize = 50)
     {
         var userId = GetUserId();
-        if (userId == null) return Unauthorized();
-
         var result = await _mediator.Send(
-            new GetConversationMessagesQuery(conversationId, userId.Value, page, pageSize));
+            new GetConversationMessagesQuery(conversationId, userId, page, pageSize));
         return Ok(result);
     }
 
@@ -141,18 +130,18 @@ public class ConversationController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetConversationByMission([FromRoute] int missionId)
     {
         var userId = GetUserId();
-        if (userId == null) return Unauthorized();
-
-        var result = await _mediator.Send(new GetConversationByMissionQuery(missionId, userId.Value));
+        var result = await _mediator.Send(new GetConversationByMissionQuery(missionId, userId));
         return Ok(result);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private Guid? GetUserId()
+    private Guid GetUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(claim, out var id) ? id : null;
+        if (!Guid.TryParse(claim, out var id))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+        return id;
     }
 }
 

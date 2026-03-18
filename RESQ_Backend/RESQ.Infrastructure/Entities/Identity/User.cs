@@ -163,9 +163,6 @@ public partial class User
     [InverseProperty("Victim")]
     public virtual ICollection<Conversation> OwnedConversations { get; set; } = new List<Conversation>();
 
-    [InverseProperty("AllocatedByUser")]
-    public virtual ICollection<DepotFundAllocation> DepotFundAllocations { get; set; } = new List<DepotFundAllocation>();
-
     [InverseProperty("User")]
     public virtual ICollection<RescuerApplication> RescuerApplications { get; set; } = new List<RescuerApplication>();
 
@@ -193,4 +190,13 @@ public partial class User
 
     [InverseProperty("RequestedByUser")]
     public virtual ICollection<DepotSupplyRequest> DepotSupplyRequests { get; set; } = new List<DepotSupplyRequest>();
+
+    [InverseProperty("CreatedByUser")]
+    public virtual ICollection<CampaignDisbursement> CampaignDisbursements { get; set; } = new List<CampaignDisbursement>();
+
+    [InverseProperty("RequestedByUser")]
+    public virtual ICollection<FundingRequest> FundingRequestsCreated { get; set; } = new List<FundingRequest>();
+
+    [InverseProperty("ReviewedByUser")]
+    public virtual ICollection<FundingRequest> FundingRequestsReviewed { get; set; } = new List<FundingRequest>();
 }

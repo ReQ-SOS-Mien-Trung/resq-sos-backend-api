@@ -29,6 +29,13 @@ public partial class ReusableItem
     [StringLength(50)]
     public string? Condition { get; set; }
 
+    /// <summary>
+    /// FK linking this unit to the supply request that has reserved or is currently transferring it.
+    /// Null when the item is not part of any active transfer.
+    /// </summary>
+    [Column("supply_request_id")]
+    public int? SupplyRequestId { get; set; }
+
     [Column("note")]
     public string? Note { get; set; }
 

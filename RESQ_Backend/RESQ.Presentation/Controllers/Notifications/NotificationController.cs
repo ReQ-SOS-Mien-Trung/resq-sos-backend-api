@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Notifications.Commands.BroadcastAlert;
 using RESQ.Application.UseCases.Notifications.Commands.MarkAllNotificationsRead;
 using RESQ.Application.UseCases.Notifications.Commands.MarkNotificationRead;
@@ -22,8 +23,6 @@ public class NotificationController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMyNotifications([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized();
-
         var result = await _mediator.Send(new GetMyNotificationsQuery(userId, page, pageSize));
         return Ok(result);
     }
@@ -33,8 +32,6 @@ public class NotificationController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> MarkAsRead([FromRoute] int userNotificationId)
     {
         var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized();
-
         await _mediator.Send(new MarkNotificationReadCommand(userNotificationId, userId));
         return NoContent();
     }
@@ -44,8 +41,6 @@ public class NotificationController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> MarkAllAsRead()
     {
         var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized();
-
         await _mediator.Send(new MarkAllNotificationsReadCommand(userId));
         return NoContent();
     }
@@ -58,8 +53,6 @@ public class NotificationController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> BroadcastAlert([FromBody] BroadcastAlertRequestDto dto)
     {
         var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized();
-
         var command = new BroadcastAlertCommand(userId, dto.Title, dto.Body, dto.Type ?? "flood_alert");
         var result = await _mediator.Send(command);
         return Ok(result);
@@ -68,7 +61,9 @@ public class NotificationController(IMediator mediator) : ControllerBase
     private Guid GetUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+        if (!Guid.TryParse(claim, out var id))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+        return id;
     }
 }
 
