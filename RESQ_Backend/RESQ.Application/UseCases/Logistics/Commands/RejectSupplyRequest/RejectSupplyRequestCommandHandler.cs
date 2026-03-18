@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -16,8 +17,7 @@ public class RejectSupplyRequestCommandHandler(
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{request.SupplyRequestId}.");
 
-        if (sr.SourceStatus != "Pending")
-            throw new BadRequestException($"Yêu cầu #{sr.Id} không ở trạng thái chờ duyệt (hiện tại: {sr.SourceStatus}).");
+        SupplyRequestStateMachine.EnsureCanReject(sr.SourceStatus, sr.RequestingStatus);
 
         var managerDepotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");

@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -6,8 +7,8 @@ using RESQ.Application.Services;
 namespace RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 
 /// <summary>
-/// Kho nguồn xác nhận đã hoàn tất giao hàng — chuyển SourceStatus: Shipped → Completed.
-/// RequestingDepotStatus vẫn giữ InTransit cho đến khi kho yêu cầu xác nhận nhận hàng.
+/// Kho nguồn xác nhận đã hoàn tất giao hàng — chuyển SourceStatus: Shipping → Completed.
+/// RequestingDepotStatus vẫn giữ InTransit — đợi kho yêu cầu xác nhận nhận hàng sau.
 /// </summary>
 public class CompleteSupplyRequestCommandHandler(
     ISupplyRequestRepository supplyRequestRepository,
@@ -20,8 +21,7 @@ public class CompleteSupplyRequestCommandHandler(
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{request.SupplyRequestId}.");
 
-        if (sr.SourceStatus != "Shipped")
-            throw new BadRequestException($"Yêu cầu #{sr.Id} không ở trạng thái đã vận chuyển (hiện tại: {sr.SourceStatus}).");
+        SupplyRequestStateMachine.EnsureCanComplete(sr.SourceStatus);
 
         var managerDepotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");

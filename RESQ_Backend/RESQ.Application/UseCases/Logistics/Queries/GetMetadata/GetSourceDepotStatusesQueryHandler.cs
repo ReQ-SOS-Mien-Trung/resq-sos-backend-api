@@ -17,7 +17,7 @@ public class GetSourceDepotStatusesQueryHandler : IRequestHandler<GetSourceDepot
                     SourceDepotStatus.Pending   => "Chờ xem xét",
                     SourceDepotStatus.Accepted  => "Đã chấp nhận",
                     SourceDepotStatus.Preparing => "Đang chuẩn bị hàng",
-                    SourceDepotStatus.Shipped   => "Đã xuất kho – đang vận chuyển",
+                    SourceDepotStatus.Shipping  => "Đang vận chuyển",
                     SourceDepotStatus.Completed => "Hoàn tất",
                     SourceDepotStatus.Rejected  => "Đã từ chối",
                     _                           => e.ToString()

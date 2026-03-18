@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -6,7 +7,7 @@ using RESQ.Application.Services;
 namespace RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
 
 /// <summary>
-/// Kho nguồn xuất hàng (TransferOut) và chuyển trạng thái sang Shipped.
+/// Kho nguồn xuất hàng (TransferOut) và chuyển trạng thái sang Shipping (đang vận chuyển).
 /// Inventory source depot giảm tương ứng.
 /// </summary>
 public class ShipSupplyRequestCommandHandler(
@@ -20,8 +21,7 @@ public class ShipSupplyRequestCommandHandler(
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{request.SupplyRequestId}.");
 
-        if (sr.SourceStatus != "Preparing")
-            throw new BadRequestException($"Yêu cầu #{sr.Id} không ở trạng thái đang chuẩn bị hàng (hiện tại: {sr.SourceStatus}).");
+        SupplyRequestStateMachine.EnsureCanShip(sr.SourceStatus);
 
         var managerDepotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
@@ -33,7 +33,7 @@ public class ShipSupplyRequestCommandHandler(
         await supplyRequestRepository.TransferOutAsync(
             sr.SourceDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
 
-        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Shipped", "InTransit", null, cancellationToken);
+        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Shipping", "InTransit", null, cancellationToken);
 
         // Notify requesting manager
         await firebaseService.SendNotificationToUserAsync(

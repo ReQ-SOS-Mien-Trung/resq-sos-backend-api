@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 
@@ -19,11 +20,7 @@ public class ConfirmSupplyRequestCommandHandler(
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{request.SupplyRequestId}.");
 
-        if (sr.SourceStatus != "Completed")
-            throw new BadRequestException($"Yêu cầu #{sr.Id}: kho nguồn chưa hoàn tất giao hàng (hiện tại: {sr.SourceStatus}).");
-
-        if (sr.RequestingStatus != "InTransit")
-            throw new BadRequestException($"Yêu cầu #{sr.Id} không ở trạng thái đang vận chuyển (hiện tại: {sr.RequestingStatus}).");
+        SupplyRequestStateMachine.EnsureCanConfirmReceived(sr.SourceStatus, sr.RequestingStatus);
 
         // Chỉ manager của kho yêu cầu (requesting depot) mới được confirm
         var managerDepotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
