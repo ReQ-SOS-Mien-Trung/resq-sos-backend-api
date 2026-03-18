@@ -12,5 +12,7 @@
         public string? LastName { get; set; }
         public int? RoleId { get; set; }
         public List<string> Permissions { get; set; } = [];
+        public int? DepotId { get; set; }
+        public string? DepotName { get; set; }
     }
 }

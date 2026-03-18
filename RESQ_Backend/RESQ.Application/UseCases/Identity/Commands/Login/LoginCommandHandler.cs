@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Identity.Commands.Login
@@ -14,7 +15,9 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
         ITokenService tokenService,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
-        ILogger<LoginCommandHandler> logger
+        ILogger<LoginCommandHandler> logger,
+        IDepotInventoryRepository depotInventoryRepository,
+        IDepotRepository depotRepository
     ) : IRequestHandler<LoginCommand, LoginResonse>
     {
         private readonly IUserRepository _userRepository = userRepository;
@@ -23,6 +26,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly IConfiguration _configuration = configuration;
         private readonly ILogger<LoginCommandHandler> _logger = logger;
+        private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+        private readonly IDepotRepository _depotRepository = depotRepository;
 
         public async Task<LoginResonse> Handle(LoginCommand request, CancellationToken cancellationToken)
         {
@@ -70,6 +75,16 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
 
             var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
 
+            int? depotId = null;
+            string? depotName = null;
+            var managedDepotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(user.Id, cancellationToken);
+            if (managedDepotId.HasValue)
+            {
+                depotId = managedDepotId.Value;
+                var depot = await _depotRepository.GetByIdAsync(managedDepotId.Value, cancellationToken);
+                depotName = depot?.Name;
+            }
+
             return new LoginResonse
             {
                 AccessToken = accessToken,
@@ -81,7 +96,9 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 RoleId = user.RoleId,
-                Permissions = permissions
+                Permissions = permissions,
+                DepotId = depotId,
+                DepotName = depotName
             };
         }
 

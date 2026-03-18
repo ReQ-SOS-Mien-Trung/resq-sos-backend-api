@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Identity;
+using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
 {
@@ -9,13 +10,17 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         IUserRepository userRepository,
         IRescuerApplicationRepository rescuerApplicationRepository,
         IPermissionRepository permissionRepository,
-        ILogger<GetCurrentUserQueryHandler> logger
+        ILogger<GetCurrentUserQueryHandler> logger,
+        IDepotInventoryRepository depotInventoryRepository,
+        IDepotRepository depotRepository
     ) : IRequestHandler<GetCurrentUserQuery, GetCurrentUserResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
         private readonly IRescuerApplicationRepository _rescuerApplicationRepository = rescuerApplicationRepository;
         private readonly IPermissionRepository _permissionRepository = permissionRepository;
         private readonly ILogger<GetCurrentUserQueryHandler> _logger = logger;
+        private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+        private readonly IDepotRepository _depotRepository = depotRepository;
 
         public async Task<GetCurrentUserResponse> Handle(GetCurrentUserQuery request, CancellationToken cancellationToken)
         {
@@ -51,6 +56,16 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
 
             var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
 
+            int? depotId = null;
+            string? depotName = null;
+            var managedDepotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(user.Id, cancellationToken);
+            if (managedDepotId.HasValue)
+            {
+                depotId = managedDepotId.Value;
+                var depot = await _depotRepository.GetByIdAsync(managedDepotId.Value, cancellationToken);
+                depotName = depot?.Name;
+            }
+
             return new GetCurrentUserResponse
             {
                 Id = user.Id,
@@ -72,7 +87,9 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
                 ApprovedBy = user.ApprovedBy,
                 ApprovedAt = user.ApprovedAt,
                 RescuerApplicationDocuments = documents,
-                Permissions = permissions
+                Permissions = permissions,
+                DepotId = depotId,
+                DepotName = depotName
             };
         }
     }
