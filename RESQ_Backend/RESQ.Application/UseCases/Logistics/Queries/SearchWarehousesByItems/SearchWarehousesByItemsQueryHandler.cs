@@ -49,7 +49,7 @@ public class SearchWarehousesByItemsQueryHandler(
             .Select(g =>
             {
                 var first = g.First();
-                var warehouses = g.Select(r =>
+                var unsorted = g.Select(r =>
                 {
                     double? distanceKm = null;
                     if (managerLocation.HasValue && r.DepotLatitude.HasValue && r.DepotLongitude.HasValue)
@@ -71,13 +71,31 @@ public class SearchWarehousesByItemsQueryHandler(
                         ReservedQuantity  = r.ReservedQuantity,
                         AvailableQuantity = r.AvailableQuantity,
                         LastStockedAt     = r.LastStockedAt,
-                        DistanceKm        = distanceKm.HasValue ? Math.Round(distanceKm.Value, 2) : null
+                        DistanceKm        = distanceKm.HasValue ? Math.Round(distanceKm.Value, 2) : null,
+                        ConditionBreakdown = first.ItemType == "Reusable"
+                            ? new ReusableConditionDto
+                              {
+                                  GoodAvailableCount = r.GoodAvailableCount,
+                                  FairAvailableCount = r.FairAvailableCount,
+                                  PoorAvailableCount = r.PoorAvailableCount
+                              }
+                            : null
                     };
-                })
-                // Nearest depot first; depots without location go to the end
-                .OrderBy(w => w.DistanceKm.HasValue ? 0 : 1)
-                .ThenBy(w => w.DistanceKm)
-                .ToList();
+                }).ToList();
+
+                // Reusable: sort by most Good-condition units first, then by distance.
+                // Consumable: sort by distance (nearest first).
+                var warehouses = first.ItemType == "Reusable"
+                    ? unsorted
+                        .OrderByDescending(w => w.ConditionBreakdown!.GoodAvailableCount)
+                        .ThenByDescending(w => w.ConditionBreakdown!.FairAvailableCount)
+                        .ThenBy(w => w.DistanceKm.HasValue ? 0 : 1)
+                        .ThenBy(w => w.DistanceKm)
+                        .ToList()
+                    : unsorted
+                        .OrderBy(w => w.DistanceKm.HasValue ? 0 : 1)
+                        .ThenBy(w => w.DistanceKm)
+                        .ToList();
 
                 return new ItemWarehouseAvailabilityDto
                 {

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
@@ -38,7 +39,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new CreateMissionCommand(
             dto.ClusterId,
@@ -74,7 +75,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var result = await _mediator.Send(new GetMyTeamMissionsQuery(userId));
         return Ok(result);
@@ -88,8 +89,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMissionById([FromRoute] int missionId)
     {
         var result = await _mediator.Send(new GetMissionByIdQuery(missionId));
-        if (result is null) return NotFound();
-        return Ok(result);
+        return Ok(result ?? throw new NotFoundException($"Không tìm thấy mission #{missionId}."));
     }
 
     /// <summary>
@@ -145,7 +145,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new AddMissionActivityCommand(
             missionId,
@@ -203,7 +203,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new UpdateActivityStatusCommand(activityId, dto.Status, userId);
         var result = await _mediator.Send(command);
@@ -217,7 +217,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new AssignTeamToActivityCommand(activityId, missionId, dto.RescueTeamId, userId);
         var result = await _mediator.Send(command);
@@ -264,7 +264,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new AssignTeamToMissionCommand(missionId, dto.RescueTeamId, userId);
         var result = await _mediator.Send(command);
@@ -280,7 +280,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new UnassignTeamFromMissionCommand(missionTeamId, userId);
         var result = await _mediator.Send(command);

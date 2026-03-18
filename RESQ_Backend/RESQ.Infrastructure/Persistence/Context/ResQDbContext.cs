@@ -26,7 +26,10 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Conversation> Conversations { get; set; }
     public virtual DbSet<ConversationParticipant> ConversationParticipants { get; set; }
     public virtual DbSet<Depot> Depots { get; set; }
-    public virtual DbSet<DepotFundAllocation> DepotFundAllocations { get; set; }
+    public virtual DbSet<CampaignDisbursement> CampaignDisbursements { get; set; }
+    public virtual DbSet<DisbursementItem> DisbursementItems { get; set; }
+    public virtual DbSet<FundingRequest> FundingRequests { get; set; }
+    public virtual DbSet<FundingRequestItem> FundingRequestItems { get; set; }
     public virtual DbSet<DocumentFileType> DocumentFileTypes { get; set; }
     public virtual DbSet<DocumentFileTypeCategory> DocumentFileTypeCategories { get; set; }
     public virtual DbSet<DepotManager> DepotManagers { get; set; }

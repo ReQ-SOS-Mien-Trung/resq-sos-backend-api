@@ -41,9 +41,6 @@ public partial class Depot
     public DateTime? LastUpdatedAt { get; set; }
 
     [InverseProperty("Depot")]
-    public virtual ICollection<DepotFundAllocation> DepotFundAllocations { get; set; } = new List<DepotFundAllocation>();
-
-    [InverseProperty("Depot")]
     public virtual ICollection<DepotManager> DepotManagers { get; set; } = new List<DepotManager>();
 
     [InverseProperty("Depot")]
@@ -60,4 +57,10 @@ public partial class Depot
 
     [InverseProperty("SourceDepot")]
     public virtual ICollection<DepotSupplyRequest> SupplyRequestsAsSource { get; set; } = new List<DepotSupplyRequest>();
+
+    [InverseProperty("Depot")]
+    public virtual ICollection<CampaignDisbursement> CampaignDisbursements { get; set; } = new List<CampaignDisbursement>();
+
+    [InverseProperty("Depot")]
+    public virtual ICollection<FundingRequest> FundingRequests { get; set; } = new List<FundingRequest>();
 }

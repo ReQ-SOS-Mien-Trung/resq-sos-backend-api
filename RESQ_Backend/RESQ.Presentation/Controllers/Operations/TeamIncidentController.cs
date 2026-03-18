@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 using RESQ.Application.UseCases.Operations.Commands.UpdateTeamIncidentStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetAllTeamIncidents;
@@ -34,7 +35,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new ReportTeamIncidentCommand(
             dto.MissionTeamId, dto.Description, dto.Latitude, dto.Longitude, userId);
@@ -50,10 +51,10 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         if (!Enum.TryParse<TeamIncidentStatus>(dto.Status, ignoreCase: true, out var newStatus))
-            return BadRequest(new { message = $"Trạng thái không hợp lệ: {dto.Status}" });
+            throw new BadRequestException($"Trạng thái không hợp lệ: {dto.Status}");
 
         var command = new UpdateTeamIncidentStatusCommand(incidentId, newStatus, dto.NeedsAssistance, dto.HasInjuredMember, userId);
         var result = await _mediator.Send(command);

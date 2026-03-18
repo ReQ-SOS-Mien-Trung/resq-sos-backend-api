@@ -123,6 +123,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     TargetGroup         = g.Key.TargetGroup,
                     TotalUnits          = g.Count(),
                     AvailableUnits      = g.Count(x => x.dri.Status == "Available"),
+                    ReservedUnits       = g.Count(x => x.dri.Status == "Reserved"),
+                    InTransitUnits      = g.Count(x => x.dri.Status == "InTransit"),
                     InUseUnits          = g.Count(x => x.dri.Status == "InUse"),
                     MaintenanceUnits    = g.Count(x => x.dri.Status == "Maintenance"),
                     DecommissionedUnits = g.Count(x => x.dri.Status == "Decommissioned"),
@@ -148,12 +150,14 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 TargetGroup       = x.TargetGroup,
                 Availability      = _inventoryQueryService.ComputeAvailability(
                                         x.TotalUnits,
-                                        x.InUseUnits + x.MaintenanceUnits),
+                                        x.ReservedUnits + x.InTransitUnits + x.InUseUnits + x.MaintenanceUnits),
                 LastStockedAt     = x.LastStockedAt,
                 ReusableBreakdown = new RESQ.Domain.Entities.Logistics.ValueObjects.ReusableBreakdown
                 {
                     TotalUnits          = x.TotalUnits,
                     AvailableUnits      = x.AvailableUnits,
+                    ReservedUnits       = x.ReservedUnits,
+                    InTransitUnits      = x.InTransitUnits,
                     InUseUnits          = x.InUseUnits,
                     MaintenanceUnits    = x.MaintenanceUnits,
                     DecommissionedUnits = x.DecommissionedUnits,
@@ -330,10 +334,13 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 DepotAddress      = x.depot.Address ?? string.Empty,
                 DepotStatus       = x.depot.Status,
                 DepotLocation     = x.depot.Location,
-                TotalQuantity     = x.dsi.Quantity ?? 0,
-                ReservedQuantity  = x.dsi.ReservedQuantity ?? 0,
-                AvailableQuantity = (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0),
-                LastStockedAt     = x.dsi.LastStockedAt
+                TotalQuantity          = x.dsi.Quantity ?? 0,
+                ReservedQuantity       = x.dsi.ReservedQuantity ?? 0,
+                AvailableQuantity      = (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0),
+                LastStockedAt          = x.dsi.LastStockedAt,
+                GoodAvailableCount     = 0,  // N/A for Consumable
+                FairAvailableCount     = 0,
+                PoorAvailableCount     = 0
             })
             .ToListAsync(cancellationToken);
 
@@ -365,6 +372,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 DepotAddress  = x.depot.Address ?? string.Empty,
                 DepotStatus   = x.depot.Status,
                 DepotLocation = x.depot.Location,
+                Condition     = x.dri.Condition,
                 IsAvailable   = x.dri.Status == "Available",
                 CreatedAt     = x.dri.CreatedAt
             })
@@ -381,20 +389,23 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 var available = g.Count(x => x.IsAvailable);
                 return new
                 {
-                    ItemModelId       = f.ItemModelId,
-                    ItemModelName     = f.ItemModelName,
-                    CategoryName      = f.CategoryName,
-                    ItemType          = f.ItemType,
-                    Unit              = f.Unit,
-                    DepotId           = f.DepotId,
-                    DepotName         = f.DepotName,
-                    DepotAddress      = f.DepotAddress,
-                    DepotStatus       = f.DepotStatus,
-                    DepotLocation     = f.DepotLocation,
-                    TotalQuantity     = total,
-                    ReservedQuantity  = total - available,
-                    AvailableQuantity = available,
-                    LastStockedAt     = g.Max(x => x.CreatedAt)
+                    ItemModelId            = f.ItemModelId,
+                    ItemModelName          = f.ItemModelName,
+                    CategoryName           = f.CategoryName,
+                    ItemType               = f.ItemType,
+                    Unit                   = f.Unit,
+                    DepotId                = f.DepotId,
+                    DepotName              = f.DepotName,
+                    DepotAddress           = f.DepotAddress,
+                    DepotStatus            = f.DepotStatus,
+                    DepotLocation          = f.DepotLocation,
+                    TotalQuantity          = total,
+                    ReservedQuantity       = total - available,
+                    AvailableQuantity      = available,
+                    LastStockedAt          = g.Max(x => x.CreatedAt),
+                    GoodAvailableCount     = g.Count(x => x.IsAvailable && x.Condition == "Good"),
+                    FairAvailableCount     = g.Count(x => x.IsAvailable && x.Condition == "Fair"),
+                    PoorAvailableCount     = g.Count(x => x.IsAvailable && x.Condition == "Poor")
                 };
             })
             .ToList();
@@ -443,10 +454,13 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 DepotStatus       = x.DepotStatus,
                 DepotLatitude     = x.DepotLocation?.Y,
                 DepotLongitude    = x.DepotLocation?.X,
-                TotalQuantity     = x.TotalQuantity,
-                ReservedQuantity  = x.ReservedQuantity,
-                AvailableQuantity = x.AvailableQuantity,
-                LastStockedAt     = x.LastStockedAt
+                TotalQuantity          = x.TotalQuantity,
+                ReservedQuantity       = x.ReservedQuantity,
+                AvailableQuantity      = x.AvailableQuantity,
+                LastStockedAt          = x.LastStockedAt,
+                GoodAvailableCount     = x.GoodAvailableCount,
+                FairAvailableCount     = x.FairAvailableCount,
+                PoorAvailableCount     = x.PoorAvailableCount
             })
             .ToList();
 

@@ -62,11 +62,14 @@ public partial class FundCampaign
     public virtual User? CreatedByUser { get; set; }
 
     [InverseProperty("FundCampaign")]
-    public virtual ICollection<DepotFundAllocation> DepotFundAllocations { get; set; } = new List<DepotFundAllocation>();
-
-    [InverseProperty("FundCampaign")]
     public virtual ICollection<Donation> Donations { get; set; } = new List<Donation>();
 
     [InverseProperty("FundCampaign")]
     public virtual ICollection<FundTransaction> FundTransactions { get; set; } = new List<FundTransaction>();
+
+    [InverseProperty("FundCampaign")]
+    public virtual ICollection<CampaignDisbursement> CampaignDisbursements { get; set; } = new List<CampaignDisbursement>();
+
+    [InverseProperty("ApprovedCampaign")]
+    public virtual ICollection<FundingRequest> FundingRequests { get; set; } = new List<FundingRequest>();
 }

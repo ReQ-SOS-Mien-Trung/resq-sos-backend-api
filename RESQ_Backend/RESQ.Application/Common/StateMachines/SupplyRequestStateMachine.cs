@@ -1,4 +1,4 @@
-using RESQ.Application.Exceptions;
+using RESQ.Domain.Entities.Exceptions.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Common.StateMachines;
@@ -30,11 +30,11 @@ public static class SupplyRequestStateMachine
     public static void EnsureCanAccept(string sourceStatus, string requestingStatus)
     {
         if (sourceStatus != nameof(SourceDepotStatus.Pending))
-            throw new BadRequestException(
+            throw new InvalidSupplyRequestStateException(
                 $"Chỉ có thể chấp nhận khi yêu cầu đang ở trạng thái '{nameof(SourceDepotStatus.Pending)}' (hiện tại: {sourceStatus}).");
 
         if (requestingStatus != nameof(RequestingDepotStatus.WaitingForApproval))
-            throw new BadRequestException(
+            throw new InvalidSupplyRequestStateException(
                 $"Trạng thái kho yêu cầu không hợp lệ: kỳ vọng '{nameof(RequestingDepotStatus.WaitingForApproval)}', hiện tại: {requestingStatus}.");
     }
 
@@ -45,11 +45,11 @@ public static class SupplyRequestStateMachine
     public static void EnsureCanReject(string sourceStatus, string requestingStatus)
     {
         if (sourceStatus != nameof(SourceDepotStatus.Pending))
-            throw new BadRequestException(
+            throw new InvalidSupplyRequestStateException(
                 $"Chỉ có thể từ chối khi yêu cầu đang ở trạng thái '{nameof(SourceDepotStatus.Pending)}' (hiện tại: {sourceStatus}).");
 
         if (requestingStatus != nameof(RequestingDepotStatus.WaitingForApproval))
-            throw new BadRequestException(
+            throw new InvalidSupplyRequestStateException(
                 $"Trạng thái kho yêu cầu không hợp lệ: kỳ vọng '{nameof(RequestingDepotStatus.WaitingForApproval)}', hiện tại: {requestingStatus}.");
     }
 
@@ -60,7 +60,7 @@ public static class SupplyRequestStateMachine
     public static void EnsureCanPrepare(string sourceStatus)
     {
         if (sourceStatus != nameof(SourceDepotStatus.Accepted))
-            throw new BadRequestException(
+            throw new InvalidSupplyRequestStateException(
                 $"Chỉ có thể bắt đầu chuẩn bị khi yêu cầu đang ở trạng thái '{nameof(SourceDepotStatus.Accepted)}' (hiện tại: {sourceStatus}).");
     }
 
@@ -71,7 +71,7 @@ public static class SupplyRequestStateMachine
     public static void EnsureCanShip(string sourceStatus)
     {
         if (sourceStatus != nameof(SourceDepotStatus.Preparing))
-            throw new BadRequestException(
+            throw new InvalidSupplyRequestStateException(
                 $"Chỉ có thể xuất kho khi yêu cầu đang ở trạng thái '{nameof(SourceDepotStatus.Preparing)}' (hiện tại: {sourceStatus}).");
     }
 
@@ -82,7 +82,7 @@ public static class SupplyRequestStateMachine
     public static void EnsureCanComplete(string sourceStatus)
     {
         if (sourceStatus != nameof(SourceDepotStatus.Shipping))
-            throw new BadRequestException(
+            throw new InvalidSupplyRequestStateException(
                 $"Chỉ có thể xác nhận hoàn tất giao hàng khi yêu cầu đang ở trạng thái '{nameof(SourceDepotStatus.Shipping)}' (hiện tại: {sourceStatus}).");
     }
 
@@ -93,11 +93,11 @@ public static class SupplyRequestStateMachine
     public static void EnsureCanConfirmReceived(string sourceStatus, string requestingStatus)
     {
         if (sourceStatus != nameof(SourceDepotStatus.Completed))
-            throw new BadRequestException(
+            throw new InvalidSupplyRequestStateException(
                 $"Kho nguồn chưa xác nhận hoàn tất giao hàng — kỳ vọng '{nameof(SourceDepotStatus.Completed)}', hiện tại: {sourceStatus}.");
 
         if (requestingStatus != nameof(RequestingDepotStatus.InTransit))
-            throw new BadRequestException(
+            throw new InvalidSupplyRequestStateException(
                 $"Chỉ có thể xác nhận nhận hàng khi đang ở trạng thái '{nameof(RequestingDepotStatus.InTransit)}' (hiện tại: {requestingStatus}).");
     }
 }

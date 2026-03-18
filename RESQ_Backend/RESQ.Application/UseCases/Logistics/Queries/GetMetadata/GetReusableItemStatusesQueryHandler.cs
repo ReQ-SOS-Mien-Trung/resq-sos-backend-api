@@ -15,6 +15,8 @@ public class GetReusableItemStatusesQueryHandler : IRequestHandler<GetReusableIt
                 Value = e switch
                 {
                     ReusableItemStatus.Available      => "Sẵn sàng",
+                    ReusableItemStatus.Reserved       => "Đã đặt trữ (chờ xuất kho)",
+                    ReusableItemStatus.InTransit      => "Đang vận chuyển",
                     ReusableItemStatus.InUse          => "Đang sử dụng",
                     ReusableItemStatus.Maintenance    => "Đang bảo trì",
                     ReusableItemStatus.Decommissioned => "Đã thanh lý",

@@ -91,8 +91,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFundCampaignRepository, FundCampaignRepository>();
         services.AddScoped<IDonationRepository, DonationRepository>();
         services.AddScoped<IFundTransactionRepository, FundTransactionRepository>();
-        services.AddScoped<IDepotFundAllocationRepository, DepotFundAllocationRepository>();
         services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
+        services.AddScoped<ICampaignDisbursementRepository, CampaignDisbursementRepository>();
+        services.AddScoped<IFundingRequestRepository, FundingRequestRepository>();
 
         // System Repositories
         services.AddScoped<IPromptRepository, PromptRepository>();
@@ -113,6 +114,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IGoongMapService, GoongMapService>();
         services.AddScoped<IExcelExportService, ExcelExportService>();
+        services.AddScoped<IFundingRequestExcelParser, FundingRequestExcelParser>();
         
         // Domain Services
         services.AddScoped<IFundDistributionManager, FundDistributionManager>();

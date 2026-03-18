@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +21,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>Lấy danh sách chiến dịch gây quỹ có phân trang.</summary>
+    /// <summary>L?y danh s�ch chi?n d?ch g�y qu? c� ph�n trang.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<CampaignListDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -31,7 +31,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>[Metadata] Danh sách chiến dịch đang hoạt động dùng cho dropdown.</summary>
+    /// <summary>[Metadata] Danh s�ch chi?n d?ch dang ho?t d?ng d�ng cho dropdown.</summary>
     [HttpGet("metadata")]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMetadata()
@@ -41,9 +41,9 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Tạo chiến dịch gây quỹ mới.</summary>
+    /// <summary>T?o chi?n d?ch g�y qu? m?i.</summary>
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "1")]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -62,9 +62,9 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { id }, id);
     }
 
-    /// <summary>Cập nhật thông tin cơ bản (tên, khu vực) của chiến dịch.</summary>
+    /// <summary>C?p nh?t th�ng tin co b?n (t�n, khu v?c) c?a chi?n d?ch.</summary>
     [HttpPut("{id}/info")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -81,9 +81,9 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Gia hạn ngày kết thúc chiến dịch.</summary>
+    /// <summary>Gia h?n ng�y k?t th�c chi?n d?ch.</summary>
     [HttpPut("{id}/extension")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -99,9 +99,9 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Tăng mục tiêu số tiền cần gây quỹ.</summary>
+    /// <summary>Tang m?c ti�u s? ti?n c?n g�y qu?.</summary>
     [HttpPut("{id}/target")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -117,9 +117,9 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Thay đổi trạng thái chiến dịch (Active / Closed / ...).</summary>
+    /// <summary>Thay d?i tr?ng th�i chi?n d?ch (Active / Closed / ...).</summary>
     [HttpPatch("{id}/status")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -135,9 +135,9 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Xóa mềm chiến dịch.</summary>
+    /// <summary>X�a m?m chi?n d?ch.</summary>
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

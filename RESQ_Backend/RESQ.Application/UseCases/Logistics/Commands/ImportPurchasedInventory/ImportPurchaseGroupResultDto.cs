@@ -7,4 +7,10 @@ public class ImportPurchaseGroupResultDto
     public int Imported { get; set; }
     public int Failed { get; set; }
     public List<ImportPurchasedErrorDto> Errors { get; set; } = new();
+
+    /// <summary>
+    /// Số vật phẩm đã tự động ghi vào bảng công khai disbursement_items
+    /// (chỉ có giá trị khi CampaignDisbursementId được cung cấp).
+    /// </summary>
+    public int? DisbursementItemsLogged { get; set; }
 }

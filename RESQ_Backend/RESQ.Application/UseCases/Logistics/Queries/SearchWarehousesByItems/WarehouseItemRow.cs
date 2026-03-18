@@ -22,4 +22,12 @@ public class WarehouseItemRow
     public int ReservedQuantity { get; set; }
     public int AvailableQuantity { get; set; }
     public DateTime? LastStockedAt { get; set; }
+
+    // ── Reusable-only fields (0 for Consumable) ──────────────────────────────
+    /// <summary>Available units with Condition = "Good". Only populated for Reusable items.</summary>
+    public int GoodAvailableCount { get; set; }
+    /// <summary>Available units with Condition = "Fair". Only populated for Reusable items.</summary>
+    public int FairAvailableCount { get; set; }
+    /// <summary>Available units with Condition = "Poor". Only populated for Reusable items.</summary>
+    public int PoorAvailableCount { get; set; }
 }

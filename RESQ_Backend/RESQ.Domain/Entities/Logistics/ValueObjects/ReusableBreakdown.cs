@@ -11,7 +11,11 @@ public record ReusableBreakdown
 
     /// <summary>Số đơn vị đang sẵn sàng sử dụng.</summary>
     public int AvailableUnits { get; init; }
+    /// <summary>Số đơn vị đã được đặt trữ cho yêu cầu cung cấp (chưa xuất kho).</summary>
+    public int ReservedUnits { get; init; }
 
+    /// <summary>Số đơn vị đang trên đường vận chuyển.</summary>
+    public int InTransitUnits { get; init; }
     /// <summary>Số đơn vị đang được sử dụng.</summary>
     public int InUseUnits { get; init; }
 
