@@ -74,6 +74,9 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
         if (status == MissionActivityStatus.Succeed || status == MissionActivityStatus.Failed)
             entity.CompletedAt = DateTime.UtcNow;
 
+        if (status == MissionActivityStatus.Succeed)
+            entity.CompletedBy = decisionBy;
+
         await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);
     }
 

@@ -54,6 +54,9 @@ public partial class MissionActivity
     [Column("last_decision_by")]
     public Guid? LastDecisionBy { get; set; }
 
+    [Column("completed_by")]
+    public Guid? CompletedBy { get; set; }
+
     [Column("mission_team_id")]
     public int? MissionTeamId { get; set; }
 
@@ -80,6 +83,9 @@ public partial class MissionActivity
     [ForeignKey("LastDecisionBy")]
     [InverseProperty("MissionActivities")]
     public virtual User? LastDecisionByUser { get; set; }
+
+    [ForeignKey("CompletedBy")]
+    public virtual User? CompletedByUser { get; set; }
 
     [ForeignKey("MissionId")]
     [InverseProperty("MissionActivities")]

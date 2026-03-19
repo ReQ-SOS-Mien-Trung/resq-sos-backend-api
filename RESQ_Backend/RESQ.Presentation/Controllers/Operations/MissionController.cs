@@ -18,7 +18,6 @@ using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeams;
 using RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
-using RESQ.Application.UseCases.Operations.Commands.ConfirmMissionSupplyPickup;
 using RESQ.Application.UseCases.Operations.Queries.GetRescuerRoute;
 
 namespace RESQ.Presentation.Controllers.Operations;
@@ -208,19 +207,6 @@ public class MissionController(IMediator mediator) : ControllerBase
 
         var command = new UpdateActivityStatusCommand(activityId, dto.Status, userId);
         var result = await _mediator.Send(command);
-        return Ok(result);
-    }
-
-    /// <summary>Team xác nhận đã lấy hàng tại kho — trừ ReservedQuantity và Quantity trong kho.</summary>
-    [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-supply-pickup")]
-    [Authorize(Policy = PermissionConstants.PolicyActivityAccess)]
-    public async Task<IActionResult> ConfirmSupplyPickup([FromRoute] int missionId, [FromRoute] int activityId)
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
-
-        var result = await _mediator.Send(new ConfirmMissionSupplyPickupCommand(activityId, missionId, userId));
         return Ok(result);
     }
 

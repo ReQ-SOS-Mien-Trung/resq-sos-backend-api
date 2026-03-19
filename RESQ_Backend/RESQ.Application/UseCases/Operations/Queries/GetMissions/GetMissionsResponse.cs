@@ -51,6 +51,7 @@ public class MissionActivityDto
     public int? MissionTeamId { get; set; }
     public DateTime? AssignedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public Guid? CompletedBy { get; set; }
 }
 
 /// <summary>AI suggestion metadata attached to a mission response — mirrors GenerateRescueMissionSuggestionResponse.</summary>
