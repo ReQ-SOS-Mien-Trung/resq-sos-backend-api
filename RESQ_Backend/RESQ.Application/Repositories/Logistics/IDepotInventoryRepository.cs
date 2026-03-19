@@ -65,4 +65,32 @@ public interface IDepotInventoryRepository
         int depotId,
         List<(int ItemModelId, string ItemName, int RequestedQuantity)> items,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Đặt trước vật tư cho mission: tăng ReservedQuantity.
+    /// Gọi ngay sau khi mission được tạo thành công.
+    /// </summary>
+    Task ReserveSuppliesAsync(
+        int depotId,
+        List<(int ItemModelId, int Quantity)> items,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Team xác nhận đã lấy hàng: giảm cả Quantity và ReservedQuantity, ghi InventoryLog.
+    /// </summary>
+    Task ConsumeReservedSuppliesAsync(
+        int depotId,
+        List<(int ItemModelId, int Quantity)> items,
+        Guid performedBy,
+        int activityId,
+        int missionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Giải phóng vật tư đã đặt trước (ví dụ khi huỷ activity hoặc thay đổi items): giảm ReservedQuantity.
+    /// </summary>
+    Task ReleaseReservedSuppliesAsync(
+        int depotId,
+        List<(int ItemModelId, int Quantity)> items,
+        CancellationToken cancellationToken = default);
 }
