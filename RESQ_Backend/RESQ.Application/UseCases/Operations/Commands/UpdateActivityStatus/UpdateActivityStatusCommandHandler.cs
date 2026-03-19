@@ -55,6 +55,31 @@ public class UpdateActivityStatusCommandHandler(
 
         await _activityRepository.UpdateStatusAsync(request.ActivityId, request.Status, request.DecisionBy, cancellationToken);
 
+        // Side-effect: consume inventory when activity is completed (team arrived and picked up supplies)
+        if (request.Status == MissionActivityStatus.Succeed && activity.DepotId.HasValue && !string.IsNullOrWhiteSpace(activity.Items))
+        {
+            try
+            {
+                var items = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts);
+                if (items is { Count: > 0 })
+                {
+                    var itemsToConsume = items
+                        .Where(i => i.ItemId.HasValue && i.Quantity > 0)
+                        .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity))
+                        .ToList();
+
+                    if (itemsToConsume.Count > 0)
+                        await _depotInventoryRepository.ConsumeReservedSuppliesAsync(
+                            activity.DepotId.Value, itemsToConsume, request.DecisionBy,
+                            request.ActivityId, activity.MissionId ?? 0, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi khi trừ vật tư kho cho activity hoàn thành #{ActivityId}", activity.Id);
+            }
+        }
+
         // Side-effect: release reservations if activity is cancelled
         if (request.Status == MissionActivityStatus.Cancelled && activity.DepotId.HasValue && !string.IsNullOrWhiteSpace(activity.Items))
         {

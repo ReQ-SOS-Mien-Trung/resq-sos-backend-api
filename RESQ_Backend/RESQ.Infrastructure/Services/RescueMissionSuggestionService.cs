@@ -787,16 +787,10 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             case "getTeams":
             {
                 var ability = args.TryGetProperty("ability", out var a) ? a.GetString() : null;
-                bool? availFinal = null;
-                if (args.TryGetProperty("available", out var availElem))
-                {
-                    if (availElem.ValueKind == JsonValueKind.True)  availFinal = true;
-                    if (availElem.ValueKind == JsonValueKind.False) availFinal = false;
-                }
                 var page = args.TryGetProperty("page", out var pg) && pg.TryGetInt32(out var pgv) ? pgv : 1;
 
                 var (teams, total) = await _rescueTeamRepository.GetTeamsForAgentAsync(
-                    ability, availFinal, page, AgentPageSize, ct);
+                    ability, true, page, AgentPageSize, ct);
 
                 var totalPages = (int)Math.Ceiling((double)total / AgentPageSize);
                 return JsonSerializer.SerializeToElement(new
@@ -845,7 +839,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                     Properties = new Dictionary<string, GeminiFunctionProperty>
                     {
                         ["ability"]   = new() { Type = "string",  Description = "Lọc theo loại kỹ năng/team_type (tuỳ chọn)" },
-                        ["available"] = new() { Type = "boolean", Description = "Nếu true chỉ trả về đội đang Available hoặc Ready" },
+                        ["available"] = new() { Type = "boolean", Description = "Chỉ trả về đội đang Available hoặc Ready (mặc định luôn true, không thể thay đổi)" },
                         ["page"]      = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
                     },
                     Required = []
