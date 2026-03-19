@@ -513,4 +513,95 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         return shortages;
     }
+
+    public async Task ReserveSuppliesAsync(
+        int depotId,
+        List<(int ItemModelId, int Quantity)> items,
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var (itemModelId, quantity) in items)
+        {
+            var inventory = await _context.SupplyInventories
+                .FirstOrDefaultAsync(
+                    x => x.DepotId == depotId && x.ItemModelId == itemModelId,
+                    cancellationToken);
+
+            if (inventory == null) continue;
+
+            inventory.ReservedQuantity = (inventory.ReservedQuantity ?? 0) + quantity;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ConsumeReservedSuppliesAsync(
+        int depotId,
+        List<(int ItemModelId, int Quantity)> items,
+        Guid performedBy,
+        int activityId,
+        int missionId,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        foreach (var (itemModelId, quantity) in items)
+        {
+            var inventory = await _context.SupplyInventories
+                .FirstOrDefaultAsync(
+                    x => x.DepotId == depotId && x.ItemModelId == itemModelId,
+                    cancellationToken)
+                ?? throw new InvalidOperationException(
+                    $"Không tìm thấy tồn kho vật tư #{itemModelId} tại kho #{depotId}.");
+
+            var currentQty      = inventory.Quantity         ?? 0;
+            var currentReserved = inventory.ReservedQuantity ?? 0;
+
+            if (currentReserved < quantity)
+                throw new InvalidOperationException(
+                    $"Vật tư #{itemModelId}: số lượng đặt trước ({currentReserved}) không đủ so với yêu cầu ({quantity}).");
+
+            if (currentQty < quantity)
+                throw new InvalidOperationException(
+                    $"Vật tư #{itemModelId}: tồn kho thực ({currentQty}) không đủ so với yêu cầu ({quantity}).");
+
+            inventory.Quantity         = currentQty      - quantity;
+            inventory.ReservedQuantity = currentReserved - quantity;
+            inventory.LastStockedAt    = now;
+
+            _context.InventoryLogs.Add(new Entities.Logistics.InventoryLog
+            {
+                DepotSupplyInventoryId = inventory.Id,
+                ActionType             = "MissionPickup",
+                QuantityChange         = quantity,
+                SourceType             = "MissionActivity",
+                SourceId               = activityId,
+                MissionId              = missionId,
+                PerformedBy            = performedBy,
+                Note                   = $"Team xác nhận lấy hàng vật tư #{itemModelId} số lượng {quantity} cho activity #{activityId} (mission #{missionId})",
+                CreatedAt              = now
+            });
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ReleaseReservedSuppliesAsync(
+        int depotId,
+        List<(int ItemModelId, int Quantity)> items,
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var (itemModelId, quantity) in items)
+        {
+            var inventory = await _context.SupplyInventories
+                .FirstOrDefaultAsync(
+                    x => x.DepotId == depotId && x.ItemModelId == itemModelId,
+                    cancellationToken);
+
+            if (inventory == null) continue;
+
+            inventory.ReservedQuantity = Math.Max(0, (inventory.ReservedQuantity ?? 0) - quantity);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }

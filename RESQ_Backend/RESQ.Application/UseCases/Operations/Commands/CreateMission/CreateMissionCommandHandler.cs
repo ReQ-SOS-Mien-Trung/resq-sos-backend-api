@@ -98,6 +98,9 @@ public class CreateMissionCommandHandler(
 
         await _unitOfWork.SaveAsync();
 
+        // Reserve supplies in inventory for all activities that specify depot + items
+        await ReserveSuppliesAsync(request.Activities, cancellationToken);
+
         // Assign rescue teams per activity (using suggestedTeam.id / RescueTeamId)
         var savedActivities = await _missionRepository.GetByIdAsync(missionId, cancellationToken);
         if (savedActivities?.Activities is not null)
@@ -190,5 +193,38 @@ public class CreateMissionCommandHandler(
 
         if (allErrors.Count > 0)
             throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", allErrors)}");
+    }
+
+    private async Task ReserveSuppliesAsync(List<CreateActivityItemDto> activities, CancellationToken cancellationToken)
+    {
+        var activitiesWithSupplies = activities
+            .Where(a => a.DepotId.HasValue && a.SuppliesToCollect is { Count: > 0 })
+            .ToList();
+
+        var byDepot = activitiesWithSupplies
+            .GroupBy(a => a.DepotId!.Value)
+            .Select(g => new
+            {
+                DepotId = g.Key,
+                Items = g.SelectMany(a => a.SuppliesToCollect!)
+                         .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
+                         .GroupBy(s => s.Id!.Value)
+                         .Select(sg => (ItemModelId: sg.Key, Quantity: sg.Sum(s => s.Quantity ?? 0)))
+                         .ToList()
+            });
+
+        foreach (var depot in byDepot)
+        {
+            if (depot.Items.Count == 0) continue;
+            try
+            {
+                await _depotInventoryRepository.ReserveSuppliesAsync(depot.DepotId, depot.Items, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Không thể đặt trước vật tư tại kho {DepotId} khi tạo mission", depot.DepotId);
+            }
+        }
     }
 }

@@ -100,6 +100,27 @@ public class AddMissionActivityCommandHandler(
         var activityId = await _activityRepository.AddAsync(activity, cancellationToken);
         await _unitOfWork.SaveAsync();
 
+        // Reserve supplies in inventory if specified
+        if (request.DepotId.HasValue && request.SuppliesToCollect is { Count: > 0 })
+        {
+            var itemsToReserve = request.SuppliesToCollect
+                .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
+                .Select(s => (ItemModelId: s.Id!.Value, Quantity: s.Quantity ?? 0))
+                .ToList();
+
+            if (itemsToReserve.Count > 0)
+            {
+                try
+                {
+                    await _depotInventoryRepository.ReserveSuppliesAsync(request.DepotId.Value, itemsToReserve, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Không thể đặt trước vật tư tại kho {DepotId} khi thêm lẻ activity", request.DepotId.Value);
+                }
+            }
+        }
+
         var response = new AddMissionActivityResponse
         {
             ActivityId = activityId,

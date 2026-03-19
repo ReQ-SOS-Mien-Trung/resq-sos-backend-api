@@ -1,10 +1,14 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
@@ -13,6 +17,7 @@ public class UpdateActivityStatusCommandHandler(
     IMissionActivityRepository activityRepository,
     IMissionTeamRepository missionTeamRepository,
     IPersonnelQueryRepository personnelQueryRepository,
+    IDepotInventoryRepository depotInventoryRepository,
     IUnitOfWork unitOfWork,
     ILogger<UpdateActivityStatusCommandHandler> logger
 ) : IRequestHandler<UpdateActivityStatusCommand, UpdateActivityStatusResponse>
@@ -20,8 +25,11 @@ public class UpdateActivityStatusCommandHandler(
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IPersonnelQueryRepository _personnelQueryRepository = personnelQueryRepository;
+    private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<UpdateActivityStatusCommandHandler> _logger = logger;
+
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
     public async Task<UpdateActivityStatusResponse> Handle(UpdateActivityStatusCommand request, CancellationToken cancellationToken)
     {
@@ -46,6 +54,30 @@ public class UpdateActivityStatusCommandHandler(
         MissionActivityStateMachine.EnsureValidTransition(activity.Status, request.Status);
 
         await _activityRepository.UpdateStatusAsync(request.ActivityId, request.Status, request.DecisionBy, cancellationToken);
+
+        // Side-effect: release reservations if activity is cancelled
+        if (request.Status == MissionActivityStatus.Cancelled && activity.DepotId.HasValue && !string.IsNullOrWhiteSpace(activity.Items))
+        {
+            try
+            {
+                var items = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts);
+                if (items is { Count: > 0 })
+                {
+                    var itemsToRelease = items
+                        .Where(i => i.ItemId.HasValue && i.Quantity > 0)
+                        .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity))
+                        .ToList();
+
+                    if (itemsToRelease.Count > 0)
+                        await _depotInventoryRepository.ReleaseReservedSuppliesAsync(activity.DepotId.Value, itemsToRelease, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi khi giải phóng vật tư cho activity bị huỷ #{ActivityId}", activity.Id);
+            }
+        }
+
         await _unitOfWork.SaveAsync();
 
         return new UpdateActivityStatusResponse
