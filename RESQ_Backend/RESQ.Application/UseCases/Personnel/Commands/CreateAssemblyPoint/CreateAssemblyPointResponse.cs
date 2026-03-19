@@ -5,6 +5,6 @@ public class CreateAssemblyPointResponse
     public int Id { get; set; }
     public string? Code { get; set; } // Added
     public string? Name { get; set; }
-    public int CapacityTeams { get; set; }
+    public int MaxCapacity { get; set; }
     public string Status { get; set; } = string.Empty;
 }

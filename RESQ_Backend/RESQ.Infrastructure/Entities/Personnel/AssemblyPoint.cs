@@ -23,7 +23,7 @@ public partial class AssemblyPoint
     public string? Name { get; set; }
 
     [Column("capacity_teams")]
-    public int? CapacityTeams { get; set; }
+    public int? MaxCapacity { get; set; }
 
     [Column("status")]
     [StringLength(50)]

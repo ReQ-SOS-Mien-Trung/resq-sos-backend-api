@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using System.Security.Claims;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
@@ -6,9 +7,16 @@ using RESQ.Application.UseCases.Personnel.Commands.ChangeAssemblyPointStatus;
 using RESQ.Application.UseCases.Personnel.Commands.CreateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.DeleteAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.UpdateAssemblyPoint;
+using RESQ.Application.UseCases.Personnel.Commands.AssignTeamsToAssemblyPoint;
+using RESQ.Application.UseCases.Personnel.Commands.ScheduleGathering;
+using RESQ.Application.UseCases.Personnel.Commands.StartGathering;
+using RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Queries.AssemblyPointStatusMetadata;
 using RESQ.Application.UseCases.Personnel.Queries.GetAllAssemblyPoints;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
+using RESQ.Application.UseCases.Personnel.Queries.AssemblyPointMetadata;
+using RESQ.Application.UseCases.Personnel.Queries.GetRescuersByAssemblyPoint;
+using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 
 namespace RESQ.Presentation.Controllers.Personnel
 {
@@ -45,6 +53,27 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(result);
         }
 
+        /// <summary>[Metadata] Danh sách điểm tập kết dùng cho dropdown (key = id, value = tên).</summary>
+        [HttpGet("metadata")]
+        public async Task<IActionResult> GetMetadata()
+        {
+            var query = new GetAssemblyPointMetadataQuery();
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>Lấy danh sách rescuer thuộc các đội tại một điểm tập kết.</summary>
+        [HttpGet("{id}/rescuers")]
+        public async Task<IActionResult> GetRescuersByAssemblyPoint(
+            int id,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var query = new GetRescuersByAssemblyPointQuery(id, pageNumber, pageSize);
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
         /// <summary>Tạo điểm tập kết mới.</summary>
         [HttpPost]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
@@ -54,7 +83,7 @@ namespace RESQ.Presentation.Controllers.Personnel
                 dto.Name,
                 dto.Latitude,
                 dto.Longitude,
-                dto.CapacityTeams
+                dto.MaxCapacity
             );
 
             var result = await _mediator.Send(command);
@@ -71,7 +100,7 @@ namespace RESQ.Presentation.Controllers.Personnel
                 dto.Name,
                 dto.Latitude,
                 dto.Longitude,
-                dto.CapacityTeams
+                dto.MaxCapacity
             );
 
             await _mediator.Send(command);
@@ -96,6 +125,67 @@ namespace RESQ.Presentation.Controllers.Personnel
             var command = new DeleteAssemblyPointCommand(id);
             await _mediator.Send(command);
             return NoContent();
+        }
+
+        /// <summary>Gán danh sách đội cứu hộ (chứa rescuer) vào điểm tập kết.</summary>
+        [HttpPost("{id}/teams")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> AssignTeams(int id, [FromBody] AssignTeamsToAssemblyPointRequestDto dto)
+        {
+            var command = new AssignTeamsToAssemblyPointCommand(id, dto.TeamIds);
+            await _mediator.Send(command);
+            return NoContent();
+        }
+
+        /// <summary>Lên lịch tập trung tại điểm tập kết → tạo AssemblyEvent + gán participant + gửi Firebase.</summary>
+        [HttpPost("{id}/schedule-gathering")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> ScheduleGathering(int id, [FromBody] ScheduleGatheringRequestDto dto)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var createdBy))
+                return Unauthorized();
+
+            var command = new ScheduleGatheringCommand(id, dto.AssemblyDate, createdBy);
+            var eventId = await _mediator.Send(command);
+            return Ok(new { EventId = eventId });
+        }
+
+        /// <summary>Mở check-in cho sự kiện tập trung (Scheduled → Gathering).</summary>
+        [HttpPost("events/{eventId}/start-gathering")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> StartGathering(int eventId)
+        {
+            var command = new StartGatheringCommand(eventId);
+            await _mediator.Send(command);
+            return NoContent();
+        }
+
+        /// <summary>Rescuer check-in tại sự kiện tập trung.</summary>
+        [HttpPost("events/{eventId}/check-in")]
+        [Authorize]
+        public async Task<IActionResult> CheckIn(int eventId)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var command = new CheckInAtAssemblyPointCommand(eventId, userId);
+            await _mediator.Send(command);
+            return NoContent();
+        }
+
+        /// <summary>Lấy danh sách rescuer đã check-in tại sự kiện tập trung (để coordinator chia team).</summary>
+        [HttpGet("events/{eventId}/checked-in-rescuers")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> GetCheckedInRescuers(
+            int eventId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var query = new GetCheckedInRescuersQuery(eventId, pageNumber, pageSize);
+            var result = await _mediator.Send(query);
+            return Ok(result);
         }
     }
 }

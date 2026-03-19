@@ -45,7 +45,7 @@ public class UpdateAssemblyPointCommandHandler(
         assemblyPoint.UpdateDetails(
             assemblyPoint.Code, 
             request.Name,
-            request.CapacityTeams,
+            request.MaxCapacity,
             location
         );
 

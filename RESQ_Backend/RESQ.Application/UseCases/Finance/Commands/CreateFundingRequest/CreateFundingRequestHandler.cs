@@ -1,39 +1,49 @@
 using MediatR;
+using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
 /// <summary>
 /// [Cách 2] Depot tạo FundingRequest kèm danh sách vật tư.
+/// DepotId được tự động lấy từ manager đang đăng nhập.
 /// TotalAmount được tự tính từ sum(items[].TotalPrice).
 /// </summary>
 public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestCommand, int>
 {
     private readonly IFundingRequestRepository _fundingRequestRepo;
+    private readonly IDepotInventoryRepository _depotInventoryRepo;
     private readonly IUnitOfWork _unitOfWork;
 
     public CreateFundingRequestHandler(
         IFundingRequestRepository fundingRequestRepo,
+        IDepotInventoryRepository depotInventoryRepo,
         IUnitOfWork unitOfWork)
     {
         _fundingRequestRepo = fundingRequestRepo;
+        _depotInventoryRepo = depotInventoryRepo;
         _unitOfWork = unitOfWork;
     }
 
     public async Task<int> Handle(CreateFundingRequestCommand request, CancellationToken cancellationToken)
     {
-        // 1. Tính tổng tiền tự động từ danh sách items
+        // 1. Lấy depotId từ manager token
+        var depotId = await _depotInventoryRepo.GetActiveDepotIdByManagerAsync(request.RequestedBy, cancellationToken)
+            ?? throw new BadRequestException("Bạn không có kho đang hoạt động. Vui lòng liên hệ admin.");
+
+        // 2. Tính tổng tiền tự động từ danh sách items
         var totalAmount = request.Items.Sum(i => i.TotalPrice);
 
-        // 2. Tạo FundingRequest domain model
+        // 3. Tạo FundingRequest domain model
         var fundingRequest = new FundingRequestModel(
-            request.DepotId,
+            depotId,
             request.RequestedBy,
             totalAmount,
             request.Description,
-            request.AttachmentUrl
+            null
         );
 
         // 3. Thêm items

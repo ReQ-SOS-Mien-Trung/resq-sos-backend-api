@@ -10,7 +10,7 @@ public class AssemblyPointModel
     public int Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public int CapacityTeams { get; set; }
+    public int MaxCapacity { get; set; }
     public AssemblyPointStatus Status { get; set; }
     public GeoLocation? Location { get; set; }
     public DateTime? CreatedAt { get; set; }
@@ -21,17 +21,17 @@ public class AssemblyPointModel
     public static AssemblyPointModel Create(
         string code,
         string name,
-        int capacityTeams,
+        int maxCapacity,
         GeoLocation location)
     {
-        if (capacityTeams <= 0)
-            throw new InvalidAssemblyPointCapacityException(capacityTeams);
+        if (maxCapacity <= 0)
+            throw new InvalidAssemblyPointCapacityException(maxCapacity);
 
         return new AssemblyPointModel
         {
             Code = code,
             Name = name,
-            CapacityTeams = capacityTeams,
+            MaxCapacity = maxCapacity,
             Location = location,
             Status = AssemblyPointStatus.Active,
             CreatedAt = DateTime.UtcNow,
@@ -39,10 +39,10 @@ public class AssemblyPointModel
         };
     }
 
-    public void UpdateDetails(string code, string name, int capacityTeams, GeoLocation location)
+    public void UpdateDetails(string code, string name, int maxCapacity, GeoLocation location)
     {
-        if (capacityTeams <= 0)
-            throw new InvalidAssemblyPointCapacityException(capacityTeams);
+        if (maxCapacity <= 0)
+            throw new InvalidAssemblyPointCapacityException(maxCapacity);
 
         // Rule: Cannot update details if the Assembly Point is Unavailable
         // CHANGED: Generic DomainException -> AssemblyPointUnavailableException
@@ -53,7 +53,7 @@ public class AssemblyPointModel
 
         Code = code;
         Name = name;
-        CapacityTeams = capacityTeams;
+        MaxCapacity = maxCapacity;
         Location = location;
         UpdatedAt = DateTime.UtcNow;
     }
@@ -73,5 +73,18 @@ public class AssemblyPointModel
 
         Status = newStatus;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Kiểm tra năng lực trước khi gán thêm <paramref name="additionalTeams"/> đội vào điểm tập kết.
+    /// Throws nếu điểm tập kết không hoạt động hoặc vượt sức chứa.
+    /// </summary>
+    public void ValidateTeamAssignment(int currentTeamCount, int additionalTeams)
+    {
+        if (Status == AssemblyPointStatus.Unavailable)
+            throw new AssemblyPointUnavailableException();
+
+        if (currentTeamCount + additionalTeams > MaxCapacity)
+            throw new AssemblyPointCapacityExceededException(MaxCapacity, currentTeamCount, additionalTeams);
     }
 }

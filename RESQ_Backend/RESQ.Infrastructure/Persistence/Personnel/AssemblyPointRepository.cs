@@ -89,6 +89,14 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork, ResQDbContext conte
         );
     }
 
+    public async Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var entities = await _unitOfWork.GetRepository<AssemblyPoint>()
+            .GetAllByPropertyAsync(filter: null);
+
+        return entities.Select(AssemblyPointMapper.ToDomain).ToList();
+    }
+
     public async Task<Dictionary<int, List<AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(
         IEnumerable<int> ids,
         CancellationToken cancellationToken = default)
@@ -126,5 +134,16 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork, ResQDbContext conte
                     }).ToList()
                 }).ToList()
             );
+    }
+
+    // ── Rescuer assigned to AP ──────────────────────────────────────
+
+    public async Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .AsNoTracking()
+            .Where(u => u.AssemblyPointId == assemblyPointId && u.RoleId == 3)
+            .Select(u => u.Id)
+            .ToListAsync(cancellationToken);
     }
 }

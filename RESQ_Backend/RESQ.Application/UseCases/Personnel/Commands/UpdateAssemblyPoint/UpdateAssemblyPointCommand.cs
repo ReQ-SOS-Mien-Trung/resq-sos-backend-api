@@ -7,5 +7,5 @@ public record UpdateAssemblyPointCommand(
     string Name,
     double Latitude,
     double Longitude,
-    int CapacityTeams
+    int MaxCapacity
 ) : IRequest;

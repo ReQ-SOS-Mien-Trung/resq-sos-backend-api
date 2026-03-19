@@ -17,8 +17,16 @@ public interface IAssemblyPointRepository
     Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lấy tất cả điểm tập kết (không phân trang) — dùng cho metadata dropdown.
+    /// </summary>
+    Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Lấy danh sách đội cứu hộ (kèm thành viên) được gán vào các điểm tập kết.
     /// Key = AssemblyPointId.
     /// </summary>
     Task<Dictionary<int, List<AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>Lấy danh sách user ID của rescuer được gán vào điểm tập kết (User.AssemblyPointId).</summary>
+    Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default);
 }

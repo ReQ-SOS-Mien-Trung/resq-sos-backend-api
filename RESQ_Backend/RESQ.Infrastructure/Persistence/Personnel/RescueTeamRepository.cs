@@ -172,4 +172,20 @@ public class RescueTeamRepository(ResQDbContext context) : IRescueTeamRepository
 
         return (result, total);
     }
+
+    public async Task<int> CountActiveTeamsByAssemblyPointAsync(
+        int assemblyPointId,
+        IEnumerable<int> excludeTeamIds,
+        CancellationToken cancellationToken = default)
+    {
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
+        var excludeList = excludeTeamIds.ToList();
+
+        return await context.RescueTeams
+            .AsNoTracking()
+            .Where(t => t.AssemblyPointId == assemblyPointId
+                        && t.Status != disbandedStatus
+                        && !excludeList.Contains(t.Id))
+            .CountAsync(cancellationToken);
+    }
 }

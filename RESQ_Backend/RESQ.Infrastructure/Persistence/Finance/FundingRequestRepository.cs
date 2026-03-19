@@ -36,7 +36,7 @@ public class FundingRequestRepository : IFundingRequestRepository
 
     public async Task<PagedResult<FundingRequestModel>> GetPagedAsync(
         int pageNumber, int pageSize,
-        int? depotId = null, string? status = null,
+        List<int>? depotIds = null, List<string>? statuses = null,
         CancellationToken cancellationToken = default)
     {
         var query = _dbContext.FundingRequests
@@ -48,11 +48,11 @@ public class FundingRequestRepository : IFundingRequestRepository
             .AsNoTracking()
             .AsQueryable();
 
-        if (depotId.HasValue)
-            query = query.Where(x => x.DepotId == depotId.Value);
+        if (depotIds != null && depotIds.Count > 0)
+            query = query.Where(x => depotIds.Contains(x.DepotId));
 
-        if (!string.IsNullOrEmpty(status))
-            query = query.Where(x => x.Status == status);
+        if (statuses != null && statuses.Count > 0)
+            query = query.Where(x => statuses.Contains(x.Status));
 
         query = query.OrderByDescending(x => x.CreatedAt);
 

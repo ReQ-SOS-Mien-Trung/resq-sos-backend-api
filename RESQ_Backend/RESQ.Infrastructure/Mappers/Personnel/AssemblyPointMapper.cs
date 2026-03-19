@@ -14,7 +14,7 @@ public static class AssemblyPointMapper
         {
             Code = model.Code,
             Name = model.Name,
-            CapacityTeams = model.CapacityTeams,
+            MaxCapacity = model.MaxCapacity,
             Status = model.Status.ToString(),
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt
@@ -37,7 +37,7 @@ public static class AssemblyPointMapper
     {
         entity.Code = model.Code;
         entity.Name = model.Name;
-        entity.CapacityTeams = model.CapacityTeams;
+        entity.MaxCapacity = model.MaxCapacity;
         entity.Status = model.Status.ToString();
         entity.UpdatedAt = model.UpdatedAt;
 
@@ -66,7 +66,7 @@ public static class AssemblyPointMapper
             Id = entity.Id,
             Code = entity.Code ?? string.Empty,
             Name = entity.Name ?? string.Empty,
-            CapacityTeams = entity.CapacityTeams ?? 0,
+            MaxCapacity = entity.MaxCapacity ?? 0,
             Status = status,
             Location = location,
             CreatedAt = entity.CreatedAt,

@@ -34,7 +34,7 @@ public class GetAssemblyPointByIdQueryHandler(
             Name = entity.Name,
             Latitude = entity.Location?.Latitude,
             Longitude = entity.Location?.Longitude,
-            CapacityTeams = entity.CapacityTeams,
+            MaxCapacity = entity.MaxCapacity,
             Status = entity.Status.ToString(),
             LastUpdatedAt = entity.UpdatedAt,
             Teams = teams

@@ -4,12 +4,11 @@ namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
 /// <summary>
 /// [Cách 2] Depot gửi yêu cầu cấp thêm quỹ kèm danh sách vật tư.
+/// DepotId được tự động lấy từ manager đang đăng nhập.
 /// TotalAmount được tính tự động = sum(items[].TotalPrice).
 /// </summary>
 public record CreateFundingRequestCommand(
-    int DepotId,
     string? Description,
-    string? AttachmentUrl,
     List<FundingRequestItemDto> Items,
     Guid RequestedBy
 ) : IRequest<int>;

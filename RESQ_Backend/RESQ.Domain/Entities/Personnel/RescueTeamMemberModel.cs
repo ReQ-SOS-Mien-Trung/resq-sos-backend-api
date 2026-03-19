@@ -76,4 +76,25 @@ public class RescueTeamMemberModel
     {
         Status = TeamMemberStatus.Removed;
     }
+
+    /// <summary>
+    /// Tạo thành viên đã có mặt (Accepted + CheckedIn) — dùng khi tạo đội từ điểm tập kết.
+    /// </summary>
+    internal static RescueTeamMemberModel CreateGathered(Guid userId, bool isLeader, string rescuerType, string? roleInTeam)
+    {
+        if (isLeader && !string.Equals(rescuerType, "Core", StringComparison.OrdinalIgnoreCase))
+            throw new TeamMemberDomainException("Đội trưởng phải là nhân sự nòng cốt (Core Rescuer).");
+
+        var member = new RescueTeamMemberModel
+        {
+            UserId = userId,
+            Status = TeamMemberStatus.Accepted,
+            InvitedAt = DateTime.UtcNow,
+            RespondedAt = DateTime.UtcNow,
+            IsLeader = isLeader,
+            RoleInTeam = roleInTeam,
+            CheckedIn = true
+        };
+        return member;
+    }
 }

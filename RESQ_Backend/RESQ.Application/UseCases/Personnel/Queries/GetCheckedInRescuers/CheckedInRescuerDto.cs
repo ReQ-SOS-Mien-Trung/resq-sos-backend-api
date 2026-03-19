@@ -1,0 +1,17 @@
+namespace RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
+
+public class CheckedInRescuerDto
+{
+    public Guid UserId { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? Phone { get; set; }
+    public string? AvatarUrl { get; set; }
+    public string? RescuerType { get; set; }
+    public DateTime CheckedInAt { get; set; }
+
+    /// <summary>Rescuer đã được chia vào team (active) chưa.</summary>
+    public bool IsInTeam { get; set; }
+
+    public List<string> TopAbilities { get; set; } = new();
+}

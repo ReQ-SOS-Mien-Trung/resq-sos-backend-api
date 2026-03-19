@@ -7,6 +7,7 @@ using RESQ.Application.UseCases.Finance.Commands.ApproveFundingRequest;
 using RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 using RESQ.Application.UseCases.Finance.Commands.RejectFundingRequest;
 using RESQ.Application.UseCases.Finance.Queries.GetFundingRequests;
+using RESQ.Domain.Enum.Finance;
 using System.Security.Claims;
 
 namespace RESQ.Presentation.Controllers.Finance;
@@ -17,18 +18,16 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>[Cách 2] Depot gửi yêu cầu cấp thêm quỹ kèm danh sách vật tư.</summary>
+    /// <summary>[Cách 2] Manager kho gửi yêu cầu cấp thêm quỹ kèm danh sách vật tư. DepotId được tự động lấy từ token.</summary>
     [HttpPost]
-    [Authorize(Roles = "1,4")]
+    [Authorize(Roles = "4")]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Create([FromBody] CreateFundingRequestRequest request)
     {
         var command = new CreateFundingRequestCommand(
-            request.DepotId,
             request.Description,
-            request.AttachmentUrl,
             request.Items.Select(i => new FundingRequestItemDto
             {
                 Row          = i.Row,
@@ -77,17 +76,27 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Lấy danh sách yêu cầu cấp quỹ (filter theo depot, status).</summary>
+    /// <summary>Trả về danh sách các giá trị enum FundingRequestStatus.</summary>
+    [HttpGet("metadata/statuses")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(List<string>), StatusCodes.Status200OK)]
+    public IActionResult GetStatuses()
+    {
+        var values = Enum.GetNames<FundingRequestStatus>();
+        return Ok(values);
+    }
+
+    /// <summary>Lấy danh sách yêu cầu cấp quỹ (filter theo nhiều depot, nhiều status).</summary>
     [HttpGet]
     [Authorize(Roles = "1,4")]
     [ProducesResponseType(typeof(PagedResult<FundingRequestListDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] int? depotId = null,
-        [FromQuery] string? status = null)
+        [FromQuery] List<int>? depotIds = null,
+        [FromQuery] List<FundingRequestStatus>? statuses = null)
     {
-        var query = new GetFundingRequestsQuery(pageNumber, pageSize, depotId, status);
+        var query = new GetFundingRequestsQuery(pageNumber, pageSize, depotIds, statuses);
         var result = await _mediator.Send(query);
         return Ok(result);
     }

@@ -9,6 +9,7 @@ using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Notifications;
 using RESQ.Infrastructure.Entities.Operations;
+using RESQ.Infrastructure.Entities.Personnel;
 using RESQ.Infrastructure.Entities.System; // Added to resolve Message
 
 namespace RESQ.Infrastructure.Entities.Identity;
@@ -123,6 +124,12 @@ public partial class User
     [Column("ban_reason")]
     [StringLength(500)]
     public string? BanReason { get; set; }
+
+    [Column("assembly_point_id")]
+    public int? AssemblyPointId { get; set; }
+
+    [ForeignKey("AssemblyPointId")]
+    public virtual AssemblyPoint? AssignedAssemblyPoint { get; set; }
 
     [ForeignKey("ApprovedBy")]
     [InverseProperty("ApprovedUsers")]

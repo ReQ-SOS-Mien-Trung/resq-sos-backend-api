@@ -7,7 +7,8 @@ namespace RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 public record CreateRescueTeamCommand(
     string Name, 
     RescueTeamType Type, 
-    int AssemblyPointId, 
+    int AssemblyPointId,
+    int AssemblyEventId,
     Guid ManagedBy, 
     int MaxMembers,
     List<AddMemberRequestDto> Members) : IRequest<int>;

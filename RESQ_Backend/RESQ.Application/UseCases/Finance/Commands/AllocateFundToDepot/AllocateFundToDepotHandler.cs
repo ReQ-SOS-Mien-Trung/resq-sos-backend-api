@@ -1,6 +1,8 @@
 using MediatR;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Finance.Services;
 using RESQ.Domain.Enum.Finance;
@@ -12,26 +14,36 @@ namespace RESQ.Application.UseCases.Finance.Commands.AllocateFundToDepot;
 /// 1. Validate campaign (active, đủ tiền)
 /// 2. Tạo CampaignDisbursement
 /// 3. Tạo FundTransaction (ghi nhận dòng tiền ra)
+/// 4. Cộng quỹ kho + gửi Firebase notification cho manager
 /// </summary>
 public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCommand, int>
 {
     private readonly IFundCampaignRepository _campaignRepo;
     private readonly ICampaignDisbursementRepository _disbursementRepo;
     private readonly IFundTransactionRepository _transactionRepo;
+    private readonly IDepotFundRepository _depotFundRepo;
+    private readonly IDepotRepository _depotRepo;
     private readonly IFundDistributionManager _distributionManager;
+    private readonly IFirebaseService _firebaseService;
     private readonly IUnitOfWork _unitOfWork;
 
     public AllocateFundToDepotHandler(
         IFundCampaignRepository campaignRepo,
         ICampaignDisbursementRepository disbursementRepo,
         IFundTransactionRepository transactionRepo,
+        IDepotFundRepository depotFundRepo,
+        IDepotRepository depotRepo,
         IFundDistributionManager distributionManager,
+        IFirebaseService firebaseService,
         IUnitOfWork unitOfWork)
     {
         _campaignRepo = campaignRepo;
         _disbursementRepo = disbursementRepo;
         _transactionRepo = transactionRepo;
+        _depotFundRepo = depotFundRepo;
+        _depotRepo = depotRepo;
         _distributionManager = distributionManager;
+        _firebaseService = firebaseService;
         _unitOfWork = unitOfWork;
     }
 
@@ -72,7 +84,39 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         };
         await _transactionRepo.CreateAsync(transaction, cancellationToken);
 
+        // 6. Cộng quỹ kho (lazy init nếu chưa có)
+        var depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(request.DepotId, cancellationToken);
+        depotFund.Credit(request.Amount);
+        await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
+
+        // 7. Ghi log giao dịch quỹ kho
+        await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+        {
+            DepotFundId = depotFund.Id,
+            TransactionType = DepotFundTransactionType.Allocation,
+            Amount = request.Amount,
+            ReferenceType = "CampaignDisbursement",
+            ReferenceId = disbursementId,
+            Note = $"Cấp quỹ từ chiến dịch #{request.FundCampaignId}",
+            CreatedBy = request.AllocatedBy,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+
         await _unitOfWork.SaveAsync();
+
+        // 8. Gửi Firebase notification cho manager hiện tại của kho
+        var depot = await _depotRepo.GetByIdAsync(request.DepotId, cancellationToken);
+        var managerId = depot?.CurrentManagerId;
+        if (managerId.HasValue)
+        {
+            var depotName = depot!.Name ?? $"Kho #{request.DepotId}";
+            await _firebaseService.SendNotificationToUserAsync(
+                managerId.Value,
+                "Quỹ kho được cấp mới",
+                $"Kho {depotName} vừa được cấp {request.Amount:N0} VNĐ từ chiến dịch \"{campaign.Name}\".",
+                "fund_allocation",
+                cancellationToken);
+        }
 
         return disbursementId;
     }

@@ -19,11 +19,16 @@ public class PublicCampaignSpendingDto
 public class PublicDisbursementDto
 {
     public int Id { get; set; }
+    public int DepotId { get; set; }
     public string? DepotName { get; set; }
     public decimal Amount { get; set; }
     public string? Purpose { get; set; }
     public string Type { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    
+    /// <summary>Số dư quỹ kho hiện tại của depot liên quan.</summary>
+    public decimal DepotFundBalance { get; set; }
+    
     public List<PublicDisbursementItemDto> Items { get; set; } = [];
 }
 

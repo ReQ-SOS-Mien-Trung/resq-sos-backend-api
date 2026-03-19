@@ -21,6 +21,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
     private readonly IFundCampaignRepository _campaignRepo;
     private readonly ICampaignDisbursementRepository _disbursementRepo;
     private readonly IFundTransactionRepository _transactionRepo;
+    private readonly IDepotFundRepository _depotFundRepo;
     private readonly IFundDistributionManager _distributionManager;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -29,6 +30,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         IFundCampaignRepository campaignRepo,
         ICampaignDisbursementRepository disbursementRepo,
         IFundTransactionRepository transactionRepo,
+        IDepotFundRepository depotFundRepo,
         IFundDistributionManager distributionManager,
         IUnitOfWork unitOfWork)
     {
@@ -36,6 +38,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         _campaignRepo = campaignRepo;
         _disbursementRepo = disbursementRepo;
         _transactionRepo = transactionRepo;
+        _depotFundRepo = depotFundRepo;
         _distributionManager = distributionManager;
         _unitOfWork = unitOfWork;
     }
@@ -87,6 +90,24 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
             CreatedAt = DateTime.UtcNow
         };
         await _transactionRepo.CreateAsync(transaction, cancellationToken);
+
+        // 8. Cộng quỹ kho (lazy init nếu chưa có)
+        var depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(fundingRequest.DepotId, cancellationToken);
+        depotFund.Credit(fundingRequest.TotalAmount);
+        await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
+
+        // 9. Ghi log giao dịch quỹ kho
+        await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+        {
+            DepotFundId = depotFund.Id,
+            TransactionType = DepotFundTransactionType.Allocation,
+            Amount = fundingRequest.TotalAmount,
+            ReferenceType = "CampaignDisbursement",
+            ReferenceId = disbursementId,
+            Note = $"Duyệt yêu cầu cấp quỹ #{fundingRequest.Id} từ chiến dịch #{request.CampaignId}",
+            CreatedBy = request.ReviewedBy,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
 
         await _unitOfWork.SaveAsync();
 

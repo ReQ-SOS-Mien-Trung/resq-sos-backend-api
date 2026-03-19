@@ -6,9 +6,6 @@ public class CreateFundingRequestValidator : AbstractValidator<CreateFundingRequ
 {
     public CreateFundingRequestValidator()
     {
-        RuleFor(x => x.DepotId)
-            .GreaterThan(0).WithMessage("Depot không hợp lệ.");
-
         RuleFor(x => x.Items)
             .NotEmpty().WithMessage("Danh sách vật tư không được để trống.");
 

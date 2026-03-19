@@ -21,7 +21,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>L?y danh s�ch chi?n d?ch g�y qu? c� ph�n trang.</summary>
+    /// <summary>Lấy danh sách chiến dịch gây quỹ có phân trang.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<CampaignListDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -31,7 +31,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>[Metadata] Danh s�ch chi?n d?ch dang ho?t d?ng d�ng cho dropdown.</summary>
+    /// <summary>[Metadata] Danh sách chiến dịch đang hoạt động dùng cho dropdown.</summary>
     [HttpGet("metadata")]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMetadata()
@@ -41,7 +41,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>T?o chi?n d?ch g�y qu? m?i.</summary>
+    /// <summary>Tạo chiến dịch gây quỹ mới.</summary>
     [HttpPost]
     [Authorize(Roles = "1")]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
@@ -62,7 +62,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { id }, id);
     }
 
-    /// <summary>C?p nh?t th�ng tin co b?n (t�n, khu v?c) c?a chi?n d?ch.</summary>
+    /// <summary>Cập nhật thông tin cơ bản (tên, khu vực) của chiến dịch.</summary>
     [HttpPut("{id}/info")]
     [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -81,7 +81,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Gia h?n ng�y k?t th�c chi?n d?ch.</summary>
+    /// <summary>Gia hạn ngày kết thúc chiến dịch.</summary>
     [HttpPut("{id}/extension")]
     [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -99,7 +99,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Tang m?c ti�u s? ti?n c?n g�y qu?.</summary>
+    /// <summary>Tăng mục tiêu số tiền cần gây quỹ.</summary>
     [HttpPut("{id}/target")]
     [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -117,7 +117,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Thay d?i tr?ng th�i chi?n d?ch (Active / Closed / ...).</summary>
+    /// <summary>Thay đổi trạng thái chiến dịch (Active / Closed / ...).</summary>
     [HttpPatch("{id}/status")]
     [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -135,7 +135,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>X�a m?m chi?n d?ch.</summary>
+    /// <summary>Xóa mềm chiến dịch.</summary>
     [HttpDelete("{id}")]
     [Authorize(Roles = "1")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

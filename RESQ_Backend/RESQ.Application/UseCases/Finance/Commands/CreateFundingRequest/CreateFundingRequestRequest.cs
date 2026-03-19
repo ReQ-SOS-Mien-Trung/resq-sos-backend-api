@@ -4,13 +4,7 @@ namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
 public class CreateFundingRequestRequest
 {
-    [Required]
-    public int DepotId { get; set; }
-
     public string? Description { get; set; }
-
-    /// <summary>URL file ảnh/PDF hóa đơn hoặc file kế hoạch đã upload lên storage.</summary>
-    public string? AttachmentUrl { get; set; }
 
     /// <summary>
     /// Danh sách vật tư dự kiến mua. TotalAmount sẽ được tính tự động = sum(items[].totalPrice).

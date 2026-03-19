@@ -11,6 +11,7 @@ using RESQ.Application.UseCases.Personnel.Queries.RescueTeamMetadata;
 using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 using RESQ.Application.UseCases.Personnel.RescueTeams.DTOs;
 using RESQ.Application.UseCases.Personnel.Commands.AcceptInvitation;
+using RESQ.Application.UseCases.Personnel.Commands.SetTeamAvailable;
 
 namespace RESQ.Presentation.Controllers.Personnel;
 
@@ -63,7 +64,8 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         var id = await mediator.Send(new CreateRescueTeamCommand(
             request.Name, 
             request.Type, 
-            request.AssemblyPointId, 
+            request.AssemblyPointId,
+            request.AssemblyEventId,
             managedBy, 
             request.MaxMembers, 
             request.Members
@@ -221,6 +223,16 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> DisbandTeam(int id)
     {
         await mediator.Send(new DisbandTeamCommand(id));
+        return NoContent();
+    }
+
+    /// <summary>Leader xác nhận đội sẵn sàng nhận nhiệm vụ (Gathering → Available).</summary>
+    [HttpPost("{id}/set-available")]
+    [Authorize]
+    public async Task<IActionResult> SetAvailable(int id)
+    {
+        var userId = GetCurrentUserId();
+        await mediator.Send(new SetTeamAvailableCommand(id, userId));
         return NoContent();
     }
 }
