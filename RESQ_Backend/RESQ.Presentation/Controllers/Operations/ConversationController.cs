@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Operations.Commands.CoordinatorJoinConversation;
+using RESQ.Application.UseCases.Operations.Commands.CoordinatorLeaveConversation;
 using RESQ.Application.UseCases.Operations.Commands.LinkSosRequestToConversation;
 using RESQ.Application.UseCases.Operations.Commands.SelectSupportTopic;
 using RESQ.Application.UseCases.Operations.Queries.GetConversationByMission;
@@ -103,6 +104,19 @@ public class ConversationController(IMediator mediator) : ControllerBase
         var userId = GetUserId();
         var result = await _mediator.Send(
             new CoordinatorJoinConversationCommand(conversationId, userId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Coordinator rời khỏi phòng chat.
+    /// Conversation chuyển về WaitingCoordinator để coordinator khác có thể tiếp nhận.
+    /// </summary>
+    [HttpPost("{conversationId:int}/leave")]
+    public async Task<IActionResult> CoordinatorLeave([FromRoute] int conversationId)
+    {
+        var userId = GetUserId();
+        var result = await _mediator.Send(
+            new CoordinatorLeaveConversationCommand(conversationId, userId));
         return Ok(result);
     }
 

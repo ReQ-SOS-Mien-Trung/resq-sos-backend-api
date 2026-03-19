@@ -51,6 +51,9 @@ public interface IConversationRepository
     /// <summary>Thêm coordinator vào conversation (nếu chưa có). Role = "Coordinator".</summary>
     Task AddCoordinatorAsync(int conversationId, Guid coordinatorId, CancellationToken cancellationToken = default);
 
+    /// <summary>Xóa coordinator khỏi danh sách participant của conversation.</summary>
+    Task RemoveCoordinatorAsync(int conversationId, Guid coordinatorId, CancellationToken cancellationToken = default);
+
     /// <summary>Lấy danh sách conversation đang ở trạng thái WaitingCoordinator.</summary>
     Task<IEnumerable<ConversationModel>> GetConversationsWaitingForCoordinatorAsync(CancellationToken cancellationToken = default);
 

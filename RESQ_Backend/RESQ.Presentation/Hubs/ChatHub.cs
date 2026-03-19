@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.UseCases.Operations.Commands.CoordinatorJoinConversation;
+using RESQ.Application.UseCases.Operations.Commands.CoordinatorLeaveConversation;
 using RESQ.Application.UseCases.Operations.Commands.SendMessage;
 
 namespace RESQ.Presentation.Hubs;
@@ -127,6 +128,42 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
 
             // Broadcast system message to the room
             await Clients.Group(groupName).SendAsync("CoordinatorJoined", new
+            {
+                result.ConversationId,
+                result.CoordinatorId,
+                Status = result.Status.ToString(),
+                result.SystemMessage
+            });
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("Error", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Coordinator gọi để rời phòng chat, chuyển conversation về WaitingCoordinator.
+    /// </summary>
+    public async Task CoordinatorLeave(int conversationId)
+    {
+        var userId = GetUserId();
+        if (userId == Guid.Empty)
+        {
+            await Clients.Caller.SendAsync("Error", "Không xác định được người dùng.");
+            return;
+        }
+
+        try
+        {
+            var command = new CoordinatorLeaveConversationCommand(conversationId, userId);
+            var result = await _mediator.Send(command);
+
+            // Remove coordinator from SignalR group
+            var groupName = GetGroupName(conversationId);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+            // Broadcast to remaining participants
+            await Clients.Group(groupName).SendAsync("CoordinatorLeft", new
             {
                 result.ConversationId,
                 result.CoordinatorId,
