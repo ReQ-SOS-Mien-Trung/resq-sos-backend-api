@@ -102,6 +102,13 @@ public class FirebaseService(
 
     public async Task SendToTopicAsync(string topic, string title, string body, string type = "general", CancellationToken cancellationToken = default)
     {
+        await SendToTopicAsync(topic, title, body,
+            new Dictionary<string, string> { ["type"] = type },
+            cancellationToken);
+    }
+
+    public async Task SendToTopicAsync(string topic, string title, string body, Dictionary<string, string> data, CancellationToken cancellationToken = default)
+    {
         try
         {
             var message = new FirebaseAdmin.Messaging.Message()
@@ -116,7 +123,7 @@ public class FirebaseService(
                 {
                     Aps = new Aps { Sound = "default" }
                 },
-                Data = new Dictionary<string, string> { ["type"] = type }
+                Data = data
             };
 
             var response = await FirebaseMessaging.DefaultInstance.SendAsync(message, cancellationToken);

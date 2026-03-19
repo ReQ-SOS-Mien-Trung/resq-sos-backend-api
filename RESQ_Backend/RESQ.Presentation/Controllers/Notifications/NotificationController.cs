@@ -53,7 +53,16 @@ public class NotificationController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> BroadcastAlert([FromBody] BroadcastAlertRequestDto dto)
     {
         var userId = GetUserId();
-        var command = new BroadcastAlertCommand(userId, dto.Title, dto.Body, dto.Type ?? "flood_alert");
+
+        var location = dto.Location is null ? null
+            : new BroadcastAlertLocationData(dto.Location.City, dto.Location.Lat, dto.Location.Lon);
+
+        var alerts = dto.ActiveAlerts?.Select(a => new BroadcastAlertItemData(
+            a.Id, a.EventType, a.Title, a.Severity, a.AreasAffected,
+            a.StartTime, a.EndTime, a.Description, a.InstructionChecklist, a.Source
+        )).ToList();
+
+        var command = new BroadcastAlertCommand(userId, location, alerts);
         var result = await _mediator.Send(command);
         return Ok(result);
     }
@@ -67,4 +76,22 @@ public class NotificationController(IMediator mediator) : ControllerBase
     }
 }
 
-public record BroadcastAlertRequestDto(string Title, string Body, string? Type);
+public record BroadcastAlertLocationDto(string? City, double? Lat, double? Lon);
+
+public record BroadcastAlertItemDto(
+    string? Id,
+    string? EventType,
+    string? Title,
+    string? Severity,
+    List<string>? AreasAffected,
+    DateTime? StartTime,
+    DateTime? EndTime,
+    string? Description,
+    List<string>? InstructionChecklist,
+    string? Source
+);
+
+public record BroadcastAlertRequestDto(
+    BroadcastAlertLocationDto? Location,
+    List<BroadcastAlertItemDto>? ActiveAlerts
+);

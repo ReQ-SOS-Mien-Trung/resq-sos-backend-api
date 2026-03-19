@@ -26,6 +26,11 @@ public interface IFirebaseService
     Task SendToTopicAsync(string topic, string title, string body, string type = "general", CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Overload gửi broadcast với data dictionary tuỳ chỉnh (dùng cho alert có payload phức tạp).
+    /// </summary>
+    Task SendToTopicAsync(string topic, string title, string body, Dictionary<string, string> data, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Đăng ký FCM device token của trình duyệt web vào topic của user.
     /// Cần gọi sau khi login thành công trên web (Next.js).
     /// </summary>
