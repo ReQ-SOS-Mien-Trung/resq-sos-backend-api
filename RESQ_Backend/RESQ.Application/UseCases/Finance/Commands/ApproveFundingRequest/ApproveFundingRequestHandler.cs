@@ -77,6 +77,10 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         );
         var disbursementId = await _disbursementRepo.CreateAsync(disbursement, cancellationToken);
 
+        // 6b. Trừ số tiền đã giải ngân khỏi TotalAmount của chiến dịch
+        campaign.Disburse(fundingRequest.TotalAmount, request.ReviewedBy);
+        await _campaignRepo.UpdateAsync(campaign, cancellationToken);
+
         // 7. Tạo FundTransaction (OUT)
         var transaction = new FundTransactionModel
         {

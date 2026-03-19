@@ -137,6 +137,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<DonationExpirationBackgroundService>();
         //services.AddHostedService<TeamInvitationExpirationBackgroundService>();
         services.AddHostedService<UnverifiedUserCleanupBackgroundService>();
+        services.AddHostedService<CampaignDeadlineBackgroundService>();
 
         return services;
     }

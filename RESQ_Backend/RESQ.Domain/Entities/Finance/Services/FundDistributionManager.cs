@@ -10,13 +10,13 @@ public class FundDistributionManager : IFundDistributionManager
     {
         if (campaign == null) throw new ArgumentNullException(nameof(campaign));
 
-        // 1. Status Check
-        if (campaign.Status != FundCampaignStatus.Active)
+        // 1. Status Check — chỉ chiến dịch Closed mới được điều phối quỹ cho kho
+        if (campaign.Status != FundCampaignStatus.Closed)
         {
             throw new InvalidCampaignStatusException(
-                campaign.Id, 
-                campaign.Status.ToString(), 
-                "Phân bổ quỹ (Allocation)"
+                campaign.Id,
+                campaign.Status.ToString(),
+                "Phân bổ quỹ (chỉ được thực hiện khi chiến dịch đã kết thúc)"
             );
         }
         
@@ -38,4 +38,4 @@ public class FundDistributionManager : IFundDistributionManager
             throw new InsufficientCampaignFundsException(currentBalance, allocationAmount);
         }
     }
-}
+}

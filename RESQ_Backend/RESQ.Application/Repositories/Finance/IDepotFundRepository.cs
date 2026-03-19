@@ -1,3 +1,4 @@
+using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.Finance;
 
 namespace RESQ.Application.Repositories.Finance;
@@ -21,4 +22,7 @@ public interface IDepotFundRepository
 
     /// <summary>Lấy số dư quỹ cho nhiều depot cùng lúc (dùng cho spending endpoint).</summary>
     Task<Dictionary<int, decimal>> GetBalancesByDepotIdsAsync(IEnumerable<int> depotIds, CancellationToken cancellationToken = default);
+
+    /// <summary>Lấy lịch sử giao dịch quỹ của một kho theo depot ID (có phân trang, sắp xếp mới nhất trước).</summary>
+    Task<PagedResult<DepotFundTransactionModel>> GetPagedTransactionsByDepotIdAsync(int depotId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 }

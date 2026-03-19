@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Infrastructure.Entities.Finance;
@@ -104,5 +105,27 @@ public class DepotFundRepository : IDepotFundRepository
             .Where(x => ids.Contains(x.DepotId))
             .AsNoTracking()
             .ToDictionaryAsync(x => x.DepotId, x => x.Balance, cancellationToken);
+    }
+
+    public async Task<PagedResult<DepotFundTransactionModel>> GetPagedTransactionsByDepotIdAsync(
+        int depotId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.DepotFundTransactions
+            .Where(x => x.DepotFund.DepotId == depotId)
+            .OrderByDescending(x => x.CreatedAt);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        var models = items.Select(DepotFundTransactionMapper.ToModel).ToList();
+        return new PagedResult<DepotFundTransactionModel>(models, totalCount, pageNumber, pageSize);
     }
 }

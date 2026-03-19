@@ -9,8 +9,10 @@ using RESQ.Application.UseCases.Finance.Commands.DeleteCampaign;
 using RESQ.Application.UseCases.Finance.Commands.ExtendCampaign;
 using RESQ.Application.UseCases.Finance.Commands.IncreaseTargetAmount;
 using RESQ.Application.UseCases.Finance.Commands.UpdateCampaignInfo;
+using RESQ.Application.UseCases.Finance.Queries.GetCampaignTransactions;
 using RESQ.Application.UseCases.Finance.Queries.ViewAllCampaigns;
 using RESQ.Application.UseCases.Finance.Queries.ViewCampaignMetadata;
+using RESQ.Domain.Enum.Finance;
 using System.Security.Claims;
 
 namespace RESQ.Presentation.Controllers.Finance;
@@ -21,12 +23,15 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>Lấy danh sách chiến dịch gây quỹ có phân trang.</summary>
+    /// <summary>Lấy danh sách chiến dịch gây quỹ có phân trang. Filter theo status (có thể truyền nhiều giá trị).</summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<CampaignListDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] List<FundCampaignStatus>? statuses = null)
     {
-        var query = new ViewAllCampaignsQuery(pageNumber, pageSize);
+        var query = new ViewAllCampaignsQuery(pageNumber, pageSize, statuses);
         var result = await _mediator.Send(query);
         return Ok(result);
     }
@@ -38,6 +43,22 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
     {
         var query = new ViewCampaignMetadataQuery();
         var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách tất cả trạng thái chiến dịch (key = int, value = tên).</summary>
+    [HttpGet("metadata/statuses")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public IActionResult GetStatusMetadata()
+    {
+        var result = Enum.GetValues<FundCampaignStatus>()
+            .Select(s => new MetadataDto
+            {
+                Key = ((int)s).ToString(),
+                Value = s.ToString()
+            })
+            .ToList();
+
         return Ok(result);
     }
 
@@ -128,7 +149,8 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         var command = new ChangeCampaignStatusCommand(
             id,
             dto.NewStatus,
-            GetUserId()
+            GetUserId(),
+            dto.Reason
         );
 
         await _mediator.Send(command);
@@ -146,6 +168,21 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         var command = new DeleteCampaignCommand(id, GetUserId());
         await _mediator.Send(command);
         return NoContent();
+    }
+
+    /// <summary>Lấy lịch sử giao dịch tài chính của chiến dịch (bắt buộc theo campaign ID, có phân trang).</summary>
+    [HttpGet("{id}/transactions")]
+    [Authorize(Roles = "1")]
+    [ProducesResponseType(typeof(PagedResult<FundTransactionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTransactions(
+        int id,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var query = new GetCampaignTransactionsQuery(id, pageNumber, pageSize);
+        var result = await _mediator.Send(query);
+        return Ok(result);
     }
 
     // Helper to extract User ID from JWT Claims

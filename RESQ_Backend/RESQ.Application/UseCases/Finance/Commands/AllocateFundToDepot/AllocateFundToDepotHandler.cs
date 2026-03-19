@@ -70,6 +70,10 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         );
         var disbursementId = await _disbursementRepo.CreateAsync(disbursement, cancellationToken);
 
+        // 4b. Trừ số tiền đã cấp khỏi TotalAmount của chiến dịch
+        campaign.Disburse(request.Amount, request.AllocatedBy);
+        await _campaignRepo.UpdateAsync(campaign, cancellationToken);
+
         // 5. Tạo FundTransaction (ghi nhận dòng tiền OUT)
         var transaction = new FundTransactionModel
         {
