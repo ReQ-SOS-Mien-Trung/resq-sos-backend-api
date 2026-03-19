@@ -111,19 +111,14 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         var accepted = TeamMemberStatus.Accepted.ToString();
         var disbanded = RescueTeamStatus.Disbanded.ToString();
 
-        var members = await unitOfWork.GetRepository<RescueTeamMember>().GetAllByPropertyAsync(
-            filter: m => m.UserId == userId
-                         && m.Status == accepted
-                         && m.Team != null
-                         && m.Team.Status != disbanded,
-            includeProperties: "Team,Team.AssemblyPoint,Team.RescueTeamMembers,Team.RescueTeamMembers.User"
+        // Query from RescueTeam side to avoid a cycle: RescueTeamMember → Team → RescueTeamMembers (same root type)
+        var team = await unitOfWork.GetRepository<RescueTeam>().GetByPropertyAsync(
+            filter: t => t.Status != disbanded
+                         && t.RescueTeamMembers.Any(m => m.UserId == userId && m.Status == accepted),
+            tracked: false,
+            includeProperties: "AssemblyPoint,RescueTeamMembers,RescueTeamMembers.User"
         );
 
-        var team = members
-            .Select(m => m.Team)
-            .Where(t => t is not null)
-            .OrderByDescending(t => t!.CreatedAt)
-            .FirstOrDefault();
         if (team is null) return null;
 
         return RescueTeamMapper.ToDomain(team, team.RescueTeamMembers.ToList());
