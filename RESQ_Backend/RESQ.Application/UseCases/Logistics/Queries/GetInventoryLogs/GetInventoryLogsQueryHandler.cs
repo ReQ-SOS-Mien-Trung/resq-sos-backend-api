@@ -29,9 +29,16 @@ public class GetInventoryLogsQueryHandler(
             finalDepotId = activeDepotId.Value; // Override any user-provided depot ID
         }
 
+        var actionTypeStrings = request.ActionTypes?.Select(x => x.ToString()).ToList();
+        var sourceTypeStrings = request.SourceTypes?.Select(x => x.ToString()).ToList();
+
         var pagedData = await _inventoryLogRepository.GetInventoryLogsPagedAsync(
             finalDepotId,
             request.ItemModelId,
+            actionTypeStrings,
+            sourceTypeStrings,
+            request.FromDate,
+            request.ToDate,
             request.PageNumber,
             request.PageSize,
             cancellationToken);

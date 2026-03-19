@@ -239,8 +239,8 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     public async Task<IActionResult> GetTransactionHistory(
         [FromQuery] List<InventoryActionType>? actionTypes,
         [FromQuery] List<InventorySourceType>? sourceTypes,
-        [FromQuery] DateTime? fromDate,
-        [FromQuery] DateTime? toDate,
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -267,6 +267,10 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     public async Task<IActionResult> GetInventoryLogs(
         [FromQuery] int? depotId,
         [FromQuery] int? itemModelId,
+        [FromQuery] List<InventoryActionType>? actionTypes,
+        [FromQuery] List<InventorySourceType>? sourceTypes,
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -280,6 +284,10 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
             IsManager = isManager,
             DepotId = depotId,
             ItemModelId = itemModelId,
+            ActionTypes = actionTypes,
+            SourceTypes = sourceTypes,
+            FromDate = fromDate,
+            ToDate = toDate,
             PageNumber = pageNumber,
             PageSize = pageSize
         };
