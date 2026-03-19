@@ -9,8 +9,8 @@ public class GetInventoryTransactionHistoryQuery : IRequest<PagedResult<Inventor
     public Guid UserId { get; set; }
     public List<InventoryActionType>? ActionTypes { get; set; }
     public List<InventorySourceType>? SourceTypes { get; set; }
-    public DateTime? FromDate { get; set; }
-    public DateTime? ToDate { get; set; }
+    public DateOnly? FromDate { get; set; }
+    public DateOnly? ToDate { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

@@ -1,5 +1,6 @@
 using MediatR;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
@@ -13,7 +14,8 @@ public class GetInventoryTransactionHistoryQueryHandler(IInventoryLogRepository 
     public async Task<PagedResult<InventoryTransactionDto>> Handle(GetInventoryTransactionHistoryQuery request, CancellationToken cancellationToken)
     {
         // Get depot ID managed by this user
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken);
+        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+            ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
         
         // Convert enums to strings for repository
         var actionTypeStrings = request.ActionTypes?.Select(x => x.ToString()).ToList();

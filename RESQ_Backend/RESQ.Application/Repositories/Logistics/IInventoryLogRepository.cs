@@ -9,6 +9,10 @@ public interface IInventoryLogRepository
     Task<PagedResult<InventoryLogModel>> GetInventoryLogsPagedAsync(
         int? depotId,
         int? itemModelId,
+        List<string>? actionTypes,
+        List<string>? sourceTypes,
+        DateOnly? fromDate,
+        DateOnly? toDate,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
@@ -17,8 +21,8 @@ public interface IInventoryLogRepository
         int? depotId,
         List<string>? actionTypes,
         List<string>? sourceTypes,
-        DateTime? fromDate,
-        DateTime? toDate,
+        DateOnly? fromDate,
+        DateOnly? toDate,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);

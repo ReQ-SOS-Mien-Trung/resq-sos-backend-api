@@ -56,7 +56,7 @@ public class ItemCategoryRepository(IUnitOfWork unitOfWork) : IItemCategoryRepos
     public async Task<List<ItemCategoryModel>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<Category>().GetAllByPropertyAsync();
-        return entities.Select(ItemCategoryMapper.ToDomain).ToList();
+        return entities.OrderBy(c => c.Id).Select(ItemCategoryMapper.ToDomain).ToList();
     }
 
     // New implementation for paged access (matches DepotRepository)
