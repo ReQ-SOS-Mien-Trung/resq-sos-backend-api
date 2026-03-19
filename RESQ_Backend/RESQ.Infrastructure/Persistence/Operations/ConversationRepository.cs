@@ -168,6 +168,21 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
         }
     }
 
+    public async Task RemoveCoordinatorAsync(
+        int conversationId, Guid coordinatorId, CancellationToken cancellationToken = default)
+    {
+        var participant = await _context.ConversationParticipants
+            .FirstOrDefaultAsync(
+                p => p.ConversationId == conversationId && p.UserId == coordinatorId,
+                cancellationToken);
+
+        if (participant != null)
+        {
+            _context.ConversationParticipants.Remove(participant);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     public async Task<IEnumerable<ConversationModel>> GetConversationsWaitingForCoordinatorAsync(
         CancellationToken cancellationToken = default)
     {

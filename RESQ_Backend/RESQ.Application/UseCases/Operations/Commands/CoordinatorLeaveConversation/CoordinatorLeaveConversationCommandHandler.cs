@@ -6,48 +6,47 @@ using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
 using RESQ.Domain.Enum.Operations;
 
-namespace RESQ.Application.UseCases.Operations.Commands.CoordinatorJoinConversation;
+namespace RESQ.Application.UseCases.Operations.Commands.CoordinatorLeaveConversation;
 
-public class CoordinatorJoinConversationCommandHandler(
+public class CoordinatorLeaveConversationCommandHandler(
     IConversationRepository conversationRepository,
     IUserRepository userRepository,
     IFirebaseService firebaseService,
-    ILogger<CoordinatorJoinConversationCommandHandler> logger
-) : IRequestHandler<CoordinatorJoinConversationCommand, CoordinatorJoinConversationResponse>
+    ILogger<CoordinatorLeaveConversationCommandHandler> logger
+) : IRequestHandler<CoordinatorLeaveConversationCommand, CoordinatorLeaveConversationResponse>
 {
-    public async Task<CoordinatorJoinConversationResponse> Handle(
-        CoordinatorJoinConversationCommand request,
+    public async Task<CoordinatorLeaveConversationResponse> Handle(
+        CoordinatorLeaveConversationCommand request,
         CancellationToken cancellationToken)
     {
         var conversation = await conversationRepository.GetByIdAsync(
             request.ConversationId, cancellationToken)
             ?? throw new NotFoundException($"Conversation {request.ConversationId} không tồn tại.");
 
-        // Coordinator có thể join khi ở WaitingCoordinator hoặc CoordinatorActive
         if (conversation.Status == ConversationStatus.Closed)
             throw new BadRequestException("Phiên hỗ trợ này đã kết thúc.");
 
-        if (conversation.Status == ConversationStatus.AiAssist)
-            throw new BadRequestException(
-                "Victim chưa chọn chủ đề hỗ trợ. Vui lòng chờ victim xác nhận yêu cầu.");
-
-        // Add coordinator as participant
-        await conversationRepository.AddCoordinatorAsync(
+        var isParticipant = await conversationRepository.IsParticipantAsync(
             request.ConversationId, request.CoordinatorId, cancellationToken);
 
-        // Transition to CoordinatorActive
+        if (!isParticipant)
+            throw new BadRequestException("Bạn không phải là thành viên của conversation này.");
+
+        // Xóa coordinator khỏi danh sách participant
+        await conversationRepository.RemoveCoordinatorAsync(
+            request.ConversationId, request.CoordinatorId, cancellationToken);
+
+        // Chuyển trạng thái về WaitingCoordinator để coordinator khác có thể tiếp nhận
+        var newStatus = ConversationStatus.WaitingCoordinator;
         await conversationRepository.UpdateStatusAsync(
-            request.ConversationId,
-            ConversationStatus.CoordinatorActive,
-            cancellationToken: cancellationToken);
+            request.ConversationId, newStatus, cancellationToken: cancellationToken);
 
         var coordinator = await userRepository.GetByIdAsync(request.CoordinatorId, cancellationToken);
         var coordinatorName = coordinator != null
             ? $"{coordinator.FirstName} {coordinator.LastName}".Trim()
             : "Coordinator";
 
-        var systemMsg = $"👤 {coordinatorName} đã tham gia hỗ trợ bạn. " +
-                        "Bạn có thể mô tả thêm nhu cầu và trao đổi trực tiếp.";
+        var systemMsg = $"👤 {coordinatorName} đã rời phòng chat. Vui lòng chờ coordinator khác tham gia hỗ trợ bạn.";
 
         await conversationRepository.SendMessageAsync(
             request.ConversationId,
@@ -57,7 +56,7 @@ public class CoordinatorJoinConversationCommandHandler(
             cancellationToken: cancellationToken);
 
         logger.LogInformation(
-            "Coordinator {CoordinatorId} joined Conversation {ConvId}",
+            "Coordinator {CoordinatorId} left Conversation {ConvId}",
             request.CoordinatorId, request.ConversationId);
 
         // Push notification đến victim
@@ -65,17 +64,17 @@ public class CoordinatorJoinConversationCommandHandler(
         {
             await firebaseService.SendNotificationToUserAsync(
                 conversation.VictimId.Value,
-                "Coordinator đã tham gia",
-                $"{coordinatorName} đã tham gia hỗ trợ bạn. Bạn có thể mô tả thêm nhu cầu của mình.",
-                "coordinator_join",
+                "Coordinator đã rời phòng",
+                $"{coordinatorName} đã rời phòng chat. Vui lòng chờ coordinator khác tham gia hỗ trợ bạn.",
+                "coordinator_leave",
                 cancellationToken);
         }
 
-        return new CoordinatorJoinConversationResponse
+        return new CoordinatorLeaveConversationResponse
         {
             ConversationId = request.ConversationId,
             CoordinatorId = request.CoordinatorId,
-            Status = ConversationStatus.CoordinatorActive,
+            Status = newStatus,
             SystemMessage = systemMsg
         };
     }
