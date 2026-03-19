@@ -25,4 +25,5 @@ public class MissionActivityModel
     public DateTime? AssignedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public Guid? LastDecisionBy { get; set; }
+    public Guid? CompletedBy { get; set; }
 }

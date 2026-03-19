@@ -519,6 +519,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         List<(int ItemModelId, int Quantity)> items,
         CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
+
         foreach (var (itemModelId, quantity) in items)
         {
             var inventory = await _context.SupplyInventories
@@ -526,9 +528,20 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     x => x.DepotId == depotId && x.ItemModelId == itemModelId,
                     cancellationToken);
 
-            if (inventory == null) continue;
+            if (inventory != null)
+                inventory.ReservedQuantity = (inventory.ReservedQuantity ?? 0) + quantity;
 
-            inventory.ReservedQuantity = (inventory.ReservedQuantity ?? 0) + quantity;
+            // Reusable items: Available → Reserved
+            var reusableUnits = await _context.ReusableItems
+                .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == "Available")
+                .Take(quantity)
+                .ToListAsync(cancellationToken);
+
+            foreach (var unit in reusableUnits)
+            {
+                unit.Status    = "Reserved";
+                unit.UpdatedAt = now;
+            }
         }
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -580,6 +593,18 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 Note                   = $"Team xác nhận lấy hàng vật tư #{itemModelId} số lượng {quantity} cho activity #{activityId} (mission #{missionId})",
                 CreatedAt              = now
             });
+
+            // Reusable items: Reserved → InUse
+            var reusableUnits = await _context.ReusableItems
+                .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == "Reserved")
+                .Take(quantity)
+                .ToListAsync(cancellationToken);
+
+            foreach (var unit in reusableUnits)
+            {
+                unit.Status    = "InUse";
+                unit.UpdatedAt = now;
+            }
         }
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -590,6 +615,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         List<(int ItemModelId, int Quantity)> items,
         CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
+
         foreach (var (itemModelId, quantity) in items)
         {
             var inventory = await _context.SupplyInventories
@@ -597,9 +624,20 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     x => x.DepotId == depotId && x.ItemModelId == itemModelId,
                     cancellationToken);
 
-            if (inventory == null) continue;
+            if (inventory != null)
+                inventory.ReservedQuantity = Math.Max(0, (inventory.ReservedQuantity ?? 0) - quantity);
 
-            inventory.ReservedQuantity = Math.Max(0, (inventory.ReservedQuantity ?? 0) - quantity);
+            // Reusable items: Reserved → Available
+            var reusableUnits = await _context.ReusableItems
+                .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == "Reserved")
+                .Take(quantity)
+                .ToListAsync(cancellationToken);
+
+            foreach (var unit in reusableUnits)
+            {
+                unit.Status    = "Available";
+                unit.UpdatedAt = now;
+            }
         }
 
         await _context.SaveChangesAsync(cancellationToken);

@@ -94,7 +94,8 @@ public class GetMissionByIdQueryHandler(
                 Status = a.Status.ToString(),
                 MissionTeamId = a.MissionTeamId,
                 AssignedAt = a.AssignedAt,
-                CompletedAt = a.CompletedAt
+                CompletedAt = a.CompletedAt,
+                CompletedBy = a.CompletedBy
             }).ToList(),
             AiSuggestionId = aiSection?.Id,
             SuggestedMissionTitle = aiSection?.SuggestedMissionTitle,
