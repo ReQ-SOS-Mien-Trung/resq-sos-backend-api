@@ -131,7 +131,13 @@ public class RescueTeamModel
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void AssignMission() => ChangeStatus(RescueTeamStatus.Available, RescueTeamStatus.Assigned);
+    public void AssignMission()
+    {
+        if (Status != RescueTeamStatus.Available && Status != RescueTeamStatus.Ready)
+            throw new InvalidTeamTransitionException(Status, RescueTeamStatus.Assigned);
+        Status = RescueTeamStatus.Assigned;
+        UpdatedAt = DateTime.UtcNow;
+    }
     public void CancelMission() => ChangeStatus(RescueTeamStatus.Assigned, RescueTeamStatus.Available);
     public void StartMission() => ChangeStatus(RescueTeamStatus.Assigned, RescueTeamStatus.OnMission);
     public void FinishMission() => ChangeStatus(RescueTeamStatus.OnMission, RescueTeamStatus.Available);
