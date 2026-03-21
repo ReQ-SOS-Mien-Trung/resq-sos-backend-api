@@ -207,11 +207,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             ### RESCUE
             - **LUÔN tạo bước RESCUE** ngay cả khi thiếu thiết bị cứu hộ.
             - Nếu cần thiết bị cứu hộ chuyên dụng (dụng cụ phá dỡ, thiết bị nâng đỡ v.v.) và có trong kho → đưa vào `supplies_to_collect`.
-            - Nếu thiết bị cần thiết KHÔNG có trong kho → tạo thêm bước **REQUEST_SUPPORT** ngay sau bước RESCUE:
-              - `activity_type`: "REQUEST_SUPPORT"
-              - `description`: Ghi rõ thiết bị còn thiếu và đề nghị hỗ trợ từ cơ quan chức năng (PCCC, đơn vị tìm kiếm cứu nạn chuyên dụng, cơ sở y tế gần nhất).
-              - `supplies_to_collect`: null
-              - `priority`: cùng priority với bước RESCUE
+            - Nếu thiết bị cần thiết KHÔNG có trong kho → ghi rõ vào `special_notes` rằng thiếu thiết bị nào. KHÔNG tạo thêm bước nào khác cho trường hợp này.
 
             ### MEDICAL_AID
             - **LUÔN có `supplies_to_collect`** nếu tình huống cần vật tư y tế (sơ cứu, thuốc, dụng cụ y tế).
