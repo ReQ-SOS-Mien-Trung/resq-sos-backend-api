@@ -1,5 +1,6 @@
 using MediatR;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Personnel.Queries.GetAllRescueTeams;
@@ -31,7 +32,7 @@ public class GetRescueTeamDetailQueryHandler(
             AssemblyPointName = model.AssemblyPointName,
             ManagedBy = managerName,
             MaxMembers = model.MaxMembers,
-            CreatedAt = model.CreatedAt,
+            CreatedAt = model.CreatedAt.ToVietnamTime(),
             Members = model.Members.Select(m => new RescueTeamMemberDto
             {
                 UserId = m.UserId,
@@ -43,7 +44,7 @@ public class GetRescueTeamDetailQueryHandler(
                 Status = m.Status.ToString(),
                 IsLeader = m.IsLeader,
                 RoleInTeam = m.RoleInTeam,
-                JoinedAt = m.JoinedAt
+                JoinedAt = m.JoinedAt.ToVietnamTime()
             }).ToList()
         };
     }

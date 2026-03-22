@@ -1,6 +1,7 @@
 using MediatR;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Exceptions.Logistics;
@@ -10,7 +11,8 @@ namespace RESQ.Application.UseCases.Logistics.Commands.AcceptSupplyRequest;
 public class AcceptSupplyRequestCommandHandler(
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
-    IFirebaseService firebaseService)
+    IFirebaseService firebaseService,
+    IUnitOfWork unitOfWork)
     : IRequestHandler<AcceptSupplyRequestCommand, AcceptSupplyRequestResponse>
 {
     public async Task<AcceptSupplyRequestResponse> Handle(AcceptSupplyRequestCommand request, CancellationToken cancellationToken)
@@ -27,11 +29,14 @@ public class AcceptSupplyRequestCommandHandler(
         if (managerDepotId != sr.SourceDepotId)
             throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho nguồn trong yêu cầu này.");
 
-        // Đặt trữ (reserve) vật tư tại kho nguồn — kiểm tra và tăng ReservedQuantity
-        await supplyRequestRepository.ReserveItemsAsync(
-            sr.SourceDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
+        // Wrap trong transaction để đảm bảo Reserve + UpdateStatus đồng bộ
+        await unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            await supplyRequestRepository.ReserveItemsAsync(
+                sr.SourceDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
 
-        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Accepted", "Approved", null, cancellationToken);
+            await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Accepted", "Approved", null, cancellationToken);
+        });
 
         // Notify requesting manager
         await firebaseService.SendNotificationToUserAsync(

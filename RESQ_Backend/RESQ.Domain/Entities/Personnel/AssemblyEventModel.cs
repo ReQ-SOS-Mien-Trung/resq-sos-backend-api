@@ -1,3 +1,4 @@
+using RESQ.Domain.Entities.Personnel.Exceptions;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Domain.Entities.Personnel;
@@ -37,7 +38,7 @@ public class AssemblyEventModel
     public void StartGathering()
     {
         if (Status != AssemblyEventStatus.Scheduled)
-            throw new InvalidOperationException(
+            throw new InvalidAssemblyEventStatusException(
                 $"Không thể bắt đầu tập trung. Trạng thái hiện tại: {Status}. Yêu cầu: Scheduled.");
 
         Status = AssemblyEventStatus.Gathering;
@@ -50,7 +51,7 @@ public class AssemblyEventModel
     public void Complete()
     {
         if (Status != AssemblyEventStatus.Gathering)
-            throw new InvalidOperationException(
+            throw new InvalidAssemblyEventStatusException(
                 $"Không thể hoàn tất sự kiện. Trạng thái hiện tại: {Status}. Yêu cầu: Gathering.");
 
         Status = AssemblyEventStatus.Completed;

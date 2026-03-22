@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Queries.GetPublicCampaignSpending;
@@ -59,7 +60,7 @@ public class GetPublicCampaignSpendingHandler : IRequestHandler<GetPublicCampaig
                 Amount = d.Amount,
                 Purpose = d.Purpose,
                 Type = d.Type.ToString(),
-                CreatedAt = d.CreatedAt,
+                CreatedAt = d.CreatedAt.ToVietnamTime(),
                 DepotFundBalance = depotFundBalances.TryGetValue(d.DepotId, out var balance) ? balance : 0m,
                 Items = d.Items.Select(i => new PublicDisbursementItemDto
                 {

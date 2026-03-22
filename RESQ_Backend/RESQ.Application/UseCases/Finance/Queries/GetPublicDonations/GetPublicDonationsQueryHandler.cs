@@ -1,5 +1,6 @@
 using MediatR;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.UseCases.Finance.Queries.GetDonations;
 
@@ -30,7 +31,7 @@ public class GetPublicDonationsQueryHandler(IDonationRepository donationReposito
             DonorEmail = donation.Donor?.Email,
             Amount = donation.Amount?.Amount ?? 0,
             Note = donation.Note,
-            CreatedAt = donation.CreatedAt,
+            CreatedAt = donation.CreatedAt.ToVietnamTime(),
             IsPrivate = false
         }).ToList();
 

@@ -1,6 +1,7 @@
 using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.UseCases.Finance.Queries.GetDepotFundTransactions;
@@ -40,7 +41,7 @@ public class GetMyDepotFundTransactionsHandler(
             ReferenceId = t.ReferenceId,
             Note = t.Note,
             CreatedBy = t.CreatedBy,
-            CreatedAt = t.CreatedAt
+            CreatedAt = t.CreatedAt.ToVietnamTime()
         }).ToList();
 
         return new PagedResult<DepotFundTransactionDto>(
