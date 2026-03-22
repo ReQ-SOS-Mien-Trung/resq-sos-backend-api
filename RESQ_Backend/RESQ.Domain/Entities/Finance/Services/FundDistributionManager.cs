@@ -10,13 +10,13 @@ public class FundDistributionManager : IFundDistributionManager
     {
         if (campaign == null) throw new ArgumentNullException(nameof(campaign));
 
-        // 1. Status Check — chỉ chiến dịch Closed mới được điều phối quỹ cho kho
-        if (campaign.Status != FundCampaignStatus.Closed)
+        // 1. Status Check — chiến dịch Active hoặc Closed mới được điều phối quỹ cho kho
+        if (campaign.Status != FundCampaignStatus.Active && campaign.Status != FundCampaignStatus.Closed)
         {
             throw new InvalidCampaignStatusException(
                 campaign.Id,
                 campaign.Status.ToString(),
-                "Phân bổ quỹ (chỉ được thực hiện khi chiến dịch đã kết thúc)"
+                "Phân bổ quỹ (chỉ được thực hiện khi chiến dịch đang hoạt động hoặc đã kết thúc)"
             );
         }
         

@@ -250,6 +250,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                     ItemId = item.SupplyInventory?.ItemModelId
                              ?? item.ReusableItem?.ItemModelId
                              ?? 0,
+                    SupplyInventoryLotId = item.SupplyInventoryLotId,
                     ItemName = item.SupplyInventory?.ItemModel?.Name
                                ?? item.ReusableItem?.ItemModel?.Name
                                ?? string.Empty,

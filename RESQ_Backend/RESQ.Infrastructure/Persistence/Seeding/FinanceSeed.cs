@@ -30,6 +30,7 @@ public static class FinanceSeed
                 CampaignEndDate = new DateOnly(2026, 12, 31),
                 TargetAmount = 1000000000, // 1 tỷ VND
                 TotalAmount = 7500000,     // Tổng demo
+                CurrentBalance = 7500000,  // Số dư hiện tại
                 Status = FundCampaignStatus.Active.ToString(),
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = DateTime.UtcNow.AddDays(-60)
@@ -44,6 +45,7 @@ public static class FinanceSeed
                 CampaignEndDate = new DateOnly(2025, 3, 31),
                 TargetAmount = 500000000, // 500 triệu VND
                 TotalAmount = 520000000,   // Đã đạt mục tiêu
+                CurrentBalance = 520000000, // Số dư hiện tại
                 Status = FundCampaignStatus.Closed.ToString(),
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = DateTime.UtcNow.AddMonths(-8)

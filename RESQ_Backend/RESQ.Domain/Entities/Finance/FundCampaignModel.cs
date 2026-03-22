@@ -16,7 +16,10 @@ public class FundCampaignModel
     public CampaignDuration? Duration { get; private set; }
 
     public decimal? TargetAmount { get; private set; }
+    /// <summary>Tổng số tiền đã được donate (chỉ tăng, không giảm khi rút).</summary>
     public decimal? TotalAmount { get; private set; }
+    /// <summary>Số dư hiện tại = TotalAmount - tổng đã giải ngân.</summary>
+    public decimal? CurrentBalance { get; private set; }
     
     public FundCampaignStatus Status { get; private set; }
 
@@ -43,6 +46,7 @@ public class FundCampaignModel
         CreatedAt = DateTime.UtcNow;
         Status = FundCampaignStatus.Draft;
         TotalAmount = 0;
+        CurrentBalance = 0;
         IsDeleted = false;
 
         // Domain Rule: CampaignEndDate must be greater than CampaignStartDate handled in Value Object
@@ -59,7 +63,7 @@ public class FundCampaignModel
     public static FundCampaignModel Reconstitute(
         int id, string? code, string name, string region, 
         DateOnly? startDate, DateOnly? endDate, 
-        decimal? targetAmount, decimal? totalAmount, 
+        decimal? targetAmount, decimal? totalAmount, decimal? currentBalance,
         FundCampaignStatus status, 
         string? suspendReason,
         Guid? createdBy, DateTime? createdAt, 
@@ -74,6 +78,7 @@ public class FundCampaignModel
             Region = region,
             TargetAmount = targetAmount,
             TotalAmount = totalAmount,
+            CurrentBalance = currentBalance,
             Status = status,
             SuspendReason = suspendReason,
             CreatedBy = createdBy,
@@ -258,21 +263,22 @@ public class FundCampaignModel
         }
 
         TotalAmount = (TotalAmount ?? 0) + amount;
+        CurrentBalance = (CurrentBalance ?? 0) + amount;
         LastModifiedAt = DateTime.UtcNow;
     }
 
     /// <summary>
-    /// Ghi nhận một khoản giải ngân từ chiến dịch: trừ TotalAmount theo số tiền đã cấp cho kho.
-    /// Chỉ được phép khi chiến dịch ở trạng thái Closed.
+    /// Ghi nhận một khoản giải ngân từ chiến dịch: trừ CurrentBalance theo số tiền đã cấp cho kho.
+    /// Chỉ được phép khi chiến dịch ở trạng thái Active hoặc Closed.
     /// </summary>
     public void Disburse(decimal amount, Guid modifierId)
     {
         CheckModificationRules();
 
-        if (Status != FundCampaignStatus.Closed)
+        if (Status != FundCampaignStatus.Active && Status != FundCampaignStatus.Closed)
         {
             throw new InvalidCampaignStatusException(
-                $"Chỉ chiến dịch đã kết thúc (Closed) mới có thể điều phối quỹ cho kho. Trạng thái hiện tại: {Status}.");
+                $"Chỉ chiến dịch đang hoạt động (Active) hoặc đã kết thúc (Closed) mới có thể điều phối quỹ cho kho. Trạng thái hiện tại: {Status}.");
         }
 
         if (amount <= 0)
@@ -280,13 +286,13 @@ public class FundCampaignModel
             throw new NegativeMoneyException(amount);
         }
 
-        var current = TotalAmount ?? 0;
+        var current = CurrentBalance ?? 0;
         if (amount > current)
         {
             throw new InsufficientCampaignFundsException(current, amount);
         }
 
-        TotalAmount = current - amount;
+        CurrentBalance = current - amount;
         UpdateAudit(modifierId);
     }
 

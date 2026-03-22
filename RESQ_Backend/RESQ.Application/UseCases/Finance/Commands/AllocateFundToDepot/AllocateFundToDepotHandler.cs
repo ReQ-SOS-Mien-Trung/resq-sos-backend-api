@@ -11,7 +11,7 @@ namespace RESQ.Application.UseCases.Finance.Commands.AllocateFundToDepot;
 
 /// <summary>
 /// [Cách 1] Admin chủ động cấp tiền từ Campaign → Depot.
-/// 1. Validate campaign (active, đủ tiền)
+/// 1. Validate campaign (Active hoặc Closed, đủ tiền)
 /// 2. Tạo CampaignDisbursement
 /// 3. Tạo FundTransaction (ghi nhận dòng tiền ra)
 /// 4. Cộng quỹ kho + gửi Firebase notification cho manager
@@ -53,9 +53,8 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         var campaign = await _campaignRepo.GetByIdAsync(request.FundCampaignId, cancellationToken)
             ?? throw new RESQ.Application.Exceptions.NotFoundException($"Không tìm thấy chiến dịch #{request.FundCampaignId}.");
 
-        // 2. Tính số dư khả dụng = TotalAmount - TotalDisbursed
-        var totalDisbursed = await _disbursementRepo.GetTotalDisbursedByCampaignAsync(request.FundCampaignId, cancellationToken);
-        var availableBalance = (campaign.TotalAmount ?? 0) - totalDisbursed;
+        // 2. Số dư khả dụng là CurrentBalance của chiến dịch
+        var availableBalance = campaign.CurrentBalance ?? 0;
 
         // 3. Domain Service validate (status, balance, amount)
         _distributionManager.ValidateAllocation(campaign, availableBalance, request.Amount);
@@ -70,7 +69,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         );
         var disbursementId = await _disbursementRepo.CreateAsync(disbursement, cancellationToken);
 
-        // 4b. Trừ số tiền đã cấp khỏi TotalAmount của chiến dịch
+        // 4b. Trừ số tiền đã cấp khỏi CurrentBalance của chiến dịch
         campaign.Disburse(request.Amount, request.AllocatedBy);
         await _campaignRepo.UpdateAsync(campaign, cancellationToken);
 
