@@ -422,7 +422,27 @@ public static class PersonnelSeeder
                 UserId = SeedConstants.RescuerUserId,
                 AbilityId = 17, // Sơ cứu cơ bản
                 Level = 4
-            }
+            },
+            // Abilities cho Applicant1 (Volunteer, đang chờ duyệt)
+            new UserAbility { UserId = SeedConstants.Applicant1UserId, AbilityId = 1, Level = 2 },   // BASIC_SWIMMING
+            new UserAbility { UserId = SeedConstants.Applicant1UserId, AbilityId = 17, Level = 3 },  // BASIC_FIRST_AID
+            new UserAbility { UserId = SeedConstants.Applicant1UserId, AbilityId = 48, Level = 2 },  // DISASTER_RELIEF_EXPERIENCE
+            // Abilities cho Applicant2 (Core, đang chờ duyệt)
+            new UserAbility { UserId = SeedConstants.Applicant2UserId, AbilityId = 3, Level = 3 },   // WATER_RESCUE
+            new UserAbility { UserId = SeedConstants.Applicant2UserId, AbilityId = 11, Level = 3 },  // ROPE_RESCUE
+            new UserAbility { UserId = SeedConstants.Applicant2UserId, AbilityId = 23, Level = 4 },  // CPR
+            // Abilities cho Applicant3 (Volunteer, đang chờ duyệt)
+            new UserAbility { UserId = SeedConstants.Applicant3UserId, AbilityId = 1, Level = 3 },   // BASIC_SWIMMING
+            new UserAbility { UserId = SeedConstants.Applicant3UserId, AbilityId = 36, Level = 4 },  // MOTORCYCLE_DRIVING
+            new UserAbility { UserId = SeedConstants.Applicant3UserId, AbilityId = 50, Level = 3 },  // COMMUNITY_RESCUE_EXPERIENCE
+            // Abilities cho Applicant4 (Core, đã được duyệt thành Rescuer)
+            new UserAbility { UserId = SeedConstants.Applicant4UserId, AbilityId = 3, Level = 4 },   // WATER_RESCUE
+            new UserAbility { UserId = SeedConstants.Applicant4UserId, AbilityId = 17, Level = 3 },  // BASIC_FIRST_AID
+            new UserAbility { UserId = SeedConstants.Applicant4UserId, AbilityId = 36, Level = 4 },  // MOTORCYCLE_DRIVING
+            // Abilities cho Applicant5 (Volunteer, đã bị từ chối)
+            new UserAbility { UserId = SeedConstants.Applicant5UserId, AbilityId = 17, Level = 2 },  // BASIC_FIRST_AID
+            new UserAbility { UserId = SeedConstants.Applicant5UserId, AbilityId = 36, Level = 3 },  // MOTORCYCLE_DRIVING
+            new UserAbility { UserId = SeedConstants.Applicant5UserId, AbilityId = 52, Level = 2 }   // VOLUNTEER_ORG_MEMBER
         };
 
         // Gán kỹ năng đa dạng cho tất cả 80 test rescuer (3 kỹ năng duy nhất mỗi user)

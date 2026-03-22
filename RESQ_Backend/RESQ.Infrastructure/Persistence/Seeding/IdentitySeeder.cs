@@ -82,9 +82,14 @@ public static class IdentitySeeder
                 Phone = "0923456789",
                 Password = SeedConstants.RescuerPasswordHash,
                 RescuerType = RescuerType.Core.ToString(),
+                Address = "25 Lê Lợi",
+                Ward = "Phú Hội",
+                Province = "Thừa Thiên Huế",
                 IsEmailVerified = true,
                 IsOnboarded = true,
                 IsEligibleRescuer = true,
+                ApprovedBy = SeedConstants.AdminUserId,
+                ApprovedAt = now,
                 CreatedAt = now,
                 UpdatedAt = now
             },
@@ -273,6 +278,10 @@ public static class IdentitySeeder
         var dem = new[] { "Văn", "Thị", "Đức", "Ngọc", "Minh", "Phương", "Quang", "Thanh", "Hữu", "Hồng" };
         var ten = new[] { "An", "Bình", "Cường", "Dũng", "Đạt", "Giang", "Hà", "Hải", "Hạnh", "Hiếu", "Hoà", "Hùng", "Hương", "Khánh", "Khoa", "Lâm", "Linh", "Long", "Mai", "Minh", "Nam", "Ngọc", "Nhân", "Phong", "Phúc", "Quân", "Sơn", "Tâm", "Thắng", "Thiện", "Thịnh", "Thuỷ", "Toàn", "Trung", "Tuấn", "Tùng", "Uyên", "Vinh", "Vũ", "Yến" };
 
+        var seedProvinces = new[] { "Thừa Thiên Huế", "Hà Tĩnh", "Quảng Nam", "Đà Nẵng", "Quảng Bình", "Quảng Trị" };
+        var seedStreets = new[] { "Lê Lợi", "Nguyễn Huệ", "Trần Phú", "Hùng Vương", "Đinh Tiên Hoàng", "Quang Trung", "Hoàng Diệu", "Hai Bà Trưng" };
+        var seedWards = new[] { "Phường 1", "Phường 2", "Phường 3", "Phường Đông", "Phường Tây", "Phường Nam", "Trung tâm", "Phố cổ" };
+
         for (int i = 1; i <= 80; i++)
         {
             var idStr = i.ToString("D4");
@@ -287,9 +296,14 @@ public static class IdentitySeeder
                 Email = $"rescuer{i}@fpt.edu.vn",
                 Password = SeedConstants.RescuerPasswordHash,
                 RescuerType = (i % 2 == 0) ? RescuerType.Core.ToString() : RescuerType.Volunteer.ToString(),
+                Address = $"{(i * 5 + 10)} {seedStreets[(i - 1) % seedStreets.Length]}",
+                Ward = seedWards[(i - 1) % seedWards.Length],
+                Province = seedProvinces[(i - 1) % seedProvinces.Length],
                 IsEmailVerified = true,
                 IsOnboarded = true,
                 IsEligibleRescuer = true,
+                ApprovedBy = SeedConstants.AdminUserId,
+                ApprovedAt = now.AddDays((i % 30) + 1),
                 CreatedAt = now,
                 UpdatedAt = now
             });
@@ -460,5 +474,80 @@ public static class IdentitySeeder
                 UploadedAt = now.AddDays(2)
             }
         );
+
+        // Application + documents cho tài khoản rescuer chính (Core)
+        modelBuilder.Entity<RescuerApplication>().HasData(
+            new RescuerApplication
+            {
+                Id = 6,
+                UserId = SeedConstants.RescuerUserId,
+                Status = RescuerApplicationStatus.Approved.ToString(),
+                SubmittedAt = now,
+                ReviewedAt = now.AddDays(3),
+                ReviewedBy = SeedConstants.AdminUserId,
+                AdminNote = "Rescuer nòng cốt của hệ thống. Đủ điều kiện."
+            }
+        );
+
+        modelBuilder.Entity<RescuerApplicationDocument>().HasData(
+            new RescuerApplicationDocument
+            {
+                Id = 11,
+                ApplicationId = 6,
+                FileUrl = "https://storage.resq-sos.vn/certs/rescuer_hai_water_cert.jpg",
+                FileTypeId = 2, // WATER_RESCUE_CERT
+                UploadedAt = now
+            },
+            new RescuerApplicationDocument
+            {
+                Id = 12,
+                ApplicationId = 6,
+                FileUrl = "https://storage.resq-sos.vn/certs/rescuer_hai_first_aid_cert.jpg",
+                FileTypeId = 5, // BASIC_FIRST_AID_CERT
+                UploadedAt = now
+            }
+        );
+
+        // Applications + documents cho 80 loop rescuers
+        var loopApplications = new List<RescuerApplication>();
+        var loopDocuments = new List<RescuerApplicationDocument>();
+
+        for (int i = 1; i <= 80; i++)
+        {
+            var userId = Guid.Parse($"33333333-3333-3333-3333-33333333{i:D4}");
+            var appId = 6 + i; // 7..86
+            loopApplications.Add(new RescuerApplication
+            {
+                Id = appId,
+                UserId = userId,
+                Status = RescuerApplicationStatus.Approved.ToString(),
+                SubmittedAt = now.AddDays(i % 15),
+                ReviewedAt = now.AddDays(i % 15 + 3),
+                ReviewedBy = SeedConstants.AdminUserId,
+                AdminNote = "Đủ điều kiện tham gia đội cứu hộ."
+            });
+
+            // Core (i chẵn) → TECHNICAL_RESCUE_CERT(3), Volunteer (i lẻ) → BASIC_FIRST_AID_CERT(5)
+            var certTypeId = (i % 2 == 0) ? 3 : 5;
+            loopDocuments.Add(new RescuerApplicationDocument
+            {
+                Id = 2 * i + 11, // 13, 15, 17, ..., 171
+                ApplicationId = appId,
+                FileUrl = $"https://storage.resq-sos.vn/certs/rescuer{i}_cert1.jpg",
+                FileTypeId = certTypeId,
+                UploadedAt = now.AddDays(i % 15)
+            });
+            loopDocuments.Add(new RescuerApplicationDocument
+            {
+                Id = 2 * i + 12, // 14, 16, 18, ..., 172
+                ApplicationId = appId,
+                FileUrl = $"https://storage.resq-sos.vn/certs/rescuer{i}_id.jpg",
+                FileTypeId = 9, // OTHER (CCCD/ID photo)
+                UploadedAt = now.AddDays(i % 15)
+            });
+        }
+
+        modelBuilder.Entity<RescuerApplication>().HasData(loopApplications);
+        modelBuilder.Entity<RescuerApplicationDocument>().HasData(loopDocuments);
     }
 }

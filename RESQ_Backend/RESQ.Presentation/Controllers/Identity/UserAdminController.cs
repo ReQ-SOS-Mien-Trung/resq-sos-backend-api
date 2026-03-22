@@ -57,17 +57,16 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
-        /// <summary>Lấy danh sách Rescuer (RoleId=3) với đầy đủ thông tin</summary>
+        /// <summary>Lấy danh sách Rescuer đủ điều kiện (RoleId=3, IsEligibleRescuer=true) với abilities và chứng chỉ</summary>
         [HttpGet("rescuers")]
         [Authorize(Policy = PermissionConstants.SystemUserView)]
         public async Task<IActionResult> GetRescuers(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] bool? isBanned = null,
-            [FromQuery] bool? isEligible = null,
             [FromQuery] string? search = null)
         {
-            var query = new GetRescuersQuery(pageNumber, pageSize, isBanned, isEligible, search);
+            var query = new GetRescuersQuery(pageNumber, pageSize, isBanned, search);
             var result = await _mediator.Send(query);
             return Ok(result);
         }
