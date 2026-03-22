@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 
 namespace RESQ.Infrastructure.Persistence.Seeding;
@@ -130,8 +131,8 @@ public static class EmergencySeeder
                     }
                     """,
                 Timestamp = 1729067400L, // 2024-10-16 08:30 UTC
-                PriorityLevel = "Critical",
-                Status = "Pending",
+                PriorityLevel = SosPriorityLevel.Critical.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
                 CreatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
@@ -193,8 +194,8 @@ public static class EmergencySeeder
                     }
                     """,
                 Timestamp = 1729067700L, // 2024-10-16 08:35 UTC
-                PriorityLevel = "Critical",
-                Status = "Pending",
+                PriorityLevel = SosPriorityLevel.Critical.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
                 CreatedAt = new DateTime(2024, 10, 16, 8, 35, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 8, 35, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc),
@@ -269,8 +270,8 @@ public static class EmergencySeeder
                     }
                     """,
                 Timestamp = 1729068300L, // 2024-10-16 08:45 UTC
-                PriorityLevel = "High",
-                Status = "Pending",
+                PriorityLevel = SosPriorityLevel.High.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
                 CreatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
@@ -332,8 +333,8 @@ public static class EmergencySeeder
                     }
                     """,
                 Timestamp = 1729068600L, // 2024-10-16 08:50 UTC
-                PriorityLevel = "High",
-                Status = "Pending",
+                PriorityLevel = SosPriorityLevel.High.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
                 CreatedAt = new DateTime(2024, 10, 16, 8, 50, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 8, 52, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
@@ -398,8 +399,8 @@ public static class EmergencySeeder
                     }
                     """,
                 Timestamp = 1729069800L, // 2024-10-16 09:10 UTC
-                PriorityLevel = "High",
-                Status = "Pending",
+                PriorityLevel = SosPriorityLevel.High.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
                 CreatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
@@ -427,7 +428,7 @@ public static class EmergencySeeder
                 EnvironmentScore = 80.0, // RESCUE(40) + FLOODING(40)
                 FoodScore = 45.0,      // 3 people(30) + elderly(15)
                 TotalScore = 72.5,
-                PriorityLevel = "Critical",
+                PriorityLevel = SosPriorityLevel.Critical.ToString(),
                 RuleVersion = "1.0",
                 ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
                 CreatedAt = now
@@ -443,7 +444,7 @@ public static class EmergencySeeder
                 EnvironmentScore = 80.0,
                 FoodScore = 65.0,      // min(6*10,50)=50 + child(15)
                 TotalScore = 71.5,
-                PriorityLevel = "Critical",
+                PriorityLevel = SosPriorityLevel.Critical.ToString(),
                 RuleVersion = "1.0",
                 ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
                 CreatedAt = now.AddSeconds(30)
@@ -459,7 +460,7 @@ public static class EmergencySeeder
                 EnvironmentScore = 80.0, // RESCUE(40) + LANDSLIDE(40)
                 FoodScore = 50.0,      // min(5*10,50)=50
                 TotalScore = 68.5,
-                PriorityLevel = "High",
+                PriorityLevel = SosPriorityLevel.High.ToString(),
                 RuleVersion = "1.0",
                 ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"BANDAGES\",\"BLOOD_CLOTTING_AGENTS\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
                 CreatedAt = now.AddMinutes(1)
@@ -475,7 +476,7 @@ public static class EmergencySeeder
                 EnvironmentScore = 80.0, // RESCUE(40) + FLOODING(40)
                 FoodScore = 80.0,      // min(120*10,50)=50 + child(15) + elderly(15)
                 TotalScore = 55.5,
-                PriorityLevel = "High",
+                PriorityLevel = SosPriorityLevel.High.ToString(),
                 RuleVersion = "1.0",
                 ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
                 CreatedAt = now.AddMinutes(1).AddSeconds(30)
@@ -491,7 +492,7 @@ public static class EmergencySeeder
                 EnvironmentScore = 75.0, // RESCUE(40) + ACCIDENT(35)
                 FoodScore = 10.0,      // 1 person(10)
                 TotalScore = 50.0,
-                PriorityLevel = "High",
+                PriorityLevel = SosPriorityLevel.High.ToString(),
                 RuleVersion = "1.0",
                 ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
                 CreatedAt = now.AddMinutes(2)

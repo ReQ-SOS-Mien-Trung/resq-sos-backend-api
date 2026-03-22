@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
+using RESQ.Domain.Enum.Operations;
 using RESQ.Infrastructure.Entities.Operations;
 
 namespace RESQ.Infrastructure.Persistence.Seeding;
@@ -29,7 +30,7 @@ public static class OperationsSeeder
                 ClusterId = 1,
                 MissionType = "Rescue",
                 PriorityScore = 10.0,
-                Status = "InProgress",
+                Status = MissionStatus.OnGoing.ToString(),
                 StartTime = now,
                 ExpectedEndTime = now.AddHours(6),
                 CreatedAt = now,
@@ -42,7 +43,7 @@ public static class OperationsSeeder
                 ClusterId = 2,
                 MissionType = "Relief",
                 PriorityScore = 7.0,
-                Status = "Planned",
+                Status = MissionStatus.Planned.ToString(),
                 StartTime = now.AddHours(2),
                 ExpectedEndTime = now.AddHours(8),
                 CreatedAt = now,
@@ -66,7 +67,7 @@ public static class OperationsSeeder
                 Description = "Tiếp cận khu vực ngập sâu Lệ Thủy, hỗ trợ y tế và di tản.",
                 Target = "{\"location\": \"Xã An Thủy\", \"count\": 30}",
                 TargetLocation = new Point(106.7865, 17.2140) { SRID = 4326 },
-                Status = "InProgress",
+                Status = MissionActivityStatus.OnGoing.ToString(),
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
                 MissionTeamId = 1 // Biệt đội Ca nô Hà Tĩnh
@@ -81,7 +82,7 @@ public static class OperationsSeeder
                 Description = "Phân phát lương thực cứu trợ (gạo, mì) tại vùng lũ TT-Huế.",
                 Target = "{\"items\": [\"rice\", \"food\"], \"count\": 200}",
                 TargetLocation = new Point(107.5680, 16.4546) { SRID = 4326 },
-                Status = "Planned",
+                Status = MissionActivityStatus.Planned.ToString(),
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.AdminUserId
             }

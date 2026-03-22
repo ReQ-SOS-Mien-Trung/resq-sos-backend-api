@@ -10,7 +10,7 @@ namespace RESQ.Application.UseCases.Finance.Commands.ApproveFundingRequest;
 /// <summary>
 /// Admin duyệt FundingRequest:
 /// 1. Validate FundingRequest (Pending)
-/// 2. Validate Campaign (Active, đủ tiền)
+/// 2. Validate Campaign (Active hoặc Closed, đủ tiền)
 /// 3. Approve FundingRequest → gán campaignId
 /// 4. Tạo CampaignDisbursement (Type = FundingRequestApproval)
 /// 5. Tạo FundTransaction (OUT)
@@ -55,9 +55,8 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
             ?? throw new RESQ.Application.Exceptions.NotFoundException(
                 $"Không tìm thấy chiến dịch #{request.CampaignId}.");
 
-        // 3. Tính số dư khả dụng
-        var totalDisbursed = await _disbursementRepo.GetTotalDisbursedByCampaignAsync(request.CampaignId, cancellationToken);
-        var availableBalance = (campaign.TotalAmount ?? 0) - totalDisbursed;
+        // 3. Số dư khả dụng là CurrentBalance của chiến dịch
+        var availableBalance = campaign.CurrentBalance ?? 0;
 
         // 4. Domain Service validate (campaign active, đủ tiền)
         _distributionManager.ValidateAllocation(campaign, availableBalance, fundingRequest.TotalAmount);
@@ -77,7 +76,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         );
         var disbursementId = await _disbursementRepo.CreateAsync(disbursement, cancellationToken);
 
-        // 6b. Trừ số tiền đã giải ngân khỏi TotalAmount của chiến dịch
+        // 6b. Trừ số tiền đã giải ngân khỏi CurrentBalance của chiến dịch
         campaign.Disburse(fundingRequest.TotalAmount, request.ReviewedBy);
         await _campaignRepo.UpdateAsync(campaign, cancellationToken);
 

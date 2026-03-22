@@ -27,6 +27,7 @@ public class ViewAllCampaignsHandler : IRequestHandler<ViewAllCampaignsQuery, Pa
             Region = x.Region,
             TargetAmount = x.TargetAmount ?? 0,
             TotalAmount = x.TotalAmount ?? 0,
+            CurrentBalance = x.CurrentBalance ?? 0,
             Status = x.Status.ToString(),
             CampaignStartDate = x.Duration?.StartDate,
             CampaignEndDate = x.Duration?.EndDate,

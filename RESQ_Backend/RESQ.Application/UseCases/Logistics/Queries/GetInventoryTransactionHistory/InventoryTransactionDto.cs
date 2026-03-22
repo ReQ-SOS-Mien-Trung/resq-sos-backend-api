@@ -16,6 +16,7 @@ public class InventoryTransactionDto
 public class InventoryTransactionItemDto
 {
     public int ItemId { get; set; }
+    public int? SupplyInventoryLotId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public int QuantityChange { get; set; }
     public string FormattedQuantityChange { get; set; } = string.Empty;

@@ -9,6 +9,7 @@ public class CampaignListDto
     public string Region { get; set; } = string.Empty;
     public decimal TargetAmount { get; set; }
     public decimal TotalAmount { get; set; }
+    public decimal CurrentBalance { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateOnly? CampaignStartDate { get; set; }
     public DateOnly? CampaignEndDate { get; set; }

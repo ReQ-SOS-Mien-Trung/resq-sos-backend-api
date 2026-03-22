@@ -48,7 +48,7 @@ public class GetPublicCampaignSpendingHandler : IRequestHandler<GetPublicCampaig
             CampaignName = campaign.Name,
             TotalRaised = campaign.TotalAmount ?? 0,
             TotalDisbursed = totalDisbursed,
-            RemainingBalance = (campaign.TotalAmount ?? 0) - totalDisbursed,
+            RemainingBalance = campaign.CurrentBalance ?? 0,
             TotalCount = pagedDisbursements.TotalCount,
             PageNumber = pagedDisbursements.PageNumber,
             PageSize = pagedDisbursements.PageSize,

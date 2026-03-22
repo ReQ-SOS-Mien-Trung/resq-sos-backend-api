@@ -38,6 +38,9 @@ public partial class FundCampaign
     [Column("total_amount")]
     public decimal? TotalAmount { get; set; }
 
+    [Column("current_balance")]
+    public decimal? CurrentBalance { get; set; }
+
     [Column("status")]
     [StringLength(50)]
     public string? Status { get; set; }
