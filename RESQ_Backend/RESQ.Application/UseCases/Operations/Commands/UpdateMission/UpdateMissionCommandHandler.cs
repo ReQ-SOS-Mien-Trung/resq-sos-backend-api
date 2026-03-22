@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Extensions;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -27,8 +28,8 @@ public class UpdateMissionCommandHandler(
 
         mission.MissionType = request.MissionType;
         mission.PriorityScore = request.PriorityScore;
-        mission.StartTime = request.StartTime;
-        mission.ExpectedEndTime = request.ExpectedEndTime;
+        mission.StartTime = request.StartTime.ToUtcForStorage();
+        mission.ExpectedEndTime = request.ExpectedEndTime.ToUtcForStorage();
 
         await _missionRepository.UpdateAsync(mission, cancellationToken);
         await _unitOfWork.SaveAsync();

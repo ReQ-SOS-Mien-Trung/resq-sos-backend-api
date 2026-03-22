@@ -1,5 +1,6 @@
 using MediatR;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Personnel;
 
 namespace RESQ.Application.UseCases.Personnel.Queries.GetAllRescueTeams;
@@ -22,7 +23,7 @@ public class GetAllRescueTeamsQueryHandler(IPersonnelQueryRepository personnelQu
             AssemblyPointName = m.AssemblyPointName,
             MaxMembers = m.MaxMembers,
             CurrentMemberCount = m.Members.Count(x => x.Status != Domain.Enum.Personnel.TeamMemberStatus.Removed),
-            CreatedAt = m.CreatedAt
+            CreatedAt = m.CreatedAt.ToVietnamTime()
         }).ToList();
 
         return new PagedResult<RescueTeamDto>(dtos, pagedModels.TotalCount, pagedModels.PageNumber, pagedModels.PageSize);

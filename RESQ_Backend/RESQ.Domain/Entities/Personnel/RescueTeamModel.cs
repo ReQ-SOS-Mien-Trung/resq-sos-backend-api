@@ -94,7 +94,7 @@ public class RescueTeamModel
 
     public void AssignMission()
     {
-        if (Status != RescueTeamStatus.Available && Status != RescueTeamStatus.Ready)
+        if (Status != RescueTeamStatus.Available)
             throw new InvalidTeamTransitionException(Status, RescueTeamStatus.Assigned);
         Status = RescueTeamStatus.Assigned;
         UpdatedAt = DateTime.UtcNow;

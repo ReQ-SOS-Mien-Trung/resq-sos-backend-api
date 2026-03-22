@@ -24,16 +24,21 @@ public class ScheduleGatheringCommandHandler(
         var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId}");
 
-        // 2. Validate ngày triệu tập phải sau ít nhất 48 giờ
+        // 2. Normalize về UTC (client có thể gửi giờ VN không có suffix Z)
+        var assemblyDateUtc = request.AssemblyDate.Kind == DateTimeKind.Utc
+            ? request.AssemblyDate
+            : DateTime.SpecifyKind(request.AssemblyDate, DateTimeKind.Utc);
+
+        // Validate ngày triệu tập phải sau ít nhất 48 giờ
         var minAllowedDate = DateTime.UtcNow.AddHours(MinHoursInAdvance);
-        if (request.AssemblyDate < minAllowedDate)
+        if (assemblyDateUtc < minAllowedDate)
             throw new BadRequestException(
                 $"Ngày triệu tập phải sau ít nhất {MinHoursInAdvance} giờ kể từ thời điểm hiện tại. " +
                 $"Thời gian sớm nhất cho phép: {minAllowedDate:dd/MM/yyyy HH:mm} UTC.");
 
         // 3. Tạo AssemblyEvent (rule: chỉ 1 active event per AP — enforce trong repository)
         var eventId = await assemblyEventRepository.CreateEventAsync(
-            request.AssemblyPointId, request.AssemblyDate, request.CreatedBy, cancellationToken);
+            request.AssemblyPointId, assemblyDateUtc, request.CreatedBy, cancellationToken);
 
         // 4. Snapshot: gán tất cả rescuer hiện tại của AP vào sự kiện
         var rescuerIds = await assemblyPointRepository.GetAssignedRescuerUserIdsAsync(
@@ -49,7 +54,7 @@ public class ScheduleGatheringCommandHandler(
         // 5. Gửi thông báo Firebase cho tất cả rescuer được gán vào sự kiện
         // Chuyển đổi UTC sang múi giờ Việt Nam (UTC+7) cho hiển thị
         var vnTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
-        var vnAssemblyDate = TimeZoneInfo.ConvertTimeFromUtc(request.AssemblyDate, vnTimeZone);
+        var vnAssemblyDate = TimeZoneInfo.ConvertTimeFromUtc(assemblyDateUtc, vnTimeZone);
 
         var title = "Thông báo triệu tập";
         var body = $"Bạn được triệu tập tập trung tại điểm tập kết \"{ap.Name}\" vào lúc " +

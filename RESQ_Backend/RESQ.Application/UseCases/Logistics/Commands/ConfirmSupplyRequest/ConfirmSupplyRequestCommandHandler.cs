@@ -1,6 +1,7 @@
 using MediatR;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Exceptions.Logistics;
 
@@ -13,7 +14,8 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 /// </summary>
 public class ConfirmSupplyRequestCommandHandler(
     ISupplyRequestRepository supplyRequestRepository,
-    IDepotInventoryRepository depotInventoryRepository)
+    IDepotInventoryRepository depotInventoryRepository,
+    IUnitOfWork unitOfWork)
     : IRequestHandler<ConfirmSupplyRequestCommand, ConfirmSupplyRequestResponse>
 {
     public async Task<ConfirmSupplyRequestResponse> Handle(ConfirmSupplyRequestCommand request, CancellationToken cancellationToken)
@@ -30,11 +32,14 @@ public class ConfirmSupplyRequestCommandHandler(
         if (managerDepotId != sr.RequestingDepotId)
             throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho yêu cầu tiếp tế.");
 
-        // Nhập kho — tăng tồn kho kho yêu cầu
-        await supplyRequestRepository.TransferInAsync(
-            sr.RequestingDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
+        // Wrap trong transaction để đảm bảo TransferIn + UpdateStatus đồng bộ
+        await unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            await supplyRequestRepository.TransferInAsync(
+                sr.RequestingDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
 
-        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Completed", "Received", null, cancellationToken);
+            await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Completed", "Received", null, cancellationToken);
+        });
 
         return new ConfirmSupplyRequestResponse { Message = $"Đã xác nhận nhận hàng yêu cầu #{sr.Id}. Quy trình hoàn tất." };
     }

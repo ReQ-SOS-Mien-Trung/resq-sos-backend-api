@@ -1,5 +1,6 @@
 using MediatR;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Queries.ViewAllCampaigns;
@@ -29,7 +30,7 @@ public class ViewAllCampaignsHandler : IRequestHandler<ViewAllCampaignsQuery, Pa
             Status = x.Status.ToString(),
             CampaignStartDate = x.Duration?.StartDate,
             CampaignEndDate = x.Duration?.EndDate,
-            CreatedAt = x.CreatedAt
+            CreatedAt = x.CreatedAt.ToVietnamTime()
         }).ToList();
 
         return new PagedResult<CampaignListDto>(dtos, pagedModels.TotalCount, pagedModels.PageNumber, pagedModels.PageSize);

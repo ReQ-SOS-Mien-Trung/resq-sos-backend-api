@@ -38,15 +38,16 @@ public class CheckInAtAssemblyPointCommandHandler(
         var checkInClosesAt = evt.AssemblyDate.AddHours(CheckInCloseHoursAfter);
         var now = DateTime.UtcNow;
 
-        if (now < checkInOpensAt)
-            throw new BadRequestException(
-                $"Chưa đến thời gian check-in. Check-in mở từ {checkInOpensAt:dd/MM/yyyy HH:mm} UTC " +
-                $"(trước giờ triệu tập {CheckInOpenHoursBefore} tiếng).");
+        // TODO: Bỏ comment khi demo xong
+        // if (now < checkInOpensAt)
+        //     throw new BadRequestException(
+        //         $"Chưa đến thời gian check-in. Check-in mở từ {checkInOpensAt:dd/MM/yyyy HH:mm} UTC " +
+        //         $"(trước giờ triệu tập {CheckInOpenHoursBefore} tiếng).");
 
-        if (now > checkInClosesAt)
-            throw new BadRequestException(
-                $"Đã quá thời gian check-in. Check-in đóng lúc {checkInClosesAt:dd/MM/yyyy HH:mm} UTC " +
-                $"(sau giờ triệu tập {CheckInCloseHoursAfter} tiếng).");
+        // if (now > checkInClosesAt)
+        //     throw new BadRequestException(
+        //         $"Đã quá thời gian check-in. Check-in đóng lúc {checkInClosesAt:dd/MM/yyyy HH:mm} UTC " +
+        //         $"(sau giờ triệu tập {CheckInCloseHoursAfter} tiếng).");
 
         // 4. Validate vị trí GPS — rescuer phải nằm trong phạm vi điểm tập kết
         var assemblyPoint = await assemblyPointRepository.GetByIdAsync(evt.AssemblyPointId, cancellationToken)

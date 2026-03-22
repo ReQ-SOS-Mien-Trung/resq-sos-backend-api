@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Extensions;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -54,8 +55,8 @@ public class CreateMissionCommandHandler(
             MissionType = request.MissionType,
             PriorityScore = request.PriorityScore,
             Status = MissionStatus.Planned,
-            StartTime = request.StartTime,
-            ExpectedEndTime = request.ExpectedEndTime,
+            StartTime = request.StartTime.ToUtcForStorage(),
+            ExpectedEndTime = request.ExpectedEndTime.ToUtcForStorage(),
             IsCompleted = false,
             CreatedById = request.CreatedById,
             CreatedAt = DateTime.UtcNow,

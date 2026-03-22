@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Exceptions.Logistics;
@@ -11,12 +12,14 @@ public class CreateSupplyRequestCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     ISupplyRequestRepository supplyRequestRepository,
     IFirebaseService firebaseService,
+    IUnitOfWork unitOfWork,
     ILogger<CreateSupplyRequestCommandHandler> logger)
     : IRequestHandler<CreateSupplyRequestCommand, CreateSupplyRequestResponse>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly ISupplyRequestRepository _supplyRequestRepository = supplyRequestRepository;
     private readonly IFirebaseService _firebaseService = firebaseService;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<CreateSupplyRequestCommandHandler> _logger = logger;
 
     public async Task<CreateSupplyRequestResponse> Handle(CreateSupplyRequestCommand request, CancellationToken cancellationToken)
@@ -31,43 +34,49 @@ public class CreateSupplyRequestCommandHandler(
         if (selfRequest != null)
             throw new InvalidSupplyRequestException("Không thể tạo yêu cầu cung cấp từ chính kho của bạn.");
 
-        // 3. Xử lý từng kho nguồn
+        // 3. Xử lý từng kho nguồn trong transaction
         var createdRequests = new List<CreatedSupplyRequestDto>();
 
-        foreach (var group in request.Requests)
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            var items = group.Items
-                .Select(i => (i.ItemModelId, i.Quantity))
-                .ToList();
-
-            var supplyRequestId = await _supplyRequestRepository.CreateAsync(
-                requestingDepotId.Value,
-                group.SourceDepotId,
-                items,
-                group.Note,
-                request.RequestingUserId,
-                cancellationToken);
-
-            createdRequests.Add(new CreatedSupplyRequestDto
+            foreach (var group in request.Requests)
             {
-                SupplyRequestId = supplyRequestId,
-                SourceDepotId   = group.SourceDepotId
-            });
+                var items = group.Items
+                    .Select(i => (i.ItemModelId, i.Quantity))
+                    .ToList();
 
-            // 4. Gửi Firebase notification cho manager của kho nguồn
-            var sourceManagerUserId = await _supplyRequestRepository.GetActiveManagerUserIdByDepotIdAsync(group.SourceDepotId, cancellationToken);
+                var supplyRequestId = await _supplyRequestRepository.CreateAsync(
+                    requestingDepotId.Value,
+                    group.SourceDepotId,
+                    items,
+                    group.Note,
+                    request.RequestingUserId,
+                    cancellationToken);
+
+                createdRequests.Add(new CreatedSupplyRequestDto
+                {
+                    SupplyRequestId = supplyRequestId,
+                    SourceDepotId   = group.SourceDepotId
+                });
+            }
+        });
+
+        // 4. Gửi Firebase notification cho manager của kho nguồn (ngoài transaction)
+        foreach (var created in createdRequests)
+        {
+            var sourceManagerUserId = await _supplyRequestRepository.GetActiveManagerUserIdByDepotIdAsync(created.SourceDepotId, cancellationToken);
             if (sourceManagerUserId.HasValue)
             {
                 await _firebaseService.SendNotificationToUserAsync(
                     sourceManagerUserId.Value,
                     "Yêu cầu cung cấp vật tư mới",
-                    $"Kho của bạn vừa nhận được yêu cầu cung cấp vật tư #{supplyRequestId}. Vui lòng kiểm tra và xử lý.",
+                    $"Kho của bạn vừa nhận được yêu cầu cung cấp vật tư #{created.SupplyRequestId}. Vui lòng kiểm tra và xử lý.",
                     "supply_request",
                     cancellationToken);
             }
             else
             {
-                _logger.LogWarning("Kho nguồn {SourceDepotId} không có manager active. Không thể gửi thông báo.", group.SourceDepotId);
+                _logger.LogWarning("Kho nguồn {SourceDepotId} không có manager active. Không thể gửi thông báo.", created.SourceDepotId);
             }
         }
 

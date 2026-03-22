@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Extensions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -54,9 +55,9 @@ public class GetInventoryLogsQueryHandler(
             SourceType = log.SourceType,
             SourceId = log.SourceId,
             Note = log.Note,
-            CreatedAt = log.CreatedAt,
-            ReceivedDate = log.ReceivedDate,
-            ExpiredDate = log.ExpiredDate,
+            CreatedAt = log.CreatedAt.ToVietnamTime(),
+            ReceivedDate = log.ReceivedDate.ToVietnamTime(),
+            ExpiredDate = log.ExpiredDate.ToVietnamTime(),
             PerformedByName = log.PerformedByName
         }).ToList();
 

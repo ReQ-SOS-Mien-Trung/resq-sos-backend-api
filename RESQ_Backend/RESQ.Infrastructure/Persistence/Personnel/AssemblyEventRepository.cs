@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
@@ -143,7 +144,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             Phone = x.User.Phone,
             AvatarUrl = x.User.AvatarUrl,
             RescuerType = x.User.RescuerType,
-            CheckedInAt = x.Participant.CheckInTime ?? DateTime.MinValue,
+            CheckedInAt = (x.Participant.CheckInTime ?? DateTime.MinValue).ToVietnamTime(),
             IsInTeam = usersInTeam.Contains(x.User.Id),
             IsEarly = eventDateTime.HasValue && x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value < eventDateTime.Value,
             IsLate = eventDateTime.HasValue && x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value > eventDateTime.Value,
