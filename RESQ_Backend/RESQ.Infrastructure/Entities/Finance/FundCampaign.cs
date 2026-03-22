@@ -42,6 +42,9 @@ public partial class FundCampaign
     [StringLength(50)]
     public string? Status { get; set; }
 
+    [Column("suspend_reason")]
+    public string? SuspendReason { get; set; }
+
     [Column("created_by")]
     public Guid? CreatedBy { get; set; }
 

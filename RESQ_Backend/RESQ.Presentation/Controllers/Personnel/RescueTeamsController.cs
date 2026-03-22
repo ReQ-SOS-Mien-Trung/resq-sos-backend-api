@@ -10,7 +10,7 @@ using RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamDetail;
 using RESQ.Application.UseCases.Personnel.Queries.RescueTeamMetadata;
 using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 using RESQ.Application.UseCases.Personnel.RescueTeams.DTOs;
-using RESQ.Application.UseCases.Personnel.Commands.AcceptInvitation;
+using RESQ.Application.UseCases.Personnel.Commands.SetTeamAvailable;
 
 namespace RESQ.Presentation.Controllers.Personnel;
 
@@ -54,7 +54,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Tạo đội cứu hộ mới.</summary>
+    /// <summary>Tạo đội cứu hộ mới từ danh sách rescuer đã check-in.</summary>
     [HttpPost()]
     [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)] // Coordinator_Global | Coordinator_Point
     public async Task<IActionResult> CreateTeam([FromBody] CreateTeamRequestDto request)
@@ -63,7 +63,8 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         var id = await mediator.Send(new CreateRescueTeamCommand(
             request.Name, 
             request.Type, 
-            request.AssemblyPointId, 
+            request.AssemblyPointId,
+            request.AssemblyEventId,
             managedBy, 
             request.MaxMembers, 
             request.Members
@@ -95,60 +96,12 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Lên lịch tập kết cho đội cứu hộ.</summary>
-    [HttpPatch("{id}/schedule-assembly")]
-    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
-    public async Task<IActionResult> ScheduleAssembly(int id, [FromBody] DateTime assemblyDate)
-    {
-        await mediator.Send(new ScheduleAssemblyCommand(id, assemblyDate));
-        return NoContent();
-    }
-
-    /// <summary>Thêm thành viên vào đội cứu hộ.</summary>
-    [HttpPost("{id}/members")]
-    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
-    public async Task<IActionResult> AddMember(int id, [FromBody] AddMemberRequestDto request)
-    {
-        await mediator.Send(new AddTeamMemberCommand(id, request.UserId, request.IsLeader));
-        return NoContent();
-    }
-
     /// <summary>Xóa thành viên khỏi đội cứu hộ.</summary>
     [HttpDelete("{id}/members/{userId}")]
     [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> RemoveMember(int id, Guid userId)
     {
         await mediator.Send(new RemoveTeamMemberCommand(id, userId));
-        return NoContent();
-    }
-
-    /// <summary>Thành viên chấp nhận lời mời vào đội.</summary>
-    [HttpPost("{id}/members/accept")]
-    [Authorize]
-    public async Task<IActionResult> AcceptInvitation(int id)
-    {
-        var userId = GetCurrentUserId();
-        await mediator.Send(new AcceptInvitationCommand(id, userId));
-        return NoContent();
-    }
-
-    /// <summary>Thành viên từ chối lời mời vào đội.</summary>
-    [HttpPost("{id}/members/decline")]
-    [Authorize]
-    public async Task<IActionResult> DeclineInvitation(int id)
-    {
-        var userId = GetCurrentUserId();
-        await mediator.Send(new DeclineInvitationCommand(id, userId));
-        return NoContent();
-    }
-
-    /// <summary>Thành viên check-in có mặt tại điểm tập kết.</summary>
-    [HttpPost("{id}/members/check-in")]
-    [Authorize]
-    public async Task<IActionResult> CheckInMember(int id)
-    {
-        var userId = GetCurrentUserId();
-        await mediator.Send(new CheckInMemberCommand(id, userId));
         return NoContent();
     }
 
@@ -221,6 +174,16 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> DisbandTeam(int id)
     {
         await mediator.Send(new DisbandTeamCommand(id));
+        return NoContent();
+    }
+
+    /// <summary>Leader xác nhận đội sẵn sàng nhận nhiệm vụ (Gathering → Available).</summary>
+    [HttpPost("{id}/set-available")]
+    [Authorize]
+    public async Task<IActionResult> SetAvailable(int id)
+    {
+        var userId = GetCurrentUserId();
+        await mediator.Send(new SetTeamAvailableCommand(id, userId));
         return NoContent();
     }
 }

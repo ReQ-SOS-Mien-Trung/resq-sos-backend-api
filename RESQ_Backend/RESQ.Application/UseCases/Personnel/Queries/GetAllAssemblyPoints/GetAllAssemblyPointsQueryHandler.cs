@@ -26,7 +26,7 @@ public class GetAllAssemblyPointsQueryHandler(
             Name = ap.Name,
             Latitude = ap.Location?.Latitude,
             Longitude = ap.Location?.Longitude,
-            CapacityTeams = ap.CapacityTeams,
+            MaxCapacity = ap.MaxCapacity,
             Status = ap.Status.ToString(),
             LastUpdatedAt = ap.UpdatedAt
         }).ToList();

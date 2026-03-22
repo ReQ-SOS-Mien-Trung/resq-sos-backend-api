@@ -22,6 +22,7 @@ public static class LogisticsSeeder
         SeedDepotReusableItems(modelBuilder);
         SeedVatInvoices(modelBuilder);
         SeedVatInvoiceItems(modelBuilder);
+        SeedSupplyInventoryLots(modelBuilder);
         SeedInventoryLogs(modelBuilder);
         SeedOrganizationReliefItems(modelBuilder);
     }
@@ -373,6 +374,83 @@ public static class LogisticsSeeder
         modelBuilder.Entity<DepotReusableItem>().HasData(list.ToArray());
     }
 
+    // ── Lots for consumable imports ─────────────────────────────────────────
+    private static void SeedSupplyInventoryLots(ModelBuilder modelBuilder)
+    {
+        // Each Import inventory-log gets a corresponding lot.
+        // Lot Id == InventoryLog Id for simplicity (they share the same auto-sequence space in seed only).
+        // RemainingQuantity = QuantityChange for seed data (nothing consumed yet).
+        //
+        // Log Id → DSI Id, Qty, SourceType, SourceId, ReceivedDate, ExpiredDate
+        // We give realistic expiry dates: food ~6-12 months, medicine ~2 years, toiletries ~18 months, etc.
+
+        var baseDate = new DateTime(2024, 10, 14, 0, 0, 0, DateTimeKind.Utc);
+
+        var lots = new List<SupplyInventoryLot>
+        {
+            // ── Initial import (Depot 1 — Huế) ─────────────────────────────
+            new() { Id = 1,  SupplyInventoryId = 1,  Quantity = 50000, RemainingQuantity = 50000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(12), SourceType = "Organization", SourceId = 1,  CreatedAt = baseDate },
+            new() { Id = 2,  SupplyInventoryId = 2,  Quantity = 40000, RemainingQuantity = 40000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 1,  CreatedAt = baseDate },
+            new() { Id = 3,  SupplyInventoryId = 3,  Quantity = 80000, RemainingQuantity = 80000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = "Organization", SourceId = 3,  CreatedAt = baseDate },
+            new() { Id = 4,  SupplyInventoryId = 4,  Quantity = 15000, RemainingQuantity = 15000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 5,  CreatedAt = baseDate },
+            new() { Id = 5,  SupplyInventoryId = 5,  Quantity = 8000,  RemainingQuantity = 8000,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(6),  SourceType = "Organization", SourceId = 7,  CreatedAt = baseDate },
+            new() { Id = 6,  SupplyInventoryId = 6,  Quantity = 30000, RemainingQuantity = 30000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = "Organization", SourceId = 8,  CreatedAt = baseDate },
+            new() { Id = 7,  SupplyInventoryId = 7,  Quantity = 5000,  RemainingQuantity = 5000,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(36), SourceType = "Organization", SourceId = 9,  CreatedAt = baseDate },
+            new() { Id = 8,  SupplyInventoryId = 8,  Quantity = 20000, RemainingQuantity = 20000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 10, CreatedAt = baseDate },
+
+            // ── Initial import (Depot 2 — Đà Nẵng) ─────────────────────────
+            new() { Id = 9,  SupplyInventoryId = 45, Quantity = 40000, RemainingQuantity = 40000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(12), SourceType = "Organization", SourceId = 3,  CreatedAt = baseDate },
+            new() { Id = 10, SupplyInventoryId = 46, Quantity = 32000, RemainingQuantity = 32000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 3,  CreatedAt = baseDate },
+            new() { Id = 11, SupplyInventoryId = 47, Quantity = 64000, RemainingQuantity = 64000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = "Organization", SourceId = 3,  CreatedAt = baseDate },
+            new() { Id = 12, SupplyInventoryId = 48, Quantity = 12000, RemainingQuantity = 12000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 5,  CreatedAt = baseDate },
+            new() { Id = 13, SupplyInventoryId = 49, Quantity = 6400,  RemainingQuantity = 6400,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(6),  SourceType = "Organization", SourceId = 7,  CreatedAt = baseDate },
+            new() { Id = 14, SupplyInventoryId = 50, Quantity = 24000, RemainingQuantity = 24000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = "Organization", SourceId = 8,  CreatedAt = baseDate },
+
+            // ── Initial import (Depot 3 — Hà Tĩnh) ─────────────────────────
+            new() { Id = 15, SupplyInventoryId = 89,  Quantity = 30000, RemainingQuantity = 30000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(12), SourceType = "Organization", SourceId = 5,  CreatedAt = baseDate },
+            new() { Id = 16, SupplyInventoryId = 90,  Quantity = 24000, RemainingQuantity = 24000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 2,  CreatedAt = baseDate },
+            new() { Id = 17, SupplyInventoryId = 91,  Quantity = 48000, RemainingQuantity = 48000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = "Organization", SourceId = 5,  CreatedAt = baseDate },
+            new() { Id = 18, SupplyInventoryId = 92,  Quantity = 9000,  RemainingQuantity = 9000,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 5,  CreatedAt = baseDate },
+            new() { Id = 19, SupplyInventoryId = 93,  Quantity = 4800,  RemainingQuantity = 4800,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(6),  SourceType = "Organization", SourceId = 10, CreatedAt = baseDate },
+            new() { Id = 20, SupplyInventoryId = 95,  Quantity = 3000,  RemainingQuantity = 3000,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(36), SourceType = "Organization", SourceId = 9,  CreatedAt = baseDate },
+            new() { Id = 21, SupplyInventoryId = 96,  Quantity = 12000, RemainingQuantity = 12000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 10, CreatedAt = baseDate },
+
+            // ── Initial import (Depot 4 — MTTQVN) ──────────────────────────
+            new() { Id = 22, SupplyInventoryId = 133, Quantity = 45000, RemainingQuantity = 45000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(12), SourceType = "Organization", SourceId = 8,  CreatedAt = baseDate },
+            new() { Id = 23, SupplyInventoryId = 134, Quantity = 36000, RemainingQuantity = 36000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 8,  CreatedAt = baseDate },
+            new() { Id = 24, SupplyInventoryId = 135, Quantity = 72000, RemainingQuantity = 72000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = "Organization", SourceId = 7,  CreatedAt = baseDate },
+            new() { Id = 25, SupplyInventoryId = 136, Quantity = 13500, RemainingQuantity = 13500, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 5,  CreatedAt = baseDate },
+            new() { Id = 26, SupplyInventoryId = 137, Quantity = 7200,  RemainingQuantity = 7200,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(6),  SourceType = "Organization", SourceId = 10, CreatedAt = baseDate },
+            new() { Id = 27, SupplyInventoryId = 138, Quantity = 27000, RemainingQuantity = 27000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = "Organization", SourceId = 8,  CreatedAt = baseDate },
+            new() { Id = 28, SupplyInventoryId = 139, Quantity = 4500,  RemainingQuantity = 4500,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(36), SourceType = "Organization", SourceId = 9,  CreatedAt = baseDate },
+            new() { Id = 29, SupplyInventoryId = 140, Quantity = 18000, RemainingQuantity = 18000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = "Organization", SourceId = 10, CreatedAt = baseDate },
+
+            // ── Purchase imports (Depot 1 — Huế) ───────────────────────────
+            // Log 33: Invoice 1, mì tôm, Jan 2025
+            new() { Id = 30, SupplyInventoryId = 1,  Quantity = 20000, RemainingQuantity = 20000, ReceivedDate = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc), SourceType = "Purchase", SourceId = 1, CreatedAt = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc) },
+            // Log 34: Invoice 1, nước, Jan 2025
+            new() { Id = 31, SupplyInventoryId = 2,  Quantity = 15000, RemainingQuantity = 15000, ReceivedDate = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc), SourceType = "Purchase", SourceId = 1, CreatedAt = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc) },
+
+            // ── Donation imports ────────────────────────────────────────────
+            // Log 36: thuốc, Jun 2025
+            new() { Id = 32, SupplyInventoryId = 3,  Quantity = 30000, RemainingQuantity = 30000, ReceivedDate = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 6, 5, 0, 0, 0, DateTimeKind.Utc), SourceType = "Donation", SourceId = 1, CreatedAt = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc) },
+            // Log 38: sữa bột, Oct 2025
+            new() { Id = 33, SupplyInventoryId = 5,  Quantity = 1000,  RemainingQuantity = 1000,  ReceivedDate = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc), SourceType = "Donation", SourceId = 2, CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc) },
+
+            // ── Purchase imports (Jan & Feb 2026) ───────────────────────────
+            // Log 40: Invoice 2, thuốc, Jan 2026
+            new() { Id = 34, SupplyInventoryId = 3,  Quantity = 30000, RemainingQuantity = 30000, ReceivedDate = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2028, 1, 8, 0, 0, 0, DateTimeKind.Utc), SourceType = "Purchase", SourceId = 2, CreatedAt = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc) },
+            // Log 42: Invoice 3, dầu gió, Feb 2026
+            new() { Id = 35, SupplyInventoryId = 7,  Quantity = 500,   RemainingQuantity = 500,   ReceivedDate = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2029, 2, 12, 0, 0, 0, DateTimeKind.Utc), SourceType = "Purchase", SourceId = 3, CreatedAt = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc) },
+
+            // ── Donation import (Mar 2026) ──────────────────────────────────
+            // Log 44: mì tôm, Mar 2026
+            new() { Id = 36, SupplyInventoryId = 1,  Quantity = 10000, RemainingQuantity = 10000, ReceivedDate = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc), SourceType = "Donation", SourceId = 3, CreatedAt = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc) },
+        };
+
+        modelBuilder.Entity<SupplyInventoryLot>().HasData(lots.ToArray());
+    }
+
     private static void SeedInventoryLogs(ModelBuilder modelBuilder)
     {
         // DSI layout: 44 consumable items per depot, sequential IDs
@@ -386,74 +464,81 @@ public static class LogisticsSeeder
         Guid mgr3 = SeedConstants.Manager3UserId;
         Guid mgr4 = SeedConstants.Manager4UserId;
 
+        // Expiry dates matching the lots – food ~12m, water ~18m, medicine ~24m, toiletries ~18m, milk ~6m, ration ~24m, oil ~36m, vitamin ~18m
+        var exp12 = now.AddMonths(12);
+        var exp18 = now.AddMonths(18);
+        var exp24 = now.AddMonths(24);
+        var exp06 = now.AddMonths(6);
+        var exp36 = now.AddMonths(36);
+
         modelBuilder.Entity<InventoryLog>().HasData(
             // ── Nhập kho ban đầu ──────────────────────────────────────────────
             // Depot 1 (Huế) — DSI 1-8
-            new InventoryLog { Id = 1,  DepotSupplyInventoryId = 1,  ActionType = "Import", QuantityChange = 50000,  SourceType = "Organization", SourceId = 1,  PerformedBy = mgr1, Note = "Nhập mì tôm kho Huế từ Hội CTĐ TT-Huế",        CreatedAt = now },
-            new InventoryLog { Id = 2,  DepotSupplyInventoryId = 2,  ActionType = "Import", QuantityChange = 40000,  SourceType = "Organization", SourceId = 1,  PerformedBy = mgr1, Note = "Nhập nước uống kho Huế",                        CreatedAt = now },
-            new InventoryLog { Id = 3,  DepotSupplyInventoryId = 3,  ActionType = "Import", QuantityChange = 80000,  SourceType = "Organization", SourceId = 3,  PerformedBy = mgr1, Note = "Nhập thuốc Paracetamol kho Huế",                 CreatedAt = now },
-            new InventoryLog { Id = 4,  DepotSupplyInventoryId = 4,  ActionType = "Import", QuantityChange = 15000,  SourceType = "Organization", SourceId = 5,  PerformedBy = mgr1, Note = "Nhập băng vệ sinh kho Huế",                     CreatedAt = now },
-            new InventoryLog { Id = 5,  DepotSupplyInventoryId = 5,  ActionType = "Import", QuantityChange = 8000,   SourceType = "Organization", SourceId = 7,  PerformedBy = mgr1, Note = "Nhập sữa bột trẻ em kho Huế",                   CreatedAt = now },
-            new InventoryLog { Id = 6,  DepotSupplyInventoryId = 6,  ActionType = "Import", QuantityChange = 30000,  SourceType = "Organization", SourceId = 8,  PerformedBy = mgr1, Note = "Nhập lương khô kho Huế",                        CreatedAt = now },
-            new InventoryLog { Id = 7,  DepotSupplyInventoryId = 7,  ActionType = "Import", QuantityChange = 5000,   SourceType = "Organization", SourceId = 9,  PerformedBy = mgr1, Note = "Nhập dầu gió kho Huế",                          CreatedAt = now },
-            new InventoryLog { Id = 8,  DepotSupplyInventoryId = 8,  ActionType = "Import", QuantityChange = 20000,  SourceType = "Organization", SourceId = 10, PerformedBy = mgr1, Note = "Nhập Vitamin tổng hợp kho Huế",                 CreatedAt = now },
+            new InventoryLog { Id = 1,  DepotSupplyInventoryId = 1,  SupplyInventoryLotId = 1,  ActionType = "Import", QuantityChange = 50000,  SourceType = "Organization", SourceId = 1,  PerformedBy = mgr1, Note = "Nhập mì tôm kho Huế từ Hội CTĐ TT-Huế",        ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
+            new InventoryLog { Id = 2,  DepotSupplyInventoryId = 2,  SupplyInventoryLotId = 2,  ActionType = "Import", QuantityChange = 40000,  SourceType = "Organization", SourceId = 1,  PerformedBy = mgr1, Note = "Nhập nước uống kho Huế",                        ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 3,  DepotSupplyInventoryId = 3,  SupplyInventoryLotId = 3,  ActionType = "Import", QuantityChange = 80000,  SourceType = "Organization", SourceId = 3,  PerformedBy = mgr1, Note = "Nhập thuốc Paracetamol kho Huế",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 4,  DepotSupplyInventoryId = 4,  SupplyInventoryLotId = 4,  ActionType = "Import", QuantityChange = 15000,  SourceType = "Organization", SourceId = 5,  PerformedBy = mgr1, Note = "Nhập băng vệ sinh kho Huế",                     ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 5,  DepotSupplyInventoryId = 5,  SupplyInventoryLotId = 5,  ActionType = "Import", QuantityChange = 8000,   SourceType = "Organization", SourceId = 7,  PerformedBy = mgr1, Note = "Nhập sữa bột trẻ em kho Huế",                   ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
+            new InventoryLog { Id = 6,  DepotSupplyInventoryId = 6,  SupplyInventoryLotId = 6,  ActionType = "Import", QuantityChange = 30000,  SourceType = "Organization", SourceId = 8,  PerformedBy = mgr1, Note = "Nhập lương khô kho Huế",                        ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 7,  DepotSupplyInventoryId = 7,  SupplyInventoryLotId = 7,  ActionType = "Import", QuantityChange = 5000,   SourceType = "Organization", SourceId = 9,  PerformedBy = mgr1, Note = "Nhập dầu gió kho Huế",                          ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
+            new InventoryLog { Id = 8,  DepotSupplyInventoryId = 8,  SupplyInventoryLotId = 8,  ActionType = "Import", QuantityChange = 20000,  SourceType = "Organization", SourceId = 10, PerformedBy = mgr1, Note = "Nhập Vitamin tổng hợp kho Huế",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
 
             // Depot 2 (Đà Nẵng) — DSI 45-50
-            new InventoryLog { Id = 9,  DepotSupplyInventoryId = 45, ActionType = "Import", QuantityChange = 40000,  SourceType = "Organization", SourceId = 3,  PerformedBy = mgr2, Note = "Nhập mì tôm kho Đà Nẵng từ Quỹ Tấm Lòng Vàng", CreatedAt = now },
-            new InventoryLog { Id = 10, DepotSupplyInventoryId = 46, ActionType = "Import", QuantityChange = 32000,  SourceType = "Organization", SourceId = 3,  PerformedBy = mgr2, Note = "Nhập nước uống kho Đà Nẵng",                    CreatedAt = now },
-            new InventoryLog { Id = 11, DepotSupplyInventoryId = 47, ActionType = "Import", QuantityChange = 64000,  SourceType = "Organization", SourceId = 3,  PerformedBy = mgr2, Note = "Nhập thuốc hạ sốt kho Đà Nẵng",                 CreatedAt = now },
-            new InventoryLog { Id = 12, DepotSupplyInventoryId = 48, ActionType = "Import", QuantityChange = 12000,  SourceType = "Organization", SourceId = 5,  PerformedBy = mgr2, Note = "Nhập băng vệ sinh kho Đà Nẵng",                 CreatedAt = now },
-            new InventoryLog { Id = 13, DepotSupplyInventoryId = 49, ActionType = "Import", QuantityChange = 6400,   SourceType = "Organization", SourceId = 7,  PerformedBy = mgr2, Note = "Nhập sữa bột kho Đà Nẵng",                     CreatedAt = now },
-            new InventoryLog { Id = 14, DepotSupplyInventoryId = 50, ActionType = "Import", QuantityChange = 24000,  SourceType = "Organization", SourceId = 8,  PerformedBy = mgr2, Note = "Nhập lương khô kho Đà Nẵng từ Ban PCTT",       CreatedAt = now },
+            new InventoryLog { Id = 9,  DepotSupplyInventoryId = 45, SupplyInventoryLotId = 9,  ActionType = "Import", QuantityChange = 40000,  SourceType = "Organization", SourceId = 3,  PerformedBy = mgr2, Note = "Nhập mì tôm kho Đà Nẵng từ Quỹ Tấm Lòng Vàng", ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
+            new InventoryLog { Id = 10, DepotSupplyInventoryId = 46, SupplyInventoryLotId = 10, ActionType = "Import", QuantityChange = 32000,  SourceType = "Organization", SourceId = 3,  PerformedBy = mgr2, Note = "Nhập nước uống kho Đà Nẵng",                    ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 11, DepotSupplyInventoryId = 47, SupplyInventoryLotId = 11, ActionType = "Import", QuantityChange = 64000,  SourceType = "Organization", SourceId = 3,  PerformedBy = mgr2, Note = "Nhập thuốc hạ sốt kho Đà Nẵng",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 12, DepotSupplyInventoryId = 48, SupplyInventoryLotId = 12, ActionType = "Import", QuantityChange = 12000,  SourceType = "Organization", SourceId = 5,  PerformedBy = mgr2, Note = "Nhập băng vệ sinh kho Đà Nẵng",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 13, DepotSupplyInventoryId = 49, SupplyInventoryLotId = 13, ActionType = "Import", QuantityChange = 6400,   SourceType = "Organization", SourceId = 7,  PerformedBy = mgr2, Note = "Nhập sữa bột kho Đà Nẵng",                     ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
+            new InventoryLog { Id = 14, DepotSupplyInventoryId = 50, SupplyInventoryLotId = 14, ActionType = "Import", QuantityChange = 24000,  SourceType = "Organization", SourceId = 8,  PerformedBy = mgr2, Note = "Nhập lương khô kho Đà Nẵng từ Ban PCTT",       ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
 
             // Depot 3 (Hà Tĩnh) — DSI 89-96
-            new InventoryLog { Id = 15, DepotSupplyInventoryId = 89,  ActionType = "Import", QuantityChange = 30000, SourceType = "Organization", SourceId = 5,  PerformedBy = mgr3, Note = "Nhập mì tôm kho Hà Tĩnh từ Hội LHPN",          CreatedAt = now },
-            new InventoryLog { Id = 16, DepotSupplyInventoryId = 90,  ActionType = "Import", QuantityChange = 24000, SourceType = "Organization", SourceId = 2,  PerformedBy = mgr3, Note = "Nhập nước uống kho Hà Tĩnh từ MTTQ QB",        CreatedAt = now },
-            new InventoryLog { Id = 17, DepotSupplyInventoryId = 91,  ActionType = "Import", QuantityChange = 48000, SourceType = "Organization", SourceId = 5,  PerformedBy = mgr3, Note = "Nhập thuốc kho Hà Tĩnh",                       CreatedAt = now },
-            new InventoryLog { Id = 18, DepotSupplyInventoryId = 92,  ActionType = "Import", QuantityChange = 9000,  SourceType = "Organization", SourceId = 5,  PerformedBy = mgr3, Note = "Nhập băng vệ sinh kho Hà Tĩnh",                CreatedAt = now },
-            new InventoryLog { Id = 19, DepotSupplyInventoryId = 93,  ActionType = "Import", QuantityChange = 4800,  SourceType = "Organization", SourceId = 10, PerformedBy = mgr3, Note = "Nhập sữa bột trẻ em kho Hà Tĩnh",              CreatedAt = now },
-            new InventoryLog { Id = 20, DepotSupplyInventoryId = 95,  ActionType = "Import", QuantityChange = 3000,  SourceType = "Organization", SourceId = 9,  PerformedBy = mgr3, Note = "Nhập dầu gió kho Hà Tĩnh",                     CreatedAt = now },
-            new InventoryLog { Id = 21, DepotSupplyInventoryId = 96,  ActionType = "Import", QuantityChange = 12000, SourceType = "Organization", SourceId = 10, PerformedBy = mgr3, Note = "Nhập Vitamin kho Hà Tĩnh",                     CreatedAt = now },
+            new InventoryLog { Id = 15, DepotSupplyInventoryId = 89,  SupplyInventoryLotId = 15, ActionType = "Import", QuantityChange = 30000, SourceType = "Organization", SourceId = 5,  PerformedBy = mgr3, Note = "Nhập mì tôm kho Hà Tĩnh từ Hội LHPN",          ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
+            new InventoryLog { Id = 16, DepotSupplyInventoryId = 90,  SupplyInventoryLotId = 16, ActionType = "Import", QuantityChange = 24000, SourceType = "Organization", SourceId = 2,  PerformedBy = mgr3, Note = "Nhập nước uống kho Hà Tĩnh từ MTTQ QB",        ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 17, DepotSupplyInventoryId = 91,  SupplyInventoryLotId = 17, ActionType = "Import", QuantityChange = 48000, SourceType = "Organization", SourceId = 5,  PerformedBy = mgr3, Note = "Nhập thuốc kho Hà Tĩnh",                       ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 18, DepotSupplyInventoryId = 92,  SupplyInventoryLotId = 18, ActionType = "Import", QuantityChange = 9000,  SourceType = "Organization", SourceId = 5,  PerformedBy = mgr3, Note = "Nhập băng vệ sinh kho Hà Tĩnh",                ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 19, DepotSupplyInventoryId = 93,  SupplyInventoryLotId = 19, ActionType = "Import", QuantityChange = 4800,  SourceType = "Organization", SourceId = 10, PerformedBy = mgr3, Note = "Nhập sữa bột trẻ em kho Hà Tĩnh",              ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
+            new InventoryLog { Id = 20, DepotSupplyInventoryId = 95,  SupplyInventoryLotId = 20, ActionType = "Import", QuantityChange = 3000,  SourceType = "Organization", SourceId = 9,  PerformedBy = mgr3, Note = "Nhập dầu gió kho Hà Tĩnh",                     ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
+            new InventoryLog { Id = 21, DepotSupplyInventoryId = 96,  SupplyInventoryLotId = 21, ActionType = "Import", QuantityChange = 12000, SourceType = "Organization", SourceId = 10, PerformedBy = mgr3, Note = "Nhập Vitamin kho Hà Tĩnh",                     ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
 
             // Depot 4 (MTTQVN) — DSI 133-140
-            new InventoryLog { Id = 22, DepotSupplyInventoryId = 133, ActionType = "Import", QuantityChange = 45000, SourceType = "Organization", SourceId = 8,  PerformedBy = mgr4, Note = "Nhập mì tôm kho trung ương từ Ban PCTT",       CreatedAt = now },
-            new InventoryLog { Id = 23, DepotSupplyInventoryId = 134, ActionType = "Import", QuantityChange = 36000, SourceType = "Organization", SourceId = 8,  PerformedBy = mgr4, Note = "Nhập nước uống kho trung ương",                 CreatedAt = now },
-            new InventoryLog { Id = 24, DepotSupplyInventoryId = 135, ActionType = "Import", QuantityChange = 72000, SourceType = "Organization", SourceId = 7,  PerformedBy = mgr4, Note = "Nhập thuốc kho trung ương từ CTĐ Quảng Ngãi",  CreatedAt = now },
-            new InventoryLog { Id = 25, DepotSupplyInventoryId = 136, ActionType = "Import", QuantityChange = 13500, SourceType = "Organization", SourceId = 5,  PerformedBy = mgr4, Note = "Nhập băng vệ sinh kho trung ương",              CreatedAt = now },
-            new InventoryLog { Id = 26, DepotSupplyInventoryId = 137, ActionType = "Import", QuantityChange = 7200,  SourceType = "Organization", SourceId = 10, PerformedBy = mgr4, Note = "Nhập sữa bột kho trung ương",                  CreatedAt = now },
-            new InventoryLog { Id = 27, DepotSupplyInventoryId = 138, ActionType = "Import", QuantityChange = 27000, SourceType = "Organization", SourceId = 8,  PerformedBy = mgr4, Note = "Nhập lương khô kho trung ương",                 CreatedAt = now },
-            new InventoryLog { Id = 28, DepotSupplyInventoryId = 139, ActionType = "Import", QuantityChange = 4500,  SourceType = "Organization", SourceId = 9,  PerformedBy = mgr4, Note = "Nhập dầu gió kho trung ương",                   CreatedAt = now },
-            new InventoryLog { Id = 29, DepotSupplyInventoryId = 140, ActionType = "Import", QuantityChange = 18000, SourceType = "Organization", SourceId = 10, PerformedBy = mgr4, Note = "Nhập Vitamin kho trung ương",                   CreatedAt = now },
+            new InventoryLog { Id = 22, DepotSupplyInventoryId = 133, SupplyInventoryLotId = 22, ActionType = "Import", QuantityChange = 45000, SourceType = "Organization", SourceId = 8,  PerformedBy = mgr4, Note = "Nhập mì tôm kho trung ương từ Ban PCTT",       ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
+            new InventoryLog { Id = 23, DepotSupplyInventoryId = 134, SupplyInventoryLotId = 23, ActionType = "Import", QuantityChange = 36000, SourceType = "Organization", SourceId = 8,  PerformedBy = mgr4, Note = "Nhập nước uống kho trung ương",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 24, DepotSupplyInventoryId = 135, SupplyInventoryLotId = 24, ActionType = "Import", QuantityChange = 72000, SourceType = "Organization", SourceId = 7,  PerformedBy = mgr4, Note = "Nhập thuốc kho trung ương từ CTĐ Quảng Ngãi",  ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 25, DepotSupplyInventoryId = 136, SupplyInventoryLotId = 25, ActionType = "Import", QuantityChange = 13500, SourceType = "Organization", SourceId = 5,  PerformedBy = mgr4, Note = "Nhập băng vệ sinh kho trung ương",              ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 26, DepotSupplyInventoryId = 137, SupplyInventoryLotId = 26, ActionType = "Import", QuantityChange = 7200,  SourceType = "Organization", SourceId = 10, PerformedBy = mgr4, Note = "Nhập sữa bột kho trung ương",                  ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
+            new InventoryLog { Id = 27, DepotSupplyInventoryId = 138, SupplyInventoryLotId = 27, ActionType = "Import", QuantityChange = 27000, SourceType = "Organization", SourceId = 8,  PerformedBy = mgr4, Note = "Nhập lương khô kho trung ương",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 28, DepotSupplyInventoryId = 139, SupplyInventoryLotId = 28, ActionType = "Import", QuantityChange = 4500,  SourceType = "Organization", SourceId = 9,  PerformedBy = mgr4, Note = "Nhập dầu gió kho trung ương",                   ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
+            new InventoryLog { Id = 29, DepotSupplyInventoryId = 140, SupplyInventoryLotId = 29, ActionType = "Import", QuantityChange = 18000, SourceType = "Organization", SourceId = 10, PerformedBy = mgr4, Note = "Nhập Vitamin kho trung ương",                   ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
 
-            // ── Mẫu đa dạng các loại hành động ──────────────────────────────
+            // ── Mẫu đa dạng các loại hành động (không có ReceivedDate/ExpiredDate) ──
             new InventoryLog { Id = 30, DepotSupplyInventoryId = 1,  ActionType = "Export",      QuantityChange = 5000,  SourceType = "Mission",    MissionId = 1, PerformedBy = mgr1, Note = "Xuất mì tôm cho nhiệm vụ cứu hộ lũ lụt",              CreatedAt = now.AddHours(1) },
             new InventoryLog { Id = 31, DepotSupplyInventoryId = 45, ActionType = "TransferOut", QuantityChange = 2000,  SourceType = "Transfer",   SourceId = 1,  PerformedBy = mgr2, Note = "Chuyển mì tôm từ Đà Nẵng sang kho Huế",               CreatedAt = now.AddHours(2) },
             new InventoryLog { Id = 32, DepotSupplyInventoryId = 3,  ActionType = "Adjust",      QuantityChange = -1000, SourceType = "Adjustment",                PerformedBy = mgr1, Note = "Điều chỉnh số lượng thuốc do hết hạn",                CreatedAt = now.AddHours(3) },
 
             // ── Giao dịch mua sắm (VAT) ─────────────────────────────────────
             // Jan 2025
-            new InventoryLog { Id = 33, DepotSupplyInventoryId = 1,  VatInvoiceId = 1, ActionType = "Import", QuantityChange = 20000, SourceType = "Purchase", SourceId = 1, PerformedBy = mgr1, Note = "Nhập mì tôm theo hóa đơn VAT Q1/2025",                  CreatedAt = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 34, DepotSupplyInventoryId = 2,  VatInvoiceId = 1, ActionType = "Import", QuantityChange = 15000, SourceType = "Purchase", SourceId = 1, PerformedBy = mgr1, Note = "Nhập nước tinh khiết theo hóa đơn VAT Q1/2025",         CreatedAt = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 33, DepotSupplyInventoryId = 1,  VatInvoiceId = 1, SupplyInventoryLotId = 30, ActionType = "Import", QuantityChange = 20000, SourceType = "Purchase", SourceId = 1, PerformedBy = mgr1, Note = "Nhập mì tôm theo hóa đơn VAT Q1/2025",                  ReceivedDate = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),  CreatedAt = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 34, DepotSupplyInventoryId = 2,  VatInvoiceId = 1, SupplyInventoryLotId = 31, ActionType = "Import", QuantityChange = 15000, SourceType = "Purchase", SourceId = 1, PerformedBy = mgr1, Note = "Nhập nước tinh khiết theo hóa đơn VAT Q1/2025",         ReceivedDate = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc),  CreatedAt = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 35, DepotSupplyInventoryId = 1,                    ActionType = "Export", QuantityChange = 5000,  SourceType = "Mission",  MissionId = 1, PerformedBy = mgr1, Note = "Xuất mì tôm phục vụ nhiệm vụ cứu hộ lũ lụt",         CreatedAt = new DateTime(2025, 1, 15, 6, 30, 0, DateTimeKind.Utc) },
 
             // Jun 2025
-            new InventoryLog { Id = 36, DepotSupplyInventoryId = 3,                    ActionType = "Import", QuantityChange = 30000, SourceType = "Donation", SourceId = 1, PerformedBy = mgr1, Note = "Nhận thuốc từ Hội Chữ Thập Đỏ Huế đợt 2",             CreatedAt = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 36, DepotSupplyInventoryId = 3,                    SupplyInventoryLotId = 32, ActionType = "Import", QuantityChange = 30000, SourceType = "Donation", SourceId = 1, PerformedBy = mgr1, Note = "Nhận thuốc từ Hội Chữ Thập Đỏ Huế đợt 2",             ReceivedDate = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc),  ExpiredDate = new DateTime(2027, 6, 5, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 37, DepotSupplyInventoryId = 4,                    ActionType = "Adjust", QuantityChange = -500,  SourceType = "Adjustment",             PerformedBy = mgr1, Note = "Điều chỉnh giảm băng vệ sinh do hết hạn sử dụng",      CreatedAt = new DateTime(2025, 6, 20, 10, 0, 0, DateTimeKind.Utc) },
 
             // Oct 2025
-            new InventoryLog { Id = 38, DepotSupplyInventoryId = 5,                    ActionType = "Import", QuantityChange = 1000,  SourceType = "Donation", SourceId = 2, PerformedBy = mgr1, Note = "Nhận sữa bột từ MTTQ Quảng Bình hỗ trợ",              CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 38, DepotSupplyInventoryId = 5,                    SupplyInventoryLotId = 33, ActionType = "Import", QuantityChange = 1000,  SourceType = "Donation", SourceId = 2, PerformedBy = mgr1, Note = "Nhận sữa bột từ MTTQ Quảng Bình hỗ trợ",              ReceivedDate = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 39, DepotSupplyInventoryId = 2,                    ActionType = "TransferOut", QuantityChange = 5000, SourceType = "Transfer", SourceId = 2, PerformedBy = mgr1, Note = "Chuyển nước uống sang kho Đà Nẵng hỗ trợ bão số 4", CreatedAt = new DateTime(2025, 10, 10, 6, 0, 0, DateTimeKind.Utc) },
 
             // Jan 2026
-            new InventoryLog { Id = 40, DepotSupplyInventoryId = 3,  VatInvoiceId = 2, ActionType = "Import", QuantityChange = 30000, SourceType = "Purchase", SourceId = 2, PerformedBy = mgr1, Note = "Nhập thuốc Paracetamol theo hóa đơn VAT đầu năm 2026", CreatedAt = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 40, DepotSupplyInventoryId = 3,  VatInvoiceId = 2, SupplyInventoryLotId = 34, ActionType = "Import", QuantityChange = 30000, SourceType = "Purchase", SourceId = 2, PerformedBy = mgr1, Note = "Nhập thuốc Paracetamol theo hóa đơn VAT đầu năm 2026", ReceivedDate = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc),   ExpiredDate = new DateTime(2028, 1, 8, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 41, DepotSupplyInventoryId = 4,                    ActionType = "Export", QuantityChange = 200,   SourceType = "Mission",  MissionId = 2, PerformedBy = mgr1, Note = "Xuất băng vệ sinh cho đội cứu hộ phân phối vùng lũ",  CreatedAt = new DateTime(2026, 1, 20, 9, 30, 0, DateTimeKind.Utc) },
 
             // Feb 2026
-            new InventoryLog { Id = 42, DepotSupplyInventoryId = 7,  VatInvoiceId = 3, ActionType = "Import", QuantityChange = 500,   SourceType = "Purchase", SourceId = 3, PerformedBy = mgr1, Note = "Nhập dầu gió theo hóa đơn VAT T2/2026",                CreatedAt = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 42, DepotSupplyInventoryId = 7,  VatInvoiceId = 3, SupplyInventoryLotId = 35, ActionType = "Import", QuantityChange = 500,   SourceType = "Purchase", SourceId = 3, PerformedBy = mgr1, Note = "Nhập dầu gió theo hóa đơn VAT T2/2026",                ReceivedDate = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2029, 2, 12, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 43, DepotSupplyInventoryId = 6,                    ActionType = "Return", QuantityChange = 100,   SourceType = "Mission",  MissionId = 1, PerformedBy = mgr1, Note = "Hoàn trả lương khô sau khi kết thúc nhiệm vụ cứu hộ", CreatedAt = new DateTime(2026, 2, 25, 14, 0, 0, DateTimeKind.Utc) },
 
             // Mar 2026
-            new InventoryLog { Id = 44, DepotSupplyInventoryId = 1,                    ActionType = "Import", QuantityChange = 10000, SourceType = "Donation", SourceId = 3, PerformedBy = mgr1, Note = "Tiếp nhận mì tôm từ Quỹ Tấm Lòng Vàng Đà Nẵng",      CreatedAt = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 44, DepotSupplyInventoryId = 1,                    SupplyInventoryLotId = 36, ActionType = "Import", QuantityChange = 10000, SourceType = "Donation", SourceId = 3, PerformedBy = mgr1, Note = "Tiếp nhận mì tôm từ Quỹ Tấm Lòng Vàng Đà Nẵng",      ReceivedDate = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc),  ExpiredDate = new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 45, DepotSupplyInventoryId = 3,                    ActionType = "Export", QuantityChange = 5000,  SourceType = "Mission",  MissionId = 1, PerformedBy = mgr1, Note = "Xuất thuốc hạ sốt cấp phát cho vùng thiên tai",      CreatedAt = new DateTime(2026, 3, 10, 7, 30, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 46, DepotSupplyInventoryId = 2,                    ActionType = "Adjust", QuantityChange = -2000, SourceType = "Adjustment",             PerformedBy = mgr1, Note = "Điều chỉnh tồn kho nước sau kiểm kê định kỳ quý I/2026", CreatedAt = new DateTime(2026, 3, 15, 16, 0, 0, DateTimeKind.Utc) }
         );
@@ -461,26 +546,28 @@ public static class LogisticsSeeder
 
     private static void SeedOrganizationReliefItems(ModelBuilder modelBuilder)
     {
+        var seedDate = new DateTime(2024, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+
         modelBuilder.Entity<OrganizationReliefItem>().HasData(
-            new OrganizationReliefItem { Id = 1, OrganizationId = 1, ItemModelId = 1, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2025, 4, 1), Notes = "Cứu trợ đợt 1" },
-            new OrganizationReliefItem { Id = 2, OrganizationId = 2, ItemModelId = 2, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2025, 10, 1), Notes = "Cứu trợ đợt 1" },
-            new OrganizationReliefItem { Id = 3, OrganizationId = 3, ItemModelId = 3, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2026, 10, 1), Notes = "Cứu trợ y tế" },
-            new OrganizationReliefItem { Id = 4, OrganizationId = 4, ItemModelId = 4, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = null, Notes = "Trang thiết bị Tỉnh đoàn" },
-            new OrganizationReliefItem { Id = 5, OrganizationId = 5, ItemModelId = 5, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2027, 10, 1), Notes = "Nhu yếu phẩm phụ nữ" },
-            new OrganizationReliefItem { Id = 6, OrganizationId = 6, ItemModelId = 6, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = null, Notes = "Áo lạnh mùa đông" },
-            new OrganizationReliefItem { Id = 7, OrganizationId = 7, ItemModelId = 7, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2025, 6, 1), Notes = "Dinh dưỡng trẻ em" },
-            new OrganizationReliefItem { Id = 8, OrganizationId = 8, ItemModelId = 8, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2025, 12, 1), Notes = "Lương khô khẩn cấp" },
-            new OrganizationReliefItem { Id = 9, OrganizationId = 9, ItemModelId = 9, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2028, 1, 1), Notes = "Y tế người già" },
-            new OrganizationReliefItem { Id = 10, OrganizationId = 10, ItemModelId = 10, ReceivedDate = new DateOnly(2024, 10, 1), ExpiredDate = new DateOnly(2026, 5, 1), Notes = "Bổ sung Vitamin" }
+            new OrganizationReliefItem { Id = 1,  OrganizationId = 1,  ItemModelId = 1,  Quantity = 50000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 4, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Cứu trợ đợt 1",              CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 2,  OrganizationId = 2,  ItemModelId = 2,  Quantity = 40000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 10, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Cứu trợ đợt 1",              CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 3,  OrganizationId = 3,  ItemModelId = 3,  Quantity = 80000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Cứu trợ y tế",               CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 4,  OrganizationId = 4,  ItemModelId = 4,  Quantity = 100,   ReceivedDate = seedDate, ExpiredDate = null,                                                     Notes = "Trang thiết bị Tỉnh đoàn",       CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 5,  OrganizationId = 5,  ItemModelId = 5,  Quantity = 15000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2027, 10, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Nhu yếu phẩm phụ nữ",          CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 6,  OrganizationId = 6,  ItemModelId = 6,  Quantity = 200,   ReceivedDate = seedDate, ExpiredDate = null,                                                     Notes = "Áo lạnh mùa đông",              CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 7,  OrganizationId = 7,  ItemModelId = 7,  Quantity = 8000,  ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Dinh dưỡng trẻ em",           CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 8,  OrganizationId = 8,  ItemModelId = 8,  Quantity = 30000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 12, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Lương khô khẩn cấp",           CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 9,  OrganizationId = 9,  ItemModelId = 9,  Quantity = 5000,  ReceivedDate = seedDate, ExpiredDate = new DateTime(2028, 1, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Y tế người già",               CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 10, OrganizationId = 10, ItemModelId = 10, Quantity = 20000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Bổ sung Vitamin",             CreatedAt = seedDate }
         );
     }
 
     private static void SeedVatInvoices(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<VatInvoice>().HasData(
-            new VatInvoice { Id = 1, InvoiceSerial = "AA", InvoiceNumber = "0001234", SupplierName = "Công ty TNHH Hùng Phúc",         SupplierTaxCode = "0301234567", InvoiceDate = new DateOnly(2025, 1, 10), TotalAmount = 145_000_000m },
-            new VatInvoice { Id = 2, InvoiceSerial = "AA", InvoiceNumber = "0001235", SupplierName = "Chuỗi Siêu thị Bigmart Huế",     SupplierTaxCode = "0305678901", InvoiceDate = new DateOnly(2026, 1,  8), TotalAmount =  60_000_000m },
-            new VatInvoice { Id = 3, InvoiceSerial = "BB", InvoiceNumber = "0002001", SupplierName = "Công ty Dược phẩm Minh Châu",    SupplierTaxCode = "0302345678", InvoiceDate = new DateOnly(2026, 2, 12), TotalAmount =  75_000_000m }
+            new VatInvoice { Id = 1, InvoiceSerial = "AA", InvoiceNumber = "0001234", SupplierName = "Công ty TNHH Hùng Phúc",         SupplierTaxCode = "0301234567", InvoiceDate = new DateOnly(2025, 1, 10), TotalAmount = 145_000_000m, CreatedAt = new DateTime(2025, 1, 10, 0, 0, 0, DateTimeKind.Utc) },
+            new VatInvoice { Id = 2, InvoiceSerial = "AA", InvoiceNumber = "0001235", SupplierName = "Chuỗi Siêu thị Bigmart Huế",     SupplierTaxCode = "0305678901", InvoiceDate = new DateOnly(2026, 1,  8), TotalAmount =  60_000_000m, CreatedAt = new DateTime(2026, 1, 8, 0, 0, 0, DateTimeKind.Utc) },
+            new VatInvoice { Id = 3, InvoiceSerial = "BB", InvoiceNumber = "0002001", SupplierName = "Công ty Dược phẩm Minh Châu",    SupplierTaxCode = "0302345678", InvoiceDate = new DateOnly(2026, 2, 12), TotalAmount =  75_000_000m, CreatedAt = new DateTime(2026, 2, 12, 0, 0, 0, DateTimeKind.Utc) }
         );
     }
 

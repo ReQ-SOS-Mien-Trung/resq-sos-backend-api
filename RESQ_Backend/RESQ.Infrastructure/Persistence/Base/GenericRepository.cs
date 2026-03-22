@@ -141,4 +141,9 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     {
         await _dbSet.AddRangeAsync(entities);
     }
+
+    public IQueryable<T> AsQueryable(bool tracked = false)
+    {
+        return tracked ? _dbSet.AsQueryable() : _dbSet.AsNoTracking();
+    }
 }

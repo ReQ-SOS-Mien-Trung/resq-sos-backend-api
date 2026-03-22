@@ -16,7 +16,7 @@ public class ViewAllCampaignsHandler : IRequestHandler<ViewAllCampaignsQuery, Pa
     public async Task<PagedResult<CampaignListDto>> Handle(ViewAllCampaignsQuery request, CancellationToken cancellationToken)
     {
         // Get Domain Models from Repository (which handles sorting and IsDeleted filter)
-        var pagedModels = await _repository.GetPagedAsync(request.PageNumber, request.PageSize, null, cancellationToken);
+        var pagedModels = await _repository.GetPagedAsync(request.PageNumber, request.PageSize, request.Statuses, cancellationToken);
 
         // Map Domain Model to DTO
         var dtos = pagedModels.Items.Select(x => new CampaignListDto

@@ -12,8 +12,6 @@ public class GetRescueTeamStatusMetadataQueryHandler : IRequestHandler<GetRescue
     {
         var result = new List<MetadataDto>
         {
-            new() { Key = RescueTeamStatus.AwaitingAcceptance.ToString(), Value = "Chờ xác nhận" },
-            new() { Key = RescueTeamStatus.Ready.ToString(), Value = "Sẵn sàng tập hợp" },
             new() { Key = RescueTeamStatus.Gathering.ToString(), Value = "Đang tập hợp" },
             new() { Key = RescueTeamStatus.Available.ToString(), Value = "Sẵn sàng nhiệm vụ" },
             new() { Key = RescueTeamStatus.Assigned.ToString(), Value = "Đã được phân công" },
@@ -25,4 +23,4 @@ public class GetRescueTeamStatusMetadataQueryHandler : IRequestHandler<GetRescue
 
         return await Task.FromResult(result);
     }
-}
+}

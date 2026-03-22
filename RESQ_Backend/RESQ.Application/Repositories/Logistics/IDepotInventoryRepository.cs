@@ -3,6 +3,7 @@ using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Repositories.Logistics;
@@ -20,6 +21,13 @@ public interface IDepotInventoryRepository
         List<TargetGroup>? targetGroups,
         int pageNumber,
         int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách các lô hàng (lot) của một mặt hàng tại kho, sắp xếp theo FEFO.
+    /// </summary>
+    Task<PagedResult<InventoryLotModel>> GetInventoryLotsAsync(
+        int depotId, int itemModelId, int pageNumber, int pageSize,
         CancellationToken cancellationToken = default);
 
     /// <summary>

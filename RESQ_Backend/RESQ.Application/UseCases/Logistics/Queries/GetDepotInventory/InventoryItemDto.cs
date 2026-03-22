@@ -39,6 +39,16 @@ public class InventoryItemDto
 
     public DateTime? LastStockedAt { get; set; }
 
+    // ── Lot summary (Consumable only, null khi Reusable) ──
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTime? NearestExpiryDate { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? LotCount { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsExpiringSoon { get; set; }
+
     /// <summary>
     /// Chi tiết trạng thái và tình trạng cho vật phẩm tái sử dụng.
     /// Null với ItemType = Consumable.

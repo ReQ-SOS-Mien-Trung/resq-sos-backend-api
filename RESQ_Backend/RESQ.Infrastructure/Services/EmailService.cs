@@ -105,7 +105,7 @@ namespace RESQ.Infrastructure.Services
 
         public async Task SendPasswordResetEmailAsync(string email, string resetToken, CancellationToken cancellationToken = default)
         {
-            var FEbaseUrl = _configuration["AppSettings:FEBaseUrl"] ?? "http://localhost:5173";
+            var FEbaseUrl = _configuration["AppSettings:FEBaseUrl"] ?? "https://resq-sos-mientrung.vercel.app";
             var resetUrl = $"{FEbaseUrl}/auth/reset-pass?token={resetToken}";
 
             var subject = "Đặt Lại Mật Khẩu RESQ Của Bạn";
@@ -203,7 +203,7 @@ namespace RESQ.Infrastructure.Services
             var formattedAmount = amount.ToString("N0", cultureInfo) + " VNĐ";
             var date = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
             
-            var FEbaseUrl = _configuration["AppSettings:FEBaseUrl"] ?? "http://localhost:5173";
+            var FEbaseUrl = _configuration["AppSettings:FEBaseUrl"] ?? "https://resq-sos-mientrung.vercel.app";
             var donationUrl = $"{FEbaseUrl}/donations/success?orderCode={donationId}";
 
             var body = $@"<!DOCTYPE html>
@@ -311,7 +311,7 @@ namespace RESQ.Infrastructure.Services
 
         public async Task SendTeamInvitationEmailAsync(string email, string name, string teamName, int teamId, Guid userId, CancellationToken cancellationToken = default)
         {
-            var FEbaseUrl = _configuration["AppSettings:FEBaseUrl"] ?? "http://localhost:5173";
+            var FEbaseUrl = _configuration["AppSettings:FEBaseUrl"] ?? "https://resq-sos-mientrung.vercel.app";
             var acceptUrl = $"{FEbaseUrl}/rescue-teams/invitations/accept?teamId={teamId}&userId={userId}";
             var declineUrl = $"{FEbaseUrl}/rescue-teams/invitations/decline?teamId={teamId}&userId={userId}";
 

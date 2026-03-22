@@ -2,6 +2,7 @@ using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.ChangeCampaignStatus;
 
@@ -18,14 +19,36 @@ public class ChangeCampaignStatusCommandHandler : IRequestHandler<ChangeCampaign
 
     public async Task<bool> Handle(ChangeCampaignStatusCommand request, CancellationToken cancellationToken)
     {
-        var campaign = await _repository.GetByIdAsync(request.CampaignId, cancellationToken);
-        if (campaign == null)
-        {
-            throw new NotFoundException($"Không tìm thấy chiến dịch ID: {request.CampaignId}");
-        }
+        var campaign = await _repository.GetByIdAsync(request.CampaignId, cancellationToken)
+            ?? throw new NotFoundException($"Không tìm thấy chiến dịch ID: {request.CampaignId}");
 
-        // Domain Logic
-        campaign.ChangeStatus(request.NewStatus, request.ModifiedBy);
+        // Route to the correct semantic domain method based on requested status
+        switch (request.NewStatus)
+        {
+            case FundCampaignStatus.Active when campaign.Status == FundCampaignStatus.Draft:
+                campaign.Activate(request.ModifiedBy);
+                break;
+
+            case FundCampaignStatus.Active when campaign.Status == FundCampaignStatus.Suspended:
+                campaign.Resume(request.ModifiedBy);
+                break;
+
+            case FundCampaignStatus.Suspended:
+                campaign.Suspend(request.Reason ?? string.Empty, request.ModifiedBy);
+                break;
+
+            case FundCampaignStatus.Closed:
+                campaign.Close(request.ModifiedBy);
+                break;
+
+            case FundCampaignStatus.Archived:
+                campaign.Archive(request.ModifiedBy);
+                break;
+
+            default:
+                throw new BadRequestException(
+                    $"Không thể chuyển trạng thái từ '{campaign.Status}' sang '{request.NewStatus}'.");
+        }
 
         await _repository.UpdateAsync(campaign, cancellationToken);
         return await _unitOfWork.SaveAsync() > 0;

@@ -11,5 +11,5 @@ public class RescueTeamMemberDto
     public string Status { get; set; } = string.Empty;
     public bool IsLeader { get; set; }
     public string? RoleInTeam { get; set; }
-    public bool CheckedIn { get; set; }
-}
+    public DateTime JoinedAt { get; set; }
+}

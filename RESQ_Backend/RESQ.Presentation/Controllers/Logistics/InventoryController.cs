@@ -19,6 +19,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetItemCategoryByCode;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryActionTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
+using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLots;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventorySourceTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
@@ -90,6 +91,30 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         };
 
         var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>Xem danh sách lô hàng (lots) của một item model trong kho (FEFO).</summary>
+    [HttpGet("{itemModelId:int}/lots")]
+    [Authorize]
+    public async Task<IActionResult> GetInventoryLots(
+        int itemModelId,
+        [FromQuery] int? depotId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var userId = GetCurrentUserId();
+
+        var query = new GetInventoryLotsQuery
+        {
+            UserId = userId,
+            ItemModelId = itemModelId,
+            DepotId = depotId,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+
+        var result = await _mediator.Send(query, HttpContext.RequestAborted);
         return Ok(result);
     }
 

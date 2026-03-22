@@ -21,6 +21,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
     private readonly IFundCampaignRepository _campaignRepo;
     private readonly ICampaignDisbursementRepository _disbursementRepo;
     private readonly IFundTransactionRepository _transactionRepo;
+    private readonly IDepotFundRepository _depotFundRepo;
     private readonly IFundDistributionManager _distributionManager;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -29,6 +30,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         IFundCampaignRepository campaignRepo,
         ICampaignDisbursementRepository disbursementRepo,
         IFundTransactionRepository transactionRepo,
+        IDepotFundRepository depotFundRepo,
         IFundDistributionManager distributionManager,
         IUnitOfWork unitOfWork)
     {
@@ -36,6 +38,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         _campaignRepo = campaignRepo;
         _disbursementRepo = disbursementRepo;
         _transactionRepo = transactionRepo;
+        _depotFundRepo = depotFundRepo;
         _distributionManager = distributionManager;
         _unitOfWork = unitOfWork;
     }
@@ -74,6 +77,10 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         );
         var disbursementId = await _disbursementRepo.CreateAsync(disbursement, cancellationToken);
 
+        // 6b. Trừ số tiền đã giải ngân khỏi TotalAmount của chiến dịch
+        campaign.Disburse(fundingRequest.TotalAmount, request.ReviewedBy);
+        await _campaignRepo.UpdateAsync(campaign, cancellationToken);
+
         // 7. Tạo FundTransaction (OUT)
         var transaction = new FundTransactionModel
         {
@@ -87,6 +94,40 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
             CreatedAt = DateTime.UtcNow
         };
         await _transactionRepo.CreateAsync(transaction, cancellationToken);
+
+        // 8. Cộng quỹ kho (lazy init nếu chưa có) — tự động trừ nợ nếu balance âm
+        var depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(fundingRequest.DepotId, cancellationToken);
+        var creditResult = depotFund.Credit(fundingRequest.TotalAmount);
+        await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
+
+        // 9. Ghi log giao dịch quỹ kho — Allocation
+        await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+        {
+            DepotFundId = depotFund.Id,
+            TransactionType = DepotFundTransactionType.Allocation,
+            Amount = fundingRequest.TotalAmount,
+            ReferenceType = "CampaignDisbursement",
+            ReferenceId = disbursementId,
+            Note = $"Duyệt yêu cầu cấp quỹ #{fundingRequest.Id} từ chiến dịch #{request.CampaignId}",
+            CreatedBy = request.ReviewedBy,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+
+        // 9b. Ghi thêm transaction trừ nợ nếu kho đang tự ứng (âm)
+        if (creditResult.DebtRepaid > 0)
+        {
+            await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+            {
+                DepotFundId = depotFund.Id,
+                TransactionType = DepotFundTransactionType.DebtRepayment,
+                Amount = creditResult.DebtRepaid,
+                ReferenceType = "CampaignDisbursement",
+                ReferenceId = disbursementId,
+                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ kho đã tự ứng trước đó",
+                CreatedBy = request.ReviewedBy,
+                CreatedAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
 
         await _unitOfWork.SaveAsync();
 

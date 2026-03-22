@@ -12,10 +12,9 @@ public class RescueTeamModel
     public RescueTeamType TeamType { get; private set; }
     public RescueTeamStatus Status { get; private set; }
     public int AssemblyPointId { get; private set; }
-    public string? AssemblyPointName { get; private set; } // Added for display hydration
+    public string? AssemblyPointName { get; private set; }
     public Guid ManagedBy { get; private set; }
     public int MaxMembers { get; private set; }
-    public DateTime? AssemblyDate { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
     public DateTime? DisbandAt { get; private set; }
@@ -25,6 +24,9 @@ public class RescueTeamModel
 
     protected RescueTeamModel() { }
 
+    /// <summary>
+    /// Tạo đội cứu hộ từ danh sách rescuer đã check-in tại điểm tập kết. Status = Gathering.
+    /// </summary>
     public static RescueTeamModel Create(string name, RescueTeamType type, int assemblyPointId, Guid managedBy, int maxMembers = 8)
     {
         if (maxMembers is < 6 or > 8)
@@ -39,7 +41,7 @@ public class RescueTeamModel
             Code = code,
             Name = name,
             TeamType = type,
-            Status = RescueTeamStatus.AwaitingAcceptance,
+            Status = RescueTeamStatus.Gathering,
             AssemblyPointId = assemblyPointId,
             ManagedBy = managedBy,
             MaxMembers = maxMembers,
@@ -52,84 +54,43 @@ public class RescueTeamModel
         AssemblyPointName = name;
     }
 
+    /// <summary>
+    /// Thêm thành viên đã check-in tại điểm tập kết vào đội. Member ở trạng thái Accepted ngay.
+    /// </summary>
     public void AddMember(Guid userId, bool isLeader, string rescuerType, string? roleInTeam)
     {
-        if (Status is not (RescueTeamStatus.AwaitingAcceptance or RescueTeamStatus.Unavailable))
-            throw new RescueTeamBusinessRuleException("Chỉ có thể thêm thành viên khi đội đang ở trạng thái AwaitingAcceptance hoặc Unavailable.");
+        if (Status != RescueTeamStatus.Gathering)
+            throw new RescueTeamBusinessRuleException("Chỉ có thể thêm thành viên khi đội đang ở trạng thái Gathering.");
 
-        if (_members.Count(m => m.Status is not (TeamMemberStatus.Declined or TeamMemberStatus.Removed)) >= MaxMembers)
+        if (_members.Count(m => m.Status != TeamMemberStatus.Removed) >= MaxMembers)
             throw new RescueTeamBusinessRuleException("Đội đã đạt giới hạn thành viên tối đa.");
 
-        if (isLeader && _members.Any(m => m.IsLeader && m.Status is not (TeamMemberStatus.Declined or TeamMemberStatus.Removed)))
+        if (isLeader && _members.Any(m => m.IsLeader && m.Status != TeamMemberStatus.Removed))
             throw new RescueTeamBusinessRuleException("Đội đã có đội trưởng.");
 
-        if (_members.Any(m => m.UserId == userId && m.Status != TeamMemberStatus.Declined && m.Status != TeamMemberStatus.Removed))
+        if (_members.Any(m => m.UserId == userId && m.Status != TeamMemberStatus.Removed))
             throw new RescueTeamBusinessRuleException("Thành viên này đã có trong đội.");
 
-        _members.Add(new RescueTeamMemberModel(userId, isLeader, rescuerType, roleInTeam));
-        
-        if (Status == RescueTeamStatus.Unavailable)
-        {
-            Status = RescueTeamStatus.AwaitingAcceptance;
-        }
-
+        _members.Add(RescueTeamMemberModel.Create(userId, isLeader, rescuerType, roleInTeam));
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Xóa thành viên khỏi đội. Chỉ thực hiện được khi đội đang Gathering hoặc Unavailable.
+    /// </summary>
     public void RemoveMember(Guid userId)
     {
-        if (Status is not (RescueTeamStatus.AwaitingAcceptance or RescueTeamStatus.Unavailable))
-            throw new RescueTeamBusinessRuleException("Chỉ có thể xóa thành viên khi đội đang ở trạng thái AwaitingAcceptance hoặc Unavailable.");
+        if (Status is not (RescueTeamStatus.Gathering or RescueTeamStatus.Unavailable))
+            throw new RescueTeamBusinessRuleException("Chỉ có thể xóa thành viên khi đội đang ở trạng thái Gathering hoặc Unavailable.");
 
-        var member = _members.FirstOrDefault(m => m.UserId == userId) 
+        var member = _members.FirstOrDefault(m => m.UserId == userId && m.Status != TeamMemberStatus.Removed)
             ?? throw new TeamMemberDomainException("Không tìm thấy thành viên trong đội.");
 
         member.Remove();
-        
-        EvaluateAcceptanceState();
-        EvaluateCheckInState();
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void AcceptInvitation(Guid userId)
-    {
-        var member = GetMember(userId);
-        member.Accept();
-        
-        EvaluateAcceptanceState();
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void DeclineInvitation(Guid userId)
-    {
-        var member = GetMember(userId);
-        member.Decline();
-        
-        EvaluateAcceptanceState();
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void ScheduleAssembly(DateTime assemblyDate)
-    {
-        if (Status != RescueTeamStatus.Ready)
-            throw new InvalidTeamTransitionException(Status, RescueTeamStatus.Gathering);
-
-        Status = RescueTeamStatus.Gathering;
-        AssemblyDate = assemblyDate;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void MemberCheckIn(Guid userId)
-    {
-        if (Status != RescueTeamStatus.Gathering)
-            throw new RescueTeamBusinessRuleException("Đội chưa trong trạng thái tập hợp (Gathering).");
-
-        var member = GetMember(userId);
-        member.CheckIn();
-        
-        EvaluateCheckInState();
-        UpdatedAt = DateTime.UtcNow;
-    }
+    // ── Mission lifecycle ───────────────────────────────────────────
 
     public void AssignMission()
     {
@@ -153,9 +114,24 @@ public class RescueTeamModel
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Leader xác nhận đội đã tập hợp đủ và sẵn sàng nhận nhiệm vụ. Gathering → Available.
+    /// </summary>
+    public void SetAvailableByLeader(Guid leaderUserId)
+    {
+        if (Status != RescueTeamStatus.Gathering)
+            throw new InvalidTeamTransitionException(Status, RescueTeamStatus.Available);
+
+        var leader = _members.FirstOrDefault(m => m.IsLeader && m.UserId == leaderUserId && m.Status == TeamMemberStatus.Accepted)
+            ?? throw new RescueTeamBusinessRuleException("Chỉ đội trưởng mới có thể đặt trạng thái Available.");
+
+        Status = RescueTeamStatus.Available;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     public void Disband()
     {
-        if (Status is not (RescueTeamStatus.Available or RescueTeamStatus.Unavailable))
+        if (Status is not (RescueTeamStatus.Available or RescueTeamStatus.Unavailable or RescueTeamStatus.Gathering))
             throw new InvalidTeamTransitionException(Status, RescueTeamStatus.Disbanded);
 
         Status = RescueTeamStatus.Disbanded;
@@ -163,43 +139,27 @@ public class RescueTeamModel
         UpdatedAt = DateTime.UtcNow;
     }
 
-    private void EvaluateAcceptanceState()
+    /// <summary>
+    /// Gán đội vào một điểm tập kết. Đội không thể được gán nếu đã Disbanded.
+    /// </summary>
+    public void AssignToAssemblyPoint(int assemblyPointId)
     {
-        if (Status == RescueTeamStatus.AwaitingAcceptance)
-        {
-            var activeMembers = _members.Where(m => m.Status is not (TeamMemberStatus.Declined or TeamMemberStatus.Removed)).ToList();
-            if (activeMembers.Any() && activeMembers.All(m => m.Status == TeamMemberStatus.Accepted))
-            {
-                Status = RescueTeamStatus.Ready;
-            }
-        }
+        if (Status == RescueTeamStatus.Disbanded)
+            throw new RescueTeamBusinessRuleException("Không thể gán đội đã giải tán vào điểm tập kết.");
+
+        AssemblyPointId = assemblyPointId;
+        UpdatedAt = DateTime.UtcNow;
     }
 
-    private void EvaluateCheckInState()
-    {
-        if (Status == RescueTeamStatus.Gathering)
-        {
-            var acceptedMembers = _members.Where(m => m.Status == TeamMemberStatus.Accepted).ToList();
-            if (acceptedMembers.Any() && acceptedMembers.All(m => m.CheckedIn))
-            {
-                Status = RescueTeamStatus.Available;
-            }
-        }
-    }
+    // ── Private ─────────────────────────────────────────────────────
 
     private void ChangeStatus(RescueTeamStatus expectedCurrent, RescueTeamStatus nextStatus)
     {
         if (Status != expectedCurrent)
             throw new InvalidTeamTransitionException(Status, nextStatus);
-        
+
         Status = nextStatus;
         UpdatedAt = DateTime.UtcNow;
-    }
-
-    private RescueTeamMemberModel GetMember(Guid userId)
-    {
-        return _members.FirstOrDefault(m => m.UserId == userId) 
-            ?? throw new TeamMemberDomainException("Không tìm thấy thành viên trong đội.");
     }
 
     public void SetId(int id) => Id = id;

@@ -8,8 +8,9 @@ public class OrganizationReliefItemModel
     public int OrganizationId { get; set; }
     public int ItemModelId { get; set; }
     public int Quantity { get; set; }
-    public DateOnly? ReceivedDate { get; set; }
-    public DateOnly? ExpiredDate { get; set; }
+    public string ItemType { get; set; } = string.Empty;
+    public DateTime? ReceivedDate { get; set; }
+    public DateTime? ExpiredDate { get; set; }
     public string? Notes { get; set; }
     public Guid ReceivedBy { get; set; }
     public int ReceivedAt { get; set; }
@@ -19,9 +20,10 @@ public class OrganizationReliefItemModel
     public static OrganizationReliefItemModel Create(
         int organizationId, 
         int itemModelId, 
-        int quantity, 
-        DateOnly? receivedDate, 
-        DateOnly? expiredDate, 
+        int quantity,
+        string itemType,
+        DateTime? receivedDate, 
+        DateTime? expiredDate, 
         string? notes, 
         Guid receivedBy, 
         int receivedAt)
@@ -34,6 +36,7 @@ public class OrganizationReliefItemModel
             OrganizationId = organizationId,
             ItemModelId = itemModelId,
             Quantity = quantity,
+            ItemType = itemType,
             ReceivedDate = receivedDate,
             ExpiredDate = expiredDate,
             Notes = notes,

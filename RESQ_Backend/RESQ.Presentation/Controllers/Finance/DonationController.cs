@@ -175,12 +175,12 @@ public class DonationController : ControllerBase
         if (resultCode == 0)
         {
             var returnUrl = config["ReturnUrl"];
-            return Redirect(returnUrl ?? "http://localhost:5173/success");
+            return Redirect(returnUrl ?? "https://resq-sos-mientrung.vercel.app/success");
         }
         else
         {
             var cancelUrl = config["CancelUrl"];
-            return Redirect(cancelUrl ?? "http://localhost:5173/fail");
+            return Redirect(cancelUrl ?? "https://resq-sos-mientrung.vercel.app/fail");
         }
     }
 

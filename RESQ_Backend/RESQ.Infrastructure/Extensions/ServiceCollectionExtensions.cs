@@ -63,6 +63,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPurchasedInventoryRepository, PurchasedInventoryRepository>();
         services.AddScoped<ISupplyRequestRepository, SupplyRequestRepository>();
         services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>();
+        services.AddScoped<IAssemblyEventRepository, AssemblyEventRepository>();
         services.AddScoped<IRescueTeamRepository, RescueTeamRepository>();
         services.AddScoped<IPersonnelQueryRepository, PersonnelQueryRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
@@ -94,6 +95,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
         services.AddScoped<ICampaignDisbursementRepository, CampaignDisbursementRepository>();
         services.AddScoped<IFundingRequestRepository, FundingRequestRepository>();
+        services.AddScoped<IDepotFundRepository, DepotFundRepository>();
 
         // System Repositories
         services.AddScoped<IPromptRepository, PromptRepository>();
@@ -135,6 +137,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<DonationExpirationBackgroundService>();
         //services.AddHostedService<TeamInvitationExpirationBackgroundService>();
         services.AddHostedService<UnverifiedUserCleanupBackgroundService>();
+        services.AddHostedService<CampaignDeadlineBackgroundService>();
 
         return services;
     }

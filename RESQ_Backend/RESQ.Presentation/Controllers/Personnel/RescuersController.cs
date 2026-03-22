@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Personnel.Queries.GetFreeRescuers;
+using RESQ.Application.UseCases.Personnel.Queries.GetRescuers;
 using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Presentation.Controllers.Personnel;
@@ -23,4 +24,33 @@ public class RescuersController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetFreeRescuersQuery(pageNumber, pageSize, firstName, lastName, phone, email, rescuerType));
         return Ok(result);
     }
+
+    /// <summary>
+    /// Lấy danh sách rescuer với các filter tuỳ chọn:
+    /// có assembly point hay chưa, rescuerType, có team hay chưa,
+    /// ability subgroup, ability category.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> GetRescuers(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] bool? hasAssemblyPoint = null,
+        [FromQuery] bool? hasTeam = null,
+        [FromQuery] RescuerType? rescuerType = null,
+        [FromQuery] string? abilitySubgroupCode = null,
+        [FromQuery] string? abilityCategoryCode = null)
+    {
+        var query = new GetRescuersQuery(
+            pageNumber,
+            pageSize,
+            hasAssemblyPoint,
+            hasTeam,
+            rescuerType,
+            abilitySubgroupCode,
+            abilityCategoryCode);
+
+        var result = await mediator.Send(query);
+        return Ok(result);
+    }
 }
+

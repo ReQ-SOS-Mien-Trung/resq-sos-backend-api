@@ -41,7 +41,7 @@ public class CreateAssemblyPointCommandHandler(
         var assemblyPoint = AssemblyPointModel.Create(
             generatedCode,
             request.Name,
-            request.CapacityTeams,
+            request.MaxCapacity,
             location
         );
 
@@ -64,7 +64,7 @@ public class CreateAssemblyPointCommandHandler(
             Id = createdEntity.Id,
             Code = createdEntity.Code,
             Name = createdEntity.Name,
-            CapacityTeams = createdEntity.CapacityTeams,
+            MaxCapacity = createdEntity.MaxCapacity,
             Status = createdEntity.Status.ToString()
         };
     }

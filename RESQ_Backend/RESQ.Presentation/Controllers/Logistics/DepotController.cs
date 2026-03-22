@@ -1,13 +1,19 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
+using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 using RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
 using RESQ.Application.UseCases.Logistics.Commands.CreateDepot;
 using RESQ.Application.UseCases.Logistics.Commands.UpdateDepot;
 using RESQ.Application.UseCases.Logistics.Queries.DepotStatusMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotById;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
+using System.Security.Claims;
 
 namespace RESQ.Presentation.Controllers.Logistics
 {
@@ -94,6 +100,47 @@ namespace RESQ.Presentation.Controllers.Logistics
         {
             var result = await _mediator.Send(new GetDepotStatusMetadataQuery());
             return Ok(result);
+        }
+
+        /// <summary>[Metadata] Danh sách kho dùng cho dropdown (key = id, value = tên).</summary>
+        [HttpGet("metadata/depots")]
+        [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetDepotMetadata()
+        {
+            var result = await _mediator.Send(new GetDepotMetadataQuery());
+            return Ok(result);
+        }
+
+        /// <summary>[Manager] Xem quỹ kho của mình.</summary>
+        [HttpGet("my-fund")]
+        [Authorize(Roles = "4")]
+        [ProducesResponseType(typeof(DepotFundDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetMyFund()
+        {
+            var userId = GetUserId();
+            var result = await _mediator.Send(new GetMyDepotFundQuery(userId));
+            return Ok(result);
+        }
+
+        /// <summary>[Admin] Xem quỹ tất cả kho.</summary>
+        [HttpGet("funds")]
+        [Authorize(Roles = "1")]
+        [ProducesResponseType(typeof(List<DepotFundListItemDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAllFunds()
+        {
+            var result = await _mediator.Send(new GetAllDepotFundsQuery());
+            return Ok(result);
+        }
+
+        private Guid GetUserId()
+        {
+            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (Guid.TryParse(userIdString, out var userId))
+            {
+                return userId;
+            }
+            throw new UnauthorizedAccessException("Invalid User Token");
         }
     }
 }

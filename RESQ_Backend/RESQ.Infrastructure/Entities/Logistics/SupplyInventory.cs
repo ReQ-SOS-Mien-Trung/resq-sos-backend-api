@@ -37,4 +37,7 @@ public partial class SupplyInventory
 
     [InverseProperty("SupplyInventory")]
     public virtual ICollection<InventoryLog> InventoryLogs { get; set; } = new List<InventoryLog>();
+
+    [InverseProperty("SupplyInventory")]
+    public virtual ICollection<SupplyInventoryLot> Lots { get; set; } = new List<SupplyInventoryLot>();
 }

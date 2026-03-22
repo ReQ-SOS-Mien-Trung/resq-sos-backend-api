@@ -22,6 +22,8 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<AbilitySubgroup> AbilitySubgroups { get; set; }
     public virtual DbSet<ActivityAiSuggestion> ActivityAiSuggestions { get; set; }
     public virtual DbSet<AssemblyPoint> AssemblyPoints { get; set; }
+    public virtual DbSet<AssemblyEvent> AssemblyEvents { get; set; }
+    public virtual DbSet<AssemblyParticipant> AssemblyParticipants { get; set; }
     public virtual DbSet<ClusterAiAnalysis> ClusterAiAnalyses { get; set; }
     public virtual DbSet<Conversation> Conversations { get; set; }
     public virtual DbSet<ConversationParticipant> ConversationParticipants { get; set; }
@@ -34,6 +36,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<DocumentFileTypeCategory> DocumentFileTypeCategories { get; set; }
     public virtual DbSet<DepotManager> DepotManagers { get; set; }
     public virtual DbSet<SupplyInventory> SupplyInventories { get; set; }
+    public virtual DbSet<SupplyInventoryLot> SupplyInventoryLots { get; set; }
     public virtual DbSet<DepotSupplyRequest> DepotSupplyRequests { get; set; }
     public virtual DbSet<DepotSupplyRequestItem> DepotSupplyRequestItems { get; set; }
     public virtual DbSet<Donation> Donations { get; set; }
@@ -77,6 +80,8 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<UserPermission> UserPermissions { get; set; }
     public virtual DbSet<VatInvoice> VatInvoices { get; set; }
     public virtual DbSet<VatInvoiceItem> VatInvoiceItems { get; set; }
+    public virtual DbSet<DepotFund> DepotFunds { get; set; }
+    public virtual DbSet<DepotFundTransaction> DepotFundTransactions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -105,6 +110,25 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<RolePermission>(entity =>
         {
             entity.HasKey(e => new { e.RoleId, e.ClaimId }).HasName("role_permissions_pkey");
+        });
+
+        modelBuilder.Entity<DepotFund>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_funds_pkey");
+            entity.HasIndex(e => e.DepotId).IsUnique();
+        });
+
+        modelBuilder.Entity<DepotFundTransaction>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_fund_transactions_pkey");
+        });
+
+        modelBuilder.Entity<SupplyInventoryLot>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("supply_inventory_lots_pkey");
+            entity.HasIndex(e => new { e.SupplyInventoryId, e.RemainingQuantity, e.ExpiredDate })
+                  .HasDatabaseName("ix_supply_inventory_lots_fefo");
+            entity.UseXminAsConcurrencyToken();
         });
 
         OnModelCreatingPartial(modelBuilder);

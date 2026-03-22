@@ -47,6 +47,7 @@ public class GetInventoryLogsQueryHandler(
         {
             Id = log.Id,
             DepotSupplyInventoryId = log.DepotSupplyInventoryId,
+            SupplyInventoryLotId = log.SupplyInventoryLotId,
             ActionType = log.ActionType,
             QuantityChange = log.QuantityChange,
             FormattedQuantityChange = FormatQuantityChange(log.ActionType, log.QuantityChange),
@@ -54,6 +55,8 @@ public class GetInventoryLogsQueryHandler(
             SourceId = log.SourceId,
             Note = log.Note,
             CreatedAt = log.CreatedAt,
+            ReceivedDate = log.ReceivedDate,
+            ExpiredDate = log.ExpiredDate,
             PerformedByName = log.PerformedByName
         }).ToList();
 

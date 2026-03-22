@@ -5,6 +5,7 @@ using RESQ.Application.UseCases.Identity.Commands.CreateAbilityCategory;
 using RESQ.Application.UseCases.Identity.Commands.DeleteAbilityCategory;
 using RESQ.Application.UseCases.Identity.Commands.UpdateAbilityCategory;
 using RESQ.Application.UseCases.Identity.Queries.GetAllAbilityCategories;
+using RESQ.Application.UseCases.Identity.Queries.AbilityCategoryMetadata;
 
 namespace RESQ.Presentation.Controllers.Identity;
 
@@ -20,6 +21,14 @@ public class AbilityCategoriesController(IMediator mediator) : ControllerBase
     {
         var query = new GetAllAbilityCategoriesQuery();
         var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách ability category dùng cho dropdown (key = code, value = name).</summary>
+    [HttpGet("metadata")]
+    public async Task<IActionResult> GetCategoryMetadata()
+    {
+        var result = await _mediator.Send(new GetAbilityCategoryMetadataQuery());
         return Ok(result);
     }
 

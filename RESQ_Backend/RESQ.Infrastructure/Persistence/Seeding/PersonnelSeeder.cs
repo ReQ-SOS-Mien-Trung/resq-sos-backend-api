@@ -134,7 +134,7 @@ public static class PersonnelSeeder
                 Id = 1,
                 Code = $"AP-HUE-TD-{timestampStr}",
                 Name = "Sân vận động Tự Do (Thừa Thiên Huế)",
-                CapacityTeams = 15,
+                MaxCapacity = 15,
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(107.59761456770599, 16.46751083681696) { SRID = 4326 },
                 CreatedAt = now,
@@ -146,7 +146,7 @@ public static class PersonnelSeeder
                 Id = 2,
                 Code = $"AP-HTI-DH-{timestampStr}",
                 Name = "Nhà thi đấu đa năng TP. Hà Tĩnh",
-                CapacityTeams = 20,
+                MaxCapacity = 20,
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(105.901, 18.350) { SRID = 4326 },
                 CreatedAt = now,
@@ -158,7 +158,7 @@ public static class PersonnelSeeder
                 Id = 3,
                 Code = $"AP-QNA-TN-{timestampStr}",
                 Name = "Nhà thi đấu tỉnh Quảng Nam",
-                CapacityTeams = 15,
+                MaxCapacity = 15,
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(108.50531084160426, 15.560779818999155) { SRID = 4326 },
                 CreatedAt = now,
@@ -170,7 +170,7 @@ public static class PersonnelSeeder
                 Id = 4,
                 Code = $"AP-DNA-CT-{timestampStr}",
                 Name = "Cung Thể thao Tiên Sơn (Đà Nẵng)",
-                CapacityTeams = 10,
+                MaxCapacity = 10,
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(108.222, 16.080) { SRID = 4326 },
                 CreatedAt = now,
@@ -190,7 +190,7 @@ public static class PersonnelSeeder
                 Code = "RT-SON-241015120000",
                 Name = "Đội Cứu hộ Sông Hương (Huế)",
                 TeamType = RescueTeamType.Rescue.ToString(),
-                Status = RescueTeamStatus.AwaitingAcceptance.ToString(),
+                Status = RescueTeamStatus.Gathering.ToString(),
                 AssemblyPointId = 1, // Sân vận động Tự Do — Huế
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
@@ -202,7 +202,7 @@ public static class PersonnelSeeder
                 Code = "RT-PHA-241015120001",
                 Name = "Đội Phản ứng nhanh Y tế Huế",
                 TeamType = RescueTeamType.Medical.ToString(),
-                Status = RescueTeamStatus.Ready.ToString(),
+                Status = RescueTeamStatus.Available.ToString(),
                 AssemblyPointId = 1, // Sân vận động Tự Do — Huế
                 ManagedBy = SeedConstants.CoordinatorUserId,
                 MaxMembers = 6,
@@ -316,8 +316,8 @@ public static class PersonnelSeeder
         members.Add(new RescueTeamMember { TeamId = 1, UserId = Guid.Parse("33333333-3333-3333-3333-333333330002"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
         members.Add(new RescueTeamMember { TeamId = 1, UserId = Guid.Parse("33333333-3333-3333-3333-333333330003"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
         members.Add(new RescueTeamMember { TeamId = 1, UserId = Guid.Parse("33333333-3333-3333-3333-333333330004"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = now.AddHours(1), RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
-        members.Add(new RescueTeamMember { TeamId = 1, UserId = Guid.Parse("33333333-3333-3333-3333-333333330005"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = null, RoleInTeam = "Member", Status = TeamMemberStatus.Pending.ToString() });
-        members.Add(new RescueTeamMember { TeamId = 1, UserId = Guid.Parse("33333333-3333-3333-3333-333333330006"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = null, RoleInTeam = "Member", Status = TeamMemberStatus.Pending.ToString() });
+        members.Add(new RescueTeamMember { TeamId = 1, UserId = Guid.Parse("33333333-3333-3333-3333-333333330005"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = null, RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
+        members.Add(new RescueTeamMember { TeamId = 1, UserId = Guid.Parse("33333333-3333-3333-3333-333333330006"), CheckedIn = false, InvitedAt = now, IsLeader = false, RespondedAt = null, RoleInTeam = "Member", Status = TeamMemberStatus.Accepted.ToString() });
         
         // Team 2
         members.Add(new RescueTeamMember { TeamId = 2, UserId = Guid.Parse("33333333-3333-3333-3333-333333330007"), CheckedIn = false, InvitedAt = now, IsLeader = true, RespondedAt = now.AddHours(1), RoleInTeam = "Leader", Status = TeamMemberStatus.Accepted.ToString() });

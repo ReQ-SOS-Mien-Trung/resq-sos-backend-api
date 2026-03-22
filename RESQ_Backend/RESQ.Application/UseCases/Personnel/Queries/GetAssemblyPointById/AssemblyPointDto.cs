@@ -29,7 +29,7 @@ public class AssemblyPointDto
     public string? Name { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
-    public int CapacityTeams { get; set; }
+    public int MaxCapacity { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime? LastUpdatedAt { get; set; }
     public List<AssemblyPointTeamDto> Teams { get; set; } = [];

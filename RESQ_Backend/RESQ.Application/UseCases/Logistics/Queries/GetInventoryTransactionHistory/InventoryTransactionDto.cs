@@ -23,4 +23,6 @@ public class InventoryTransactionItemDto
     public string ItemType { get; set; } = string.Empty;
     public string TargetGroup { get; set; } = string.Empty;
     public string? CategoryName { get; set; }
+    public DateTime? ReceivedDate { get; set; }
+    public DateTime? ExpiredDate { get; set; }
 }

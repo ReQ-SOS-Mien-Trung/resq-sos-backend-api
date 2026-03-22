@@ -15,6 +15,9 @@ public interface IRescueTeamRepository
     Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default);
     Task UpdateAsync(RescueTeamModel team, CancellationToken cancellationToken = default);
 
+    /// <summary>Dếm số đội (chưa Disbanded) hiện đang gán vào điểm tập kết, trừ các đội trong <paramref name="excludeTeamIds"/>.</summary>
+    Task<int> CountActiveTeamsByAssemblyPointAsync(int assemblyPointId, IEnumerable<int> excludeTeamIds, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Tìm kiếm đội cứu hộ theo khả năng/trạng thái để agent AI dùng trong quá trình lập kế hoạch.
     /// </summary>

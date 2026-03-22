@@ -1,29 +1,29 @@
 using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Logistics;
-using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Infrastructure.Entities.Logistics;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
-public class InventoryMovementExportRepository(ResQDbContext context) : IInventoryMovementExportRepository
+public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInventoryMovementExportRepository
 {
-    private readonly ResQDbContext _context = context;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
     public async Task<List<InventoryMovementRow>> GetMovementRowsAsync(
         InventoryMovementExportPeriod period,
         int? depotId,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.InventoryLogs
+        var query = _unitOfWork.GetRepository<InventoryLog>().AsQueryable()
             .Include(l => l.SupplyInventory)
                 .ThenInclude(d => d!.ItemModel)
                     .ThenInclude(r => r!.Category)
             .Include(l => l.VatInvoice)
                 .ThenInclude(v => v!.VatInvoiceItems)
-            .Where(l => l.CreatedAt >= period.From && l.CreatedAt <= period.To)
-            .AsQueryable();
+            .Where(l => l.CreatedAt >= period.From && l.CreatedAt <= period.To);
 
         if (depotId.HasValue)
         {
@@ -54,15 +54,15 @@ public class InventoryMovementExportRepository(ResQDbContext context) : IInvento
             {
                 ItemName      = ri?.Name ?? string.Empty,
                 Category      = ri?.Category?.Name ?? string.Empty,
-                TargetGroup   = ri?.TargetGroup ?? string.Empty,
-                ItemType      = ri?.ItemType ?? string.Empty,
+                TargetGroup   = TranslateTargetGroup(ri?.TargetGroup ?? string.Empty),
+                ItemType      = TranslateItemType(ri?.ItemType ?? string.Empty),
                 Unit          = ri?.Unit ?? string.Empty,
                 UnitPrice     = unitPrice,
                 QuantityChange    = quantityChange,
                 FormattedQuantity = FormatQuantity(actionType, quantityChange),
                 CreatedAt     = log.CreatedAt,
-                ActionType    = actionType,
-                SourceType    = log.SourceType ?? string.Empty,
+                ActionType    = TranslateActionType(actionType),
+                SourceType    = TranslateSourceType(log.SourceType ?? string.Empty),
                 MissionName   = log.MissionId.HasValue ? $"Nhiệm vụ #{log.MissionId.Value}" : null,
             };
         }).ToList();
@@ -75,5 +75,50 @@ public class InventoryMovementExportRepository(ResQDbContext context) : IInvento
             "export" or "transferout"             => $"-{Math.Abs(quantityChange)}",
             "adjust" => quantityChange >= 0 ? $"+{quantityChange}" : $"-{Math.Abs(quantityChange)}",
             _        => quantityChange.ToString()
+        };
+
+    private static string TranslateItemType(string itemType)
+        => itemType switch
+        {
+            "Consumable" => "Tiêu hao",
+            "Reusable"   => "Tái sử dụng",
+            _ => itemType
+        };
+
+    private static string TranslateActionType(string actionType)
+        => actionType switch
+        {
+            "Import"      => "Nhập kho",
+            "Export"      => "Xuất kho",
+            "Adjust"      => "Điều chỉnh",
+            "TransferIn"  => "Nhận chuyển kho",
+            "TransferOut" => "Chuyển kho đi",
+            "Return"      => "Hoàn trả",
+            "Reserve"     => "Đặt trước",
+            _ => actionType
+        };
+
+    private static string TranslateTargetGroup(string targetGroup)
+        => targetGroup switch
+        {
+            "Children" => "Trẻ em",
+            "Elderly"  => "Người cao tuổi",
+            "Pregnant" => "Phụ nữ mang thai",
+            "General"  => "Chung",
+            "Rescuer"  => "Cứu hộ viên",
+            _ => targetGroup
+        };
+
+    private static string TranslateSourceType(string sourceType)
+        => sourceType switch
+        {
+            "Purchase"   => "Mua sắm",
+            "Donation"   => "Quyên góp",
+            "Mission"    => "Nhiệm vụ",
+            "Adjustment" => "Điều chỉnh",
+            "Transfer"   => "Chuyển kho",
+            "System"     => "Hệ thống",
+            "SupplyRequest" => "Yêu cầu tiếp tế",
+            _ => sourceType
         };
 }

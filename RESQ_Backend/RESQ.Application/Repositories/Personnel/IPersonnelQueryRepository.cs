@@ -19,4 +19,25 @@ public interface IPersonnelQueryRepository
     /// Lấy đội cứu hộ "active" mà user hiện tại đang thuộc về (Accepted + team chưa Disbanded).
     /// </summary>
     Task<RescueTeamModel?> GetActiveRescueTeamByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách rescuer (đã Accepted) thuộc các đội tại một điểm tập kết.
+    /// </summary>
+    Task<PagedResult<FreeRescuerModel>> GetRescuersByAssemblyPointAsync(
+        int assemblyPointId,
+        int pageNumber, int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách rescuer với các filter tuỳ chọn:
+    /// hasAssemblyPoint, hasTeam, rescuerType, abilitySubgroupCode, abilityCategoryCode.
+    /// </summary>
+    Task<PagedResult<RescuerModel>> GetRescuersAsync(
+        int pageNumber, int pageSize,
+        bool? hasAssemblyPoint = null,
+        bool? hasTeam = null,
+        RescuerType? rescuerType = null,
+        string? abilitySubgroupCode = null,
+        string? abilityCategoryCode = null,
+        CancellationToken cancellationToken = default);
 }

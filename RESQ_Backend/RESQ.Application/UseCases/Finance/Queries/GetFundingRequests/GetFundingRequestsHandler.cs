@@ -15,9 +15,11 @@ public class GetFundingRequestsHandler : IRequestHandler<GetFundingRequestsQuery
 
     public async Task<PagedResult<FundingRequestListDto>> Handle(GetFundingRequestsQuery request, CancellationToken cancellationToken)
     {
+        var statusStrings = request.Statuses?.Select(s => s.ToString()).ToList();
+
         var pagedModels = await _repository.GetPagedAsync(
             request.PageNumber, request.PageSize,
-            request.DepotId, request.Status,
+            request.DepotIds, statusStrings,
             cancellationToken);
 
         var dtos = pagedModels.Items.Select(x => new FundingRequestListDto

@@ -4,13 +4,13 @@ using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Operations;
-using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Application.Repositories.Base;
 
 namespace RESQ.Infrastructure.Persistence.Operations;
 
-public class ConversationRepository(ResQDbContext context) : IConversationRepository
+public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepository
 {
-    private readonly ResQDbContext _context = context;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
     // ─── Victim conversation ─────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
         // Chỉ lấy conversation đang ở trạng thái AiAssist (chưa chọn chủ đề).
         // Nếu không tìm thấy (victim đã chọn chủ đề trước đó), tạo conversation mới.
         // Điều này đảm bảo mỗi chủ đề chat là một đoạn hội thoại riêng biệt.
-        var entity = await _context.Conversations
+        var entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable(tracked: true)
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
             .FirstOrDefaultAsync(
@@ -36,7 +36,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
-            _context.Conversations.Add(entity);
+            await _unitOfWork.GetRepository<Conversation>().AddAsync(entity);
 
             var participant = new ConversationParticipant
             {
@@ -45,12 +45,12 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
                 RoleInConversation = "Victim",
                 JoinedAt = DateTime.UtcNow
             };
-            _context.ConversationParticipants.Add(participant);
+            await _unitOfWork.GetRepository<ConversationParticipant>().AddAsync(participant);
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveAsync();
 
             // Reload with navigation
-            entity = await _context.Conversations
+            entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable(tracked: true)
                 .Include(c => c.ConversationParticipants)
                     .ThenInclude(p => p.User)
                 .FirstAsync(c => c.Id == entity.Id, cancellationToken);
@@ -62,8 +62,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
     public async Task<IEnumerable<ConversationModel>> GetVictimConversationsAsync(
         Guid victimId, CancellationToken cancellationToken = default)
     {
-        var entities = await _context.Conversations
-            .AsNoTracking()
+        var entities = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
             .Where(c => c.VictimId == victimId)
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
@@ -76,8 +75,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
     public async Task<ConversationModel?> GetByVictimIdAsync(
         Guid victimId, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.Conversations
-            .AsNoTracking()
+        var entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
             .OrderByDescending(c => c.CreatedAt)
@@ -89,8 +87,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
     public async Task<ConversationModel?> GetByIdAsync(
         int conversationId, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.Conversations
-            .AsNoTracking()
+        var entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
             .FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken);
@@ -103,8 +100,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
     public async Task<IEnumerable<ConversationModel>> GetAllByMissionIdForUserAsync(
         int missionId, Guid userId, CancellationToken cancellationToken = default)
     {
-        var entities = await _context.Conversations
-            .AsNoTracking()
+        var entities = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
             .Where(c => c.MissionId == missionId &&
                         c.ConversationParticipants.Any(p => p.UserId == userId))
             .Include(c => c.ConversationParticipants)
@@ -123,7 +119,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
         int? linkedSosRequestId = null,
         CancellationToken cancellationToken = default)
     {
-        var entity = await _context.Conversations
+        var entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable(tracked: true)
             .FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken);
 
         if (entity == null) return;
@@ -137,7 +133,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
         if (linkedSosRequestId.HasValue)
             entity.LinkedSosRequestId = linkedSosRequestId;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveAsync();
     }
 
     // ─── Participants ────────────────────────────────────────────────────────
@@ -145,49 +141,48 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
     public async Task<bool> IsParticipantAsync(
         int conversationId, Guid userId, CancellationToken cancellationToken = default)
     {
-        return await _context.ConversationParticipants
+        return await _unitOfWork.GetRepository<ConversationParticipant>().AsQueryable()
             .AnyAsync(p => p.ConversationId == conversationId && p.UserId == userId, cancellationToken);
     }
 
     public async Task AddCoordinatorAsync(
         int conversationId, Guid coordinatorId, CancellationToken cancellationToken = default)
     {
-        var alreadyJoined = await _context.ConversationParticipants
+        var alreadyJoined = await _unitOfWork.GetRepository<ConversationParticipant>().AsQueryable()
             .AnyAsync(p => p.ConversationId == conversationId && p.UserId == coordinatorId, cancellationToken);
 
         if (!alreadyJoined)
         {
-            _context.ConversationParticipants.Add(new ConversationParticipant
+            await _unitOfWork.GetRepository<ConversationParticipant>().AddAsync(new ConversationParticipant
             {
                 ConversationId = conversationId,
                 UserId = coordinatorId,
                 RoleInConversation = "Coordinator",
                 JoinedAt = DateTime.UtcNow
             });
-            await _context.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveAsync();
         }
     }
 
     public async Task RemoveCoordinatorAsync(
         int conversationId, Guid coordinatorId, CancellationToken cancellationToken = default)
     {
-        var participant = await _context.ConversationParticipants
+        var participant = await _unitOfWork.GetRepository<ConversationParticipant>().AsQueryable(tracked: true)
             .FirstOrDefaultAsync(
                 p => p.ConversationId == conversationId && p.UserId == coordinatorId,
                 cancellationToken);
 
         if (participant != null)
         {
-            _context.ConversationParticipants.Remove(participant);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.GetRepository<ConversationParticipant>().DeleteAsync(participant);
+            await _unitOfWork.SaveAsync();
         }
     }
 
     public async Task<IEnumerable<ConversationModel>> GetConversationsWaitingForCoordinatorAsync(
         CancellationToken cancellationToken = default)
     {
-        var entities = await _context.Conversations
-            .AsNoTracking()
+        var entities = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
             .Where(c => c.Status == nameof(ConversationStatus.WaitingCoordinator))
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
@@ -202,8 +197,7 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
     public async Task<IEnumerable<MessageModel>> GetMessagesAsync(
         int conversationId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        var messages = await _context.Messages
-            .AsNoTracking()
+        var messages = await _unitOfWork.GetRepository<Message>().AsQueryable()
             .Where(m => m.ConversationId == conversationId)
             .Include(m => m.Sender)
             .OrderBy(m => m.CreatedAt)
@@ -230,14 +224,13 @@ public class ConversationRepository(ResQDbContext context) : IConversationReposi
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.Messages.Add(message);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.GetRepository<Message>().AddAsync(message);
+        await _unitOfWork.SaveAsync();
 
         User? sender = null;
         if (senderId.HasValue)
         {
-            sender = await _context.Set<User>()
-                .AsNoTracking()
+            sender = await _unitOfWork.GetRepository<User>().AsQueryable()
                 .FirstOrDefaultAsync(u => u.Id == senderId.Value, cancellationToken);
         }
 

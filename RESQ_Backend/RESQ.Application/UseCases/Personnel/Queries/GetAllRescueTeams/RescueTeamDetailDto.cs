@@ -11,7 +11,6 @@ public class RescueTeamDetailDto
     public string? AssemblyPointName { get; set; }
     public string ManagedBy { get; set; } = string.Empty;
     public int MaxMembers { get; set; }
-    public DateTime? AssemblyDate { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<RescueTeamMemberDto> Members { get; set; } = new();
 }

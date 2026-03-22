@@ -9,7 +9,7 @@ public interface IFundingRequestRepository
     
     Task<PagedResult<FundingRequestModel>> GetPagedAsync(
         int pageNumber, int pageSize,
-        int? depotId = null, string? status = null,
+        List<int>? depotIds = null, List<string>? statuses = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Tạo mới funding request, lưu ngay và trả về ID được sinh ra từ DB.</summary>

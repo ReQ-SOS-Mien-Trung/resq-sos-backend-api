@@ -19,7 +19,10 @@ public class FundCampaignModel
     public decimal? TotalAmount { get; private set; }
     
     public FundCampaignStatus Status { get; private set; }
-    
+
+    /// <summary>Lý do tạm dừng chiến dịch — chỉ có giá trị khi Status = Suspended.</summary>
+    public string? SuspendReason { get; private set; }
+
     public Guid? CreatedBy { get; private set; }
     public DateTime? CreatedAt { get; private set; }
     public Guid? LastModifiedBy { get; private set; }
@@ -58,6 +61,7 @@ public class FundCampaignModel
         DateOnly? startDate, DateOnly? endDate, 
         decimal? targetAmount, decimal? totalAmount, 
         FundCampaignStatus status, 
+        string? suspendReason,
         Guid? createdBy, DateTime? createdAt, 
         Guid? lastModifiedBy, DateTime? lastModifiedAt, 
         bool isDeleted)
@@ -71,6 +75,7 @@ public class FundCampaignModel
             TargetAmount = targetAmount,
             TotalAmount = totalAmount,
             Status = status,
+            SuspendReason = suspendReason,
             CreatedBy = createdBy,
             CreatedAt = createdAt,
             LastModifiedBy = lastModifiedBy,
@@ -87,42 +92,105 @@ public class FundCampaignModel
     }
 
     // =================================================================
-    // DOMAIN BUSINESS RULES
+    // DOMAIN BUSINESS RULES — STATE TRANSITIONS
     // =================================================================
 
-    public void ChangeStatus(FundCampaignStatus newStatus, Guid modifierId)
+    /// <summary>
+    /// Draft → Active.
+    /// Điều kiện: Duration đã được thiết lập và EndDate chưa qua.
+    /// </summary>
+    public void Activate(Guid modifierId)
     {
         CheckModificationRules();
 
-        if (Status == newStatus) return;
+        if (Status != FundCampaignStatus.Draft)
+            throw new InvalidCampaignStatusTransitionException(Status.ToString(), FundCampaignStatus.Active.ToString());
 
-        bool isValid = (Status, newStatus) switch
-        {
-            (FundCampaignStatus.Draft, FundCampaignStatus.Active) => true,
-            (FundCampaignStatus.Active, FundCampaignStatus.Suspended) => true,
-            (FundCampaignStatus.Suspended, FundCampaignStatus.Active) => true,
-            (FundCampaignStatus.Active, FundCampaignStatus.Closed) => true,
-            (FundCampaignStatus.Closed, FundCampaignStatus.Archived) => true,
-            _ => false
-        };
+        if (Duration == null)
+            throw new InvalidCampaignDateException("Chiến dịch chưa có thời gian hoạt động. Vui lòng thiết lập ngày bắt đầu và kết thúc trước khi kích hoạt.");
 
-        if (!isValid)
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (Duration.EndDate < today)
+            throw new InvalidCampaignDateException("Không thể kích hoạt chiến dịch đã hết hạn. Vui lòng gia hạn thời gian trước khi kích hoạt.");
+
+        Status = FundCampaignStatus.Active;
+        UpdateAudit(modifierId);
+    }
+
+    /// <summary>
+    /// Active → Suspended.
+    /// Điều kiện: Chiến dịch đang Active; phải cung cấp lý do tạm dừng.
+    /// </summary>
+    public void Suspend(string reason, Guid modifierId)
+    {
+        CheckModificationRules();
+
+        if (Status != FundCampaignStatus.Active)
+            throw new InvalidCampaignStatusTransitionException(Status.ToString(), FundCampaignStatus.Suspended.ToString());
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new InvalidCampaignDataException("Lý do tạm dừng");
+
+        SuspendReason = reason;
+        Status = FundCampaignStatus.Suspended;
+        UpdateAudit(modifierId);
+    }
+
+    /// <summary>
+    /// Suspended → Active.
+    /// Điều kiện: Chiến dịch đang Suspended và EndDate chưa qua.
+    /// </summary>
+    public void Resume(Guid modifierId)
+    {
+        CheckModificationRules();
+
+        if (Status != FundCampaignStatus.Suspended)
+            throw new InvalidCampaignStatusTransitionException(Status.ToString(), FundCampaignStatus.Active.ToString());
+
+        if (Duration != null)
         {
-            throw new InvalidCampaignStatusTransitionException(Status.ToString(), newStatus.ToString());
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (Duration.EndDate < today)
+                throw new InvalidCampaignDateException("Không thể tiếp tục chiến dịch đã hết hạn. Vui lòng gia hạn thời gian trước khi khôi phục.");
         }
 
-        Status = newStatus;
+        SuspendReason = null;
+        Status = FundCampaignStatus.Active;
+        UpdateAudit(modifierId);
+    }
+
+    /// <summary>
+    /// Active → Closed: Admin đóng thủ công bất kỳ lúc nào, hoặc hệ thống tự đóng khi đến deadline.
+    /// Suspended → Closed: luôn được phép.
+    /// </summary>
+    public void Close(Guid modifierId)
+    {
+        CheckModificationRules();
+
+        if (Status != FundCampaignStatus.Active && Status != FundCampaignStatus.Suspended)
+            throw new InvalidCampaignStatusTransitionException(Status.ToString(), FundCampaignStatus.Closed.ToString());
+
+        Status = FundCampaignStatus.Closed;
+        UpdateAudit(modifierId);
+    }
+
+    /// <summary>
+    /// Closed → Archived.
+    /// </summary>
+    public void Archive(Guid modifierId)
+    {
+        CheckModificationRules();
+
+        if (Status != FundCampaignStatus.Closed)
+            throw new InvalidCampaignStatusTransitionException(Status.ToString(), FundCampaignStatus.Archived.ToString());
+
+        Status = FundCampaignStatus.Archived;
         UpdateAudit(modifierId);
     }
 
     public void UpdateInfo(string name, string region, Guid modifierId)
     {
         CheckModificationRules();
-
-        if (Status == FundCampaignStatus.Archived)
-        {
-            throw new CampaignArchivedException();
-        }
 
         if (string.IsNullOrWhiteSpace(name)) throw new InvalidCampaignDataException("Tên chiến dịch");
         if (string.IsNullOrWhiteSpace(region)) throw new InvalidCampaignDataException("Khu vực");
@@ -136,7 +204,7 @@ public class FundCampaignModel
     {
         CheckModificationRules();
 
-        if (Status == FundCampaignStatus.Closed || Status == FundCampaignStatus.Archived)
+        if (Status == FundCampaignStatus.Closed)
         {
             throw new CampaignClosedOrArchivedException(Status.ToString(), "gia hạn thời gian");
         }
@@ -154,9 +222,10 @@ public class FundCampaignModel
     {
         CheckModificationRules();
 
-        if (Status == FundCampaignStatus.Closed || Status == FundCampaignStatus.Archived)
+        if (Status != FundCampaignStatus.Draft)
         {
-            throw new CampaignClosedOrArchivedException(Status.ToString(), "thay đổi mục tiêu");
+            throw new InvalidCampaignStatusException(
+                $"Chỉ được phép điều chỉnh mục tiêu khi chiến dịch ở trạng thái Draft. Trạng thái hiện tại: {Status}.");
         }
 
         if (TargetAmount.HasValue && newTarget <= TargetAmount.Value)
@@ -175,14 +244,12 @@ public class FundCampaignModel
 
     public void ReceiveDonation(decimal amount)
     {
-        if (IsDeleted)
-        {
-            throw new CampaignDeletedException();
-        }
+        CheckModificationRules();
 
-        if (Status == FundCampaignStatus.Closed || Status == FundCampaignStatus.Archived)
+        if (Status != FundCampaignStatus.Active)
         {
-            throw new CampaignClosedOrArchivedException(Status.ToString(), "nhận quyên góp");
+            throw new InvalidCampaignStatusException(
+                $"Chỉ chiến dịch đang hoạt động (Active) mới được nhận quyên góp. Trạng thái hiện tại: {Status}.");
         }
 
         if (amount <= 0)
@@ -192,6 +259,35 @@ public class FundCampaignModel
 
         TotalAmount = (TotalAmount ?? 0) + amount;
         LastModifiedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Ghi nhận một khoản giải ngân từ chiến dịch: trừ TotalAmount theo số tiền đã cấp cho kho.
+    /// Chỉ được phép khi chiến dịch ở trạng thái Closed.
+    /// </summary>
+    public void Disburse(decimal amount, Guid modifierId)
+    {
+        CheckModificationRules();
+
+        if (Status != FundCampaignStatus.Closed)
+        {
+            throw new InvalidCampaignStatusException(
+                $"Chỉ chiến dịch đã kết thúc (Closed) mới có thể điều phối quỹ cho kho. Trạng thái hiện tại: {Status}.");
+        }
+
+        if (amount <= 0)
+        {
+            throw new NegativeMoneyException(amount);
+        }
+
+        var current = TotalAmount ?? 0;
+        if (amount > current)
+        {
+            throw new InsufficientCampaignFundsException(current, amount);
+        }
+
+        TotalAmount = current - amount;
+        UpdateAudit(modifierId);
     }
 
     public void Delete(Guid modifierId)
@@ -221,9 +317,10 @@ public class FundCampaignModel
     private void CheckModificationRules()
     {
         if (IsDeleted)
-        {
             throw new CampaignDeletedException();
-        }
+
+        if (Status == FundCampaignStatus.Archived)
+            throw new CampaignArchivedException();
     }
 
     private void UpdateAudit(Guid modifierId)

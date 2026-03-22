@@ -186,6 +186,8 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                 SourceId      = null,
                 PerformedBy   = model.ReceivedBy,
                 Note          = model.Notes,
+                ReceivedDate  = model.ReceivedDate,
+                ExpiredDate   = model.ExpiredDate,
                 CreatedAt     = DateTime.UtcNow
             });
 
@@ -220,7 +222,11 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
             await _unitOfWork.SaveAsync();
         }
 
-        // Gắn DepotSupplyInventoryId cho log của consumable item
+        // Gắn DepotSupplyInventoryId cho log của consumable item + tạo lot
+        var lotRepo = _unitOfWork.GetRepository<SupplyInventoryLot>();
+        var lotEntities = new List<SupplyInventoryLot>();
+        var lotToLogMapping = new List<(int lotIndex, int logIndex)>();
+
         for (int i = 0; i < items.Count; i++)
         {
             var (model, _, itemType) = items[i];
@@ -232,9 +238,35 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                           ?? await inventoryRepo.GetByPropertyAsync(
                               x => x.DepotId == model.ReceivedAt && x.ItemModelId == model.ItemModelId);
                 if (inv != null)
+                {
                     logEntities[i].DepotSupplyInventoryId = inv.Id;
+
+                    // Create lot for this purchase batch
+                    lotToLogMapping.Add((lotEntities.Count, i));
+                    lotEntities.Add(new SupplyInventoryLot
+                    {
+                        SupplyInventoryId = inv.Id,
+                        Quantity = model.Quantity,
+                        RemainingQuantity = model.Quantity,
+                        ReceivedDate = model.ReceivedDate,
+                        ExpiredDate = model.ExpiredDate,
+                        SourceType = InventorySourceType.Purchase.ToString(),
+                        SourceId = model.VatInvoiceId,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
             }
             // Reusable: DepotSupplyInventoryId stays null
+        }
+
+        // Bulk insert lots and link to logs
+        if (lotEntities.Count > 0)
+        {
+            await lotRepo.AddRangeAsync(lotEntities);
+            await _unitOfWork.SaveAsync();
+
+            foreach (var (lotIdx, logIdx) in lotToLogMapping)
+                logEntities[logIdx].SupplyInventoryLotId = lotEntities[lotIdx].Id;
         }
 
         await logRepo.AddRangeAsync(logEntities);

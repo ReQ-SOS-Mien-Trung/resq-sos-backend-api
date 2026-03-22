@@ -7,6 +7,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Exceptions;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 
@@ -15,6 +16,7 @@ public class ImportPurchasedInventoryCommandHandler(
     IPurchasedInventoryRepository purchasedInventoryRepository,
     IDepotInventoryRepository depotInventoryRepository,
     ICampaignDisbursementRepository campaignDisbursementRepository,
+    IDepotFundRepository depotFundRepository,
     IUnitOfWork unitOfWork,
     ILogger<ImportPurchasedInventoryCommandHandler> logger)
     : IRequestHandler<ImportPurchasedInventoryCommand, ImportPurchasedInventoryResponse>
@@ -23,6 +25,7 @@ public class ImportPurchasedInventoryCommandHandler(
     private readonly IPurchasedInventoryRepository _purchasedInventoryRepository = purchasedInventoryRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly ICampaignDisbursementRepository _disbursementRepo = campaignDisbursementRepository;
+    private readonly IDepotFundRepository _depotFundRepo = depotFundRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ImportPurchasedInventoryCommandHandler> _logger = logger;
 
@@ -39,6 +42,17 @@ public class ImportPurchasedInventoryCommandHandler(
 
         // 2. Tải tất cả danh mục để mapping hiệu quả
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
+
+        // 2b. Tính tổng chi phí từ tất cả hóa đơn và kiểm tra quỹ kho
+        var totalCost = request.Invoices
+            .Where(g => g.VatInvoice.TotalAmount.HasValue)
+            .Sum(g => g.VatInvoice.TotalAmount!.Value);
+
+        DepotFundModel? depotFund = null;
+        if (totalCost > 0)
+        {
+            depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(depotId.Value, cancellationToken);
+        }
 
         // 3. Guard trùng serial+number ngay trong cùng request
         var seenInvoices = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -158,12 +172,20 @@ public class ImportPurchasedInventoryCommandHandler(
 
                     if (savedReliefItem != null)
                     {
+                        // Normalize dates to UTC before persisting
+                        var receivedDateUtc = dto.ReceivedDate.HasValue
+                            ? DateTime.SpecifyKind(dto.ReceivedDate.Value, DateTimeKind.Utc)
+                            : (DateTime?)null;
+                        var expiredDateUtc = dto.ExpiredDate.HasValue
+                            ? DateTime.SpecifyKind(dto.ExpiredDate.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
+                            : (DateTime?)null;
+
                         var purchasedModel = PurchasedInventoryItemModel.Create(
                             savedVatInvoice.Id,
                             savedReliefItem.Id,
                             dto.Quantity,
-                            dto.ReceivedDate,
-                            dto.ExpiredDate,
+                            receivedDateUtc,
+                            expiredDateUtc,
                             dto.Notes,
                             request.UserId,
                             depotId.Value);
@@ -203,7 +225,47 @@ public class ImportPurchasedInventoryCommandHandler(
                 response.TotalFailed += errors.Count;
             }
 
-            // 8. Commit tất cả các nhóm trong 1 transaction
+            // 8b. Trừ quỹ kho dựa trên tổng chi phí hóa đơn (cho phép balance âm nếu trong hạn mức tự ứng)
+            if (totalCost > 0 && depotFund != null)
+            {
+                var debitResult = depotFund.Debit(totalCost);
+                await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
+
+                var depotName = depotFund.DepotName ?? $"Kho #{depotFund.DepotId}";
+
+                if (debitResult.IsAdvanced)
+                {
+                    // Kho tự ứng — ghi transaction SelfAdvance
+                    await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+                    {
+                        DepotFundId = depotFund.Id,
+                        TransactionType = DepotFundTransactionType.SelfAdvance,
+                        Amount = totalCost,
+                        ReferenceType = "VatInvoice",
+                        ReferenceId = null,
+                        Note = $"{depotName} đã tự ứng {debitResult.AdvancedAmount:N0} VNĐ để nhập vật tư ({request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ)",
+                        CreatedBy = request.UserId,
+                        CreatedAt = DateTime.UtcNow
+                    }, cancellationToken);
+                }
+                else
+                {
+                    // Đủ quỹ — ghi transaction Deduction bình thường
+                    await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+                    {
+                        DepotFundId = depotFund.Id,
+                        TransactionType = DepotFundTransactionType.Deduction,
+                        Amount = totalCost,
+                        ReferenceType = "VatInvoice",
+                        ReferenceId = null,
+                        Note = $"Nhập hàng {request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ",
+                        CreatedBy = request.UserId,
+                        CreatedAt = DateTime.UtcNow
+                    }, cancellationToken);
+                }
+            }
+
+            // 9. Commit tất cả các nhóm trong 1 transaction
             await _unitOfWork.SaveChangesWithTransactionAsync();
         }
         catch (DomainException)

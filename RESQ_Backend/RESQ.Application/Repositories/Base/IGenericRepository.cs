@@ -22,5 +22,11 @@ namespace RESQ.Application.Repositories.Base
         );
         
         Task AddRangeAsync(IEnumerable<T> entities);
+
+        /// <summary>
+        /// Returns an IQueryable for complex queries (Join, GroupBy, Select projections)
+        /// that go beyond the standard CRUD operations.
+        /// </summary>
+        IQueryable<T> AsQueryable(bool tracked = false);
     }
 }

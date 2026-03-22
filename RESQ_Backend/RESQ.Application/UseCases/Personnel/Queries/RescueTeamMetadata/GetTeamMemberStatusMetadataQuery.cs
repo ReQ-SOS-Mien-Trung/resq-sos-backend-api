@@ -12,12 +12,10 @@ public class GetTeamMemberStatusMetadataQueryHandler : IRequestHandler<GetTeamMe
     {
         var result = new List<MetadataDto>
         {
-            new() { Key = TeamMemberStatus.Pending.ToString(), Value = "Chờ phản hồi" },
             new() { Key = TeamMemberStatus.Accepted.ToString(), Value = "Đã tham gia" },
-            new() { Key = TeamMemberStatus.Declined.ToString(), Value = "Đã từ chối" },
             new() { Key = TeamMemberStatus.Removed.ToString(), Value = "Đã rời đội" }
         };
 
         return await Task.FromResult(result);
     }
-}
+}

@@ -10,13 +10,16 @@ public class GetPublicCampaignSpendingHandler : IRequestHandler<GetPublicCampaig
 {
     private readonly IFundCampaignRepository _campaignRepo;
     private readonly ICampaignDisbursementRepository _disbursementRepo;
+    private readonly IDepotFundRepository _depotFundRepo;
 
     public GetPublicCampaignSpendingHandler(
         IFundCampaignRepository campaignRepo,
-        ICampaignDisbursementRepository disbursementRepo)
+        ICampaignDisbursementRepository disbursementRepo,
+        IDepotFundRepository depotFundRepo)
     {
         _campaignRepo = campaignRepo;
         _disbursementRepo = disbursementRepo;
+        _depotFundRepo = depotFundRepo;
     }
 
     public async Task<PublicCampaignSpendingDto> Handle(GetPublicCampaignSpendingQuery request, CancellationToken cancellationToken)
@@ -33,6 +36,10 @@ public class GetPublicCampaignSpendingHandler : IRequestHandler<GetPublicCampaig
         var pagedDisbursements = await _disbursementRepo.GetPublicByCampaignAsync(
             request.CampaignId, request.PageNumber, request.PageSize, cancellationToken);
 
+        // 3b. Lấy số dư quỹ kho của các depot liên quan
+        var depotIds = pagedDisbursements.Items.Select(d => d.DepotId).Distinct().ToList();
+        var depotFundBalances = await _depotFundRepo.GetBalancesByDepotIdsAsync(depotIds, cancellationToken);
+
         // 4. Map to DTO
         var dto = new PublicCampaignSpendingDto
         {
@@ -47,11 +54,13 @@ public class GetPublicCampaignSpendingHandler : IRequestHandler<GetPublicCampaig
             Disbursements = pagedDisbursements.Items.Select(d => new PublicDisbursementDto
             {
                 Id = d.Id,
+                DepotId = d.DepotId,
                 DepotName = d.DepotName,
                 Amount = d.Amount,
                 Purpose = d.Purpose,
                 Type = d.Type.ToString(),
                 CreatedAt = d.CreatedAt,
+                DepotFundBalance = depotFundBalances.TryGetValue(d.DepotId, out var balance) ? balance : 0m,
                 Items = d.Items.Select(i => new PublicDisbursementItemDto
                 {
                     ItemName = i.ItemName,

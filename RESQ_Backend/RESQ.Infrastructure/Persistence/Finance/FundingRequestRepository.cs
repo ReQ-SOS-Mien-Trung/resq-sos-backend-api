@@ -5,30 +5,26 @@ using RESQ.Application.Repositories.Finance;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Mappers.Finance;
-using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Finance;
 
 public class FundingRequestRepository : IFundingRequestRepository
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ResQDbContext _dbContext;
 
-    public FundingRequestRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext)
+    public FundingRequestRepository(IUnitOfWork unitOfWork)
     {
         _unitOfWork = unitOfWork;
-        _dbContext = dbContext;
     }
 
     public async Task<FundingRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _dbContext.FundingRequests
+        var entity = await _unitOfWork.GetRepository<FundingRequest>().AsQueryable()
             .Include(x => x.FundingRequestItems)
             .Include(x => x.Depot)
             .Include(x => x.RequestedByUser)
             .Include(x => x.ReviewedByUser)
             .Include(x => x.ApprovedCampaign)
-            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         return entity == null ? null : FundingRequestMapper.ToModel(entity);
@@ -36,23 +32,22 @@ public class FundingRequestRepository : IFundingRequestRepository
 
     public async Task<PagedResult<FundingRequestModel>> GetPagedAsync(
         int pageNumber, int pageSize,
-        int? depotId = null, string? status = null,
+        List<int>? depotIds = null, List<string>? statuses = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.FundingRequests
+        var query = _unitOfWork.GetRepository<FundingRequest>().AsQueryable()
             .Include(x => x.FundingRequestItems)
             .Include(x => x.Depot)
             .Include(x => x.RequestedByUser)
             .Include(x => x.ReviewedByUser)
             .Include(x => x.ApprovedCampaign)
-            .AsNoTracking()
             .AsQueryable();
 
-        if (depotId.HasValue)
-            query = query.Where(x => x.DepotId == depotId.Value);
+        if (depotIds != null && depotIds.Count > 0)
+            query = query.Where(x => depotIds.Contains(x.DepotId));
 
-        if (!string.IsNullOrEmpty(status))
-            query = query.Where(x => x.Status == status);
+        if (statuses != null && statuses.Count > 0)
+            query = query.Where(x => statuses.Contains(x.Status));
 
         query = query.OrderByDescending(x => x.CreatedAt);
 
@@ -69,15 +64,15 @@ public class FundingRequestRepository : IFundingRequestRepository
     public async Task<int> CreateAsync(FundingRequestModel model, CancellationToken cancellationToken = default)
     {
         var entity = FundingRequestMapper.ToEntity(model);
-        await _dbContext.FundingRequests.AddAsync(entity, cancellationToken);
+        await _unitOfWork.GetRepository<FundingRequest>().AddAsync(entity);
         // Lưu ngay để DB sinh ra primary key, trả về ID thực
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveAsync();
         return entity.Id;
     }
 
     public async Task UpdateAsync(FundingRequestModel model, CancellationToken cancellationToken = default)
     {
-        var entity = await _dbContext.FundingRequests
+        var entity = await _unitOfWork.GetRepository<FundingRequest>().AsQueryable(tracked: true)
             .FirstOrDefaultAsync(x => x.Id == model.Id, cancellationToken);
 
         if (entity != null)

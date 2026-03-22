@@ -25,6 +25,7 @@ public static class FundCampaignMapper
             entity.TargetAmount,
             entity.TotalAmount,
             statusEnum,
+            entity.SuspendReason,
             entity.CreatedBy,
             entity.CreatedAt,
             entity.LastModifiedBy,
@@ -46,6 +47,7 @@ public static class FundCampaignMapper
             TargetAmount = model.TargetAmount,
             TotalAmount = model.TotalAmount,
             Status = model.Status.ToString(),
+            SuspendReason = model.SuspendReason,
             CreatedBy = model.CreatedBy,
             CreatedAt = model.CreatedAt,
             LastModifiedBy = model.LastModifiedBy,
@@ -63,6 +65,7 @@ public static class FundCampaignMapper
         entity.TargetAmount = model.TargetAmount;
         entity.TotalAmount = model.TotalAmount;
         entity.Status = model.Status.ToString();
+        entity.SuspendReason = model.SuspendReason;
         entity.LastModifiedBy = model.LastModifiedBy;
         entity.LastModifiedAt = model.LastModifiedAt;
         entity.IsDeleted = model.IsDeleted;

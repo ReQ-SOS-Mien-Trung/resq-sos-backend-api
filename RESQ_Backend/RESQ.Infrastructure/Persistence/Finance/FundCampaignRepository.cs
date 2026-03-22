@@ -4,6 +4,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Domain.Entities.Finance;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Mappers.Finance;
 
@@ -28,25 +29,22 @@ public class FundCampaignRepository(IUnitOfWork unitOfWork) : IFundCampaignRepos
         return entity == null ? null : FundCampaignMapper.ToModel(entity);
     }
 
-    public async Task<PagedResult<FundCampaignModel>> GetPagedAsync(int pageNumber, int pageSize, string? status = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<FundCampaignModel>> GetPagedAsync(int pageNumber, int pageSize, List<FundCampaignStatus>? statuses = null, CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<FundCampaign>();
-        Expression<Func<FundCampaign, bool>> filter = x => !x.IsDeleted;
 
-        if (!string.IsNullOrEmpty(status))
+        Expression<Func<FundCampaign, bool>> filter;
+
+        if (statuses != null && statuses.Count > 0)
         {
-            var parameter = Expression.Parameter(typeof(FundCampaign), "x");
-            var statusProp = Expression.Property(parameter, nameof(FundCampaign.Status));
-            var deletedProp = Expression.Property(parameter, nameof(FundCampaign.IsDeleted));
-            
-            var statusConst = Expression.Constant(status);
-            var falseConst = Expression.Constant(false);
+            // Convert enum list to string list for comparison with the stored string column
+            var statusStrings = statuses.Select(s => s.ToString()).ToList();
 
-            var statusCheck = Expression.Equal(statusProp, statusConst);
-            var deletedCheck = Expression.Equal(deletedProp, falseConst);
-            var combined = Expression.AndAlso(statusCheck, deletedCheck);
-
-            filter = Expression.Lambda<Func<FundCampaign, bool>>(combined, parameter);
+            filter = x => !x.IsDeleted && statusStrings.Contains(x.Status!);
+        }
+        else
+        {
+            filter = x => !x.IsDeleted;
         }
 
         var pagedEntities = await repo.GetPagedAsync(
@@ -90,5 +88,19 @@ public class FundCampaignRepository(IUnitOfWork unitOfWork) : IFundCampaignRepos
             entity.IsDeleted = true;
             await repo.UpdateAsync(entity);
         }
+    }
+
+    public async Task<List<FundCampaignModel>> GetExpiredActiveAsync(CancellationToken cancellationToken = default)
+    {
+        var repo = _unitOfWork.GetRepository<FundCampaign>();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var entities = await repo.GetAllByPropertyAsync(
+            x => !x.IsDeleted
+              && x.Status == "Active"
+              && x.CampaignEndDate.HasValue
+              && x.CampaignEndDate.Value < today);
+
+        return entities.Select(FundCampaignMapper.ToModel).ToList();
     }
 }
