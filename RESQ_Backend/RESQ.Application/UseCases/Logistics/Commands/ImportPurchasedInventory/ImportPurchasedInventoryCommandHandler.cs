@@ -52,11 +52,6 @@ public class ImportPurchasedInventoryCommandHandler(
         if (totalCost > 0)
         {
             depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(depotId.Value, cancellationToken);
-            if (depotFund.Balance < totalCost)
-            {
-                throw new BadRequestException(
-                    $"Quỹ kho không đủ. Số dư hiện tại: {depotFund.Balance:N0} VNĐ, tổng chi phí nhập hàng: {totalCost:N0} VNĐ.");
-            }
         }
 
         // 3. Guard trùng serial+number ngay trong cùng request
@@ -230,23 +225,44 @@ public class ImportPurchasedInventoryCommandHandler(
                 response.TotalFailed += errors.Count;
             }
 
-            // 8b. Trừ quỹ kho dựa trên tổng chi phí hóa đơn
+            // 8b. Trừ quỹ kho dựa trên tổng chi phí hóa đơn (cho phép balance âm nếu trong hạn mức tự ứng)
             if (totalCost > 0 && depotFund != null)
             {
-                depotFund.Debit(totalCost);
+                var debitResult = depotFund.Debit(totalCost);
                 await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
-                await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+                var depotName = depotFund.DepotName ?? $"Kho #{depotFund.DepotId}";
+
+                if (debitResult.IsAdvanced)
                 {
-                    DepotFundId = depotFund.Id,
-                    TransactionType = DepotFundTransactionType.Deduction,
-                    Amount = totalCost,
-                    ReferenceType = "VatInvoice",
-                    ReferenceId = null,
-                    Note = $"Nhập hàng {request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ",
-                    CreatedBy = request.UserId,
-                    CreatedAt = DateTime.UtcNow
-                }, cancellationToken);
+                    // Kho tự ứng — ghi transaction SelfAdvance
+                    await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+                    {
+                        DepotFundId = depotFund.Id,
+                        TransactionType = DepotFundTransactionType.SelfAdvance,
+                        Amount = totalCost,
+                        ReferenceType = "VatInvoice",
+                        ReferenceId = null,
+                        Note = $"{depotName} đã tự ứng {debitResult.AdvancedAmount:N0} VNĐ để nhập vật tư ({request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ)",
+                        CreatedBy = request.UserId,
+                        CreatedAt = DateTime.UtcNow
+                    }, cancellationToken);
+                }
+                else
+                {
+                    // Đủ quỹ — ghi transaction Deduction bình thường
+                    await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+                    {
+                        DepotFundId = depotFund.Id,
+                        TransactionType = DepotFundTransactionType.Deduction,
+                        Amount = totalCost,
+                        ReferenceType = "VatInvoice",
+                        ReferenceId = null,
+                        Note = $"Nhập hàng {request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ",
+                        CreatedBy = request.UserId,
+                        CreatedAt = DateTime.UtcNow
+                    }, cancellationToken);
+                }
             }
 
             // 9. Commit tất cả các nhóm trong 1 transaction

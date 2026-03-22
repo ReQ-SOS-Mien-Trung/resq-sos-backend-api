@@ -11,6 +11,7 @@ public static class DepotFundMapper
             entity.Id,
             entity.DepotId,
             entity.Balance,
+            entity.MaxAdvanceLimit,
             entity.LastUpdatedAt
         );
 
@@ -26,6 +27,7 @@ public static class DepotFundMapper
             Id = model.Id,
             DepotId = model.DepotId,
             Balance = model.Balance,
+            MaxAdvanceLimit = model.MaxAdvanceLimit,
             LastUpdatedAt = model.LastUpdatedAt
         };
     }
@@ -33,6 +35,7 @@ public static class DepotFundMapper
     public static void UpdateEntity(DepotFund entity, DepotFundModel model)
     {
         entity.Balance = model.Balance;
+        entity.MaxAdvanceLimit = model.MaxAdvanceLimit;
         entity.LastUpdatedAt = model.LastUpdatedAt;
     }
 }

@@ -95,12 +95,12 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         };
         await _transactionRepo.CreateAsync(transaction, cancellationToken);
 
-        // 8. Cộng quỹ kho (lazy init nếu chưa có)
+        // 8. Cộng quỹ kho (lazy init nếu chưa có) — tự động trừ nợ nếu balance âm
         var depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(fundingRequest.DepotId, cancellationToken);
-        depotFund.Credit(fundingRequest.TotalAmount);
+        var creditResult = depotFund.Credit(fundingRequest.TotalAmount);
         await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
-        // 9. Ghi log giao dịch quỹ kho
+        // 9. Ghi log giao dịch quỹ kho — Allocation
         await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
         {
             DepotFundId = depotFund.Id,
@@ -112,6 +112,22 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
             CreatedBy = request.ReviewedBy,
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
+
+        // 9b. Ghi thêm transaction trừ nợ nếu kho đang tự ứng (âm)
+        if (creditResult.DebtRepaid > 0)
+        {
+            await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+            {
+                DepotFundId = depotFund.Id,
+                TransactionType = DepotFundTransactionType.DebtRepayment,
+                Amount = creditResult.DebtRepaid,
+                ReferenceType = "CampaignDisbursement",
+                ReferenceId = disbursementId,
+                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ kho đã tự ứng trước đó",
+                CreatedBy = request.ReviewedBy,
+                CreatedAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
 
         await _unitOfWork.SaveAsync();
 

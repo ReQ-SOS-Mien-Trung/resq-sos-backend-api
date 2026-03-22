@@ -24,6 +24,7 @@ public class GetAllDepotFundsHandler : IRequestHandler<GetAllDepotFundsQuery, Li
             DepotId = f.DepotId,
             DepotName = f.DepotName,
             Balance = f.Balance,
+            MaxAdvanceLimit = f.MaxAdvanceLimit,
             LastUpdatedAt = f.LastUpdatedAt == DateTime.MinValue ? null : f.LastUpdatedAt
         }).ToList();
     }

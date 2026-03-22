@@ -71,8 +71,8 @@ public class DepotFundRepository : IDepotFundRepository
         return results.Select(r =>
         {
             var model = r.Fund != null
-                ? DepotFundModel.Reconstitute(r.Fund.Id, r.Fund.DepotId, r.Fund.Balance, r.Fund.LastUpdatedAt)
-                : DepotFundModel.Reconstitute(0, r.Id, 0m, DateTime.MinValue);
+                ? DepotFundModel.Reconstitute(r.Fund.Id, r.Fund.DepotId, r.Fund.Balance, r.Fund.MaxAdvanceLimit, r.Fund.LastUpdatedAt)
+                : DepotFundModel.Reconstitute(0, r.Id, 0m, 0m, DateTime.MinValue);
             model.DepotName = r.Name;
             return model;
         }).ToList();

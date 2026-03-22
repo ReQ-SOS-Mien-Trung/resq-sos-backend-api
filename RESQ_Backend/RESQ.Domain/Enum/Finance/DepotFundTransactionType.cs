@@ -8,9 +8,15 @@ public enum DepotFundTransactionType
     /// <summary>Cấp quỹ vào kho (Admin allocate / approve funding request).</summary>
     Allocation,
     
-    /// <summary>Trừ quỹ khi nhập hàng (import-purchase).</summary>
+    /// <summary>Trừ quỹ khi nhập hàng (import-purchase) — đủ số dư.</summary>
     Deduction,
     
     /// <summary>Hoàn quỹ (trường hợp đặc biệt).</summary>
-    Refund
+    Refund,
+    
+    /// <summary>Kho tự ứng tiền nhập hàng khi quỹ không đủ (balance → âm).</summary>
+    SelfAdvance,
+    
+    /// <summary>Trừ nợ tự động khi kho nhận tiền mới (từ phần đã tự ứng trước đó).</summary>
+    DebtRepayment
 }

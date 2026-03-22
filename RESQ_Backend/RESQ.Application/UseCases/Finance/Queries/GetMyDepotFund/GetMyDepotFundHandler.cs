@@ -35,6 +35,7 @@ public class GetMyDepotFundHandler : IRequestHandler<GetMyDepotFundQuery, DepotF
             DepotId = depotId,
             DepotName = fund?.DepotName,
             Balance = fund?.Balance ?? 0m,
+            MaxAdvanceLimit = fund?.MaxAdvanceLimit ?? 0m,
             LastUpdatedAt = fund?.LastUpdatedAt
         };
     }

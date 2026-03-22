@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Finance.Commands.SetDepotAdvanceLimit;
 using RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 using RESQ.Application.UseCases.Finance.Queries.GetDepotFundTransactions;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
@@ -64,6 +65,16 @@ public class DepotFundController(IMediator mediator) : ControllerBase
         var query = new GetMyDepotFundTransactionsQuery(GetUserId(), pageNumber, pageSize);
         var result = await _mediator.Send(query);
         return Ok(result);
+    }
+
+    /// <summary>[Admin] Cấu hình hạn mức tự ứng (balance âm tối đa) cho một kho.</summary>
+    [HttpPut("{depotId:int}/advance-limit")]
+    [Authorize(Roles = "1")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SetAdvanceLimit(int depotId, [FromBody] SetAdvanceLimitRequest request)
+    {
+        await _mediator.Send(new SetDepotAdvanceLimitCommand(depotId, request.MaxAdvanceLimit));
+        return NoContent();
     }
 
     private Guid GetUserId()

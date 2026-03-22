@@ -19,6 +19,10 @@ public partial class DepotFund
     [Column("balance")]
     public decimal Balance { get; set; }
 
+    /// <summary>Hạn mức tối đa mà kho được phép tự ứng (balance âm). 0 = không cho âm. Admin cấu hình.</summary>
+    [Column("max_advance_limit")]
+    public decimal MaxAdvanceLimit { get; set; }
+
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime LastUpdatedAt { get; set; }
 
