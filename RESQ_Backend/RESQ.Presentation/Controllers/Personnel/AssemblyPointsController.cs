@@ -7,7 +7,7 @@ using RESQ.Application.UseCases.Personnel.Commands.ChangeAssemblyPointStatus;
 using RESQ.Application.UseCases.Personnel.Commands.CreateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.DeleteAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.UpdateAssemblyPoint;
-using RESQ.Application.UseCases.Personnel.Commands.AssignTeamsToAssemblyPoint;
+using RESQ.Application.UseCases.Personnel.Commands.AssignRescuerToAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.ScheduleGathering;
 using RESQ.Application.UseCases.Personnel.Commands.StartGathering;
 using RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
@@ -62,7 +62,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(result);
         }
 
-        /// <summary>Lấy danh sách rescuer thuộc các đội tại một điểm tập kết.</summary>
+        /// <summary>Lấy danh sách rescuer thuộc điểm tập kết.</summary>
         [HttpGet("{id}/rescuers")]
         public async Task<IActionResult> GetRescuersByAssemblyPoint(
             int id,
@@ -127,12 +127,12 @@ namespace RESQ.Presentation.Controllers.Personnel
             return NoContent();
         }
 
-        /// <summary>Gán danh sách đội cứu hộ (chứa rescuer) vào điểm tập kết.</summary>
-        [HttpPost("{id}/teams")]
+        /// <summary>Gán rescuer vào điểm tập kết (hoặc gỡ nếu assemblyPointId = null).</summary>
+        [HttpPut("rescuers/{userId}/assignment")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
-        public async Task<IActionResult> AssignTeams(int id, [FromBody] AssignTeamsToAssemblyPointRequestDto dto)
+        public async Task<IActionResult> AssignRescuer(Guid userId, [FromBody] AssignRescuerToAssemblyPointRequestDto dto)
         {
-            var command = new AssignTeamsToAssemblyPointCommand(id, dto.TeamIds);
+            var command = new AssignRescuerToAssemblyPointCommand(userId, dto.AssemblyPointId);
             await _mediator.Send(command);
             return NoContent();
         }
@@ -161,16 +161,16 @@ namespace RESQ.Presentation.Controllers.Personnel
             return NoContent();
         }
 
-        /// <summary>Rescuer check-in tại sự kiện tập trung.</summary>
+        /// <summary>Rescuer check-in tại sự kiện tập trung (kèm GPS validation trong bán kính 200m).</summary>
         [HttpPost("events/{eventId}/check-in")]
         [Authorize]
-        public async Task<IActionResult> CheckIn(int eventId)
+        public async Task<IActionResult> CheckIn(int eventId, [FromBody] CheckInRequestDto dto)
         {
             var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!Guid.TryParse(userIdStr, out var userId))
                 return Unauthorized();
 
-            var command = new CheckInAtAssemblyPointCommand(eventId, userId);
+            var command = new CheckInAtAssemblyPointCommand(eventId, userId, dto.Latitude, dto.Longitude);
             await _mediator.Send(command);
             return NoContent();
         }

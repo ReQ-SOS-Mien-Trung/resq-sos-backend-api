@@ -18,4 +18,15 @@ public class InventoryItemModel
     /// Chỉ có giá trị khi ItemType == "Reusable"; null với tiêu hao.
     /// </summary>
     public ReusableBreakdown? ReusableBreakdown { get; set; }
+
+    /// <summary>
+    /// Ngày hết hạn sớm nhất trong các lô còn hàng (RemainingQuantity > 0).
+    /// Null nếu không có lô nào có ExpiredDate hoặc ItemType = Reusable.
+    /// </summary>
+    public DateTime? NearestExpiryDate { get; set; }
+
+    /// <summary>
+    /// Số lô đang còn hàng (RemainingQuantity > 0). 0 nếu ItemType = Reusable.
+    /// </summary>
+    public int LotCount { get; set; }
 }

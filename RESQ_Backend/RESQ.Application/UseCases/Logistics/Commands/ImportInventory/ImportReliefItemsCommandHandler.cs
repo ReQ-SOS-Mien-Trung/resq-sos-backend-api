@@ -92,13 +92,22 @@ public class ImportReliefItemsCommandHandler(
                     item.ItemType, 
                     item.TargetGroup);
 
+                // Normalize dates to UTC before persisting
+                var receivedDateUtc = item.ReceivedDate.HasValue
+                    ? DateTime.SpecifyKind(item.ReceivedDate.Value, DateTimeKind.Utc)
+                    : (DateTime?)null;
+                var expiredDateUtc = item.ExpiredDate.HasValue
+                    ? DateTime.SpecifyKind(item.ExpiredDate.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
+                    : (DateTime?)null;
+
                 // Domain Orchestration: Create Organization Donation Receipt Model
                 var donationModel = OrganizationReliefItemModel.Create(
                     organizationId,
                     0, // Will be set after relief items are created
                     item.Quantity,
-                    item.ReceivedDate,
-                    item.ExpiredDate,
+                    item.ItemType,
+                    receivedDateUtc,
+                    expiredDateUtc,
                     item.Notes,
                     request.UserId,
                     depotId.Value
@@ -147,6 +156,7 @@ public class ImportReliefItemsCommandHandler(
                         organizationId,
                         savedReliefItem.Id,
                         donation.Quantity,
+                        donation.ItemType,
                         donation.ReceivedDate,
                         donation.ExpiredDate,
                         donation.Notes,

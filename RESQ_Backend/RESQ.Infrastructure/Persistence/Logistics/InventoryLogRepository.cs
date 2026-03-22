@@ -1,15 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 using RESQ.Domain.Entities.Logistics.Models;
-using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Infrastructure.Entities.Logistics;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
-public class InventoryLogRepository(ResQDbContext context) : IInventoryLogRepository
+public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepository
 {
-    private readonly ResQDbContext _context = context;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
     public async Task<PagedResult<InventoryLogModel>> GetInventoryLogsPagedAsync(
         int? depotId,
@@ -22,7 +23,7 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.InventoryLogs
+        var query = _unitOfWork.GetRepository<InventoryLog>().AsQueryable()
             .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.Depot)
             .Include(x => x.SupplyInventory)
@@ -41,6 +42,8 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
         // (Reserve, TransferOut) that happened at depot 2 — causing them to leak into depot 1's view.
         if (depotId.HasValue)
         {
+            var supplyRequests = _unitOfWork.GetRepository<DepotSupplyRequest>().AsQueryable();
+
             query = query.Where(x =>
                 // Consumable: SupplyInventory.DepotId is stable (one record per depot+item)
                 (x.DepotSupplyInventoryId != null && x.SupplyInventory!.DepotId == depotId.Value)
@@ -48,12 +51,12 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
                 // Reusable – SupplyRequest: Reserve + TransferOut belong to the SOURCE depot
                 || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
                     && (x.ActionType == "Reserve" || x.ActionType == "TransferOut")
-                    && _context.DepotSupplyRequests.Any(sr => sr.Id == x.SourceId && sr.SourceDepotId == depotId.Value))
+                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.SourceDepotId == depotId.Value))
 
                 // Reusable – SupplyRequest: TransferIn belongs to the REQUESTING depot
                 || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
                     && x.ActionType == "TransferIn"
-                    && _context.DepotSupplyRequests.Any(sr => sr.Id == x.SourceId && sr.RequestingDepotId == depotId.Value))
+                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.RequestingDepotId == depotId.Value))
 
                 // Reusable – non-SupplyRequest (Import, Export, Adjust, etc.):
                 // use current DepotId as best-effort (item hasn't moved between depots)
@@ -107,12 +110,15 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
         {
             Id = x.Id,
             DepotSupplyInventoryId = x.DepotSupplyInventoryId,
+            SupplyInventoryLotId = x.SupplyInventoryLotId,
             ActionType = x.ActionType ?? string.Empty,
             QuantityChange = x.QuantityChange,
             SourceType = x.SourceType ?? string.Empty,
             SourceId = x.SourceId,
             Note = x.Note,
             CreatedAt = x.CreatedAt,
+            ReceivedDate = x.ReceivedDate,
+            ExpiredDate = x.ExpiredDate,
             PerformedByName = x.PerformedByUser != null
                 ? $"{x.PerformedByUser.LastName} {x.PerformedByUser.FirstName}".Trim()
                 : string.Empty,
@@ -135,7 +141,7 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.InventoryLogs
+        var query = _unitOfWork.GetRepository<InventoryLog>().AsQueryable()
             .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.Depot)
             .Include(x => x.SupplyInventory)
@@ -153,6 +159,8 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
         // (Reserve, TransferOut at depot 2) to appear in depot 1's view after a TransferIn.
         if (depotId.HasValue)
         {
+            var supplyRequests = _unitOfWork.GetRepository<DepotSupplyRequest>().AsQueryable();
+
             query = query.Where(x =>
                 // Consumable: SupplyInventory.DepotId is stable
                 (x.DepotSupplyInventoryId != null && x.SupplyInventory!.DepotId == depotId.Value)
@@ -160,12 +168,12 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
                 // Reusable – SupplyRequest: Reserve + TransferOut belong to the SOURCE depot
                 || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
                     && (x.ActionType == "Reserve" || x.ActionType == "TransferOut")
-                    && _context.DepotSupplyRequests.Any(sr => sr.Id == x.SourceId && sr.SourceDepotId == depotId.Value))
+                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.SourceDepotId == depotId.Value))
 
                 // Reusable – SupplyRequest: TransferIn belongs to the REQUESTING depot
                 || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
                     && x.ActionType == "TransferIn"
-                    && _context.DepotSupplyRequests.Any(sr => sr.Id == x.SourceId && sr.RequestingDepotId == depotId.Value))
+                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.RequestingDepotId == depotId.Value))
 
                 // Reusable – non-SupplyRequest (Import, Export, Adjust, etc.):
                 // use current DepotId as best-effort (item hasn't moved between depots)
@@ -257,7 +265,9 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
                                   ?? item.ReusableItem?.ItemModel?.TargetGroup
                                   ?? string.Empty,
                     CategoryName = item.SupplyInventory?.ItemModel?.Category?.Name
-                                   ?? item.ReusableItem?.ItemModel?.Category?.Name
+                                   ?? item.ReusableItem?.ItemModel?.Category?.Name,
+                    ReceivedDate = item.ReceivedDate,
+                    ExpiredDate = item.ExpiredDate
                 }).ToList()
             };
         }).ToList();
@@ -282,7 +292,7 @@ public class InventoryLogRepository(ResQDbContext context) : IInventoryLogReposi
 
     private string GetOrganizationName(int organizationId)
     {
-        var organization = _context.Organizations
+        var organization = _unitOfWork.GetRepository<Organization>().AsQueryable()
             .Where(o => o.Id == organizationId)
             .Select(o => o.Name)
             .FirstOrDefault();

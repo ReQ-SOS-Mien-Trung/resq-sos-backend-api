@@ -24,7 +24,7 @@ namespace RESQ.Presentation.Controllers.Identity
     public class AuthController(IMediator mediator, IConfiguration configuration) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;
-        private readonly string _feBaseUrl = configuration["AppSettings:FEBaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
+        private readonly string _feBaseUrl = configuration["AppSettings:FEBaseUrl"]?.TrimEnd('/') ?? "https://resq-sos-mientrung.vercel.app";
 
         /// <summary>Đăng ký tài khoản Victim bằng số điện thoại.</summary>
         [HttpPost("register")]

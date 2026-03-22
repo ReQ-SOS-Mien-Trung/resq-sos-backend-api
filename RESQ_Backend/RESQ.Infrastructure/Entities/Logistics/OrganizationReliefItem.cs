@@ -22,11 +22,11 @@ public partial class OrganizationReliefItem
     [Column("quantity")]
     public int? Quantity { get; set; }
 
-    [Column("received_date")]
-    public DateOnly? ReceivedDate { get; set; }
+    [Column("received_date", TypeName = "timestamp with time zone")]
+    public DateTime? ReceivedDate { get; set; }
 
-    [Column("expired_date")]
-    public DateOnly? ExpiredDate { get; set; }
+    [Column("expired_date", TypeName = "timestamp with time zone")]
+    public DateTime? ExpiredDate { get; set; }
 
     [Column("notes")]
     public string? Notes { get; set; }

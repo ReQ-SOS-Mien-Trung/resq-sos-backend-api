@@ -177,12 +177,20 @@ public class ImportPurchasedInventoryCommandHandler(
 
                     if (savedReliefItem != null)
                     {
+                        // Normalize dates to UTC before persisting
+                        var receivedDateUtc = dto.ReceivedDate.HasValue
+                            ? DateTime.SpecifyKind(dto.ReceivedDate.Value, DateTimeKind.Utc)
+                            : (DateTime?)null;
+                        var expiredDateUtc = dto.ExpiredDate.HasValue
+                            ? DateTime.SpecifyKind(dto.ExpiredDate.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
+                            : (DateTime?)null;
+
                         var purchasedModel = PurchasedInventoryItemModel.Create(
                             savedVatInvoice.Id,
                             savedReliefItem.Id,
                             dto.Quantity,
-                            dto.ReceivedDate,
-                            dto.ExpiredDate,
+                            receivedDateUtc,
+                            expiredDateUtc,
                             dto.Notes,
                             request.UserId,
                             depotId.Value);

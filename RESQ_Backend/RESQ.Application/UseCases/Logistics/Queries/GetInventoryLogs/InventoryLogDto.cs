@@ -4,6 +4,7 @@ public class InventoryLogDto
 {
     public int Id { get; set; }
     public int? DepotSupplyInventoryId { get; set; }
+    public int? SupplyInventoryLotId { get; set; }
     public string ActionType { get; set; } = string.Empty;
     public string FormattedQuantityChange { get; set; } = string.Empty;
     public int? QuantityChange { get; set; }
@@ -11,5 +12,7 @@ public class InventoryLogDto
     public int? SourceId { get; set; }
     public string? Note { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public DateTime? ReceivedDate { get; set; }
+    public DateTime? ExpiredDate { get; set; }
     public string? PerformedByName { get; set; }
 }

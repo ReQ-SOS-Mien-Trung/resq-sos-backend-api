@@ -6,29 +6,25 @@ using RESQ.Application.Repositories.Finance;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Mappers.Finance;
-using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Finance;
 
 public class CampaignDisbursementRepository : ICampaignDisbursementRepository
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ResQDbContext _dbContext;
 
-    public CampaignDisbursementRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext)
+    public CampaignDisbursementRepository(IUnitOfWork unitOfWork)
     {
         _unitOfWork = unitOfWork;
-        _dbContext = dbContext;
     }
 
     public async Task<CampaignDisbursementModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _dbContext.CampaignDisbursements
+        var entity = await _unitOfWork.GetRepository<CampaignDisbursement>().AsQueryable()
             .Include(x => x.DisbursementItems)
             .Include(x => x.FundCampaign)
             .Include(x => x.Depot)
             .Include(x => x.CreatedByUser)
-            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         return entity == null ? null : CampaignDisbursementMapper.ToModel(entity);
@@ -39,12 +35,11 @@ public class CampaignDisbursementRepository : ICampaignDisbursementRepository
         int? campaignId = null, int? depotId = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.CampaignDisbursements
+        var query = _unitOfWork.GetRepository<CampaignDisbursement>().AsQueryable()
             .Include(x => x.DisbursementItems)
             .Include(x => x.FundCampaign)
             .Include(x => x.Depot)
             .Include(x => x.CreatedByUser)
-            .AsNoTracking()
             .AsQueryable();
 
         if (campaignId.HasValue)
@@ -69,10 +64,9 @@ public class CampaignDisbursementRepository : ICampaignDisbursementRepository
         int campaignId, int pageNumber, int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.CampaignDisbursements
+        var query = _unitOfWork.GetRepository<CampaignDisbursement>().AsQueryable()
             .Include(x => x.DisbursementItems)
             .Include(x => x.Depot)
-            .AsNoTracking()
             .Where(x => x.FundCampaignId == campaignId)
             .OrderByDescending(x => x.CreatedAt);
 
@@ -88,7 +82,7 @@ public class CampaignDisbursementRepository : ICampaignDisbursementRepository
 
     public async Task<decimal> GetTotalDisbursedByCampaignAsync(int campaignId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.CampaignDisbursements
+        return await _unitOfWork.GetRepository<CampaignDisbursement>().AsQueryable()
             .Where(x => x.FundCampaignId == campaignId)
             .SumAsync(x => x.Amount, cancellationToken);
     }
@@ -96,9 +90,9 @@ public class CampaignDisbursementRepository : ICampaignDisbursementRepository
     public async Task<int> CreateAsync(CampaignDisbursementModel model, CancellationToken cancellationToken = default)
     {
         var entity = CampaignDisbursementMapper.ToEntity(model);
-        await _dbContext.CampaignDisbursements.AddAsync(entity, cancellationToken);
+        await _unitOfWork.GetRepository<CampaignDisbursement>().AddAsync(entity);
         // Lưu ngay để DB sinh ra primary key, trả về ID thực
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveAsync();
         return entity.Id;
     }
 
@@ -116,6 +110,6 @@ public class CampaignDisbursementRepository : ICampaignDisbursementRepository
             CreatedAt = i.CreatedAt
         }).ToList();
 
-        await _dbContext.DisbursementItems.AddRangeAsync(entities, cancellationToken);
+        await _unitOfWork.GetRepository<DisbursementItem>().AddRangeAsync(entities);
     }
 }

@@ -2,4 +2,11 @@ using MediatR;
 
 namespace RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
 
-public record CheckInAtAssemblyPointCommand(int AssemblyEventId, Guid UserId) : IRequest;
+/// <summary>
+/// Check-in tại sự kiện triệu tập. Yêu cầu GPS (latitude, longitude) để validate vị trí.
+/// </summary>
+public record CheckInAtAssemblyPointCommand(
+    int AssemblyEventId,
+    Guid UserId,
+    double Latitude,
+    double Longitude) : IRequest;

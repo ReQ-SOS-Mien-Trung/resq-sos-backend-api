@@ -1,23 +1,24 @@
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Domain.Enum.Personnel;
+using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Personnel;
-using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Personnel;
 
-public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepository
+public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRepository
 {
-    private readonly ResQDbContext _context = context;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
     public async Task<int> CreateEventAsync(int assemblyPointId, DateTime assemblyDate, Guid createdBy,
         CancellationToken cancellationToken = default)
     {
         // Rule: chỉ 1 active event (Status != Completed) per AP
         var completedStatus = AssemblyEventStatus.Completed.ToString();
-        var hasActive = await _context.AssemblyEvents
+        var hasActive = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
             .AnyAsync(e => e.AssemblyPointId == assemblyPointId && e.Status != completedStatus, cancellationToken);
 
         if (hasActive)
@@ -33,15 +34,15 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
             CreatedAt = DateTime.UtcNow
         };
 
-        await _context.AssemblyEvents.AddAsync(entity, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.GetRepository<AssemblyEvent>().AddAsync(entity);
+        await _unitOfWork.SaveAsync();
         return entity.Id;
     }
 
     public async Task AssignParticipantsAsync(int eventId, List<Guid> rescuerIds,
         CancellationToken cancellationToken = default)
     {
-        var existing = await _context.AssemblyParticipants
+        var existing = await _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
             .Where(p => p.AssemblyEventId == eventId)
             .Select(p => p.RescuerId)
             .ToListAsync(cancellationToken);
@@ -56,13 +57,13 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
             IsCheckedIn = false
         });
 
-        await _context.AssemblyParticipants.AddRangeAsync(participants, cancellationToken);
+        await _unitOfWork.GetRepository<AssemblyParticipant>().AddRangeAsync(participants);
     }
 
     public async Task<bool> CheckInAsync(int eventId, Guid rescuerId,
         CancellationToken cancellationToken = default)
     {
-        var participant = await _context.AssemblyParticipants
+        var participant = await _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable(tracked: true)
             .FirstOrDefaultAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId, cancellationToken);
 
         if (participant == null) return false;
@@ -77,17 +78,22 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
     public async Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId,
         CancellationToken cancellationToken = default)
     {
-        return await _context.AssemblyParticipants
+        return await _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
             .AnyAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId && p.IsCheckedIn, cancellationToken);
     }
 
     public async Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(
         int eventId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var query = _context.AssemblyParticipants
-            .AsNoTracking()
+        // Load event to get EventDateTime for IsEarly/IsLate computation
+        var assemblyEvent = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
+            .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
+
+        var eventDateTime = assemblyEvent?.AssemblyDate;
+
+        var query = _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
             .Where(p => p.AssemblyEventId == eventId && p.IsCheckedIn)
-            .Join(_context.Users, p => p.RescuerId, u => u.Id, (p, u) => new { Participant = p, User = u })
+            .Join(_unitOfWork.GetRepository<User>().AsQueryable(), p => p.RescuerId, u => u.Id, (p, u) => new { Participant = p, User = u })
             .OrderByDescending(x => x.Participant.CheckInTime);
 
         var total = await query.CountAsync(cancellationToken);
@@ -103,8 +109,7 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
         var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
         var acceptedStatus = TeamMemberStatus.Accepted.ToString();
 
-        var usersInTeam = await _context.RescueTeamMembers
-            .AsNoTracking()
+        var usersInTeam = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
             .Where(m => userIds.Contains(m.UserId)
                 && m.Status == acceptedStatus
                 && m.Team!.Status != disbandedStatus)
@@ -113,8 +118,7 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
             .ToListAsync(cancellationToken);
 
         // Lấy top abilities
-        var allAbilities = await _context.UserAbilities
-            .AsNoTracking()
+        var allAbilities = await _unitOfWork.GetRepository<UserAbility>().AsQueryable()
             .Where(ua => userIds.Contains(ua.UserId))
             .Include(ua => ua.Ability)
                 .ThenInclude(a => a.AbilitySubgroup)
@@ -141,6 +145,8 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
             RescuerType = x.User.RescuerType,
             CheckedInAt = x.Participant.CheckInTime ?? DateTime.MinValue,
             IsInTeam = usersInTeam.Contains(x.User.Id),
+            IsEarly = eventDateTime.HasValue && x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value < eventDateTime.Value,
+            IsLate = eventDateTime.HasValue && x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value > eventDateTime.Value,
             TopAbilities = abilitiesDict.TryGetValue(x.User.Id, out var abs) ? abs : new()
         }).ToList();
 
@@ -152,8 +158,7 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
     {
         var completedStatus = AssemblyEventStatus.Completed.ToString();
 
-        var evt = await _context.AssemblyEvents
-            .AsNoTracking()
+        var evt = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
             .Where(e => e.AssemblyPointId == assemblyPointId && e.Status != completedStatus)
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
@@ -165,7 +170,7 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
     public async Task UpdateEventStatusAsync(int eventId, string status,
         CancellationToken cancellationToken = default)
     {
-        var evt = await _context.AssemblyEvents
+        var evt = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable(tracked: true)
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
 
         if (evt != null)
@@ -177,7 +182,7 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
 
     public async Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default)
     {
-        var evt = await _context.AssemblyEvents
+        var evt = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable(tracked: true)
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken)
             ?? throw new InvalidOperationException($"Không tìm thấy sự kiện tập trung id = {eventId}");
 
@@ -192,8 +197,7 @@ public class AssemblyEventRepository(ResQDbContext context) : IAssemblyEventRepo
     public async Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate)?> GetEventByIdAsync(
         int eventId, CancellationToken cancellationToken = default)
     {
-        var evt = await _context.AssemblyEvents
-            .AsNoTracking()
+        var evt = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
 
         if (evt == null) return null;

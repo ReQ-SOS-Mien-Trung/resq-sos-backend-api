@@ -21,7 +21,7 @@ public class GetAllRescueTeamsQueryHandler(IPersonnelQueryRepository personnelQu
             AssemblyPointId = m.AssemblyPointId,
             AssemblyPointName = m.AssemblyPointName,
             MaxMembers = m.MaxMembers,
-            CurrentMemberCount = m.Members.Count(x => x.Status != Domain.Enum.Personnel.TeamMemberStatus.Removed && x.Status != Domain.Enum.Personnel.TeamMemberStatus.Declined),
+            CurrentMemberCount = m.Members.Count(x => x.Status != Domain.Enum.Personnel.TeamMemberStatus.Removed),
             CreatedAt = m.CreatedAt
         }).ToList();
 

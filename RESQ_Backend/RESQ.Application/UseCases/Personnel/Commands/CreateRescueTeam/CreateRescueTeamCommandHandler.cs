@@ -1,8 +1,10 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Identity;
 using RESQ.Domain.Enum.Personnel;
@@ -15,16 +17,18 @@ public class CreateRescueTeamCommandHandler(
     IAssemblyPointRepository assemblyPointRepository,
     IAssemblyEventRepository assemblyEventRepository,
     IUserRepository userRepository,
-    IUnitOfWork unitOfWork) : IRequestHandler<CreateRescueTeamCommand, int>
+    IFirebaseService firebaseService,
+    IUnitOfWork unitOfWork,
+    ILogger<CreateRescueTeamCommandHandler> logger) : IRequestHandler<CreateRescueTeamCommand, int>
 {
     public async Task<int> Handle(CreateRescueTeamCommand request, CancellationToken ct)
     {
         // Validate AP tồn tại
-        _ = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, ct)
+        var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, ct)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {request.AssemblyPointId}");
 
         // Tạo đội ở trạng thái Gathering (rescuer đã có mặt tại AP)
-        var team = RescueTeamModel.CreateFromGathering(
+        var team = RescueTeamModel.Create(
             request.Name, request.Type, request.AssemblyPointId, request.ManagedBy, request.MaxMembers);
 
         if (request.Members != null && request.Members.Any())
@@ -76,8 +80,8 @@ public class CreateRescueTeamCommandHandler(
                     roleInTeam = await teamRepository.GetTopAbilityCategoryAsync(mem.UserId, ct);
                 }
 
-                // Thêm member ở trạng thái Accepted + CheckedIn (đã có mặt tại AP)
-                team.AddGatheredMember(mem.UserId, mem.IsLeader, user.RescuerType?.ToString() ?? "Volunteer", roleInTeam ?? "Thành viên");
+                // Thêm member ở trạng thái Accepted (đã có mặt tại AP)
+                team.AddMember(mem.UserId, mem.IsLeader, user.RescuerType?.ToString() ?? "Volunteer", roleInTeam ?? "Thành viên");
             }
         }
 
@@ -85,6 +89,30 @@ public class CreateRescueTeamCommandHandler(
         await unitOfWork.SaveAsync();
 
         var createdTeam = await teamRepository.GetByCodeAsync(team.Code, ct);
-        return createdTeam?.Id ?? 0;
+        var teamId = createdTeam?.Id ?? 0;
+
+        // Gửi thông báo cho tất cả rescuer trong đội
+        var memberIds = request.Members?.Select(m => m.UserId).ToList() ?? [];
+        if (memberIds.Count > 0)
+        {
+            var title = "Thông báo đội cứu hộ";
+            var body = $"Bạn đã được phân công vào đội cứu hộ \"{request.Name}\". " +
+                       "Vui lòng tập hợp theo hướng dẫn của đội trưởng.";
+
+            foreach (var userId in memberIds)
+            {
+                try
+                {
+                    await firebaseService.SendNotificationToUserAsync(
+                        userId, title, body, "team_assigned", ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Không thể gửi thông báo cho rescuer {UserId}", userId);
+                }
+            }
+        }
+
+        return teamId;
     }
 }

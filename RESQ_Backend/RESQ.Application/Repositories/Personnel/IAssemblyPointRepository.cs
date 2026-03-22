@@ -29,4 +29,7 @@ public interface IAssemblyPointRepository
 
     /// <summary>Lấy danh sách user ID của rescuer được gán vào điểm tập kết (User.AssemblyPointId).</summary>
     Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default);
+
+    /// <summary>Gán hoặc thay đổi điểm tập kết cho rescuer. Truyền null để gỡ.</summary>
+    Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default);
 }

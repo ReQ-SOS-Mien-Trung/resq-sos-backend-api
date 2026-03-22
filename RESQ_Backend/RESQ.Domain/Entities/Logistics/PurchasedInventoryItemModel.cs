@@ -8,8 +8,8 @@ public class PurchasedInventoryItemModel
     public int VatInvoiceId { get; set; }
     public int ItemModelId { get; set; }
     public int Quantity { get; set; }
-    public DateOnly? ReceivedDate { get; set; }
-    public DateOnly? ExpiredDate { get; set; }
+    public DateTime? ReceivedDate { get; set; }
+    public DateTime? ExpiredDate { get; set; }
     public string? Notes { get; set; }
     public Guid ReceivedBy { get; set; }
     public int ReceivedAt { get; set; }
@@ -19,8 +19,8 @@ public class PurchasedInventoryItemModel
         int vatInvoiceId,
         int itemModelId,
         int quantity,
-        DateOnly? receivedDate,
-        DateOnly? expiredDate,
+        DateTime? receivedDate,
+        DateTime? expiredDate,
         string? notes,
         Guid receivedBy,
         int receivedAt)

@@ -4,16 +4,15 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
 using RESQ.Domain.Entities.Personnel;
+using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Personnel;
 using RESQ.Infrastructure.Mappers.Personnel;
-using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Personnel;
 
-public class AssemblyPointRepository(IUnitOfWork unitOfWork, ResQDbContext context) : IAssemblyPointRepository
+public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ResQDbContext _context = context;
 
     public async Task CreateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default)
     {
@@ -103,8 +102,7 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork, ResQDbContext conte
     {
         var idList = ids.ToList();
 
-        var teams = await _context.RescueTeams
-            .AsNoTracking()
+        var teams = await _unitOfWork.GetRepository<RescueTeam>().AsQueryable()
             .Where(t => t.AssemblyPointId.HasValue && idList.Contains(t.AssemblyPointId.Value))
             .Include(t => t.RescueTeamMembers)
                 .ThenInclude(m => m.User)
@@ -140,10 +138,19 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork, ResQDbContext conte
 
     public async Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default)
     {
-        return await _context.Users
-            .AsNoTracking()
+        return await _unitOfWork.GetRepository<User>().AsQueryable()
             .Where(u => u.AssemblyPointId == assemblyPointId && u.RoleId == 3)
             .Select(u => u.Id)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.GetRepository<User>().AsQueryable(tracked: true).FirstOrDefaultAsync(u => u.Id == rescuerUserId, cancellationToken);
+        if (user != null)
+        {
+            user.AssemblyPointId = assemblyPointId;
+            user.UpdatedAt = DateTime.UtcNow;
+        }
     }
 }

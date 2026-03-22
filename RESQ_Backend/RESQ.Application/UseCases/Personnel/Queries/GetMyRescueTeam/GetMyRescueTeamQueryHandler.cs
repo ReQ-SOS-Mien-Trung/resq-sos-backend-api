@@ -31,7 +31,6 @@ public class GetMyRescueTeamQueryHandler(
             AssemblyPointName = model.AssemblyPointName,
             ManagedBy = managerName,
             MaxMembers = model.MaxMembers,
-            AssemblyDate = model.AssemblyDate,
             CreatedAt = model.CreatedAt,
             Members = model.Members.Select(m => new RescueTeamMemberDto
             {
@@ -44,7 +43,7 @@ public class GetMyRescueTeamQueryHandler(
                 Status = m.Status.ToString(),
                 IsLeader = m.IsLeader,
                 RoleInTeam = m.RoleInTeam,
-                CheckedIn = m.CheckedIn
+                JoinedAt = m.JoinedAt
             }).ToList()
         };
     }

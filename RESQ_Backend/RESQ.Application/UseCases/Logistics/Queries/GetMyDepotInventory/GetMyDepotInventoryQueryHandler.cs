@@ -33,6 +33,7 @@ public class GetMyDepotInventoryQueryHandler(IDepotInventoryRepository depotInve
         var dtos = pagedData.Items.Select(x =>
         {
             bool isReusable = string.Equals(x.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+            var now = DateTime.UtcNow;
             return new InventoryItemDto
             {
                 ItemModelId       = x.ItemModelId,
@@ -50,6 +51,11 @@ public class GetMyDepotInventoryQueryHandler(IDepotInventoryRepository depotInve
                 ReservedUnit      = isReusable ? x.Availability.ReservedQuantity : null,
                 AvailableUnit     = isReusable ? x.Availability.AvailableQuantity : null,
                 LastStockedAt     = x.LastStockedAt,
+                // Lot summary (consumable only)
+                LotCount          = isReusable ? null : (x.LotCount > 0 ? x.LotCount : null),
+                NearestExpiryDate = isReusable ? null : x.NearestExpiryDate,
+                IsExpiringSoon    = isReusable || !x.NearestExpiryDate.HasValue ? null
+                                    : (x.NearestExpiryDate.Value >= now && x.NearestExpiryDate.Value <= now.AddDays(30) ? true : null),
                 ReusableBreakdown = x.ReusableBreakdown != null ? new ReusableBreakdownDto
                 {
                     TotalUnits          = x.ReusableBreakdown.TotalUnits,

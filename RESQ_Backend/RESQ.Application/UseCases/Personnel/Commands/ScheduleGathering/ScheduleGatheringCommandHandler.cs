@@ -15,17 +15,27 @@ public class ScheduleGatheringCommandHandler(
     ILogger<ScheduleGatheringCommandHandler> logger)
     : IRequestHandler<ScheduleGatheringCommand, int>
 {
+    /// <summary>Số giờ tối thiểu từ thời điểm hiện tại đến ngày triệu tập.</summary>
+    private const int MinHoursInAdvance = 48;
+
     public async Task<int> Handle(ScheduleGatheringCommand request, CancellationToken cancellationToken)
     {
         // 1. Validate điểm tập kết tồn tại
         var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId}");
 
-        // 2. Tạo AssemblyEvent (rule: chỉ 1 active event per AP — enforce trong repository)
+        // 2. Validate ngày triệu tập phải sau ít nhất 48 giờ
+        var minAllowedDate = DateTime.UtcNow.AddHours(MinHoursInAdvance);
+        if (request.AssemblyDate < minAllowedDate)
+            throw new BadRequestException(
+                $"Ngày triệu tập phải sau ít nhất {MinHoursInAdvance} giờ kể từ thời điểm hiện tại. " +
+                $"Thời gian sớm nhất cho phép: {minAllowedDate:dd/MM/yyyy HH:mm} UTC.");
+
+        // 3. Tạo AssemblyEvent (rule: chỉ 1 active event per AP — enforce trong repository)
         var eventId = await assemblyEventRepository.CreateEventAsync(
             request.AssemblyPointId, request.AssemblyDate, request.CreatedBy, cancellationToken);
 
-        // 3. Snapshot: gán tất cả rescuer hiện tại của AP vào sự kiện
+        // 4. Snapshot: gán tất cả rescuer hiện tại của AP vào sự kiện
         var rescuerIds = await assemblyPointRepository.GetAssignedRescuerUserIdsAsync(
             request.AssemblyPointId, cancellationToken);
 
@@ -36,11 +46,15 @@ public class ScheduleGatheringCommandHandler(
 
         await unitOfWork.SaveAsync();
 
-        // 4. Gửi thông báo Firebase cho tất cả rescuer được gán vào sự kiện
-        var title = "📢 RESQ – Thông báo triệu tập";
-        var body = $"Bạn được triệu tập tập trung tại điểm tập kết \"{ap.Name}\" vào ngày " +
-                   $"{request.AssemblyDate:dd/MM/yyyy HH:mm}.\n" +
-                   "Vui lòng có mặt đúng giờ và thực hiện check-in khi đến nơi.";
+        // 5. Gửi thông báo Firebase cho tất cả rescuer được gán vào sự kiện
+        // Chuyển đổi UTC sang múi giờ Việt Nam (UTC+7) cho hiển thị
+        var vnTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        var vnAssemblyDate = TimeZoneInfo.ConvertTimeFromUtc(request.AssemblyDate, vnTimeZone);
+
+        var title = "Thông báo triệu tập";
+        var body = $"Bạn được triệu tập tập trung tại điểm tập kết \"{ap.Name}\" vào lúc " +
+                   $"{vnAssemblyDate:HH:mm} ngày {vnAssemblyDate:dd/MM/yyyy}. " +
+                   "Vui lòng có mặt đúng giờ và thực hiện check-in trên ứng dụng khi đến nơi.";
 
         logger.LogInformation("Gửi thông báo triệu tập cho {Count} rescuer tại AP {ApId}, EventId={EventId}",
             rescuerIds.Count, request.AssemblyPointId, eventId);

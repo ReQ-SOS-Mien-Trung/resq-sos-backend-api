@@ -4,14 +4,12 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
-using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
-public class ItemModelMetadataRepository(IUnitOfWork unitOfWork, ResQDbContext context) : IItemModelMetadataRepository
+public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMetadataRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ResQDbContext _context = context;
 
     public async Task<List<MetadataDto>> GetAllForMetadataAsync(CancellationToken cancellationToken = default)
     {
@@ -35,8 +33,8 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork, ResQDbContext c
         var categoryCodeString = categoryCode.ToString();
 
         var items = await (
-            from ri in _context.ItemModels.AsNoTracking()
-            join cat in _context.Categories.AsNoTracking() on ri.CategoryId equals cat.Id
+            from ri in _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+            join cat in _unitOfWork.GetRepository<Category>().AsQueryable() on ri.CategoryId equals cat.Id
             where cat.Code == categoryCodeString
             orderby ri.Id
             select new MetadataDto

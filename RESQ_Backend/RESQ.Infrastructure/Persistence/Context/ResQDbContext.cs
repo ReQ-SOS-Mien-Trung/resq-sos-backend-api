@@ -36,6 +36,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<DocumentFileTypeCategory> DocumentFileTypeCategories { get; set; }
     public virtual DbSet<DepotManager> DepotManagers { get; set; }
     public virtual DbSet<SupplyInventory> SupplyInventories { get; set; }
+    public virtual DbSet<SupplyInventoryLot> SupplyInventoryLots { get; set; }
     public virtual DbSet<DepotSupplyRequest> DepotSupplyRequests { get; set; }
     public virtual DbSet<DepotSupplyRequestItem> DepotSupplyRequestItems { get; set; }
     public virtual DbSet<Donation> Donations { get; set; }
@@ -120,6 +121,14 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<DepotFundTransaction>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("depot_fund_transactions_pkey");
+        });
+
+        modelBuilder.Entity<SupplyInventoryLot>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("supply_inventory_lots_pkey");
+            entity.HasIndex(e => new { e.SupplyInventoryId, e.RemainingQuantity, e.ExpiredDate })
+                  .HasDatabaseName("ix_supply_inventory_lots_fefo");
+            entity.UseXminAsConcurrencyToken();
         });
 
         OnModelCreatingPartial(modelBuilder);

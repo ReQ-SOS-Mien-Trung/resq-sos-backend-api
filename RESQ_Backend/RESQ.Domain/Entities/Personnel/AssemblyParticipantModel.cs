@@ -11,6 +11,15 @@ public class AssemblyParticipantModel
     public bool IsCheckedIn { get; set; }
     public DateTime? CheckInTime { get; set; }
 
+    /// <summary>Rescuer check-in trước giờ triệu tập.</summary>
+    public bool IsEarly => CheckInTime.HasValue && EventStartTime.HasValue && CheckInTime.Value < EventStartTime.Value;
+
+    /// <summary>Rescuer check-in sau giờ triệu tập.</summary>
+    public bool IsLate => CheckInTime.HasValue && EventStartTime.HasValue && CheckInTime.Value > EventStartTime.Value;
+
+    /// <summary>Ngày giờ triệu tập (load từ event, không lưu DB).</summary>
+    public DateTime? EventStartTime { get; set; }
+
     public AssemblyParticipantModel() { }
 
     /// <summary>

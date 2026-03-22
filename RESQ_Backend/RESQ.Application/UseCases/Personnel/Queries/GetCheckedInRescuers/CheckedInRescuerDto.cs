@@ -13,5 +13,11 @@ public class CheckedInRescuerDto
     /// <summary>Rescuer đã được chia vào team (active) chưa.</summary>
     public bool IsInTeam { get; set; }
 
+    /// <summary>Check-in trước giờ sự kiện (sớm).</summary>
+    public bool IsEarly { get; set; }
+
+    /// <summary>Check-in sau giờ sự kiện (muộn).</summary>
+    public bool IsLate { get; set; }
+
     public List<string> TopAbilities { get; set; } = new();
 }

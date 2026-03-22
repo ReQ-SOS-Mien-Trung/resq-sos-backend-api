@@ -7,11 +7,10 @@ using RESQ.Domain.Enum.Personnel;
 using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Personnel;
 using RESQ.Infrastructure.Mappers.Personnel;
-using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Personnel;
 
-public class PersonnelQueryRepository(IUnitOfWork unitOfWork, ResQDbContext context) : IPersonnelQueryRepository
+public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryRepository
 {
     public async Task<PagedResult<FreeRescuerModel>> GetFreeRescuersAsync(
         int pageNumber, int pageSize,
@@ -183,18 +182,17 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork, ResQDbContext cont
         var rescuerTypeStr = rescuerType?.ToString();
 
         // Subquery: user IDs đang trong đội active
-        var inTeamUserIds = context.RescueTeamMembers
+        var inTeamUserIds = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
             .Where(m => m.Status == acceptedStatus && m.Team!.Status != disbandedStatus)
             .Select(m => m.UserId);
 
         // Subquery: user IDs đang trong đội active có assembly point
-        var inApUserIds = context.RescueTeamMembers
+        var inApUserIds = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
             .Where(m => m.Status == acceptedStatus && m.Team!.Status != disbandedStatus && m.Team.AssemblyPointId != null)
             .Select(m => m.UserId);
 
         // Base: eligible rescuers (roleId = 3)
-        var query = context.Users
-            .AsNoTracking()
+        var query = unitOfWork.GetRepository<User>().AsQueryable()
             .Where(u => u.RoleId == 3 && u.IsEligibleRescuer);
 
         // Filter: rescuerType
@@ -245,8 +243,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork, ResQDbContext cont
         var userIds = users.Select(u => u.Id).ToList();
 
         // Load team + assembly point info for the fetched users
-        var teamMemberData = await context.RescueTeamMembers
-            .AsNoTracking()
+        var teamMemberData = await unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
             .Where(m => userIds.Contains(m.UserId) &&
                         m.Status == acceptedStatus &&
                         m.Team!.Status != disbandedStatus)

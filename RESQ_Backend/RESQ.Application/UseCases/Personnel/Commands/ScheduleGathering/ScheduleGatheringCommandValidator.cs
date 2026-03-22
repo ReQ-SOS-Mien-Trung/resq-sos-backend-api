@@ -10,6 +10,7 @@ public class ScheduleGatheringCommandValidator : AbstractValidator<ScheduleGathe
             .GreaterThan(0).WithMessage("AssemblyPointId không hợp lệ.");
 
         RuleFor(x => x.AssemblyDate)
-            .GreaterThan(DateTime.UtcNow).WithMessage("Ngày tập trung phải sau thời điểm hiện tại.");
+            .GreaterThan(DateTime.UtcNow.AddHours(48))
+            .WithMessage("Ngày triệu tập phải sau ít nhất 48 giờ kể từ thời điểm hiện tại.");
     }
 }
