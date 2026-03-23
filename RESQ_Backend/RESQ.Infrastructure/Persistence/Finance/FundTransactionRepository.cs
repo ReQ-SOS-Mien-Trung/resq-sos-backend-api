@@ -4,6 +4,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Domain.Entities.Finance;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Mappers.Finance;
 
@@ -13,14 +14,28 @@ public class FundTransactionRepository(IUnitOfWork unitOfWork) : IFundTransactio
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
-    public async Task<PagedResult<FundTransactionModel>> GetByCampaignIdAsync(int campaignId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<FundTransactionModel>> GetByCampaignIdAsync(
+        int campaignId,
+        int pageNumber,
+        int pageSize,
+        List<TransactionType>?          types          = null,
+        List<TransactionDirection>?     directions     = null,
+        List<TransactionReferenceType>? referenceTypes = null,
+        CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<FundTransaction>();
-        
+
+        var typeStrings          = types?.Select(t => t.ToString()).ToList();
+        var directionStrings     = directions?.Select(d => d.ToString()).ToList();
+        var referenceTypeStrings = referenceTypes?.Select(r => r.ToString()).ToList();
+
         var pagedEntities = await repo.GetPagedAsync(
             pageNumber,
             pageSize,
-            x => x.FundCampaignId == campaignId,
+            x => x.FundCampaignId == campaignId
+              && (typeStrings          == null || typeStrings.Contains(x.Type))
+              && (directionStrings     == null || directionStrings.Contains(x.Direction))
+              && (referenceTypeStrings == null || referenceTypeStrings.Contains(x.ReferenceType)),
             q => q.OrderByDescending(x => x.CreatedAt),
             "CreatedByUser"
         );

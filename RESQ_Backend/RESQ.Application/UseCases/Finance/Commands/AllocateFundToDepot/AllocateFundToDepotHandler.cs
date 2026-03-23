@@ -78,7 +78,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         {
             FundCampaignId = request.FundCampaignId,
             Type = TransactionType.Allocation,
-            Direction = "out",
+            Direction = TransactionDirection.Out,
             Amount = request.Amount,
             ReferenceType = TransactionReferenceType.CampaignDisbursement,
             ReferenceId = disbursementId,

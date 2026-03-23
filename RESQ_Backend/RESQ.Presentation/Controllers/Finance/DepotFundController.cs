@@ -2,7 +2,9 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Application.UseCases.Finance.Commands.SetDepotAdvanceLimit;
 using RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 using RESQ.Application.UseCases.Finance.Queries.GetDepotFundTransactions;
@@ -17,6 +19,32 @@ namespace RESQ.Presentation.Controllers.Finance;
 public class DepotFundController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
+
+    /// <summary>[Metadata] Danh sách loại giao dịch quỹ kho (key = tên tiếng Anh, value = tên tiếng Việt).</summary>
+    [HttpGet("metadata/transaction-types")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public IActionResult GetTransactionTypeMetadata()
+    {
+        var result = Enum.GetValues<DepotFundTransactionType>()
+            .Select(t => new MetadataDto
+            {
+                Key   = t.ToString(),
+                Value = FinanceLabels.Translate(FinanceLabels.DepotFundTransactionTypeLabels, t.ToString())
+            })
+            .ToList();
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách loại tham chiếu giao dịch quỹ kho (key = tên tiếng Anh, value = tên tiếng Việt).</summary>
+    [HttpGet("metadata/reference-types")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public IActionResult GetReferenceTypeMetadata()
+    {
+        var result = FinanceLabels.DepotFundReferenceTypeLabels
+            .Select(kv => new MetadataDto { Key = kv.Key, Value = kv.Value })
+            .ToList();
+        return Ok(result);
+    }
 
     /// <summary>[Admin] Xem số dư quỹ tất cả kho.</summary>
     [HttpGet]

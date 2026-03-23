@@ -12,6 +12,7 @@ using RESQ.Application.UseCases.Finance.Commands.UpdateCampaignInfo;
 using RESQ.Application.UseCases.Finance.Queries.GetCampaignTransactions;
 using RESQ.Application.UseCases.Finance.Queries.ViewAllCampaigns;
 using RESQ.Application.UseCases.Finance.Queries.ViewCampaignMetadata;
+using RESQ.Application.Common.Constants;
 using RESQ.Domain.Enum.Finance;
 using System.Security.Claims;
 
@@ -46,7 +47,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>[Metadata] Danh sách tất cả trạng thái chiến dịch (key = int, value = tên).</summary>
+    /// <summary>[Metadata] Danh sách tất cả trạng thái chiến dịch (key = tên tiếng Anh, value = tên tiếng Việt).</summary>
     [HttpGet("metadata/statuses")]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     public IActionResult GetStatusMetadata()
@@ -54,8 +55,56 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         var result = Enum.GetValues<FundCampaignStatus>()
             .Select(s => new MetadataDto
             {
-                Key = ((int)s).ToString(),
-                Value = s.ToString()
+                Key   = s.ToString(),
+                Value = FinanceLabels.Translate(FinanceLabels.FundCampaignStatusLabels, s.ToString())
+            })
+            .ToList();
+
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách loại giao dịch quỹ chiến dịch (key = tên tiếng Anh, value = tên tiếng Việt).</summary>
+    [HttpGet("metadata/transaction-types")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public IActionResult GetTransactionTypeMetadata()
+    {
+        var result = Enum.GetValues<TransactionType>()
+            .Select(t => new MetadataDto
+            {
+                Key   = t.ToString(),
+                Value = FinanceLabels.Translate(FinanceLabels.TransactionTypeLabels, t.ToString())
+            })
+            .ToList();
+
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách loại tham chiếu giao dịch quỹ chiến dịch (key = tên tiếng Anh, value = tên tiếng Việt).</summary>
+    [HttpGet("metadata/reference-types")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public IActionResult GetReferenceTypeMetadata()
+    {
+        var result = Enum.GetValues<TransactionReferenceType>()
+            .Select(r => new MetadataDto
+            {
+                Key   = r.ToString(),
+                Value = FinanceLabels.Translate(FinanceLabels.TransactionReferenceTypeLabels, r.ToString())
+            })
+            .ToList();
+
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách chiều giao dịch quỹ chiến dịch (key = tên tiếng Anh, value = tên tiếng Việt).</summary>
+    [HttpGet("metadata/directions")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public IActionResult GetDirectionMetadata()
+    {
+        var result = Enum.GetValues<TransactionDirection>()
+            .Select(d => new MetadataDto
+            {
+                Key   = d.ToString(),
+                Value = FinanceLabels.Translate(FinanceLabels.DirectionLabels, d.ToString())
             })
             .ToList();
 
@@ -170,7 +219,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Lấy lịch sử giao dịch tài chính của chiến dịch (bắt buộc theo campaign ID, có phân trang).</summary>
+    /// <summary>Lấy lịch sử giao dịch tài chính của chiến dịch (bắt buộc theo campaign ID, có phân trang). Filter tùy chọn: types, directions, referenceTypes.</summary>
     [HttpGet("{id}/transactions")]
     [Authorize(Roles = "1")]
     [ProducesResponseType(typeof(PagedResult<FundTransactionDto>), StatusCodes.Status200OK)]
@@ -178,9 +227,12 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetTransactions(
         int id,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] List<TransactionType>?          types          = null,
+        [FromQuery] List<TransactionDirection>?     directions     = null,
+        [FromQuery] List<TransactionReferenceType>? referenceTypes = null)
     {
-        var query = new GetCampaignTransactionsQuery(id, pageNumber, pageSize);
+        var query = new GetCampaignTransactionsQuery(id, pageNumber, pageSize, types, directions, referenceTypes);
         var result = await _mediator.Send(query);
         return Ok(result);
     }
