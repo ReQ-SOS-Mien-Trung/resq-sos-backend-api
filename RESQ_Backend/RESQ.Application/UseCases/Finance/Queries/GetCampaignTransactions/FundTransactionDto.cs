@@ -21,6 +21,5 @@ public class FundTransactionDto
     public string ReferenceType { get; set; } = string.Empty;
 
     public int? ReferenceId { get; set; }
-    public string? CreatedByUserName { get; set; }
     public DateTime? CreatedAt { get; set; }
 }

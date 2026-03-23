@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
+using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -299,7 +300,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         var result = await (
             from cat in categories
-            orderby cat.Name
+            orderby cat.Id
             select new DepotCategoryQuantityDto
             {
                 CategoryId   = cat.Id,
@@ -743,5 +744,77 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         }
 
         await _unitOfWork.SaveAsync();
+    }
+
+    // ── Threshold constants ──────────────────────────────────────────────────
+    private const double DangerRatio  = 0.20;  // ≤ 20% available/total → 🔴 Danger
+    private const double WarningRatio = 0.40;  // ≤ 40% available/total → 🟡 Warning (and > Danger)
+
+    public async Task<List<LowStockItemDto>> GetLowStockItemsAsync(
+        int? depotId,
+        StockAlertLevel? alertLevel,
+        CancellationToken cancellationToken = default)
+    {
+        // Build base query: consumable items where quantity > 0 and available ≤ warning threshold
+        var query =
+            from inv  in _unitOfWork.GetRepository<SupplyInventory>().AsQueryable()
+            join item in _unitOfWork.GetRepository<ItemModel>().AsQueryable()     on inv.ItemModelId equals item.Id
+            join depot in _unitOfWork.GetRepository<Depot>().AsQueryable()        on inv.DepotId     equals depot.Id
+            join cat  in _unitOfWork.GetRepository<Category>().AsQueryable()      on item.CategoryId equals cat.Id into catJoin
+            from cat in catJoin.DefaultIfEmpty()
+            where inv.Quantity > 0
+               && ((inv.Quantity ?? 0) - (inv.ReservedQuantity ?? 0)) <= (int)((inv.Quantity ?? 0) * WarningRatio)
+               && (depotId == null || inv.DepotId == depotId)
+            select new
+            {
+                DepotId          = depot.Id,
+                DepotName        = depot.Name ?? string.Empty,
+                ItemModelId      = item.Id,
+                ItemModelName    = item.Name ?? string.Empty,
+                Unit             = item.Unit,
+                CategoryId       = item.CategoryId,
+                CategoryName     = cat != null ? cat.Name ?? string.Empty : string.Empty,
+                TargetGroup      = item.TargetGroup,
+                Quantity         = inv.Quantity ?? 0,
+                ReservedQuantity = inv.ReservedQuantity ?? 0,
+                Available        = (inv.Quantity ?? 0) - (inv.ReservedQuantity ?? 0)
+            };
+
+        var raw = await query
+            .OrderBy(x => x.Available)
+            .ThenBy(x => x.DepotId)
+            .ToListAsync(cancellationToken);
+
+        // Classify and apply optional alert-level filter in memory
+        var result = new List<LowStockItemDto>();
+
+        foreach (var r in raw)
+        {
+            var ratio = (double)r.Available / r.Quantity;
+            var level = ratio <= DangerRatio ? StockAlertLevel.Danger : StockAlertLevel.Warning;
+
+            if (alertLevel.HasValue && alertLevel.Value != level)
+                continue;
+
+            result.Add(new LowStockItemDto
+            {
+                DepotId          = r.DepotId,
+                DepotName        = r.DepotName,
+                ItemModelId      = r.ItemModelId,
+                ItemModelName    = r.ItemModelName,
+                Unit             = r.Unit,
+                CategoryId       = r.CategoryId,
+                CategoryName     = r.CategoryName,
+                TargetGroup      = r.TargetGroup,
+                Quantity         = r.Quantity,
+                ReservedQuantity = r.ReservedQuantity,
+                AvailableQuantity = r.Available,
+                AvailableRatio   = Math.Round(ratio, 4),
+                AlertLevel       = level.ToString(),
+                AlertLevelLabel  = level == StockAlertLevel.Danger ? "Nguy hiểm" : "Cảnh báo"
+            });
+        }
+
+        return result;
     }
 }

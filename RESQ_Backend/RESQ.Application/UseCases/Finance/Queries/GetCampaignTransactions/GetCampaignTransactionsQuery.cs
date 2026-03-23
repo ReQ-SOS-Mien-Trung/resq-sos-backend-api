@@ -1,5 +1,6 @@
 using MediatR;
 using RESQ.Application.Common.Models;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Queries.GetCampaignTransactions;
 
@@ -9,5 +10,8 @@ namespace RESQ.Application.UseCases.Finance.Queries.GetCampaignTransactions;
 public record GetCampaignTransactionsQuery(
     int CampaignId,
     int PageNumber,
-    int PageSize
+    int PageSize,
+    List<TransactionType>?          Types          = null,
+    List<TransactionDirection>?     Directions     = null,
+    List<TransactionReferenceType>? ReferenceTypes = null
 ) : IRequest<PagedResult<FundTransactionDto>>;

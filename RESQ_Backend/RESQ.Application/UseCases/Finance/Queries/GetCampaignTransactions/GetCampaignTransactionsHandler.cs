@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Finance;
 
@@ -17,6 +18,9 @@ public class GetCampaignTransactionsHandler(IFundTransactionRepository transacti
             request.CampaignId,
             request.PageNumber,
             request.PageSize,
+            request.Types,
+            request.Directions,
+            request.ReferenceTypes,
             cancellationToken);
 
         var dtos = pagedResult.Items.Select(t => new FundTransactionDto
@@ -24,12 +28,11 @@ public class GetCampaignTransactionsHandler(IFundTransactionRepository transacti
             Id = t.Id,
             FundCampaignId = t.FundCampaignId,
             FundCampaignName = t.FundCampaignName,
-            Type = t.Type.ToString(),
-            Direction = t.Direction,
+            Type = FinanceLabels.Translate(FinanceLabels.TransactionTypeLabels, t.Type.ToString()),
+            Direction = FinanceLabels.Translate(FinanceLabels.DirectionLabels, t.Direction.ToString()),
             Amount = t.Amount,
-            ReferenceType = t.ReferenceType.ToString(),
+            ReferenceType = FinanceLabels.Translate(FinanceLabels.TransactionReferenceTypeLabels, t.ReferenceType.ToString()),
             ReferenceId = t.ReferenceId,
-            CreatedByUserName = t.CreatedByUserName,
             CreatedAt = t.CreatedAt
         }).ToList();
 

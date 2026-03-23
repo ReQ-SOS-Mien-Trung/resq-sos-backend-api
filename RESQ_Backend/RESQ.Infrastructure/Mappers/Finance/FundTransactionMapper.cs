@@ -22,12 +22,19 @@ public static class FundTransactionMapper
             Enum.TryParse(entity.ReferenceType, true, out refTypeEnum);
         }
 
+        // Parse Direction
+        var directionEnum = TransactionDirection.In;
+        if (!string.IsNullOrEmpty(entity.Direction))
+        {
+            Enum.TryParse(entity.Direction, true, out directionEnum);
+        }
+
         return new FundTransactionModel
         {
             Id = entity.Id,
             FundCampaignId = entity.FundCampaignId,
             Type = typeEnum,
-            Direction = entity.Direction,
+            Direction = directionEnum,
             Amount = entity.Amount,
             ReferenceType = refTypeEnum,
             ReferenceId = entity.ReferenceId,
@@ -44,8 +51,8 @@ public static class FundTransactionMapper
         {
             Id = model.Id,
             FundCampaignId = model.FundCampaignId,
-            Type = model.Type.ToString(), 
-            Direction = model.Direction,
+            Type = model.Type.ToString(),
+            Direction = model.Direction.ToString(),
             Amount = model.Amount,
             ReferenceType = model.ReferenceType.ToString(),
             ReferenceId = model.ReferenceId,

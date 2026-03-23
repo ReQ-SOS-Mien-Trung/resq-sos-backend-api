@@ -1,6 +1,7 @@
 using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
+using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -92,6 +93,16 @@ public interface IDepotInventoryRepository
         Guid performedBy,
         int activityId,
         int missionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách vật tư tiêu hao đang ở mức tồn kho thấp (cảnh báo / nguy hiểm).
+    /// Danger  : tỉ lệ khả dụng ≤ 10%.
+    /// Warning : tỉ lệ khả dụng > 10% và ≤ 25%.
+    /// </summary>
+    Task<List<LowStockItemDto>> GetLowStockItemsAsync(
+        int? depotId,
+        StockAlertLevel? alertLevel,
         CancellationToken cancellationToken = default);
 
     /// <summary>

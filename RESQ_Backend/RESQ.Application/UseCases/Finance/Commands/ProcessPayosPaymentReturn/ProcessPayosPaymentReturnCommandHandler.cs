@@ -92,7 +92,7 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
                     {
                         FundCampaignId = donation.FundCampaignId,
                         Type = TransactionType.Donation,
-                        Direction = "in",
+                        Direction = TransactionDirection.In,
                         Amount = donation.Amount?.Amount,
                         ReferenceType = TransactionReferenceType.Donation,
                         ReferenceId = donation.Id,

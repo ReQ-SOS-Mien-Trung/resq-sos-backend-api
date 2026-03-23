@@ -25,6 +25,8 @@ public static class LogisticsSeeder
         SeedSupplyInventoryLots(modelBuilder);
         SeedInventoryLogs(modelBuilder);
         SeedOrganizationReliefItems(modelBuilder);
+        SeedDepotSupplyRequests(modelBuilder);
+        SeedDepotSupplyRequestItems(modelBuilder);
     }
 
     private static void SeedCategories(ModelBuilder modelBuilder)
@@ -291,6 +293,39 @@ public static class LogisticsSeeder
                 });
                 id++;
             }
+        }
+
+        // ── Low-stock seed overrides ─────────────────────────────────────────
+        // stockRatio = (Quantity - ReservedQuantity) / Quantity
+        // Các entries này được ghi đè reserved để tạo dữ liệu cảnh báo cho chart
+        //
+        // ID formula: id = depotIndex * 72 + itemIndex + 1
+        //   Depot 1 (factor 1.0): IDs 1-72   | Depot 2 (factor 0.8): IDs 73-144
+        //   Depot 3 (factor 0.6): IDs 145-216 | Depot 4 (factor 0.9): IDs 217-288
+        //
+        // 🔴 Danger  (ratio ≤ 20%):
+        //   id=1   depot1 Mì tôm       qty=50000 → reserved=43000 available=7000  =14%
+        //   id=2   depot1 Nước tinh khiết qty=40000 → reserved=38000 available=2000  = 5%
+        //   id=75  depot2 Paracetamol  qty=64000 → reserved=55000 available=9000  =14%
+        // 🟡 Warning (20% < ratio ≤ 40%):
+        //   id=73  depot2 Mì tôm       qty=40000 → reserved=28000 available=12000 =30%
+        //   id=74  depot2 Nước tinh khiết qty=32000 → reserved=22000 available=10000 =31%
+        //   id=145 depot3 Mì tôm       qty=30000 → reserved=21000 available=9000  =30%
+        //   id=146 depot3 Nước tinh khiết qty=24000 → reserved=16000 available=8000  =33%
+        var lowStockOverrides = new Dictionary<int, int>
+        {
+            [1]   = 43000,
+            [2]   = 38000,
+            [73]  = 28000,
+            [74]  = 22000,
+            [75]  = 55000,
+            [145] = 21000,
+            [146] = 16000,
+        };
+        foreach (var entry in list)
+        {
+            if (lowStockOverrides.TryGetValue(entry.Id, out var overrideReserved))
+                entry.ReservedQuantity = overrideReserved;
         }
 
         modelBuilder.Entity<DepotSupplyInventory>().HasData(list.ToArray());
@@ -581,6 +616,81 @@ public static class LogisticsSeeder
             new VatInvoiceItem { Id = 3, VatInvoiceId = 2, ItemModelId = 3, Quantity = 30000, UnitPrice =   2_000m, CreatedAt = new DateTime(2026, 1,  8, 0, 0, 0, DateTimeKind.Utc) },
             // Invoice 3 (Feb 2026): dầu gió
             new VatInvoiceItem { Id = 4, VatInvoiceId = 3, ItemModelId = 9, Quantity =  5000, UnitPrice =  15_000m, CreatedAt = new DateTime(2026, 2, 12, 0, 0, 0, DateTimeKind.Utc) }
+        );
+    }
+
+    // ── Depot-to-depot supply requests ────────────────────────────────────────
+    private static void SeedDepotSupplyRequests(ModelBuilder modelBuilder)
+    {
+        var now = new DateTime(2024, 11, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<DepotSupplyRequest>().HasData(
+            // Req 1: Kho 2 → xâu từ kho 1, đang chờ phê duyệt
+            new DepotSupplyRequest
+            {
+                Id = 1, RequestingDepotId = 2, SourceDepotId = 1,
+                Note = "Cần bổ sung mì tôm và nước sạch khẩn cấp",
+                SourceStatus      = SourceDepotStatus.Pending.ToString(),
+                RequestingStatus  = RequestingDepotStatus.WaitingForApproval.ToString(),
+                RequestedBy = SeedConstants.Manager2UserId,
+                CreatedAt = now
+            },
+            // Req 2: Kho 3 → xâu từ kho 2, đã được chấp nhận, đang chuẩn bị hàng
+            new DepotSupplyRequest
+            {
+                Id = 2, RequestingDepotId = 3, SourceDepotId = 2,
+                Note = "Thiếu thuốc Paracetamol và dầu gió",
+                SourceStatus      = SourceDepotStatus.Accepted.ToString(),
+                RequestingStatus  = RequestingDepotStatus.Approved.ToString(),
+                RequestedBy = SeedConstants.Manager3UserId,
+                CreatedAt = now.AddDays(3), RespondedAt = now.AddDays(4)
+            },
+            // Req 3: Kho 1 → xâu từ kho 4, đang vận chuyển
+            new DepotSupplyRequest
+            {
+                Id = 3, RequestingDepotId = 1, SourceDepotId = 4,
+                Note = "Bổ sung chăn, lều bạt mùa đông",
+                SourceStatus      = SourceDepotStatus.Shipping.ToString(),
+                RequestingStatus  = RequestingDepotStatus.InTransit.ToString(),
+                RequestedBy = SeedConstants.ManagerUserId,
+                CreatedAt = now.AddDays(6), RespondedAt = now.AddDays(7), ShippedAt = now.AddDays(8)
+            },
+            // Req 4: Kho 4 → xâu từ kho 3, đã hoàn thành
+            new DepotSupplyRequest
+            {
+                Id = 4, RequestingDepotId = 4, SourceDepotId = 3,
+                Note = "Tiếp nhận thực phẩm từ kho Hà Tĩnh",
+                SourceStatus      = SourceDepotStatus.Completed.ToString(),
+                RequestingStatus  = RequestingDepotStatus.Received.ToString(),
+                RequestedBy = SeedConstants.Manager4UserId,
+                CreatedAt = now.AddDays(10), RespondedAt = now.AddDays(11),
+                ShippedAt = now.AddDays(12), CompletedAt = now.AddDays(14)
+            },
+            // Req 5: Kho 2 → xâu từ kho 3, bị từ chối
+            new DepotSupplyRequest
+            {
+                Id = 5, RequestingDepotId = 2, SourceDepotId = 3,
+                Note = "Yêu cầu bổ sung áo phào và dây cứu hộ",
+                SourceStatus      = SourceDepotStatus.Rejected.ToString(),
+                RequestingStatus  = RequestingDepotStatus.Rejected.ToString(),
+                RejectedReason    = "Kho nguồn không còn tồn kho trong tháng này",
+                RequestedBy = SeedConstants.Manager2UserId,
+                CreatedAt = now.AddDays(15), RespondedAt = now.AddDays(16)
+            }
+        );
+    }
+
+    private static void SeedDepotSupplyRequestItems(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<DepotSupplyRequestItem>().HasData(
+            // Req 1: mì tôm + nước
+            new DepotSupplyRequestItem { Id = 1, DepotSupplyRequestId = 1, ItemModelId = 1, Quantity = 5000 },
+            new DepotSupplyRequestItem { Id = 2, DepotSupplyRequestId = 1, ItemModelId = 2, Quantity = 3000 },
+            // Req 2: thuốc + dầu gió
+            new DepotSupplyRequestItem { Id = 3, DepotSupplyRequestId = 2, ItemModelId = 3, Quantity = 10000 },
+            new DepotSupplyRequestItem { Id = 4, DepotSupplyRequestId = 2, ItemModelId = 9, Quantity = 500 },
+            // Req 3: chăn + lều bạt
+            new DepotSupplyRequestItem { Id = 5, DepotSupplyRequestId = 3, ItemModelId = 7, Quantity = 2000 }
         );
     }
 }

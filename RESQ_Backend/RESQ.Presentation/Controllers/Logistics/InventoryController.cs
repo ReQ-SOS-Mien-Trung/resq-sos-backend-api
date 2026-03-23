@@ -22,6 +22,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLots;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventorySourceTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
+using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
@@ -91,6 +92,34 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         };
 
         var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>[Admin] Chart data vật tư sắp hết trên tất cả kho hoặc một kho cụ thể.
+    /// stockRatio = available/total. 🔴 Danger ≤20% | 🟡 Warning 20%–40%.
+    /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
+    [HttpGet("low-stock")]
+    [Authorize(Roles = "1")]
+    [ProducesResponseType(typeof(LowStockChartResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetLowStockItems(
+        [FromQuery] int? depotId = null,
+        [FromQuery] StockAlertLevel? level = null)
+    {
+        var result = await _mediator.Send(new GetLowStockItemsQuery(depotId, level));
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Chart data vật tư sắp hết tại kho mình quản lý.
+    /// stockRatio = available/total. 🔴 Danger ≤20% | 🟡 Warning 20%–40%.
+    /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
+    [HttpGet("my-depot/low-stock")]
+    [Authorize(Roles = "4")]
+    [ProducesResponseType(typeof(LowStockChartResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyDepotLowStockItems([FromQuery] StockAlertLevel? level = null)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyDepotLowStockQuery(userId, level));
         return Ok(result);
     }
 

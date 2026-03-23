@@ -85,7 +85,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         {
             FundCampaignId = request.CampaignId,
             Type = TransactionType.Allocation,
-            Direction = "out",
+            Direction = TransactionDirection.Out,
             Amount = fundingRequest.TotalAmount,
             ReferenceType = TransactionReferenceType.CampaignDisbursement,
             ReferenceId = disbursementId,

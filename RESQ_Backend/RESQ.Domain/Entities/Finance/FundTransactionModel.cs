@@ -10,7 +10,7 @@ public class FundTransactionModel
     
     public TransactionType Type { get; set; }
     
-    public string? Direction { get; set; }
+    public TransactionDirection Direction { get; set; }
     public decimal? Amount { get; set; }
     
     public TransactionReferenceType ReferenceType { get; set; }
