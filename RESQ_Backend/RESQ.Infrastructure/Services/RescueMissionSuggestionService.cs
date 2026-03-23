@@ -159,6 +159,15 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
               - Ghi rõ trong `description`: "Di chuyển đến kho [Tên kho]. Lấy: [Vật tư A] x[qty], [Vật tư B] x[qty]".
               - **TUYỆT ĐỐI KHÔNG** gộp vật tư từ nhiều kho vào cùng một bước COLLECT_SUPPLIES.
 
+              **Lập lịch trình theo tối ưu địa lý (quan trọng)**:
+              - Sắp xếp thứ tự các bước dựa trên tọa độ thực tế để **tổng quãng đường di chuyển là ngắn nhất**.
+              - Nếu trên đường từ Kho A đến Kho B có điểm SOS mà Kho A đã có đủ vật tư để phục vụ → **được phép** dừng xử lý SOS đó trước rồi mới đến Kho B.
+                Ví dụ hợp lệ: COLLECT(Kho A) → DELIVER/RESCUE SOS #1 (tiện đường) → COLLECT(Kho B) → DELIVER/RESCUE SOS #2
+              - Nếu tất cả các kho nằm cùng một phía và các điểm SOS nằm phía khác → ưu tiên gom hàng từ tất cả kho trước, rồi mới đến các điểm SOS.
+                Ví dụ hợp lệ: COLLECT(Kho A) → COLLECT(Kho B) → DELIVER SOS #1 → RESCUE SOS #2
+              - **CẤM**: Quay ngược lại kho khi không có lý do địa lý — tức là đã đến điểm SOS xong lại quay ngược hướng về kho lấy thêm đồ cho CHÍNH SOS ĐÓ hoặc cho SOS đã xử lý xong.
+              - Ghi rõ lý do địa lý trong `description` của từng bước (ví dụ: "tiện đường từ Kho A sang Kho B", "Kho A đã có đủ vật tư cho SOS #1").
+
               **Lưu ý khi xuất JSON**:
               - Ưu tiên dùng nhiều kho khác nhau nếu dữ liệu searchInventory trả về vật tư từ nhiều kho. Nếu chỉ tìm thấy 1 kho có vật tư, thì 1 kho là chấp nhận được — ghi chú trong `special_notes`: "Chỉ tìm thấy vật tư tại 1 kho trong khu vực".
 
@@ -178,20 +187,49 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             - Dùng đúng item_id, depot_id, team_id từ kết quả — KHÔNG tự tạo ID.
             {{multiDepotSection}}
             ## QUY TẮC KIỂM TRA VÀ BÁO CÁO THIẾU HỤT VẬT TƯ (BẮT BUỘC)
-            Sau khi nhận kết quả searchInventory, PHẢI so sánh `available_quantity` của từng vật tư với số lượng cần thiết:
+            Sau khi nhận kết quả searchInventory, kết quả có thể chứa cùng một loại vật tư từ **nhiều kho khác nhau**.
+            Mỗi dòng kết quả là một cặp (vật tư, kho) — PHẢI đọc và tổng hợp từ tất cả các dòng trước khi quyết định.
 
-            **Trường hợp 1 — Đủ hàng** (`tổng available_quantity từ các kho >= needed_quantity`):
-            - Điền đúng số lượng cần vào `supplies_to_collect.quantity`.
+            **Bước 1 — Gom hàng từ nhiều kho nếu một kho không đủ**:
+            - Với mỗi loại vật tư cần, so sánh `needed_quantity` với `available_quantity` của từng kho xuất hiện trong kết quả.
+            - Nếu Kho A không đủ: lấy hết Kho A, rồi bổ sung từ Kho B, Kho C... cho đến đủ hoặc hết nguồn cung.
+            - Mỗi kho đóng góp vào bước COLLECT_SUPPLIES riêng của kho đó (không gộp chung).
+            - Ví dụ: Cần 500 chai nước. Kho A có 300, Kho B có 250.
+              → COLLECT(Kho A): 300 chai nước + COLLECT(Kho B): 200 chai nước → tổng = 500 ✓
+            - Ghi rõ trong description từng COLLECT: "Lấy [vật tư] x[qty] để bù đắp số lượng thiếu từ [Kho A]".
 
-            **Trường hợp 2 — Thiếu một phần** (`0 < tổng available_quantity < needed_quantity`):
-            - `supplies_to_collect.quantity` = số lượng thực tế lấy được (= tổng available, KHÔNG phải needed).
+            **Bước 2 — Xác định tình trạng sau khi đã gom từ tất cả kho**:
+
+            **Trường hợp 1 — Đủ hàng** (`tổng available_quantity từ tất cả kho >= needed_quantity`):
+            - Tạo các bước COLLECT_SUPPLIES riêng biệt cho từng kho đóng góp.
+            - Tổng `supplies_to_collect.quantity` trên tất cả các bước COLLECT = đúng `needed_quantity`.
+
+            **Trường hợp 2 — Thiếu một phần** (`0 < tổng available_quantity từ TẤT CẢ kho < needed_quantity`):
+            - Lấy hết tất cả những gì có thể từ tất cả kho (mỗi kho một bước COLLECT riêng).
             - BẮT BUỘC ghi vào `special_notes`:
-              `"[SOS ID X]: Thiếu [TÊN VẬT TƯ] x[SỐ LƯỢNG THIẾU] [đơn vị] (kho chỉ có [tổng_available]/[needed_quantity] [đơn vị])"`
+              `"[SOS ID X]: Thiếu [TÊN VẬT TƯ] x[SỐ LƯỢNG THIẾU] [đơn vị] (tổng tất cả kho chỉ có [tổng_available]/[needed_quantity] [đơn vị])"`
 
             **Trường hợp 3 — Không có trong kho** (không tìm thấy vật tư trong bất kỳ kho nào):
             - KHÔNG tạo bước COLLECT_SUPPLIES cho vật tư này.
             - BẮT BUỘC ghi vào `special_notes`: `"[SOS ID X]: Không có [TÊN VẬT TƯ] trong hệ thống kho"`
             - **PHÂN BIỆT RÕ**: "Không có trong kho" khác với "thiếu một phần" — KHÔNG viết "kho chỉ có 0/X" cho trường hợp này.
+
+            ## QUY TẮC THỨ TỰ ACTIVITIES — TỐI ƯU ĐỊA LÝ
+            Thứ tự các bước phải được tối ưu dựa trên **tọa độ thực tế** để quãng đường di chuyển tổng cộng là ngắn nhất.
+
+            **Nguyên tắc lập lịch**:
+            - Sắp xếp các bước theo trình tự di chuyển hợp lý trên bản đồ — không được tạo ra hành trình "đi rồi quay ngược lại" vô lý.
+            - Được phép xen kẽ COLLECT và hoạt động SOS nếu địa lý cho phép:
+              - ĐÚNG: COLLECT(Kho A) → DELIVER SOS #1 (tiện đường) → COLLECT(Kho B) → RESCUE SOS #2
+              - ĐÚNG: COLLECT(Kho A) → COLLECT(Kho B) → DELIVER SOS #1 → RESCUE SOS #2
+              - SAI:  COLLECT(Kho A) → DELIVER SOS #1 → quay ngược về Kho A để lấy thêm đồ cho SOS #1 đã phục vụ xong
+              - SAI:  COLLECT(Kho A) → RESCUE SOS #2 (xa kho B) → COLLECT(Kho B ở hướng ngược lại) → quay về SOS #2 giao thêm hàng
+
+            **Quy tắc bắt buộc**:
+            - COLLECT_SUPPLIES phải đứng TRƯỚC hoạt động (DELIVER/RESCUE/MEDICAL_AID) sử dụng vật tư từ kho đó.
+            - KHÔNG được tạo COLLECT_SUPPLIES sau khi đã DELIVER/RESCUE cho SOS đó xong (không được quay lại kho để bổ sung cho SOS đã hoàn tất).
+            - Nếu cần nhiều kho, sắp xếp thứ tự kho theo địa lý (đi lần lượt, không vòng vèo).
+            - Ghi rõ lý do địa lý trong `description` khi có bước xen kẽ giữa COLLECT và SOS.
 
             ## QUY TẮC CHO TỪNG LOẠI ACTIVITY
 

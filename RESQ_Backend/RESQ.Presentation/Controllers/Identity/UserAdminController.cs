@@ -57,7 +57,7 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
-        /// <summary>Lấy danh sách Rescuer đủ điều kiện (RoleId=3, IsEligibleRescuer=true) với abilities và chứng chỉ</summary>
+        /// <summary>Lấy danh sách Rescuer đủ điều kiện (RoleId=3, IsEligibleRescuer=true) - thông tin cơ bản, không kèm abilities/chứng chỉ</summary>
         [HttpGet("rescuers")]
         [Authorize(Policy = PermissionConstants.SystemUserView)]
         public async Task<IActionResult> GetRescuers(

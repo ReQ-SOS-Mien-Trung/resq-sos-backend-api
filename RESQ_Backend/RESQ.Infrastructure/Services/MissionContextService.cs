@@ -146,8 +146,34 @@ public class MissionContextService(
 
         if (bestCover is not null)
         {
-            chosen = bestCover;
-            multiDepotRecommended = chosen.Count > 1;
+            if (bestCover.Count > 1)
+            {
+                // Multiple depots needed to cover all supply types
+                chosen = bestCover;
+                multiDepotRecommended = true;
+            }
+            else
+            {
+                // Single depot covers all supply types — but check if it has enough QUANTITY.
+                // If other nearby depots have significant additional stock (>= 30% of primary's
+                // total available), the primary depot may not have sufficient quantities for
+                // all SOS needs, so expose all candidates and recommend multi-depot.
+                var primary = bestCover[0];
+                if (HasSignificantAlternativeStock(primary, candidates))
+                {
+                    chosen = candidates; // expose all candidates so AI can draw from any
+                    multiDepotRecommended = true;
+                    logger.LogInformation(
+                        "MissionContext: Single depot (Id={depotId}) covers all supply types but " +
+                        "other candidates hold significant additional stock — switching to multi-depot mode.",
+                        primary.depot.Id);
+                }
+                else
+                {
+                    chosen = bestCover;
+                    multiDepotRecommended = false;
+                }
+            }
         }
         else
         {
@@ -263,6 +289,32 @@ public class MissionContextService(
     }
 
     // ─── Static Utilities ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns true when other candidate depots collectively hold stock that is
+    /// significant enough to supplement the primary depot.
+    /// Threshold: other depots combined have >= 30% of the primary depot's
+    /// total available quantity across all its inventory lines.
+    /// This catches the case where one depot covers all supply TYPES (by bitmask)
+    /// but may not have sufficient QUANTITY — prompting multi-depot mode so the
+    /// system exposes all candidates to the AI for quantity-aware planning.
+    /// </summary>
+    private static bool HasSignificantAlternativeStock(
+        (DepotModel depot, double distKm, int mask) primary,
+        List<(DepotModel depot, double distKm, int mask)> allCandidates)
+    {
+        if (allCandidates.Count <= 1) return false;
+
+        var primaryTotal = primary.depot.InventoryLines.Sum(l => l.AvailableQuantity);
+        var othersTotal  = allCandidates
+            .Where(c => c.depot.Id != primary.depot.Id)
+            .Sum(c => c.depot.InventoryLines.Sum(l => l.AvailableQuantity));
+
+        if (primaryTotal == 0) return othersTotal > 0;
+
+        // Recommend multi-depot when other depots hold >= 30% of primary's stock
+        return othersTotal >= primaryTotal * 0.30;
+    }
 
     private static readonly Dictionary<string, string[]> SupplyCategoryKeywords =
         new(StringComparer.OrdinalIgnoreCase)
