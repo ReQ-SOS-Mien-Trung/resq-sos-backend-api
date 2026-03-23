@@ -16,6 +16,12 @@ public class AssemblyPointModel
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>
+    /// True khi điểm tập kết đang có sự kiện triệu tập (Scheduled hoặc Gathering).
+    /// Giá trị này được tính toán khi query, không lưu vào DB.
+    /// </summary>
+    public bool HasActiveEvent { get; set; }
+
     public AssemblyPointModel() { }
 
     public static AssemblyPointModel Create(

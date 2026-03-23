@@ -6,11 +6,13 @@ using RESQ.Application.Repositories.Personnel;
 namespace RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
 
 public class GetAssemblyPointByIdQueryHandler(
-    IAssemblyPointRepository repository, 
+    IAssemblyPointRepository repository,
+    IAssemblyEventRepository assemblyEventRepository,
     ILogger<GetAssemblyPointByIdQueryHandler> logger)
     : IRequestHandler<GetAssemblyPointByIdQuery, AssemblyPointDto>
 {
     private readonly IAssemblyPointRepository _repository = repository;
+    private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
     private readonly ILogger<GetAssemblyPointByIdQueryHandler> _logger = logger;
 
     public async Task<AssemblyPointDto> Handle(GetAssemblyPointByIdQuery request, CancellationToken cancellationToken)
@@ -27,6 +29,8 @@ public class GetAssemblyPointByIdQueryHandler(
         var teamsDict = await _repository.GetTeamsByAssemblyPointIdsAsync([entity.Id], cancellationToken);
         var teams = teamsDict.TryGetValue(entity.Id, out var t) ? t : [];
 
+        var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(entity.Id, cancellationToken);
+
         return new AssemblyPointDto
         {
             Id = entity.Id,
@@ -37,6 +41,7 @@ public class GetAssemblyPointByIdQueryHandler(
             MaxCapacity = entity.MaxCapacity,
             Status = entity.Status.ToString(),
             LastUpdatedAt = entity.UpdatedAt,
+            HasActiveEvent = activeEvent != null,
             Teams = teams
         };
     }

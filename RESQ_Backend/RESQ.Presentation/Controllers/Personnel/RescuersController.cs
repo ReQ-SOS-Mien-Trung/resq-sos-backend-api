@@ -38,7 +38,10 @@ public class RescuersController(IMediator mediator) : ControllerBase
         [FromQuery] bool? hasTeam = null,
         [FromQuery] RescuerType? rescuerType = null,
         [FromQuery] string? abilitySubgroupCode = null,
-        [FromQuery] string? abilityCategoryCode = null)
+        [FromQuery] string? abilityCategoryCode = null,
+        [FromQuery] string? firstName = null,
+        [FromQuery] string? lastName = null,
+        [FromQuery] string? email = null)
     {
         var query = new GetRescuersQuery(
             pageNumber,
@@ -47,7 +50,10 @@ public class RescuersController(IMediator mediator) : ControllerBase
             hasTeam,
             rescuerType,
             abilitySubgroupCode,
-            abilityCategoryCode);
+            abilityCategoryCode,
+            firstName,
+            lastName,
+            email);
 
         var result = await mediator.Send(query);
         return Ok(result);
