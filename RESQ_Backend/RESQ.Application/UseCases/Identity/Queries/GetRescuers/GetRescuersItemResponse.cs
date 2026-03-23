@@ -3,7 +3,6 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuers;
 public class GetRescuersItemResponse
 {
     public Guid Id { get; set; }
-    public int? RoleId { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? Username { get; set; }
@@ -15,43 +14,10 @@ public class GetRescuersItemResponse
     public bool IsOnboarded { get; set; }
     public bool IsEligibleRescuer { get; set; }
     public bool IsBanned { get; set; }
-    public Guid? BannedBy { get; set; }
     public DateTime? BannedAt { get; set; }
     public string? BanReason { get; set; }
     public string? Address { get; set; }
     public string? Ward { get; set; }
     public string? Province { get; set; }
-    public double? Latitude { get; set; }
-    public double? Longitude { get; set; }
-    public Guid? ApprovedBy { get; set; }
-    public DateTime? ApprovedAt { get; set; }
     public DateTime? CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-
-    public List<RescuerAbilityDto> Abilities { get; set; } = new();
-    public List<RescuerCertificateDocumentDto> CertificateDocuments { get; set; } = new();
-}
-
-public class RescuerAbilityDto
-{
-    public int AbilityId { get; set; }
-    public string? Code { get; set; }
-    public string? Description { get; set; }
-    public int? Level { get; set; }
-    public int? SubgroupId { get; set; }
-    public string? SubgroupCode { get; set; }
-    public string? SubgroupDescription { get; set; }
-    public int? CategoryId { get; set; }
-    public string? CategoryCode { get; set; }
-    public string? CategoryDescription { get; set; }
-}
-
-public class RescuerCertificateDocumentDto
-{
-    public int Id { get; set; }
-    public string? FileUrl { get; set; }
-    public int? FileTypeId { get; set; }
-    public string? FileTypeCode { get; set; }
-    public string? FileTypeName { get; set; }
-    public DateTime? UploadedAt { get; set; }
 }
