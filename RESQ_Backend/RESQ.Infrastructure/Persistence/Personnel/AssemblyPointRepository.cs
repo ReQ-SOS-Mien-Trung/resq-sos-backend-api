@@ -67,25 +67,33 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
 
     public async Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var repository = _unitOfWork.GetRepository<AssemblyPoint>();
-        
-        var pagedEntities = await repository.GetPagedAsync(
-            pageNumber,
-            pageSize,
-            filter: null,
-            orderBy: q => q.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
-        );
+        var apQuery     = _unitOfWork.GetRepository<AssemblyPoint>().AsQueryable();
+        var eventsQuery = _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable();
 
-        var domainItems = pagedEntities.Items
-            .Select(AssemblyPointMapper.ToDomain)
-            .ToList();
+        var totalCount = await apQuery.CountAsync(cancellationToken);
 
-        return new PagedResult<AssemblyPointModel>(
-            domainItems,
-            pagedEntities.TotalCount,
-            pagedEntities.PageNumber,
-            pagedEntities.PageSize
-        );
+        // Single round-trip: EXISTS subquery for HasActiveEvent is folded into the projection
+        var projected = await apQuery
+            .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(ap => new
+            {
+                Entity = ap,
+                HasActiveEvent = eventsQuery.Any(ae =>
+                    ae.AssemblyPointId == ap.Id &&
+                    (ae.Status == "Scheduled" || ae.Status == "Gathering"))
+            })
+            .ToListAsync(cancellationToken);
+
+        var domainItems = projected.Select(x =>
+        {
+            var model = AssemblyPointMapper.ToDomain(x.Entity);
+            model.HasActiveEvent = x.HasActiveEvent;
+            return model;
+        }).ToList();
+
+        return new PagedResult<AssemblyPointModel>(domainItems, totalCount, pageNumber, pageSize);
     }
 
     public async Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default)

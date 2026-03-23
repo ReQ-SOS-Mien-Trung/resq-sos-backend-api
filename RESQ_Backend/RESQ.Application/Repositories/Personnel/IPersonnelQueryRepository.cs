@@ -39,5 +39,8 @@ public interface IPersonnelQueryRepository
         RescuerType? rescuerType = null,
         string? abilitySubgroupCode = null,
         string? abilityCategoryCode = null,
+        string? firstName = null,
+        string? lastName = null,
+        string? email = null,
         CancellationToken cancellationToken = default);
 }

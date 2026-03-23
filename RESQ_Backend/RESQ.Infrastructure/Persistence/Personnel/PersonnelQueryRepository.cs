@@ -175,6 +175,9 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
         string? abilitySubgroupCode = null,
         string? abilityCategoryCode = null,
+        string? firstName = null,
+        string? lastName = null,
+        string? email = null,
         CancellationToken cancellationToken = default)
     {
         var acceptedStatus = TeamMemberStatus.Accepted.ToString();
@@ -198,6 +201,18 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         // Filter: rescuerType
         if (rescuerTypeStr != null)
             query = query.Where(u => u.RescuerType == rescuerTypeStr);
+
+        // Filter: firstName
+        if (!string.IsNullOrWhiteSpace(firstName))
+            query = query.Where(u => u.FirstName != null && u.FirstName.ToLower().Contains(firstName.ToLower()));
+
+        // Filter: lastName
+        if (!string.IsNullOrWhiteSpace(lastName))
+            query = query.Where(u => u.LastName != null && u.LastName.ToLower().Contains(lastName.ToLower()));
+
+        // Filter: email
+        if (!string.IsNullOrWhiteSpace(email))
+            query = query.Where(u => u.Email != null && u.Email.ToLower().Contains(email.ToLower()));
 
         // Filter: ability subgroup
         if (abilitySubgroupCode != null)

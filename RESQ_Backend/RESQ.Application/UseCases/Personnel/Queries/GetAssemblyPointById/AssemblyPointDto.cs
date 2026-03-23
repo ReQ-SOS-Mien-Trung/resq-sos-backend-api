@@ -32,5 +32,7 @@ public class AssemblyPointDto
     public int MaxCapacity { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime? LastUpdatedAt { get; set; }
+    /// <summary>True khi điểm tập kết đang có sự kiện triệu tập (Scheduled/Gathering).</summary>
+    public bool HasActiveEvent { get; set; }
     public List<AssemblyPointTeamDto> Teams { get; set; } = [];
 }

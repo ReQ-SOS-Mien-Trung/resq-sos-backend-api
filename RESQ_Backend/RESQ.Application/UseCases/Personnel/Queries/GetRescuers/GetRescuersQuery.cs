@@ -11,4 +11,7 @@ public record GetRescuersQuery(
     bool? HasTeam = null,
     RescuerType? RescuerType = null,
     string? AbilitySubgroupCode = null,
-    string? AbilityCategoryCode = null) : IRequest<PagedResult<RescuerDto>>;
+    string? AbilityCategoryCode = null,
+    string? FirstName = null,
+    string? LastName = null,
+    string? Email = null) : IRequest<PagedResult<RescuerDto>>;
