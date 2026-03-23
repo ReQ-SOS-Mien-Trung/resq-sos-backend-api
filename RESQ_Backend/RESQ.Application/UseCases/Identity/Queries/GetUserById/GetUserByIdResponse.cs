@@ -6,6 +6,7 @@ public class UserAbilityDto
     public string? Code { get; set; }
     public string? Description { get; set; }
     public int? Level { get; set; }
+    public string? CategoryCode { get; set; }
 }
 
 public class RescuerDocumentDto
