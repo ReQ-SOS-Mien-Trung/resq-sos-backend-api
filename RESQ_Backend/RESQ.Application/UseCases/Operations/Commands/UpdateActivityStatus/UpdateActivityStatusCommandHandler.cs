@@ -55,33 +55,47 @@ public class UpdateActivityStatusCommandHandler(
 
         await _activityRepository.UpdateStatusAsync(request.ActivityId, request.Status, request.DecisionBy, cancellationToken);
 
-        // Side-effect: consume inventory when activity is completed (team arrived and picked up supplies)
-        if (request.Status == MissionActivityStatus.Succeed && activity.DepotId.HasValue && !string.IsNullOrWhiteSpace(activity.Items))
-        {
-            try
-            {
-                var items = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts);
-                if (items is { Count: > 0 })
-                {
-                    var itemsToConsume = items
-                        .Where(i => i.ItemId.HasValue && i.Quantity > 0)
-                        .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity))
-                        .ToList();
+        // Only COLLECT_SUPPLIES activities affect depot inventory.
+        // DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, EVACUATE do not consume stock directly.
+        var isCollectActivity = string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase);
 
-                    if (itemsToConsume.Count > 0)
-                        await _depotInventoryRepository.ConsumeReservedSuppliesAsync(
-                            activity.DepotId.Value, itemsToConsume, request.DecisionBy,
-                            request.ActivityId, activity.MissionId ?? 0, cancellationToken);
-                }
-            }
-            catch (Exception ex)
+        // Side-effect: consume inventory when a COLLECT_SUPPLIES activity succeeds
+        // (team physically arrived at depot and picked up the supplies)
+        if (request.Status == MissionActivityStatus.Succeed
+            && isCollectActivity
+            && activity.DepotId.HasValue
+            && !string.IsNullOrWhiteSpace(activity.Items))
+        {
+            var items = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts);
+            if (items is { Count: > 0 })
             {
-                _logger.LogWarning(ex, "Lỗi khi trừ vật tư kho cho activity hoàn thành #{ActivityId}", activity.Id);
+                var itemsToConsume = items
+                    .Where(i => i.ItemId.HasValue && i.Quantity > 0)
+                    .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity))
+                    .ToList();
+
+                if (itemsToConsume.Count > 0)
+                {
+                    // Do NOT catch here — if inventory deduction fails the whole transaction
+                    // should roll back so the activity is NOT marked Succeed with stale stock.
+                    await _depotInventoryRepository.ConsumeReservedSuppliesAsync(
+                        activity.DepotId.Value, itemsToConsume, request.DecisionBy,
+                        request.ActivityId, activity.MissionId ?? 0, cancellationToken);
+
+                    _logger.LogInformation(
+                        "Inventory consumed for ActivityId={activityId} DepotId={depotId}: {count} item type(s)",
+                        activity.Id, activity.DepotId.Value, itemsToConsume.Count);
+                }
             }
         }
 
-        // Side-effect: release reservations if activity is cancelled
-        if (request.Status == MissionActivityStatus.Cancelled && activity.DepotId.HasValue && !string.IsNullOrWhiteSpace(activity.Items))
+        // Side-effect: release reservations when a COLLECT_SUPPLIES activity is cancelled OR failed.
+        // Both outcomes mean the team will NOT pick up supplies → reserved stock must be freed.
+        var shouldRelease = request.Status is MissionActivityStatus.Cancelled or MissionActivityStatus.Failed;
+        if (shouldRelease
+            && isCollectActivity
+            && activity.DepotId.HasValue
+            && !string.IsNullOrWhiteSpace(activity.Items))
         {
             try
             {
@@ -94,12 +108,22 @@ public class UpdateActivityStatusCommandHandler(
                         .ToList();
 
                     if (itemsToRelease.Count > 0)
+                    {
                         await _depotInventoryRepository.ReleaseReservedSuppliesAsync(activity.DepotId.Value, itemsToRelease, cancellationToken);
+                        _logger.LogInformation(
+                            "Reservation released for ActivityId={activityId} DepotId={depotId} due to status={status}: {count} item type(s)",
+                            activity.Id, activity.DepotId.Value, request.Status, itemsToRelease.Count);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Lỗi khi giải phóng vật tư cho activity bị huỷ #{ActivityId}", activity.Id);
+                // Release failure is non-critical (stock stays over-reserved temporarily),
+                // but we must log it prominently so ops can manually reconcile.
+                _logger.LogError(ex,
+                    "INVENTORY ALERT: Failed to release reservation for ActivityId={activityId} DepotId={depotId}. " +
+                    "Reserved stock may be incorrectly locked. Manual reconciliation required.",
+                    activity.Id, activity.DepotId.Value);
             }
         }
 
