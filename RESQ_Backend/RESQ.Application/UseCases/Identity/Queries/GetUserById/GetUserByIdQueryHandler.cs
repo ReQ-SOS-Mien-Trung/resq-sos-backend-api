@@ -70,7 +70,8 @@ public class GetUserByIdQueryHandler(
                 AbilityId = a.AbilityId,
                 Code = a.AbilityCode,
                 Description = a.AbilityDescription,
-                Level = a.Level
+                Level = a.Level,
+                CategoryCode = a.CategoryCode
             }).ToList(),
             RescuerApplicationDocuments = documents
         };
