@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication;
+using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplicationDetail;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications;
 
 namespace RESQ.Presentation.Controllers.Identity
@@ -30,6 +31,16 @@ namespace RESQ.Presentation.Controllers.Identity
             var query = new GetRescuerApplicationsQuery(pageNumber, pageSize, status, name, email, phone, rescuerType);
             var result = await _mediator.Send(query);
             return Ok(result);
+        }
+
+        /// <summary>Lấy chi tiết một đơn đăng ký rescuer (kèm documents và abilities).</summary>
+        [HttpGet("{id:int}")]
+        [Authorize(Policy = PermissionConstants.SystemUserView)]
+        public async Task<IActionResult> GetRescuerApplicationDetail([FromRoute] int id)
+        {
+            var query = new GetRescuerApplicationDetailQuery(id);
+            var result = await _mediator.Send(query);
+            return result is null ? NotFound() : Ok(result);
         }
 
         /// <summary>Duyệt hoặc từ chối đơn đăng ký rescuer.</summary>
