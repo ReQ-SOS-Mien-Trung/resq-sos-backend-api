@@ -151,7 +151,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
         public async Task<List<RescuerApplicationDocumentModel>> GetDocumentsByApplicationIdAsync(int applicationId, CancellationToken cancellationToken = default)
         {
             var entities = await _unitOfWork.GetRepository<RescuerApplicationDocument>()
-                .GetAllByPropertyAsync(x => x.ApplicationId == applicationId);
+                .GetAllByPropertyAsync(x => x.ApplicationId == applicationId, includeProperties: "FileType");
 
             return entities.Select(RescuerApplicationMapper.ToDocumentModel).ToList();
         }
