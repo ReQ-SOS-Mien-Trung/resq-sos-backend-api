@@ -3,7 +3,7 @@ using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
-using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
+using RESQ.Application.UseCases.Personnel.RescueTeams.Commands; // ResolveIncidentCommand
 using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateTeamIncidentStatus;
@@ -40,10 +40,10 @@ public class UpdateTeamIncidentStatusCommandHandler(
             if (missionTeam != null)
             {
                 bool hasInjured = request.HasInjuredMember ?? false;
-                string action = hasInjured ? "setunavailable" : "finish";
                 try
                 {
-                    await mediator.Send(new ChangeTeamMissionStateCommand(missionTeam.RescuerTeamId, action), cancellationToken);
+                    // Team is in Stuck state after reporting incident; ResolveIncident transitions Stuck → Available/Unavailable
+                    await mediator.Send(new ResolveIncidentCommand(missionTeam.RescuerTeamId, hasInjured), cancellationToken);
                 }
                 catch
                 {

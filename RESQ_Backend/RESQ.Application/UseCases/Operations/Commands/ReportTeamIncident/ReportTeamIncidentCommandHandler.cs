@@ -20,6 +20,10 @@ public class ReportTeamIncidentCommandHandler(
         var missionTeam = await missionTeamRepository.GetByIdAsync(request.MissionTeamId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy liên kết đội-mission với ID: {request.MissionTeamId}");
 
+        // Verify the reporter belongs to this rescue team
+        if (!missionTeam.RescueTeamMembers.Any(m => m.UserId == request.ReportedBy))
+            throw new ForbiddenException("Bạn không phải thành viên của đội cứu hộ này.");
+
         var now = DateTime.UtcNow;
         var incident = new TeamIncidentModel
         {
