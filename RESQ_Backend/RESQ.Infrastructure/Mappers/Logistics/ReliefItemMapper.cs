@@ -5,6 +5,9 @@ namespace RESQ.Infrastructure.Mappers.Logistics;
 
 public static class ItemModelMapper
 {
+    /// <summary>
+    /// Converts a domain record to an Infrastructure entity (without target groups navigation — caller must set those separately).
+    /// </summary>
     public static ItemModel ToEntity(ItemModelRecord model)
     {
         return new ItemModel
@@ -14,7 +17,6 @@ public static class ItemModelMapper
             Name = model.Name,
             Unit = model.Unit,
             ItemType = model.ItemType,
-            TargetGroup = model.TargetGroup,
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt
         };
@@ -29,7 +31,7 @@ public static class ItemModelMapper
             Name = entity.Name ?? string.Empty,
             Unit = entity.Unit ?? string.Empty,
             ItemType = entity.ItemType ?? string.Empty,
-            TargetGroup = entity.TargetGroup ?? string.Empty,
+            TargetGroups = entity.TargetGroups?.Select(tg => tg.Name).ToList() ?? new(),
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt
         };

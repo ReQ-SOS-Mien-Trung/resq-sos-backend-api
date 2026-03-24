@@ -1,4 +1,6 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.Services;
+using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Repositories.Logistics;
@@ -16,4 +18,16 @@ public interface IItemModelMetadataRepository
     /// Key = item model ID, Value = item model name.
     /// </summary>
     Task<List<MetadataDto>> GetByCategoryCodeAsync(ItemCategoryCode categoryCode, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns all item models with target groups, unit, item type, and category code
+    /// for the donation import Excel template.
+    /// </summary>
+    Task<List<DonationImportItemInfo>> GetAllForDonationTemplateAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Batch-fetches item models by their IDs with TargetGroups eagerly loaded.
+    /// Chunks at 500 IDs to avoid SQL parameter limits. Returns a dictionary keyed by ID.
+    /// </summary>
+    Task<Dictionary<int, ItemModelRecord>> GetByIdsAsync(IReadOnlyList<int> ids, CancellationToken cancellationToken = default);
 }

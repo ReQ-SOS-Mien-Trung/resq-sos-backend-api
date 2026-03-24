@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
@@ -132,7 +133,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
 
         // Group by unique combination to avoid duplicates
         var uniqueItems = models
-            .GroupBy(m => new { m.Name, m.CategoryId, m.Unit, m.ItemType, m.TargetGroup })
+            .GroupBy(m => new { m.Name, m.CategoryId, m.Unit, m.ItemType, TargetGroupsKey = string.Join(",", m.TargetGroups.OrderBy(x => x)) })
             .Select(g => g.First())
             .ToList();
 
@@ -141,11 +142,17 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
 
         foreach (var model in uniqueItems)
         {
-            var existing = await repo.GetByPropertyAsync(
-                r => r.Name == model.Name && r.CategoryId == model.CategoryId && 
-                     r.Unit == model.Unit && r.ItemType == model.ItemType && 
-                     r.TargetGroup == model.TargetGroup, 
-                tracked: true);
+            var sortedNames = model.TargetGroups.Select(n => n.ToLower()).OrderBy(n => n).ToList();
+
+            // Load candidate existing items (same Name/Category/Unit/ItemType) with their TargetGroups
+            var candidates = await repo.AsQueryable()
+                .Include(r => r.TargetGroups)
+                .Where(r => r.Name == model.Name && r.CategoryId == model.CategoryId &&
+                            r.Unit == model.Unit && r.ItemType == model.ItemType)
+                .ToListAsync(cancellationToken);
+
+            var existing = candidates.FirstOrDefault(r =>
+                r.TargetGroups.Select(tg => tg.Name.ToLower()).OrderBy(n => n).SequenceEqual(sortedNames));
 
             if (existing != null)
             {
@@ -161,6 +168,26 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         // Bulk insert new items
         if (newItems.Count > 0)
         {
+            // Resolve TargetGroup entities from DB and attach
+            var tgRepo = _unitOfWork.GetRepository<RESQ.Infrastructure.Entities.Logistics.TargetGroup>();
+            var allTargetGroups = await tgRepo.AsQueryable().ToListAsync(cancellationToken);
+
+            foreach (var newItem in newItems)
+            {
+                // Find the matching domain model to get TargetGroups names
+                var domainModel = uniqueItems.First(m =>
+                    m.Name == newItem.Name && m.CategoryId == newItem.CategoryId &&
+                    m.Unit == newItem.Unit && m.ItemType == newItem.ItemType);
+
+                foreach (var tgName in domainModel.TargetGroups)
+                {
+                    var tgEntity = allTargetGroups.FirstOrDefault(t =>
+                        string.Equals(t.Name, tgName, StringComparison.OrdinalIgnoreCase));
+                    if (tgEntity != null)
+                        newItem.TargetGroups.Add(tgEntity);
+                }
+            }
+
             await repo.AddRangeAsync(newItems);
             await _unitOfWork.SaveAsync();
         }

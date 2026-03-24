@@ -16,6 +16,7 @@ public static class LogisticsSeeder
         SeedCategories(modelBuilder);
         SeedOrganizations(modelBuilder);
         SeedReliefItems(modelBuilder);
+        SeedItemModelTargetGroups(modelBuilder);
         SeedDepots(modelBuilder);
         SeedDepotManagers(modelBuilder);
         SeedDepotInventories(modelBuilder);
@@ -76,138 +77,268 @@ public static class LogisticsSeeder
 
         modelBuilder.Entity<ReliefItem>().HasData(
             // ── Category 1: Thực phẩm (Food) — 10 items ──────────────────────
-            new ReliefItem { Id = 1,  CategoryId = 1, Name = "Mì tôm",                        Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 7,  CategoryId = 1, Name = "Sữa bột trẻ em",                Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Children.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 8,  CategoryId = 1, Name = "Lương khô",                     Unit = "thanh", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 11, CategoryId = 1, Name = "Gạo sấy khô",                   Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 12, CategoryId = 1, Name = "Cháo ăn liền",                  Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Elderly.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 13, CategoryId = 1, Name = "Bánh mì khô",                   Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 14, CategoryId = 1, Name = "Muối tinh",                     Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 15, CategoryId = 1, Name = "Đường cát trắng",               Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 16, CategoryId = 1, Name = "Dầu ăn thực vật",               Unit = "chai",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 17, CategoryId = 1, Name = "Thịt hộp đóng gói",             Unit = "hộp",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 1,  CategoryId = 1, Name = "Mì tôm",                        Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 7,  CategoryId = 1, Name = "Sữa bột trẻ em",                Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 8,  CategoryId = 1, Name = "Lương khô",                     Unit = "thanh", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 11, CategoryId = 1, Name = "Gạo sấy khô",                   Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 12, CategoryId = 1, Name = "Cháo ăn liền",                  Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 13, CategoryId = 1, Name = "Bánh mì khô",                   Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 14, CategoryId = 1, Name = "Muối tinh",                     Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 15, CategoryId = 1, Name = "Đường cát trắng",               Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 16, CategoryId = 1, Name = "Dầu ăn thực vật",               Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 17, CategoryId = 1, Name = "Thịt hộp đóng gói",             Unit = "hộp",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 2: Nước uống (Water) — 7 items (tiêu hao, phát cho nạn nhân) ──
-            new ReliefItem { Id = 2,  CategoryId = 2, Name = "Nước tinh khiết",               Unit = "chai",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 18, CategoryId = 2, Name = "Nước lọc bình 20L",             Unit = "bình",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 19, CategoryId = 2, Name = "Viên lọc nước khẩn cấp",        Unit = "viên",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 20, CategoryId = 2, Name = "Nước đóng thùng 24 chai",       Unit = "thùng", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 22, CategoryId = 2, Name = "Nước khoáng thiên nhiên 500ml", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 25, CategoryId = 2, Name = "Nước dừa đóng hộp",             Unit = "hộp",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 26, CategoryId = 2, Name = "Bột bù điện giải ORS",          Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 2,  CategoryId = 2, Name = "Nước tinh khiết",               Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 18, CategoryId = 2, Name = "Nước lọc bình 20L",             Unit = "bình",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 19, CategoryId = 2, Name = "Viên lọc nước khẩn cấp",        Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 20, CategoryId = 2, Name = "Nước đóng thùng 24 chai",       Unit = "thùng", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 22, CategoryId = 2, Name = "Nước khoáng thiên nhiên 500ml", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 25, CategoryId = 2, Name = "Nước dừa đóng hộp",             Unit = "hộp",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 26, CategoryId = 2, Name = "Bột bù điện giải ORS",          Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 3: Y tế (Medical) — 9 items (tiêu hao, cấp phát cho nạn nhân) ──
-            new ReliefItem { Id = 3,  CategoryId = 3, Name = "Thuốc hạ sốt Paracetamol 500mg", Unit = "viên",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 9,  CategoryId = 3, Name = "Dầu gió",                         Unit = "chai",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Elderly.ToString(),   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 10, CategoryId = 3, Name = "Sắt & Vitamin tổng hợp",          Unit = "viên",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Pregnant.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 27, CategoryId = 3, Name = "Băng gạc y tế vô khuẩn",          Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 28, CategoryId = 3, Name = "Bông gòn y tế",                   Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 29, CategoryId = 3, Name = "Thuốc kháng sinh Amoxicillin",    Unit = "viên",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 30, CategoryId = 3, Name = "Dung dịch sát khuẩn Betadine",    Unit = "chai",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 32, CategoryId = 3, Name = "Khẩu trang y tế 3 lớp",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 33, CategoryId = 3, Name = "Bộ sơ cứu cơ bản",                Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 3,  CategoryId = 3, Name = "Thuốc hạ sốt Paracetamol 500mg", Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 9,  CategoryId = 3, Name = "Dầu gió",                         Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 10, CategoryId = 3, Name = "Sắt & Vitamin tổng hợp",          Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 27, CategoryId = 3, Name = "Băng gạc y tế vô khuẩn",          Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 28, CategoryId = 3, Name = "Bông gòn y tế",                   Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 29, CategoryId = 3, Name = "Thuốc kháng sinh Amoxicillin",    Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 30, CategoryId = 3, Name = "Dung dịch sát khuẩn Betadine",    Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 32, CategoryId = 3, Name = "Khẩu trang y tế 3 lớp",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 33, CategoryId = 3, Name = "Bộ sơ cứu cơ bản",                Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 4: Vệ sinh cá nhân (Hygiene) — 10 items ─────────────
-            new ReliefItem { Id = 5,  CategoryId = 4, Name = "Băng vệ sinh",              Unit = "miếng", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 34, CategoryId = 4, Name = "Xà phòng diệt khuẩn",      Unit = "bánh",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 35, CategoryId = 4, Name = "Nước rửa tay khô",          Unit = "chai",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 36, CategoryId = 4, Name = "Khăn ướt kháng khuẩn",      Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 37, CategoryId = 4, Name = "Kem đánh răng",             Unit = "tuýp",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 38, CategoryId = 4, Name = "Bàn chải đánh răng",        Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 39, CategoryId = 4, Name = "Dầu gội đầu",               Unit = "chai",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 40, CategoryId = 4, Name = "Khăn bông tắm",             Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 41, CategoryId = 4, Name = "Giấy vệ sinh",              Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 42, CategoryId = 4, Name = "Tã dùng một lần",           Unit = "miếng", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Children.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 5,  CategoryId = 4, Name = "Băng vệ sinh",              Unit = "miếng", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 34, CategoryId = 4, Name = "Xà phòng diệt khuẩn",      Unit = "bánh",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 35, CategoryId = 4, Name = "Nước rửa tay khô",          Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 36, CategoryId = 4, Name = "Khăn ướt kháng khuẩn",      Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 37, CategoryId = 4, Name = "Kem đánh răng",             Unit = "tuýp",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 38, CategoryId = 4, Name = "Bàn chải đánh răng",        Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 39, CategoryId = 4, Name = "Dầu gội đầu",               Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 40, CategoryId = 4, Name = "Khăn bông tắm",             Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 41, CategoryId = 4, Name = "Giấy vệ sinh",              Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 42, CategoryId = 4, Name = "Tã dùng một lần",           Unit = "miếng", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 5: Quần áo (Clothing) — 10 items ────────────────────
-            new ReliefItem { Id = 43, CategoryId = 5, Name = "Áo mưa người lớn",          Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 44, CategoryId = 5, Name = "Ủng cao su chống lũ",       Unit = "đôi",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 45, CategoryId = 5, Name = "Bộ quần áo trẻ em",         Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Children.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 46, CategoryId = 5, Name = "Áo ấm người lớn",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 47, CategoryId = 5, Name = "Bộ quần áo người lớn",      Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 48, CategoryId = 5, Name = "Bộ quần áo người cao tuổi", Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Elderly.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 49, CategoryId = 5, Name = "Găng tay giữ ấm",           Unit = "đôi",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 50, CategoryId = 5, Name = "Tất len giữ ấm",            Unit = "đôi",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 51, CategoryId = 5, Name = "Mũ len",                    Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 52, CategoryId = 5, Name = "Áo mưa trẻ em",             Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Children.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 43, CategoryId = 5, Name = "Áo mưa người lớn",          Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 44, CategoryId = 5, Name = "Ủng cao su chống lũ",       Unit = "đôi",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 45, CategoryId = 5, Name = "Bộ quần áo trẻ em",         Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 46, CategoryId = 5, Name = "Áo ấm người lớn",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 47, CategoryId = 5, Name = "Bộ quần áo người lớn",      Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 48, CategoryId = 5, Name = "Bộ quần áo người cao tuổi", Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 49, CategoryId = 5, Name = "Găng tay giữ ấm",           Unit = "đôi",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 50, CategoryId = 5, Name = "Tất len giữ ấm",            Unit = "đôi",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 51, CategoryId = 5, Name = "Mũ len",                    Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 52, CategoryId = 5, Name = "Áo mưa trẻ em",             Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 6: Nơi trú ẩn (Shelter) — 10 items ─────────────────
             // Tiêu hao: cấp phát cho nạn nhân trú ẩn (không bắt buộc hoàn trả)
-            new ReliefItem { Id = 53, CategoryId = 6, Name = "Lều bạt cứu trợ 4 người",   Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 54, CategoryId = 6, Name = "Tấm bạt che mưa đa năng",   Unit = "tấm",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 55, CategoryId = 6, Name = "Túi ngủ giữ nhiệt",         Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 56, CategoryId = 6, Name = "Đệm hơi dã chiến",          Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 57, CategoryId = 6, Name = "Màn chống côn trùng",        Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 53, CategoryId = 6, Name = "Lều bạt cứu trợ 4 người",   Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 54, CategoryId = 6, Name = "Tấm bạt che mưa đa năng",   Unit = "tấm",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 55, CategoryId = 6, Name = "Túi ngủ giữ nhiệt",         Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 56, CategoryId = 6, Name = "Đệm hơi dã chiến",          Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 57, CategoryId = 6, Name = "Màn chống côn trùng",        Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             // Tái sử dụng: dụng cụ của cứu hộ viên (bắt buộc hoàn trả)
-            new ReliefItem { Id = 58, CategoryId = 6, Name = "Bộ cọc và dây lều",          Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 59, CategoryId = 6, Name = "Tấm bạt chống thấm",        Unit = "tấm",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 60, CategoryId = 6, Name = "Dây buộc đa năng",           Unit = "cuộn",  ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 61, CategoryId = 6, Name = "Đèn LED dã chiến",           Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 62, CategoryId = 6, Name = "Nến khẩn cấp",               Unit = "cây",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 58, CategoryId = 6, Name = "Bộ cọc và dây lều",          Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 59, CategoryId = 6, Name = "Tấm bạt chống thấm",        Unit = "tấm",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 60, CategoryId = 6, Name = "Dây buộc đa năng",           Unit = "cuộn",  ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 61, CategoryId = 6, Name = "Đèn LED dã chiến",           Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 62, CategoryId = 6, Name = "Nến khẩn cấp",               Unit = "cây",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 7: Công cụ sửa chữa (RepairTools) — 10 items ────────
-            new ReliefItem { Id = 63, CategoryId = 7, Name = "Búa đóng đinh",                     Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 64, CategoryId = 7, Name = "Đinh các loại",                     Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 65, CategoryId = 7, Name = "Cưa tay đa năng",                   Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 66, CategoryId = 7, Name = "Tua vít 2 đầu",                     Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 67, CategoryId = 7, Name = "Kìm cắt dây",                       Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 68, CategoryId = 7, Name = "Băng keo chống thấm",               Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 69, CategoryId = 7, Name = "Dao đa năng dã chiến",              Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 70, CategoryId = 7, Name = "Xẻng tay",                          Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 71, CategoryId = 7, Name = "Bao cát chống lũ",                  Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 72, CategoryId = 7, Name = "Bộ dụng cụ sửa chữa điện cơ bản",  Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 63, CategoryId = 7, Name = "Búa đóng đinh",                     Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 64, CategoryId = 7, Name = "Đinh các loại",                     Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 65, CategoryId = 7, Name = "Cưa tay đa năng",                   Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 66, CategoryId = 7, Name = "Tua vít 2 đầu",                     Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 67, CategoryId = 7, Name = "Kìm cắt dây",                       Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 68, CategoryId = 7, Name = "Băng keo chống thấm",               Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 69, CategoryId = 7, Name = "Dao đa năng dã chiến",              Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 70, CategoryId = 7, Name = "Xẻng tay",                          Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 71, CategoryId = 7, Name = "Bao cát chống lũ",                  Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 72, CategoryId = 7, Name = "Bộ dụng cụ sửa chữa điện cơ bản",  Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
 
             // ── Category 8: Thiết bị cứu hộ (RescueEquipment) — 14 items ────
-            new ReliefItem { Id = 4,  CategoryId = 8, Name = "Áo phao cứu sinh",              Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 21, CategoryId = 8, Name = "Bình lọc nước dã chiến",        Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 23, CategoryId = 8, Name = "Can đựng nước 10L",             Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 24, CategoryId = 8, Name = "Túi đựng nước linh hoạt",       Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 31, CategoryId = 8, Name = "Nhiệt kế điện tử",              Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 73, CategoryId = 8, Name = "Xuồng cao su cứu hộ",           Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 74, CategoryId = 8, Name = "Dây thừng cứu sinh 30m",        Unit = "cuộn",  ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 75, CategoryId = 8, Name = "Phao tròn cứu sinh",            Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 76, CategoryId = 8, Name = "Máy bơm nước di động",          Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 77, CategoryId = 8, Name = "Bộ đàm liên lạc dã chiến",      Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 78, CategoryId = 8, Name = "Đèn tín hiệu khẩn cấp",        Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 79, CategoryId = 8, Name = "Máy phát điện di động",         Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 80, CategoryId = 8, Name = "Cáng khiêng thương",            Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 81, CategoryId = 8, Name = "Mũ bảo hiểm cứu hộ",           Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 4,  CategoryId = 8, Name = "Áo phao cứu sinh",              Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 21, CategoryId = 8, Name = "Bình lọc nước dã chiến",        Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 23, CategoryId = 8, Name = "Can đựng nước 10L",             Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 24, CategoryId = 8, Name = "Túi đựng nước linh hoạt",       Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 31, CategoryId = 8, Name = "Nhiệt kế điện tử",              Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 73, CategoryId = 8, Name = "Xuồng cao su cứu hộ",           Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 74, CategoryId = 8, Name = "Dây thừng cứu sinh 30m",        Unit = "cuộn",  ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 75, CategoryId = 8, Name = "Phao tròn cứu sinh",            Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 76, CategoryId = 8, Name = "Máy bơm nước di động",          Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 77, CategoryId = 8, Name = "Bộ đàm liên lạc dã chiến",      Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 78, CategoryId = 8, Name = "Đèn tín hiệu khẩn cấp",        Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 79, CategoryId = 8, Name = "Máy phát điện di động",         Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 80, CategoryId = 8, Name = "Cáng khiêng thương",            Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 81, CategoryId = 8, Name = "Mũ bảo hiểm cứu hộ",           Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
 
             // ── Category 9: Sưởi ấm (Heating) — 10 items ────────────────────
-            new ReliefItem { Id = 6,  CategoryId = 9, Name = "Chăn ấm giữ nhiệt",             Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 82, CategoryId = 9, Name = "Than tổ ong",                    Unit = "viên",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 83, CategoryId = 9, Name = "Máy sưởi điện mini",             Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 84, CategoryId = 9, Name = "Túi sưởi ấm tay dùng một lần",  Unit = "gói",   ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 85, CategoryId = 9, Name = "Bộ quần áo nhiệt",               Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 86, CategoryId = 9, Name = "Ấm đun nước du lịch",            Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 87, CategoryId = 9, Name = "Bếp gas du lịch mini",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 88, CategoryId = 9, Name = "Bình gas mini dã chiến",         Unit = "bình",  ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 89, CategoryId = 9, Name = "Chăn điện sưởi",                 Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 90, CategoryId = 9, Name = "Tấm sưởi ấm bức xạ",            Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 6,  CategoryId = 9, Name = "Chăn ấm giữ nhiệt",             Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 82, CategoryId = 9, Name = "Than tổ ong",                    Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 83, CategoryId = 9, Name = "Máy sưởi điện mini",             Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 84, CategoryId = 9, Name = "Túi sưởi ấm tay dùng một lần",  Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 85, CategoryId = 9, Name = "Bộ quần áo nhiệt",               Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 86, CategoryId = 9, Name = "Ấm đun nước du lịch",            Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 87, CategoryId = 9, Name = "Bếp gas du lịch mini",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 88, CategoryId = 9, Name = "Bình gas mini dã chiến",         Unit = "bình",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 89, CategoryId = 9, Name = "Chăn điện sưởi",                 Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 90, CategoryId = 9, Name = "Tấm sưởi ấm bức xạ",            Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 10: Phương tiện (Vehicle) — 10 items ─────────────────
-            new ReliefItem { Id = 101, CategoryId = 10, Name = "Xe tải cứu trợ 2.5 tấn",       Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 102, CategoryId = 10, Name = "Xe cứu thương",                 Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 103, CategoryId = 10, Name = "Xe bán tải 4x4",                Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 104, CategoryId = 10, Name = "Xe máy địa hình",               Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 105, CategoryId = 10, Name = "Ca nô cứu hộ",                  Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 106, CategoryId = 10, Name = "Xe chở hàng nhẹ 1 tấn",         Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 107, CategoryId = 10, Name = "Xe tải đông lạnh 3.5 tấn",      Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 108, CategoryId = 10, Name = "Xe khách 16 chỗ",               Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 109, CategoryId = 10, Name = "Xe cẩu di động",                Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 110, CategoryId = 10, Name = "Xe chuyên dụng phòng cháy",     Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 101, CategoryId = 10, Name = "Xe tải cứu trợ 2.5 tấn",       Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 102, CategoryId = 10, Name = "Xe cứu thương",                 Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 103, CategoryId = 10, Name = "Xe bán tải 4x4",                Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 104, CategoryId = 10, Name = "Xe máy địa hình",               Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 105, CategoryId = 10, Name = "Ca nô cứu hộ",                  Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 106, CategoryId = 10, Name = "Xe chở hàng nhẹ 1 tấn",         Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 107, CategoryId = 10, Name = "Xe tải đông lạnh 3.5 tấn",      Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 108, CategoryId = 10, Name = "Xe khách 16 chỗ",               Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 109, CategoryId = 10, Name = "Xe cẩu di động",                Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 110, CategoryId = 10, Name = "Xe chuyên dụng phòng cháy",     Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 99: Khác (Others) — 10 items ────────────────────────
-            new ReliefItem { Id = 91,  CategoryId = 99, Name = "Pin dự phòng 10000mAh",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 92,  CategoryId = 99, Name = "Cáp sạc đa năng",                 Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 93,  CategoryId = 99, Name = "Bản đồ địa hình khẩn cấp",        Unit = "tờ",    ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 94,  CategoryId = 99, Name = "Còi báo động khẩn cấp",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 95,  CategoryId = 99, Name = "Kính bảo hộ lao động",            Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 96,  CategoryId = 99, Name = "Ba lô khẩn cấp",                  Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 97,  CategoryId = 99, Name = "Sổ tay và bút ghi chép",          Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.General.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 98,  CategoryId = 99, Name = "Bộ đèn pin đội đầu",              Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 99,  CategoryId = 99, Name = "Áo phản quang an toàn",           Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   TargetGroup = TargetGroup.Rescuer.ToString(),  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 100, CategoryId = 99, Name = "Pháo sáng khẩn cấp",              Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), TargetGroup = TargetGroup.Rescuer.ToString(),  CreatedAt = now, UpdatedAt = now }
+            new ReliefItem { Id = 91,  CategoryId = 99, Name = "Pin dự phòng 10000mAh",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 92,  CategoryId = 99, Name = "Cáp sạc đa năng",                 Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 93,  CategoryId = 99, Name = "Bản đồ địa hình khẩn cấp",        Unit = "tờ",    ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 94,  CategoryId = 99, Name = "Còi báo động khẩn cấp",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 95,  CategoryId = 99, Name = "Kính bảo hộ lao động",            Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 96,  CategoryId = 99, Name = "Ba lô khẩn cấp",                  Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 97,  CategoryId = 99, Name = "Sổ tay và bút ghi chép",          Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 98,  CategoryId = 99, Name = "Bộ đèn pin đội đầu",              Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 99,  CategoryId = 99, Name = "Áo phản quang an toàn",           Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 100, CategoryId = 99, Name = "Pháo sáng khẩn cấp",              Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now }
+        );
+    }
+
+    private static void SeedItemModelTargetGroups(ModelBuilder modelBuilder)
+    {
+        // TargetGroup IDs matching Domain enum integer values:
+        // 1=Children, 2=Elderly, 3=Pregnant, 4=Adult, 5=Rescuer
+
+        modelBuilder.Entity("item_model_target_groups").HasData(
+            // Category 1: Thực phẩm
+            new { item_model_id = 1,  target_group_id = 4 }, // Mì tôm → Adult
+            new { item_model_id = 7,  target_group_id = 1 }, // Sữa bột trẻ em → Children
+            new { item_model_id = 8,  target_group_id = 4 }, // Lương khô → Adult
+            new { item_model_id = 11, target_group_id = 4 }, // Gạo sấy khô → Adult
+            new { item_model_id = 12, target_group_id = 2 }, // Cháo ăn liền → Elderly
+            new { item_model_id = 13, target_group_id = 4 }, // Bánh mì khô → Adult
+            new { item_model_id = 14, target_group_id = 4 }, // Muối tinh → Adult
+            new { item_model_id = 15, target_group_id = 4 }, // Đường cát trắng → Adult
+            new { item_model_id = 16, target_group_id = 4 }, // Dầu ăn thực vật → Adult
+            new { item_model_id = 17, target_group_id = 4 }, // Thịt hộp đóng gói → Adult
+            // Category 2: Nước uống
+            new { item_model_id = 2,  target_group_id = 4 }, // Nước tinh khiết → Adult
+            new { item_model_id = 18, target_group_id = 4 }, // Nước lọc bình 20L → Adult
+            new { item_model_id = 19, target_group_id = 4 }, // Viên lọc nước khẩn cấp → Adult
+            new { item_model_id = 20, target_group_id = 4 }, // Nước đóng thùng 24 chai → Adult
+            new { item_model_id = 22, target_group_id = 4 }, // Nước khoáng thiên nhiên 500ml → Adult
+            new { item_model_id = 25, target_group_id = 4 }, // Nước dừa đóng hộp → Adult
+            new { item_model_id = 26, target_group_id = 4 }, // Bột bù điện giải ORS → Adult
+            // Category 3: Y tế
+            new { item_model_id = 3,  target_group_id = 4 }, // Thuốc hạ sốt Paracetamol 500mg → Adult
+            new { item_model_id = 9,  target_group_id = 2 }, // Dầu gió → Elderly
+            new { item_model_id = 10, target_group_id = 3 }, // Sắt & Vitamin tổng hợp → Pregnant
+            new { item_model_id = 27, target_group_id = 4 }, // Băng gạc y tế vô khuẩn → Adult
+            new { item_model_id = 28, target_group_id = 4 }, // Bông gòn y tế → Adult
+            new { item_model_id = 29, target_group_id = 4 }, // Thuốc kháng sinh Amoxicillin → Adult
+            new { item_model_id = 30, target_group_id = 4 }, // Dung dịch sát khuẩn Betadine → Adult
+            new { item_model_id = 32, target_group_id = 4 }, // Khẩu trang y tế 3 lớp → Adult
+            new { item_model_id = 33, target_group_id = 4 }, // Bộ sơ cứu cơ bản → Adult
+            // Category 4: Vệ sinh cá nhân
+            new { item_model_id = 5,  target_group_id = 4 }, // Băng vệ sinh → Adult
+            new { item_model_id = 34, target_group_id = 4 }, // Xà phòng diệt khuẩn → Adult
+            new { item_model_id = 35, target_group_id = 4 }, // Nước rửa tay khô → Adult
+            new { item_model_id = 36, target_group_id = 4 }, // Khăn ướt kháng khuẩn → Adult
+            new { item_model_id = 37, target_group_id = 4 }, // Kem đánh răng → Adult
+            new { item_model_id = 38, target_group_id = 4 }, // Bàn chải đánh răng → Adult
+            new { item_model_id = 39, target_group_id = 4 }, // Dầu gội đầu → Adult
+            new { item_model_id = 40, target_group_id = 4 }, // Khăn bông tắm → Adult
+            new { item_model_id = 41, target_group_id = 4 }, // Giấy vệ sinh → Adult
+            new { item_model_id = 42, target_group_id = 1 }, // Tã dùng một lần → Children
+            // Category 5: Quần áo
+            new { item_model_id = 43, target_group_id = 4 }, // Áo mưa người lớn → Adult
+            new { item_model_id = 44, target_group_id = 4 }, // Ủng cao su chống lũ → Adult
+            new { item_model_id = 45, target_group_id = 1 }, // Bộ quần áo trẻ em → Children
+            new { item_model_id = 46, target_group_id = 4 }, // Áo ấm người lớn → Adult
+            new { item_model_id = 47, target_group_id = 4 }, // Bộ quần áo người lớn → Adult
+            new { item_model_id = 48, target_group_id = 2 }, // Bộ quần áo người cao tuổi → Elderly
+            new { item_model_id = 49, target_group_id = 4 }, // Găng tay giữ ấm → Adult
+            new { item_model_id = 50, target_group_id = 4 }, // Tất len giữ ấm → Adult
+            new { item_model_id = 51, target_group_id = 4 }, // Mũ len → Adult
+            new { item_model_id = 52, target_group_id = 1 }, // Áo mưa trẻ em → Children
+            // Category 6: Nơi trú ẩn
+            new { item_model_id = 53, target_group_id = 4 }, // Lều bạt cứu trợ 4 người → Adult
+            new { item_model_id = 54, target_group_id = 4 }, // Tấm bạt che mưa đa năng → Adult
+            new { item_model_id = 55, target_group_id = 4 }, // Túi ngủ giữ nhiệt → Adult
+            new { item_model_id = 56, target_group_id = 4 }, // Đệm hơi dã chiến → Adult
+            new { item_model_id = 57, target_group_id = 4 }, // Màn chống côn trùng → Adult
+            new { item_model_id = 58, target_group_id = 5 }, // Bộ cọc và dây lều → Rescuer
+            new { item_model_id = 59, target_group_id = 4 }, // Tấm bạt chống thấm → Adult
+            new { item_model_id = 60, target_group_id = 5 }, // Dây buộc đa năng → Rescuer
+            new { item_model_id = 61, target_group_id = 5 }, // Đèn LED dã chiến → Rescuer
+            new { item_model_id = 62, target_group_id = 4 }, // Nến khẩn cấp → Adult
+            // Category 7: Công cụ sửa chữa
+            new { item_model_id = 63, target_group_id = 5 }, // Búa đóng đinh → Rescuer
+            new { item_model_id = 64, target_group_id = 5 }, // Đinh các loại → Rescuer
+            new { item_model_id = 65, target_group_id = 5 }, // Cưa tay đa năng → Rescuer
+            new { item_model_id = 66, target_group_id = 5 }, // Tua vít 2 đầu → Rescuer
+            new { item_model_id = 67, target_group_id = 5 }, // Kìm cắt dây → Rescuer
+            new { item_model_id = 68, target_group_id = 5 }, // Băng keo chống thấm → Rescuer
+            new { item_model_id = 69, target_group_id = 5 }, // Dao đa năng dã chiến → Rescuer
+            new { item_model_id = 70, target_group_id = 5 }, // Xẻng tay → Rescuer
+            new { item_model_id = 71, target_group_id = 5 }, // Bao cát chống lũ → Rescuer
+            new { item_model_id = 72, target_group_id = 5 }, // Bộ dụng cụ sửa chữa điện cơ bản → Rescuer
+            // Category 8: Thiết bị cứu hộ
+            new { item_model_id = 4,  target_group_id = 5 }, // Áo phao cứu sinh → Rescuer
+            new { item_model_id = 21, target_group_id = 5 }, // Bình lọc nước dã chiến → Rescuer
+            new { item_model_id = 23, target_group_id = 5 }, // Can đựng nước 10L → Rescuer
+            new { item_model_id = 24, target_group_id = 5 }, // Túi đựng nước linh hoạt → Rescuer
+            new { item_model_id = 31, target_group_id = 5 }, // Nhiệt kế điện tử → Rescuer
+            new { item_model_id = 73, target_group_id = 5 }, // Xuồng cao su cứu hộ → Rescuer
+            new { item_model_id = 74, target_group_id = 5 }, // Dây thừng cứu sinh 30m → Rescuer
+            new { item_model_id = 75, target_group_id = 5 }, // Phao tròn cứu sinh → Rescuer
+            new { item_model_id = 76, target_group_id = 5 }, // Máy bơm nước di động → Rescuer
+            new { item_model_id = 77, target_group_id = 5 }, // Bộ đàm liên lạc dã chiến → Rescuer
+            new { item_model_id = 78, target_group_id = 5 }, // Đèn tín hiệu khẩn cấp → Rescuer
+            new { item_model_id = 79, target_group_id = 5 }, // Máy phát điện di động → Rescuer
+            new { item_model_id = 80, target_group_id = 5 }, // Cáng khiêng thương → Rescuer
+            new { item_model_id = 81, target_group_id = 5 }, // Mũ bảo hiểm cứu hộ → Rescuer
+            // Category 9: Sưởi ấm
+            new { item_model_id = 6,  target_group_id = 4 }, // Chăn ấm giữ nhiệt → Adult
+            new { item_model_id = 82, target_group_id = 4 }, // Than tổ ong → Adult
+            new { item_model_id = 83, target_group_id = 4 }, // Máy sưởi điện mini → Adult
+            new { item_model_id = 84, target_group_id = 4 }, // Túi sưởi ấm tay dùng một lần → Adult
+            new { item_model_id = 85, target_group_id = 4 }, // Bộ quần áo nhiệt → Adult
+            new { item_model_id = 86, target_group_id = 4 }, // Ấm đun nước du lịch → Adult
+            new { item_model_id = 87, target_group_id = 4 }, // Bếp gas du lịch mini → Adult
+            new { item_model_id = 88, target_group_id = 4 }, // Bình gas mini dã chiến → Adult
+            new { item_model_id = 89, target_group_id = 4 }, // Chăn điện sưởi → Adult
+            new { item_model_id = 90, target_group_id = 4 }, // Tấm sưởi ấm bức xạ → Adult
+            // Category 10: Phương tiện
+            new { item_model_id = 101, target_group_id = 5 }, // Xe tải cứu trợ 2.5 tấn → Rescuer
+            new { item_model_id = 102, target_group_id = 5 }, // Xe cứu thương → Rescuer
+            new { item_model_id = 103, target_group_id = 5 }, // Xe bán tải 4x4 → Rescuer
+            new { item_model_id = 104, target_group_id = 5 }, // Xe máy địa hình → Rescuer
+            new { item_model_id = 105, target_group_id = 5 }, // Ca nô cứu hộ → Rescuer
+            new { item_model_id = 106, target_group_id = 5 }, // Xe chở hàng nhẹ 1 tấn → Rescuer
+            new { item_model_id = 107, target_group_id = 5 }, // Xe tải đông lạnh 3.5 tấn → Rescuer
+            new { item_model_id = 108, target_group_id = 5 }, // Xe khách 16 chỗ → Rescuer
+            new { item_model_id = 109, target_group_id = 5 }, // Xe cẩu di động → Rescuer
+            new { item_model_id = 110, target_group_id = 5 }, // Xe chuyên dụng phòng cháy → Rescuer
+            // Category 99: Khác
+            new { item_model_id = 91,  target_group_id = 4 }, // Pin dự phòng 10000mAh → Adult
+            new { item_model_id = 92,  target_group_id = 4 }, // Cáp sạc đa năng → Adult
+            new { item_model_id = 93,  target_group_id = 5 }, // Bản đồ địa hình khẩn cấp → Rescuer
+            new { item_model_id = 94,  target_group_id = 4 }, // Còi báo động khẩn cấp → Adult
+            new { item_model_id = 95,  target_group_id = 5 }, // Kính bảo hộ lao động → Rescuer
+            new { item_model_id = 96,  target_group_id = 4 }, // Ba lô khẩn cấp → Adult
+            new { item_model_id = 97,  target_group_id = 4 }, // Sổ tay và bút ghi chép → Adult
+            new { item_model_id = 98,  target_group_id = 5 }, // Bộ đèn pin đội đầu → Rescuer
+            new { item_model_id = 99,  target_group_id = 5 }, // Áo phản quang an toàn → Rescuer
+            new { item_model_id = 100, target_group_id = 5 }  // Pháo sáng khẩn cấp → Rescuer
         );
     }
 
@@ -243,7 +374,17 @@ public static class LogisticsSeeder
     {
         var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
 
-        // 72 consumable relief item IDs (sorted)
+        // 72 consumable relief item IDs (same order as before — preserves DSI IDs)
+        // Index map (0-based): 0:Id1, 1:Id2, 2:Id3, 3:Id5, 4:Id6, 5:Id7, 6:Id8, 7:Id9, 8:Id10,
+        //   9:Id11, 10:Id12, 11:Id13, 12:Id14, 13:Id15, 14:Id16, 15:Id17,
+        //   16:Id18, 17:Id19, 18:Id20, 19:Id22, 20:Id25, 21:Id26,
+        //   22:Id27, 23:Id28, 24:Id29, 25:Id30, 26:Id32, 27:Id33,
+        //   28:Id34, 29:Id35, 30:Id36, 31:Id37, 32:Id38, 33:Id39, 34:Id40, 35:Id41, 36:Id42,
+        //   37:Id43, 38:Id44, 39:Id45, 40:Id46, 41:Id47, 42:Id48, 43:Id49, 44:Id50, 45:Id51, 46:Id52,
+        //   47:Id53, 48:Id54, 49:Id55, 50:Id56, 51:Id57, 52:Id59, 53:Id62,
+        //   54:Id64, 55:Id68,
+        //   56:Id82, 57:Id83, 58:Id84, 59:Id85, 60:Id86, 61:Id87, 62:Id88, 63:Id89, 64:Id90,
+        //   65:Id91, 66:Id92, 67:Id93, 68:Id94, 69:Id96, 70:Id97, 71:Id100
         int[] consumableIds =
         {
             1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -255,6 +396,20 @@ public static class LogisticsSeeder
             64, 68,
             82, 83, 84, 85, 86, 87, 88, 89, 90,
             91, 92, 93, 94, 96, 97, 100
+        };
+
+        // Category of each item (same order as consumableIds)
+        int[] itemCategoryId =
+        {
+            1, 2, 3, 4, 9, 1, 1, 3, 3, 1, 1, 1, 1, 1, 1, 1,  // idx 0-15
+            2, 2, 2, 2, 2, 2,                                   // idx 16-21
+            3, 3, 3, 3, 3, 3,                                   // idx 22-27
+            4, 4, 4, 4, 4, 4, 4, 4, 4,                         // idx 28-36
+            5, 5, 5, 5, 5, 5, 5, 5, 5, 5,                      // idx 37-46
+            6, 6, 6, 6, 6, 6, 6,                                // idx 47-53
+            7, 7,                                                // idx 54-55
+            9, 9, 9, 9, 9, 9, 9, 9, 9,                         // idx 56-64
+            99, 99, 99, 99, 99, 99, 99                          // idx 65-71
         };
 
         // Base quantities matching the order above
@@ -271,7 +426,22 @@ public static class LogisticsSeeder
             200, 300, 500, 200, 100, 1000, 300
         };
 
-        double[] factors = { 1.0, 0.8, 0.6, 0.9 };
+        // ── Per-category, per-depot quantity factors ─────────────────────────
+        // Depot order: D1-Huế(0), D2-Đà Nẵng(1), D3-Hà Tĩnh(2), D4-HN-TW(3)
+        // Low factors (< 0.4) are intentional to create supply shortage test data
+        var categoryFactors = new Dictionary<int, double[]>
+        {
+            [1]  = new[] { 1.2,  0.7,  0.25, 1.5  }, // Food       — D3 LOW ⚠️
+            [2]  = new[] { 0.8,  1.3,  0.6,  1.4  }, // Water
+            [3]  = new[] { 0.25, 1.4,  0.7,  1.5  }, // Medical    — D1 LOW ⚠️
+            [4]  = new[] { 0.9,  1.2,  0.2,  1.3  }, // Hygiene    — D3 LOW ⚠️
+            [5]  = new[] { 1.1,  0.3,  1.3,  0.9  }, // Clothing   — D2 LOW ⚠️
+            [6]  = new[] { 1.0,  0.6,  1.2,  0.8  }, // Shelter
+            [7]  = new[] { 1.0,  0.8,  1.0,  1.2  }, // RepairTools
+            [9]  = new[] { 0.35, 0.3,  1.5,  0.8  }, // Heating    — D1+D2 LOW ⚠️
+            [99] = new[] { 0.6,  0.8,  0.3,  1.2  }, // Others     — D3 LOW ⚠️
+        };
+
         int[] depotIds = { 1, 2, 3, 4 };
 
         var list = new List<DepotSupplyInventory>();
@@ -281,7 +451,11 @@ public static class LogisticsSeeder
         {
             for (int i = 0; i < consumableIds.Length; i++)
             {
-                int qty = (int)(baseQty[i] * factors[d]);
+                int catId = itemCategoryId[i];
+                double factor = categoryFactors.TryGetValue(catId, out var catFactors)
+                    ? catFactors[d]
+                    : 1.0;
+                int qty = Math.Max(1, (int)(baseQty[i] * factor));
                 list.Add(new DepotSupplyInventory
                 {
                     Id = id,
@@ -296,36 +470,41 @@ public static class LogisticsSeeder
         }
 
         // ── Low-stock seed overrides ─────────────────────────────────────────
-        // stockRatio = (Quantity - ReservedQuantity) / Quantity
-        // Các entries này được ghi đè reserved để tạo dữ liệu cảnh báo cho chart
+        // DSI ID formula: id = depotIndex * 72 + itemIndex + 1
+        //   D1 (Huế):    IDs  1- 72  | D2 (Đà Nẵng): IDs  73-144
+        //   D3 (Hà Tĩnh): IDs 145-216 | D4 (HN-TW):   IDs 217-288
         //
-        // ID formula: id = depotIndex * 72 + itemIndex + 1
-        //   Depot 1 (factor 1.0): IDs 1-72   | Depot 2 (factor 0.8): IDs 73-144
-        //   Depot 3 (factor 0.6): IDs 145-216 | Depot 4 (factor 0.9): IDs 217-288
+        // Override ReservedQuantity so that AvailableQty = Quantity - ReservedQuantity
+        // falls into a warning/danger band relative to Quantity.
         //
-        // 🔴 Danger  (ratio ≤ 20%):
-        //   id=1   depot1 Mì tôm       qty=50000 → reserved=43000 available=7000  =14%
-        //   id=2   depot1 Nước tinh khiết qty=40000 → reserved=38000 available=2000  = 5%
-        //   id=75  depot2 Paracetamol  qty=64000 → reserved=55000 available=9000  =14%
-        // 🟡 Warning (20% < ratio ≤ 40%):
-        //   id=73  depot2 Mì tôm       qty=40000 → reserved=28000 available=12000 =30%
-        //   id=74  depot2 Nước tinh khiết qty=32000 → reserved=22000 available=10000 =31%
-        //   id=145 depot3 Mì tôm       qty=30000 → reserved=21000 available=9000  =30%
-        //   id=146 depot3 Nước tinh khiết qty=24000 → reserved=16000 available=8000  =33%
+        // 🔴 Danger (<10% available):
+        //   DSI=3   D1 Paracetamol   qty≈20000 (0.25×80000) → reserved=19200  avail≈4%
+        //   DSI=145 D3 Mì tôm        qty≈12500 (0.25×50000) → reserved=11500  avail≈8%
+        //   DSI=173 D3 Xà phòng      qty≈1600  (0.20×8000)  → reserved=1470   avail≈8%
+        //   DSI=63  D1 Bình gas mini qty≈525   (0.35×1500)  → reserved=490    avail≈7%
+        //   DSI=135 D2 Bình gas mini qty≈450   (0.30×1500)  → reserved=415    avail≈8%
+        //
+        // 🟡 Warning (10-25% available):
+        //   DSI=23  D1 Băng gạc       qty≈2500  (0.25×10000) → reserved=2125   avail≈15%
+        //   DSI=154 D3 Gạo sấy khô   qty≈5000  (0.25×20000) → reserved=4250   avail≈15%
+        //   DSI=110 D2 Áo mưa NL      qty≈165   (0.30×500)   → reserved=132    avail≈20%
+        //   DSI=172 D3 Bộ sơ cứu     qty≈900   (0.25×3000+) → reserved=765    avail≈15%
         var lowStockOverrides = new Dictionary<int, int>
         {
-            [1]   = 43000,
-            [2]   = 38000,
-            [73]  = 28000,
-            [74]  = 22000,
-            [75]  = 55000,
-            [145] = 21000,
-            [146] = 16000,
+            [3]   = 19200,  // 🔴 D1 Paracetamol — kho Huế hết thuốc
+            [23]  = 2125,   // 🟡 D1 Băng gạc    — kho Huế sắp hết băng
+            [63]  = 490,    // 🔴 D1 Bình gas mini — kho Huế hết sưởi
+            [110] = 132,    // 🟡 D2 Áo mưa NL   — kho ĐN thiếu quần áo
+            [135] = 415,    // 🔴 D2 Bình gas mini — kho ĐN hết sưởi
+            [145] = 11500,  // 🔴 D3 Mì tôm      — kho Hà Tĩnh hết thực phẩm
+            [154] = 4250,   // 🟡 D3 Gạo sấy     — kho Hà Tĩnh sắp hết gạo
+            [172] = 765,    // 🟡 D3 Bộ sơ cứu   — kho Hà Tĩnh thiếu y tế
+            [173] = 1470,   // 🔴 D3 Xà phòng    — kho Hà Tĩnh hết vệ sinh
         };
         foreach (var entry in list)
         {
             if (lowStockOverrides.TryGetValue(entry.Id, out var overrideReserved))
-                entry.ReservedQuantity = overrideReserved;
+                entry.ReservedQuantity = Math.Min(overrideReserved, (entry.Quantity ?? 1) - 1);
         }
 
         modelBuilder.Entity<DepotSupplyInventory>().HasData(list.ToArray());
@@ -340,55 +519,74 @@ public static class LogisticsSeeder
         var good = ReusableItemCondition.Good.ToString();
         var fair = ReusableItemCondition.Fair.ToString();
 
-        // ── Non-vehicle reusable relief item IDs (28 items) ──
-        int[] reusableIds =
+        // ── Reusable item groups with per-depot unit counts ───────────────
+        // Per-depot unit table (D1-Huế, D2-Đà Nẵng, D3-Hà Tĩnh, D4-HN-TW)
+        //
+        // RescueEquipment (4,21,23,24,31,73,74,75,76,77,78,79,80,81) : 3, 4, 2, 3
+        // Shelter reusables (58,60,61)                                : 5, 2, 4, 3  (Shelter-rich for Huế+Hà Tĩnh)
+        // RepairTools (63,65,66,67,69,70,71,72)                       : 2, 4, 2, 3
+        // Cat99 reusables (95,98,99)                                  : 3, 3, 3, 3
+        //
+        // Heating reusables: none (all heating is consumable)
+        // Vehicle (101-110) : scaled by depot factor ×1.0/×0.8/×0.6/×1.2
+
+        // (itemId, unitsPerDepot[D1,D2,D3,D4])
+        var reusableGroups = new (int[] ids, int[] units)[]
         {
-            4, 21, 23, 24, 31,
-            58, 60, 61,
-            63, 65, 66, 67, 69, 70, 71, 72,
-            73, 74, 75, 76, 77, 78, 79, 80, 81,
-            95, 98, 99
+            // RescueEquipment — D3 slightly lower
+            (new[] { 4, 21, 23, 24, 31, 73, 74, 75, 76, 77, 78, 79, 80, 81 }, new[] { 3, 4, 2, 3 }),
+            // Shelter reusables — D1 & D3 high (coastal/flood zones)
+            (new[] { 58, 60, 61 }, new[] { 5, 2, 4, 3 }),
+            // RepairTools reusables — D2 high (urban center)
+            (new[] { 63, 65, 66, 67, 69, 70, 71, 72 }, new[] { 2, 4, 2, 3 }),
+            // Category 99 reusables
+            (new[] { 95, 98, 99 }, new[] { 3, 3, 3, 3 }),
         };
 
-        // ── Vehicle relief item IDs (Cat 10) & base unit counts per depot ──
+        // ── Vehicle item IDs and base units per depot ──────────────────────
         // 101 Xe tải 2.5T, 102 Xe cứu thương, 103 Xe bán tải 4×4, 104 Xe máy địa hình,
         // 105 Ca nô, 106 Xe chở hàng 1T, 107 Xe đông lạnh, 108 Xe khách 16 chỗ,
         // 109 Xe cẩu, 110 Xe PCCC
         int[] vehicleIds       = { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110 };
         int[] vehicleBaseUnits = {   5,   3,   5,   8,   4,   5,   3,   3,   2,   2 };
+        double[] vehicleDepotFactors = { 1.0, 0.8, 0.6, 1.2 };
 
         int[] depotIds = { 1, 2, 3, 4 };
-        double[] depotFactors = { 1.0, 0.8, 0.6, 0.9 };
-        string[] conditions3 = { good, good, fair };
 
         var list = new List<DepotReusableItem>();
         int id = 1;
 
         for (int d = 0; d < depotIds.Length; d++)
         {
-            // ── Non-vehicle reusable items: 3 units each ──
-            for (int r = 0; r < reusableIds.Length; r++)
+            // ── Non-vehicle reusable items ──
+            foreach (var (ids, unitCounts) in reusableGroups)
             {
-                for (int u = 1; u <= 3; u++)
+                int units = unitCounts[d];
+                foreach (int itemId in ids)
                 {
-                    list.Add(new DepotReusableItem
+                    for (int u = 1; u <= units; u++)
                     {
-                        Id = id++,
-                        DepotId = depotIds[d],
-                        ItemModelId = reusableIds[r],
-                        SerialNumber = $"D{depotIds[d]}-R{reusableIds[r]:D3}-{u:D3}",
-                        Status = available,
-                        Condition = conditions3[u - 1],
-                        CreatedAt = now,
-                        UpdatedAt = now
-                    });
+                        // First 2/3 units are Good, last 1/3 are Fair
+                        string condition = u <= Math.Max(1, units * 2 / 3) ? good : fair;
+                        list.Add(new DepotReusableItem
+                        {
+                            Id = id++,
+                            DepotId = depotIds[d],
+                            ItemModelId = itemId,
+                            SerialNumber = $"D{depotIds[d]}-R{itemId:D3}-{u:D3}",
+                            Status = available,
+                            Condition = condition,
+                            CreatedAt = now,
+                            UpdatedAt = now
+                        });
+                    }
                 }
             }
 
             // ── Vehicle items: variable units per type, scaled by depot factor ──
             for (int v = 0; v < vehicleIds.Length; v++)
             {
-                int units = Math.Max(1, (int)(vehicleBaseUnits[v] * depotFactors[d]));
+                int units = Math.Max(1, (int)(vehicleBaseUnits[v] * vehicleDepotFactors[d]));
                 for (int u = 1; u <= units; u++)
                 {
                     list.Add(new DepotReusableItem

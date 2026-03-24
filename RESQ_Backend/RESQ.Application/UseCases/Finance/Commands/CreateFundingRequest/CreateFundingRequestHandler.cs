@@ -59,7 +59,7 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
                 UnitPrice    = item.UnitPrice,
                 TotalPrice   = item.TotalPrice,
                 ItemType     = item.ItemType,
-                TargetGroup  = item.TargetGroup,
+                TargetGroups = item.TargetGroup.Split(',', System.StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList(),
                 ReceivedDate = item.ReceivedDate,
                 ExpiredDate  = item.ExpiredDate,
                 Notes        = item.Notes

@@ -42,7 +42,7 @@ public class GetDepotInventoryQueryHandler(
                 CategoryId        = x.CategoryId,
                 CategoryName      = x.CategoryName,
                 ItemType          = x.ItemType,
-                TargetGroup       = x.TargetGroup,
+                TargetGroups      = x.TargetGroups,
                 // Consumable fields
                 Quantity          = isReusable ? null : x.Availability.Quantity,
                 ReservedQuantity  = isReusable ? null : x.Availability.ReservedQuantity,

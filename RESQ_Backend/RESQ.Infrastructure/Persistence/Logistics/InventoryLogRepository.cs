@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
@@ -147,9 +148,15 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.ItemModel)
                     .ThenInclude(x => x!.Category)
+            .Include(x => x.SupplyInventory)
+                .ThenInclude(x => x!.ItemModel)
+                    .ThenInclude(x => x!.TargetGroups)
             .Include(x => x.ReusableItem)
                 .ThenInclude(x => x!.ItemModel)
                     .ThenInclude(x => x!.Category)
+            .Include(x => x.ReusableItem)
+                .ThenInclude(x => x!.ItemModel)
+                    .ThenInclude(x => x!.TargetGroups)
             .Include(x => x.PerformedByUser)
             .AsQueryable();
 
@@ -262,9 +269,11 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                     ItemType = item.SupplyInventory?.ItemModel?.ItemType
                                ?? item.ReusableItem?.ItemModel?.ItemType
                                ?? string.Empty,
-                    TargetGroup = item.SupplyInventory?.ItemModel?.TargetGroup
-                                  ?? item.ReusableItem?.ItemModel?.TargetGroup
-                                  ?? string.Empty,
+                    TargetGroup = TargetGroupTranslations.JoinAsVietnamese(
+                                      (item.SupplyInventory?.ItemModel?.TargetGroups
+                                       ?? item.ReusableItem?.ItemModel?.TargetGroups
+                                       ?? Enumerable.Empty<RESQ.Infrastructure.Entities.Logistics.TargetGroup>())
+                                      .Select(tg => tg.Name)),
                     CategoryName = item.SupplyInventory?.ItemModel?.Category?.Name
                                    ?? item.ReusableItem?.ItemModel?.Category?.Name,
                     ReceivedDate = item.ReceivedDate,

@@ -15,7 +15,7 @@ public class FundingRequestItemModel
     public decimal UnitPrice { get; set; }
     public decimal TotalPrice { get; set; }
     public string ItemType { get; set; } = string.Empty;
-    public string TargetGroup { get; set; } = string.Empty;
+    public List<string> TargetGroups { get; set; } = new();
     public DateOnly? ReceivedDate { get; set; }
     public DateOnly? ExpiredDate { get; set; }
     public string? Notes { get; set; }

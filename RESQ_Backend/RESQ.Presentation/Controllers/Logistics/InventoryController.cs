@@ -14,6 +14,8 @@ using RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.RejectSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
+using RESQ.Application.UseCases.Logistics.Queries.GenerateDonationImportTemplate;
+using RESQ.Application.UseCases.Logistics.Queries.GeneratePurchaseImportTemplate;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetItemCategoryByCode;
@@ -372,6 +374,30 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         };
 
         var result = await _mediator.Send(query);
+        return File(result.FileContent, result.ContentType, result.FileName);
+    }
+
+    /// <summary>Tải file Excel mẫu nhập kho từ thiện (donation import template).
+    /// File có dropdown chọn danh mục → dependent dropdown chọn vật phẩm,
+    /// và auto-fill VLOOKUP cho Đối tượng / Loại vật phẩm / Đơn vị.</summary>
+    [HttpGet("template/donation-import")]
+    [Authorize]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DownloadDonationImportTemplate()
+    {
+        var result = await _mediator.Send(new GenerateDonationImportTemplateQuery());
+        return File(result.FileContent, result.ContentType, result.FileName);
+    }
+
+    /// <summary>Tải file Excel mẫu nhập kho mua sắm (purchase import template).
+    /// File có cột thông tin hóa đơn VAT, dropdown danh mục → vật phẩm,
+    /// auto-fill VLOOKUP và cột đơn giá.</summary>
+    [HttpGet("template/purchase-import")]
+    [Authorize]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DownloadPurchaseImportTemplate()
+    {
+        var result = await _mediator.Send(new GeneratePurchaseImportTemplateQuery());
         return File(result.FileContent, result.ContentType, result.FileName);
     }
 

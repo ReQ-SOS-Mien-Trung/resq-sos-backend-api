@@ -17,6 +17,7 @@ public class ImportPurchasedInventoryCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     ICampaignDisbursementRepository campaignDisbursementRepository,
     IDepotFundRepository depotFundRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     IUnitOfWork unitOfWork,
     ILogger<ImportPurchasedInventoryCommandHandler> logger)
     : IRequestHandler<ImportPurchasedInventoryCommand, ImportPurchasedInventoryResponse>
@@ -26,6 +27,7 @@ public class ImportPurchasedInventoryCommandHandler(
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly ICampaignDisbursementRepository _disbursementRepo = campaignDisbursementRepository;
     private readonly IDepotFundRepository _depotFundRepo = depotFundRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ImportPurchasedInventoryCommandHandler> _logger = logger;
 
@@ -43,7 +45,32 @@ public class ImportPurchasedInventoryCommandHandler(
         // 2. Tải tất cả danh mục để mapping hiệu quả
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
 
-        // 2b. Tính tổng chi phí từ tất cả hóa đơn và kiểm tra quỹ kho
+        // 2b. Batch-fetch existing item models for all Path A rows across all groups
+        var allItemModelIds = request.Invoices
+            .SelectMany(g => g.Items)
+            .Where(x => x.ItemModelId.HasValue)
+            .Select(x => x.ItemModelId!.Value)
+            .Distinct()
+            .ToList();
+
+        Dictionary<int, ItemModelRecord> existingItemModels;
+        if (allItemModelIds.Count > 0)
+        {
+            existingItemModels = await _itemModelMetadataRepository.GetByIdsAsync(allItemModelIds, cancellationToken);
+
+            var missingIds = allItemModelIds.Where(id => !existingItemModels.ContainsKey(id)).ToList();
+            if (missingIds.Count > 0)
+            {
+                _logger.LogWarning("Purchase import: {MissingCount} ItemModelId(s) not found in DB: {MissingIds}",
+                    missingIds.Count, missingIds);
+            }
+        }
+        else
+        {
+            existingItemModels = new Dictionary<int, ItemModelRecord>();
+        }
+
+        // 2c. Tính tổng chi phí từ tất cả hóa đơn và kiểm tra quỹ kho
         var totalCost = request.Invoices
             .Where(g => g.VatInvoice.TotalAmount.HasValue)
             .Sum(g => g.VatInvoice.TotalAmount!.Value);
@@ -85,42 +112,109 @@ public class ImportPurchasedInventoryCommandHandler(
                     }
                 }
 
-                // 3b. Validate từng vật phẩm trong nhóm
+                // 3b. Validate từng vật phẩm trong nhóm (dual-path)
                 var validItems = new List<(ImportPurchasedItemDto dto, ItemModelRecord itemModel)>();
-                var errors = new List<ImportPurchasedErrorDto>();
+                var rowErrors = new Dictionary<int, HashSet<string>>();
 
                 foreach (var item in group.Items)
                 {
                     try
                     {
-                        var category = categories.FirstOrDefault(c =>
-                            string.Equals(c.Code.ToString(), item.CategoryCode, StringComparison.OrdinalIgnoreCase));
+                        ItemModelRecord? resolvedRecord = null;
 
-                        if (category == null)
+                        if (item.ItemModelId.HasValue)
                         {
-                            errors.Add(new ImportPurchasedErrorDto
+                            // ── Path A: Existing item by ID ──
+                            if (!existingItemModels.TryGetValue(item.ItemModelId.Value, out var existingRecord))
                             {
-                                Row = item.Row,
-                                Message = $"Không tìm thấy danh mục vật phẩm có mã: {item.CategoryCode}"
-                            });
-                            continue;
+                                AddRowError(rowErrors, item.Row, $"Không tìm thấy item model có ID: {item.ItemModelId.Value}");
+                                continue;
+                            }
+                            resolvedRecord = existingRecord;
+                        }
+                        else
+                        {
+                            // ── Path B: Create new item from metadata ──
+                            var normalizedName = item.ItemName?.Trim();
+                            var normalizedUnit = item.Unit?.Trim();
+                            var normalizedItemType = item.ItemType?.Trim();
+                            var normalizedCategoryCode = item.CategoryCode?.Trim();
+
+                            if (string.IsNullOrWhiteSpace(normalizedName))
+                            {
+                                AddRowError(rowErrors, item.Row, "Tên vật phẩm không được để trống");
+                                continue;
+                            }
+
+                            if (string.IsNullOrWhiteSpace(normalizedCategoryCode))
+                            {
+                                AddRowError(rowErrors, item.Row, "Mã danh mục không được để trống");
+                                continue;
+                            }
+
+                            var category = categories.FirstOrDefault(c =>
+                                string.Equals(c.Code.ToString(), normalizedCategoryCode, StringComparison.OrdinalIgnoreCase));
+
+                            if (category == null)
+                            {
+                                AddRowError(rowErrors, item.Row, $"Không tìm thấy danh mục vật phẩm có mã: {item.CategoryCode}");
+                                continue;
+                            }
+
+                            if (string.IsNullOrWhiteSpace(normalizedUnit))
+                            {
+                                AddRowError(rowErrors, item.Row, "Đơn vị tính không được để trống");
+                                continue;
+                            }
+
+                            if (string.IsNullOrWhiteSpace(normalizedItemType))
+                            {
+                                AddRowError(rowErrors, item.Row, "Loại vật phẩm không được để trống");
+                                continue;
+                            }
+
+                            var targetGroups = item.TargetGroups?
+                                .Where(g => !string.IsNullOrWhiteSpace(g))
+                                .Select(g => g.Trim())
+                                .ToList() ?? new();
+
+                            if (targetGroups.Count == 0)
+                            {
+                                AddRowError(rowErrors, item.Row, "Nhóm đối tượng không được để trống");
+                                continue;
+                            }
+
+                            try
+                            {
+                                resolvedRecord = ItemModelRecord.Create(
+                                    category.Id,
+                                    normalizedName,
+                                    normalizedUnit,
+                                    normalizedItemType,
+                                    targetGroups);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Unexpected error creating ItemModelRecord for row {Row} group {GroupIndex}", item.Row, i);
+                                AddRowError(rowErrors, item.Row, "Lỗi hệ thống khi tạo item model");
+                                continue;
+                            }
                         }
 
-                        var reliefItemModel = ItemModelRecord.Create(
-                            category.Id,
-                            item.ItemName,
-                            item.Unit,
-                            item.ItemType,
-                            item.TargetGroup);
-
-                        validItems.Add((item, reliefItemModel));
+                        validItems.Add((item, resolvedRecord));
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Lỗi khi validate vật phẩm dòng {Row} nhóm {GroupIndex}", item.Row, i);
-                        errors.Add(new ImportPurchasedErrorDto { Row = item.Row, Message = ex.Message });
+                        _logger.LogError(ex, "Unexpected error processing item at row {Row} group {GroupIndex}", item.Row, i);
+                        AddRowError(rowErrors, item.Row, ex.Message);
                     }
                 }
+
+                // Flatten row errors into sorted error list for this group
+                var errors = rowErrors
+                    .OrderBy(kv => kv.Key)
+                    .Select(kv => new ImportPurchasedErrorDto { Row = kv.Key, Message = $"[Dòng {kv.Key}] {string.Join("; ", kv.Value)}" })
+                    .ToList();
 
                 groupResult.Failed = errors.Count;
                 groupResult.Errors = errors;
@@ -131,6 +225,9 @@ public class ImportPurchasedInventoryCommandHandler(
                     response.TotalFailed += errors.Count;
                     continue;
                 }
+
+                // Sort resolved items by row for predictable output
+                validItems = validItems.OrderBy(x => x.dto.Row).ToList();
 
                 // 3c. Validate CampaignDisbursementId trước khi ghi bất kỳ dữ liệu nào
                 CampaignDisbursementModel? linkedDisbursement = null;
@@ -168,7 +265,7 @@ public class ImportPurchasedInventoryCommandHandler(
                         r.CategoryId == reliefItem.CategoryId &&
                         r.Unit == reliefItem.Unit &&
                         r.ItemType == reliefItem.ItemType &&
-                        r.TargetGroup == reliefItem.TargetGroup);
+                        r.TargetGroups.OrderBy(x => x).SequenceEqual(reliefItem.TargetGroups.OrderBy(x => x)));
 
                     if (savedReliefItem != null)
                     {
@@ -201,16 +298,23 @@ public class ImportPurchasedInventoryCommandHandler(
                 //     linkedDisbursement đã được validate ở step 3c — không query lại DB
                 if (linkedDisbursement != null)
                 {
-                    var disbursementItems = validItems.Select(x => new DisbursementItemModel
+                    var disbursementItems = validItems.Select(x =>
                     {
-                        CampaignDisbursementId = linkedDisbursement.Id,
-                        ItemName      = x.dto.ItemName,
-                        Unit          = x.dto.Unit,
-                        Quantity      = x.dto.Quantity,
-                        UnitPrice     = x.dto.UnitPrice ?? 0m,
-                        TotalPrice    = (x.dto.UnitPrice ?? 0m) * x.dto.Quantity,
-                        Note          = x.dto.Notes,
-                        CreatedAt     = DateTime.UtcNow
+                        // Use resolved record Name/Unit for disbursement snapshot (not raw DTO which may be null for Path A)
+                        var resolvedName = !string.IsNullOrWhiteSpace(x.dto.ItemName) ? x.dto.ItemName.Trim() : x.itemModel.Name;
+                        var resolvedUnit = !string.IsNullOrWhiteSpace(x.dto.Unit) ? x.dto.Unit.Trim() : x.itemModel.Unit;
+
+                        return new DisbursementItemModel
+                        {
+                            CampaignDisbursementId = linkedDisbursement.Id,
+                            ItemName      = resolvedName,
+                            Unit          = resolvedUnit,
+                            Quantity      = x.dto.Quantity,
+                            UnitPrice     = x.dto.UnitPrice ?? 0m,
+                            TotalPrice    = (x.dto.UnitPrice ?? 0m) * x.dto.Quantity,
+                            Note          = x.dto.Notes,
+                            CreatedAt     = DateTime.UtcNow
+                        };
                     }).ToList();
 
                     await _disbursementRepo.AddItemsAsync(linkedDisbursement.Id, disbursementItems, cancellationToken);
@@ -295,5 +399,18 @@ public class ImportPurchasedInventoryCommandHandler(
         }
 
         return response;
+    }
+
+    /// <summary>
+    /// Adds an error message for a specific row. Deduplicates via HashSet.
+    /// </summary>
+    private static void AddRowError(Dictionary<int, HashSet<string>> rowErrors, int row, string message)
+    {
+        if (!rowErrors.TryGetValue(row, out var messages))
+        {
+            messages = new HashSet<string>(StringComparer.Ordinal);
+            rowErrors[row] = messages;
+        }
+        messages.Add(message);
     }
 }

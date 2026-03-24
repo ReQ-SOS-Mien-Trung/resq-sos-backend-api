@@ -61,6 +61,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<ServiceZone> ServiceZones { get; set; }
     public virtual DbSet<SosPriorityRuleConfig> SosPriorityRuleConfigs { get; set; }
     public virtual DbSet<ItemModel> ItemModels { get; set; }
+    public virtual DbSet<TargetGroup> TargetGroups { get; set; }
     public virtual DbSet<RescuerApplication> RescuerApplications { get; set; }
     public virtual DbSet<RescuerApplicationDocument> RescuerApplicationDocuments { get; set; }
     public virtual DbSet<RescueTeam> RescueTeams { get; set; }
@@ -130,6 +131,29 @@ public partial class ResQDbContext : DbContext
                   .HasDatabaseName("ix_supply_inventory_lots_fefo");
             entity.UseXminAsConcurrencyToken();
         });
+
+        modelBuilder.Entity<TargetGroup>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("target_groups_pkey");
+            entity.HasIndex(e => e.Name).IsUnique().HasDatabaseName("target_groups_name_key");
+            entity.HasData(
+                new TargetGroup { Id = 1, Name = "Children" },
+                new TargetGroup { Id = 2, Name = "Elderly" },
+                new TargetGroup { Id = 3, Name = "Pregnant" },
+                new TargetGroup { Id = 4, Name = "Adult" },
+                new TargetGroup { Id = 5, Name = "Rescuer" }
+            );
+        });
+
+        modelBuilder.Entity<ItemModel>()
+            .HasMany(im => im.TargetGroups)
+            .WithMany(tg => tg.ItemModels)
+            .UsingEntity(
+                "item_model_target_groups",
+                l => l.HasOne(typeof(TargetGroup)).WithMany().HasForeignKey("target_group_id").HasConstraintName("FK_item_model_target_groups_target_group_id"),
+                r => r.HasOne(typeof(ItemModel)).WithMany().HasForeignKey("item_model_id").HasConstraintName("FK_item_model_target_groups_item_model_id"),
+                j => j.HasKey("item_model_id", "target_group_id").HasName("PK_item_model_target_groups")
+            );
 
         OnModelCreatingPartial(modelBuilder);
     }

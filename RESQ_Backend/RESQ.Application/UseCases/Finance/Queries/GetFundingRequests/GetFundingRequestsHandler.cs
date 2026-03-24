@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Finance;
 
@@ -49,7 +50,7 @@ public class GetFundingRequestsHandler : IRequestHandler<GetFundingRequestsQuery
                 UnitPrice    = i.UnitPrice,
                 TotalPrice   = i.TotalPrice,
                 ItemType     = i.ItemType,
-                TargetGroup  = i.TargetGroup,
+                TargetGroup  = TargetGroupTranslations.JoinAsVietnamese(i.TargetGroups),
                 ReceivedDate = i.ReceivedDate,
                 ExpiredDate  = i.ExpiredDate,
                 Notes        = i.Notes

@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
@@ -12,6 +13,7 @@ using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Logistics.Services;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
+using DomainTargetGroup = RESQ.Domain.Enum.Logistics.TargetGroup;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
@@ -43,7 +45,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int depotId, 
         List<int>? categoryIds, 
         List<ItemType>? itemTypes, 
-        List<TargetGroup>? targetGroups, 
+        List<DomainTargetGroup>? targetGroups, 
         int pageNumber, 
         int pageSize, 
         CancellationToken cancellationToken = default)
@@ -58,8 +60,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             : null;
         var hasItemTypeFilter = itemTypeSet != null && itemTypeSet.Count < totalItemTypeCount;
 
-        var targetGroupStrings = targetGroups?.Select(e => e.ToString().ToLower()).ToList() ?? new List<string>();
-        var hasTargetGroupFilter = targetGroupStrings.Count > 0;
+        var targetGroupSet = targetGroups?.Select(e => e.ToString().ToLower()).ToHashSet() ?? new HashSet<string>();
+        var hasTargetGroupFilter = targetGroupSet.Count > 0;
 
         // Determine which tables to query based on the ItemType filter.
         // No filter (null/empty/all-types) → include both; explicit filter → include only matching types.
@@ -76,15 +78,22 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 join ri  in _unitOfWork.GetRepository<ItemModel>().AsQueryable() on inv.ItemModelId equals ri.Id
                 where inv.DepotId == depotId
                    && (!hasCategoryFilter  || safeCategoryIds.Contains(ri.CategoryId ?? 0))
-                   && (!hasTargetGroupFilter || (ri.TargetGroup != null && targetGroupStrings.Contains(ri.TargetGroup.ToLower())))
+                   && (!hasTargetGroupFilter || ri.TargetGroups.Any(tg => targetGroupSet.Contains(tg.Name.ToLower())))
                 select new
                 {
-                    ri.Id, ri.Name, ri.CategoryId, ri.ItemType, ri.TargetGroup,
+                    ri.Id, ri.Name, ri.CategoryId, ri.ItemType,
                     Quantity         = inv.Quantity         ?? 0,
                     ReservedQuantity = inv.ReservedQuantity ?? 0,
                     LastStockedAt    = inv.LastStockedAt
                 }
             ).ToListAsync(cancellationToken);
+
+            // Fetch TargetGroups for consumable ItemModels in one query
+            var consumableItemModelIds = consumableRaw.Select(x => x.Id).Distinct().ToList();
+            var consumableTgDict = await _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+                .Include(r => r.TargetGroups)
+                .Where(r => consumableItemModelIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id, r => r.TargetGroups.Select(tg => TargetGroupTranslations.ToVietnamese(tg.Name)).ToList(), cancellationToken);
 
             var catIds = consumableRaw.Where(x => x.CategoryId.HasValue).Select(x => x.CategoryId!.Value).Distinct().ToList();
             var catDict = await _unitOfWork.GetRepository<Category>().AsQueryable()
@@ -116,7 +125,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     CategoryId     = x.CategoryId,
                     CategoryName   = x.CategoryId.HasValue && catDict.TryGetValue(x.CategoryId.Value, out var cn) ? cn : string.Empty,
                     ItemType       = x.ItemType,
-                    TargetGroup    = x.TargetGroup,
+                    TargetGroups   = consumableTgDict.TryGetValue(x.Id, out var tgNames) ? tgNames : new List<string>(),
                     Availability   = _inventoryQueryService.ComputeAvailability(x.Quantity, x.ReservedQuantity),
                     LastStockedAt  = x.LastStockedAt,
                     LotCount       = ls?.LotCount ?? 0,
@@ -133,15 +142,14 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 join ri  in _unitOfWork.GetRepository<ItemModel>().AsQueryable() on dri.ItemModelId equals ri.Id
                 where dri.DepotId == depotId
                    && (!hasCategoryFilter  || safeCategoryIds.Contains(ri.CategoryId ?? 0))
-                   && (!hasTargetGroupFilter || (ri.TargetGroup != null && targetGroupStrings.Contains(ri.TargetGroup.ToLower())))
-                group new { dri, ri } by new { ri.Id, ri.Name, ri.CategoryId, ri.ItemType, ri.TargetGroup } into g
+                   && (!hasTargetGroupFilter || ri.TargetGroups.Any(tg => targetGroupSet.Contains(tg.Name.ToLower())))
+                group new { dri, ri } by new { ri.Id, ri.Name, ri.CategoryId, ri.ItemType } into g
                 select new
                 {
                     Id                  = g.Key.Id,
                     Name                = g.Key.Name,
                     CategoryId          = g.Key.CategoryId,
                     ItemType            = g.Key.ItemType,
-                    TargetGroup         = g.Key.TargetGroup,
                     TotalUnits          = g.Count(),
                     AvailableUnits      = g.Count(x => x.dri.Status == "Available"),
                     ReservedUnits       = g.Count(x => x.dri.Status == "Reserved"),
@@ -161,6 +169,13 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 .Where(c => catIds.Contains(c.Id))
                 .ToDictionaryAsync(c => c.Id, c => c.Name ?? string.Empty, cancellationToken);
 
+            // Fetch TargetGroups for each reusable ItemModel
+            var reusableItemModelIds = reusableRaw.Select(x => x.Id).Distinct().ToList();
+            var reusableTgDict = await _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+                .Include(r => r.TargetGroups)
+                .Where(r => reusableItemModelIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id, r => r.TargetGroups.Select(tg => TargetGroupTranslations.ToVietnamese(tg.Name)).ToList(), cancellationToken);
+
             combined.AddRange(reusableRaw.Select(x => new InventoryItemModel
             {
                 ItemModelId      = x.Id,
@@ -168,7 +183,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 CategoryId        = x.CategoryId,
                 CategoryName      = x.CategoryId.HasValue && catDict.TryGetValue(x.CategoryId.Value, out var cn) ? cn : string.Empty,
                 ItemType          = x.ItemType,
-                TargetGroup       = x.TargetGroup,
+                TargetGroups      = reusableTgDict.TryGetValue(x.Id, out var tgNames) ? tgNames : new List<string>(),
                 Availability      = _inventoryQueryService.ComputeAvailability(
                                         x.TotalUnits,
                                         x.ReservedUnits + x.InTransitUnits + x.InUseUnits + x.MaintenanceUnits),
@@ -774,7 +789,6 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 Unit             = item.Unit,
                 CategoryId       = item.CategoryId,
                 CategoryName     = cat != null ? cat.Name ?? string.Empty : string.Empty,
-                TargetGroup      = item.TargetGroup,
                 Quantity         = inv.Quantity ?? 0,
                 ReservedQuantity = inv.ReservedQuantity ?? 0,
                 Available        = (inv.Quantity ?? 0) - (inv.ReservedQuantity ?? 0)
@@ -784,6 +798,13 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             .OrderBy(x => x.Available)
             .ThenBy(x => x.DepotId)
             .ToListAsync(cancellationToken);
+
+        // Fetch TargetGroups for all item models in one query
+        var lowStockItemModelIds = raw.Select(r => r.ItemModelId).Distinct().ToList();
+        var lowStockTgDict = await _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+            .Include(r => r.TargetGroups)
+            .Where(r => lowStockItemModelIds.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, r => TargetGroupTranslations.JoinAsVietnamese(r.TargetGroups.Select(tg => tg.Name)), cancellationToken);
 
         // Classify and apply optional alert-level filter in memory
         var result = new List<LowStockItemDto>();
@@ -805,7 +826,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 Unit             = r.Unit,
                 CategoryId       = r.CategoryId,
                 CategoryName     = r.CategoryName,
-                TargetGroup      = r.TargetGroup,
+                TargetGroup      = lowStockTgDict.TryGetValue(r.ItemModelId, out var tgStr) ? tgStr : null,
                 Quantity         = r.Quantity,
                 ReservedQuantity = r.ReservedQuantity,
                 AvailableQuantity = r.Available,

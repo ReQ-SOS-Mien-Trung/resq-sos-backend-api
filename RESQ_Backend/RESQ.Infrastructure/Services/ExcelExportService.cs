@@ -6,6 +6,10 @@ namespace RESQ.Infrastructure.Services;
 
 public class ExcelExportService : IExcelExportService
 {
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Constants for the inventory movement report (existing)
+    // ═══════════════════════════════════════════════════════════════════════════
+
     private static readonly string[] Headers =
     [
         "STT", "Tên Vật Phẩm", "Danh mục", "Đối tượng", "Loại vật phẩm",
@@ -14,12 +18,36 @@ public class ExcelExportService : IExcelExportService
     ];
 
     // ── Palette ──────────────────────────────────────────────────────────────
-    private static readonly XLColor OrangeDark     = XLColor.FromHtml("#E65100"); // title bg
-    private static readonly XLColor OrangeMid      = XLColor.FromHtml("#FF8F00"); // header bg
-    private static readonly XLColor OrangeLight    = XLColor.FromHtml("#FFF3E0"); // alt-row bg
-    private static readonly XLColor OrangeSummary  = XLColor.FromHtml("#FFE0B2"); // summary bg
-    private static readonly XLColor Black          = XLColor.FromHtml("#212121"); // text on light bg
-    private static readonly XLColor White          = XLColor.White;               // text on dark bg
+    private static readonly XLColor OrangeDark     = XLColor.FromHtml("#E65100");
+    private static readonly XLColor OrangeMid      = XLColor.FromHtml("#FF8F00");
+    private static readonly XLColor OrangeLight    = XLColor.FromHtml("#FFF3E0");
+    private static readonly XLColor OrangeSummary  = XLColor.FromHtml("#FFE0B2");
+    private static readonly XLColor Black          = XLColor.FromHtml("#212121");
+    private static readonly XLColor White          = XLColor.White;
+    private static readonly XLColor LockedCellColor   = XLColor.FromHtml("#ECEFF1"); // light blue-gray — VLOOKUP read-only cells
+    private static readonly XLColor LockedHeaderColor = XLColor.FromHtml("#546E7A"); // dark blue-gray — locked column headers
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Constants for the donation import template
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] TemplateHeaders =
+    [
+        "STT",              // A
+        "Tên vật phẩm",    // B
+        "Danh mục",         // C
+        "Đối tượng",        // D
+        "Loại vật phẩm",   // E
+        "Đơn vị",           // F
+        "Số lượng",         // G
+        "Ngày hết hạn",    // H
+        "Ngày nhận",        // I
+        "Ghi chú"           // J
+    ];
+
+    private const int TemplateDataStartRow = 2;
+    private const int TemplateDataEndRow   = 102; // 100 data rows
+    private const int TemplateCols         = 10;   // A..J
 
     public byte[] GenerateInventoryMovementReport(
         IReadOnlyList<InventoryMovementRow> rows,
@@ -158,5 +186,417 @@ public class ExcelExportService : IExcelExportService
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
         return ms.ToArray();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Donation Import Template — Excel file with dependent dropdowns
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    public byte[] GenerateDonationImportTemplate(
+        IReadOnlyList<DonationImportCategoryInfo> categories,
+        IReadOnlyList<DonationImportItemInfo> items)
+    {
+        using var workbook = new XLWorkbook();
+
+        // ── 1. Build hidden reference sheets ──────────────────────────────────
+        var wsDanhMuc = workbook.Worksheets.Add("DM_DanhMuc");
+        var wsVatPham = workbook.Worksheets.Add("DM_VatPham");
+        var wsLookup  = workbook.Worksheets.Add("DM_Lookup");
+
+        BuildCategorySheet(wsDanhMuc, categories, workbook);
+        BuildItemSheet(wsVatPham, categories, items, workbook);
+        BuildLookupSheet(wsLookup, items);
+
+        wsDanhMuc.Visibility = XLWorksheetVisibility.VeryHidden;
+        wsVatPham.Visibility = XLWorksheetVisibility.VeryHidden;
+        wsLookup.Visibility  = XLWorksheetVisibility.VeryHidden;
+
+        // ── 2. Build main entry sheet ─────────────────────────────────────────
+        var ws = workbook.Worksheets.Add("Nhập kho từ thiện");
+        ws.SetTabActive();
+
+        BuildMainSheet(ws, categories);
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+        return ms.ToArray();
+    }
+
+    // ─── DM_DanhMuc: Category list → named range "Categories" ─────────────────
+    private static void BuildCategorySheet(
+        IXLWorksheet ws,
+        IReadOnlyList<DonationImportCategoryInfo> categories,
+        XLWorkbook workbook)
+    {
+        ws.Cell(1, 1).Value = "Danh mục";
+        for (int i = 0; i < categories.Count; i++)
+        {
+            // Format: "Thực phẩm - Food"
+            ws.Cell(i + 2, 1).Value = $"{categories[i].Name} - {categories[i].Code}";
+        }
+
+        // Named range "Categories" → DM_DanhMuc!$A$2:$A${n+1}
+        int lastRow = categories.Count + 1;
+        workbook.NamedRanges.Add("Categories", ws.Range(2, 1, lastRow, 1));
+    }
+
+    // ─── DM_VatPham: One column per category code → named ranges Cat_Food, Cat_Water... ─
+    private static void BuildItemSheet(
+        IXLWorksheet ws,
+        IReadOnlyList<DonationImportCategoryInfo> categories,
+        IReadOnlyList<DonationImportItemInfo> items,
+        XLWorkbook workbook)
+    {
+        // Group items by category code
+        var itemsByCategory = items
+            .GroupBy(i => i.CategoryCode)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        int col = 1;
+        foreach (var cat in categories)
+        {
+            // Header row
+            ws.Cell(1, col).Value = cat.Code;
+
+            if (itemsByCategory.TryGetValue(cat.Code, out var catItems))
+            {
+                for (int i = 0; i < catItems.Count; i++)
+                {
+                    // Format: "Mì tôm - 1"
+                    ws.Cell(i + 2, col).Value = $"{catItems[i].Name} - {catItems[i].Id}";
+                }
+
+                // Named range: Cat_Food, Cat_Water, etc.
+                int lastRow = catItems.Count + 1;
+                var rangeName = $"Cat_{cat.Code}";
+                workbook.NamedRanges.Add(rangeName, ws.Range(2, col, lastRow, col));
+            }
+            else
+            {
+                // Empty category — still create named range pointing to a single blank cell
+                var rangeName = $"Cat_{cat.Code}";
+                workbook.NamedRanges.Add(rangeName, ws.Range(2, col, 2, col));
+            }
+
+            col++;
+        }
+    }
+
+    // ─── DM_Lookup: Flat table for VLOOKUP (display name → TargetGroup, ItemType, Unit)
+    private static void BuildLookupSheet(
+        IXLWorksheet ws,
+        IReadOnlyList<DonationImportItemInfo> items)
+    {
+        // Header
+        ws.Cell(1, 1).Value = "TenVatPham";
+        ws.Cell(1, 2).Value = "DoiTuong";
+        ws.Cell(1, 3).Value = "LoaiVatPham";
+        ws.Cell(1, 4).Value = "DonVi";
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            int r = i + 2;
+            // Lookup key must match the dropdown display: "Mì tôm - 1"
+            ws.Cell(r, 1).Value = $"{items[i].Name} - {items[i].Id}";
+            ws.Cell(r, 2).Value = items[i].TargetGroupDisplay;
+            ws.Cell(r, 3).Value = items[i].ItemTypeDisplay;
+            ws.Cell(r, 4).Value = items[i].Unit;
+        }
+    }
+
+    // ─── Main entry sheet: headers, STT, dropdowns, VLOOKUP formulas ──────────
+    private static void BuildMainSheet(
+        IXLWorksheet ws,
+        IReadOnlyList<DonationImportCategoryInfo> categories)
+    {
+        // ── Header row styling ────────────────────────────────────────────────
+        for (int c = 0; c < TemplateHeaders.Length; c++)
+            ws.Cell(1, c + 1).Value = TemplateHeaders[c];
+
+        var headerRange = ws.Range(1, 1, 1, TemplateCols);
+        headerRange.Style
+            .Font.SetBold(true)
+            .Font.SetFontSize(11)
+            .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+            .Alignment.SetVertical(XLAlignmentVerticalValues.Center)
+            .Alignment.SetWrapText(true)
+            .Fill.SetBackgroundColor(OrangeMid)
+            .Font.SetFontColor(White);
+        headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        headerRange.Style.Border.InsideBorder  = XLBorderStyleValues.Thin;
+        ws.Row(1).Height = 24;
+
+        // ── Column widths ─────────────────────────────────────────────────────
+        ws.Column(1).Width  = 5;   // STT
+        ws.Column(2).Width  = 30;  // Tên vật phẩm
+        ws.Column(3).Width  = 25;  // Danh mục
+        ws.Column(4).Width  = 25;  // Đối tượng
+        ws.Column(5).Width  = 15;  // Loại vật phẩm
+        ws.Column(6).Width  = 12;  // Đơn vị
+        ws.Column(7).Width  = 12;  // Số lượng
+        ws.Column(8).Width  = 16;  // Ngày hết hạn
+        ws.Column(9).Width  = 16;  // Ngày nhận
+        ws.Column(10).Width = 25;  // Ghi chú
+
+        // ── Data rows (2..102) ────────────────────────────────────────────────
+        for (int r = TemplateDataStartRow; r <= TemplateDataEndRow; r++)
+        {
+            int rowNum = r - TemplateDataStartRow + 1;
+
+            // Col A: STT (auto-number)
+            ws.Cell(r, 1).Value = rowNum;
+            ws.Cell(r, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+
+            // Col C: Danh mục — dropdown from named range "Categories"
+            var dvCategory = ws.Cell(r, 3).GetDataValidation();
+            dvCategory.List("=Categories");
+            dvCategory.IgnoreBlanks = true;
+            dvCategory.ShowErrorMessage = true;
+            dvCategory.ErrorTitle = "Lỗi";
+            dvCategory.ErrorMessage = "Vui lòng chọn danh mục từ danh sách.";
+
+            // Col B: Tên vật phẩm — dependent dropdown via INDIRECT
+            // Formula: =INDIRECT("Cat_" & RIGHT(C2, LEN(C2) - FIND(" - ", C2) - 2))
+            // This extracts the code part after " - " in the category dropdown value
+            var dvItem = ws.Cell(r, 2).GetDataValidation();
+            dvItem.List($"=INDIRECT(\"Cat_\"&RIGHT(C{r},LEN(C{r})-FIND(\" - \",C{r})-2))");
+            dvItem.IgnoreBlanks = true;
+            dvItem.ShowInputMessage = true;
+            dvItem.InputTitle = "Gợi ý";
+            dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
+            dvItem.ShowErrorMessage = false; // Allow manual entry of new items
+
+            // Col D: Đối tượng — VLOOKUP auto-fill (editable)
+            ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,2,FALSE),\"\")";
+
+            // Col E: Loại vật phẩm — VLOOKUP auto-fill (editable)
+            ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,3,FALSE),\"\")";
+
+            // Col F: Đơn vị — VLOOKUP auto-fill (editable)
+            ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
+
+            // Col G: Số lượng — number format
+            ws.Cell(r, 7).Style.NumberFormat.Format = "#,##0";
+
+            // Col H: Ngày hết hạn — DateOnly (dd/MM/yyyy)
+            ws.Cell(r, 8).Style.NumberFormat.Format = "dd/MM/yyyy";
+            var dvExpiryDate = ws.Cell(r, 8).GetDataValidation();
+            dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
+            dvExpiryDate.IgnoreBlanks = true;
+            dvExpiryDate.ShowInputMessage = true;
+            dvExpiryDate.InputTitle = "Ngày hết hạn";
+            dvExpiryDate.InputMessage = "Nhập ngày (dd/MM/yyyy).\nVí dụ: 25/12/2026\nĐể trống nếu không có.";
+            dvExpiryDate.ShowErrorMessage = true;
+            dvExpiryDate.ErrorTitle = "Sai định dạng";
+            dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
+            dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
+
+            // Col I: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
+            ws.Cell(r, 9).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
+            var dvReceivedDate = ws.Cell(r, 9).GetDataValidation();
+            dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
+            dvReceivedDate.IgnoreBlanks = true;
+            dvReceivedDate.ShowInputMessage = true;
+            dvReceivedDate.InputTitle = "Ngày nhận";
+            dvReceivedDate.InputMessage = "Nhập ngày giờ (dd/MM/yyyy HH:mm).\nVí dụ: 24/03/2026 14:30";
+            dvReceivedDate.ShowErrorMessage = true;
+            dvReceivedDate.ErrorTitle = "Sai định dạng";
+            dvReceivedDate.ErrorMessage = "Vui lòng nhập ngày giờ hợp lệ (dd/MM/yyyy HH:mm).";
+            dvReceivedDate.ErrorStyle = XLErrorStyle.Warning;
+
+            // Alternate row background
+            if (rowNum % 2 == 0)
+            {
+                var rowRange = ws.Range(r, 1, r, TemplateCols);
+                rowRange.Style.Fill.SetBackgroundColor(OrangeLight);
+            }
+
+            // Thin borders for all data cells
+            var dataRow = ws.Range(r, 1, r, TemplateCols);
+            dataRow.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            dataRow.Style.Border.InsideBorder  = XLBorderStyleValues.Hair;
+            dataRow.Style.Border.OutsideBorderColor = XLColor.FromHtml("#BDBDBD");
+            dataRow.Style.Border.InsideBorderColor  = XLColor.FromHtml("#E0E0E0");
+        }
+
+        // ── Freeze header row ─────────────────────────────────────────────────
+        ws.SheetView.FreezeRows(1);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Purchase Import Template — Excel file with item columns + unit price
+    //  (VAT invoice info is handled by the frontend, not in this template)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] PurchaseTemplateHeaders =
+    [
+        "STT",              // A  (1)
+        "Tên vật phẩm",    // B  (2)
+        "Danh mục",         // C  (3)
+        "Đối tượng",        // D  (4)
+        "Loại vật phẩm",   // E  (5)
+        "Đơn vị",           // F  (6)
+        "Số lượng (*)",     // G  (7)
+        "Đơn giá (VNĐ)",   // H  (8)
+        "Ngày hết hạn",    // I  (9)
+        "Ngày nhận",        // J  (10)
+        "Ghi chú"           // K  (11)
+    ];
+
+    private const int PurchaseDataStartRow = 2;
+    private const int PurchaseDataEndRow   = 102; // 101 data rows (2..102)
+    private const int PurchaseCols         = 11;  // A..K
+
+    public byte[] GeneratePurchaseImportTemplate(
+        IReadOnlyList<DonationImportCategoryInfo> categories,
+        IReadOnlyList<DonationImportItemInfo> items)
+    {
+        using var workbook = new XLWorkbook();
+
+        // ── 1. Build hidden reference sheets (reuse same helpers as donation) ─
+        var wsDanhMuc = workbook.Worksheets.Add("DM_DanhMuc");
+        var wsVatPham = workbook.Worksheets.Add("DM_VatPham");
+        var wsLookup  = workbook.Worksheets.Add("DM_Lookup");
+
+        BuildCategorySheet(wsDanhMuc, categories, workbook);
+        BuildItemSheet(wsVatPham, categories, items, workbook);
+        BuildLookupSheet(wsLookup, items);
+
+        wsDanhMuc.Visibility = XLWorksheetVisibility.VeryHidden;
+        wsVatPham.Visibility = XLWorksheetVisibility.VeryHidden;
+        wsLookup.Visibility  = XLWorksheetVisibility.VeryHidden;
+
+        // ── 2. Build main entry sheet ─────────────────────────────────────────
+        var ws = workbook.Worksheets.Add("Nhập kho mua sắm");
+        ws.SetTabActive();
+
+        BuildPurchaseMainSheet(ws);
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+        return ms.ToArray();
+    }
+
+    // ─── Purchase main entry sheet ────────────────────────────────────────────
+    private static void BuildPurchaseMainSheet(IXLWorksheet ws)
+    {
+        // ── Header row styling ────────────────────────────────────────────────
+        for (int c = 0; c < PurchaseTemplateHeaders.Length; c++)
+            ws.Cell(1, c + 1).Value = PurchaseTemplateHeaders[c];
+
+        var headerRange = ws.Range(1, 1, 1, PurchaseCols);
+        headerRange.Style
+            .Font.SetBold(true)
+            .Font.SetFontSize(11)
+            .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+            .Alignment.SetVertical(XLAlignmentVerticalValues.Center)
+            .Alignment.SetWrapText(true)
+            .Fill.SetBackgroundColor(OrangeMid)
+            .Font.SetFontColor(White);
+        headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        headerRange.Style.Border.InsideBorder  = XLBorderStyleValues.Thin;
+        ws.Row(1).Height = 24;
+
+        // ── Column widths ─────────────────────────────────────────────────────
+        ws.Column(1).Width  = 5;   // A: STT
+        ws.Column(2).Width  = 30;  // B: Tên vật phẩm
+        ws.Column(3).Width  = 25;  // C: Danh mục
+        ws.Column(4).Width  = 25;  // D: Đối tượng
+        ws.Column(5).Width  = 15;  // E: Loại vật phẩm
+        ws.Column(6).Width  = 12;  // F: Đơn vị
+        ws.Column(7).Width  = 12;  // G: Số lượng
+        ws.Column(8).Width  = 16;  // H: Đơn giá
+        ws.Column(9).Width  = 16;  // I: Ngày hết hạn
+        ws.Column(10).Width = 18;  // J: Ngày nhận
+        ws.Column(11).Width = 25;  // K: Ghi chú
+
+        // ── Data rows (2..102) ────────────────────────────────────────────────
+        for (int r = PurchaseDataStartRow; r <= PurchaseDataEndRow; r++)
+        {
+            int rowNum = r - PurchaseDataStartRow + 1;
+
+            // Col A: STT (auto-number)
+            ws.Cell(r, 1).Value = rowNum;
+            ws.Cell(r, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+
+            // Col C: Danh mục — dropdown from named range "Categories"
+            var dvCategory = ws.Cell(r, 3).GetDataValidation();
+            dvCategory.List("=Categories");
+            dvCategory.IgnoreBlanks = true;
+            dvCategory.ShowErrorMessage = true;
+            dvCategory.ErrorTitle = "Lỗi";
+            dvCategory.ErrorMessage = "Vui lòng chọn danh mục từ danh sách.";
+
+            // Col B: Tên vật phẩm — dependent dropdown via INDIRECT on col C
+            var dvItem = ws.Cell(r, 2).GetDataValidation();
+            dvItem.List($"=INDIRECT(\"Cat_\"&RIGHT(C{r},LEN(C{r})-FIND(\" - \",C{r})-2))");
+            dvItem.IgnoreBlanks = true;
+            dvItem.ShowInputMessage = true;
+            dvItem.InputTitle = "Gợi ý";
+            dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
+            dvItem.ShowErrorMessage = false; // Allow manual entry of new items
+
+            // Col D: Đối tượng — VLOOKUP auto-fill
+            ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,2,FALSE),\"\")";
+
+            // Col E: Loại vật phẩm — VLOOKUP auto-fill
+            ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,3,FALSE),\"\")";
+
+            // Col F: Đơn vị — VLOOKUP auto-fill
+            ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
+
+            // Col G: Số lượng (*) — number format
+            ws.Cell(r, 7).Style.NumberFormat.Format = "#,##0";
+
+            // Col H: Đơn giá (VNĐ) — currency format (purchase-specific)
+            ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
+            var dvUnitPrice = ws.Cell(r, 8).GetDataValidation();
+            dvUnitPrice.ShowInputMessage = true;
+            dvUnitPrice.InputTitle = "Đơn giá";
+            dvUnitPrice.InputMessage = "Giá mua mỗi đơn vị (VNĐ).\nĐể trống nếu không có.";
+
+            // Col I: Ngày hết hạn — DateOnly (dd/MM/yyyy)
+            ws.Cell(r, 9).Style.NumberFormat.Format = "dd/MM/yyyy";
+            var dvExpiryDate = ws.Cell(r, 9).GetDataValidation();
+            dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
+            dvExpiryDate.IgnoreBlanks = true;
+            dvExpiryDate.ShowInputMessage = true;
+            dvExpiryDate.InputTitle = "Ngày hết hạn";
+            dvExpiryDate.InputMessage = "Nhập ngày (dd/MM/yyyy).\nVí dụ: 25/12/2026\nĐể trống nếu không có.";
+            dvExpiryDate.ShowErrorMessage = true;
+            dvExpiryDate.ErrorTitle = "Sai định dạng";
+            dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
+            dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
+
+            // Col J: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
+            ws.Cell(r, 10).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
+            var dvReceivedDate = ws.Cell(r, 10).GetDataValidation();
+            dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
+            dvReceivedDate.IgnoreBlanks = true;
+            dvReceivedDate.ShowInputMessage = true;
+            dvReceivedDate.InputTitle = "Ngày nhận";
+            dvReceivedDate.InputMessage = "Nhập ngày giờ (dd/MM/yyyy HH:mm).\nVí dụ: 24/03/2026 14:30";
+            dvReceivedDate.ShowErrorMessage = true;
+            dvReceivedDate.ErrorTitle = "Sai định dạng";
+            dvReceivedDate.ErrorMessage = "Vui lòng nhập ngày giờ hợp lệ (dd/MM/yyyy HH:mm).";
+            dvReceivedDate.ErrorStyle = XLErrorStyle.Warning;
+
+            // ── Row styling ───────────────────────────────────────────────────
+            if (rowNum % 2 == 0)
+            {
+                var rowRange = ws.Range(r, 1, r, PurchaseCols);
+                rowRange.Style.Fill.SetBackgroundColor(OrangeLight);
+            }
+
+            // Thin borders for all data cells
+            var dataRow = ws.Range(r, 1, r, PurchaseCols);
+            dataRow.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            dataRow.Style.Border.InsideBorder  = XLBorderStyleValues.Hair;
+            dataRow.Style.Border.OutsideBorderColor = XLColor.FromHtml("#BDBDBD");
+            dataRow.Style.Border.InsideBorderColor  = XLColor.FromHtml("#E0E0E0");
+        }
+
+        // ── Freeze header row ─────────────────────────────────────────────────
+        ws.SheetView.FreezeRows(1);
     }
 }

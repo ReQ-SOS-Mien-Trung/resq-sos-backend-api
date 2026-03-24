@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
@@ -37,7 +38,7 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
 
         // Nhóm theo các thuộc tính duy nhất để tránh trùng lặp
         var uniqueItems = models
-            .GroupBy(m => new { m.Name, m.CategoryId, m.Unit, m.ItemType, m.TargetGroup })
+            .GroupBy(m => new { m.Name, m.CategoryId, m.Unit, m.ItemType, TargetGroupsKey = string.Join(",", m.TargetGroups.OrderBy(x => x)) })
             .Select(g => g.First())
             .ToList();
 
@@ -46,13 +47,18 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
 
         foreach (var model in uniqueItems)
         {
-            var existing = await repo.GetByPropertyAsync(
-                r => r.Name == model.Name &&
-                     r.CategoryId == model.CategoryId &&
-                     r.Unit == model.Unit &&
-                     r.ItemType == model.ItemType &&
-                     r.TargetGroup == model.TargetGroup,
-                tracked: true);
+            var sortedNames = model.TargetGroups.Select(n => n.ToLower()).OrderBy(n => n).ToList();
+
+            var candidates = await repo.AsQueryable(tracked: true)
+                .Include(r => r.TargetGroups)
+                .Where(r => r.Name == model.Name &&
+                            r.CategoryId == model.CategoryId &&
+                            r.Unit == model.Unit &&
+                            r.ItemType == model.ItemType)
+                .ToListAsync(cancellationToken);
+
+            var existing = candidates.FirstOrDefault(r =>
+                r.TargetGroups.Select(tg => tg.Name.ToLower()).OrderBy(n => n).SequenceEqual(sortedNames));
 
             if (existing != null)
             {
@@ -68,6 +74,24 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
         // Bulk insert các item mới
         if (newItems.Count > 0)
         {
+            var tgRepo = _unitOfWork.GetRepository<RESQ.Infrastructure.Entities.Logistics.TargetGroup>();
+            var allTargetGroups = await tgRepo.AsQueryable().ToListAsync(cancellationToken);
+
+            foreach (var newItem in newItems)
+            {
+                var domainModel = uniqueItems.First(m =>
+                    m.Name == newItem.Name && m.CategoryId == newItem.CategoryId &&
+                    m.Unit == newItem.Unit && m.ItemType == newItem.ItemType);
+
+                foreach (var tgName in domainModel.TargetGroups)
+                {
+                    var tgEntity = allTargetGroups.FirstOrDefault(t =>
+                        string.Equals(t.Name, tgName, StringComparison.OrdinalIgnoreCase));
+                    if (tgEntity != null)
+                        newItem.TargetGroups.Add(tgEntity);
+                }
+            }
+
             await repo.AddRangeAsync(newItems);
             await _unitOfWork.SaveAsync();
         }
@@ -102,13 +126,11 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
             await depotRepo.UpdateAsync(depotEntity);
         }
 
-        var orgReliefRepo      = _unitOfWork.GetRepository<OrganizationReliefItem>();
         var inventoryRepo      = _unitOfWork.GetRepository<SupplyInventory>();
         var reusableRepo       = _unitOfWork.GetRepository<ReusableItem>();
         var logRepo            = _unitOfWork.GetRepository<InventoryLog>();
         var vatInvoiceItemRepo = _unitOfWork.GetRepository<VatInvoiceItem>();
 
-        var orgReliefEntities      = new List<OrganizationReliefItem>();
         var newInventoryEntities   = new List<SupplyInventory>(); // only truly-new consumable rows
         var reusableEntities       = new List<ReusableItem>();
         var logEntities            = new List<InventoryLog>();
@@ -118,21 +140,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
         {
             var isReusable = string.Equals(itemType, "Reusable", StringComparison.OrdinalIgnoreCase);
 
-            // 1. Tạo OrganizationReliefItem (biên nhận nhập mua, OrganizationId = null)
-            orgReliefEntities.Add(new OrganizationReliefItem
-            {
-                OrganizationId = null,
-                ItemModelId    = model.ItemModelId,
-                Quantity       = model.Quantity,
-                ReceivedDate   = model.ReceivedDate,
-                ExpiredDate    = model.ExpiredDate,
-                Notes          = model.Notes,
-                ReceivedBy     = model.ReceivedBy,
-                ReceivedAt     = model.ReceivedAt,
-                CreatedAt      = model.CreatedAt ?? DateTime.UtcNow
-            });
-
-            // 2a. Consumable → cập nhật/tạo bản ghi SupplyInventory
+            // 1a. Consumable → cập nhật/tạo bản ghi SupplyInventory
             if (!isReusable)
             {
                 var existingInventory = await inventoryRepo.GetByPropertyAsync(
@@ -156,7 +164,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                     });
                 }
             }
-            // 2b. Reusable → tạo N bản ghi ReusableItem (serial number do system sinh)
+            // 1b. Reusable → tạo N bản ghi ReusableItem (serial number do system sinh)
             else
             {
                 for (int u = 0; u < model.Quantity; u++)
@@ -176,7 +184,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                 }
             }
 
-            // 3. Chuẩn bị InventoryLog (DepotSupplyInventoryId sẽ gắn sau khi save consumable)
+            // 2. Chuẩn bị InventoryLog (DepotSupplyInventoryId sẽ gắn sau khi save consumable)
             logEntities.Add(new InventoryLog
             {
                 VatInvoiceId  = model.VatInvoiceId,
@@ -191,7 +199,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                 CreatedAt     = DateTime.UtcNow
             });
 
-            // 4. Tạo VatInvoiceItem — lưu giá từng dòng trong hóa đơn VAT
+            // 3. Tạo VatInvoiceItem — lưu giá từng dòng trong hóa đơn VAT
             vatInvoiceItemEntities.Add(new VatInvoiceItem
             {
                 VatInvoiceId = model.VatInvoiceId,
@@ -203,9 +211,6 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
         }
 
         // ── Persist ──────────────────────────────────────────────────────────
-
-        await orgReliefRepo.AddRangeAsync(orgReliefEntities);
-        await _unitOfWork.SaveAsync();
 
         await vatInvoiceItemRepo.AddRangeAsync(vatInvoiceItemEntities);
         await _unitOfWork.SaveAsync();

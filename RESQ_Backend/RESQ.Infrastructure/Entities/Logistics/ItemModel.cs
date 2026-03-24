@@ -28,10 +28,6 @@ public partial class ItemModel
     [StringLength(50)]
     public string? ItemType { get; set; }
 
-    [Column("target_group")]
-    [StringLength(50)]
-    public string? TargetGroup { get; set; }
-
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
@@ -59,4 +55,6 @@ public partial class ItemModel
 
     [InverseProperty("ItemModel")]
     public virtual ICollection<ReusableItem> ReusableItems { get; set; } = new List<ReusableItem>();
+
+    public virtual ICollection<TargetGroup> TargetGroups { get; set; } = new List<TargetGroup>();
 }

@@ -7,11 +7,11 @@ public class ItemModelRecord
     public string Name { get; set; } = string.Empty;
     public string Unit { get; set; } = string.Empty;
     public string ItemType { get; set; } = string.Empty;
-    public string TargetGroup { get; set; } = string.Empty;
+    public List<string> TargetGroups { get; set; } = new();
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
-    public static ItemModelRecord Create(int categoryId, string name, string unit, string itemType, string targetGroup)
+    public static ItemModelRecord Create(int categoryId, string name, string unit, string itemType, List<string> targetGroups)
     {
         return new ItemModelRecord
         {
@@ -19,7 +19,7 @@ public class ItemModelRecord
             Name = name.Trim(),
             Unit = unit.Trim(),
             ItemType = itemType,
-            TargetGroup = targetGroup,
+            TargetGroups = targetGroups,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
