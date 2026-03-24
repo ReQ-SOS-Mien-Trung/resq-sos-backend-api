@@ -1,20 +1,28 @@
 using FirebaseAdmin.Auth;
 using FirebaseAdmin.Messaging;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Notifications;
 using RESQ.Application.Services;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json.Serialization;
 
 namespace RESQ.Infrastructure.Services;
 
 public class FirebaseService(
     ILogger<FirebaseService> logger,
     INotificationRepository notificationRepository,
-    INotificationHubService notificationHubService) : IFirebaseService
+    INotificationHubService notificationHubService,
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory) : IFirebaseService
 {
     private readonly ILogger<FirebaseService> _logger = logger;
     private readonly INotificationRepository _notificationRepository = notificationRepository;
     private readonly INotificationHubService _notificationHubService = notificationHubService;
+    private readonly IConfiguration _configuration = configuration;
+    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 
     public async Task<FirebasePhoneTokenInfo> VerifyIdTokenAsync(string idToken, CancellationToken cancellationToken = default)
     {
@@ -39,6 +47,122 @@ public class FirebaseService(
             _logger.LogWarning("Firebase token verification failed: {msg}", ex.Message);
             throw new UnauthorizedException("Firebase token không hợp lệ hoặc đã hết hạn");
         }
+    }
+
+    public async Task<FirebaseGoogleUserInfo> VerifyGoogleIdTokenAsync(string idToken, CancellationToken cancellationToken = default)
+    {
+        // Peek at the JWT payload to determine the issuer without full verification
+        var issuer = PeekJwtIssuer(idToken);
+
+        if (issuer != null && issuer.StartsWith("https://securetoken.google.com"))
+        {
+            return await VerifyFirebaseGoogleIdTokenAsync(idToken, cancellationToken);
+        }
+        else if (issuer == "https://accounts.google.com")
+        {
+            return await VerifyRawGoogleIdTokenAsync(idToken, cancellationToken);
+        }
+
+        _logger.LogWarning("Unknown token issuer: {issuer}", issuer);
+        throw new UnauthorizedException("Token không hợp lệ");
+    }
+
+    private async Task<FirebaseGoogleUserInfo> VerifyFirebaseGoogleIdTokenAsync(string idToken, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var decoded = await FirebaseAuth.DefaultInstance.VerifyIdTokenAsync(idToken, cancellationToken);
+
+            var email = decoded.Claims.TryGetValue("email", out var emailObj) ? emailObj?.ToString() : null;
+            if (string.IsNullOrEmpty(email))
+                throw new UnauthorizedException("Firebase token không chứa email");
+
+            var name = decoded.Claims.TryGetValue("name", out var nameObj) ? nameObj?.ToString() : null;
+            var givenName = decoded.Claims.TryGetValue("given_name", out var givenNameObj) ? givenNameObj?.ToString() : null;
+            var familyName = decoded.Claims.TryGetValue("family_name", out var familyNameObj) ? familyNameObj?.ToString() : null;
+
+            _logger.LogInformation("Firebase Google token verified. UID={uid}, Email={email}", decoded.Uid, email);
+
+            return new FirebaseGoogleUserInfo
+            {
+                Uid = decoded.Uid,
+                Email = email,
+                Name = name,
+                GivenName = givenName,
+                FamilyName = familyName,
+            };
+        }
+        catch (FirebaseAuthException ex)
+        {
+            _logger.LogWarning("Firebase Google token verification failed: {msg}", ex.Message);
+            throw new UnauthorizedException("Firebase token không hợp lệ hoặc đã hết hạn");
+        }
+    }
+
+    private async Task<FirebaseGoogleUserInfo> VerifyRawGoogleIdTokenAsync(string idToken, CancellationToken cancellationToken)
+    {
+        var httpClient = _httpClientFactory.CreateClient();
+        var response = await httpClient.GetAsync(
+            $"https://oauth2.googleapis.com/tokeninfo?id_token={idToken}",
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Google tokeninfo validation failed with status: {status}", response.StatusCode);
+            throw new UnauthorizedException("Token Google không hợp lệ hoặc đã hết hạn");
+        }
+
+        var tokenInfo = await response.Content.ReadFromJsonAsync<GoogleRawTokenInfo>(cancellationToken: cancellationToken);
+        if (tokenInfo is null)
+            throw new UnauthorizedException("Token Google không hợp lệ");
+
+        var expectedClientId = _configuration["GoogleAuth:ClientId"];
+        if (!string.IsNullOrEmpty(expectedClientId) && tokenInfo.Aud != expectedClientId)
+        {
+            _logger.LogWarning("Google token aud mismatch. Expected: {expected}, Got: {actual}", expectedClientId, tokenInfo.Aud);
+            throw new UnauthorizedException("Token Google không hợp lệ");
+        }
+
+        _logger.LogInformation("Raw Google ID token verified for email={email}", tokenInfo.Email);
+
+        return new FirebaseGoogleUserInfo
+        {
+            Uid = tokenInfo.Sub ?? tokenInfo.Email,
+            Email = tokenInfo.Email,
+            Name = tokenInfo.Name,
+            GivenName = tokenInfo.GivenName,
+            FamilyName = tokenInfo.FamilyName,
+        };
+    }
+
+    /// <summary>Decodes JWT payload without signature verification to peek at the issuer claim.</summary>
+    private static string? PeekJwtIssuer(string jwt)
+    {
+        try
+        {
+            var parts = jwt.Split('.');
+            if (parts.Length < 2) return null;
+            var payload = parts[1];
+            // Base64Url decode
+            var padded = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
+            var json = Encoding.UTF8.GetString(Convert.FromBase64String(padded.Replace('-', '+').Replace('_', '/')));
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("iss", out var iss) ? iss.GetString() : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private class GoogleRawTokenInfo
+    {
+        [JsonPropertyName("aud")] public string? Aud { get; set; }
+        [JsonPropertyName("sub")] public string? Sub { get; set; }
+        [JsonPropertyName("email")] public string Email { get; set; } = null!;
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("given_name")] public string? GivenName { get; set; }
+        [JsonPropertyName("family_name")] public string? FamilyName { get; set; }
     }
 
     public async Task SendNotificationToUserAsync(Guid userId, string title, string body, string type = "general", CancellationToken cancellationToken = default)

@@ -1,5 +1,25 @@
 namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
 {
+    /// <summary>Lightweight DTO dùng cho danh sách – không kèm documents/abilities.</summary>
+    public class RescuerApplicationListItemDto
+    {
+        public int Id { get; set; }
+        public Guid UserId { get; set; }
+        public string? Status { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+        public DateTime? ReviewedAt { get; set; }
+
+        // User info
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? AvatarUrl { get; set; }
+        public string? RescuerType { get; set; }
+        public string? Province { get; set; }
+    }
+
+    /// <summary>Full DTO dùng cho chi tiết – kèm documents và abilities.</summary>
     public class RescuerApplicationDto
     {
         public int Id { get; set; }

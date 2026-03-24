@@ -11,5 +11,5 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
         string? Email = null,
         string? Phone = null,
         string? RescuerType = null // Filter by rescuer type: Core, Volunteer
-    ) : IRequest<PagedResult<RescuerApplicationDto>>;
+    ) : IRequest<PagedResult<RescuerApplicationListItemDto>>;
 }

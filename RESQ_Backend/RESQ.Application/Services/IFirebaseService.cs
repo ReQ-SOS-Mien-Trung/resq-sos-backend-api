@@ -6,6 +6,15 @@ public class FirebasePhoneTokenInfo
     public string? Phone { get; set; }
 }
 
+public class FirebaseGoogleUserInfo
+{
+    public string Uid { get; set; } = null!;
+    public string Email { get; set; } = null!;
+    public string? Name { get; set; }
+    public string? GivenName { get; set; }
+    public string? FamilyName { get; set; }
+}
+
 public interface IFirebaseService
 {
     /// <summary>
@@ -13,6 +22,12 @@ public interface IFirebaseService
     /// Returns phone info when valid, throws UnauthorizedException otherwise.
     /// </summary>
     Task<FirebasePhoneTokenInfo> VerifyIdTokenAsync(string idToken, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Verify a Firebase ID token obtained after Google Sign-In.
+    /// Returns Google user info (email, name) when valid, throws UnauthorizedException otherwise.
+    /// </summary>
+    Task<FirebaseGoogleUserInfo> VerifyGoogleIdTokenAsync(string idToken, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gửi Push Notification (iOS, Android, Web) qua FCM, lưu vào DB và đẩy real-time qua SignalR.

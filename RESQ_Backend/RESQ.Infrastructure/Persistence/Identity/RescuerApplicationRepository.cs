@@ -54,7 +54,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
             return entity is null ? null : MapToDto(entity);
         }
 
-        public async Task<PagedResult<RescuerApplicationDto>> GetPagedAsync(int pageNumber, int pageSize, string? status = null, string? name = null, string? email = null, string? phone = null, string? rescuerType = null, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<RescuerApplicationListItemDto>> GetPagedAsync(int pageNumber, int pageSize, string? status = null, string? name = null, string? email = null, string? phone = null, string? rescuerType = null, CancellationToken cancellationToken = default)
         {
             var pagedResult = await _unitOfWork.GetRepository<RescuerApplication>()
                 .GetPagedAsync(
@@ -69,17 +69,27 @@ namespace RESQ.Infrastructure.Persistence.Identity
                         (phone == null || (x.User != null && x.User.Phone != null && x.User.Phone.Contains(phone))) &&
                         (rescuerType == null || (x.User != null && x.User.RescuerType == rescuerType)),
                     orderBy: q => q.OrderByDescending(x => x.SubmittedAt),
-                    includeProperties: "RescuerApplicationDocuments.FileType,User"
+                    includeProperties: "User"
                 );
 
-            var dtos = pagedResult.Items.Select(MapToDto).ToList();
+            var dtos = pagedResult.Items.Select(MapToListItemDto).ToList();
 
-            return new PagedResult<RescuerApplicationDto>(
+            return new PagedResult<RescuerApplicationListItemDto>(
                 dtos,
                 pagedResult.TotalCount,
                 pagedResult.PageNumber,
                 pagedResult.PageSize
             );
+        }
+
+        public async Task<RescuerApplicationDto?> GetDetailByIdAsync(int id, CancellationToken cancellationToken = default)
+        {
+            var entity = await _unitOfWork.GetRepository<RescuerApplication>()
+                .GetByPropertyAsync(
+                    x => x.Id == id,
+                    includeProperties: "RescuerApplicationDocuments.FileType,User"
+                );
+            return entity is null ? null : MapToDto(entity);
         }
 
         public async Task<int> CreateAsync(RescuerApplicationModel application, CancellationToken cancellationToken = default)
@@ -144,6 +154,25 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 .GetAllByPropertyAsync(x => x.ApplicationId == applicationId);
 
             return entities.Select(RescuerApplicationMapper.ToDocumentModel).ToList();
+        }
+
+        private static RescuerApplicationListItemDto MapToListItemDto(RescuerApplication entity)
+        {
+            return new RescuerApplicationListItemDto
+            {
+                Id = entity.Id,
+                UserId = entity.UserId ?? Guid.Empty,
+                Status = entity.Status,
+                SubmittedAt = entity.SubmittedAt,
+                ReviewedAt = entity.ReviewedAt,
+                FirstName = entity.User?.FirstName,
+                LastName = entity.User?.LastName,
+                Email = entity.User?.Email,
+                Phone = entity.User?.Phone,
+                AvatarUrl = entity.User?.AvatarUrl,
+                RescuerType = entity.User?.RescuerType,
+                Province = entity.User?.Province
+            };
         }
 
         private static RescuerApplicationDto MapToDto(RescuerApplication entity)

@@ -7,20 +7,18 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
 {
     public class GetRescuerApplicationsQueryHandler(
         IRescuerApplicationRepository rescuerApplicationRepository,
-        IAbilityRepository abilityRepository,
         ILogger<GetRescuerApplicationsQueryHandler> logger
-    ) : IRequestHandler<GetRescuerApplicationsQuery, PagedResult<RescuerApplicationDto>>
+    ) : IRequestHandler<GetRescuerApplicationsQuery, PagedResult<RescuerApplicationListItemDto>>
     {
         private readonly IRescuerApplicationRepository _rescuerApplicationRepository = rescuerApplicationRepository;
-        private readonly IAbilityRepository _abilityRepository = abilityRepository;
         private readonly ILogger<GetRescuerApplicationsQueryHandler> _logger = logger;
 
-        public async Task<PagedResult<RescuerApplicationDto>> Handle(GetRescuerApplicationsQuery request, CancellationToken cancellationToken)
+        public async Task<PagedResult<RescuerApplicationListItemDto>> Handle(GetRescuerApplicationsQuery request, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Getting rescuer applications: Page={Page}, Size={Size}, Status={Status}, Name={Name}, Email={Email}, Phone={Phone}, RescuerType={RescuerType}",
                 request.PageNumber, request.PageSize, request.Status, request.Name, request.Email, request.Phone, request.RescuerType);
 
-            var result = await _rescuerApplicationRepository.GetPagedAsync(
+            return await _rescuerApplicationRepository.GetPagedAsync(
                 request.PageNumber,
                 request.PageSize,
                 request.Status,
@@ -30,26 +28,6 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
                 request.RescuerType,
                 cancellationToken
             );
-
-            foreach (var app in result.Items)
-            {
-                var userAbilities = await _abilityRepository.GetUserAbilitiesAsync(app.UserId, cancellationToken);
-                app.Abilities = userAbilities.Select(a => new RescuerApplicationAbilityDto
-                {
-                    AbilityId = a.AbilityId,
-                    Code = a.AbilityCode,
-                    Description = a.AbilityDescription,
-                    Level = a.Level,
-                    SubgroupId = a.SubgroupId,
-                    SubgroupCode = a.SubgroupCode,
-                    SubgroupDescription = a.SubgroupDescription,
-                    CategoryId = a.CategoryId,
-                    CategoryCode = a.CategoryCode,
-                    CategoryDescription = a.CategoryDescription
-                }).ToList();
-            }
-
-            return result;
         }
     }
 }
