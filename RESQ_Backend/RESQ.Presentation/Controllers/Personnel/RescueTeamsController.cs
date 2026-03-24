@@ -141,24 +141,6 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Đội báo cáo sự cố phát sinh trong nhiệm vụ.</summary>
-    [HttpPost("{id}/report-incident")]
-    [Authorize] // Usually the Team Leader (Rescuer) reports this
-    public async Task<IActionResult> ReportIncident(int id)
-    {
-        await mediator.Send(new ChangeTeamMissionStateCommand(id, "ReportIncident"));
-        return NoContent();
-    }
-
-    /// <summary>Xử lý xong sự cố của đội.</summary>
-    [HttpPost("{id}/resolve-incident")]
-    [Authorize(Roles = "2")]
-    public async Task<IActionResult> ResolveIncident(int id, [FromQuery] bool hasInjuredMember)
-    {
-        await mediator.Send(new ResolveIncidentCommand(id, hasInjuredMember));
-        return NoContent();
-    }
-
     /// <summary>Đánh dấu đội không sẵn sàng nhận nhiệm vụ.</summary>
     [HttpPost("{id}/set-unavailable")]
     [Authorize(Roles = "2")]
