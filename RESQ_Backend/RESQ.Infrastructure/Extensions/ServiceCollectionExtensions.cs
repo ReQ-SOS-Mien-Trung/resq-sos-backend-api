@@ -26,6 +26,7 @@ using RESQ.Infrastructure.Persistence.System;
 using RESQ.Infrastructure.Services;
 using RESQ.Infrastructure.Services.Finance;
 using RESQ.Infrastructure.Services.Identity;
+using RESQ.Infrastructure.Services.Logistics;
 using RESQ.Infrastructure.Services.Payments;
 //using RESQ.Infrastructure.Services.Personnel;
 
@@ -55,6 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
         services.AddScoped<IDepotInventoryRepository, DepotInventoryRepository>();
+        services.AddScoped<IStockThresholdConfigRepository, StockThresholdConfigRepository>();
         services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
         services.AddScoped<IInventoryMovementExportRepository, InventoryMovementExportRepository>();
         services.AddScoped<IOrganizationReliefRepository, OrganizationReliefRepository>();
@@ -121,6 +123,7 @@ public static class ServiceCollectionExtensions
         // Domain Services
         services.AddScoped<IFundDistributionManager, FundDistributionManager>();
         services.AddScoped<IInventoryQueryService, InventoryQueryService>();
+        services.AddScoped<IStockThresholdResolver, StockThresholdResolver>();
 
         // Payment Services
         services.AddScoped<PayOSService>();

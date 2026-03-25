@@ -9,7 +9,7 @@ public class InventoryItemModel
     public int? CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public string? ItemType { get; set; }
-    public string? TargetGroup { get; set; }
+    public List<string> TargetGroups { get; set; } = new();
     public InventoryAvailability Availability { get; set; } = default!;
     public DateTime? LastStockedAt { get; set; }
 

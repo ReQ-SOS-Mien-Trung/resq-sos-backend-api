@@ -12,6 +12,8 @@ public class OrganizationReliefItemModel
     public DateTime? ReceivedDate { get; set; }
     public DateTime? ExpiredDate { get; set; }
     public string? Notes { get; set; }
+    public string? BatchNote { get; set; }
+    public string? ItemNote { get; set; }
     public Guid ReceivedBy { get; set; }
     public int ReceivedAt { get; set; }
     public DateTime? CreatedAt { get; set; }
@@ -25,8 +27,10 @@ public class OrganizationReliefItemModel
         DateTime? receivedDate, 
         DateTime? expiredDate, 
         string? notes, 
-        Guid receivedBy, 
-        int receivedAt)
+        Guid receivedBy,
+        int receivedAt,
+        string? batchNote = null,
+        string? itemNote = null)
     {
         if (quantity <= 0)
             throw new InvalidReliefItemQuantityException(quantity);
@@ -40,6 +44,8 @@ public class OrganizationReliefItemModel
             ReceivedDate = receivedDate,
             ExpiredDate = expiredDate,
             Notes = notes,
+            BatchNote = batchNote,
+            ItemNote = itemNote,
             ReceivedBy = receivedBy,
             ReceivedAt = receivedAt,
             CreatedAt = DateTime.UtcNow

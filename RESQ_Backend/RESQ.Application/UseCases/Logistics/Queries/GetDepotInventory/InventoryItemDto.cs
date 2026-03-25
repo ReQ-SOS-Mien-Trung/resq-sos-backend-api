@@ -9,7 +9,7 @@ public class InventoryItemDto
     public int? CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public string? ItemType { get; set; }
-    public string? TargetGroup { get; set; }
+    public List<string> TargetGroups { get; set; } = new();
 
     // ── Consumable only (null khi ItemType = Reusable) ────────────────────────────
     /// <summary>Tổng số lượng. Chỉ có với Consumable.</summary>

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -21,6 +22,9 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
             .Include(l => l.SupplyInventory)
                 .ThenInclude(d => d!.ItemModel)
                     .ThenInclude(r => r!.Category)
+            .Include(l => l.SupplyInventory)
+                .ThenInclude(d => d!.ItemModel)
+                    .ThenInclude(r => r!.TargetGroups)
             .Include(l => l.VatInvoice)
                 .ThenInclude(v => v!.VatInvoiceItems)
             .Where(l => l.CreatedAt >= period.From && l.CreatedAt <= period.To);
@@ -54,7 +58,9 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
             {
                 ItemName      = ri?.Name ?? string.Empty,
                 Category      = ri?.Category?.Name ?? string.Empty,
-                TargetGroup   = TranslateTargetGroup(ri?.TargetGroup ?? string.Empty),
+                TargetGroup   = TranslateTargetGroup(ri != null
+                    ? string.Join(", ", ri.TargetGroups.Select(tg => tg.Name))
+                    : string.Empty),
                 ItemType      = TranslateItemType(ri?.ItemType ?? string.Empty),
                 Unit          = ri?.Unit ?? string.Empty,
                 UnitPrice     = unitPrice,
@@ -99,15 +105,12 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
         };
 
     private static string TranslateTargetGroup(string targetGroup)
-        => targetGroup switch
-        {
-            "Children" => "Trẻ em",
-            "Elderly"  => "Người cao tuổi",
-            "Pregnant" => "Phụ nữ mang thai",
-            "General"  => "Chung",
-            "Rescuer"  => "Cứu hộ viên",
-            _ => targetGroup
-        };
+    {
+        if (string.IsNullOrEmpty(targetGroup)) return targetGroup;
+        return TargetGroupTranslations.JoinAsVietnamese(
+            targetGroup.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                       .Select(t => t.Trim()));
+    }
 
     private static string TranslateSourceType(string sourceType)
         => sourceType switch

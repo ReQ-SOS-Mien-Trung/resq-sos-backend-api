@@ -26,7 +26,11 @@ public static class FundingRequestMapper
             UnitPrice      = i.UnitPrice,
             TotalPrice     = i.TotalPrice,
             ItemType       = i.ItemType,
-            TargetGroup    = i.TargetGroup,
+            TargetGroups   = string.IsNullOrEmpty(i.TargetGroup)
+                                ? new List<string>()
+                                : i.TargetGroup.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                               .Select(s => s.Trim())
+                                               .ToList(),
             ReceivedDate   = i.ReceivedDate,
             ExpiredDate    = i.ExpiredDate,
             Notes          = i.Notes
@@ -87,7 +91,7 @@ public static class FundingRequestMapper
                 UnitPrice      = item.UnitPrice,
                 TotalPrice     = item.TotalPrice,
                 ItemType       = item.ItemType,
-                TargetGroup    = item.TargetGroup,
+                TargetGroup    = string.Join(",", item.TargetGroups),
                 ReceivedDate   = item.ReceivedDate,
                 ExpiredDate    = item.ExpiredDate,
                 Notes          = item.Notes

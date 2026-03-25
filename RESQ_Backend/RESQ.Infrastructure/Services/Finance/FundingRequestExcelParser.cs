@@ -34,7 +34,12 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
             var unitPrice    = (decimal)row.Cell(6).GetDouble();
             var totalPrice   = (decimal)row.Cell(7).GetDouble();
             var itemType     = row.Cell(8).GetString()?.Trim() ?? string.Empty;
-            var targetGroup  = row.Cell(9).GetString()?.Trim() ?? string.Empty;
+            var targetGroupRaw = row.Cell(9).GetString()?.Trim() ?? string.Empty;
+            var targetGroups = targetGroupRaw
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
             var notes        = row.Cell(10).GetString()?.Trim();
 
             items.Add(new FundingRequestItemModel
@@ -47,7 +52,7 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
                 UnitPrice    = unitPrice,
                 TotalPrice   = totalPrice > 0 ? totalPrice : unitPrice * quantity,
                 ItemType     = itemType,
-                TargetGroup  = targetGroup,
+                TargetGroups = targetGroups,
                 Notes        = notes
             });
         }

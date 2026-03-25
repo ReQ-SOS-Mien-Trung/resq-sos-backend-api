@@ -8,6 +8,7 @@ public class InventoryMovementRow
     public int RowNumber { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
+    /// <summary>Nhóm đối tượng, nhiều giá trị phân cách bởi dấu phẩy (dành cho Excel export).</summary>
     public string TargetGroup { get; set; } = string.Empty;
     public string ItemType { get; set; } = string.Empty;
     public string Unit { get; set; } = string.Empty;

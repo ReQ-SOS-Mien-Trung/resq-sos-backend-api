@@ -20,10 +20,10 @@ public class LowStockChartResponseDto
 
 public class LowStockSummaryDto
 {
-    /// <summary>Số vật tư ở mức 🔴 Danger (stockRatio ≤ 20%).</summary>
+    /// <summary>Số vật tư ở mức 🔴 Danger theo threshold đã resolve.</summary>
     public int DangerCount { get; set; }
 
-    /// <summary>Số vật tư ở mức 🟡 Warning (20% &lt; stockRatio ≤ 40%).</summary>
+    /// <summary>Số vật tư ở mức 🟡 Warning theo threshold đã resolve.</summary>
     public int WarningCount { get; set; }
 
     /// <summary>Tổng cộng (Danger + Warning).</summary>

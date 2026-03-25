@@ -12,6 +12,7 @@ public class ImportReliefItemsCommandHandler(
     IOrganizationReliefRepository organizationReliefRepository,
     IOrganizationMetadataRepository organizationMetadataRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     IUnitOfWork unitOfWork,
     ILogger<ImportReliefItemsCommandHandler> logger)
     : IRequestHandler<ImportReliefItemsCommand, ImportReliefItemsResponse>
@@ -20,6 +21,7 @@ public class ImportReliefItemsCommandHandler(
     private readonly IOrganizationReliefRepository _organizationReliefRepository = organizationReliefRepository;
     private readonly IOrganizationMetadataRepository _organizationMetadataRepository = organizationMetadataRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ImportReliefItemsCommandHandler> _logger = logger;
 
@@ -67,30 +69,124 @@ public class ImportReliefItemsCommandHandler(
 
         // 3. Pre-fetch all categories into memory for efficient matching
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
+        var categoriesByCode = categories
+            .ToDictionary(c => c.Code.ToString(), c => c, StringComparer.OrdinalIgnoreCase);
+        var batchNote = NormalizeNote(request.BatchNote);
 
-        // 4. Validate all items and prepare domain models
+        // 3b. Batch-fetch existing item models for Path A rows (ItemModelId provided)
+        var itemModelIds = request.Items
+            .Where(x => x.ItemModelId.HasValue)
+            .Select(x => x.ItemModelId!.Value)
+            .Distinct()
+            .ToList();
+
+        Dictionary<int, ItemModelRecord> existingItemModels;
+        if (itemModelIds.Count > 0)
+        {
+            existingItemModels = await _itemModelMetadataRepository.GetByIdsAsync(itemModelIds, cancellationToken);
+
+            // Detect missing IDs early — log once at batch level
+            var missingIds = itemModelIds.Where(id => !existingItemModels.ContainsKey(id)).ToList();
+            if (missingIds.Count > 0)
+            {
+                _logger.LogWarning("Donation import: {MissingCount} ItemModelId(s) not found in DB: {MissingIds}",
+                    missingIds.Count, missingIds);
+            }
+        }
+        else
+        {
+            existingItemModels = new Dictionary<int, ItemModelRecord>();
+        }
+
+        // 4. Validate all items and prepare domain models (dual-path)
         var validItems = new List<(ImportReliefItemDto dto, ItemModelRecord reliefItem, OrganizationReliefItemModel donation)>();
-        var errors = new List<ImportErrorDto>();
+        var rowErrors = new Dictionary<int, HashSet<string>>();
 
         foreach (var item in request.Items)
         {
             try
             {
-                var category = categories.FirstOrDefault(c => string.Equals(c.Code.ToString(), item.CategoryCode, StringComparison.OrdinalIgnoreCase));
-                
-                if (category == null)
-                {
-                    errors.Add(new ImportErrorDto { Row = item.Row, Message = $"Không tìm thấy danh mục vật phẩm có mã: {item.CategoryCode}" });
-                    continue;
-                }
+                ItemModelRecord? resolvedRecord = null;
 
-                // Domain Orchestration: Create Relief Item Model
-                var reliefItemModel = ItemModelRecord.Create(
-                    category.Id, 
-                    item.ItemName, 
-                    item.Unit, 
-                    item.ItemType, 
-                    item.TargetGroup);
+                if (item.ItemModelId.HasValue)
+                {
+                    // ── Path A: Existing item by ID ──
+                    if (!existingItemModels.TryGetValue(item.ItemModelId.Value, out var existingRecord))
+                    {
+                        AddRowError(rowErrors, item.Row, $"Không tìm thấy item model có ID: {item.ItemModelId.Value}");
+                        continue;
+                    }
+                    resolvedRecord = existingRecord;
+                }
+                else
+                {
+                    // ── Path B: Create new item from metadata ──
+                    var normalizedName = item.ItemName?.Trim();
+                    var normalizedUnit = item.Unit?.Trim();
+                    var normalizedItemType = item.ItemType?.Trim();
+                    var normalizedCategoryCode = item.CategoryCode?.Trim();
+
+                    // Validate metadata before calling Create()
+                    if (string.IsNullOrWhiteSpace(normalizedName))
+                    {
+                        AddRowError(rowErrors, item.Row, "Tên vật phẩm không được để trống");
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(normalizedCategoryCode))
+                    {
+                        AddRowError(rowErrors, item.Row, "Mã danh mục không được để trống");
+                        continue;
+                    }
+
+                    var category = categoriesByCode.GetValueOrDefault(normalizedCategoryCode!);
+
+                    if (category == null)
+                    {
+                        AddRowError(rowErrors, item.Row, $"Không tìm thấy danh mục vật phẩm có mã: {item.CategoryCode}");
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(normalizedUnit))
+                    {
+                        AddRowError(rowErrors, item.Row, "Đơn vị tính không được để trống");
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(normalizedItemType))
+                    {
+                        AddRowError(rowErrors, item.Row, "Loại vật phẩm không được để trống");
+                        continue;
+                    }
+
+                    var targetGroups = item.TargetGroups?
+                        .Where(g => !string.IsNullOrWhiteSpace(g))
+                        .Select(g => g.Trim())
+                        .ToList() ?? new();
+
+                    if (targetGroups.Count == 0)
+                    {
+                        AddRowError(rowErrors, item.Row, "Nhóm đối tượng không được để trống");
+                        continue;
+                    }
+
+                    try
+                    {
+                        resolvedRecord = ItemModelRecord.Create(
+                            category.Id,
+                            normalizedName,
+                            normalizedUnit,
+                            normalizedItemType,
+                            targetGroups,
+                            item.Description);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Unexpected error creating ItemModelRecord for row {Row}", item.Row);
+                        AddRowError(rowErrors, item.Row, "Lỗi hệ thống khi tạo item model");
+                        continue;
+                    }
+                }
 
                 // Normalize dates to UTC before persisting
                 var receivedDateUtc = item.ReceivedDate.HasValue
@@ -105,22 +201,30 @@ public class ImportReliefItemsCommandHandler(
                     organizationId,
                     0, // Will be set after relief items are created
                     item.Quantity,
-                    item.ItemType,
+                    resolvedRecord.ItemType,
                     receivedDateUtc,
                     expiredDateUtc,
-                    item.Notes,
+                    batchNote,
                     request.UserId,
-                    depotId.Value
+                    depotId.Value,
+                    batchNote,
+                    null
                 );
 
-                validItems.Add((item, reliefItemModel, donationModel));
+                validItems.Add((item, resolvedRecord, donationModel));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi validate vật phẩm dòng {Row}", item.Row);
-                errors.Add(new ImportErrorDto { Row = item.Row, Message = ex.Message });
+                _logger.LogError(ex, "Unexpected error processing item at row {Row}", item.Row);
+                AddRowError(rowErrors, item.Row, ex.Message);
             }
         }
+
+        // Flatten row errors into sorted error list
+        var errors = rowErrors
+            .OrderBy(kv => kv.Key)
+            .Select(kv => new ImportErrorDto { Row = kv.Key, Message = $"[Dòng {kv.Key}] {string.Join("; ", kv.Value)}" })
+            .ToList();
 
         response.Failed = errors.Count;
         response.Errors = errors;
@@ -130,41 +234,47 @@ public class ImportReliefItemsCommandHandler(
             return response;
         }
 
+        // Sort resolved items by row for predictable output
+        validItems = validItems.OrderBy(x => x.dto.Row).ToList();
+
+        _logger.LogInformation(
+            "Donation import: {ValidCount} valid items, {ErrorCount} errors out of {TotalCount} total rows",
+            validItems.Count, errors.Count, request.Items.Count);
+
         // 5. Execute all bulk operations within a transaction to ensure atomicity
         try
         {
-            // Bulk create/get relief items
-            var reliefItemModels = validItems.Select(x => x.reliefItem).ToList();
-            var savedReliefItems = await _organizationReliefRepository.GetOrCreateReliefItemsBulkAsync(reliefItemModels, cancellationToken);
+            // Name-path rows: always create new item models. ID-path rows: use existing ID and ignore lookup fields.
+            var newItemModels = validItems
+                .Where(x => !x.dto.ItemModelId.HasValue)
+                .Select(x => x.reliefItem)
+                .ToList();
+
+            var createdItems = await _organizationReliefRepository.CreateReliefItemsBulkAsync(newItemModels, cancellationToken);
+            var createdIndex = 0;
 
             // Map relief item IDs back to donation models
             var donationModels = new List<OrganizationReliefItemModel>();
             for (int i = 0; i < validItems.Count; i++)
             {
                 var (dto, reliefItem, donation) = validItems[i];
-                var savedReliefItem = savedReliefItems.FirstOrDefault(r => 
-                    r.Name == reliefItem.Name && 
-                    r.CategoryId == reliefItem.CategoryId &&
-                    r.Unit == reliefItem.Unit &&
-                    r.ItemType == reliefItem.ItemType &&
-                    r.TargetGroup == reliefItem.TargetGroup);
+                var resolvedItemModelId = dto.ItemModelId ?? createdItems[createdIndex++].Id;
 
-                if (savedReliefItem != null)
-                {
-                    // Update donation model with correct relief item ID
-                    var updatedDonation = OrganizationReliefItemModel.Create(
-                        organizationId,
-                        savedReliefItem.Id,
-                        donation.Quantity,
-                        donation.ItemType,
-                        donation.ReceivedDate,
-                        donation.ExpiredDate,
-                        donation.Notes,
-                        donation.ReceivedBy,
-                        donation.ReceivedAt
-                    );
-                    donationModels.Add(updatedDonation);
-                }
+                // Update donation model with correct relief item ID
+                var updatedDonation = OrganizationReliefItemModel.Create(
+                    organizationId,
+                    resolvedItemModelId,
+                    donation.Quantity,
+                    donation.ItemType,
+                    donation.ReceivedDate,
+                    donation.ExpiredDate,
+                    donation.Notes,
+                    donation.ReceivedBy,
+                    donation.ReceivedAt,
+                    donation.BatchNote,
+                    null
+                );
+                donationModels.Add(updatedDonation);
             }
 
             // Bulk insert donation records, inventory updates, and logs
@@ -183,4 +293,20 @@ public class ImportReliefItemsCommandHandler(
 
         return response;
     }
+
+    /// <summary>
+    /// Adds an error message for a specific row. Deduplicates via HashSet.
+    /// </summary>
+    private static void AddRowError(Dictionary<int, HashSet<string>> rowErrors, int row, string message)
+    {
+        if (!rowErrors.TryGetValue(row, out var messages))
+        {
+            messages = new HashSet<string>(StringComparer.Ordinal);
+            rowErrors[row] = messages;
+        }
+        messages.Add(message);
+    }
+
+    private static string? NormalizeNote(string? note)
+        => string.IsNullOrWhiteSpace(note) ? null : note.Trim();
 }

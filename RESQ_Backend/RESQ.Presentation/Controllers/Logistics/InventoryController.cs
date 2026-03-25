@@ -10,10 +10,13 @@ using RESQ.Application.UseCases.Logistics.Commands.AcceptSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
+using RESQ.Application.UseCases.Logistics.Commands.ManageMyDepotThresholds;
 using RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.RejectSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
+using RESQ.Application.UseCases.Logistics.Queries.GenerateDonationImportTemplate;
+using RESQ.Application.UseCases.Logistics.Queries.GeneratePurchaseImportTemplate;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetItemCategoryByCode;
@@ -26,6 +29,8 @@ using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholdHistory;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetReliefItemsByCategoryCode;
 using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
@@ -96,7 +101,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     /// <summary>[Admin] Chart data vật tư sắp hết trên tất cả kho hoặc một kho cụ thể.
-    /// stockRatio = available/total. 🔴 Danger ≤20% | 🟡 Warning 20%–40%.
+    /// stockRatio = available/total. Ngưỡng Danger/Warning được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("low-stock")]
     [Authorize(Roles = "1")]
@@ -110,7 +115,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     /// <summary>[Manager] Chart data vật tư sắp hết tại kho mình quản lý.
-    /// stockRatio = available/total. 🔴 Danger ≤20% | 🟡 Warning 20%–40%.
+    /// stockRatio = available/total. Ngưỡng Danger/Warning được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("my-depot/low-stock")]
     [Authorize(Roles = "4")]
@@ -120,6 +125,90 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     {
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new GetMyDepotLowStockQuery(userId, level));
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xem cấu hình threshold hiện tại của kho mình quản lý (global + override theo scope).</summary>
+    [HttpGet("my-depot/thresholds")]
+    [Authorize(Roles = "4")]
+    [ProducesResponseType(typeof(GetMyDepotThresholdsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyDepotThresholds()
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyDepotThresholdsQuery(userId));
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xem lịch sử thay đổi threshold của kho mình quản lý (lọc scope/category/item, phân trang).</summary>
+    [HttpGet("my-depot/thresholds/history")]
+    [Authorize(Roles = "4")]
+    [ProducesResponseType(typeof(RESQ.Application.Common.Models.PagedResult<ThresholdHistoryItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyDepotThresholdHistory(
+        [FromQuery] StockThresholdScopeType? scopeType,
+        [FromQuery] int? categoryId,
+        [FromQuery] int? itemModelId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyDepotThresholdHistoryQuery
+        {
+            UserId = userId,
+            ScopeType = scopeType,
+            CategoryId = categoryId,
+            ItemModelId = itemModelId,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Cập nhật ngưỡng tồn kho cho kho mình quản lý theo scope Depot/DepotCategory/DepotItem.</summary>
+    [HttpPut("my-depot/thresholds")]
+    [Authorize(Roles = "4")]
+    [ProducesResponseType(typeof(StockThresholdCommandResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateMyDepotThreshold([FromBody] UpdateMyDepotThresholdRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new UpdateMyDepotThresholdCommand
+        {
+            UserId = userId,
+            ScopeType = request.ScopeType,
+            CategoryId = request.CategoryId,
+            ItemModelId = request.ItemModelId,
+            DangerPercent = request.DangerPercent,
+            WarningPercent = request.WarningPercent,
+            RowVersion = request.RowVersion,
+            Reason = request.Reason
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Reset cấu hình ngưỡng tồn kho về scope thấp hơn (soft reset: is_active=false).</summary>
+    [HttpDelete("my-depot/thresholds")]
+    [Authorize(Roles = "4")]
+    [ProducesResponseType(typeof(StockThresholdCommandResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ResetMyDepotThreshold([FromBody] ResetMyDepotThresholdRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new ResetMyDepotThresholdCommand
+        {
+            UserId = userId,
+            ScopeType = request.ScopeType,
+            CategoryId = request.CategoryId,
+            ItemModelId = request.ItemModelId,
+            RowVersion = request.RowVersion,
+            Reason = request.Reason
+        });
+
         return Ok(result);
     }
 
@@ -375,6 +464,30 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return File(result.FileContent, result.ContentType, result.FileName);
     }
 
+    /// <summary>Tải file Excel mẫu nhập kho từ thiện (donation import template).
+    /// File có dropdown chọn danh mục → dependent dropdown chọn vật phẩm,
+    /// và auto-fill VLOOKUP cho Đối tượng / Loại vật phẩm / Đơn vị.</summary>
+    [HttpGet("template/donation-import")]
+    [Authorize]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DownloadDonationImportTemplate()
+    {
+        var result = await _mediator.Send(new GenerateDonationImportTemplateQuery());
+        return File(result.FileContent, result.ContentType, result.FileName);
+    }
+
+    /// <summary>Tải file Excel mẫu nhập kho mua sắm (purchase import template).
+    /// File có cột thông tin hóa đơn VAT, dropdown danh mục → vật phẩm,
+    /// auto-fill VLOOKUP và cột đơn giá.</summary>
+    [HttpGet("template/purchase-import")]
+    [Authorize]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DownloadPurchaseImportTemplate()
+    {
+        var result = await _mediator.Send(new GeneratePurchaseImportTemplateQuery());
+        return File(result.FileContent, result.ContentType, result.FileName);
+    }
+
     /// <summary>Tìm kiếm kho có chứa vật tư theo danh sách ID, ưu tiên kho gần và đủ số lượng.</summary>
     [HttpGet("search-depots")]
     [Authorize]
@@ -424,6 +537,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
             UserId = userId,
             OrganizationId = request.OrganizationId,
             OrganizationName = request.OrganizationName,
+            BatchNote = request.BatchNote,
             Items = request.Items
         };
 

@@ -96,13 +96,10 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lấy danh sách vật tư tiêu hao đang ở mức tồn kho thấp (cảnh báo / nguy hiểm).
-    /// Danger  : tỉ lệ khả dụng ≤ 10%.
-    /// Warning : tỉ lệ khả dụng > 10% và ≤ 25%.
+    /// Lấy dữ liệu thô vật tư tiêu hao để application/domain tự resolve threshold và phân loại mức tồn.
     /// </summary>
-    Task<List<LowStockItemDto>> GetLowStockItemsAsync(
+    Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(
         int? depotId,
-        StockAlertLevel? alertLevel,
         CancellationToken cancellationToken = default);
 
     /// <summary>

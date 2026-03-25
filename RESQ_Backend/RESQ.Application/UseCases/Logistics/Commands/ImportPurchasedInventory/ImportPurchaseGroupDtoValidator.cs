@@ -6,6 +6,11 @@ public class ImportPurchaseGroupDtoValidator : AbstractValidator<ImportPurchaseG
 {
     public ImportPurchaseGroupDtoValidator()
     {
+        RuleFor(x => x.BatchNote)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrWhiteSpace(x.BatchNote))
+            .WithMessage("Ghi chú đợt nhập không được vượt quá 500 ký tự.");
+
         RuleFor(x => x.VatInvoice)
             .NotNull().WithMessage("Thông tin hóa đơn VAT không được để trống.");
 
