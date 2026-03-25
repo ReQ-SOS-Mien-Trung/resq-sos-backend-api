@@ -8,6 +8,7 @@ using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Mappers.Logistics;
+using TargetGroupEntity = RESQ.Infrastructure.Entities.Logistics.TargetGroup;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
@@ -133,7 +134,7 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
     public async Task<bool> UpdateItemModelAsync(ItemModelRecord model, CancellationToken cancellationToken = default)
     {
         var itemRepo = _unitOfWork.GetRepository<ItemModel>();
-        var targetGroupRepo = _unitOfWork.GetRepository<TargetGroup>();
+        var targetGroupRepo = _unitOfWork.GetRepository<TargetGroupEntity>();
 
         var entity = await itemRepo.AsQueryable(tracked: true)
             .Include(x => x.TargetGroups)
