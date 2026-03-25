@@ -22,20 +22,25 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
             ? "AND status = ANY(@statuses)"
             : string.Empty;
 
-        var sql = $"""
+        var sql = $$"""
+            WITH valid_requests AS MATERIALIZED (
+                SELECT structured_data, received_at
+                FROM sos_requests
+                WHERE received_at >= @from
+                  AND received_at <= @to
+                  AND structured_data IS NOT NULL
+                  AND structured_data::text <> ''
+                  AND structured_data::text <> 'null'
+                  {{statusFilter}}
+            )
             SELECT
                 date_trunc(@granularity, received_at) AS "Period",
                 COALESCE(SUM(
-                    COALESCE((structured_data::jsonb -> 'people_count' ->> 'adult')::int, 0)
-                  + COALESCE((structured_data::jsonb -> 'people_count' ->> 'child')::int, 0)
-                  + COALESCE((structured_data::jsonb -> 'people_count' ->> 'elderly')::int, 0)
+                    COALESCE((structured_data -> 'people_count' ->> 'adult')::int, 0)
+                  + COALESCE((structured_data -> 'people_count' ->> 'child')::int, 0)
+                  + COALESCE((structured_data -> 'people_count' ->> 'elderly')::int, 0)
                 ), 0)::int AS "TotalVictims"
-            FROM sos_requests
-            WHERE received_at >= @from
-              AND received_at <= @to
-              AND structured_data IS NOT NULL
-              AND structured_data <> ''
-              {statusFilter}
+            FROM valid_requests
             GROUP BY date_trunc(@granularity, received_at)
             ORDER BY date_trunc(@granularity, received_at)
             """;

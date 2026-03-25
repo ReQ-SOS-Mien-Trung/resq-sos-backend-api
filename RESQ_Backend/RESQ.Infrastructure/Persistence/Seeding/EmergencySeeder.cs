@@ -17,7 +17,7 @@ public static class EmergencySeeder
 
     private static void SeedSosClusters(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 10, 16, 8, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2025, 10, 15, 8, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<SosCluster>().HasData(
             // Cluster 1: Thừa Thiên Huế — Lũ lụt nghiêm trọng
@@ -130,13 +130,13 @@ public static class EmergencySeeder
                       "user_phone": "0945678901"
                     }
                     """,
-                Timestamp = 1729067400L, // 2024-10-16 08:30 UTC
+                Timestamp = 1760517000L, // 2025-10-15 08:30 UTC
                 PriorityLevel = SosPriorityLevel.Critical.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
-                CreatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
-                ReceivedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 8, 30, 0, DateTimeKind.Utc),
-                ReviewedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 10, 15, 8, 30, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2025, 10, 15, 8, 30, 0, DateTimeKind.Utc),
+                LastUpdatedAt = new DateTime(2025, 10, 15, 8, 30, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2025, 10, 15, 8, 40, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"critical","suggested_severity":"Critical","confidence":0.96,"risk_factors":["deep_flooding","elderly_paralyzed","water_rising"],"needs":["boat_rescue","medical_team"]}"""
@@ -193,13 +193,13 @@ public static class EmergencySeeder
                       "user_phone": "0961111111"
                     }
                     """,
-                Timestamp = 1729067700L, // 2024-10-16 08:35 UTC
+                Timestamp = 1763627700L, // 2025-11-20 08:35 UTC
                 PriorityLevel = SosPriorityLevel.Critical.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
-                CreatedAt = new DateTime(2024, 10, 16, 8, 35, 0, DateTimeKind.Utc),
-                ReceivedAt = new DateTime(2024, 10, 16, 8, 35, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 8, 40, 0, DateTimeKind.Utc),
-                ReviewedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 11, 20, 8, 35, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2025, 11, 20, 8, 35, 0, DateTimeKind.Utc),
+                LastUpdatedAt = new DateTime(2025, 11, 20, 8, 40, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2025, 11, 20, 8, 45, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"critical","suggested_severity":"Critical","confidence":0.94,"risk_factors":["pregnant_woman","young_children","rooftop_refuge"],"needs":["boat_rescue","obstetrics_support"]}"""
@@ -269,13 +269,13 @@ public static class EmergencySeeder
                       "user_phone": "0962222222"
                     }
                     """,
-                Timestamp = 1729068300L, // 2024-10-16 08:45 UTC
+                Timestamp = 1766047500L, // 2025-12-18 08:45 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
-                CreatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
-                ReceivedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 8, 45, 0, DateTimeKind.Utc),
-                ReviewedAt = new DateTime(2024, 10, 16, 8, 55, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 12, 18, 8, 45, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2025, 12, 18, 8, 45, 0, DateTimeKind.Utc),
+                LastUpdatedAt = new DateTime(2025, 12, 18, 8, 45, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2025, 12, 18, 8, 55, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.89,"risk_factors":["landslide","bleeding_injury","road_blocked"],"needs":["medical_evacuation","helicopter"]}"""
@@ -332,13 +332,13 @@ public static class EmergencySeeder
                       "user_phone": "0963333333"
                     }
                     """,
-                Timestamp = 1729068600L, // 2024-10-16 08:50 UTC
+                Timestamp = 1769071920L, // 2026-01-22 08:50 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
-                CreatedAt = new DateTime(2024, 10, 16, 8, 50, 0, DateTimeKind.Utc),
-                ReceivedAt = new DateTime(2024, 10, 16, 8, 52, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
-                ReviewedAt = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 1, 22, 8, 50, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2026, 1, 22, 8, 52, 0, DateTimeKind.Utc),
+                LastUpdatedAt = new DateTime(2026, 1, 22, 9, 10, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2026, 1, 22, 9, 0, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.91,"risk_factors":["prolonged_isolation","infant_malnutrition","medication_shortage"],"needs":["food_drop","water","medicine"]}"""
@@ -398,13 +398,13 @@ public static class EmergencySeeder
                       "user_phone": "0964444444"
                     }
                     """,
-                Timestamp = 1729069800L, // 2024-10-16 09:10 UTC
+                Timestamp = 1772010600L, // 2026-02-25 09:10 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
-                CreatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
-                ReceivedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2024, 10, 16, 9, 10, 0, DateTimeKind.Utc),
-                ReviewedAt = new DateTime(2024, 10, 16, 9, 20, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 2, 25, 9, 10, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2026, 2, 25, 9, 10, 0, DateTimeKind.Utc),
+                LastUpdatedAt = new DateTime(2026, 2, 25, 9, 10, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2026, 2, 25, 9, 20, 0, DateTimeKind.Utc),
                 ReviewedById = SeedConstants.CoordinatorUserId,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"medium","suggested_severity":"Moderate","confidence":0.85,"risk_factors":["isolated_forest","broken_leg","low_battery"],"needs":["search_rescue","medical"]}"""
@@ -414,7 +414,7 @@ public static class EmergencySeeder
 
     private static void SeedSosRuleEvaluations(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 10, 16, 8, 31, 0, DateTimeKind.Utc);
+        var now = new DateTime(2025, 10, 15, 8, 31, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<SosRuleEvaluation>().HasData(
             // SOS 1: Lũ lụt, cụ bà 82t liệt + khó thở → Critical (72.5)
@@ -502,7 +502,7 @@ public static class EmergencySeeder
 
     private static void SeedSosAiAnalyses(ModelBuilder modelBuilder)
     {
-        var now = new DateTime(2024, 10, 16, 8, 31, 0, DateTimeKind.Utc);
+        var now = new DateTime(2025, 10, 15, 8, 31, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<SosAiAnalysis>().HasData(
             new SosAiAnalysis
