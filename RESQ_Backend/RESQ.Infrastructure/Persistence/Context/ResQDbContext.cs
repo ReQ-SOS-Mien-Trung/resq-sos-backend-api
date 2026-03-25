@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Text.Json;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Entities.Identity;
@@ -54,6 +56,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<MissionTeamMember> MissionTeamMembers { get; set; }
     public virtual DbSet<ReusableItem> ReusableItems { get; set; }
     public virtual DbSet<Notification> Notifications { get; set; }
+    public virtual DbSet<DepotRealtimeOutbox> DepotRealtimeOutboxEvents { get; set; }
     public virtual DbSet<Organization> Organizations { get; set; }
     public virtual DbSet<OrganizationReliefItem> OrganizationReliefItems { get; set; }
     public virtual DbSet<Permission> Permissions { get; set; }
@@ -89,6 +92,7 @@ public partial class ResQDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("postgis");
+        modelBuilder.HasSequence<long>("depot_realtime_version_seq");
         
         modelBuilder.Entity<Ability>(entity =>
         {
@@ -206,6 +210,26 @@ public partial class ResQDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<DepotRealtimeOutbox>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_realtime_outbox_pkey");
+            entity.Property(e => e.Version)
+                .HasDefaultValueSql("nextval('depot_realtime_version_seq')");
+            entity.Property(e => e.Status)
+                .HasDefaultValue("Pending");
+            entity.Property(e => e.AttemptCount)
+                .HasDefaultValue(0);
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("now()");
+
+            entity.HasIndex(e => new { e.DepotId, e.Version })
+                .HasDatabaseName("ix_depot_realtime_outbox_depot_version");
+            entity.HasIndex(e => new { e.Status, e.NextAttemptAt })
+                .HasDatabaseName("ix_depot_realtime_outbox_status_next_attempt");
+        });
+
         modelBuilder.Entity<TargetGroup>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("target_groups_pkey");
@@ -230,6 +254,285 @@ public partial class ResQDbContext : DbContext
             );
 
         OnModelCreatingPartial(modelBuilder);
+    }
+
+    public override int SaveChanges()
+    {
+        CaptureDepotRealtimeOutboxEntries();
+        return base.SaveChanges();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        CaptureDepotRealtimeOutboxEntries();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        CaptureDepotRealtimeOutboxEntries();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        CaptureDepotRealtimeOutboxEntries();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private bool _isCapturingOutbox;
+
+    private void CaptureDepotRealtimeOutboxEntries()
+    {
+        if (_isCapturingOutbox)
+            return;
+
+        _isCapturingOutbox = true;
+        try
+        {
+            var depotEntries = ChangeTracker.Entries<Depot>()
+                .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                .ToList();
+            var depotManagerEntries = ChangeTracker.Entries<DepotManager>()
+                .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                .ToList();
+            var supplyEntries = ChangeTracker.Entries<SupplyInventory>()
+                .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                .ToList();
+
+            if (depotEntries.Count == 0 && depotManagerEntries.Count == 0 && supplyEntries.Count == 0)
+                return;
+
+            var missionByDepot = BuildMissionContextMapFromInventoryLogs();
+            var snapshots = new Dictionary<int, object>();
+            var changedFields = new Dictionary<int, HashSet<string>>();
+            var priority = new Dictionary<int, (string Operation, string PayloadKind, bool IsCritical)>();
+
+            foreach (var entry in depotEntries)
+            {
+                var depotId = ResolveDepotId(entry);
+                if (!depotId.HasValue) continue;
+
+                (string Operation, string PayloadKind, bool IsCritical) op = entry.State switch
+                {
+                    EntityState.Added => (Operation: "Create", PayloadKind: "Full", IsCritical: true),
+                    EntityState.Deleted => (Operation: "Delete", PayloadKind: "Full", IsCritical: true),
+                    _ => (Operation: "Update", PayloadKind: "Full", IsCritical: true)
+                };
+                MergePriority(priority, depotId.Value, op.Operation, op.PayloadKind, op.IsCritical);
+
+                if (entry.State == EntityState.Modified)
+                {
+                    var fields = entry.Properties
+                        .Where(p => p.IsModified)
+                        .Select(p => p.Metadata.Name)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    if (fields.Count > 0)
+                    {
+                        if (!changedFields.TryGetValue(depotId.Value, out var set))
+                        {
+                            set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                            changedFields[depotId.Value] = set;
+                        }
+
+                        foreach (var field in fields)
+                            set.Add(field);
+                    }
+                }
+            }
+
+            foreach (var entry in depotManagerEntries)
+            {
+                var depotId = ResolveDepotId(entry);
+                if (!depotId.HasValue) continue;
+
+                MergePriority(priority, depotId.Value, "Update", "Full", true);
+
+                if (!changedFields.TryGetValue(depotId.Value, out var set))
+                {
+                    set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    changedFields[depotId.Value] = set;
+                }
+
+                set.Add("Manager");
+            }
+
+            foreach (var entry in supplyEntries)
+            {
+                var depotId = ResolveDepotId(entry);
+                if (!depotId.HasValue) continue;
+
+                (string Operation, string PayloadKind, bool IsCritical) op = entry.State switch
+                {
+                    EntityState.Added => (Operation: "Import", PayloadKind: "Full", IsCritical: true),
+                    EntityState.Deleted => (Operation: "Delete", PayloadKind: "Full", IsCritical: true),
+                    _ => (Operation: "Update", PayloadKind: "Delta", IsCritical: false)
+                };
+
+                MergePriority(priority, depotId.Value, op.Operation, op.PayloadKind, op.IsCritical);
+
+                if (entry.State == EntityState.Modified)
+                {
+                    var delta = entry.Properties
+                        .Where(p => p.IsModified)
+                        .ToDictionary(p => p.Metadata.Name, p => p.CurrentValue);
+
+                    if (delta.Count > 0)
+                    {
+                        snapshots[depotId.Value] = delta;
+
+                        if (!changedFields.TryGetValue(depotId.Value, out var set))
+                        {
+                            set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                            changedFields[depotId.Value] = set;
+                        }
+
+                        foreach (var field in delta.Keys)
+                            set.Add(field);
+                    }
+                }
+            }
+
+            var now = DateTime.UtcNow;
+            foreach (var (depotId, decision) in priority)
+            {
+                var outbox = new DepotRealtimeOutbox
+                {
+                    Id = Guid.NewGuid(),
+                    DepotId = depotId,
+                    MissionId = missionByDepot.TryGetValue(depotId, out var missionId) ? missionId : null,
+                    EventType = "DepotUpdated",
+                    Operation = decision.Operation,
+                    PayloadKind = decision.PayloadKind,
+                    IsCritical = decision.IsCritical,
+                    ChangedFields = changedFields.TryGetValue(depotId, out var set) && set.Count > 0
+                        ? string.Join(',', set.OrderBy(x => x))
+                        : null,
+                    SnapshotPayload = decision.PayloadKind == "Delta"
+                        && snapshots.TryGetValue(depotId, out var snapshot)
+                            ? JsonSerializer.Serialize(snapshot)
+                            : null,
+                    Status = "Pending",
+                    AttemptCount = 0,
+                    NextAttemptAt = now,
+                    OccurredAt = now,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+
+                DepotRealtimeOutboxEvents.Add(outbox);
+            }
+        }
+        finally
+        {
+            _isCapturingOutbox = false;
+        }
+    }
+
+    private static int? ResolveDepotId(EntityEntry<Depot> entry)
+    {
+        return entry.State switch
+        {
+            EntityState.Added => entry.Entity.Id > 0 ? entry.Entity.Id : null,
+            EntityState.Modified => entry.Entity.Id,
+            EntityState.Deleted => (int?)entry.OriginalValues[nameof(Depot.Id)],
+            _ => null
+        };
+    }
+
+    private static int? ResolveDepotId(EntityEntry<DepotManager> entry)
+    {
+        return entry.State switch
+        {
+            EntityState.Deleted => entry.OriginalValues[nameof(DepotManager.DepotId)] is int depotId ? depotId : null,
+            _ => entry.Entity.DepotId
+        };
+    }
+
+    private static int? ResolveDepotId(EntityEntry<SupplyInventory> entry)
+    {
+        return entry.State switch
+        {
+            EntityState.Deleted => entry.OriginalValues[nameof(SupplyInventory.DepotId)] is int depotId ? depotId : null,
+            _ => entry.Entity.DepotId
+        };
+    }
+
+    private Dictionary<int, int?> BuildMissionContextMapFromInventoryLogs()
+    {
+        var result = new Dictionary<int, int?>();
+        var inventoryById = ChangeTracker.Entries<SupplyInventory>()
+            .ToDictionary(x => x.Entity.Id, x => x.Entity.DepotId);
+
+        var logEntries = ChangeTracker.Entries<InventoryLog>()
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => e.Entity)
+            .ToList();
+
+        foreach (var log in logEntries)
+        {
+            var depotId = log.SupplyInventory?.DepotId;
+            if (!depotId.HasValue && log.DepotSupplyInventoryId.HasValue && inventoryById.TryGetValue(log.DepotSupplyInventoryId.Value, out var mapped))
+            {
+                depotId = mapped;
+            }
+
+            if (depotId.HasValue)
+            {
+                result[depotId.Value] = log.MissionId;
+            }
+        }
+
+        return result;
+    }
+
+    private static void MergePriority(
+        IDictionary<int, (string Operation, string PayloadKind, bool IsCritical)> map,
+        int depotId,
+        string operation,
+        string payloadKind,
+        bool isCritical)
+    {
+        if (!map.TryGetValue(depotId, out var current))
+        {
+            map[depotId] = (operation, payloadKind, isCritical);
+            return;
+        }
+
+        // Full/Critical luôn ưu tiên hơn Delta/non-critical.
+        if (isCritical && !current.IsCritical)
+        {
+            map[depotId] = (operation, payloadKind, isCritical);
+            return;
+        }
+
+        if (current.IsCritical)
+        {
+            // Giữ loại operation có mức ưu tiên cao hơn trong critical set.
+            var nextRank = GetOperationRank(operation);
+            var currentRank = GetOperationRank(current.Operation);
+            if (nextRank > currentRank)
+            {
+                map[depotId] = (operation, current.PayloadKind, true);
+            }
+            return;
+        }
+
+        map[depotId] = (operation, payloadKind, isCritical);
+    }
+
+    private static int GetOperationRank(string operation)
+    {
+        return operation switch
+        {
+            "Delete" => 6,
+            "Transfer" => 5,
+            "Import" => 4,
+            "Create" => 3,
+            "Export" => 2,
+            _ => 1
+        };
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
