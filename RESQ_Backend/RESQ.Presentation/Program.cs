@@ -45,6 +45,7 @@ builder.Services.AddSignalR();
 
 // Register NotificationHubService (Presentation implementation of Application interface)
 builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
+builder.Services.AddScoped<IDashboardHubService, DashboardHubService>();
 
 //jwt swagger
 // CORS
@@ -234,5 +235,6 @@ app.MapControllers();
 // 7. Map SignalR Hubs
 app.MapHub<ChatHub>("/hubs/chat");
 app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapHub<DashboardHub>("/hubs/dashboard");
 
 app.Run();

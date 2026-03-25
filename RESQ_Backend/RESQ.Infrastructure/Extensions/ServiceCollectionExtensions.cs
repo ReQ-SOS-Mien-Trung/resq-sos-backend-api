@@ -103,6 +103,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPromptRepository, PromptRepository>();
         services.AddScoped<IServiceZoneRepository, ServiceZoneRepository>();
         services.AddScoped<ISosPriorityRuleConfigRepository, SosPriorityRuleConfigRepository>();
+        services.AddScoped<IDashboardRepository, DashboardRepository>();
 
         // Services
         services.AddScoped<IFirebaseService, FirebaseService>();

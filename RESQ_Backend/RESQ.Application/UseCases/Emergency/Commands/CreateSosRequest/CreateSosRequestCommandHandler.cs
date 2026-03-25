@@ -17,6 +17,7 @@ public class CreateSosRequestCommandHandler(
     ISosPriorityEvaluationService priorityEvaluationService,
     ISosAiAnalysisQueue aiAnalysisQueue,
     IUnitOfWork unitOfWork,
+    IDashboardHubService dashboardHubService,
     ILogger<CreateSosRequestCommandHandler> logger
 ) : IRequestHandler<CreateSosRequestCommand, CreateSosRequestResponse>
 {
@@ -25,6 +26,7 @@ public class CreateSosRequestCommandHandler(
     private readonly ISosPriorityEvaluationService _priorityEvaluationService = priorityEvaluationService;
     private readonly ISosAiAnalysisQueue _aiAnalysisQueue = aiAnalysisQueue;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
     private readonly ILogger<CreateSosRequestCommandHandler> _logger = logger;
 
     public async Task<CreateSosRequestResponse> Handle(CreateSosRequestCommand request, CancellationToken cancellationToken)
@@ -97,6 +99,9 @@ public class CreateSosRequestCommandHandler(
             request.SosType));
 
         _logger.LogInformation("Queued AI analysis task for SOS Request Id={sosRequestId}", created.Id);
+
+        // Push updated dashboard chart data to all connected admin clients (fire-and-forget)
+        _ = _dashboardHubService.PushVictimsByPeriodAsync(CancellationToken.None);
 
         return new CreateSosRequestResponse
         {
