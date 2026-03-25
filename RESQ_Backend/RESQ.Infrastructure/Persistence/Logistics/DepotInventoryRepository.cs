@@ -798,25 +798,17 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         await _unitOfWork.SaveAsync();
     }
 
-    // ── Threshold constants ──────────────────────────────────────────────────
-    private const double DangerRatio  = 0.20;  // ≤ 20% available/total → 🔴 Danger
-    private const double WarningRatio = 0.40;  // ≤ 40% available/total → 🟡 Warning (and > Danger)
-
-    public async Task<List<LowStockItemDto>> GetLowStockItemsAsync(
+    public async Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(
         int? depotId,
-        StockAlertLevel? alertLevel,
         CancellationToken cancellationToken = default)
     {
-        // Build base query: consumable items where quantity > 0 and available ≤ warning threshold
         var query =
             from inv  in _unitOfWork.GetRepository<SupplyInventory>().AsQueryable()
             join item in _unitOfWork.GetRepository<ItemModel>().AsQueryable()     on inv.ItemModelId equals item.Id
             join depot in _unitOfWork.GetRepository<Depot>().AsQueryable()        on inv.DepotId     equals depot.Id
             join cat  in _unitOfWork.GetRepository<Category>().AsQueryable()      on item.CategoryId equals cat.Id into catJoin
             from cat in catJoin.DefaultIfEmpty()
-            where inv.Quantity > 0
-                    && item.ItemType == "Consumable"
-               && ((inv.Quantity ?? 0) - (inv.ReservedQuantity ?? 0)) <= (int)((inv.Quantity ?? 0) * WarningRatio)
+            where item.ItemType == "Consumable"
                && (depotId == null || inv.DepotId == depotId)
             select new
             {
@@ -833,8 +825,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             };
 
         var raw = await query
-            .OrderBy(x => x.Available)
-            .ThenBy(x => x.DepotId)
+            .OrderBy(x => x.DepotId)
+            .ThenBy(x => x.ItemModelId)
             .ToListAsync(cancellationToken);
 
         // Fetch TargetGroups for all item models in one query
@@ -844,36 +836,19 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             .Where(r => lowStockItemModelIds.Contains(r.Id))
             .ToDictionaryAsync(r => r.Id, r => TargetGroupTranslations.JoinAsVietnamese(r.TargetGroups.Select(tg => tg.Name)), cancellationToken);
 
-        // Classify and apply optional alert-level filter in memory
-        var result = new List<LowStockItemDto>();
-
-        foreach (var r in raw)
+        return raw.Select(r => new LowStockRawItemDto
         {
-            var ratio = (double)r.Available / r.Quantity;
-            var level = ratio <= DangerRatio ? StockAlertLevel.Danger : StockAlertLevel.Warning;
-
-            if (alertLevel.HasValue && alertLevel.Value != level)
-                continue;
-
-            result.Add(new LowStockItemDto
-            {
-                DepotId          = r.DepotId,
-                DepotName        = r.DepotName,
-                ItemModelId      = r.ItemModelId,
-                ItemModelName    = r.ItemModelName,
-                Unit             = r.Unit,
-                CategoryId       = r.CategoryId,
-                CategoryName     = r.CategoryName,
-                TargetGroup      = lowStockTgDict.TryGetValue(r.ItemModelId, out var tgStr) ? tgStr : null,
-                Quantity         = r.Quantity,
-                ReservedQuantity = r.ReservedQuantity,
-                AvailableQuantity = r.Available,
-                AvailableRatio   = Math.Round(ratio, 4),
-                AlertLevel       = level.ToString(),
-                AlertLevelLabel  = level == StockAlertLevel.Danger ? "Nguy hiểm" : "Cảnh báo"
-            });
-        }
-
-        return result;
+            DepotId = r.DepotId,
+            DepotName = r.DepotName,
+            ItemModelId = r.ItemModelId,
+            ItemModelName = r.ItemModelName,
+            Unit = r.Unit,
+            CategoryId = r.CategoryId,
+            CategoryName = r.CategoryName,
+            TargetGroup = lowStockTgDict.TryGetValue(r.ItemModelId, out var tgStr) ? tgStr : null,
+            Quantity = r.Quantity,
+            ReservedQuantity = r.ReservedQuantity,
+            AvailableQuantity = r.Available
+        }).ToList();
     }
 }

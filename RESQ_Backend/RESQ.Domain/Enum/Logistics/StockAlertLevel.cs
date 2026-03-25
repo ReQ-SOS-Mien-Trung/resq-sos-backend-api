@@ -5,9 +5,9 @@ namespace RESQ.Domain.Enum.Logistics;
 /// </summary>
 public enum StockAlertLevel
 {
-    /// <summary>Cảnh báo: tỉ lệ khả dụng > 10% và ≤ 25% tổng tồn kho.</summary>
+    /// <summary>Cảnh báo: tỉ lệ khả dụng thấp hơn ngưỡng warning và chưa chạm ngưỡng danger.</summary>
     Warning,
 
-    /// <summary>Nguy hiểm: tỉ lệ khả dụng ≤ 10% tổng tồn kho (bao gồm cả 0).</summary>
+    /// <summary>Nguy hiểm: tỉ lệ khả dụng thấp hơn ngưỡng danger cấu hình.</summary>
     Danger
 }
