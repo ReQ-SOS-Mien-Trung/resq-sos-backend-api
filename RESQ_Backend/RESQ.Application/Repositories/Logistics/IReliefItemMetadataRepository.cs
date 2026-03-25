@@ -30,4 +30,20 @@ public interface IItemModelMetadataRepository
     /// Chunks at 500 IDs to avoid SQL parameter limits. Returns a dictionary keyed by ID.
     /// </summary>
     Task<Dictionary<int, ItemModelRecord>> GetByIdsAsync(IReadOnlyList<int> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks whether a category exists.
+    /// </summary>
+    Task<bool> CategoryExistsAsync(int categoryId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks whether the item model has generated any inventory transactions.
+    /// </summary>
+    Task<bool> HasInventoryTransactionsAsync(int itemModelId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates an existing item model and its target groups.
+    /// Returns false when item model does not exist.
+    /// </summary>
+    Task<bool> UpdateItemModelAsync(ItemModelRecord model, CancellationToken cancellationToken = default);
 }
