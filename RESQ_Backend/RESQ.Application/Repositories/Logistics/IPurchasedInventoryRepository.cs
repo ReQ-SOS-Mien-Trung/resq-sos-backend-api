@@ -21,6 +21,11 @@ public interface IPurchasedInventoryRepository
     Task<List<ItemModelRecord>> GetOrCreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Tạo mới ItemModel theo danh sách bulk (không tái sử dụng item cũ).
+    /// </summary>
+    Task<List<ItemModelRecord>> CreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Bulk insert danh sách PurchasedInventoryItem.
     /// - Consumable: cập nhật DepotSupplyInventory (quantity cộng dồn).
     /// - Reusable: tạo N bản ghi ReusableItem với serial number do hệ thống sinh tự động.

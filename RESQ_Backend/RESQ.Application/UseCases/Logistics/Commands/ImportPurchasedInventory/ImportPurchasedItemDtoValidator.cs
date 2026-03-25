@@ -14,10 +14,11 @@ public class ImportPurchasedItemDtoValidator : AbstractValidator<ImportPurchased
         RuleFor(x => x.Row)
             .GreaterThan(0).WithMessage("Số dòng phải lớn hơn 0.");
 
-        // ── Mutual exclusion: ItemModelId XOR (ItemName + metadata) ──
+        // ── Priority rule: if ItemModelId exists, import uses ID-path and ignores lookup metadata.
+        // Otherwise, ItemName/metadata path is required to create a new item model. ──
         RuleFor(x => x)
-            .Must(x => x.ItemModelId.HasValue ^ !string.IsNullOrWhiteSpace(x.ItemName))
-            .WithMessage("Phải cung cấp ItemModelId hoặc ItemName, không được cả hai hoặc để trống cả hai.");
+            .Must(x => x.ItemModelId.HasValue || !string.IsNullOrWhiteSpace(x.ItemName))
+            .WithMessage("Phải cung cấp ItemModelId hoặc ItemName.");
 
         // ── Path A: Existing item by ID ──
         RuleFor(x => x.ItemModelId)
@@ -54,6 +55,9 @@ public class ImportPurchasedItemDtoValidator : AbstractValidator<ImportPurchased
         RuleFor(x => x.Quantity)
             .GreaterThan(0).WithMessage("Số lượng nhập phải lớn hơn 0.");
 
+        RuleFor(x => x.Description)
+            .MaximumLength(1000).WithMessage("Mô tả vật phẩm không được vượt quá 1000 ký tự.");
+
         RuleFor(x => x.UnitPrice)
             .GreaterThan(0)
             .When(x => x.UnitPrice.HasValue)
@@ -71,7 +75,5 @@ public class ImportPurchasedItemDtoValidator : AbstractValidator<ImportPurchased
             .When(x => x.ExpiredDate.HasValue && x.ReceivedDate.HasValue)
             .WithMessage("Ngày hết hạn phải sau ngày nhận.");
 
-        RuleFor(x => x.Notes)
-            .MaximumLength(500).WithMessage("Ghi chú không được vượt quá 500 ký tự.");
     }
 }

@@ -10,6 +10,8 @@ public class InventoryLogModel
     public string SourceType { get; set; } = string.Empty;
     public int? SourceId { get; set; }
     public string? Note { get; set; }
+    public string? BatchNote { get; set; }
+    public string? ItemNote { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? ReceivedDate { get; set; }
     public DateTime? ExpiredDate { get; set; }

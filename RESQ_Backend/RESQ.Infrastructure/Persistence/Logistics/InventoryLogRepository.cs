@@ -29,6 +29,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 .ThenInclude(x => x!.Depot)
             .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.ItemModel)
+            .Include(x => x.SupplyInventoryLot)
             .Include(x => x.ReusableItem)
                 .ThenInclude(x => x!.ItemModel)
             .Include(x => x.ReusableItem)
@@ -116,7 +117,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             QuantityChange = x.QuantityChange,
             SourceType = x.SourceType ?? string.Empty,
             SourceId = x.SourceId,
-            Note = x.Note,
+            Note = NormalizeMultilineText(x.Note),
             CreatedAt = x.CreatedAt,
             ReceivedDate = x.ReceivedDate,
             ExpiredDate = x.ExpiredDate,
@@ -151,6 +152,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.ItemModel)
                     .ThenInclude(x => x!.TargetGroups)
+            .Include(x => x.SupplyInventoryLot)
             .Include(x => x.ReusableItem)
                 .ThenInclude(x => x!.ItemModel)
                     .ThenInclude(x => x!.Category)
@@ -250,34 +252,37 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 PerformedByName = firstItem.PerformedByUser != null
                     ? $"{firstItem.PerformedByUser.FirstName} {firstItem.PerformedByUser.LastName}".Trim()
                     : string.Empty,
-                Note = firstItem.Note,
+                Note = NormalizeMultilineText(firstItem.Note),
                 CreatedAt = createdAt ?? DateTime.MinValue,
-                Items = g.Select(item => new InventoryTransactionItemDto
+                Items = g.Select(item =>
                 {
-                    ItemId = item.SupplyInventory?.ItemModelId
-                             ?? item.ReusableItem?.ItemModelId
-                             ?? 0,
-                    SupplyInventoryLotId = item.SupplyInventoryLotId,
-                    ItemName = item.SupplyInventory?.ItemModel?.Name
-                               ?? item.ReusableItem?.ItemModel?.Name
+                    return new InventoryTransactionItemDto
+                    {
+                        ItemId = item.SupplyInventory?.ItemModelId
+                                 ?? item.ReusableItem?.ItemModelId
+                                 ?? 0,
+                        SupplyInventoryLotId = item.SupplyInventoryLotId,
+                        ItemName = item.SupplyInventory?.ItemModel?.Name
+                                   ?? item.ReusableItem?.ItemModel?.Name
+                                   ?? string.Empty,
+                        QuantityChange = item.QuantityChange ?? 0,
+                        FormattedQuantityChange = FormatQuantityChange(item.ActionType ?? string.Empty, item.QuantityChange ?? 0),
+                        Unit = item.SupplyInventory?.ItemModel?.Unit
+                               ?? item.ReusableItem?.ItemModel?.Unit
                                ?? string.Empty,
-                    QuantityChange = item.QuantityChange ?? 0,
-                    FormattedQuantityChange = FormatQuantityChange(item.ActionType ?? string.Empty, item.QuantityChange ?? 0),
-                    Unit = item.SupplyInventory?.ItemModel?.Unit
-                           ?? item.ReusableItem?.ItemModel?.Unit
-                           ?? string.Empty,
-                    ItemType = item.SupplyInventory?.ItemModel?.ItemType
-                               ?? item.ReusableItem?.ItemModel?.ItemType
-                               ?? string.Empty,
-                    TargetGroup = TargetGroupTranslations.JoinAsVietnamese(
-                                      (item.SupplyInventory?.ItemModel?.TargetGroups
-                                       ?? item.ReusableItem?.ItemModel?.TargetGroups
-                                       ?? Enumerable.Empty<RESQ.Infrastructure.Entities.Logistics.TargetGroup>())
-                                      .Select(tg => tg.Name)),
-                    CategoryName = item.SupplyInventory?.ItemModel?.Category?.Name
-                                   ?? item.ReusableItem?.ItemModel?.Category?.Name,
-                    ReceivedDate = item.ReceivedDate,
-                    ExpiredDate = item.ExpiredDate
+                        ItemType = item.SupplyInventory?.ItemModel?.ItemType
+                                   ?? item.ReusableItem?.ItemModel?.ItemType
+                                   ?? string.Empty,
+                        TargetGroup = TargetGroupTranslations.JoinAsVietnamese(
+                                          (item.SupplyInventory?.ItemModel?.TargetGroups
+                                           ?? item.ReusableItem?.ItemModel?.TargetGroups
+                                           ?? Enumerable.Empty<RESQ.Infrastructure.Entities.Logistics.TargetGroup>())
+                                          .Select(tg => tg.Name)),
+                        CategoryName = item.SupplyInventory?.ItemModel?.Category?.Name
+                                       ?? item.ReusableItem?.ItemModel?.Category?.Name,
+                        ReceivedDate = item.ReceivedDate,
+                        ExpiredDate = item.ExpiredDate
+                    };
                 }).ToList()
             };
         }).ToList();
@@ -320,4 +325,14 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             _ => quantityChange.ToString()
         };
     }
+
+    private static string? NormalizeMultilineText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+
+        // Handle historical values saved with literal "\\n" characters
+        return text.Replace("\\r\\n", "\n").Replace("\\n", "\n");
+    }
+
+    
 }

@@ -39,10 +39,10 @@ public class ExcelExportService : IExcelExportService
         "Đối tượng",        // D
         "Loại vật phẩm",   // E
         "Đơn vị",           // F
-        "Số lượng",         // G
-        "Ngày hết hạn",    // H
-        "Ngày nhận",        // I
-        "Ghi chú"           // J
+        "Mô tả vật phẩm",   // G
+        "Số lượng",         // H
+        "Ngày hết hạn",    // I
+        "Ngày nhận"         // J
     ];
 
     private const int TemplateDataStartRow = 2;
@@ -292,6 +292,7 @@ public class ExcelExportService : IExcelExportService
         ws.Cell(1, 2).Value = "DoiTuong";
         ws.Cell(1, 3).Value = "LoaiVatPham";
         ws.Cell(1, 4).Value = "DonVi";
+        ws.Cell(1, 5).Value = "MoTa";
 
         for (int i = 0; i < items.Count; i++)
         {
@@ -301,6 +302,7 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 2).Value = items[i].TargetGroupDisplay;
             ws.Cell(r, 3).Value = items[i].ItemTypeDisplay;
             ws.Cell(r, 4).Value = items[i].Unit;
+            ws.Cell(r, 5).Value = items[i].Description;
         }
     }
 
@@ -333,10 +335,10 @@ public class ExcelExportService : IExcelExportService
         ws.Column(4).Width  = 25;  // Đối tượng
         ws.Column(5).Width  = 15;  // Loại vật phẩm
         ws.Column(6).Width  = 12;  // Đơn vị
-        ws.Column(7).Width  = 12;  // Số lượng
-        ws.Column(8).Width  = 16;  // Ngày hết hạn
-        ws.Column(9).Width  = 16;  // Ngày nhận
-        ws.Column(10).Width = 25;  // Ghi chú
+        ws.Column(7).Width  = 35;  // Mô tả vật phẩm
+        ws.Column(8).Width  = 12;  // Số lượng
+        ws.Column(9).Width  = 16;  // Ngày hết hạn
+        ws.Column(10).Width = 16;  // Ngày nhận
 
         // ── Data rows (2..102) ────────────────────────────────────────────────
         for (int r = TemplateDataStartRow; r <= TemplateDataEndRow; r++)
@@ -375,12 +377,15 @@ public class ExcelExportService : IExcelExportService
             // Col F: Đơn vị — VLOOKUP auto-fill (editable)
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
 
-            // Col G: Số lượng — number format
-            ws.Cell(r, 7).Style.NumberFormat.Format = "#,##0";
+            // Col G: Mô tả vật phẩm — VLOOKUP auto-fill (editable)
+            ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
 
-            // Col H: Ngày hết hạn — DateOnly (dd/MM/yyyy)
-            ws.Cell(r, 8).Style.NumberFormat.Format = "dd/MM/yyyy";
-            var dvExpiryDate = ws.Cell(r, 8).GetDataValidation();
+            // Col H: Số lượng — number format
+            ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
+
+            // Col I: Ngày hết hạn — DateOnly (dd/MM/yyyy)
+            ws.Cell(r, 9).Style.NumberFormat.Format = "dd/MM/yyyy";
+            var dvExpiryDate = ws.Cell(r, 9).GetDataValidation();
             dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvExpiryDate.IgnoreBlanks = true;
             dvExpiryDate.ShowInputMessage = true;
@@ -391,9 +396,9 @@ public class ExcelExportService : IExcelExportService
             dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
             dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col I: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
-            ws.Cell(r, 9).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
-            var dvReceivedDate = ws.Cell(r, 9).GetDataValidation();
+            // Col J: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
+            ws.Cell(r, 10).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
+            var dvReceivedDate = ws.Cell(r, 10).GetDataValidation();
             dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvReceivedDate.IgnoreBlanks = true;
             dvReceivedDate.ShowInputMessage = true;
@@ -436,11 +441,11 @@ public class ExcelExportService : IExcelExportService
         "Đối tượng",        // D  (4)
         "Loại vật phẩm",   // E  (5)
         "Đơn vị",           // F  (6)
-        "Số lượng (*)",     // G  (7)
-        "Đơn giá (VNĐ)",   // H  (8)
-        "Ngày hết hạn",    // I  (9)
-        "Ngày nhận",        // J  (10)
-        "Ghi chú"           // K  (11)
+        "Mô tả vật phẩm",   // G  (7)
+        "Số lượng (*)",     // H  (8)
+        "Đơn giá (VNĐ)",   // I  (9)
+        "Ngày hết hạn",    // J  (10)
+        "Ngày nhận"         // K  (11)
     ];
 
     private const int PurchaseDataStartRow = 2;
@@ -504,11 +509,11 @@ public class ExcelExportService : IExcelExportService
         ws.Column(4).Width  = 25;  // D: Đối tượng
         ws.Column(5).Width  = 15;  // E: Loại vật phẩm
         ws.Column(6).Width  = 12;  // F: Đơn vị
-        ws.Column(7).Width  = 12;  // G: Số lượng
-        ws.Column(8).Width  = 16;  // H: Đơn giá
-        ws.Column(9).Width  = 16;  // I: Ngày hết hạn
-        ws.Column(10).Width = 18;  // J: Ngày nhận
-        ws.Column(11).Width = 25;  // K: Ghi chú
+        ws.Column(7).Width  = 35;  // G: Mô tả vật phẩm
+        ws.Column(8).Width  = 12;  // H: Số lượng
+        ws.Column(9).Width  = 16;  // I: Đơn giá
+        ws.Column(10).Width = 16;  // J: Ngày hết hạn
+        ws.Column(11).Width = 18;  // K: Ngày nhận
 
         // ── Data rows (2..102) ────────────────────────────────────────────────
         for (int r = PurchaseDataStartRow; r <= PurchaseDataEndRow; r++)
@@ -545,19 +550,22 @@ public class ExcelExportService : IExcelExportService
             // Col F: Đơn vị — VLOOKUP auto-fill
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
 
-            // Col G: Số lượng (*) — number format
-            ws.Cell(r, 7).Style.NumberFormat.Format = "#,##0";
+            // Col G: Mô tả vật phẩm — VLOOKUP auto-fill
+            ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
 
-            // Col H: Đơn giá (VNĐ) — currency format (purchase-specific)
+            // Col H: Số lượng (*) — number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
-            var dvUnitPrice = ws.Cell(r, 8).GetDataValidation();
+
+            // Col I: Đơn giá (VNĐ) — currency format (purchase-specific)
+            ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0";
+            var dvUnitPrice = ws.Cell(r, 9).GetDataValidation();
             dvUnitPrice.ShowInputMessage = true;
             dvUnitPrice.InputTitle = "Đơn giá";
             dvUnitPrice.InputMessage = "Giá mua mỗi đơn vị (VNĐ).\nĐể trống nếu không có.";
 
-            // Col I: Ngày hết hạn — DateOnly (dd/MM/yyyy)
-            ws.Cell(r, 9).Style.NumberFormat.Format = "dd/MM/yyyy";
-            var dvExpiryDate = ws.Cell(r, 9).GetDataValidation();
+            // Col J: Ngày hết hạn — DateOnly (dd/MM/yyyy)
+            ws.Cell(r, 10).Style.NumberFormat.Format = "dd/MM/yyyy";
+            var dvExpiryDate = ws.Cell(r, 10).GetDataValidation();
             dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvExpiryDate.IgnoreBlanks = true;
             dvExpiryDate.ShowInputMessage = true;
@@ -568,9 +576,9 @@ public class ExcelExportService : IExcelExportService
             dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
             dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col J: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
-            ws.Cell(r, 10).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
-            var dvReceivedDate = ws.Cell(r, 10).GetDataValidation();
+            // Col K: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
+            ws.Cell(r, 11).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
+            var dvReceivedDate = ws.Cell(r, 11).GetDataValidation();
             dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvReceivedDate.IgnoreBlanks = true;
             dvReceivedDate.ShowInputMessage = true;

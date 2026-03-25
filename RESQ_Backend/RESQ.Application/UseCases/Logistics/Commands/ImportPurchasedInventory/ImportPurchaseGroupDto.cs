@@ -2,6 +2,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 
 public class ImportPurchaseGroupDto
 {
+    public string? BatchNote { get; set; }
     public VatInvoiceDto VatInvoice { get; set; } = new();
     public List<ImportPurchasedItemDto> Items { get; set; } = new();
 

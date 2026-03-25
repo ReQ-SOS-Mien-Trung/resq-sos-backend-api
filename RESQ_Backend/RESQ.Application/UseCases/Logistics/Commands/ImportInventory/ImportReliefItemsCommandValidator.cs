@@ -23,6 +23,11 @@ public class ImportReliefItemsCommandValidator : AbstractValidator<ImportReliefI
             .When(x => !string.IsNullOrEmpty(x.OrganizationName))
             .WithMessage("Tên tổ chức không được vượt quá 255 ký tự.");
 
+        RuleFor(x => x.BatchNote)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrWhiteSpace(x.BatchNote))
+            .WithMessage("Ghi chú đợt nhập không được vượt quá 500 ký tự.");
+
         RuleFor(x => x.Items)
             .NotEmpty().WithMessage("Danh sách vật phẩm nhập không được để trống.");
 

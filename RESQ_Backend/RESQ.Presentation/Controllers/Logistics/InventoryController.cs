@@ -450,6 +450,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
             UserId = userId,
             OrganizationId = request.OrganizationId,
             OrganizationName = request.OrganizationName,
+            BatchNote = request.BatchNote,
             Items = request.Items
         };
 

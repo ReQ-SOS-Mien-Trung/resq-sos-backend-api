@@ -47,4 +47,5 @@ public record DonationImportItemInfo(
     string CategoryCode,
     string TargetGroupDisplay,
     string ItemTypeDisplay,
-    string Unit);
+    string Unit,
+    string Description = "");

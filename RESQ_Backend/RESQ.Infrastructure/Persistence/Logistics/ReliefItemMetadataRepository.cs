@@ -78,7 +78,8 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
             ItemTypeDisplay: im.ItemType != null && ItemTypeVietnamese.TryGetValue(im.ItemType, out var vn)
                 ? vn
                 : im.ItemType ?? string.Empty,
-            Unit: im.Unit ?? string.Empty
+            Unit: im.Unit ?? string.Empty,
+            Description: im.Description ?? string.Empty
         )).ToList();
     }
 

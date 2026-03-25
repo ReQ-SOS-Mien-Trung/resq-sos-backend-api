@@ -4,5 +4,6 @@ public class ImportReliefItemsRequest
 {
     public int? OrganizationId { get; set; }
     public string? OrganizationName { get; set; }
+    public string? BatchNote { get; set; }
     public List<ImportReliefItemDto> Items { get; set; } = new();
 }

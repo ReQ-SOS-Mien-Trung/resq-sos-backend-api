@@ -55,37 +55,43 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
             await depotRepo.UpdateAsync(depotEntity);
         }
 
-        // 3. Add or Update to Depot Supply Inventory
+        var isReusable = string.Equals(model.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+
+        // 3. Add or Update to Depot Supply Inventory (consumable only)
         var inventoryRepo = _unitOfWork.GetRepository<SupplyInventory>();
-        var inventory = await inventoryRepo.GetByPropertyAsync(
-            i => i.DepotId == model.ReceivedAt && i.ItemModelId == model.ItemModelId, 
-            tracked: true);
-
-        if (inventory == null)
+        SupplyInventory? inventory = null;
+        if (!isReusable)
         {
-            inventory = new SupplyInventory
+            inventory = await inventoryRepo.GetByPropertyAsync(
+                i => i.DepotId == model.ReceivedAt && i.ItemModelId == model.ItemModelId,
+                tracked: true);
+
+            if (inventory == null)
             {
-                DepotId = model.ReceivedAt,
-                ItemModelId = model.ItemModelId,
-                Quantity = model.Quantity,
-                ReservedQuantity = 0,
-                LastStockedAt = DateTime.UtcNow
-            };
-            await inventoryRepo.AddAsync(inventory);
-        }
-        else
-        {
-            inventory.Quantity = (inventory.Quantity ?? 0) + model.Quantity;
-            inventory.LastStockedAt = DateTime.UtcNow;
-            await inventoryRepo.UpdateAsync(inventory);
+                inventory = new SupplyInventory
+                {
+                    DepotId = model.ReceivedAt,
+                    ItemModelId = model.ItemModelId,
+                    Quantity = model.Quantity,
+                    ReservedQuantity = 0,
+                    LastStockedAt = DateTime.UtcNow
+                };
+                await inventoryRepo.AddAsync(inventory);
+            }
+            else
+            {
+                inventory.Quantity = (inventory.Quantity ?? 0) + model.Quantity;
+                inventory.LastStockedAt = DateTime.UtcNow;
+                await inventoryRepo.UpdateAsync(inventory);
+            }
+
+            await _unitOfWork.SaveAsync();
         }
 
-        await _unitOfWork.SaveAsync();
-
-        // 4. Create inventory lot for consumable items
+        // 4. Create inventory lot for consumable items only
         var lotRepo = _unitOfWork.GetRepository<SupplyInventoryLot>();
         SupplyInventoryLot? lotEntity = null;
-        if (!string.Equals(model.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
+        if (!isReusable && inventory != null)
         {
             lotEntity = new SupplyInventoryLot
             {
@@ -106,7 +112,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         var logRepo = _unitOfWork.GetRepository<InventoryLog>();
         var logEntity = new InventoryLog
         {
-            DepotSupplyInventoryId = inventory.Id,
+            DepotSupplyInventoryId = inventory?.Id,
             SupplyInventoryLotId = lotEntity?.Id,
             
             // UPDATED: Using PascalCase enum 'Import'
@@ -133,7 +139,15 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
 
         // Group by unique combination to avoid duplicates
         var uniqueItems = models
-            .GroupBy(m => new { m.Name, m.CategoryId, m.Unit, m.ItemType, TargetGroupsKey = string.Join(",", m.TargetGroups.OrderBy(x => x)) })
+            .GroupBy(m => new
+            {
+                m.Name,
+                m.Description,
+                m.CategoryId,
+                m.Unit,
+                m.ItemType,
+                TargetGroupsKey = string.Join(",", m.TargetGroups.OrderBy(x => x))
+            })
             .Select(g => g.First())
             .ToList();
 
@@ -148,7 +162,8 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
             var candidates = await repo.AsQueryable()
                 .Include(r => r.TargetGroups)
                 .Where(r => r.Name == model.Name && r.CategoryId == model.CategoryId &&
-                            r.Unit == model.Unit && r.ItemType == model.ItemType)
+                            r.Unit == model.Unit && r.ItemType == model.ItemType &&
+                            r.Description == model.Description)
                 .ToListAsync(cancellationToken);
 
             var existing = candidates.FirstOrDefault(r =>
@@ -170,14 +185,15 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         {
             // Resolve TargetGroup entities from DB and attach
             var tgRepo = _unitOfWork.GetRepository<RESQ.Infrastructure.Entities.Logistics.TargetGroup>();
-            var allTargetGroups = await tgRepo.AsQueryable().ToListAsync(cancellationToken);
+            var allTargetGroups = await tgRepo.AsQueryable(tracked: true).ToListAsync(cancellationToken);
 
             foreach (var newItem in newItems)
             {
                 // Find the matching domain model to get TargetGroups names
                 var domainModel = uniqueItems.First(m =>
                     m.Name == newItem.Name && m.CategoryId == newItem.CategoryId &&
-                    m.Unit == newItem.Unit && m.ItemType == newItem.ItemType);
+                    m.Unit == newItem.Unit && m.ItemType == newItem.ItemType &&
+                    m.Description == newItem.Description);
 
                 foreach (var tgName in domainModel.TargetGroups)
                 {
@@ -202,6 +218,35 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         }
 
         return results;
+    }
+
+    public async Task<List<ItemModelRecord>> CreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default)
+    {
+        if (models.Count == 0) return new List<ItemModelRecord>();
+
+        var repo = _unitOfWork.GetRepository<ReliefItem>();
+        var tgRepo = _unitOfWork.GetRepository<RESQ.Infrastructure.Entities.Logistics.TargetGroup>();
+
+        var allTargetGroups = await tgRepo.AsQueryable(tracked: true).ToListAsync(cancellationToken);
+        var entities = new List<ReliefItem>(models.Count);
+
+        foreach (var model in models)
+        {
+            var entity = ItemModelMapper.ToEntity(model);
+            foreach (var tgName in model.TargetGroups)
+            {
+                var tgEntity = allTargetGroups.FirstOrDefault(t =>
+                    string.Equals(t.Name, tgName, StringComparison.OrdinalIgnoreCase));
+                if (tgEntity != null)
+                    entity.TargetGroups.Add(tgEntity);
+            }
+            entities.Add(entity);
+        }
+
+        await repo.AddRangeAsync(entities);
+        await _unitOfWork.SaveAsync();
+
+        return entities.Select(ItemModelMapper.ToDomain).ToList();
     }
 
     public async Task AddOrganizationReliefItemsBulkAsync(List<OrganizationReliefItemModel> models, CancellationToken cancellationToken = default)
@@ -251,7 +296,8 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                     });
                 }
             }
-            else
+
+            if (isReusable)
             {
                 // 2b. Reusable → create N individual ReusableItem records
                 for (int u = 0; u < model.Quantity; u++)
@@ -264,7 +310,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                         SerialNumber = serial,
                         Status       = "Available",
                         Condition    = "Good",
-                        Note         = model.Notes,
+                        Note         = null,
                         CreatedAt    = DateTime.UtcNow,
                         UpdatedAt    = DateTime.UtcNow
                     });

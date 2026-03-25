@@ -14,6 +14,7 @@ public class ImportPurchasedItemDto
     /// </summary>
     public string? ItemName { get; set; }
     public string? CategoryCode { get; set; }
+    public string? Description { get; set; }
     public int Quantity { get; set; }
     public decimal? UnitPrice { get; set; }
     public string? Unit { get; set; }
@@ -21,5 +22,4 @@ public class ImportPurchasedItemDto
     public List<string>? TargetGroups { get; set; }
     public DateTime? ReceivedDate { get; set; }
     public DateOnly? ExpiredDate { get; set; }
-    public string? Notes { get; set; }
 }

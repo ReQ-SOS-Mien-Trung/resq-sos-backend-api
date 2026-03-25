@@ -38,7 +38,15 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
 
         // Nhóm theo các thuộc tính duy nhất để tránh trùng lặp
         var uniqueItems = models
-            .GroupBy(m => new { m.Name, m.CategoryId, m.Unit, m.ItemType, TargetGroupsKey = string.Join(",", m.TargetGroups.OrderBy(x => x)) })
+            .GroupBy(m => new
+            {
+                m.Name,
+                m.Description,
+                m.CategoryId,
+                m.Unit,
+                m.ItemType,
+                TargetGroupsKey = string.Join(",", m.TargetGroups.OrderBy(x => x))
+            })
             .Select(g => g.First())
             .ToList();
 
@@ -54,7 +62,8 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
                 .Where(r => r.Name == model.Name &&
                             r.CategoryId == model.CategoryId &&
                             r.Unit == model.Unit &&
-                            r.ItemType == model.ItemType)
+                            r.ItemType == model.ItemType &&
+                            r.Description == model.Description)
                 .ToListAsync(cancellationToken);
 
             var existing = candidates.FirstOrDefault(r =>
@@ -75,13 +84,14 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
         if (newItems.Count > 0)
         {
             var tgRepo = _unitOfWork.GetRepository<RESQ.Infrastructure.Entities.Logistics.TargetGroup>();
-            var allTargetGroups = await tgRepo.AsQueryable().ToListAsync(cancellationToken);
+            var allTargetGroups = await tgRepo.AsQueryable(tracked: true).ToListAsync(cancellationToken);
 
             foreach (var newItem in newItems)
             {
                 var domainModel = uniqueItems.First(m =>
                     m.Name == newItem.Name && m.CategoryId == newItem.CategoryId &&
-                    m.Unit == newItem.Unit && m.ItemType == newItem.ItemType);
+                    m.Unit == newItem.Unit && m.ItemType == newItem.ItemType &&
+                    m.Description == newItem.Description);
 
                 foreach (var tgName in domainModel.TargetGroups)
                 {
@@ -105,6 +115,35 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
         }
 
         return results;
+    }
+
+    public async Task<List<ItemModelRecord>> CreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default)
+    {
+        if (models.Count == 0) return new List<ItemModelRecord>();
+
+        var repo = _unitOfWork.GetRepository<ItemModel>();
+        var tgRepo = _unitOfWork.GetRepository<RESQ.Infrastructure.Entities.Logistics.TargetGroup>();
+
+        var allTargetGroups = await tgRepo.AsQueryable(tracked: true).ToListAsync(cancellationToken);
+        var entities = new List<ItemModel>(models.Count);
+
+        foreach (var model in models)
+        {
+            var entity = ItemModelMapper.ToEntity(model);
+            foreach (var tgName in model.TargetGroups)
+            {
+                var tgEntity = allTargetGroups.FirstOrDefault(t =>
+                    string.Equals(t.Name, tgName, StringComparison.OrdinalIgnoreCase));
+                if (tgEntity != null)
+                    entity.TargetGroups.Add(tgEntity);
+            }
+            entities.Add(entity);
+        }
+
+        await repo.AddRangeAsync(entities);
+        await _unitOfWork.SaveAsync();
+
+        return entities.Select(ItemModelMapper.ToDomain).ToList();
     }
 
 public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryItemModel model, decimal? unitPrice, string itemType)> items, CancellationToken cancellationToken = default)
@@ -164,8 +203,9 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                     });
                 }
             }
+
             // 1b. Reusable → tạo N bản ghi ReusableItem (serial number do system sinh)
-            else
+            if (isReusable)
             {
                 for (int u = 0; u < model.Quantity; u++)
                 {
@@ -177,7 +217,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                         SerialNumber = serial,
                         Status       = "Available",
                         Condition    = "Good",
-                        Note         = model.Notes,
+                        Note         = null,
                         CreatedAt    = DateTime.UtcNow,
                         UpdatedAt    = DateTime.UtcNow
                     });

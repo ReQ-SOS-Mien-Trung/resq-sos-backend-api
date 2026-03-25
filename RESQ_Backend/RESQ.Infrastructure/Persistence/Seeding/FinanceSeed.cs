@@ -8,6 +8,8 @@ public static class FinanceSeed
 {
     public static void SeedFinance(this ModelBuilder modelBuilder)
     {
+        var fundSeedTime = new DateTime(2026, 3, 25, 0, 0, 0, DateTimeKind.Utc);
+
         // 0. Payment Methods
         var paymentMethods = new List<PaymentMethod>
         {
@@ -16,6 +18,118 @@ public static class FinanceSeed
             new PaymentMethod { Id = 3, Code = "ZALOPAY", Name = "Ví điện tử ZaloPay", IsActive = true }
         };
         modelBuilder.Entity<PaymentMethod>().HasData(paymentMethods);
+
+        // 0.1 Depot Funds (ví kho) — seed sẵn hạn mức tự ứng cho từng kho
+        var depotFunds = new List<DepotFund>
+        {
+            new DepotFund { Id = 1, DepotId = 1, Balance = 120_000_000m, MaxAdvanceLimit = 80_000_000m, LastUpdatedAt = fundSeedTime },
+            new DepotFund { Id = 2, DepotId = 2, Balance = 90_000_000m,  MaxAdvanceLimit = 60_000_000m, LastUpdatedAt = fundSeedTime },
+            new DepotFund { Id = 3, DepotId = 3, Balance = 70_000_000m,  MaxAdvanceLimit = 40_000_000m, LastUpdatedAt = fundSeedTime },
+            new DepotFund { Id = 4, DepotId = 4, Balance = 150_000_000m, MaxAdvanceLimit = 100_000_000m, LastUpdatedAt = fundSeedTime }
+        };
+        modelBuilder.Entity<DepotFund>().HasData(depotFunds);
+
+        // 0.2 Depot Fund Transactions — dữ liệu mẫu lịch sử ví kho
+        var depotFundTransactions = new List<DepotFundTransaction>
+        {
+            new DepotFundTransaction
+            {
+                Id = 1,
+                DepotFundId = 1,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 200_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1001,
+                Note = "Admin cấp quỹ đầu kỳ cho kho Huế",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 5, 2, 0, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 2,
+                DepotFundId = 1,
+                TransactionType = DepotFundTransactionType.Deduction.ToString(),
+                Amount = 80_000_000m,
+                ReferenceType = "VatInvoice",
+                ReferenceId = 1,
+                Note = "Nhập hàng quý I",
+                CreatedBy = SeedConstants.ManagerUserId,
+                CreatedAt = new DateTime(2026, 2, 2, 3, 30, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 3,
+                DepotFundId = 2,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 120_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1002,
+                Note = "Admin cấp quỹ kho Đà Nẵng",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 8, 2, 15, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 4,
+                DepotFundId = 2,
+                TransactionType = DepotFundTransactionType.SelfAdvance.ToString(),
+                Amount = 30_000_000m,
+                ReferenceType = "VatInvoice",
+                ReferenceId = 2,
+                Note = "Kho tự ứng khi nhập hàng vượt số dư",
+                CreatedBy = SeedConstants.Manager2UserId,
+                CreatedAt = new DateTime(2026, 2, 20, 4, 0, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 5,
+                DepotFundId = 2,
+                TransactionType = DepotFundTransactionType.DebtRepayment.ToString(),
+                Amount = 20_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1003,
+                Note = "Trả một phần nợ tự ứng sau khi được cấp bổ sung",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 3, 1, 1, 45, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 6,
+                DepotFundId = 3,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 90_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1004,
+                Note = "Admin cấp quỹ kho Hà Tĩnh",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 10, 2, 10, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 7,
+                DepotFundId = 4,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 260_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1005,
+                Note = "Admin cấp quỹ kho trung tâm",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 3, 1, 30, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 8,
+                DepotFundId = 4,
+                TransactionType = DepotFundTransactionType.Deduction.ToString(),
+                Amount = 110_000_000m,
+                ReferenceType = "VatInvoice",
+                ReferenceId = 3,
+                Note = "Nhập vật tư y tế và cứu hộ",
+                CreatedBy = SeedConstants.Manager4UserId,
+                CreatedAt = new DateTime(2026, 2, 14, 3, 20, 0, DateTimeKind.Utc)
+            }
+        };
+        modelBuilder.Entity<DepotFundTransaction>().HasData(depotFundTransactions);
 
         // 1. Fund Campaigns
         var fundCampaigns = new List<FundCampaign>

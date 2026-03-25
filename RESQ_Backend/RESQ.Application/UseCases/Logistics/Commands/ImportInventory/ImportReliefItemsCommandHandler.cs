@@ -69,6 +69,9 @@ public class ImportReliefItemsCommandHandler(
 
         // 3. Pre-fetch all categories into memory for efficient matching
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
+        var categoriesByCode = categories
+            .ToDictionary(c => c.Code.ToString(), c => c, StringComparer.OrdinalIgnoreCase);
+        var batchNote = NormalizeNote(request.BatchNote);
 
         // 3b. Batch-fetch existing item models for Path A rows (ItemModelId provided)
         var itemModelIds = request.Items
@@ -136,8 +139,7 @@ public class ImportReliefItemsCommandHandler(
                         continue;
                     }
 
-                    var category = categories.FirstOrDefault(c =>
-                        string.Equals(c.Code.ToString(), normalizedCategoryCode, StringComparison.OrdinalIgnoreCase));
+                    var category = categoriesByCode.GetValueOrDefault(normalizedCategoryCode!);
 
                     if (category == null)
                     {
@@ -175,7 +177,8 @@ public class ImportReliefItemsCommandHandler(
                             normalizedName,
                             normalizedUnit,
                             normalizedItemType,
-                            targetGroups);
+                            targetGroups,
+                            item.Description);
                     }
                     catch (Exception ex)
                     {
@@ -201,9 +204,11 @@ public class ImportReliefItemsCommandHandler(
                     resolvedRecord.ItemType,
                     receivedDateUtc,
                     expiredDateUtc,
-                    item.Notes,
+                    batchNote,
                     request.UserId,
-                    depotId.Value
+                    depotId.Value,
+                    batchNote,
+                    null
                 );
 
                 validItems.Add((item, resolvedRecord, donationModel));
@@ -239,38 +244,37 @@ public class ImportReliefItemsCommandHandler(
         // 5. Execute all bulk operations within a transaction to ensure atomicity
         try
         {
-            // Bulk create/get relief items
-            var reliefItemModels = validItems.Select(x => x.reliefItem).ToList();
-            var savedReliefItems = await _organizationReliefRepository.GetOrCreateReliefItemsBulkAsync(reliefItemModels, cancellationToken);
+            // Name-path rows: always create new item models. ID-path rows: use existing ID and ignore lookup fields.
+            var newItemModels = validItems
+                .Where(x => !x.dto.ItemModelId.HasValue)
+                .Select(x => x.reliefItem)
+                .ToList();
+
+            var createdItems = await _organizationReliefRepository.CreateReliefItemsBulkAsync(newItemModels, cancellationToken);
+            var createdIndex = 0;
 
             // Map relief item IDs back to donation models
             var donationModels = new List<OrganizationReliefItemModel>();
             for (int i = 0; i < validItems.Count; i++)
             {
                 var (dto, reliefItem, donation) = validItems[i];
-                var savedReliefItem = savedReliefItems.FirstOrDefault(r => 
-                    r.Name == reliefItem.Name && 
-                    r.CategoryId == reliefItem.CategoryId &&
-                    r.Unit == reliefItem.Unit &&
-                    r.ItemType == reliefItem.ItemType &&
-                    r.TargetGroups.OrderBy(x => x).SequenceEqual(reliefItem.TargetGroups.OrderBy(x => x)));
+                var resolvedItemModelId = dto.ItemModelId ?? createdItems[createdIndex++].Id;
 
-                if (savedReliefItem != null)
-                {
-                    // Update donation model with correct relief item ID
-                    var updatedDonation = OrganizationReliefItemModel.Create(
-                        organizationId,
-                        savedReliefItem.Id,
-                        donation.Quantity,
-                        donation.ItemType,
-                        donation.ReceivedDate,
-                        donation.ExpiredDate,
-                        donation.Notes,
-                        donation.ReceivedBy,
-                        donation.ReceivedAt
-                    );
-                    donationModels.Add(updatedDonation);
-                }
+                // Update donation model with correct relief item ID
+                var updatedDonation = OrganizationReliefItemModel.Create(
+                    organizationId,
+                    resolvedItemModelId,
+                    donation.Quantity,
+                    donation.ItemType,
+                    donation.ReceivedDate,
+                    donation.ExpiredDate,
+                    donation.Notes,
+                    donation.ReceivedBy,
+                    donation.ReceivedAt,
+                    donation.BatchNote,
+                    null
+                );
+                donationModels.Add(updatedDonation);
             }
 
             // Bulk insert donation records, inventory updates, and logs
@@ -302,4 +306,7 @@ public class ImportReliefItemsCommandHandler(
         }
         messages.Add(message);
     }
+
+    private static string? NormalizeNote(string? note)
+        => string.IsNullOrWhiteSpace(note) ? null : note.Trim();
 }

@@ -44,6 +44,8 @@ public class ImportPurchasedInventoryCommandHandler(
 
         // 2. Tải tất cả danh mục để mapping hiệu quả
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
+        var categoriesByCode = categories
+            .ToDictionary(c => c.Code.ToString(), c => c, StringComparer.OrdinalIgnoreCase);
 
         // 2b. Batch-fetch existing item models for all Path A rows across all groups
         var allItemModelIds = request.Invoices
@@ -79,6 +81,17 @@ public class ImportPurchasedInventoryCommandHandler(
         if (totalCost > 0)
         {
             depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(depotId.Value, cancellationToken);
+
+            // Pre-check quỹ/hạn mức tự ứng trước khi ghi bất kỳ dữ liệu nhập hàng nào xuống DB.
+            // Dùng bản sao domain model để validate, không mutate trạng thái thật tại thời điểm này.
+            var fundCheck = DepotFundModel.Reconstitute(
+                depotFund.Id,
+                depotFund.DepotId,
+                depotFund.Balance,
+                depotFund.MaxAdvanceLimit,
+                depotFund.LastUpdatedAt);
+
+            fundCheck.Debit(totalCost);
         }
 
         // 3. Guard trùng serial+number ngay trong cùng request
@@ -90,6 +103,7 @@ public class ImportPurchasedInventoryCommandHandler(
             {
                 var group = request.Invoices[i];
                 var groupResult = new ImportPurchaseGroupResultDto { GroupIndex = i };
+                var batchNote = NormalizeNote(group.BatchNote);
 
                 // 3a. Kiểm tra trùng hóa đơn VAT
                 var vat = group.VatInvoice;
@@ -152,8 +166,7 @@ public class ImportPurchasedInventoryCommandHandler(
                                 continue;
                             }
 
-                            var category = categories.FirstOrDefault(c =>
-                                string.Equals(c.Code.ToString(), normalizedCategoryCode, StringComparison.OrdinalIgnoreCase));
+                            var category = categoriesByCode.GetValueOrDefault(normalizedCategoryCode!);
 
                             if (category == null)
                             {
@@ -191,7 +204,8 @@ public class ImportPurchasedInventoryCommandHandler(
                                     normalizedName,
                                     normalizedUnit,
                                     normalizedItemType,
-                                    targetGroups);
+                                    targetGroups,
+                                    item.Description);
                             }
                             catch (Exception ex)
                             {
@@ -252,43 +266,41 @@ public class ImportPurchasedInventoryCommandHandler(
 
                 var savedVatInvoice = await _purchasedInventoryRepository.CreateVatInvoiceAsync(vatInvoiceModel, cancellationToken);
 
-                // 5. Bulk lấy/tạo relief items cho nhóm này
-                var reliefItemModels = validItems.Select(x => x.itemModel).ToList();
-                var savedReliefItems = await _purchasedInventoryRepository.GetOrCreateReliefItemsBulkAsync(reliefItemModels, cancellationToken);
+                // 5. Name-path rows: always create new item models. ID-path rows: use existing ID and ignore lookup fields.
+                var newItemModels = validItems
+                    .Where(x => !x.dto.ItemModelId.HasValue)
+                    .Select(x => x.itemModel)
+                    .ToList();
+                var createdItems = await _purchasedInventoryRepository.CreateReliefItemsBulkAsync(newItemModels, cancellationToken);
+                var createdIndex = 0;
 
                 // 6. Map lại ItemModelId và tạo PurchasedInventoryItemModel
                 var purchasedModels = new List<(PurchasedInventoryItemModel model, decimal? unitPrice, string itemType)>();
                 foreach (var (dto, reliefItem) in validItems)
                 {
-                    var savedReliefItem = savedReliefItems.FirstOrDefault(r =>
-                        r.Name == reliefItem.Name &&
-                        r.CategoryId == reliefItem.CategoryId &&
-                        r.Unit == reliefItem.Unit &&
-                        r.ItemType == reliefItem.ItemType &&
-                        r.TargetGroups.OrderBy(x => x).SequenceEqual(reliefItem.TargetGroups.OrderBy(x => x)));
+                    var resolvedItemModelId = dto.ItemModelId ?? createdItems[createdIndex++].Id;
 
-                    if (savedReliefItem != null)
-                    {
-                        // Normalize dates to UTC before persisting
-                        var receivedDateUtc = dto.ReceivedDate.HasValue
-                            ? DateTime.SpecifyKind(dto.ReceivedDate.Value, DateTimeKind.Utc)
-                            : (DateTime?)null;
-                        var expiredDateUtc = dto.ExpiredDate.HasValue
-                            ? DateTime.SpecifyKind(dto.ExpiredDate.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
-                            : (DateTime?)null;
+                    // Normalize dates to UTC before persisting
+                    var receivedDateUtc = dto.ReceivedDate.HasValue
+                        ? DateTime.SpecifyKind(dto.ReceivedDate.Value, DateTimeKind.Utc)
+                        : (DateTime?)null;
+                    var expiredDateUtc = dto.ExpiredDate.HasValue
+                        ? DateTime.SpecifyKind(dto.ExpiredDate.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
+                        : (DateTime?)null;
 
-                        var purchasedModel = PurchasedInventoryItemModel.Create(
-                            savedVatInvoice.Id,
-                            savedReliefItem.Id,
-                            dto.Quantity,
-                            receivedDateUtc,
-                            expiredDateUtc,
-                            dto.Notes,
-                            request.UserId,
-                            depotId.Value);
+                    var purchasedModel = PurchasedInventoryItemModel.Create(
+                        savedVatInvoice.Id,
+                        resolvedItemModelId,
+                        dto.Quantity,
+                        receivedDateUtc,
+                        expiredDateUtc,
+                        batchNote,
+                        request.UserId,
+                        depotId.Value,
+                        batchNote,
+                        null);
 
-                        purchasedModels.Add((purchasedModel, dto.UnitPrice, savedReliefItem.ItemType));
-                    }
+                    purchasedModels.Add((purchasedModel, dto.UnitPrice, reliefItem.ItemType));
                 }
 
                 // 7. Bulk insert — kiểm tra sức chứa kho và lưu inventory log
@@ -312,7 +324,7 @@ public class ImportPurchasedInventoryCommandHandler(
                             Quantity      = x.dto.Quantity,
                             UnitPrice     = x.dto.UnitPrice ?? 0m,
                             TotalPrice    = (x.dto.UnitPrice ?? 0m) * x.dto.Quantity,
-                            Note          = x.dto.Notes,
+                            Note          = batchNote,
                             CreatedAt     = DateTime.UtcNow
                         };
                     }).ToList();
@@ -413,4 +425,7 @@ public class ImportPurchasedInventoryCommandHandler(
         }
         messages.Add(message);
     }
+
+    private static string? NormalizeNote(string? note)
+        => string.IsNullOrWhiteSpace(note) ? null : note.Trim();
 }

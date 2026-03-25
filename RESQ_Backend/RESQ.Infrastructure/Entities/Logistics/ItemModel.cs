@@ -20,6 +20,10 @@ public partial class ItemModel
     [StringLength(255)]
     public string? Name { get; set; }
 
+    [Column("description")]
+    [StringLength(1000)]
+    public string? Description { get; set; }
+
     [Column("unit")]
     [StringLength(50)]
     public string? Unit { get; set; }

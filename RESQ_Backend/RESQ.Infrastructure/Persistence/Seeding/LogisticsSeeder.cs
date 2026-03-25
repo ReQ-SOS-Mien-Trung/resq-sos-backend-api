@@ -77,7 +77,7 @@ public static class LogisticsSeeder
 
         modelBuilder.Entity<ReliefItem>().HasData(
             // ── Category 1: Thực phẩm (Food) — 10 items ──────────────────────
-            new ReliefItem { Id = 1,  CategoryId = 1, Name = "Mì tôm",                        Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 1,  CategoryId = 1, Name = "Mì tôm",                        Description = "Mì ăn liền đóng gói dùng cứu trợ khẩn cấp", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 7,  CategoryId = 1, Name = "Sữa bột trẻ em",                Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 8,  CategoryId = 1, Name = "Lương khô",                     Unit = "thanh", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 11, CategoryId = 1, Name = "Gạo sấy khô",                   Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
@@ -89,7 +89,7 @@ public static class LogisticsSeeder
             new ReliefItem { Id = 17, CategoryId = 1, Name = "Thịt hộp đóng gói",             Unit = "hộp",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 2: Nước uống (Water) — 7 items (tiêu hao, phát cho nạn nhân) ──
-            new ReliefItem { Id = 2,  CategoryId = 2, Name = "Nước tinh khiết",               Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 2,  CategoryId = 2, Name = "Nước tinh khiết",               Description = "Nước uống đóng chai 500ml phục vụ cấp phát", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 18, CategoryId = 2, Name = "Nước lọc bình 20L",             Unit = "bình",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 19, CategoryId = 2, Name = "Viên lọc nước khẩn cấp",        Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 20, CategoryId = 2, Name = "Nước đóng thùng 24 chai",       Unit = "thùng", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
@@ -98,14 +98,14 @@ public static class LogisticsSeeder
             new ReliefItem { Id = 26, CategoryId = 2, Name = "Bột bù điện giải ORS",          Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 3: Y tế (Medical) — 9 items (tiêu hao, cấp phát cho nạn nhân) ──
-            new ReliefItem { Id = 3,  CategoryId = 3, Name = "Thuốc hạ sốt Paracetamol 500mg", Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 3,  CategoryId = 3, Name = "Thuốc hạ sốt Paracetamol 500mg", Description = "Thuốc hạ sốt giảm đau cơ bản cho người lớn", Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 9,  CategoryId = 3, Name = "Dầu gió",                         Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 10, CategoryId = 3, Name = "Sắt & Vitamin tổng hợp",          Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 27, CategoryId = 3, Name = "Băng gạc y tế vô khuẩn",          Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 28, CategoryId = 3, Name = "Bông gòn y tế",                   Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 29, CategoryId = 3, Name = "Thuốc kháng sinh Amoxicillin",    Unit = "viên",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 30, CategoryId = 3, Name = "Dung dịch sát khuẩn Betadine",    Unit = "chai",  ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 32, CategoryId = 3, Name = "Khẩu trang y tế 3 lớp",           Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 32, CategoryId = 3, Name = "Khẩu trang y tế 3 lớp",           Description = "Khẩu trang y tế dùng một lần, đóng gói vô khuẩn", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 33, CategoryId = 3, Name = "Bộ sơ cứu cơ bản",                Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
 
             // ── Category 4: Vệ sinh cá nhân (Hygiene) — 10 items ─────────────
@@ -159,12 +159,12 @@ public static class LogisticsSeeder
             new ReliefItem { Id = 72, CategoryId = 7, Name = "Bộ dụng cụ sửa chữa điện cơ bản",  Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
 
             // ── Category 8: Thiết bị cứu hộ (RescueEquipment) — 14 items ────
-            new ReliefItem { Id = 4,  CategoryId = 8, Name = "Áo phao cứu sinh",              Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 4,  CategoryId = 8, Name = "Áo phao cứu sinh",              Description = "Áo phao tiêu chuẩn phục vụ cứu hộ đường thủy", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 21, CategoryId = 8, Name = "Bình lọc nước dã chiến",        Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 23, CategoryId = 8, Name = "Can đựng nước 10L",             Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 24, CategoryId = 8, Name = "Túi đựng nước linh hoạt",       Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 31, CategoryId = 8, Name = "Nhiệt kế điện tử",              Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 73, CategoryId = 8, Name = "Xuồng cao su cứu hộ",           Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 73, CategoryId = 8, Name = "Xuồng cao su cứu hộ",           Description = "Xuồng cao su chuyên dụng cho nhiệm vụ cứu hộ lũ", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 74, CategoryId = 8, Name = "Dây thừng cứu sinh 30m",        Unit = "cuộn",  ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 75, CategoryId = 8, Name = "Phao tròn cứu sinh",            Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 76, CategoryId = 8, Name = "Máy bơm nước di động",          Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
@@ -188,7 +188,7 @@ public static class LogisticsSeeder
 
             // ── Category 10: Phương tiện (Vehicle) — 10 items ─────────────────
             new ReliefItem { Id = 101, CategoryId = 10, Name = "Xe tải cứu trợ 2.5 tấn",       Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 102, CategoryId = 10, Name = "Xe cứu thương",                 Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 102, CategoryId = 10, Name = "Xe cứu thương",                 Description = "Xe chuyên dụng vận chuyển cấp cứu và bệnh nhân", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 103, CategoryId = 10, Name = "Xe bán tải 4x4",                Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 104, CategoryId = 10, Name = "Xe máy địa hình",               Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 105, CategoryId = 10, Name = "Ca nô cứu hộ",                  Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), CreatedAt = now, UpdatedAt = now },
