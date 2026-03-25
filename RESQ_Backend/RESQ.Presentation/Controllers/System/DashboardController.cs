@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetVictimsByPeriod;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Presentation.Controllers.System;
 
@@ -37,5 +38,17 @@ public class DashboardController(IMediator mediator) : ControllerBase
             new GetVictimsByPeriodQuery(from, to, granularity, statuses));
 
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Trả về danh sách các SOS request status có thể dùng để lọc.
+    /// </summary>
+    [HttpGet("sos-status-options")]
+    public IActionResult GetSosStatusOptions()
+    {
+        var statuses = Enum.GetValues<SosRequestStatus>()
+            .Select(s => new { value = s.ToString(), label = s.ToString() });
+
+        return Ok(statuses);
     }
 }
