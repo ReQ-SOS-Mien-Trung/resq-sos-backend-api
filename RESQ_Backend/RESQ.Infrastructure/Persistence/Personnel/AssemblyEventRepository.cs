@@ -3,6 +3,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Infrastructure.Entities.Identity;
@@ -152,6 +153,36 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         }).ToList();
 
         return new PagedResult<CheckedInRescuerDto>(dtos, total, pageNumber, pageSize);
+    }
+
+    public async Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(
+        int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var query = _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
+            .Where(e => e.AssemblyPointId == assemblyPointId)
+            .OrderByDescending(e => e.AssemblyDate)
+            .ThenByDescending(e => e.CreatedAt);
+
+        var total = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(e => new AssemblyEventListItemDto
+            {
+                EventId = e.Id,
+                AssemblyPointId = e.AssemblyPointId,
+                AssemblyDate = e.AssemblyDate,
+                Status = e.Status,
+                CreatedBy = e.CreatedBy,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt,
+                ParticipantCount = e.Participants.Count,
+                CheckedInCount = e.Participants.Count(p => p.IsCheckedIn)
+            })
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<AssemblyEventListItemDto>(items, total, pageNumber, pageSize);
     }
 
     public async Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(
