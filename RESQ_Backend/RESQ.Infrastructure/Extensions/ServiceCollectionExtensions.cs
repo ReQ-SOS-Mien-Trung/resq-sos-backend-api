@@ -115,6 +115,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMissionContextService, MissionContextService>();
         services.AddScoped<IChatSupportAiService, ChatSupportAiService>();
         services.AddScoped<IUserPermissionResolver, UserPermissionResolver>();
+        services.AddScoped<IDepotRealtimeOutboxAdminService, DepotRealtimeOutboxAdminService>();
 
         services.AddScoped<IGoongMapService, GoongMapService>();
         services.AddScoped<IExcelExportService, ExcelExportService>();
@@ -141,6 +142,8 @@ public static class ServiceCollectionExtensions
         //services.AddHostedService<TeamInvitationExpirationBackgroundService>();
         services.AddHostedService<UnverifiedUserCleanupBackgroundService>();
         services.AddHostedService<CampaignDeadlineBackgroundService>();
+        services.AddHostedService<DepotRealtimeOutboxDispatcherBackgroundService>();
+        services.AddHostedService<DepotRealtimeDeadLetterRetryBackgroundService>();
 
         return services;
     }

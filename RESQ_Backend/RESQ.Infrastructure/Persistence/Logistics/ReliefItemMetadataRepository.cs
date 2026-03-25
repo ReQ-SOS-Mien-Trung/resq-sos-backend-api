@@ -112,4 +112,63 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
 
         return result;
     }
+
+    public async Task<bool> CategoryExistsAsync(int categoryId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.GetRepository<Category>()
+            .AsQueryable()
+            .AnyAsync(x => x.Id == categoryId, cancellationToken);
+    }
+
+    public async Task<bool> HasInventoryTransactionsAsync(int itemModelId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.GetRepository<InventoryLog>()
+            .AsQueryable()
+            .AnyAsync(x =>
+                (x.SupplyInventory != null && x.SupplyInventory.ItemModelId == itemModelId) ||
+                (x.ReusableItem != null && x.ReusableItem.ItemModelId == itemModelId),
+                cancellationToken);
+    }
+
+    public async Task<bool> UpdateItemModelAsync(ItemModelRecord model, CancellationToken cancellationToken = default)
+    {
+        var itemRepo = _unitOfWork.GetRepository<ItemModel>();
+        var targetGroupRepo = _unitOfWork.GetRepository<TargetGroup>();
+
+        var entity = await itemRepo.AsQueryable(tracked: true)
+            .Include(x => x.TargetGroups)
+            .FirstOrDefaultAsync(x => x.Id == model.Id, cancellationToken);
+
+        if (entity == null)
+            return false;
+
+        var normalizedTargetGroups = (model.TargetGroups ?? new List<string>())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var targetGroups = await targetGroupRepo.AsQueryable(tracked: true)
+            .Where(tg => normalizedTargetGroups.Contains(tg.Name))
+            .ToListAsync(cancellationToken);
+
+        if (targetGroups.Count != normalizedTargetGroups.Count)
+            throw new InvalidOperationException("Một hoặc nhiều target group không tồn tại trong hệ thống.");
+
+        entity.CategoryId = model.CategoryId;
+        entity.Name = model.Name;
+        entity.Description = model.Description;
+        entity.Unit = model.Unit;
+        entity.ItemType = model.ItemType;
+        entity.UpdatedAt = model.UpdatedAt ?? DateTime.UtcNow;
+
+        entity.TargetGroups.Clear();
+        foreach (var targetGroup in targetGroups)
+        {
+            entity.TargetGroups.Add(targetGroup);
+        }
+
+        await _unitOfWork.SaveAsync();
+        return true;
+    }
 }

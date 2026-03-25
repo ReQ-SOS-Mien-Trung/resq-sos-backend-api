@@ -17,6 +17,7 @@ using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
 using RESQ.Application.UseCases.Personnel.Queries.AssemblyPointMetadata;
 using RESQ.Application.UseCases.Personnel.Queries.GetRescuersByAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 
 namespace RESQ.Presentation.Controllers.Personnel
 {
@@ -70,6 +71,18 @@ namespace RESQ.Presentation.Controllers.Personnel
             [FromQuery] int pageSize = 10)
         {
             var query = new GetRescuersByAssemblyPointQuery(id, pageNumber, pageSize);
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>Lấy danh sách sự kiện tập trung theo điểm tập kết (phân trang).</summary>
+        [HttpGet("{id}/events")]
+        public async Task<IActionResult> GetAssemblyEvents(
+            int id,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var query = new GetAssemblyEventsQuery(id, pageNumber, pageSize);
             var result = await _mediator.Send(query);
             return Ok(result);
         }

@@ -13,4 +13,9 @@ public class NotificationHubService(IHubContext<NotificationHub> hubContext) : I
         var group = $"notification_user_{userId}";
         await _hubContext.Clients.Group(group).SendAsync(eventName, payload, cancellationToken);
     }
+
+    public async Task SendToGroupAsync(string groupName, string eventName, object payload, CancellationToken cancellationToken = default)
+    {
+        await _hubContext.Clients.Group(groupName).SendAsync(eventName, payload, cancellationToken);
+    }
 }

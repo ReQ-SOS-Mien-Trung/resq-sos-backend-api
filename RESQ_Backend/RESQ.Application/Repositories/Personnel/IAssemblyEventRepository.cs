@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 
 namespace RESQ.Application.Repositories.Personnel;
@@ -19,6 +20,9 @@ public interface IAssemblyEventRepository
 
     /// <summary>Lấy danh sách rescuer đã check-in tại sự kiện (phân trang).</summary>
     Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(int eventId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>Lấy danh sách sự kiện tập trung của một điểm tập kết (phân trang).</summary>
+    Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
     /// <summary>Lấy event active (Scheduled/Gathering) mới nhất tại AP. Null nếu không có.</summary>
     Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default);
