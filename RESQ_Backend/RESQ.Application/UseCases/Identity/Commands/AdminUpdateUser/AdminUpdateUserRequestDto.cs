@@ -18,7 +18,6 @@ public class AdminUpdateUserRequestDto
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public bool? IsEmailVerified { get; set; }
-    public bool? IsOnboarded { get; set; }
     public bool? IsEligibleRescuer { get; set; }
     public Guid? ApprovedBy { get; set; }
     public DateTime? ApprovedAt { get; set; }

@@ -34,18 +34,22 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 IsBanned = model.IsBanned,
                 BannedBy = model.BannedBy,
                 BannedAt = model.BannedAt,
-                BanReason = model.BanReason,
-                RescuerProfile = new RescuerProfile
+                BanReason = model.BanReason
+            };
+
+            // Only create RescuerProfile for rescuer role (RoleId = 3)
+            if (model.RoleId == 3)
+            {
+                entity.RescuerProfile = new RescuerProfile
                 {
                     UserId = model.Id,
                     RescuerType = model.RescuerType?.ToString(),
-                    IsOnboarded = model.IsOnboarded,
                     IsEligibleRescuer = model.IsEligibleRescuer,
                     Step = model.RescuerStep,
                     ApprovedBy = model.ApprovedBy,
                     ApprovedAt = model.ApprovedAt
-                }
-            };
+                };
+            }
 
             // Convert latitude/longitude to Point
             if (model.Latitude.HasValue && model.Longitude.HasValue)
@@ -70,7 +74,6 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 RescuerType = Enum.TryParse<RESQ.Domain.Enum.Identity.RescuerType>(entity.RescuerProfile?.RescuerType, ignoreCase: true, out var type) ? type : null,
                 Email = entity.Email,
                 IsEmailVerified = entity.IsEmailVerified,
-                IsOnboarded = entity.RescuerProfile?.IsOnboarded ?? false,
                 IsEligibleRescuer = entity.RescuerProfile?.IsEligibleRescuer ?? false,
                 RescuerStep = entity.RescuerProfile?.Step ?? 0,
                 AvatarUrl = entity.AvatarUrl,

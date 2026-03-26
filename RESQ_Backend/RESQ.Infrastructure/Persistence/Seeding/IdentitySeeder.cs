@@ -301,8 +301,8 @@ public static class IdentitySeeder
         // Seed RescuerProfiles - chỉ cho user có RoleId = 3 (Rescuer)
         var rescuerProfiles = new List<RescuerProfile>
         {
-            new RescuerProfile { UserId = SeedConstants.RescuerUserId, RescuerType = RescuerType.Core.ToString(), IsOnboarded = true, IsEligibleRescuer = true, Step = 3, ApprovedBy = SeedConstants.AdminUserId, ApprovedAt = now },
-            new RescuerProfile { UserId = SeedConstants.Applicant4UserId, RescuerType = RescuerType.Core.ToString(), IsOnboarded = true, IsEligibleRescuer = true, Step = 3, ApprovedBy = SeedConstants.AdminUserId, ApprovedAt = now.AddDays(5) },
+            new RescuerProfile { UserId = SeedConstants.RescuerUserId, RescuerType = RescuerType.Core.ToString(), IsEligibleRescuer = true, Step = 3, ApprovedBy = SeedConstants.AdminUserId, ApprovedAt = now },
+            new RescuerProfile { UserId = SeedConstants.Applicant4UserId, RescuerType = RescuerType.Core.ToString(), IsEligibleRescuer = true, Step = 3, ApprovedBy = SeedConstants.AdminUserId, ApprovedAt = now.AddDays(5) },
         };
 
         for (int i = 1; i <= 80; i++)
@@ -312,7 +312,6 @@ public static class IdentitySeeder
             {
                 UserId = Guid.Parse($"33333333-3333-3333-3333-33333333{idStr}"),
                 RescuerType = (i % 2 == 0) ? RescuerType.Core.ToString() : RescuerType.Volunteer.ToString(),
-                IsOnboarded = true,
                 IsEligibleRescuer = true,
                 Step = 3,
                 ApprovedBy = SeedConstants.AdminUserId,

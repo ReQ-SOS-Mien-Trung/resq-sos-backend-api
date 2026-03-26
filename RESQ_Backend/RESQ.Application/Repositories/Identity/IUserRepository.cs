@@ -17,7 +17,7 @@ namespace RESQ.Application.Repositories.Identity
 
         /// <summary>
         /// Lấy user cho trang phân quyền admin: loại trừ user bị ban và những
-        /// volunteer chưa kích hoạt (IsEligibleRescuer = false VÀ IsOnboarded = false).
+        /// volunteer chưa kích hoạt (IsEligibleRescuer = false).
         /// </summary>
         Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pageNumber, int pageSize, int? roleId = null, string? search = null, CancellationToken cancellationToken = default);
     }

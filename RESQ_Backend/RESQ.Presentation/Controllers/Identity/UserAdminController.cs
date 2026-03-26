@@ -42,7 +42,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>
         /// Lấy danh sách user cho trang phân quyền admin.
-        /// Loại trừ: user bị ban và volunteer chưa kích hoạt (IsEligibleRescuer=false VÀ IsOnboarded=false).
+        /// Loại trừ: user bị ban và volunteer chưa kích hoạt (IsEligibleRescuer=false).
         /// </summary>
         [HttpGet("for-permission")]
         [Authorize(Policy = PermissionConstants.SystemUserManage)]
@@ -91,7 +91,7 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.Username, dto.Password, dto.RoleId,
                 dto.RescuerType, dto.AvatarUrl, dto.Address, dto.Ward, dto.Province,
                 dto.Latitude, dto.Longitude,
-                dto.IsEmailVerified, dto.IsOnboarded, dto.IsEligibleRescuer,
+                dto.IsEmailVerified, dto.IsEligibleRescuer,
                 dto.ApprovedBy, dto.ApprovedAt);
             var result = await _mediator.Send(command);
             return Ok(result);
@@ -107,7 +107,7 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.Phone, dto.Email, dto.RescuerType, dto.RoleId,
                 dto.AvatarUrl, dto.Address, dto.Ward, dto.Province,
                 dto.Latitude, dto.Longitude,
-                dto.IsEmailVerified, dto.IsOnboarded, dto.IsEligibleRescuer,
+                dto.IsEmailVerified, dto.IsEligibleRescuer,
                 dto.ApprovedBy, dto.ApprovedAt);
             var result = await _mediator.Send(command);
             return Ok(result);

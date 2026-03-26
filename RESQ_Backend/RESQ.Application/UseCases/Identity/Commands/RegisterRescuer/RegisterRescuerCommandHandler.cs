@@ -50,7 +50,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
                 Password = hashedPassword,
                 RoleId = DEFAULT_RESCUER_ROLE_ID,
                 IsEmailVerified = false,
-                IsOnboarded = false,
                 EmailVerificationToken = verificationToken,
                 EmailVerificationTokenExpiry = tokenExpiry,
                 CreatedAt = DateTime.UtcNow,
@@ -88,7 +87,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RegisterRescuer
                 LastName = user.LastName,
                 RoleId = user.RoleId ?? DEFAULT_RESCUER_ROLE_ID,
                 IsEmailVerified = user.IsEmailVerified,
-                IsOnboarded = user.IsOnboarded,
+                RescuerStep = user.RescuerStep,
                 Message = "Đăng ký thành công. Vui lòng kiểm tra email để xác minh tài khoản của bạn.",
                 CreatedAt = user.CreatedAt ?? DateTime.UtcNow
             };

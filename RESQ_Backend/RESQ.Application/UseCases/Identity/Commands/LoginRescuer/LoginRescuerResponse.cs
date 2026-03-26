@@ -12,7 +12,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.LoginRescuer
         public string? LastName { get; set; }
         public int? RoleId { get; set; }
         public bool IsEmailVerified { get; set; }
-        public bool IsOnboarded { get; set; }
+        public int RescuerStep { get; set; }
         public List<string> Permissions { get; set; } = [];
     }
 }

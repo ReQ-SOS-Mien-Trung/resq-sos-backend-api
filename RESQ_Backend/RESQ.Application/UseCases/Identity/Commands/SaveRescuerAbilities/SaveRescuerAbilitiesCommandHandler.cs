@@ -49,11 +49,10 @@ public class SaveRescuerAbilitiesCommandHandler(
         // Save (replace all existing abilities for this user)
         await _abilityRepository.SaveUserAbilitiesAsync(request.UserId, userAbilities, cancellationToken);
 
-        // Update IsOnboarded = true for the rescuer
+        // Update Step = 3 for the rescuer
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
-        if (user != null && !user.IsOnboarded)
+        if (user != null && user.RescuerStep < 3)
         {
-            user.IsOnboarded = true;
             user.RescuerStep = 3;
             await _userRepository.UpdateAsync(user, cancellationToken);
         }

@@ -32,8 +32,8 @@ public class GetUserByIdResponse
     public string? RescuerType { get; set; }
     public string? AvatarUrl { get; set; }
     public bool IsEmailVerified { get; set; }
-    public bool IsOnboarded { get; set; }
     public bool IsEligibleRescuer { get; set; }
+    public int RescuerStep { get; set; }
     public bool IsBanned { get; set; }
     public Guid? BannedBy { get; set; }
     public DateTime? BannedAt { get; set; }

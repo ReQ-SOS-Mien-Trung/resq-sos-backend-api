@@ -70,15 +70,17 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 entity.IsEmailVerified = user.IsEmailVerified;
                 entity.AvatarUrl = user.AvatarUrl;
 
-                // Update rescuer profile
-                if (entity.RescuerProfile is null)
+                // Update rescuer profile - only for rescuer role (RoleId = 3)
+                if (user.RoleId == 3)
                 {
-                    entity.RescuerProfile = new RescuerProfile { UserId = entity.Id };
+                    if (entity.RescuerProfile is null)
+                    {
+                        entity.RescuerProfile = new RescuerProfile { UserId = entity.Id };
+                    }
+                    entity.RescuerProfile.RescuerType = user.RescuerType?.ToString();
+                    entity.RescuerProfile.IsEligibleRescuer = user.IsEligibleRescuer;
+                    entity.RescuerProfile.Step = user.RescuerStep;
                 }
-                entity.RescuerProfile.RescuerType = user.RescuerType?.ToString();
-                entity.RescuerProfile.IsOnboarded = user.IsOnboarded;
-                entity.RescuerProfile.IsEligibleRescuer = user.IsEligibleRescuer;
-                entity.RescuerProfile.Step = user.RescuerStep;
 
                 // Update tokens
                 entity.EmailVerificationToken = user.EmailVerificationToken;
@@ -104,8 +106,11 @@ namespace RESQ.Infrastructure.Persistence.Identity
 
                 // Update metadata
                 entity.UpdatedAt = DateTime.UtcNow;
-                entity.RescuerProfile.ApprovedBy = user.ApprovedBy;
-                entity.RescuerProfile.ApprovedAt = user.ApprovedAt;
+                if (entity.RescuerProfile is not null)
+                {
+                    entity.RescuerProfile.ApprovedBy = user.ApprovedBy;
+                    entity.RescuerProfile.ApprovedAt = user.ApprovedAt;
+                }
 
                 // Update ban info
                 entity.IsBanned = user.IsBanned;
@@ -151,7 +156,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     // Loại trừ user bị ban
                     !u.IsBanned &&
                     // Loại trừ volunteer chưa kích hoạt (cả 2 cờ đều false)
-                    (u.RescuerProfile != null && (u.RescuerProfile.IsEligibleRescuer || u.RescuerProfile.IsOnboarded)) &&
+                    (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer) &&
                     (roleId == null || u.RoleId == roleId) &&
                     (search == null ||
                      (u.Phone != null && u.Phone.Contains(search)) ||

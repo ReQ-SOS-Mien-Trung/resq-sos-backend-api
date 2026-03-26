@@ -77,7 +77,6 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
                 RescuerType = user.RescuerType.ToString(),
                 Email = user.Email,
                 IsEmailVerified = user.IsEmailVerified,
-                IsOnboarded = user.IsOnboarded,
                 IsEligibleRescuer = user.IsEligibleRescuer,
                 RescuerStep = user.RescuerStep,
                 AvatarUrl = user.AvatarUrl,

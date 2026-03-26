@@ -7,7 +7,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetUsersForPermission;
 /// <summary>
 /// Lấy danh sách user để admin phân quyền.
 /// Loại trừ: user bị ban, và những volunteer chưa được kích hoạt
-/// (IsEligibleRescuer = false VÀ IsOnboarded = false).
+/// (IsEligibleRescuer = false).
 /// </summary>
 public record GetUsersForPermissionQuery(
     int PageNumber,

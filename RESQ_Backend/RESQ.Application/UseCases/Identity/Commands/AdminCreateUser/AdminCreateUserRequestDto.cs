@@ -17,7 +17,6 @@ public class AdminCreateUserRequestDto
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public bool IsEmailVerified { get; set; } = false;
-    public bool IsOnboarded { get; set; } = false;
     public bool IsEligibleRescuer { get; set; } = false;
     public Guid? ApprovedBy { get; set; }
     public DateTime? ApprovedAt { get; set; }
