@@ -1,12 +1,16 @@
 # ===============================================
 # RESQ Backend Docker Compose
 # ===============================================
-# 
+#
 # Hướng dẫn sử dụng:
-# 1. Copy file này vào thư mục project frontend
-# 2. Chạy lệnh: docker-compose up -d
-# 3. Backend API sẽ chạy tại: http://localhost:8080
-# 4. Swagger UI: http://localhost:8080/swagger
+# 1. Clone repo backend về máy
+# 2. Copy file Firebase Admin SDK:
+#    mkdir -p ~/.config/resq
+#    cp "PRM PE 142 Firebase Admin SDK.json" ~/.config/resq/firebase-admin.json
+# 3. Build và chạy:
+#    docker compose up -d --build
+# 4. Backend API: http://localhost:8080
+#    Swagger UI: http://localhost:8080/swagger
 #
 # Thông tin đăng nhập mẫu:
 # - admin / Admin@123
@@ -21,7 +25,6 @@ services:
   # PostgreSQL Database with PostGIS
   resq-db:
     image: postgis/postgis:16-3.4
-    platform: linux/amd64  # Compatible with all Macs (M1/M2/M3/M4 via Rosetta, Intel native)
     container_name: resq-postgres
     environment:
       POSTGRES_USER: postgres
@@ -55,10 +58,13 @@ services:
       timeout: 5s
       retries: 5
 
-  # RESQ Backend API
+  # RESQ Backend API (build local, native architecture)
   resq-api:
-    image: ntpan04/resq-backend:latest
-    platform: linux/amd64  # Compatible with all Macs (M1/M2/M3/M4 via Rosetta, Intel native)
+    image: resq-backend-local:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    pull_policy: never
     container_name: resq-backend
     ports:
       - "8080:8080"
@@ -72,6 +78,11 @@ services:
       - JwtSettings__Audience=RESQ.Client
       - JwtSettings__AccessTokenExpirationMinutes=60
       - JwtSettings__RefreshTokenExpirationDays=7
+    volumes:
+      - type: bind
+        source: ${FIREBASE_CONFIG:-~/.config/resq/firebase-admin.json}
+        target: /app/PRM PE 142 Firebase Admin SDK.json
+        read_only: true
     depends_on:
       resq-db:
         condition: service_healthy
