@@ -47,7 +47,11 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
             user.Province = request.Province;
             user.Latitude = request.Latitude;
             user.Longitude = request.Longitude;
-            user.RescuerType = Enum.Parse<RescuerType>(request.RescuerType);
+            if (!Enum.TryParse<RescuerType>(request.RescuerType, ignoreCase: true, out var parsedRescuerType))
+            {
+                throw new BadRequestException("Loại rescuer không hợp lệ");
+            }
+            user.RescuerType = parsedRescuerType;
             user.RescuerStep = 1;
             user.UpdatedAt = DateTime.UtcNow;
 
