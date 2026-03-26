@@ -142,31 +142,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>[Manager] Xem lịch sử thay đổi threshold của kho mình quản lý (lọc scope/category/item, phân trang).</summary>
-    [HttpGet("my-depot/thresholds/history")]
-    [Authorize(Roles = "4")]
-    [ProducesResponseType(typeof(RESQ.Application.Common.Models.PagedResult<ThresholdHistoryItemDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetMyDepotThresholdHistory(
-        [FromQuery] StockThresholdScopeType? scopeType,
-        [FromQuery] int? categoryId,
-        [FromQuery] int? itemModelId,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
-    {
-        var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new GetMyDepotThresholdHistoryQuery
-        {
-            UserId = userId,
-            ScopeType = scopeType,
-            CategoryId = categoryId,
-            ItemModelId = itemModelId,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        });
-
-        return Ok(result);
-    }
+    // NOTE: Đã tắt — không còn lưu lịch sử thay đổi threshold nữa (UpsertAsync/ResetAsync ghi đè trực tiếp)
+    // [HttpGet("my-depot/thresholds/history")]
+    // public async Task<IActionResult> GetMyDepotThresholdHistory(...) { ... }
 
     /// <summary>[Admin/Manager] Cập nhật ngưỡng tồn kho. Admin (role=1) chỉ được cấu hình scope Global; Manager (role=4) được cấu hình Depot/DepotCategory/DepotItem của kho mình quản lý.</summary>
     [HttpPut("my-depot/thresholds")]
@@ -218,26 +196,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>[Admin/Manager] Khôi phục cấu hình ngưỡng tồn kho cũ (inactive) thành active. Cấu hình đang active cùng scope sẽ tự động bị deactivate. Chỉ có 1 cấu hình active mỗi scope tại một thời điểm. Admin chỉ restore GLOBAL; Manager chỉ restore cấu hình của kho mình quản lý.</summary>
-    [HttpPut("my-depot/thresholds/restore")]
-    [Authorize(Roles = "1,4")]
-    [ProducesResponseType(typeof(StockThresholdCommandResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> RestoreThreshold([FromBody] RestoreThresholdRequest request)
-    {
-        var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new RestoreThresholdCommand
-        {
-            UserId = userId,
-            RoleId = GetCurrentRoleId(),
-            ConfigId = request.ConfigId,
-            Reason = request.Reason
-        });
-
-        return Ok(result);
-    }
+    // NOTE: Đã tắt — không còn có cấu hình inactive để restore (UpsertAsync ghi đè trực tiếp, ResetAsync xóa cứng)
+    // [HttpPut("my-depot/thresholds/restore")]
+    // public async Task<IActionResult> RestoreThreshold(...) { ... }
 
     /// <summary>[Admin] Xem cấu hình ngưỡng tồn kho hiện tại (global + override theo scope). Truyền thêm depotId để xem cấu hình override của một kho cụ thể.</summary>
     [HttpGet("thresholds")]
@@ -249,30 +210,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>[Admin] Xem lịch sử thay đổi ngưỡng tồn kho toàn hệ thống (lọc theo depotId / scopeType / category / item, phân trang).</summary>
-    [HttpGet("thresholds/history")]
-    [Authorize(Roles = "1")]
-    [ProducesResponseType(typeof(RESQ.Application.Common.Models.PagedResult<ThresholdHistoryItemDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAdminThresholdHistory(
-        [FromQuery] int? depotId = null,
-        [FromQuery] StockThresholdScopeType? scopeType = null,
-        [FromQuery] int? categoryId = null,
-        [FromQuery] int? itemModelId = null,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
-    {
-        var result = await _mediator.Send(new GetAdminThresholdHistoryQuery
-        {
-            DepotId = depotId,
-            ScopeType = scopeType,
-            CategoryId = categoryId,
-            ItemModelId = itemModelId,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        });
-
-        return Ok(result);
-    }
+    // NOTE: Đã tắt — không còn lưu lịch sử thay đổi threshold nữa
+    // [HttpGet("thresholds/history")]
+    // public async Task<IActionResult> GetAdminThresholdHistory(...) { ... }
 
     /// <summary>Xem danh sách lô hàng (lots) của một item model trong kho (FEFO).</summary>
     [HttpGet("{itemModelId:int}/lots")]

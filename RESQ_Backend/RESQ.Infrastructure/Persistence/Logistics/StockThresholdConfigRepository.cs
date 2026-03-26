@@ -77,92 +77,21 @@ public class StockThresholdConfigRepository(IUnitOfWork unitOfWork) : IStockThre
                 RowVersion = 1
             };
             await _unitOfWork.GetRepository<InventoryStockThresholdConfig>().AddAsync(entity);
+        }
+        else
+        {
+            if (expectedRowVersion.HasValue && entity.RowVersion != expectedRowVersion.Value)
+                throw new ConflictException("Cấu hình đã được cập nhật bởi người khác. Vui lòng tải lại và thử lại.");
 
-            await _unitOfWork.GetRepository<InventoryStockThresholdConfigHistory>().AddAsync(new InventoryStockThresholdConfigHistory
-            {
-                Config = entity,
-                ScopeType = scopeValue,
-                DepotId = entity.DepotId,
-                CategoryId = entity.CategoryId,
-                ItemModelId = entity.ItemModelId,
-                OldDangerRatio = null,
-                OldWarningRatio = null,
-                NewDangerRatio = dangerRatio,
-                NewWarningRatio = warningRatio,
-                ChangedBy = changedBy,
-                ChangedAt = now,
-                ChangeReason = reason,
-                Action = "UPDATE"
-            });
-
-            await _unitOfWork.SaveAsync();
-            return Map(entity);
+            entity.DangerRatio = dangerRatio;
+            entity.WarningRatio = warningRatio;
+            entity.UpdatedBy = changedBy;
+            entity.UpdatedAt = now;
+            entity.RowVersion += 1;
         }
 
-        if (expectedRowVersion.HasValue && entity.RowVersion != expectedRowVersion.Value)
-            throw new ConflictException("Cấu hình đã được cập nhật bởi người khác. Vui lòng tải lại và thử lại.");
-
-        var oldDanger = entity.DangerRatio;
-        var oldWarning = entity.WarningRatio;
-
-        // Deactivate row hiện tại (giữ lại để có thể restore sau)
-        entity.IsActive = false;
-        entity.UpdatedBy = changedBy;
-        entity.UpdatedAt = now;
-        entity.RowVersion += 1;
-
-        await _unitOfWork.GetRepository<InventoryStockThresholdConfigHistory>().AddAsync(new InventoryStockThresholdConfigHistory
-        {
-            ConfigId = entity.Id,
-            ScopeType = entity.ScopeType,
-            DepotId = entity.DepotId,
-            CategoryId = entity.CategoryId,
-            ItemModelId = entity.ItemModelId,
-            OldDangerRatio = oldDanger,
-            OldWarningRatio = oldWarning,
-            NewDangerRatio = null,
-            NewWarningRatio = null,
-            ChangedBy = changedBy,
-            ChangedAt = now,
-            ChangeReason = reason,
-            Action = "RESET"
-        });
-
-        // Tạo row mới với giá trị mới (versioning — cho phép restore về cấu hình cũ)
-        var newEntity = new InventoryStockThresholdConfig
-        {
-            ScopeType = scopeValue,
-            DepotId = scopeType == StockThresholdScopeType.Global ? null : depotId,
-            CategoryId = categoryId,
-            ItemModelId = itemModelId,
-            DangerRatio = dangerRatio,
-            WarningRatio = warningRatio,
-            UpdatedBy = changedBy,
-            UpdatedAt = now,
-            IsActive = true,
-            RowVersion = 1
-        };
-        await _unitOfWork.GetRepository<InventoryStockThresholdConfig>().AddAsync(newEntity);
-
-        await _unitOfWork.GetRepository<InventoryStockThresholdConfigHistory>().AddAsync(new InventoryStockThresholdConfigHistory
-        {
-            Config = newEntity,
-            ScopeType = scopeValue,
-            DepotId = newEntity.DepotId,
-            CategoryId = categoryId,
-            ItemModelId = itemModelId,
-            OldDangerRatio = oldDanger,
-            OldWarningRatio = oldWarning,
-            NewDangerRatio = dangerRatio,
-            NewWarningRatio = warningRatio,
-            ChangedBy = changedBy,
-            ChangedAt = now,
-            ChangeReason = reason,
-            Action = "UPDATE"
-        });
-
         await _unitOfWork.SaveAsync();
-        return Map(newEntity);
+        return Map(entity);
     }
 
     public async Task<StockThresholdConfigDto?> ResetAsync(
@@ -176,39 +105,18 @@ public class StockThresholdConfigRepository(IUnitOfWork unitOfWork) : IStockThre
         CancellationToken cancellationToken = default)
     {
         var scopeValue = ToScopeValue(scopeType);
-        var now = DateTime.UtcNow;
 
-        var entity = await FindActiveByScopeAsync(scopeValue, depotId, categoryId, itemModelId, tracked: true, cancellationToken);
+        var entity = await FindActiveByScopeAsync(scopeValue, depotId, categoryId, itemModelId, tracked: false, cancellationToken);
         if (entity == null)
             return null;
 
         if (expectedRowVersion.HasValue && entity.RowVersion != expectedRowVersion.Value)
             throw new ConflictException("Cấu hình đã được cập nhật bởi người khác. Vui lòng tải lại và thử lại.");
 
-        entity.IsActive = false;
-        entity.UpdatedBy = changedBy;
-        entity.UpdatedAt = now;
-        entity.RowVersion += 1;
-
-        await _unitOfWork.GetRepository<InventoryStockThresholdConfigHistory>().AddAsync(new InventoryStockThresholdConfigHistory
-        {
-            ConfigId = entity.Id,
-            ScopeType = entity.ScopeType,
-            DepotId = entity.DepotId,
-            CategoryId = entity.CategoryId,
-            ItemModelId = entity.ItemModelId,
-            OldDangerRatio = entity.DangerRatio,
-            OldWarningRatio = entity.WarningRatio,
-            NewDangerRatio = null,
-            NewWarningRatio = null,
-            ChangedBy = changedBy,
-            ChangedAt = now,
-            ChangeReason = reason,
-            Action = "RESET"
-        });
-
+        var dto = Map(entity);
+        await _unitOfWork.GetRepository<InventoryStockThresholdConfig>().DeleteAsyncById(entity.Id);
         await _unitOfWork.SaveAsync();
-        return Map(entity);
+        return dto;
     }
 
     public async Task<PagedResult<StockThresholdConfigHistoryDto>> GetHistoryPagedAsync(
