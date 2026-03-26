@@ -15,9 +15,6 @@ public class RescuerProfile
     [StringLength(50)]
     public string? RescuerType { get; set; }
 
-    [Column("is_onboarded")]
-    public bool IsOnboarded { get; set; } = false;
-
     [Column("is_eligible_rescuer")]
     public bool IsEligibleRescuer { get; set; } = false;
 

@@ -17,8 +17,8 @@ public class AdminUpdateUserResponse
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public bool IsEmailVerified { get; set; }
-    public bool IsOnboarded { get; set; }
     public bool IsEligibleRescuer { get; set; }
+    public int RescuerStep { get; set; }
     public bool IsBanned { get; set; }
     public Guid? BannedBy { get; set; }
     public DateTime? BannedAt { get; set; }

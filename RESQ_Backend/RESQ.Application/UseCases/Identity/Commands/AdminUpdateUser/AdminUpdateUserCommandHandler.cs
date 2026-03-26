@@ -58,7 +58,6 @@ public class AdminUpdateUserCommandHandler(
         if (request.Latitude.HasValue) user.Latitude = request.Latitude;
         if (request.Longitude.HasValue) user.Longitude = request.Longitude;
         if (request.IsEmailVerified.HasValue) user.IsEmailVerified = request.IsEmailVerified.Value;
-        if (request.IsOnboarded.HasValue) user.IsOnboarded = request.IsOnboarded.Value;
         if (request.IsEligibleRescuer.HasValue) user.IsEligibleRescuer = request.IsEligibleRescuer.Value;
         if (request.ApprovedBy.HasValue) user.ApprovedBy = request.ApprovedBy;
         if (request.ApprovedAt.HasValue) user.ApprovedAt = request.ApprovedAt;
@@ -77,7 +76,7 @@ public class AdminUpdateUserCommandHandler(
             Username = user.Username,
             Phone = user.Phone,
             Email = user.Email,
-            RescuerType = user.RescuerType.ToString(),
+            RescuerType = user.RescuerType?.ToString(),
             AvatarUrl = user.AvatarUrl,
             Address = user.Address,
             Ward = user.Ward,
@@ -85,8 +84,8 @@ public class AdminUpdateUserCommandHandler(
             Latitude = user.Latitude,
             Longitude = user.Longitude,
             IsEmailVerified = user.IsEmailVerified,
-            IsOnboarded = user.IsOnboarded,
             IsEligibleRescuer = user.IsEligibleRescuer,
+            RescuerStep = user.RescuerStep,
             IsBanned = user.IsBanned,
             BannedBy = user.BannedBy,
             BannedAt = user.BannedAt,

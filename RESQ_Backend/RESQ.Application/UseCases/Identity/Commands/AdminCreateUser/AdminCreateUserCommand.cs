@@ -18,7 +18,6 @@ public record AdminCreateUserCommand(
     double? Latitude,
     double? Longitude,
     bool IsEmailVerified,
-    bool IsOnboarded,
     bool IsEligibleRescuer,
     Guid? ApprovedBy,
     DateTime? ApprovedAt

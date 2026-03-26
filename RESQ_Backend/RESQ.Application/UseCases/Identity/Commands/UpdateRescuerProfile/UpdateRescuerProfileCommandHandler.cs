@@ -37,7 +37,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
             user.Province = request.Province;
             user.Latitude = request.Latitude;
             user.Longitude = request.Longitude;
-            user.IsOnboarded = false;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateAsync(user, cancellationToken);
@@ -62,7 +61,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
                 Province = user.Province,
                 Latitude = user.Latitude,
                 Longitude = user.Longitude,
-                IsOnboarded = user.IsOnboarded,
+                RescuerStep = user.RescuerStep,
                 UpdatedAt = user.UpdatedAt ?? DateTime.UtcNow,
                 Message = "Cập nhật thông tin cá nhân thành công."
             };
