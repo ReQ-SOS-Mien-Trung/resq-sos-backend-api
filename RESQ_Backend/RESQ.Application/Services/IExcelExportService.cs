@@ -20,10 +20,12 @@ public interface IExcelExportService
     /// </summary>
     /// <param name="categories">Danh sách danh mục (Id, Code, Name).</param>
     /// <param name="items">Danh sách vật phẩm kèm target groups.</param>
+    /// <param name="targetGroups">Danh sách đối tượng lấy trực tiếp từ bảng target_groups.</param>
     /// <returns>Mảng byte nội dung file .xlsx.</returns>
     byte[] GenerateDonationImportTemplate(
         IReadOnlyList<DonationImportCategoryInfo> categories,
-        IReadOnlyList<DonationImportItemInfo> items);
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups);
 
     /// <summary>
     /// Tạo file Excel mẫu để nhập kho mua sắm (purchase import).
@@ -31,14 +33,22 @@ public interface IExcelExportService
     /// </summary>
     /// <param name="categories">Danh sách danh mục (Id, Code, Name).</param>
     /// <param name="items">Danh sách vật phẩm kèm target groups.</param>
+    /// <param name="targetGroups">Danh sách đối tượng lấy trực tiếp từ bảng target_groups.</param>
     /// <returns>Mảng byte nội dung file .xlsx.</returns>
     byte[] GeneratePurchaseImportTemplate(
         IReadOnlyList<DonationImportCategoryInfo> categories,
-        IReadOnlyList<DonationImportItemInfo> items);
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups);
 }
 
 /// <summary>Thông tin danh mục cho Excel template nhập kho.</summary>
 public record DonationImportCategoryInfo(int Id, string Code, string Name);
+
+/// <summary>Thông tin đối tượng (target group) cho Excel template nhập kho.</summary>
+public record DonationImportTargetGroupInfo(
+    int Id,
+    string Name,
+    string NameDisplay);
 
 /// <summary>Thông tin vật phẩm cho Excel template nhập kho.</summary>
 public record DonationImportItemInfo(
@@ -46,6 +56,8 @@ public record DonationImportItemInfo(
     string Name,
     string CategoryCode,
     string TargetGroupDisplay,
+    string TargetGroupRaw,
     string ItemTypeDisplay,
+    string ItemTypeRaw,
     string Unit,
     string Description = "");

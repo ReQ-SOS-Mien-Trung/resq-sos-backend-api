@@ -76,12 +76,30 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
             CategoryCode: im.Category?.Code ?? string.Empty,
             TargetGroupDisplay: TargetGroupTranslations.JoinAsVietnamese(
                 im.TargetGroups.Select(tg => tg.Name)),
+            TargetGroupRaw: string.Join(", ", im.TargetGroups.Select(tg => tg.Name)),
             ItemTypeDisplay: im.ItemType != null && ItemTypeVietnamese.TryGetValue(im.ItemType, out var vn)
                 ? vn
                 : im.ItemType ?? string.Empty,
+            ItemTypeRaw: im.ItemType ?? string.Empty,
             Unit: im.Unit ?? string.Empty,
             Description: im.Description ?? string.Empty
         )).ToList();
+    }
+
+    public async Task<List<DonationImportTargetGroupInfo>> GetAllTargetGroupsForTemplateAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var groups = await _unitOfWork.GetRepository<TargetGroupEntity>()
+            .AsQueryable()
+            .OrderBy(tg => tg.Id)
+            .ToListAsync(cancellationToken);
+
+        return groups
+            .Select(tg => new DonationImportTargetGroupInfo(
+                Id: tg.Id,
+                Name: tg.Name,
+                NameDisplay: TargetGroupTranslations.ToVietnamese(tg.Name)))
+            .ToList();
     }
 
     public async Task<Dictionary<int, ItemModelRecord>> GetByIdsAsync(

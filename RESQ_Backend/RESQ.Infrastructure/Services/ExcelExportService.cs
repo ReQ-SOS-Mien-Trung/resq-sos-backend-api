@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Logistics.Models;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Infrastructure.Services;
 
@@ -194,7 +195,8 @@ public class ExcelExportService : IExcelExportService
 
     public byte[] GenerateDonationImportTemplate(
         IReadOnlyList<DonationImportCategoryInfo> categories,
-        IReadOnlyList<DonationImportItemInfo> items)
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups)
     {
         using var workbook = new XLWorkbook();
 
@@ -202,14 +204,17 @@ public class ExcelExportService : IExcelExportService
         var wsDanhMuc = workbook.Worksheets.Add("DM_DanhMuc");
         var wsVatPham = workbook.Worksheets.Add("DM_VatPham");
         var wsLookup  = workbook.Worksheets.Add("DM_Lookup");
+        var wsMeta    = workbook.Worksheets.Add("DM_Metadata");
 
         BuildCategorySheet(wsDanhMuc, categories, workbook);
         BuildItemSheet(wsVatPham, categories, items, workbook);
         BuildLookupSheet(wsLookup, items);
+        BuildMetadataSheet(wsMeta, items, targetGroups, workbook);
 
         wsDanhMuc.Visibility = XLWorksheetVisibility.VeryHidden;
         wsVatPham.Visibility = XLWorksheetVisibility.VeryHidden;
         wsLookup.Visibility  = XLWorksheetVisibility.VeryHidden;
+        wsMeta.Visibility    = XLWorksheetVisibility.VeryHidden;
 
         // ── 2. Build main entry sheet ─────────────────────────────────────────
         var ws = workbook.Worksheets.Add("Nhập kho từ thiện");
@@ -306,6 +311,69 @@ public class ExcelExportService : IExcelExportService
         }
     }
 
+    // ─── DM_Metadata: Dropdown sources for manual input columns (TargetGroup, ItemType) ───
+    private static void BuildMetadataSheet(
+        IXLWorksheet ws,
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups,
+        XLWorkbook workbook)
+    {
+        ws.Cell(1, 1).Value = "DoiTuongOptions";
+        ws.Cell(1, 2).Value = "LoaiVatPhamOptions";
+
+        var targetGroupOptions = targetGroups
+            .OrderBy(tg => tg.Id)
+            .Select(tg => FormatDisplayWithCode(tg.NameDisplay, tg.Id.ToString()))
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var itemTypeOrder = Enum.GetValues<ItemType>()
+            .Select((value, index) => new { Key = value.ToString(), Index = index })
+            .ToDictionary(x => x.Key, x => x.Index, StringComparer.OrdinalIgnoreCase);
+
+        var itemTypeOptions = items
+            .Select(i => new
+            {
+                Raw = i.ItemTypeRaw?.Trim() ?? string.Empty,
+                Option = FormatDisplayWithCode(i.ItemTypeDisplay ?? string.Empty, i.ItemTypeRaw ?? string.Empty)
+            })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Option))
+            .GroupBy(x => x.Option, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .OrderBy(x => itemTypeOrder.TryGetValue(x.Raw, out var order) ? order : int.MaxValue)
+            .ThenBy(x => x.Option, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.Option)
+            .ToList();
+
+        for (int i = 0; i < targetGroupOptions.Count; i++)
+            ws.Cell(i + 2, 1).Value = targetGroupOptions[i];
+
+        for (int i = 0; i < itemTypeOptions.Count; i++)
+            ws.Cell(i + 2, 2).Value = itemTypeOptions[i];
+
+        var targetGroupLastRow = Math.Max(targetGroupOptions.Count + 1, 2);
+        var itemTypeLastRow = Math.Max(itemTypeOptions.Count + 1, 2);
+
+        workbook.NamedRanges.Add("TargetGroupOptions", ws.Range(2, 1, targetGroupLastRow, 1));
+        workbook.NamedRanges.Add("ItemTypeOptions", ws.Range(2, 2, itemTypeLastRow, 2));
+    }
+
+    private static string FormatDisplayWithCode(string display, string codeOrId)
+    {
+        var normalizedDisplay = display?.Trim() ?? string.Empty;
+        var normalizedCode = codeOrId?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(normalizedDisplay))
+            return string.Empty;
+
+        if (string.IsNullOrWhiteSpace(normalizedCode)
+            || string.Equals(normalizedDisplay, normalizedCode, StringComparison.OrdinalIgnoreCase))
+            return normalizedDisplay;
+
+        return $"{normalizedDisplay} - {normalizedCode}";
+    }
+
     // ─── Main entry sheet: headers, STT, dropdowns, VLOOKUP formulas ──────────
     private static void BuildMainSheet(
         IXLWorksheet ws,
@@ -368,11 +436,23 @@ public class ExcelExportService : IExcelExportService
             dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Đối tượng — VLOOKUP auto-fill (editable)
-            ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,2,FALSE),\"\")";
+            // Col D: Đối tượng — dropdown metadata (name - code/id)
+            var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
+            dvTargetGroup.List("=TargetGroupOptions");
+            dvTargetGroup.IgnoreBlanks = true;
+            dvTargetGroup.ShowInputMessage = true;
+            dvTargetGroup.InputTitle = "Gợi ý";
+            dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
+            dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loại vật phẩm — VLOOKUP auto-fill (editable)
-            ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,3,FALSE),\"\")";
+            // Col E: Loại vật phẩm — dropdown metadata (name - code/id)
+            var dvItemType = ws.Cell(r, 5).GetDataValidation();
+            dvItemType.List("=ItemTypeOptions");
+            dvItemType.IgnoreBlanks = true;
+            dvItemType.ShowInputMessage = true;
+            dvItemType.InputTitle = "Gợi ý";
+            dvItemType.InputMessage = "Nếu vật phẩm mới, chọn loại vật phẩm theo mẫu: tên - code hoặc id.";
+            dvItemType.ShowErrorMessage = false;
 
             // Col F: Đơn vị — VLOOKUP auto-fill (editable)
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
@@ -454,7 +534,8 @@ public class ExcelExportService : IExcelExportService
 
     public byte[] GeneratePurchaseImportTemplate(
         IReadOnlyList<DonationImportCategoryInfo> categories,
-        IReadOnlyList<DonationImportItemInfo> items)
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups)
     {
         using var workbook = new XLWorkbook();
 
@@ -462,14 +543,17 @@ public class ExcelExportService : IExcelExportService
         var wsDanhMuc = workbook.Worksheets.Add("DM_DanhMuc");
         var wsVatPham = workbook.Worksheets.Add("DM_VatPham");
         var wsLookup  = workbook.Worksheets.Add("DM_Lookup");
+        var wsMeta    = workbook.Worksheets.Add("DM_Metadata");
 
         BuildCategorySheet(wsDanhMuc, categories, workbook);
         BuildItemSheet(wsVatPham, categories, items, workbook);
         BuildLookupSheet(wsLookup, items);
+        BuildMetadataSheet(wsMeta, items, targetGroups, workbook);
 
         wsDanhMuc.Visibility = XLWorksheetVisibility.VeryHidden;
         wsVatPham.Visibility = XLWorksheetVisibility.VeryHidden;
         wsLookup.Visibility  = XLWorksheetVisibility.VeryHidden;
+        wsMeta.Visibility    = XLWorksheetVisibility.VeryHidden;
 
         // ── 2. Build main entry sheet ─────────────────────────────────────────
         var ws = workbook.Worksheets.Add("Nhập kho mua sắm");
@@ -541,11 +625,23 @@ public class ExcelExportService : IExcelExportService
             dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Đối tượng — VLOOKUP auto-fill
-            ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,2,FALSE),\"\")";
+            // Col D: Đối tượng — dropdown metadata (name - code/id)
+            var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
+            dvTargetGroup.List("=TargetGroupOptions");
+            dvTargetGroup.IgnoreBlanks = true;
+            dvTargetGroup.ShowInputMessage = true;
+            dvTargetGroup.InputTitle = "Gợi ý";
+            dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
+            dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loại vật phẩm — VLOOKUP auto-fill
-            ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,3,FALSE),\"\")";
+            // Col E: Loại vật phẩm — dropdown metadata (name - code/id)
+            var dvItemType = ws.Cell(r, 5).GetDataValidation();
+            dvItemType.List("=ItemTypeOptions");
+            dvItemType.IgnoreBlanks = true;
+            dvItemType.ShowInputMessage = true;
+            dvItemType.InputTitle = "Gợi ý";
+            dvItemType.InputMessage = "Nếu vật phẩm mới, chọn loại vật phẩm theo mẫu: tên - code hoặc id.";
+            dvItemType.ShowErrorMessage = false;
 
             // Col F: Đơn vị — VLOOKUP auto-fill
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";

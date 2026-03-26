@@ -26,6 +26,11 @@ public interface IItemModelMetadataRepository
     Task<List<DonationImportItemInfo>> GetAllForDonationTemplateAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns all target groups from database for Excel template dropdown source.
+    /// </summary>
+    Task<List<DonationImportTargetGroupInfo>> GetAllTargetGroupsForTemplateAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Batch-fetches item models by their IDs with TargetGroups eagerly loaded.
     /// Chunks at 500 IDs to avoid SQL parameter limits. Returns a dictionary keyed by ID.
     /// </summary>
