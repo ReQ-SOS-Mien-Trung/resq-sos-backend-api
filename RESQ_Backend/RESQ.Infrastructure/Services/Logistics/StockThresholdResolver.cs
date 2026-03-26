@@ -64,6 +64,12 @@ public class StockThresholdResolver(
         return Task.CompletedTask;
     }
 
+    public Task InvalidateGlobalAsync()
+    {
+        _memoryCache.Remove("stock-threshold:global");
+        return Task.CompletedTask;
+    }
+
     private async Task<List<StockThresholdConfigDto>> GetDepotConfigsAsync(int depotId, CancellationToken cancellationToken)
     {
         var cacheKey = GetDepotKey(depotId);
