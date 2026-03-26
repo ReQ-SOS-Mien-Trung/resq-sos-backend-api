@@ -118,36 +118,36 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             abilityFilteredUserIds = abilityQuery.Select(ua => ua.UserId).Distinct();
         }
 
-var joinedQuery = _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
-    .Where(p => p.AssemblyEventId == eventId && p.IsCheckedIn)
-    .Join(
-        _unitOfWork.GetRepository<User>().AsQueryable().Include(u => u.RescuerProfile),
-        p => p.RescuerId,
-        u => u.Id,
-        (p, u) => new { Participant = p, User = u }
-    );
+        var joinedQuery = _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
+            .Where(p => p.AssemblyEventId == eventId && p.IsCheckedIn)
+            .Join(
+                _unitOfWork.GetRepository<User>().AsQueryable().Include(u => u.RescuerProfile),
+                p => p.RescuerId,
+                u => u.Id,
+                (p, u) => new { Participant = p, User = u }
+            );
 
-// Apply optional filters
-if (rescuerTypeStr != null)
-    joinedQuery = joinedQuery.Where(x => x.User.RescuerProfile != null &&
-                                         x.User.RescuerProfile.RescuerType == rescuerTypeStr);
+        // Apply optional filters
+        if (rescuerTypeStr != null)
+            joinedQuery = joinedQuery.Where(x => x.User.RescuerProfile != null &&
+                                                 x.User.RescuerProfile.RescuerType == rescuerTypeStr);
 
-if (!string.IsNullOrWhiteSpace(firstName))
-    joinedQuery = joinedQuery.Where(x => x.User.FirstName != null &&
-                                         x.User.FirstName.ToLower().Contains(firstName.ToLower()));
+        if (!string.IsNullOrWhiteSpace(firstName))
+            joinedQuery = joinedQuery.Where(x => x.User.FirstName != null &&
+                                                 x.User.FirstName.ToLower().Contains(firstName.ToLower()));
 
-if (!string.IsNullOrWhiteSpace(lastName))
-    joinedQuery = joinedQuery.Where(x => x.User.LastName != null &&
-                                         x.User.LastName.ToLower().Contains(lastName.ToLower()));
+        if (!string.IsNullOrWhiteSpace(lastName))
+            joinedQuery = joinedQuery.Where(x => x.User.LastName != null &&
+                                                 x.User.LastName.ToLower().Contains(lastName.ToLower()));
 
-if (!string.IsNullOrWhiteSpace(email))
-    joinedQuery = joinedQuery.Where(x => x.User.Email != null &&
-                                         x.User.Email.ToLower().Contains(email.ToLower()));
+        if (!string.IsNullOrWhiteSpace(email))
+            joinedQuery = joinedQuery.Where(x => x.User.Email != null &&
+                                                 x.User.Email.ToLower().Contains(email.ToLower()));
 
-if (abilityFilteredUserIds != null)
-    joinedQuery = joinedQuery.Where(x => abilityFilteredUserIds.Contains(x.User.Id));
+        if (abilityFilteredUserIds != null)
+            joinedQuery = joinedQuery.Where(x => abilityFilteredUserIds.Contains(x.User.Id));
 
-var query = joinedQuery.OrderByDescending(x => x.Participant.CheckInTime);
+        var query = joinedQuery.OrderByDescending(x => x.Participant.CheckInTime);
 
         var total = await query.CountAsync(cancellationToken);
 
