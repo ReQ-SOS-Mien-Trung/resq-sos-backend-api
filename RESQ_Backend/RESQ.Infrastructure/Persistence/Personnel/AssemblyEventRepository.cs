@@ -85,20 +85,69 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     }
 
     public async Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(
-        int eventId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+        int eventId, int pageNumber, int pageSize,
+        RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
+        string? abilitySubgroupCode = null,
+        string? abilityCategoryCode = null,
+        string? firstName = null,
+        string? lastName = null,
+        string? email = null,
+        CancellationToken cancellationToken = default)
     {
         // Load event to get EventDateTime for IsEarly/IsLate computation
         var assemblyEvent = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
 
         var eventDateTime = assemblyEvent?.AssemblyDate;
+        var rescuerTypeStr = rescuerType?.ToString();
 
-        var query = _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
-            .Where(p => p.AssemblyEventId == eventId && p.IsCheckedIn)
-            .Join(
-                _unitOfWork.GetRepository<User>().AsQueryable().Include(u => u.RescuerProfile),
-                p => p.RescuerId, u => u.Id, (p, u) => new { Participant = p, User = u })
-            .OrderByDescending(x => x.Participant.CheckInTime);
+        // Pre-filter user IDs by ability subgroup/category if needed
+        IQueryable<Guid>? abilityFilteredUserIds = null;
+        if (abilitySubgroupCode != null || abilityCategoryCode != null)
+        {
+            var abilityQuery = _unitOfWork.GetRepository<UserAbility>().AsQueryable();
+            if (abilitySubgroupCode != null)
+                abilityQuery = abilityQuery.Where(ua =>
+                    ua.Ability.AbilitySubgroup != null &&
+                    ua.Ability.AbilitySubgroup.Code == abilitySubgroupCode);
+            if (abilityCategoryCode != null)
+                abilityQuery = abilityQuery.Where(ua =>
+                    ua.Ability.AbilitySubgroup != null &&
+                    ua.Ability.AbilitySubgroup.AbilityCategory != null &&
+                    ua.Ability.AbilitySubgroup.AbilityCategory.Code == abilityCategoryCode);
+            abilityFilteredUserIds = abilityQuery.Select(ua => ua.UserId).Distinct();
+        }
+
+var joinedQuery = _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
+    .Where(p => p.AssemblyEventId == eventId && p.IsCheckedIn)
+    .Join(
+        _unitOfWork.GetRepository<User>().AsQueryable().Include(u => u.RescuerProfile),
+        p => p.RescuerId,
+        u => u.Id,
+        (p, u) => new { Participant = p, User = u }
+    );
+
+// Apply optional filters
+if (rescuerTypeStr != null)
+    joinedQuery = joinedQuery.Where(x => x.User.RescuerProfile != null &&
+                                         x.User.RescuerProfile.RescuerType == rescuerTypeStr);
+
+if (!string.IsNullOrWhiteSpace(firstName))
+    joinedQuery = joinedQuery.Where(x => x.User.FirstName != null &&
+                                         x.User.FirstName.ToLower().Contains(firstName.ToLower()));
+
+if (!string.IsNullOrWhiteSpace(lastName))
+    joinedQuery = joinedQuery.Where(x => x.User.LastName != null &&
+                                         x.User.LastName.ToLower().Contains(lastName.ToLower()));
+
+if (!string.IsNullOrWhiteSpace(email))
+    joinedQuery = joinedQuery.Where(x => x.User.Email != null &&
+                                         x.User.Email.ToLower().Contains(email.ToLower()));
+
+if (abilityFilteredUserIds != null)
+    joinedQuery = joinedQuery.Where(x => abilityFilteredUserIds.Contains(x.User.Id));
+
+var query = joinedQuery.OrderByDescending(x => x.Participant.CheckInTime);
 
         var total = await query.CountAsync(cancellationToken);
 

@@ -17,7 +17,8 @@ public static class AssemblyPointMapper
             MaxCapacity = model.MaxCapacity,
             Status = model.Status.ToString(),
             CreatedAt = model.CreatedAt,
-            UpdatedAt = model.UpdatedAt
+            UpdatedAt = model.UpdatedAt,
+            ImageUrl = model.ImageUrl
         };
 
         if (model.Id > 0)
@@ -40,6 +41,7 @@ public static class AssemblyPointMapper
         entity.MaxCapacity = model.MaxCapacity;
         entity.Status = model.Status.ToString();
         entity.UpdatedAt = model.UpdatedAt;
+        entity.ImageUrl = model.ImageUrl;
 
         if (model.Location != null)
         {
@@ -51,7 +53,7 @@ public static class AssemblyPointMapper
     {
         if (!Enum.TryParse<AssemblyPointStatus>(entity.Status, ignoreCase: true, out var status))
         {
-            status = AssemblyPointStatus.Unavailable; 
+            status = AssemblyPointStatus.Created;
         }
 
         GeoLocation? location = null;
@@ -70,7 +72,8 @@ public static class AssemblyPointMapper
             Status = status,
             Location = location,
             CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt
+            UpdatedAt = entity.UpdatedAt,
+            ImageUrl = entity.ImageUrl
         };
     }
 }

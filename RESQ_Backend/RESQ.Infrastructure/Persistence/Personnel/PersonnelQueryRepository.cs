@@ -287,6 +287,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
                 Province = u.Province,
                 HasTeam = activeTeam != null,
                 HasAssemblyPoint = activeTeam?.AssemblyPointId != null,
+                AssemblyPointId = u.AssemblyPointId,
                 TopAbilities = u.UserAbilities
                     .OrderByDescending(ua => ua.Level)
                     .Select(ua => ua.Ability.Code)

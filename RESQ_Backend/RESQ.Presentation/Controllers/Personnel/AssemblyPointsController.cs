@@ -18,6 +18,7 @@ using RESQ.Application.UseCases.Personnel.Queries.AssemblyPointMetadata;
 using RESQ.Application.UseCases.Personnel.Queries.GetRescuersByAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Presentation.Controllers.Personnel
 {
@@ -194,9 +195,15 @@ namespace RESQ.Presentation.Controllers.Personnel
         public async Task<IActionResult> GetCheckedInRescuers(
             int eventId,
             [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 10)
+            [FromQuery] int pageSize = 10,
+            [FromQuery] RescuerType? rescuerType = null,
+            [FromQuery] string? abilitySubgroupCode = null,
+            [FromQuery] string? abilityCategoryCode = null,
+            [FromQuery] string? firstName = null,
+            [FromQuery] string? lastName = null,
+            [FromQuery] string? email = null)
         {
-            var query = new GetCheckedInRescuersQuery(eventId, pageNumber, pageSize);
+            var query = new GetCheckedInRescuersQuery(eventId, pageNumber, pageSize, rescuerType, abilitySubgroupCode, abilityCategoryCode, firstName, lastName, email);
             var result = await _mediator.Send(query);
             return Ok(result);
         }

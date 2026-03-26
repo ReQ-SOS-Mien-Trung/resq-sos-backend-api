@@ -38,6 +38,7 @@ public class GetRescuersQueryHandler(IPersonnelQueryRepository personnelQueryRep
             Province = m.Province,
             HasTeam = m.HasTeam,
             HasAssemblyPoint = m.HasAssemblyPoint,
+            AssemblyPointId = m.AssemblyPointId,
             TopAbilities = m.TopAbilities
         }).ToList();
 
