@@ -86,7 +86,7 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
     private static string TranslateItemType(string itemType)
         => itemType switch
         {
-            "Consumable" => "Tiêu hao",
+            "Consumable" => "Tiêu thụ",
             "Reusable"   => "Tái sử dụng",
             _ => itemType
         };

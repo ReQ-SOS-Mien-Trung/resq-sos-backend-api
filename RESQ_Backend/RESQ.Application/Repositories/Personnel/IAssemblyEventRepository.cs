@@ -1,6 +1,7 @@
 using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
+using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 
 namespace RESQ.Application.Repositories.Personnel;
 
@@ -43,4 +44,8 @@ public interface IAssemblyEventRepository
 
     /// <summary>Lấy event theo ID. Null nếu không tồn tại.</summary>
     Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>Lấy danh sách sự kiện triệu tập mà rescuer được gán vào (phân trang, mới nhất trước).</summary>
+    Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(
+        Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 }

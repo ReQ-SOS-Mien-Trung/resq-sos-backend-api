@@ -11,6 +11,7 @@ namespace RESQ.Application.UseCases.Personnel.Commands.AssignRescuerToAssemblyPo
 public class AssignRescuerToAssemblyPointCommandHandler(
     IUserRepository userRepository,
     IAssemblyPointRepository assemblyPointRepository,
+    IAssemblyEventRepository assemblyEventRepository,
     IFirebaseService firebaseService,
     IUnitOfWork unitOfWork,
     ILogger<AssignRescuerToAssemblyPointCommandHandler> logger)
@@ -39,6 +40,36 @@ public class AssignRescuerToAssemblyPointCommandHandler(
         // 3. Cập nhật assembly point cho rescuer
         await assemblyPointRepository.UpdateRescuerAssemblyPointAsync(
             request.RescuerUserId, request.AssemblyPointId, cancellationToken);
+
+        // 3b. Nếu AP có sự kiện tập trung đang active → tự động thêm rescuer vào danh sách participant
+        //     CHỈ khi rescuer chưa thuộc đội cứu hộ nào (triệu tập để xếp nhóm)
+        if (request.AssemblyPointId.HasValue)
+        {
+            var hasTeam = await assemblyPointRepository.HasActiveTeamAsync(
+                request.RescuerUserId, cancellationToken);
+
+            if (!hasTeam)
+            {
+                var activeEvent = await assemblyEventRepository.GetActiveEventByAssemblyPointAsync(
+                    request.AssemblyPointId.Value, cancellationToken);
+
+                if (activeEvent != null)
+                {
+                    await assemblyEventRepository.AssignParticipantsAsync(
+                        activeEvent.Value.EventId, [request.RescuerUserId], cancellationToken);
+
+                    logger.LogInformation(
+                        "Tự động thêm rescuer {UserId} vào sự kiện tập trung EventId={EventId} (AP={ApId})",
+                        request.RescuerUserId, activeEvent.Value.EventId, request.AssemblyPointId.Value);
+                }
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Rescuer {UserId} đã có đội cứu hộ — bỏ qua triệu tập tại AP {ApId}",
+                    request.RescuerUserId, request.AssemblyPointId.Value);
+            }
+        }
 
         await unitOfWork.SaveAsync();
 

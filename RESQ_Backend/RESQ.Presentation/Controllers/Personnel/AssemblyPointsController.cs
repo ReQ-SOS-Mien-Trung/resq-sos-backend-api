@@ -18,6 +18,7 @@ using RESQ.Application.UseCases.Personnel.Queries.AssemblyPointMetadata;
 using RESQ.Application.UseCases.Personnel.Queries.GetRescuersByAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
+using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Presentation.Controllers.Personnel
@@ -204,6 +205,22 @@ namespace RESQ.Presentation.Controllers.Personnel
             [FromQuery] string? email = null)
         {
             var query = new GetCheckedInRescuersQuery(eventId, pageNumber, pageSize, rescuerType, abilitySubgroupCode, abilityCategoryCode, firstName, lastName, email);
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>Rescuer xem danh sách lịch triệu tập của chính mình (sự kiện đã/đang được gán).</summary>
+        [HttpGet("events/my")]
+        [Authorize]
+        public async Task<IActionResult> GetMyAssemblyEvents(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var query = new GetMyAssemblyEventsQuery(userId, pageNumber, pageSize);
             var result = await _mediator.Send(query);
             return Ok(result);
         }

@@ -146,10 +146,52 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
 
     public async Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.GetRepository<User>().AsQueryable()
+        // 1. Rescuer được gán trực tiếp vào AP qua User.AssemblyPointId
+        var directIds = _unitOfWork.GetRepository<User>().AsQueryable()
             .Where(u => u.AssemblyPointId == assemblyPointId && u.RoleId == 3)
-            .Select(u => u.Id)
+            .Select(u => u.Id);
+
+        // 2. Rescuer thuộc rescue team đang hoạt động tại AP (qua RescueTeamMember)
+        var teamMemberIds = _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Where(m => m.Team != null && m.Team.AssemblyPointId == assemblyPointId)
+            .Select(m => m.UserId);
+
+        // Gộp 2 nguồn, loại trùng
+        return await directIds
+            .Union(teamMemberIds)
             .ToListAsync(cancellationToken);
+    }
+
+    private static readonly string _disbandedStatus = RESQ.Domain.Enum.Personnel.RescueTeamStatus.Disbanded.ToString();
+
+    public async Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+    {
+        // Rescuer được gán trực tiếp vào AP
+        var rescuerAtAp = _unitOfWork.GetRepository<User>().AsQueryable()
+            .Where(u => u.AssemblyPointId == assemblyPointId && u.RoleId == 3)
+            .Select(u => u.Id);
+
+        // Rescuer đã thuộc team đang hoạt động (không Disbanded, status Accepted)
+        var rescuerWithTeam = _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Where(m => m.Status == "Accepted"
+                     && m.Team != null
+                     && m.Team.Status != _disbandedStatus)
+            .Select(m => m.UserId);
+
+        // Chỉ lấy rescuer tại AP mà CHƯA có team
+        return await rescuerAtAp
+            .Where(id => !rescuerWithTeam.Contains(id))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> HasActiveTeamAsync(Guid rescuerUserId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .AnyAsync(m => m.UserId == rescuerUserId
+                        && m.Status == "Accepted"
+                        && m.Team != null
+                        && m.Team.Status != _disbandedStatus,
+                cancellationToken);
     }
 
     public async Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default)

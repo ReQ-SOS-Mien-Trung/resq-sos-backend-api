@@ -35,7 +35,7 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
             ?? throw new BadRequestException("Bạn không có kho đang hoạt động. Vui lòng liên hệ admin.");
 
         // 2. Tính tổng tiền tự động từ danh sách items
-        var totalAmount = request.Items.Sum(i => i.TotalPrice);
+        var totalAmount = request.Items.Sum(i => i.Quantity * i.UnitPrice);
 
         // 3. Tạo FundingRequest domain model
         var fundingRequest = new FundingRequestModel(
@@ -54,15 +54,13 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
                 Row          = item.Row,
                 ItemName     = item.ItemName,
                 CategoryCode = item.CategoryCode,
+                TargetGroups = item.TargetGroup.Split(',', System.StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList(),
+                ItemType     = item.ItemType,
                 Unit         = item.Unit,
                 Quantity     = item.Quantity,
                 UnitPrice    = item.UnitPrice,
-                TotalPrice   = item.TotalPrice,
-                ItemType     = item.ItemType,
-                TargetGroups = item.TargetGroup.Split(',', System.StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList(),
-                ReceivedDate = item.ReceivedDate,
-                ExpiredDate  = item.ExpiredDate,
-                Notes        = item.Notes
+                TotalPrice   = item.Quantity * item.UnitPrice,
+                Notes        = item.Description
             });
         }
 

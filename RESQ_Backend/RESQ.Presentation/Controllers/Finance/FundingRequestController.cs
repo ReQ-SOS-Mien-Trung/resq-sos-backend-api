@@ -6,6 +6,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Finance.Commands.ApproveFundingRequest;
 using RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 using RESQ.Application.UseCases.Finance.Commands.RejectFundingRequest;
+using RESQ.Application.UseCases.Finance.Queries.GenerateFundingRequestTemplate;
 using RESQ.Application.UseCases.Finance.Queries.GetFundingRequests;
 using RESQ.Domain.Enum.Finance;
 using System.Security.Claims;
@@ -33,15 +34,12 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
                 Row          = i.Row,
                 ItemName     = i.ItemName,
                 CategoryCode = i.CategoryCode,
-                Unit         = i.Unit,
-                Quantity     = i.Quantity,
-                UnitPrice    = i.UnitPrice,
-                TotalPrice   = i.TotalPrice,
-                ItemType     = i.ItemType,
                 TargetGroup  = i.TargetGroup,
-                ReceivedDate = i.ReceivedDate,
-                ExpiredDate  = i.ExpiredDate,
-                Notes        = i.Notes
+                ItemType     = i.ItemType,
+                Unit         = i.Unit,
+                Description  = i.Description,
+                Quantity     = i.Quantity,
+                UnitPrice    = i.UnitPrice
             }).ToList(),
             GetUserId()
         );
@@ -84,6 +82,16 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
     {
         var values = Enum.GetNames<FundingRequestStatus>();
         return Ok(values);
+    }
+
+    /// <summary>Tải file Excel mẫu yêu cầu cấp tiền — 9 cột (không có Ngày hết hạn và Ngày nhận).</summary>
+    [HttpGet("template")]
+    [Authorize(Roles = "1,4")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DownloadTemplate()
+    {
+        var result = await _mediator.Send(new GenerateFundingRequestTemplateQuery());
+        return File(result.FileContent, result.ContentType, result.FileName);
     }
 
     /// <summary>Lấy danh sách yêu cầu cấp quỹ (filter theo nhiều depot, nhiều status).</summary>

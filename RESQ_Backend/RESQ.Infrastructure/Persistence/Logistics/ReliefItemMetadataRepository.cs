@@ -16,7 +16,7 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
 {
     private static readonly Dictionary<string, string> ItemTypeVietnamese = new()
     {
-        ["Consumable"] = "Tiêu hao",
+        ["Consumable"] = "Tiêu thụ",
         ["Reusable"]   = "Tái sử dụng"
     };
 

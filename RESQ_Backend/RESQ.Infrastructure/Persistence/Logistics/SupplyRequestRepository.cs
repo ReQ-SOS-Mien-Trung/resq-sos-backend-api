@@ -3,6 +3,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
+using RESQ.Infrastructure.Entities.Notifications;
 using ItemModelEntity = RESQ.Infrastructure.Entities.Logistics.ItemModel;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
@@ -199,6 +200,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
+        var hasReusableChanges = false;
 
         foreach (var (itemModelId, quantity) in items)
         {
@@ -240,6 +242,8 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                         CreatedAt      = now
                     });
                 }
+
+                hasReusableChanges = true;
             }
             else
             {
@@ -276,6 +280,30 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     CreatedAt              = now
                 });
             }
+        }
+
+        // Reusable items have DepotId set to null BEFORE UpdateAsync, so
+        // CaptureDepotRealtimeOutboxEntries cannot recover the source depot from the
+        // change tracker. Emit the outbox event explicitly here so the source depot's
+        // realtime inventory view is refreshed when items go InTransit.
+        if (hasReusableChanges)
+        {
+            await _unitOfWork.GetRepository<DepotRealtimeOutbox>().AddAsync(new DepotRealtimeOutbox
+            {
+                Id            = Guid.NewGuid(),
+                DepotId       = sourceDepotId,
+                EventType     = "DepotUpdated",
+                Operation     = "Update",
+                PayloadKind   = "Full",
+                IsCritical    = false,
+                ChangedFields = "ReusableItems",
+                Status        = "Pending",
+                AttemptCount  = 0,
+                NextAttemptAt = now,
+                OccurredAt    = now,
+                CreatedAt     = now,
+                UpdatedAt     = now
+            });
         }
 
         await _unitOfWork.SaveAsync();
