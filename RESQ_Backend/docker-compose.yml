@@ -1,29 +1,11 @@
-# ===============================================
-# RESQ Backend Docker Compose
-# ===============================================
-#
-# Hướng dẫn sử dụng:
-# 1. Clone repo (hoặc chỉ cần file docker-compose.yml này)
-# 2. Copy file Firebase Admin SDK vào cùng thư mục, đổi tên thành:
-#      firebase-admin.json
-# 3. Chạy:
-#    docker compose up -d
-# 4. Backend API: http://localhost:8080
-#    Swagger UI: http://localhost:8080/swagger
-#
-# Thông tin đăng nhập mẫu:
-# - admin / Admin@123
-# - coordinator / Coordinator@123
-# - rescuer / Rescuer@123
-# - manager / Manager@123
-# - victim / Victim@123
-#
-# ===============================================
-
 services:
-  # PostgreSQL Database with PostGIS
   resq-db:
-    image: postgis/postgis:16-3.4
+    image: resq-postgis-local:16-arm64
+    build:
+      context: .
+      dockerfile: Dockerfile.postgis-arm64
+    platform: linux/arm64
+    pull_policy: never
     container_name: resq-postgres
     environment:
       POSTGRES_USER: postgres
@@ -41,7 +23,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis Cache
   resq-redis:
     image: redis:7-alpine
     container_name: resq-redis
@@ -57,12 +38,21 @@ services:
       timeout: 5s
       retries: 5
 
-  # RESQ Backend API (pulled from Docker Hub)
   resq-api:
-    image: ntpan04/resq-backend:latest
+    image: resq-backend-local:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/arm64
+    pull_policy: never
     container_name: resq-backend
     ports:
       - "8080:8080"
+    volumes:
+      - type: bind
+        source: ./firebase-admin.json
+        target: /app/PRM PE 142 Firebase Admin SDK.json
+        read_only: true
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
@@ -73,10 +63,7 @@ services:
       - JwtSettings__Audience=RESQ.Client
       - JwtSettings__AccessTokenExpirationMinutes=60
       - JwtSettings__RefreshTokenExpirationDays=7
-    volumes:
-      - type: bind
-        source: ./firebase-admin.json
-        target: /app/PRM PE 142 Firebase Admin SDK.json
+      target: /app/PRM PE 142 Firebase Admin SDK.json
         read_only: true
     depends_on:
       resq-db:
