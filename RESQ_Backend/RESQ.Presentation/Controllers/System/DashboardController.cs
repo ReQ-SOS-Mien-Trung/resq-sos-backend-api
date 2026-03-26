@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetVictimsByPeriod;
-using RESQ.Domain.Enum.Emergency;
+using RESQ.Application.UseCases.SystemConfig.Queries.SosStatusMetadata;
 
 namespace RESQ.Presentation.Controllers.System;
 
@@ -41,14 +41,12 @@ public class DashboardController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Trả về danh sách các SOS request status có thể dùng để lọc.
+    /// [Metadata] Danh sách trạng thái SOS dùng cho dropdown.
     /// </summary>
-    [HttpGet("sos-status-options")]
-    public IActionResult GetSosStatusOptions()
+    [HttpGet("metadata/sos-statuses")]
+    public async Task<IActionResult> GetSosStatusMetadata()
     {
-        var statuses = Enum.GetValues<SosRequestStatus>()
-            .Select(s => new { value = s.ToString(), label = s.ToString() });
-
-        return Ok(statuses);
+        var result = await _mediator.Send(new GetSosStatusMetadataQuery());
+        return Ok(result);
     }
 }

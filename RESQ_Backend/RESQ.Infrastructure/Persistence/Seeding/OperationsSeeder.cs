@@ -13,6 +13,7 @@ public static class OperationsSeeder
         SeedMissionActivities(modelBuilder);
         SeedMissionItems(modelBuilder);
         SeedMissionTeams(modelBuilder);
+        SeedTeamIncidents(modelBuilder);
         SeedConversations(modelBuilder);
         SeedConversationParticipants(modelBuilder);
         SeedMessages(modelBuilder);
@@ -133,6 +134,47 @@ public static class OperationsSeeder
                 AssignedAt = now,
                 CreatedAt = now,
                 Note = "Đội được giao nhiệm vụ cứu hộ tại Lệ Thủy"
+            }
+        );
+    }
+
+    private static void SeedTeamIncidents(ModelBuilder modelBuilder)
+    {
+        var now = new DateTime(2024, 10, 16, 10, 0, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<TeamIncident>().HasData(
+            // Sự cố 1: Thuyền bị hỏng động cơ khi tiếp cận khu vực ngập
+            new TeamIncident
+            {
+                Id = 1,
+                MissionTeamId = 1,
+                Location = new Point(106.7870, 17.2145) { SRID = 4326 },
+                Description = "Thuyền cứu hộ bị hỏng động cơ khi đang tiếp cận khu vực ngập sâu tại xã An Thủy. Đội đang chờ hỗ trợ.",
+                Status = TeamIncidentStatus.Reported.ToString(),
+                ReportedBy = SeedConstants.RescuerUserId,
+                ReportedAt = now
+            },
+            // Sự cố 2: Một thành viên đội cứu hộ bị thương nhẹ
+            new TeamIncident
+            {
+                Id = 2,
+                MissionTeamId = 1,
+                Location = new Point(106.7860, 17.2138) { SRID = 4326 },
+                Description = "Một thành viên đội cứu hộ bị trượt chân và bị thương nhẹ ở chân khi di chuyển qua khu vực bùn lầy.",
+                Status = TeamIncidentStatus.Acknowledged.ToString(),
+                ReportedBy = SeedConstants.RescuerUserId,
+                ReportedAt = now.AddMinutes(30)
+            },
+            // Sự cố 3: Mất liên lạc tạm thời với trung tâm chỉ huy
+            new TeamIncident
+            {
+                Id = 3,
+                MissionTeamId = 1,
+                Location = new Point(106.7855, 17.2150) { SRID = 4326 },
+                Description = "Đội mất liên lạc với trung tâm chỉ huy trong 15 phút do sóng yếu tại khu vực vùng trũng.",
+                Status = TeamIncidentStatus.Resolved.ToString(),
+                ReportedBy = SeedConstants.RescuerUserId,
+                ReportedAt = now.AddMinutes(45)
             }
         );
     }
