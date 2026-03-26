@@ -28,8 +28,11 @@ public class GenerateDonationImportTemplateQueryHandler(
         // 2. Load all item models with target groups (resolved in Infrastructure)
         var itemInfos = await _itemModelRepository.GetAllForDonationTemplateAsync(cancellationToken);
 
+        // 2b. Load target groups directly from database for dropdown source
+        var targetGroups = await _itemModelRepository.GetAllTargetGroupsForTemplateAsync(cancellationToken);
+
         // 3. Generate Excel template
-        var fileBytes = _excelExportService.GenerateDonationImportTemplate(categoryInfos, itemInfos);
+        var fileBytes = _excelExportService.GenerateDonationImportTemplate(categoryInfos, itemInfos, targetGroups);
 
         return new GenerateDonationImportTemplateResult
         {
