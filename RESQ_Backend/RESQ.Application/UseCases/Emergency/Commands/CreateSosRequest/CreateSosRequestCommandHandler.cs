@@ -9,6 +9,9 @@ using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Emergency.Exceptions;
 using RESQ.Domain.Enum.Emergency;
 
+using RESQ.Application.Repositories.Identity;
+using RESQ.Application.Exceptions;
+
 namespace RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 
 public class CreateSosRequestCommandHandler(
@@ -16,6 +19,7 @@ public class CreateSosRequestCommandHandler(
     ISosRuleEvaluationRepository sosRuleEvaluationRepository,
     ISosPriorityEvaluationService priorityEvaluationService,
     ISosAiAnalysisQueue aiAnalysisQueue,
+    IUserRepository userRepository,
     IUnitOfWork unitOfWork,
     IDashboardHubService dashboardHubService,
     ILogger<CreateSosRequestCommandHandler> logger
@@ -25,6 +29,7 @@ public class CreateSosRequestCommandHandler(
     private readonly ISosRuleEvaluationRepository _sosRuleEvaluationRepository = sosRuleEvaluationRepository;
     private readonly ISosPriorityEvaluationService _priorityEvaluationService = priorityEvaluationService;
     private readonly ISosAiAnalysisQueue _aiAnalysisQueue = aiAnalysisQueue;
+    private readonly IUserRepository _userRepository = userRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
     private readonly ILogger<CreateSosRequestCommandHandler> _logger = logger;
@@ -32,6 +37,12 @@ public class CreateSosRequestCommandHandler(
     public async Task<CreateSosRequestResponse> Handle(CreateSosRequestCommand request, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Handling CreateSosRequestCommand for UserId={userId}", request.UserId);
+
+        var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
+        if (user is null)
+        {
+            throw new NotFoundException("Người gửi (User)", request.UserId);
+        }
 
         // Create SOS request with enum status
         var sosRequest = SosRequestModel.Create(
