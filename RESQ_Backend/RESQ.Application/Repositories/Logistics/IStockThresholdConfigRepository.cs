@@ -45,4 +45,29 @@ public interface IStockThresholdConfigRepository
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Khôi phục một cấu hình không hoạt động (inactive) thành active.
+    /// Tự động deactivate cấu hình đang active cùng scope trước khi kích hoạt lại.
+    /// </summary>
+    /// <param name="configId">ID của cấu hình cần khôi phục.</param>
+    /// <param name="managerDepotId">
+    ///   null = admin (chỉ restore được GLOBAL scope).
+    ///   int  = manager (chỉ restore được cấu hình thuộc kho của mình).
+    /// </param>
+    Task<StockThresholdConfigDto> RestoreAsync(
+        int configId,
+        int? managerDepotId,
+        Guid changedBy,
+        string? reason,
+        CancellationToken cancellationToken = default);
+
+    Task<PagedResult<StockThresholdConfigHistoryDto>> GetAdminHistoryPagedAsync(
+        int? depotId,
+        StockThresholdScopeType? scopeType,
+        int? categoryId,
+        int? itemModelId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

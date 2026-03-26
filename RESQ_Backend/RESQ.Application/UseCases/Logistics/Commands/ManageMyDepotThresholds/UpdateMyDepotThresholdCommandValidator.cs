@@ -7,9 +7,17 @@ public class UpdateMyDepotThresholdCommandValidator : AbstractValidator<UpdateMy
 {
     public UpdateMyDepotThresholdCommandValidator()
     {
+        // Admin (role=1): chỉ được cấu hình scope Global
+        RuleFor(x => x.ScopeType)
+            .Must(x => x == StockThresholdScopeType.Global)
+            .When(x => x.RoleId == 1)
+            .WithMessage("Admin chỉ được cấu hình scope Global.");
+
+        // Manager (role=4): chỉ được cấu hình Depot/DepotCategory/DepotItem
         RuleFor(x => x.ScopeType)
             .Must(x => x is StockThresholdScopeType.Depot or StockThresholdScopeType.DepotCategory or StockThresholdScopeType.DepotItem)
-            .WithMessage("ScopeType không hợp lệ cho manager.");
+            .When(x => x.RoleId == 4)
+            .WithMessage("Manager chỉ được cấu hình scope Depot, DepotCategory hoặc DepotItem.");
 
         RuleFor(x => x.DangerPercent)
             .GreaterThan(0).WithMessage("dangerPercent phải > 0.")
@@ -23,6 +31,12 @@ public class UpdateMyDepotThresholdCommandValidator : AbstractValidator<UpdateMy
         RuleFor(x => x)
             .Must(x => x.DangerPercent < x.WarningPercent)
             .WithMessage("dangerPercent phải nhỏ hơn warningPercent.");
+
+        // Admin + Global không nhận categoryId/itemModelId
+        RuleFor(x => x)
+            .Must(x => x.CategoryId == null && x.ItemModelId == null)
+            .When(x => x.RoleId == 1)
+            .WithMessage("Scope Global không nhận categoryId hoặc itemModelId.");
 
         RuleFor(x => x.CategoryId)
             .NotNull().When(x => x.ScopeType == StockThresholdScopeType.DepotCategory)

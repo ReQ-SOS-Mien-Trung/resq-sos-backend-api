@@ -31,6 +31,8 @@ using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholdHistory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
+using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholds;
+using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholdHistory;
 using RESQ.Application.UseCases.Logistics.Queries.GetReliefItemsByCategoryCode;
 using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
@@ -166,18 +168,22 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>[Manager] Cập nhật ngưỡng tồn kho cho kho mình quản lý theo scope Depot/DepotCategory/DepotItem.</summary>
+    /// <summary>[Admin/Manager] Cập nhật ngưỡng tồn kho. Admin (role=1) chỉ được cấu hình scope Global; Manager (role=4) được cấu hình Depot/DepotCategory/DepotItem của kho mình quản lý.</summary>
     [HttpPut("my-depot/thresholds")]
-    [Authorize(Roles = "4")]
+    [Authorize(Roles = "1,4")]
     [ProducesResponseType(typeof(StockThresholdCommandResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateMyDepotThreshold([FromBody] UpdateMyDepotThresholdRequest request)
     {
         var userId = GetCurrentUserId();
+        var roleId = GetCurrentRoleId();
         var result = await _mediator.Send(new UpdateMyDepotThresholdCommand
         {
             UserId = userId,
+            RoleId = roleId,
             ScopeType = request.ScopeType,
             CategoryId = request.CategoryId,
             ItemModelId = request.ItemModelId,
@@ -207,6 +213,62 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
             ItemModelId = request.ItemModelId,
             RowVersion = request.RowVersion,
             Reason = request.Reason
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>[Admin/Manager] Khôi phục cấu hình ngưỡng tồn kho cũ (inactive) thành active. Cấu hình đang active cùng scope sẽ tự động bị deactivate. Chỉ có 1 cấu hình active mỗi scope tại một thời điểm. Admin chỉ restore GLOBAL; Manager chỉ restore cấu hình của kho mình quản lý.</summary>
+    [HttpPut("my-depot/thresholds/restore")]
+    [Authorize(Roles = "1,4")]
+    [ProducesResponseType(typeof(StockThresholdCommandResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RestoreThreshold([FromBody] RestoreThresholdRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new RestoreThresholdCommand
+        {
+            UserId = userId,
+            RoleId = GetCurrentRoleId(),
+            ConfigId = request.ConfigId,
+            Reason = request.Reason
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>[Admin] Xem cấu hình ngưỡng tồn kho hiện tại (global + override theo scope). Truyền thêm depotId để xem cấu hình override của một kho cụ thể.</summary>
+    [HttpGet("thresholds")]
+    [Authorize(Roles = "1")]
+    [ProducesResponseType(typeof(GetAdminThresholdsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAdminThresholds([FromQuery] int? depotId = null)
+    {
+        var result = await _mediator.Send(new GetAdminThresholdsQuery(depotId));
+        return Ok(result);
+    }
+
+    /// <summary>[Admin] Xem lịch sử thay đổi ngưỡng tồn kho toàn hệ thống (lọc theo depotId / scopeType / category / item, phân trang).</summary>
+    [HttpGet("thresholds/history")]
+    [Authorize(Roles = "1")]
+    [ProducesResponseType(typeof(RESQ.Application.Common.Models.PagedResult<ThresholdHistoryItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAdminThresholdHistory(
+        [FromQuery] int? depotId = null,
+        [FromQuery] StockThresholdScopeType? scopeType = null,
+        [FromQuery] int? categoryId = null,
+        [FromQuery] int? itemModelId = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var result = await _mediator.Send(new GetAdminThresholdHistoryQuery
+        {
+            DepotId = depotId,
+            ScopeType = scopeType,
+            CategoryId = categoryId,
+            ItemModelId = itemModelId,
+            PageNumber = pageNumber,
+            PageSize = pageSize
         });
 
         return Ok(result);
@@ -357,6 +419,14 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     public async Task<IActionResult> GetSourceDepotStatuses()
     {
         var result = await _mediator.Send(new GetSourceDepotStatusesQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách loại phạm vi ngưỡng tồn kho (scope type).</summary>
+    [HttpGet("metadata/scope-types")]
+    public async Task<IActionResult> GetStockThresholdScopeTypes()
+    {
+        var result = await _mediator.Send(new GetStockThresholdScopeTypesQuery());
         return Ok(result);
     }
 
@@ -685,6 +755,13 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
         return userId;
+    }
+
+    private int GetCurrentRoleId()
+    {
+        var roleStr = User.FindFirst(ClaimTypes.Role)?.Value
+                      ?? User.FindFirst("RoleId")?.Value;
+        return int.TryParse(roleStr, out var roleId) ? roleId : 0;
     }
 
     private async Task<List<int>?> ResolveCategoryIdsAsync(

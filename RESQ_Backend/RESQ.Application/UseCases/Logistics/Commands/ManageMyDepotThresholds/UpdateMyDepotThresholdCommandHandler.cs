@@ -2,6 +2,7 @@ using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ManageMyDepotThresholds;
 
@@ -17,8 +18,19 @@ public class UpdateMyDepotThresholdCommandHandler(
 
     public async Task<StockThresholdCommandResponse> Handle(UpdateMyDepotThresholdCommand request, CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
-            ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
+        int depotId;
+
+        if (request.RoleId == 1)
+        {
+            // Admin chỉ được cấu hình Global — depotId bị bỏ qua bởi UpsertAsync khi scope=Global
+            depotId = 0;
+        }
+        else
+        {
+            // Manager: tìm kho đang quản lý
+            depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+                ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
+        }
 
         if (request.CategoryId.HasValue)
         {
@@ -49,7 +61,11 @@ public class UpdateMyDepotThresholdCommandHandler(
             request.Reason,
             cancellationToken);
 
-        await _stockThresholdResolver.InvalidateDepotScopeAsync(depotId);
+        // Invalidate cache tương ứng theo scope
+        if (request.ScopeType == StockThresholdScopeType.Global)
+            await _stockThresholdResolver.InvalidateGlobalAsync();
+        else
+            await _stockThresholdResolver.InvalidateDepotScopeAsync(depotId);
 
         return new StockThresholdCommandResponse
         {
