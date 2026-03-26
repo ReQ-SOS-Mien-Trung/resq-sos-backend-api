@@ -54,7 +54,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
                     LastName = googleUser.FamilyName,
                     Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()), // Random password for Google users
                     RoleId = DEFAULT_RESCUER_ROLE_ID,
-                    IsOnboarded = false,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
                     Email = googleUser.Email,
@@ -100,7 +99,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
                 LastName = user.LastName,
                 RoleId = user.RoleId,
                 IsNewUser = isNewUser,
-                IsOnboarded = user.IsOnboarded
+                RescuerStep = user.RescuerStep
             };
         }
     }

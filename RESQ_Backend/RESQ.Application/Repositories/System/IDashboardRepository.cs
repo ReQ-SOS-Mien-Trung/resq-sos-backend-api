@@ -12,6 +12,5 @@ public interface IDashboardRepository
         DateTime from,
         DateTime to,
         string granularity,
-        List<string>? statuses,
         CancellationToken cancellationToken = default);
 }

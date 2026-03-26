@@ -15,7 +15,7 @@ public static class FreeRescuerMapper
             Phone = user.Phone,
             Email = user.Email,
             AvatarUrl = user.AvatarUrl,
-            RescuerType = user.RescuerType,
+            RescuerType = user.RescuerProfile?.RescuerType,
             Address = user.Address,
             Ward = user.Ward,
             Province = user.Province

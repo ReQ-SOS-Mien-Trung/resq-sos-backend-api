@@ -11,7 +11,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
         public string? Province { get; set; }
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
-        public bool IsOnboarded { get; set; }
+        public int RescuerStep { get; set; }
         public DateTime UpdatedAt { get; set; }
         public string Message { get; set; } = null!;
     }

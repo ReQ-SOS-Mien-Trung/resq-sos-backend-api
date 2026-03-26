@@ -24,7 +24,7 @@ public class DashboardHub(IMediator mediator) : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName);
 
         // Push initial data (6 tháng gần nhất, group by month) cho client vừa kết nối
-        var data = await _mediator.Send(new GetVictimsByPeriodQuery(null, null, null, null));
+        var data = await _mediator.Send(new GetVictimsByPeriodQuery(null, null, null));
         await Clients.Caller.SendAsync("ReceiveVictimsByPeriod", data);
 
         await base.OnConnectedAsync();
@@ -41,19 +41,17 @@ public class DashboardHub(IMediator mediator) : Hub
     /// </summary>
     /// <param name="from">ISO 8601 string (có thể null → 6 tháng trước).</param>
     /// <param name="to">ISO 8601 string (có thể null → hôm nay).</param>
-    /// <param name="granularity">"day" | "week" | "month" (null → "month").</param>
-    /// <param name="statuses">Danh sách status cần lọc (null → tất cả).</param>
+    /// <param name="granularity">"day" | "month" (null → "month").</param>
     public async Task GetVictimsByPeriod(
         string? from,
         string? to,
-        string? granularity,
-        List<string>? statuses)
+        string? granularity)
     {
         DateTime? fromDate = DateTime.TryParse(from, out var f) ? f : null;
         DateTime? toDate = DateTime.TryParse(to, out var t) ? t : null;
 
         var data = await _mediator.Send(
-            new GetVictimsByPeriodQuery(fromDate, toDate, granularity, statuses));
+            new GetVictimsByPeriodQuery(fromDate, toDate, granularity));
 
         await Clients.Caller.SendAsync("ReceiveVictimsByPeriod", data);
     }

@@ -22,7 +22,7 @@ public class DashboardController(IMediator mediator) : ControllerBase
     /// </summary>
     /// <param name="from">Ngày bắt đầu (inclusive). Mặc định: 6 tháng trước.</param>
     /// <param name="to">Ngày kết thúc (inclusive). Mặc định: hôm nay.</param>
-    /// <param name="granularity">"day" | "week" | "month". Mặc định: "month".</param>
+    /// <param name="granularity">"day" | "month". Mặc định: "month".</param>
     /// <param name="statuses">
     /// Danh sách SOS status cần lọc (có thể gửi nhiều giá trị, e.g. ?statuses=Pending&amp;statuses=Closed).
     /// Để trống = lấy tất cả.
@@ -31,22 +31,21 @@ public class DashboardController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetVictimsByPeriod(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
-        [FromQuery] string? granularity,
-        [FromQuery] List<string>? statuses)
+        [FromQuery] string? granularity)
     {
         var result = await _mediator.Send(
-            new GetVictimsByPeriodQuery(from, to, granularity, statuses));
+            new GetVictimsByPeriodQuery(from, to, granularity));
 
         return Ok(result);
     }
 
-    /// <summary>
-    /// [Metadata] Danh sách trạng thái SOS dùng cho dropdown.
-    /// </summary>
-    [HttpGet("metadata/sos-statuses")]
-    public async Task<IActionResult> GetSosStatusMetadata()
-    {
-        var result = await _mediator.Send(new GetSosStatusMetadataQuery());
-        return Ok(result);
-    }
+    // /// <summary>
+    // /// [Metadata] Danh sách trạng thái SOS dùng cho dropdown.
+    // /// </summary>
+    // [HttpGet("metadata/sos-statuses")]
+    // public async Task<IActionResult> GetSosStatusMetadata()
+    // {
+    //     var result = await _mediator.Send(new GetSosStatusMetadataQuery());
+    //     return Ok(result);
+    // }
 }

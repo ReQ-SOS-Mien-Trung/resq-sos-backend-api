@@ -47,7 +47,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
             var entities = await _unitOfWork.GetRepository<RescuerApplication>()
                 .GetAllByPropertyAsync(
                     x => x.UserId == userId,
-                    includeProperties: "RescuerApplicationDocuments.FileType,User"
+                    includeProperties: "RescuerApplicationDocuments.FileType,User.RescuerProfile"
                 );
 
             var entity = entities.OrderByDescending(x => x.SubmittedAt).FirstOrDefault();
@@ -67,9 +67,9 @@ namespace RESQ.Infrastructure.Persistence.Identity
                             (x.User.LastName != null && x.User.LastName.ToLower().Contains(name.ToLower()))))) &&
                         (email == null || (x.User != null && x.User.Email != null && x.User.Email.ToLower().Contains(email.ToLower()))) &&
                         (phone == null || (x.User != null && x.User.Phone != null && x.User.Phone.Contains(phone))) &&
-                        (rescuerType == null || (x.User != null && x.User.RescuerType == rescuerType)),
+                        (rescuerType == null || (x.User != null && x.User.RescuerProfile != null && x.User.RescuerProfile.RescuerType == rescuerType)),
                     orderBy: q => q.OrderByDescending(x => x.SubmittedAt),
-                    includeProperties: "User"
+                    includeProperties: "User.RescuerProfile"
                 );
 
             var dtos = pagedResult.Items.Select(MapToListItemDto).ToList();
@@ -87,7 +87,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
             var entity = await _unitOfWork.GetRepository<RescuerApplication>()
                 .GetByPropertyAsync(
                     x => x.Id == id,
-                    includeProperties: "RescuerApplicationDocuments.FileType,User"
+                    includeProperties: "RescuerApplicationDocuments.FileType,User.RescuerProfile"
                 );
             return entity is null ? null : MapToDto(entity);
         }
@@ -170,7 +170,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 Email = entity.User?.Email,
                 Phone = entity.User?.Phone,
                 AvatarUrl = entity.User?.AvatarUrl,
-                RescuerType = entity.User?.RescuerType,
+                RescuerType = entity.User?.RescuerProfile?.RescuerType,
                 Province = entity.User?.Province
             };
         }
@@ -191,7 +191,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 Email = entity.User?.Email,
                 Phone = entity.User?.Phone,
                 AvatarUrl = entity.User?.AvatarUrl,
-                RescuerType = entity.User?.RescuerType,
+                RescuerType = entity.User?.RescuerProfile?.RescuerType,
                 Address = entity.User?.Address,
                 Ward = entity.User?.Ward,
                 Province = entity.User?.Province,

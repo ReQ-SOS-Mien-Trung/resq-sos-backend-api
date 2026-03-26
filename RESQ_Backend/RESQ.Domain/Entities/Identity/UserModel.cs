@@ -15,8 +15,8 @@ namespace RESQ.Domain.Entities.Identity
         public RescuerType? RescuerType { get; set; }
         public string? Email { get; set; }
         public bool IsEmailVerified { get; set; } = false;
-        public bool IsOnboarded { get; set; } = false;
         public bool IsEligibleRescuer { get; set; } = false;
+        public int RescuerStep { get; set; } = 0;
         public string? AvatarUrl { get; set; }
         public string? EmailVerificationToken { get; set; }
         public DateTime? EmailVerificationTokenExpiry { get; set; }

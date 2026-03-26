@@ -56,7 +56,6 @@ public class FirebasePhoneLoginCommandHandler(
                 Phone = tokenInfo.Phone,
                 Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
                 RoleId = DEFAULT_VICTIM_ROLE_ID,
-                IsOnboarded = false,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
             };
@@ -98,8 +97,7 @@ public class FirebasePhoneLoginCommandHandler(
             FirstName = user.FirstName,
             LastName = user.LastName,
             RoleId = user.RoleId,
-            IsNewUser = isNewUser,
-            IsOnboarded = user.IsOnboarded
+            IsNewUser = isNewUser
         };
     }
 }

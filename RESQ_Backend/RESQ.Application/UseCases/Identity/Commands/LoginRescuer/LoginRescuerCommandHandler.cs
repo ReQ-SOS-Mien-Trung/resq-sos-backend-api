@@ -91,7 +91,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.LoginRescuer
                 LastName = user.LastName,
                 RoleId = user.RoleId,
                 IsEmailVerified = user.IsEmailVerified,
-                IsOnboarded = user.IsOnboarded,
+                RescuerStep = user.RescuerStep,
                 Permissions = permissions
             };
         }

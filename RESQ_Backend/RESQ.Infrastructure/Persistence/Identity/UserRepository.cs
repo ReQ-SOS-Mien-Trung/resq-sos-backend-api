@@ -20,43 +20,43 @@ namespace RESQ.Infrastructure.Persistence.Identity
 
         public async Task<UserModel?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Id == id);
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Id == id, includeProperties: "RescuerProfile");
             return entity is null ? null : UsersMapper.ToModel(entity);
         }
 
         public async Task<UserModel?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
-            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Email == email);
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Email == email, includeProperties: "RescuerProfile");
             return entity is null ? null : UsersMapper.ToModel(entity);
         }
 
         public async Task<UserModel?> GetByPhoneAsync(string phone, CancellationToken cancellationToken = default)
         {
-            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Phone == phone);
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Phone == phone, includeProperties: "RescuerProfile");
             return entity is null ? null : UsersMapper.ToModel(entity);
         }
 
         public async Task<UserModel?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
         {
-            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Username == username);
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Username == username, includeProperties: "RescuerProfile");
             return entity is null ? null : UsersMapper.ToModel(entity);
         }
 
         public async Task<UserModel?> GetByEmailVerificationTokenAsync(string token, CancellationToken cancellationToken = default)
         {
-            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.EmailVerificationToken == token);
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.EmailVerificationToken == token, includeProperties: "RescuerProfile");
             return entity is null ? null : UsersMapper.ToModel(entity);
         }
 
         public async Task<UserModel?> GetByPasswordResetTokenAsync(string token, CancellationToken cancellationToken = default)
         {
-            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.PasswordResetToken == token);
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.PasswordResetToken == token, includeProperties: "RescuerProfile");
             return entity is null ? null : UsersMapper.ToModel(entity);
         }
 
         public async Task UpdateAsync(UserModel user, CancellationToken cancellationToken = default)
         {
-            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Id == user.Id);
+            var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Id == user.Id, includeProperties: "RescuerProfile");
             if (entity is not null)
             {
                 // Update identity info
@@ -65,13 +65,22 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 entity.Email = user.Email;
                 entity.Phone = user.Phone;
                 entity.Password = user.Password;
-                entity.RescuerType = user.RescuerType.ToString();
 
                 // Update status flags
                 entity.IsEmailVerified = user.IsEmailVerified;
-                entity.IsOnboarded = user.IsOnboarded;
-                entity.IsEligibleRescuer = user.IsEligibleRescuer;
                 entity.AvatarUrl = user.AvatarUrl;
+
+                // Update rescuer profile - only for rescuer role (RoleId = 3)
+                if (user.RoleId == 3)
+                {
+                    if (entity.RescuerProfile is null)
+                    {
+                        entity.RescuerProfile = new RescuerProfile { UserId = entity.Id };
+                    }
+                    entity.RescuerProfile.RescuerType = user.RescuerType?.ToString();
+                    entity.RescuerProfile.IsEligibleRescuer = user.IsEligibleRescuer;
+                    entity.RescuerProfile.Step = user.RescuerStep;
+                }
 
                 // Update tokens
                 entity.EmailVerificationToken = user.EmailVerificationToken;
@@ -97,8 +106,11 @@ namespace RESQ.Infrastructure.Persistence.Identity
 
                 // Update metadata
                 entity.UpdatedAt = DateTime.UtcNow;
-                entity.ApprovedBy = user.ApprovedBy;
-                entity.ApprovedAt = user.ApprovedAt;
+                if (entity.RescuerProfile is not null)
+                {
+                    entity.RescuerProfile.ApprovedBy = user.ApprovedBy;
+                    entity.RescuerProfile.ApprovedAt = user.ApprovedAt;
+                }
 
                 // Update ban info
                 entity.IsBanned = user.IsBanned;
@@ -119,12 +131,13 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     (roleId == null || u.RoleId == roleId) &&
                     (excludeRoleId == null || u.RoleId != excludeRoleId) &&
                     (isBanned == null || u.IsBanned == isBanned) &&
-                    (isEligible == null || u.IsEligibleRescuer == isEligible) &&
+                    (isEligible == null || (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer == isEligible)) &&
                     (search == null || (u.Phone != null && u.Phone.Contains(search)) ||
                      (u.Email != null && u.Email.Contains(search)) ||
                      (u.FirstName != null && u.FirstName.Contains(search)) ||
                      (u.LastName != null && u.LastName.Contains(search))),
-                orderBy: q => q.OrderByDescending(u => u.CreatedAt)
+                orderBy: q => q.OrderByDescending(u => u.CreatedAt),
+                includeProperties: "RescuerProfile"
             );
 
             var models = paged.Items.Select(UsersMapper.ToModel).ToList();
@@ -143,14 +156,15 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     // Loại trừ user bị ban
                     !u.IsBanned &&
                     // Loại trừ volunteer chưa kích hoạt (cả 2 cờ đều false)
-                    (u.IsEligibleRescuer || u.IsOnboarded) &&
+                    (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer) &&
                     (roleId == null || u.RoleId == roleId) &&
                     (search == null ||
                      (u.Phone != null && u.Phone.Contains(search)) ||
                      (u.Email != null && u.Email.Contains(search)) ||
                      (u.FirstName != null && u.FirstName.Contains(search)) ||
                      (u.LastName != null && u.LastName.Contains(search))),
-                orderBy: q => q.OrderByDescending(u => u.CreatedAt)
+                orderBy: q => q.OrderByDescending(u => u.CreatedAt),
+                includeProperties: "RescuerProfile"
             );
 
             var models = paged.Items.Select(UsersMapper.ToModel).ToList();

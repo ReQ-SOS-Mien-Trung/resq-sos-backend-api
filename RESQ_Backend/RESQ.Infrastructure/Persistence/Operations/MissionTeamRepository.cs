@@ -12,7 +12,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
     public async Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<MissionTeam>()
-            .GetByPropertyAsync(mt => mt.Id == id, tracked: false, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User");
+            .GetByPropertyAsync(mt => mt.Id == id, tracked: false, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile");
 
         return entity is null ? null : ToModel(entity);
     }
@@ -20,7 +20,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
     public async Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<MissionTeam>()
-            .GetAllByPropertyAsync(mt => mt.MissionId == missionId, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User");
+            .GetAllByPropertyAsync(mt => mt.MissionId == missionId, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile");
 
         return entities.OrderBy(mt => mt.AssignedAt).Select(ToModel);
     }
@@ -74,7 +74,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
                       && mt.MissionId != null
                       && mt.UnassignedAt == null
                       && mt.Status != "Cancelled",
-                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User");
+                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile");
 
         return entities.OrderByDescending(mt => mt.AssignedAt).Select(ToModel);
     }
@@ -88,7 +88,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
                       && mt.UnassignedAt == null
                       && mt.Status != "Cancelled",
                 tracked: false,
-                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User");
+                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile");
 
         return entity is null ? null : ToModel(entity);
     }
@@ -123,7 +123,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
             Username = m.User?.Username,
             Phone = m.User?.Phone,
             AvatarUrl = m.User?.AvatarUrl,
-            RescuerType = m.User?.RescuerType,
+            RescuerType = m.User?.RescuerProfile?.RescuerType,
             RoleInTeam = m.RoleInTeam,
             IsLeader = m.IsLeader,
             Status = m.Status,

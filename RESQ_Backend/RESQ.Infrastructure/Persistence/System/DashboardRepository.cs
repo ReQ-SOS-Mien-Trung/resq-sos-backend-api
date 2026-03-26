@@ -14,15 +14,9 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
         DateTime from,
         DateTime to,
         string granularity,
-        List<string>? statuses,
         CancellationToken cancellationToken = default)
     {
-        // Build optional status filter clause
-        var statusFilter = statuses != null && statuses.Count > 0
-            ? "AND status = ANY(@statuses)"
-            : string.Empty;
-
-        var sql = $$"""
+        var sql = """
             WITH valid_requests AS MATERIALIZED (
                 SELECT structured_data, received_at
                 FROM sos_requests
@@ -31,7 +25,6 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
                   AND structured_data IS NOT NULL
                   AND structured_data::text <> ''
                   AND structured_data::text <> 'null'
-                  {{statusFilter}}
             )
             SELECT
                 date_trunc(@granularity, received_at) AS "Period",
@@ -49,19 +42,8 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
         var toParam = new Npgsql.NpgsqlParameter("to", to);
         var granularityParam = new Npgsql.NpgsqlParameter("granularity", granularity);
 
-        List<object> parameters = [fromParam, toParam, granularityParam];
-
-        if (statuses != null && statuses.Count > 0)
-        {
-            var statusesParam = new Npgsql.NpgsqlParameter("statuses", statuses.ToArray())
-            {
-                DataTypeName = "text[]"
-            };
-            parameters.Add(statusesParam);
-        }
-
         var results = await _context.Database
-            .SqlQueryRaw<VictimsByPeriodRaw>(sql, parameters.ToArray())
+            .SqlQueryRaw<VictimsByPeriodRaw>(sql, fromParam, toParam, granularityParam)
             .ToListAsync(cancellationToken);
 
         return results.Select(r => new VictimsByPeriodDto
