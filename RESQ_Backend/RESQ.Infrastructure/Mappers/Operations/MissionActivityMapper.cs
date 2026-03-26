@@ -48,7 +48,8 @@ public static class MissionActivityMapper
             SosRequestId = model.SosRequestId,
             DepotId = model.DepotId,
             DepotName = model.DepotName,
-            DepotAddress = model.DepotAddress
+            DepotAddress = model.DepotAddress,
+            AssemblyPointId = model.AssemblyPointId
         };
 
         if (model.TargetLatitude.HasValue && model.TargetLongitude.HasValue)
@@ -84,7 +85,11 @@ public static class MissionActivityMapper
             SosRequestId = entity.SosRequestId,
             DepotId = entity.DepotId,
             DepotName = entity.DepotName,
-            DepotAddress = entity.DepotAddress
+            DepotAddress = entity.DepotAddress,
+            AssemblyPointId = entity.AssemblyPointId,
+            AssemblyPointName = entity.AssemblyPoint?.Name,
+            AssemblyPointLatitude = entity.AssemblyPoint?.Location?.Y,
+            AssemblyPointLongitude = entity.AssemblyPoint?.Location?.X
         };
     }
 

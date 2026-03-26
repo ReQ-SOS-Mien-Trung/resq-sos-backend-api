@@ -72,6 +72,7 @@ public class CreateMissionCommandHandler(
                 DepotId = a.DepotId,
                 DepotName = a.DepotName,
                 DepotAddress = a.DepotAddress,
+                AssemblyPointId = a.AssemblyPointId,
                 Items = a.SuppliesToCollect is { Count: > 0 }
                     ? JsonSerializer.Serialize(a.SuppliesToCollect.Select(s => new SupplyToCollectDto
                     {

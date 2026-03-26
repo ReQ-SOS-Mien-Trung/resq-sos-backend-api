@@ -14,7 +14,7 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
     public async Task<MissionActivityModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<MissionActivity>()
-            .GetByPropertyAsync(x => x.Id == id, tracked: false);
+            .GetByPropertyAsync(x => x.Id == id, tracked: false, includeProperties: "AssemblyPoint");
 
         return entity is null ? null : MissionActivityMapper.ToDomain(entity);
     }
@@ -22,7 +22,7 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
     public async Task<IEnumerable<MissionActivityModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<MissionActivity>()
-            .GetAllByPropertyAsync(x => x.MissionId == missionId);
+            .GetAllByPropertyAsync(x => x.MissionId == missionId, includeProperties: "AssemblyPoint");
 
         return entities
             .OrderBy(x => x.Step)

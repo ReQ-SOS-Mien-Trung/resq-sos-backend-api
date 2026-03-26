@@ -129,6 +129,11 @@ public class SuggestedActivityDto
     public string? DepotName { get; set; }
     /// <summary>Địa chỉ kho tiếp tế</summary>
     public string? DepotAddress { get; set; }
+    /// <summary>ID điểm tập kết gần nhất được dùng cho RESCUE/EVACUATE activity.</summary>
+    public int? AssemblyPointId { get; set; }
+    public string? AssemblyPointName { get; set; }
+    public double? AssemblyPointLatitude { get; set; }
+    public double? AssemblyPointLongitude { get; set; }
     /// <summary>Danh sách vật tư cần lấy/giao</summary>
     public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
     /// <summary>Đội cứu hộ được AI giao thực hiện activity này.</summary>
@@ -191,4 +196,14 @@ public class AgentTeamInfo
     public double? Latitude { get; set; }
     /// <summary>Kinh độ điểm tập kết.</summary>
     public double? Longitude { get; set; }
+}
+
+/// <summary>Thông tin điểm tập kết trả về bởi getAssemblyPoints tool.</summary>
+public class AgentAssemblyPointInfo
+{
+    public int AssemblyPointId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public int MaxCapacity { get; set; }
 }

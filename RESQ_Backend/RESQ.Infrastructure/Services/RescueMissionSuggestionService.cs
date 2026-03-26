@@ -9,6 +9,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
+using RESQ.Domain.Enum.Personnel;
 using RESQ.Domain.Enum.System;
 
 namespace RESQ.Infrastructure.Services;
@@ -19,6 +20,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     private readonly IPromptRepository _promptRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository;
+    private readonly IAssemblyPointRepository _assemblyPointRepository;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
 
     // Fallback defaults
@@ -30,6 +32,9 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     // Agent loop constants
     private const int MaxAgentTurns = 20;
     private const int AgentPageSize = 10;
+    private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
+    private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex CoordinateRegex = new(@"(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", RegexOptions.Compiled);
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
@@ -43,12 +48,14 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         IPromptRepository promptRepository,
         IDepotInventoryRepository depotInventoryRepository,
         IRescueTeamRepository rescueTeamRepository,
+        IAssemblyPointRepository assemblyPointRepository,
         ILogger<RescueMissionSuggestionService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _promptRepository = promptRepository;
         _depotInventoryRepository = depotInventoryRepository;
         _rescueTeamRepository = rescueTeamRepository;
+        _assemblyPointRepository = assemblyPointRepository;
         _logger = logger;
     }
 
@@ -176,14 +183,16 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
         return $$"""
             ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
-            Bạn có thể gọi hai công cụ để tìm kiếm dữ liệu thực từ hệ thống trước khi lập kế hoạch:
+            Bạn có thể gọi ba công cụ để tìm kiếm dữ liệu thực từ hệ thống trước khi lập kế hoạch:
 
             - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế", "Cứu hộ"). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, **available_quantity** (số lượng thực tế có thể lấy), depot_id, tên kho, địa chỉ kho, depot_latitude, depot_longitude. Mỗi hàng trong kết quả là một (vật tư, kho) riêng biệt — cùng một vật tư có thể xuất hiện ở nhiều hàng nếu có ở nhiều kho khác nhau.
             - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ. Có thể lọc theo khả năng (team_type) và trạng thái khả dụng. Trả về team_id, tên, loại, trạng thái, số thành viên và vị trí điểm tập kết (assembly_point_name, latitude, longitude).
+            - **getAssemblyPoints(page)**: Lấy danh sách điểm tập kết đang hoạt động. Trả về assembly_point_id, tên, sức chứa tối đa và vị trí (latitude, longitude).
 
             **BẮT BUỘC trước khi lập kế hoạch**:
             - Gọi **searchInventory** cho TỪNG danh mục: Thực phẩm, Nước, Y tế, Cứu hộ (và các danh mục khác phù hợp). Không bỏ qua danh mục nào có thể liên quan.
             - Gọi **getTeams** để lấy team_id cho `suggested_team`.
+            - Nếu có activity loại **RESCUE** hoặc **EVACUATE**, bắt buộc gọi **getAssemblyPoints** và chọn `assembly_point_id` gần nạn nhân nhất cho từng activity đó.
             - Dùng đúng item_id, depot_id, team_id từ kết quả — KHÔNG tự tạo ID.
             {{multiDepotSection}}
             ## QUY TẮC KIỂM TRA VÀ BÁO CÁO THIẾU HỤT VẬT TƯ (BẮT BUỘC)
@@ -231,6 +240,17 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             - Nếu cần nhiều kho, sắp xếp thứ tự kho theo địa lý (đi lần lượt, không vòng vèo).
             - Ghi rõ lý do địa lý trong `description` khi có bước xen kẽ giữa COLLECT và SOS.
 
+            ## QUY TẮC MỖI SOS CHỈ XỬ LÝ TẠI HIỆN TRƯỜNG MỘT ĐỢT
+            - Khi một SOS cần vật tư từ nhiều kho, bạn phải lập kế hoạch **lấy đủ toàn bộ vật tư cần thiết từ tất cả các kho trước**, rồi mới tới hiện trường SOS đó.
+            - Sau khi đã bắt đầu hoạt động tại hiện trường của một SOS (`DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, `EVACUATE`), **không được** chèn thêm bất kỳ bước `COLLECT_SUPPLIES` nào cho chính SOS đó ở phía sau.
+            - Với mỗi SOS, các bước tại hiện trường phải được gom thành một cụm liên tiếp, ví dụ hợp lệ: `COLLECT(Kho A)` → `COLLECT(Kho B)` → `DELIVER SOS #2` → `RESCUE SOS #2` → `MEDICAL_AID SOS #2`.
+            - Ví dụ sai: `COLLECT(Kho A)` → `DELIVER SOS #2` → `RESCUE SOS #2` → `COLLECT(Kho B)` → `DELIVER SOS #2`.
+            - Nếu không thể lấy đủ vật tư, vẫn phải lấy hết tất cả vật tư hiện có trước khi đến hiện trường lần đầu, sau đó ghi thiếu hụt vào `special_notes` thay vì lập kế hoạch quay lại kho.
+            - **KHÔNG được để bước `COLLECT_SUPPLIES` ở cuối kế hoạch nếu phía sau không còn bước nào sử dụng số vật tư đó.** Mọi bước COLLECT phải đứng trước cụm activity hiện trường tương ứng.
+            - **KHÔNG được gộp nhiều SOS vào cùng một bước `EVACUATE`.** Mỗi SOS cần sơ tán phải có bước `EVACUATE` riêng ngay sau khi xử lý xong SOS đó, rồi mới được di chuyển sang SOS tiếp theo.
+            - Ví dụ đúng: `COLLECT` → `DELIVER SOS #2` → `RESCUE SOS #2` → `MEDICAL_AID SOS #2` → `EVACUATE SOS #2` → `DELIVER SOS #1` → `RESCUE SOS #1` → `EVACUATE SOS #1`.
+            - Ví dụ sai: `DELIVER SOS #2` → `RESCUE SOS #2` → `DELIVER SOS #1` → `RESCUE SOS #1` → `EVACUATE SOS #2 và SOS #1`.
+
             ## QUY TẮC CHO TỪNG LOẠI ACTIVITY
 
             ### COLLECT_SUPPLIES
@@ -246,6 +266,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             - **LUÔN tạo bước RESCUE** ngay cả khi thiếu thiết bị cứu hộ.
             - Nếu cần thiết bị cứu hộ chuyên dụng (dụng cụ phá dỡ, thiết bị nâng đỡ v.v.) và có trong kho → đưa vào `supplies_to_collect`.
             - Nếu thiết bị cần thiết KHÔNG có trong kho → ghi rõ vào `special_notes` rằng thiếu thiết bị nào. KHÔNG tạo thêm bước nào khác cho trường hợp này.
+            - Với mỗi bước RESCUE, phải điền `assembly_point_id` bằng điểm tập kết đang hoạt động gần vị trí nạn nhân nhất từ kết quả `getAssemblyPoints`.
 
             ### MEDICAL_AID
             - **LUÔN có `supplies_to_collect`** nếu tình huống cần vật tư y tế (sơ cứu, thuốc, dụng cụ y tế).
@@ -257,6 +278,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             ### EVACUATE
             - Tạo khi cần vận chuyển người bị thương đến cơ sở y tế.
             - `supplies_to_collect`: null (không lấy vật tư ở bước này).
+            - Với mỗi bước EVACUATE, phải điền `assembly_point_id` bằng điểm tập kết đang hoạt động gần vị trí nạn nhân nhất từ kết quả `getAssemblyPoints`.
 
             **QUY TẮC RETRY khi tìm đội (rất quan trọng)**:
             - Luôn thử `getTeams(available=true, page=1)` trước để ưu tiên đội sẵn sàng.
@@ -272,6 +294,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             **Quy tắc sử dụng vị trí**:
             - Ưu tiên chọn kho vật tư **gần nhất** với vị trí sự cố (so sánh tọa độ).
             - Ưu tiên chọn đội cứu hộ có điểm tập kết **gần nhất** với vị trí sự cố.
+            - Với activity RESCUE hoặc EVACUATE, ưu tiên chọn **assembly point gần nhất** với vị trí sự cố và điền `assembly_point_id` vào activity.
             - Khi có nhiều sự cố, phân công đội và kho sao cho quãng đường di chuyển tổng cộng là nhỏ nhất.
             - Ghi rõ lý do chọn kho và đội dựa trên vị trí địa lý trong trường `reason` và `description`.
 
@@ -396,6 +419,10 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                     Quantity = s.Quantity,
                     Unit = s.Unit
                 }).ToList(),
+                AssemblyPointId = a.AssemblyPointId,
+                AssemblyPointName = a.AssemblyPointName,
+                AssemblyPointLatitude = a.AssemblyPointLatitude,
+                AssemblyPointLongitude = a.AssemblyPointLongitude,
                 SuggestedTeam = a.SuggestedTeam == null ? null : new SuggestedTeamDto
                 {
                     TeamId            = a.SuggestedTeam.TeamId,
@@ -463,6 +490,10 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 if (a.TryGetProperty("depot_id", out var di) && di.ValueKind != JsonValueKind.Null && di.TryGetInt32(out var div)) dto.DepotId = div;
                 if (a.TryGetProperty("depot_name", out var dn) && dn.ValueKind != JsonValueKind.Null) dto.DepotName = dn.GetString();
                 if (a.TryGetProperty("depot_address", out var da) && da.ValueKind != JsonValueKind.Null) dto.DepotAddress = da.GetString();
+                if (a.TryGetProperty("assembly_point_id", out var api) && api.ValueKind != JsonValueKind.Null && api.TryGetInt32(out var apiv)) dto.AssemblyPointId = apiv;
+                if (a.TryGetProperty("assembly_point_name", out var activityApn) && activityApn.ValueKind != JsonValueKind.Null) dto.AssemblyPointName = activityApn.GetString();
+                if (a.TryGetProperty("assembly_point_latitude", out var aplat) && aplat.ValueKind != JsonValueKind.Null && aplat.TryGetDouble(out var aplatv)) dto.AssemblyPointLatitude = aplatv;
+                if (a.TryGetProperty("assembly_point_longitude", out var aplon) && aplon.ValueKind != JsonValueKind.Null && aplon.TryGetDouble(out var aplonv)) dto.AssemblyPointLongitude = aplonv;
                 if (a.TryGetProperty("supplies_to_collect", out var stc) && stc.ValueKind == JsonValueKind.Array)
                     dto.SuppliesToCollect = stc.EnumerateArray().Select(s =>
                     {
@@ -544,6 +575,309 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             SpecialNotes = ExtractStr(text, "special_notes"),
             ConfidenceScore = ExtractNum(text, "confidence_score") ?? 0.3
         };
+    }
+
+    private static bool IsCollectActivity(SuggestedActivityDto activity) =>
+        string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsOnSiteActivity(SuggestedActivityDto activity) =>
+        OnSiteActivityTypes.Contains(activity.ActivityType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+
+    private static HashSet<int> GetReferencedSosIds(SuggestedActivityDto activity)
+    {
+        var result = new HashSet<int>();
+        if (activity.SosRequestId.HasValue)
+            result.Add(activity.SosRequestId.Value);
+
+        if (!string.IsNullOrWhiteSpace(activity.Description))
+        {
+            foreach (Match match in SosIdRegex.Matches(activity.Description))
+            {
+                if (int.TryParse(match.Groups[1].Value, out var sosId))
+                    result.Add(sosId);
+            }
+        }
+
+        return result;
+    }
+
+    private static int? GetPrimarySosId(SuggestedActivityDto activity)
+    {
+        if (activity.SosRequestId.HasValue)
+            return activity.SosRequestId.Value;
+
+        return GetReferencedSosIds(activity).OrderBy(x => x).FirstOrDefault();
+    }
+
+    private static (double Latitude, double Longitude)? ResolveActivityCoordinates(
+        SuggestedActivityDto activity,
+        IReadOnlyDictionary<int, SosRequestSummary> sosLookup)
+    {
+        if (activity.SosRequestId.HasValue
+            && sosLookup.TryGetValue(activity.SosRequestId.Value, out var sos)
+            && sos.Latitude.HasValue
+            && sos.Longitude.HasValue)
+        {
+            return (sos.Latitude.Value, sos.Longitude.Value);
+        }
+
+        if (string.IsNullOrWhiteSpace(activity.Description))
+            return null;
+
+        var match = CoordinateRegex.Match(activity.Description);
+        if (!match.Success)
+            return null;
+
+        if (double.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lat)
+            && double.TryParse(match.Groups[2].Value, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lon))
+        {
+            return (lat, lon);
+        }
+
+        return null;
+    }
+
+    private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double earthRadiusKm = 6371.0;
+        var deltaLat = (lat2 - lat1) * Math.PI / 180.0;
+        var deltaLon = (lon2 - lon1) * Math.PI / 180.0;
+        var a = Math.Sin(deltaLat / 2) * Math.Sin(deltaLat / 2)
+              + Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0)
+              * Math.Sin(deltaLon / 2) * Math.Sin(deltaLon / 2);
+        return earthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    private static int GetOnSitePriority(SuggestedActivityDto activity) =>
+        (activity.ActivityType ?? string.Empty).ToUpperInvariant() switch
+        {
+            "DELIVER_SUPPLIES" => 1,
+            "RESCUE" => 2,
+            "MEDICAL_AID" => 3,
+            "EVACUATE" => 4,
+            _ => 99
+        };
+
+    private static SuggestedActivityDto CloneActivity(SuggestedActivityDto activity)
+    {
+        return new SuggestedActivityDto
+        {
+            Step = activity.Step,
+            ActivityType = activity.ActivityType,
+            Description = activity.Description,
+            Priority = activity.Priority,
+            EstimatedTime = activity.EstimatedTime,
+            SosRequestId = activity.SosRequestId,
+            DepotId = activity.DepotId,
+            DepotName = activity.DepotName,
+            DepotAddress = activity.DepotAddress,
+            AssemblyPointId = activity.AssemblyPointId,
+            AssemblyPointName = activity.AssemblyPointName,
+            AssemblyPointLatitude = activity.AssemblyPointLatitude,
+            AssemblyPointLongitude = activity.AssemblyPointLongitude,
+            SuppliesToCollect = activity.SuppliesToCollect?.Select(s => new SupplyToCollectDto
+            {
+                ItemId = s.ItemId,
+                ItemName = s.ItemName,
+                Quantity = s.Quantity,
+                Unit = s.Unit
+            }).ToList(),
+            SuggestedTeam = activity.SuggestedTeam == null ? null : new SuggestedTeamDto
+            {
+                TeamId = activity.SuggestedTeam.TeamId,
+                TeamName = activity.SuggestedTeam.TeamName,
+                TeamType = activity.SuggestedTeam.TeamType,
+                Reason = activity.SuggestedTeam.Reason,
+                AssemblyPointName = activity.SuggestedTeam.AssemblyPointName,
+                Latitude = activity.SuggestedTeam.Latitude,
+                Longitude = activity.SuggestedTeam.Longitude
+            }
+        };
+    }
+
+    private static List<SuggestedActivityDto> ExpandCombinedEvacuations(
+        List<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, SosRequestSummary> sosLookup)
+    {
+        var expanded = new List<SuggestedActivityDto>(activities.Count);
+
+        foreach (var activity in activities.OrderBy(x => x.Step))
+        {
+            if (!string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase))
+            {
+                expanded.Add(activity);
+                continue;
+            }
+
+            var referencedSosIds = GetReferencedSosIds(activity)
+                .OrderBy(x => x)
+                .ToList();
+
+            if (referencedSosIds.Count <= 1)
+            {
+                expanded.Add(activity);
+                continue;
+            }
+
+            foreach (var sosId in referencedSosIds)
+            {
+                var splitActivity = CloneActivity(activity);
+                splitActivity.SosRequestId = sosId;
+
+                if (sosLookup.TryGetValue(sosId, out var sos)
+                    && sos.Latitude.HasValue
+                    && sos.Longitude.HasValue)
+                {
+                    splitActivity.Description = $"Đưa nạn nhân từ {sos.Latitude.Value}, {sos.Longitude.Value} (SOS ID {sosId}) đến {splitActivity.AssemblyPointName ?? "điểm tập kết an toàn"}.";
+                }
+                else
+                {
+                    splitActivity.Description = $"Đưa nạn nhân của SOS ID {sosId} đến {splitActivity.AssemblyPointName ?? "điểm tập kết an toàn"}.";
+                }
+
+                expanded.Add(splitActivity);
+            }
+        }
+
+        return expanded;
+    }
+
+    private static void NormalizeActivitySequence(
+        List<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, SosRequestSummary> sosLookup)
+    {
+        if (activities.Count <= 1)
+            return;
+
+        var expandedActivities = ExpandCombinedEvacuations(activities, sosLookup);
+
+        var indexed = expandedActivities
+            .Select((activity, index) => new
+            {
+                Activity = activity,
+                OriginalIndex = index,
+                PrimarySosId = GetPrimarySosId(activity),
+                ReferencedSosIds = GetReferencedSosIds(activity)
+            })
+            .ToList();
+
+        var collectActivities = indexed
+            .Where(x => IsCollectActivity(x.Activity))
+            .OrderBy(x => x.OriginalIndex)
+            .ToList();
+
+        var onSiteActivities = indexed
+            .Where(x => !IsCollectActivity(x.Activity) && IsOnSiteActivity(x.Activity))
+            .OrderBy(x => x.OriginalIndex)
+            .ToList();
+
+        var otherActivities = indexed
+            .Where(x => !IsCollectActivity(x.Activity) && !IsOnSiteActivity(x.Activity))
+            .OrderBy(x => x.OriginalIndex)
+            .ToList();
+
+        var sosOrder = onSiteActivities
+            .Select(x => x.PrimarySosId)
+            .Where(x => x.HasValue)
+            .Select(x => x!.Value)
+            .Distinct()
+            .ToList();
+
+        var normalized = new List<SuggestedActivityDto>(activities.Count);
+        var usedCollectIndexes = new HashSet<int>();
+
+        foreach (var sosId in sosOrder)
+        {
+            foreach (var collect in collectActivities)
+            {
+                if (usedCollectIndexes.Contains(collect.OriginalIndex))
+                    continue;
+
+                if (collect.ReferencedSosIds.Contains(sosId))
+                {
+                    normalized.Add(collect.Activity);
+                    usedCollectIndexes.Add(collect.OriginalIndex);
+                }
+            }
+
+            normalized.AddRange(onSiteActivities
+                .Where(x => x.PrimarySosId == sosId)
+                .OrderBy(x => GetOnSitePriority(x.Activity))
+                .ThenBy(x => x.OriginalIndex)
+                .Select(x => x.Activity));
+        }
+
+        var leadingCollects = collectActivities
+            .Where(x => !usedCollectIndexes.Contains(x.OriginalIndex))
+            .Select(x => x.Activity)
+            .ToList();
+
+        normalized.InsertRange(0, leadingCollects);
+
+        normalized.AddRange(onSiteActivities
+            .Where(x => !x.PrimarySosId.HasValue)
+            .Select(x => x.Activity));
+
+        normalized.AddRange(otherActivities.Select(x => x.Activity));
+
+        activities.Clear();
+        activities.AddRange(normalized.Distinct().ToList());
+
+        for (var index = 0; index < activities.Count; index++)
+            activities[index].Step = index + 1;
+    }
+
+    private async Task EnrichActivitiesWithAssemblyPointsAsync(
+        RescueMissionSuggestionResult result,
+        IReadOnlyDictionary<int, SosRequestSummary> sosLookup,
+        CancellationToken cancellationToken)
+    {
+        var assemblyPoints = await _assemblyPointRepository.GetAllAsync(cancellationToken);
+        var activeAssemblyPoints = assemblyPoints
+            .Where(a => a.Status == AssemblyPointStatus.Active && a.Location is not null)
+            .ToList();
+
+        var assemblyPointIds = result.SuggestedActivities
+            .Where(a => a.AssemblyPointId.HasValue)
+            .Select(a => a.AssemblyPointId!.Value)
+            .Distinct()
+            .ToList();
+
+        var lookup = assemblyPoints
+            .Where(a => assemblyPointIds.Contains(a.Id))
+            .ToDictionary(a => a.Id);
+
+        foreach (var activity in result.SuggestedActivities)
+        {
+            if ((string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase))
+                && !activity.AssemblyPointId.HasValue)
+            {
+                var coordinates = ResolveActivityCoordinates(activity, sosLookup);
+                if (coordinates.HasValue && activeAssemblyPoints.Count > 0)
+                {
+                    var nearest = activeAssemblyPoints
+                        .OrderBy(a => HaversineKm(
+                            coordinates.Value.Latitude,
+                            coordinates.Value.Longitude,
+                            a.Location!.Latitude,
+                            a.Location.Longitude))
+                        .First();
+
+                    activity.AssemblyPointId = nearest.Id;
+                    lookup[nearest.Id] = nearest;
+                }
+            }
+
+            if (!activity.AssemblyPointId.HasValue || !lookup.TryGetValue(activity.AssemblyPointId.Value, out var assemblyPoint))
+                continue;
+
+            activity.AssemblyPointName = assemblyPoint.Name;
+            activity.AssemblyPointLatitude = assemblyPoint.Location?.Latitude;
+            activity.AssemblyPointLongitude = assemblyPoint.Location?.Longitude;
+        }
     }
 
     // ─── SSE helpers ───────────────────────────────────────────────────────────
@@ -779,6 +1113,9 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         _logger.LogDebug("Raw AI response (final turn):\n{raw}", finalText);
 
         var result       = ParseMissionSuggestion(finalText);
+        var sosLookup = sosRequests.ToDictionary(x => x.Id);
+        NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
+        await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
         result.IsSuccess     = true;
         result.ModelName     = modelName;
         result.RawAiResponse = finalText;
@@ -836,6 +1173,36 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 }, _jsonOpts);
             }
 
+            case "getAssemblyPoints":
+            {
+                var page = args.TryGetProperty("page", out var pg) && pg.TryGetInt32(out var pgv) ? pgv : 1;
+                var assemblyPoints = await _assemblyPointRepository.GetAllAsync(ct);
+                var items = assemblyPoints
+                    .Where(a => a.Status == AssemblyPointStatus.Active)
+                    .OrderBy(a => a.Name)
+                    .Skip((page - 1) * AgentPageSize)
+                    .Take(AgentPageSize)
+                    .Select(a => new AgentAssemblyPointInfo
+                    {
+                        AssemblyPointId = a.Id,
+                        Name = a.Name,
+                        Latitude = a.Location?.Latitude,
+                        Longitude = a.Location?.Longitude,
+                        MaxCapacity = a.MaxCapacity
+                    })
+                    .ToList();
+
+                var total = assemblyPoints.Count(a => a.Status == AssemblyPointStatus.Active);
+                var totalPages = (int)Math.Ceiling((double)total / AgentPageSize);
+                return JsonSerializer.SerializeToElement(new
+                {
+                    assembly_points = items,
+                    page,
+                    total_pages = totalPages,
+                    total_items = total
+                }, _jsonOpts);
+            }
+
             default:
                 return JsonSerializer.SerializeToElement(new { error = $"Unknown tool: {toolName}" });
         }
@@ -875,6 +1242,20 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                         ["ability"]   = new() { Type = "string",  Description = "Lọc theo loại kỹ năng/team_type (tuỳ chọn)" },
                         ["available"] = new() { Type = "boolean", Description = "Chỉ trả về đội đang Available hoặc Ready (mặc định luôn true, không thể thay đổi)" },
                         ["page"]      = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
+                    },
+                    Required = []
+                }
+            },
+            new()
+            {
+                Name        = "getAssemblyPoints",
+                Description = "Lấy danh sách điểm tập kết đang hoạt động để chọn nơi tập kết gần nhất cho activity RESCUE hoặc EVACUATE. Trả về assembly_point_id, tên, sức chứa tối đa và tọa độ.",
+                Parameters  = new GeminiFunctionParameters
+                {
+                    Type       = "object",
+                    Properties = new Dictionary<string, GeminiFunctionProperty>
+                    {
+                        ["page"] = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
                     },
                     Required = []
                 }
@@ -1124,6 +1505,18 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
         [JsonPropertyName("depot_address")]
         public string? DepotAddress { get; set; }
+
+        [JsonPropertyName("assembly_point_id")]
+        public int? AssemblyPointId { get; set; }
+
+        [JsonPropertyName("assembly_point_name")]
+        public string? AssemblyPointName { get; set; }
+
+        [JsonPropertyName("assembly_point_latitude")]
+        public double? AssemblyPointLatitude { get; set; }
+
+        [JsonPropertyName("assembly_point_longitude")]
+        public double? AssemblyPointLongitude { get; set; }
 
         [JsonPropertyName("supplies_to_collect")]
         public List<AiSupplyToCollect>? SuppliesToCollect { get; set; }
