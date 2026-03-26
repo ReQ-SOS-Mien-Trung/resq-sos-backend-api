@@ -15,6 +15,7 @@ public class AssemblyPointModel
     public GeoLocation? Location { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public string? ImageUrl { get; set; }
 
     /// <summary>
     /// True khi điểm tập kết đang có sự kiện triệu tập (Scheduled hoặc Gathering).

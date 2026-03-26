@@ -16,6 +16,15 @@ public class GetCheckedInRescuersQueryHandler(
             ?? throw new NotFoundException($"Không tìm thấy sự kiện tập trung id = {request.AssemblyEventId}");
 
         return await assemblyEventRepository.GetCheckedInRescuersAsync(
-            request.AssemblyEventId, request.PageNumber, request.PageSize, cancellationToken);
+            request.AssemblyEventId,
+            request.PageNumber,
+            request.PageSize,
+            request.RescuerType,
+            request.AbilitySubgroupCode,
+            request.AbilityCategoryCode,
+            request.FirstName,
+            request.LastName,
+            request.Email,
+            cancellationToken);
     }
 }

@@ -40,6 +40,9 @@ public partial class Depot
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime? LastUpdatedAt { get; set; }
 
+    [Column("image_url")]
+    public string? ImageUrl { get; set; }
+
     [InverseProperty("Depot")]
     public virtual ICollection<DepotManager> DepotManagers { get; set; } = new List<DepotManager>();
 

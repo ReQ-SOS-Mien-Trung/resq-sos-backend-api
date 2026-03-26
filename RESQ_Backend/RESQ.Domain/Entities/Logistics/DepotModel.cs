@@ -26,6 +26,8 @@ public class DepotModel
     // RESTORED: To support queries needing timestamp
     public DateTime? LastUpdatedAt { get; set; }
 
+    public string? ImageUrl { get; set; }
+
     public DepotModel() { }
 
     public static DepotModel Create(

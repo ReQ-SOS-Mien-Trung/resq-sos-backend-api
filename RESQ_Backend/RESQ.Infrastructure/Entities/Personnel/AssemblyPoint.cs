@@ -38,6 +38,9 @@ public partial class AssemblyPoint
     [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
+    [Column("image_url")]
+    public string? ImageUrl { get; set; }
+
     [InverseProperty("AssemblyPoint")]
     public virtual ICollection<RescueTeam> RescueTeams { get; set; } = new List<RescueTeam>();
 }

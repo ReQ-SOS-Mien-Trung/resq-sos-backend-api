@@ -14,5 +14,6 @@ public class RescuerDto
     public string? Province { get; set; }
     public bool HasTeam { get; set; }
     public bool HasAssemblyPoint { get; set; }
+    public int? AssemblyPointId { get; set; }
     public List<string> TopAbilities { get; set; } = new();
 }

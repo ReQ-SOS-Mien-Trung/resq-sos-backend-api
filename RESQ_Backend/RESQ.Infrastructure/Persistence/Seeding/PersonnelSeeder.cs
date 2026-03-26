@@ -138,7 +138,8 @@ public static class PersonnelSeeder
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(107.59761456770599, 16.46751083681696) { SRID = 4326 },
                 CreatedAt = now,
-                UpdatedAt = now
+                UpdatedAt = now,
+                ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774499522/SVDTD_TTH_sqdeoa.jpg"
             },
             // HÀ TĨNH (Chuyển từ Quảng Bình)
             new AssemblyPoint
@@ -150,7 +151,8 @@ public static class PersonnelSeeder
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(105.901, 18.350) { SRID = 4326 },
                 CreatedAt = now,
-                UpdatedAt = now
+                UpdatedAt = now,
+                ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774500115/NTD_HT_hparew.jpg"
             },
             // QUẢNG NAM
             new AssemblyPoint
@@ -162,7 +164,8 @@ public static class PersonnelSeeder
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(108.50531084160426, 15.560779818999155) { SRID = 4326 },
                 CreatedAt = now,
-                UpdatedAt = now
+                UpdatedAt = now,
+                ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774499522/NTD_QN_y2bvsh.jpg"
             },
             // ĐÀ NẴNG (Chuyển từ Quảng Trị)
             new AssemblyPoint
@@ -174,7 +177,8 @@ public static class PersonnelSeeder
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(108.222, 16.080) { SRID = 4326 },
                 CreatedAt = now,
-                UpdatedAt = now
+                UpdatedAt = now,
+                ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774499522/CUNGTHETHAO_DN_st2mir.jpg"
             }
         );
     }

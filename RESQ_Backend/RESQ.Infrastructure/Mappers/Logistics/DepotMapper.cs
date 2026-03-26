@@ -18,7 +18,8 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 Capacity = model.Capacity,
                 CurrentUtilization = model.CurrentUtilization,
                 Status = model.Status.ToString(),
-                LastUpdatedAt = model.LastUpdatedAt
+                LastUpdatedAt = model.LastUpdatedAt,
+                ImageUrl = model.ImageUrl
             };
 
             if (model.Id > 0)
@@ -55,6 +56,7 @@ namespace RESQ.Infrastructure.Mappers.Resources
             entity.CurrentUtilization = model.CurrentUtilization;
             entity.Status = model.Status.ToString();
             entity.LastUpdatedAt = model.LastUpdatedAt;
+            entity.ImageUrl = model.ImageUrl;
 
             if (model.Location != null)
             {
@@ -84,7 +86,8 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 Capacity = entity.Capacity ?? 0,
                 CurrentUtilization = entity.CurrentUtilization ?? 0,
                 Status = status,
-                LastUpdatedAt = entity.LastUpdatedAt
+                LastUpdatedAt = entity.LastUpdatedAt,
+                ImageUrl = entity.ImageUrl
             };
 
             if (entity.DepotManagers != null && entity.DepotManagers.Count != 0)
