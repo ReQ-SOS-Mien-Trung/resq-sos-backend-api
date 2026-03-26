@@ -44,6 +44,10 @@ public class MissionActivityDto
     public int? DepotId { get; set; }
     public string? DepotName { get; set; }
     public string? DepotAddress { get; set; }
+    public int? AssemblyPointId { get; set; }
+    public string? AssemblyPointName { get; set; }
+    public double? AssemblyPointLatitude { get; set; }
+    public double? AssemblyPointLongitude { get; set; }
     public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
     public double? TargetLatitude { get; set; }
     public double? TargetLongitude { get; set; }

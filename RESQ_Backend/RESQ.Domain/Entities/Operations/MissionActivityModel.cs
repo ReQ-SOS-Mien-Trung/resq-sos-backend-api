@@ -22,6 +22,10 @@ public class MissionActivityModel
     public int? DepotId { get; set; }
     public string? DepotName { get; set; }
     public string? DepotAddress { get; set; }
+    public int? AssemblyPointId { get; set; }
+    public string? AssemblyPointName { get; set; }
+    public double? AssemblyPointLatitude { get; set; }
+    public double? AssemblyPointLongitude { get; set; }
     public DateTime? AssignedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public Guid? LastDecisionBy { get; set; }

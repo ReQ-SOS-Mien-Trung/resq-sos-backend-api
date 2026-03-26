@@ -15,7 +15,7 @@ public class MissionRepository(IUnitOfWork unitOfWork) : IMissionRepository
     public async Task<MissionModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<Mission>()
-            .GetByPropertyAsync(x => x.Id == id, tracked: false, includeProperties: "MissionActivities");
+            .GetByPropertyAsync(x => x.Id == id, tracked: false, includeProperties: "MissionActivities,MissionActivities.AssemblyPoint");
 
         return entity is null ? null : MissionMapper.ToDomain(entity);
     }
@@ -23,7 +23,7 @@ public class MissionRepository(IUnitOfWork unitOfWork) : IMissionRepository
     public async Task<IEnumerable<MissionModel>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<Mission>()
-            .GetAllByPropertyAsync(filter: null, includeProperties: "MissionActivities");
+            .GetAllByPropertyAsync(filter: null, includeProperties: "MissionActivities,MissionActivities.AssemblyPoint");
 
         return entities
             .OrderByDescending(x => x.CreatedAt)
@@ -33,7 +33,7 @@ public class MissionRepository(IUnitOfWork unitOfWork) : IMissionRepository
     public async Task<IEnumerable<MissionModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<Mission>()
-            .GetAllByPropertyAsync(x => x.ClusterId == clusterId, includeProperties: "MissionActivities");
+            .GetAllByPropertyAsync(x => x.ClusterId == clusterId, includeProperties: "MissionActivities,MissionActivities.AssemblyPoint");
 
         return entities
             .OrderByDescending(x => x.CreatedAt)
@@ -46,7 +46,7 @@ public class MissionRepository(IUnitOfWork unitOfWork) : IMissionRepository
         if (ids.Count == 0) return [];
 
         var entities = await _unitOfWork.GetRepository<Mission>()
-            .GetAllByPropertyAsync(x => ids.Contains(x.Id), includeProperties: "MissionActivities");
+            .GetAllByPropertyAsync(x => ids.Contains(x.Id), includeProperties: "MissionActivities,MissionActivities.AssemblyPoint");
 
         // Preserve a stable ordering: newest first.
         return entities

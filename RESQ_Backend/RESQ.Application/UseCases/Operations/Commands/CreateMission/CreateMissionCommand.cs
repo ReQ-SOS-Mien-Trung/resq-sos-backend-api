@@ -24,6 +24,7 @@ public class CreateActivityItemDto
     public int? DepotId { get; set; }
     public string? DepotName { get; set; }
     public string? DepotAddress { get; set; }
+    public int? AssemblyPointId { get; set; }
     public List<SuggestedSupplyItemDto>? SuppliesToCollect { get; set; }
     public string? Target { get; set; }
     public double? TargetLatitude { get; set; }

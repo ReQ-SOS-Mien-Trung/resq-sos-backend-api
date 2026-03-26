@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Infrastructure.Entities.Identity;
+using RESQ.Infrastructure.Entities.Personnel;
 
 namespace RESQ.Infrastructure.Entities.Operations;
 
@@ -80,6 +81,9 @@ public partial class MissionActivity
     [Column("depot_address")]
     public string? DepotAddress { get; set; }
 
+    [Column("assembly_point_id")]
+    public int? AssemblyPointId { get; set; }
+
     [ForeignKey("LastDecisionBy")]
     [InverseProperty("MissionActivities")]
     public virtual User? LastDecisionByUser { get; set; }
@@ -93,4 +97,7 @@ public partial class MissionActivity
 
     [ForeignKey("MissionTeamId")]
     public virtual MissionTeam? MissionTeam { get; set; }
+
+    [ForeignKey("AssemblyPointId")]
+    public virtual AssemblyPoint? AssemblyPoint { get; set; }
 }
