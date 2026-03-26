@@ -63,6 +63,10 @@ public class ImportPurchasedItemDtoValidator : AbstractValidator<ImportPurchased
             .When(x => x.UnitPrice.HasValue)
             .WithMessage("Đơn giá phải lớn hơn 0.");
 
+        // Rule: ReceivedDate is required
+        RuleFor(x => x.ReceivedDate)
+            .NotNull().WithMessage("Ngày nhận không được để trống.");
+
         // Rule: ReceivedDate <= Now (can be past, cannot be future)
         RuleFor(x => x.ReceivedDate)
             .Must(date => date!.Value <= DateTime.UtcNow.AddHours(7))

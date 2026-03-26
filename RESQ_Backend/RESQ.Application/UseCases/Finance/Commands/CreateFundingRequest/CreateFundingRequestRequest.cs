@@ -23,24 +23,20 @@ public class FundingRequestItemRequest
     [Required]
     public string CategoryCode { get; set; } = string.Empty;
 
+    [Required]
+    public string TargetGroup { get; set; } = string.Empty;
+
+    [Required]
+    public string ItemType { get; set; } = string.Empty;
+
     public string? Unit { get; set; }
+
+    /// <summary>Mô tả vật phẩm — tương ứng cột G trong template Excel.</summary>
+    public string? Description { get; set; }
 
     [Required]
     public int Quantity { get; set; }
 
     [Required]
     public decimal UnitPrice { get; set; }
-
-    [Required]
-    public decimal TotalPrice { get; set; }
-
-    [Required]
-    public string ItemType { get; set; } = string.Empty;
-
-    [Required]
-    public string TargetGroup { get; set; } = string.Empty;
-
-    public DateOnly? ReceivedDate { get; set; }
-    public DateOnly? ExpiredDate { get; set; }
-    public string? Notes { get; set; }
 }

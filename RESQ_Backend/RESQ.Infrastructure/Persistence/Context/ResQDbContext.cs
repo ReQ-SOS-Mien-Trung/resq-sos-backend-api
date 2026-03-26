@@ -316,8 +316,11 @@ public partial class ResQDbContext : DbContext
             var supplyEntries = ChangeTracker.Entries<SupplyInventory>()
                 .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
                 .ToList();
+            var reusableEntries = ChangeTracker.Entries<ReusableItem>()
+                .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                .ToList();
 
-            if (depotEntries.Count == 0 && depotManagerEntries.Count == 0 && supplyEntries.Count == 0)
+            if (depotEntries.Count == 0 && depotManagerEntries.Count == 0 && supplyEntries.Count == 0 && reusableEntries.Count == 0)
                 return;
 
             var missionByDepot = BuildMissionContextMapFromInventoryLogs();
@@ -411,6 +414,28 @@ public partial class ResQDbContext : DbContext
                 }
             }
 
+            foreach (var entry in reusableEntries)
+            {
+                var depotIds = ResolveAffectedDepotIds(entry);
+                foreach (var depotId in depotIds)
+                {
+                    (string Operation, string PayloadKind, bool IsCritical) op = entry.State switch
+                    {
+                        EntityState.Added   => (Operation: "Import",  PayloadKind: "Full", IsCritical: true),
+                        EntityState.Deleted => (Operation: "Delete",  PayloadKind: "Full", IsCritical: true),
+                        _                  => (Operation: "Update",   PayloadKind: "Full", IsCritical: false)
+                    };
+                    MergePriority(priority, depotId, op.Operation, op.PayloadKind, op.IsCritical);
+
+                    if (!changedFields.TryGetValue(depotId, out var set))
+                    {
+                        set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        changedFields[depotId] = set;
+                    }
+                    set.Add("ReusableItems");
+                }
+            }
+
             var now = DateTime.UtcNow;
             foreach (var (depotId, decision) in priority)
             {
@@ -474,6 +499,34 @@ public partial class ResQDbContext : DbContext
             EntityState.Deleted => entry.OriginalValues[nameof(SupplyInventory.DepotId)] is int depotId ? depotId : null,
             _ => entry.Entity.DepotId
         };
+    }
+
+    /// <summary>
+    /// Returns all depot IDs affected by a ReusableItem change.
+    /// — For Reserve/InUse/status-only changes: just the current DepotId (unchanged).
+    /// — For TransferIn (null → depotId): the new depot.
+    /// — For TransferOut (depotId → null): the original depot (captured before null-out, see note below).
+    /// NOTE: When UpdateAsync is called AFTER setting DepotId=null (TransferOut path), both
+    /// Entity.DepotId and OriginalValues[DepotId] are null because EF attached the detached
+    /// entity with null; in that case no depot can be resolved here — the Ship step is handled
+    /// by a separate explicit outbox entry in TransferOutAsync.
+    /// </summary>
+    private static IEnumerable<int> ResolveAffectedDepotIds(EntityEntry<ReusableItem> entry)
+    {
+        var result = new HashSet<int>();
+
+        // Current depot (covers Reserve, InUse, Maintenance, TransferIn)
+        if (entry.Entity.DepotId.HasValue)
+            result.Add(entry.Entity.DepotId.Value);
+
+        // Original depot for Modified/Deleted in case DepotId changed
+        if (entry.State is EntityState.Modified or EntityState.Deleted)
+        {
+            if (entry.OriginalValues[nameof(ReusableItem.DepotId)] is int originalDepotId)
+                result.Add(originalDepotId);
+        }
+
+        return result;
     }
 
     private Dictionary<int, int?> BuildMissionContextMapFromInventoryLogs()

@@ -711,4 +711,174 @@ public class ExcelExportService : IExcelExportService
         // ── Freeze header row ─────────────────────────────────────────────────
         ws.SheetView.FreezeRows(1);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Funding Request Template — like purchase but without expiry/received date
+    //  Cols: STT (A), Tên vật phẩm (B), Danh mục (C), Đối tượng (D),
+    //        Loại vật phẩm (E), Đơn vị (F), Mô tả vật phẩm (G),
+    //        Số lượng (*) (H), Đơn giá (VNĐ) (I)  — 9 cols total
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] FundingRequestTemplateHeaders =
+    [
+        "STT",              // A  (1)
+        "Tên vật phẩm",    // B  (2)
+        "Danh mục",         // C  (3)
+        "Đối tượng",        // D  (4)
+        "Loại vật phẩm",   // E  (5)
+        "Đơn vị",           // F  (6)
+        "Mô tả vật phẩm",   // G  (7)
+        "Số lượng (*)",     // H  (8)
+        "Đơn giá (VNĐ)"    // I  (9)
+    ];
+
+    private const int FundingRequestDataStartRow = 2;
+    private const int FundingRequestDataEndRow   = 102; // 101 data rows (2..102)
+    private const int FundingRequestCols         = 9;   // A..I
+
+    public byte[] GenerateFundingRequestTemplate(
+        IReadOnlyList<DonationImportCategoryInfo> categories,
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups)
+    {
+        using var workbook = new XLWorkbook();
+
+        // ── 1. Build hidden reference sheets (reuse same helpers as donation/purchase) ─
+        var wsDanhMuc = workbook.Worksheets.Add("DM_DanhMuc");
+        var wsVatPham = workbook.Worksheets.Add("DM_VatPham");
+        var wsLookup  = workbook.Worksheets.Add("DM_Lookup");
+        var wsMeta    = workbook.Worksheets.Add("DM_Metadata");
+
+        BuildCategorySheet(wsDanhMuc, categories, workbook);
+        BuildItemSheet(wsVatPham, categories, items, workbook);
+        BuildLookupSheet(wsLookup, items);
+        BuildMetadataSheet(wsMeta, items, targetGroups, workbook);
+
+        wsDanhMuc.Visibility = XLWorksheetVisibility.VeryHidden;
+        wsVatPham.Visibility = XLWorksheetVisibility.VeryHidden;
+        wsLookup.Visibility  = XLWorksheetVisibility.VeryHidden;
+        wsMeta.Visibility    = XLWorksheetVisibility.VeryHidden;
+
+        // ── 2. Build main entry sheet ─────────────────────────────────────────
+        var ws = workbook.Worksheets.Add("Yêu cầu cấp tiền");
+        ws.SetTabActive();
+
+        BuildFundingRequestMainSheet(ws);
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+        return ms.ToArray();
+    }
+
+    // ─── Funding Request main entry sheet ────────────────────────────────────
+    private static void BuildFundingRequestMainSheet(IXLWorksheet ws)
+    {
+        // ── Header row styling ────────────────────────────────────────────────
+        for (int c = 0; c < FundingRequestTemplateHeaders.Length; c++)
+            ws.Cell(1, c + 1).Value = FundingRequestTemplateHeaders[c];
+
+        var headerRange = ws.Range(1, 1, 1, FundingRequestCols);
+        headerRange.Style
+            .Font.SetBold(true)
+            .Font.SetFontSize(11)
+            .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+            .Alignment.SetVertical(XLAlignmentVerticalValues.Center)
+            .Alignment.SetWrapText(true)
+            .Fill.SetBackgroundColor(OrangeMid)
+            .Font.SetFontColor(White);
+        headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        headerRange.Style.Border.InsideBorder  = XLBorderStyleValues.Thin;
+        ws.Row(1).Height = 24;
+
+        // ── Column widths ─────────────────────────────────────────────────────
+        ws.Column(1).Width = 5;   // A: STT
+        ws.Column(2).Width = 30;  // B: Tên vật phẩm
+        ws.Column(3).Width = 25;  // C: Danh mục
+        ws.Column(4).Width = 25;  // D: Đối tượng
+        ws.Column(5).Width = 15;  // E: Loại vật phẩm
+        ws.Column(6).Width = 12;  // F: Đơn vị
+        ws.Column(7).Width = 35;  // G: Mô tả vật phẩm
+        ws.Column(8).Width = 12;  // H: Số lượng
+        ws.Column(9).Width = 16;  // I: Đơn giá
+
+        // ── Data rows (2..102) ────────────────────────────────────────────────
+        for (int r = FundingRequestDataStartRow; r <= FundingRequestDataEndRow; r++)
+        {
+            int rowNum = r - FundingRequestDataStartRow + 1;
+
+            // Col A: STT (auto-number)
+            ws.Cell(r, 1).Value = rowNum;
+            ws.Cell(r, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+
+            // Col C: Danh mục — dropdown from named range "Categories"
+            var dvCategory = ws.Cell(r, 3).GetDataValidation();
+            dvCategory.List("=Categories");
+            dvCategory.IgnoreBlanks = true;
+            dvCategory.ShowErrorMessage = true;
+            dvCategory.ErrorTitle = "Lỗi";
+            dvCategory.ErrorMessage = "Vui lòng chọn danh mục từ danh sách.";
+
+            // Col B: Tên vật phẩm — dependent dropdown via INDIRECT on col C
+            var dvItem = ws.Cell(r, 2).GetDataValidation();
+            dvItem.List($"=INDIRECT(\"Cat_\"&RIGHT(C{r},LEN(C{r})-FIND(\" - \",C{r})-2))");
+            dvItem.IgnoreBlanks = true;
+            dvItem.ShowInputMessage = true;
+            dvItem.InputTitle = "Gợi ý";
+            dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
+            dvItem.ShowErrorMessage = false; // Allow manual entry of new items
+
+            // Col D: Đối tượng — VLOOKUP auto-fill from DM_Lookup col 2
+            ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$B,2,FALSE),\"\")";
+            var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
+            dvTargetGroup.List("=TargetGroupOptions");
+            dvTargetGroup.IgnoreBlanks = true;
+            dvTargetGroup.ShowInputMessage = true;
+            dvTargetGroup.InputTitle = "Gợi ý";
+            dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
+            dvTargetGroup.ShowErrorMessage = false;
+
+            // Col E: Loại vật phẩm — VLOOKUP auto-fill from DM_Lookup col 3
+            ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$C,3,FALSE),\"\")";
+            var dvItemType = ws.Cell(r, 5).GetDataValidation();
+            dvItemType.List("=ItemTypeOptions");
+            dvItemType.IgnoreBlanks = true;
+            dvItemType.ShowInputMessage = true;
+            dvItemType.InputTitle = "Gợi ý";
+            dvItemType.InputMessage = "Nếu vật phẩm mới, chọn loại vật phẩm theo mẫu: tên - code hoặc id.";
+            dvItemType.ShowErrorMessage = false;
+
+            // Col F: Đơn vị — VLOOKUP auto-fill
+            ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
+
+            // Col G: Mô tả vật phẩm — VLOOKUP auto-fill
+            ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
+
+            // Col H: Số lượng (*) — number format
+            ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
+
+            // Col I: Đơn giá (VNĐ) — currency format
+            ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0";
+            var dvUnitPrice = ws.Cell(r, 9).GetDataValidation();
+            dvUnitPrice.ShowInputMessage = true;
+            dvUnitPrice.InputTitle = "Đơn giá";
+            dvUnitPrice.InputMessage = "Giá dự kiến mỗi đơn vị (VNĐ).\nĐể trống nếu chưa xác định.";
+
+            // ── Row styling ───────────────────────────────────────────────────
+            if (rowNum % 2 == 0)
+            {
+                var rowRange = ws.Range(r, 1, r, FundingRequestCols);
+                rowRange.Style.Fill.SetBackgroundColor(OrangeLight);
+            }
+
+            // Thin borders for all data cells
+            var dataRow = ws.Range(r, 1, r, FundingRequestCols);
+            dataRow.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            dataRow.Style.Border.InsideBorder  = XLBorderStyleValues.Hair;
+            dataRow.Style.Border.OutsideBorderColor = XLColor.FromHtml("#BDBDBD");
+            dataRow.Style.Border.InsideBorderColor  = XLColor.FromHtml("#E0E0E0");
+        }
+
+        // ── Freeze header row ─────────────────────────────────────────────────
+        ws.SheetView.FreezeRows(1);
+    }
 }

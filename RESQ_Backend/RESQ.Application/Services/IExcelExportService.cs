@@ -39,6 +39,20 @@ public interface IExcelExportService
         IReadOnlyList<DonationImportCategoryInfo> categories,
         IReadOnlyList<DonationImportItemInfo> items,
         IReadOnlyList<DonationImportTargetGroupInfo> targetGroups);
+
+    /// <summary>
+    /// Tạo file Excel mẫu yêu cầu cấp tiền (funding request).
+    /// Giống purchase template nhưng không có cột Ngày hết hạn và Ngày nhận.
+    /// Gồm 9 cột: STT, Tên vật phẩm, Danh mục, Đối tượng, Loại vật phẩm, Đơn vị, Mô tả vật phẩm, Số lượng (*), Đơn giá (VNĐ).
+    /// </summary>
+    /// <param name="categories">Danh sách danh mục (Id, Code, Name).</param>
+    /// <param name="items">Danh sách vật phẩm kèm target groups.</param>
+    /// <param name="targetGroups">Danh sách đối tượng lấy trực tiếp từ bảng target_groups.</param>
+    /// <returns>Mảng byte nội dung file .xlsx.</returns>
+    byte[] GenerateFundingRequestTemplate(
+        IReadOnlyList<DonationImportCategoryInfo> categories,
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups);
 }
 
 /// <summary>Thông tin danh mục cho Excel template nhập kho.</summary>
