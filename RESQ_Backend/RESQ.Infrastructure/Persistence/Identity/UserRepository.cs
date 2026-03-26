@@ -1,4 +1,4 @@
-﻿using NetTopologySuite.Geometries;
+using NetTopologySuite.Geometries;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
@@ -70,8 +70,8 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 entity.IsEmailVerified = user.IsEmailVerified;
                 entity.AvatarUrl = user.AvatarUrl;
 
-                // Update rescuer profile - only for rescuer role (RoleId = 3)
-                if (user.RoleId == 3)
+                // Update rescuer profile - only for rescuer role (RoleId = 3) or users applying (RescuerType != null)
+                if (user.RoleId == 3 || user.RescuerType != null)
                 {
                     if (entity.RescuerProfile is null)
                     {

@@ -29,7 +29,7 @@ public class GetUsersForPermissionQueryHandler(IUserRepository userRepository)
             Username = u.Username,
             Phone = u.Phone,
             Email = u.Email,
-            RescuerType = u.RescuerType.ToString(),
+            RescuerType = u.RescuerType?.ToString(),
             AvatarUrl = u.AvatarUrl,
             IsEmailVerified = u.IsEmailVerified,
             IsEligibleRescuer = u.IsEligibleRescuer,

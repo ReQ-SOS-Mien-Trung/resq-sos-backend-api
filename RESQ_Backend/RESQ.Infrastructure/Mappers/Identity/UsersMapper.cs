@@ -1,4 +1,4 @@
-﻿using NetTopologySuite.Geometries;
+using NetTopologySuite.Geometries;
 using RESQ.Domain.Entities.Identity;
 using RESQ.Infrastructure.Entities.Identity;
 
@@ -37,8 +37,8 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 BanReason = model.BanReason
             };
 
-            // Only create RescuerProfile for rescuer role (RoleId = 3)
-            if (model.RoleId == 3)
+            // Only create RescuerProfile for rescuer role (RoleId = 3) or applicants (RescuerType != null)
+            if (model.RoleId == 3 || model.RescuerType != null)
             {
                 entity.RescuerProfile = new RescuerProfile
                 {

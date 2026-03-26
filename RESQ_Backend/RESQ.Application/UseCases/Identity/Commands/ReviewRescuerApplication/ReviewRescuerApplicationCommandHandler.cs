@@ -52,10 +52,14 @@ namespace RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication
                 var user = await _userRepository.GetByIdAsync(application.UserId.Value, cancellationToken);
                 if (user is not null)
                 {
+                    // 1. Chuyển RoleId sang Rescuer (3) để được cấp quyền cứu hộ
+                    user.RoleId = 3;
                     user.IsEligibleRescuer = true;
+                    user.RescuerStep = 3; // Hoàn thành onboard/duyệt
                     user.ApprovedBy = request.ReviewedBy;
                     user.ApprovedAt = DateTime.UtcNow;
                     user.UpdatedAt = DateTime.UtcNow;
+
                     await _userRepository.UpdateAsync(user, cancellationToken);
                 }
             }
