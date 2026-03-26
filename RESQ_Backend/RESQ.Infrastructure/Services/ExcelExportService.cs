@@ -436,7 +436,9 @@ public class ExcelExportService : IExcelExportService
             dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Đối tượng — dropdown metadata (name - code/id)
+            // Col D: Đối tượng — VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
+            //         Dropdown guidance for new items (overrides formula when user types)
+            ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$B,2,FALSE),\"\")";
             var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
             dvTargetGroup.List("=TargetGroupOptions");
             dvTargetGroup.IgnoreBlanks = true;
@@ -445,7 +447,9 @@ public class ExcelExportService : IExcelExportService
             dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
             dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loại vật phẩm — dropdown metadata (name - code/id)
+            // Col E: Loại vật phẩm — VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
+            //         Dropdown guidance for new items
+            ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$C,3,FALSE),\"\")";
             var dvItemType = ws.Cell(r, 5).GetDataValidation();
             dvItemType.List("=ItemTypeOptions");
             dvItemType.IgnoreBlanks = true;
@@ -625,7 +629,9 @@ public class ExcelExportService : IExcelExportService
             dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Đối tượng — dropdown metadata (name - code/id)
+            // Col D: Đối tượng — VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
+            //         Dropdown guidance for new items
+            ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$B,2,FALSE),\"\")";
             var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
             dvTargetGroup.List("=TargetGroupOptions");
             dvTargetGroup.IgnoreBlanks = true;
@@ -634,7 +640,9 @@ public class ExcelExportService : IExcelExportService
             dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
             dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loại vật phẩm — dropdown metadata (name - code/id)
+            // Col E: Loại vật phẩm — VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
+            //         Dropdown guidance for new items
+            ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$C,3,FALSE),\"\")";
             var dvItemType = ws.Cell(r, 5).GetDataValidation();
             dvItemType.List("=ItemTypeOptions");
             dvItemType.IgnoreBlanks = true;

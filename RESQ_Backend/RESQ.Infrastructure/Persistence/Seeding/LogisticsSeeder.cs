@@ -216,129 +216,285 @@ public static class LogisticsSeeder
     {
         // TargetGroup IDs matching Domain enum integer values:
         // 1=Children, 2=Elderly, 3=Pregnant, 4=Adult, 5=Rescuer
+        //
+        // Multi-target-group logic:
+        //   - Basic food/water/blankets → all civilian groups + Rescuer (field use)
+        //   - Paediatric/elderly/maternal items → specific vulnerable groups only
+        //   - Medical consumables → civilian groups + Rescuer (field first-aid)
+        //   - Hygiene consumables → relevant civilian groups + Rescuer (field hygiene)
+        //   - Raincoats / boots → Adult + Rescuer (rescuers wear them too)
+        //   - Reusable rescue equipment → Rescuer only
+        //   - Vehicles → Rescuer only
 
         modelBuilder.Entity("item_model_target_groups").HasData(
-            // Category 1: Thực phẩm
-            new { item_model_id = 1,  target_group_id = 4 }, // Mì tôm → Adult
-            new { item_model_id = 7,  target_group_id = 1 }, // Sữa bột trẻ em → Children
-            new { item_model_id = 8,  target_group_id = 4 }, // Lương khô → Adult
-            new { item_model_id = 11, target_group_id = 4 }, // Gạo sấy khô → Adult
-            new { item_model_id = 12, target_group_id = 2 }, // Cháo ăn liền → Elderly
-            new { item_model_id = 13, target_group_id = 4 }, // Bánh mì khô → Adult
-            new { item_model_id = 14, target_group_id = 4 }, // Muối tinh → Adult
-            new { item_model_id = 15, target_group_id = 4 }, // Đường cát trắng → Adult
-            new { item_model_id = 16, target_group_id = 4 }, // Dầu ăn thực vật → Adult
-            new { item_model_id = 17, target_group_id = 4 }, // Thịt hộp đóng gói → Adult
-            // Category 2: Nước uống
-            new { item_model_id = 2,  target_group_id = 4 }, // Nước tinh khiết → Adult
-            new { item_model_id = 18, target_group_id = 4 }, // Nước lọc bình 20L → Adult
-            new { item_model_id = 19, target_group_id = 4 }, // Viên lọc nước khẩn cấp → Adult
-            new { item_model_id = 20, target_group_id = 4 }, // Nước đóng thùng 24 chai → Adult
-            new { item_model_id = 22, target_group_id = 4 }, // Nước khoáng thiên nhiên 500ml → Adult
-            new { item_model_id = 25, target_group_id = 4 }, // Nước dừa đóng hộp → Adult
-            new { item_model_id = 26, target_group_id = 4 }, // Bột bù điện giải ORS → Adult
-            // Category 3: Y tế
-            new { item_model_id = 3,  target_group_id = 4 }, // Thuốc hạ sốt Paracetamol 500mg → Adult
-            new { item_model_id = 9,  target_group_id = 2 }, // Dầu gió → Elderly
-            new { item_model_id = 10, target_group_id = 3 }, // Sắt & Vitamin tổng hợp → Pregnant
-            new { item_model_id = 27, target_group_id = 4 }, // Băng gạc y tế vô khuẩn → Adult
-            new { item_model_id = 28, target_group_id = 4 }, // Bông gòn y tế → Adult
-            new { item_model_id = 29, target_group_id = 4 }, // Thuốc kháng sinh Amoxicillin → Adult
-            new { item_model_id = 30, target_group_id = 4 }, // Dung dịch sát khuẩn Betadine → Adult
-            new { item_model_id = 32, target_group_id = 4 }, // Khẩu trang y tế 3 lớp → Adult
-            new { item_model_id = 33, target_group_id = 4 }, // Bộ sơ cứu cơ bản → Adult
-            // Category 4: Vệ sinh cá nhân
-            new { item_model_id = 5,  target_group_id = 4 }, // Băng vệ sinh → Adult
-            new { item_model_id = 34, target_group_id = 4 }, // Xà phòng diệt khuẩn → Adult
-            new { item_model_id = 35, target_group_id = 4 }, // Nước rửa tay khô → Adult
-            new { item_model_id = 36, target_group_id = 4 }, // Khăn ướt kháng khuẩn → Adult
-            new { item_model_id = 37, target_group_id = 4 }, // Kem đánh răng → Adult
-            new { item_model_id = 38, target_group_id = 4 }, // Bàn chải đánh răng → Adult
-            new { item_model_id = 39, target_group_id = 4 }, // Dầu gội đầu → Adult
-            new { item_model_id = 40, target_group_id = 4 }, // Khăn bông tắm → Adult
-            new { item_model_id = 41, target_group_id = 4 }, // Giấy vệ sinh → Adult
-            new { item_model_id = 42, target_group_id = 1 }, // Tã dùng một lần → Children
-            // Category 5: Quần áo
-            new { item_model_id = 43, target_group_id = 4 }, // Áo mưa người lớn → Adult
-            new { item_model_id = 44, target_group_id = 4 }, // Ủng cao su chống lũ → Adult
-            new { item_model_id = 45, target_group_id = 1 }, // Bộ quần áo trẻ em → Children
-            new { item_model_id = 46, target_group_id = 4 }, // Áo ấm người lớn → Adult
-            new { item_model_id = 47, target_group_id = 4 }, // Bộ quần áo người lớn → Adult
-            new { item_model_id = 48, target_group_id = 2 }, // Bộ quần áo người cao tuổi → Elderly
-            new { item_model_id = 49, target_group_id = 4 }, // Găng tay giữ ấm → Adult
-            new { item_model_id = 50, target_group_id = 4 }, // Tất len giữ ấm → Adult
-            new { item_model_id = 51, target_group_id = 4 }, // Mũ len → Adult
-            new { item_model_id = 52, target_group_id = 1 }, // Áo mưa trẻ em → Children
-            // Category 6: Nơi trú ẩn
-            new { item_model_id = 53, target_group_id = 4 }, // Lều bạt cứu trợ 4 người → Adult
-            new { item_model_id = 54, target_group_id = 4 }, // Tấm bạt che mưa đa năng → Adult
-            new { item_model_id = 55, target_group_id = 4 }, // Túi ngủ giữ nhiệt → Adult
-            new { item_model_id = 56, target_group_id = 4 }, // Đệm hơi dã chiến → Adult
-            new { item_model_id = 57, target_group_id = 4 }, // Màn chống côn trùng → Adult
-            new { item_model_id = 58, target_group_id = 5 }, // Bộ cọc và dây lều → Rescuer
-            new { item_model_id = 59, target_group_id = 4 }, // Tấm bạt chống thấm → Adult
-            new { item_model_id = 60, target_group_id = 5 }, // Dây buộc đa năng → Rescuer
-            new { item_model_id = 61, target_group_id = 5 }, // Đèn LED dã chiến → Rescuer
-            new { item_model_id = 62, target_group_id = 4 }, // Nến khẩn cấp → Adult
-            // Category 7: Công cụ sửa chữa
-            new { item_model_id = 63, target_group_id = 5 }, // Búa đóng đinh → Rescuer
-            new { item_model_id = 64, target_group_id = 5 }, // Đinh các loại → Rescuer
-            new { item_model_id = 65, target_group_id = 5 }, // Cưa tay đa năng → Rescuer
-            new { item_model_id = 66, target_group_id = 5 }, // Tua vít 2 đầu → Rescuer
-            new { item_model_id = 67, target_group_id = 5 }, // Kìm cắt dây → Rescuer
-            new { item_model_id = 68, target_group_id = 5 }, // Băng keo chống thấm → Rescuer
-            new { item_model_id = 69, target_group_id = 5 }, // Dao đa năng dã chiến → Rescuer
-            new { item_model_id = 70, target_group_id = 5 }, // Xẻng tay → Rescuer
-            new { item_model_id = 71, target_group_id = 5 }, // Bao cát chống lũ → Rescuer
-            new { item_model_id = 72, target_group_id = 5 }, // Bộ dụng cụ sửa chữa điện cơ bản → Rescuer
-            // Category 8: Thiết bị cứu hộ
-            new { item_model_id = 4,  target_group_id = 5 }, // Áo phao cứu sinh → Rescuer
-            new { item_model_id = 21, target_group_id = 5 }, // Bình lọc nước dã chiến → Rescuer
-            new { item_model_id = 23, target_group_id = 5 }, // Can đựng nước 10L → Rescuer
-            new { item_model_id = 24, target_group_id = 5 }, // Túi đựng nước linh hoạt → Rescuer
-            new { item_model_id = 31, target_group_id = 5 }, // Nhiệt kế điện tử → Rescuer
-            new { item_model_id = 73, target_group_id = 5 }, // Xuồng cao su cứu hộ → Rescuer
-            new { item_model_id = 74, target_group_id = 5 }, // Dây thừng cứu sinh 30m → Rescuer
-            new { item_model_id = 75, target_group_id = 5 }, // Phao tròn cứu sinh → Rescuer
-            new { item_model_id = 76, target_group_id = 5 }, // Máy bơm nước di động → Rescuer
-            new { item_model_id = 77, target_group_id = 5 }, // Bộ đàm liên lạc dã chiến → Rescuer
-            new { item_model_id = 78, target_group_id = 5 }, // Đèn tín hiệu khẩn cấp → Rescuer
-            new { item_model_id = 79, target_group_id = 5 }, // Máy phát điện di động → Rescuer
-            new { item_model_id = 80, target_group_id = 5 }, // Cáng khiêng thương → Rescuer
-            new { item_model_id = 81, target_group_id = 5 }, // Mũ bảo hiểm cứu hộ → Rescuer
-            // Category 9: Sưởi ấm
-            new { item_model_id = 6,  target_group_id = 4 }, // Chăn ấm giữ nhiệt → Adult
-            new { item_model_id = 82, target_group_id = 4 }, // Than tổ ong → Adult
-            new { item_model_id = 83, target_group_id = 4 }, // Máy sưởi điện mini → Adult
-            new { item_model_id = 84, target_group_id = 4 }, // Túi sưởi ấm tay dùng một lần → Adult
-            new { item_model_id = 85, target_group_id = 4 }, // Bộ quần áo nhiệt → Adult
-            new { item_model_id = 86, target_group_id = 4 }, // Ấm đun nước du lịch → Adult
-            new { item_model_id = 87, target_group_id = 4 }, // Bếp gas du lịch mini → Adult
-            new { item_model_id = 88, target_group_id = 4 }, // Bình gas mini dã chiến → Adult
-            new { item_model_id = 89, target_group_id = 4 }, // Chăn điện sưởi → Adult
-            new { item_model_id = 90, target_group_id = 4 }, // Tấm sưởi ấm bức xạ → Adult
-            // Category 10: Phương tiện
-            new { item_model_id = 101, target_group_id = 5 }, // Xe tải cứu trợ 2.5 tấn → Rescuer
-            new { item_model_id = 102, target_group_id = 5 }, // Xe cứu thương → Rescuer
-            new { item_model_id = 103, target_group_id = 5 }, // Xe bán tải 4x4 → Rescuer
-            new { item_model_id = 104, target_group_id = 5 }, // Xe máy địa hình → Rescuer
-            new { item_model_id = 105, target_group_id = 5 }, // Ca nô cứu hộ → Rescuer
-            new { item_model_id = 106, target_group_id = 5 }, // Xe chở hàng nhẹ 1 tấn → Rescuer
-            new { item_model_id = 107, target_group_id = 5 }, // Xe tải đông lạnh 3.5 tấn → Rescuer
-            new { item_model_id = 108, target_group_id = 5 }, // Xe khách 16 chỗ → Rescuer
-            new { item_model_id = 109, target_group_id = 5 }, // Xe cẩu di động → Rescuer
-            new { item_model_id = 110, target_group_id = 5 }, // Xe chuyên dụng phòng cháy → Rescuer
-            // Category 99: Khác
-            new { item_model_id = 91,  target_group_id = 4 }, // Pin dự phòng 10000mAh → Adult
-            new { item_model_id = 92,  target_group_id = 4 }, // Cáp sạc đa năng → Adult
-            new { item_model_id = 93,  target_group_id = 5 }, // Bản đồ địa hình khẩn cấp → Rescuer
-            new { item_model_id = 94,  target_group_id = 4 }, // Còi báo động khẩn cấp → Adult
-            new { item_model_id = 95,  target_group_id = 5 }, // Kính bảo hộ lao động → Rescuer
-            new { item_model_id = 96,  target_group_id = 4 }, // Ba lô khẩn cấp → Adult
-            new { item_model_id = 97,  target_group_id = 4 }, // Sổ tay và bút ghi chép → Adult
-            new { item_model_id = 98,  target_group_id = 5 }, // Bộ đèn pin đội đầu → Rescuer
-            new { item_model_id = 99,  target_group_id = 5 }, // Áo phản quang an toàn → Rescuer
-            new { item_model_id = 100, target_group_id = 5 }  // Pháo sáng khẩn cấp → Rescuer
+            // ── Category 1: Thực phẩm ─────────────────────────────────────────
+            // Mì tôm – dễ nấu, rescuer dùng trong hiện trường
+            new { item_model_id = 1,  target_group_id = 4 }, // Adult
+            new { item_model_id = 1,  target_group_id = 5 }, // Rescuer
+            // Sữa bột trẻ em – chỉ dành cho trẻ
+            new { item_model_id = 7,  target_group_id = 1 }, // Children
+            // Lương khô – khẩu phần dã chiến cho rescuer và adult
+            new { item_model_id = 8,  target_group_id = 4 }, // Adult
+            new { item_model_id = 8,  target_group_id = 5 }, // Rescuer
+            // Gạo sấy khô – thực phẩm cơ bản, dùng cho nhiều nhóm
+            new { item_model_id = 11, target_group_id = 4 }, // Adult
+            new { item_model_id = 11, target_group_id = 2 }, // Elderly
+            new { item_model_id = 11, target_group_id = 3 }, // Pregnant
+            new { item_model_id = 11, target_group_id = 5 }, // Rescuer
+            // Cháo ăn liền – mềm, dễ tiêu, phù hợp người già / bà bầu / trẻ em
+            new { item_model_id = 12, target_group_id = 2 }, // Elderly
+            new { item_model_id = 12, target_group_id = 1 }, // Children
+            new { item_model_id = 12, target_group_id = 3 }, // Pregnant
+            // Bánh mì khô – tiện lợi ngoài hiện trường
+            new { item_model_id = 13, target_group_id = 4 }, // Adult
+            new { item_model_id = 13, target_group_id = 5 }, // Rescuer
+            // Muối tinh – gia vị cơ bản
+            new { item_model_id = 14, target_group_id = 4 }, // Adult
+            // Đường cát trắng – gia vị cơ bản
+            new { item_model_id = 15, target_group_id = 4 }, // Adult
+            // Dầu ăn thực vật – gia vị cơ bản
+            new { item_model_id = 16, target_group_id = 4 }, // Adult
+            // Thịt hộp đóng gói – nguồn protein, rescuer dùng ngoài hiện trường
+            new { item_model_id = 17, target_group_id = 4 }, // Adult
+            new { item_model_id = 17, target_group_id = 5 }, // Rescuer
+
+            // ── Category 2: Nước uống ─────────────────────────────────────────
+            // Nước tinh khiết – thiết yếu cho tất cả
+            new { item_model_id = 2,  target_group_id = 4 }, // Adult
+            new { item_model_id = 2,  target_group_id = 1 }, // Children
+            new { item_model_id = 2,  target_group_id = 2 }, // Elderly
+            new { item_model_id = 2,  target_group_id = 3 }, // Pregnant
+            new { item_model_id = 2,  target_group_id = 5 }, // Rescuer
+            // Nước lọc bình 20L – dùng chung cho cộng đồng
+            new { item_model_id = 18, target_group_id = 4 }, // Adult
+            // Viên lọc nước khẩn cấp – rescuer lọc nước tại hiện trường
+            new { item_model_id = 19, target_group_id = 4 }, // Adult
+            new { item_model_id = 19, target_group_id = 5 }, // Rescuer
+            // Nước đóng thùng 24 chai
+            new { item_model_id = 20, target_group_id = 4 }, // Adult
+            // Nước khoáng thiên nhiên 500ml
+            new { item_model_id = 22, target_group_id = 4 }, // Adult
+            // Nước dừa đóng hộp
+            new { item_model_id = 25, target_group_id = 4 }, // Adult
+            // Bột bù điện giải ORS – quan trọng cho mọi nhóm khi mất nước
+            new { item_model_id = 26, target_group_id = 4 }, // Adult
+            new { item_model_id = 26, target_group_id = 1 }, // Children
+            new { item_model_id = 26, target_group_id = 2 }, // Elderly
+            new { item_model_id = 26, target_group_id = 3 }, // Pregnant
+            new { item_model_id = 26, target_group_id = 5 }, // Rescuer
+
+            // ── Category 3: Y tế ──────────────────────────────────────────────
+            // Thuốc hạ sốt Paracetamol 500mg – dùng rộng rãi, kể cả rescuer
+            new { item_model_id = 3,  target_group_id = 4 }, // Adult
+            new { item_model_id = 3,  target_group_id = 2 }, // Elderly
+            new { item_model_id = 3,  target_group_id = 5 }, // Rescuer
+            // Dầu gió – giảm đau, chống lạnh; người lớn tuổi và adult đều dùng
+            new { item_model_id = 9,  target_group_id = 2 }, // Elderly
+            new { item_model_id = 9,  target_group_id = 4 }, // Adult
+            // Sắt & Vitamin tổng hợp – chủ yếu cho bà bầu
+            new { item_model_id = 10, target_group_id = 3 }, // Pregnant
+            // Băng gạc y tế vô khuẩn – sơ cứu nạn nhân và cứu hộ viên bị thương
+            new { item_model_id = 27, target_group_id = 4 }, // Adult
+            new { item_model_id = 27, target_group_id = 5 }, // Rescuer
+            // Bông gòn y tế – sơ cứu cho cả nạn nhân lẫn rescuer
+            new { item_model_id = 28, target_group_id = 4 }, // Adult
+            new { item_model_id = 28, target_group_id = 5 }, // Rescuer
+            // Thuốc kháng sinh Amoxicillin – kê đơn, dành cho adult
+            new { item_model_id = 29, target_group_id = 4 }, // Adult
+            // Dung dịch sát khuẩn Betadine – rescuer cần sát khuẩn vết thương ngoài hiện trường
+            new { item_model_id = 30, target_group_id = 4 }, // Adult
+            new { item_model_id = 30, target_group_id = 5 }, // Rescuer
+            // Khẩu trang y tế 3 lớp – bảo vệ cho tất cả các nhóm
+            new { item_model_id = 32, target_group_id = 4 }, // Adult
+            new { item_model_id = 32, target_group_id = 1 }, // Children
+            new { item_model_id = 32, target_group_id = 2 }, // Elderly
+            new { item_model_id = 32, target_group_id = 3 }, // Pregnant
+            new { item_model_id = 32, target_group_id = 5 }, // Rescuer
+            // Bộ sơ cứu cơ bản – rescuer mang theo trong nhiệm vụ
+            new { item_model_id = 33, target_group_id = 4 }, // Adult
+            new { item_model_id = 33, target_group_id = 5 }, // Rescuer
+
+            // ── Category 4: Vệ sinh cá nhân ───────────────────────────────────
+            // Băng vệ sinh – phụ nữ adult và bà bầu
+            new { item_model_id = 5,  target_group_id = 4 }, // Adult
+            new { item_model_id = 5,  target_group_id = 3 }, // Pregnant
+            // Xà phòng diệt khuẩn
+            new { item_model_id = 34, target_group_id = 4 }, // Adult
+            // Nước rửa tay khô – rescuer cần giữ vệ sinh ngoài hiện trường
+            new { item_model_id = 35, target_group_id = 4 }, // Adult
+            new { item_model_id = 35, target_group_id = 5 }, // Rescuer
+            // Khăn ướt kháng khuẩn – tiện cho trẻ em và rescuer
+            new { item_model_id = 36, target_group_id = 4 }, // Adult
+            new { item_model_id = 36, target_group_id = 1 }, // Children
+            new { item_model_id = 36, target_group_id = 5 }, // Rescuer
+            // Kem đánh răng
+            new { item_model_id = 37, target_group_id = 4 }, // Adult
+            // Bàn chải đánh răng
+            new { item_model_id = 38, target_group_id = 4 }, // Adult
+            // Dầu gội đầu
+            new { item_model_id = 39, target_group_id = 4 }, // Adult
+            // Khăn bông tắm
+            new { item_model_id = 40, target_group_id = 4 }, // Adult
+            // Giấy vệ sinh
+            new { item_model_id = 41, target_group_id = 4 }, // Adult
+            // Tã dùng một lần – trẻ em là chủ yếu
+            new { item_model_id = 42, target_group_id = 1 }, // Children
+
+            // ── Category 5: Quần áo ───────────────────────────────────────────
+            // Áo mưa người lớn – rescuer mặc khi tác nghiệp
+            new { item_model_id = 43, target_group_id = 4 }, // Adult
+            new { item_model_id = 43, target_group_id = 5 }, // Rescuer
+            // Ủng cao su chống lũ – rescuer di chuyển vùng ngập
+            new { item_model_id = 44, target_group_id = 4 }, // Adult
+            new { item_model_id = 44, target_group_id = 5 }, // Rescuer
+            // Bộ quần áo trẻ em
+            new { item_model_id = 45, target_group_id = 1 }, // Children
+            // Áo ấm người lớn – bà bầu và người cao tuổi cũng cần áo ấm
+            new { item_model_id = 46, target_group_id = 4 }, // Adult
+            new { item_model_id = 46, target_group_id = 2 }, // Elderly
+            new { item_model_id = 46, target_group_id = 3 }, // Pregnant
+            // Bộ quần áo người lớn – cũng phù hợp người già
+            new { item_model_id = 47, target_group_id = 4 }, // Adult
+            new { item_model_id = 47, target_group_id = 2 }, // Elderly
+            // Bộ quần áo người cao tuổi
+            new { item_model_id = 48, target_group_id = 2 }, // Elderly
+            // Găng tay giữ ấm
+            new { item_model_id = 49, target_group_id = 4 }, // Adult
+            // Tất len giữ ấm
+            new { item_model_id = 50, target_group_id = 4 }, // Adult
+            // Mũ len
+            new { item_model_id = 51, target_group_id = 4 }, // Adult
+            // Áo mưa trẻ em
+            new { item_model_id = 52, target_group_id = 1 }, // Children
+
+            // ── Category 6: Nơi trú ẩn ───────────────────────────────────────
+            // Lều bạt cứu trợ 4 người – cấp cho nạn nhân, rescuer cũng dựng trại
+            new { item_model_id = 53, target_group_id = 4 }, // Adult
+            new { item_model_id = 53, target_group_id = 5 }, // Rescuer
+            // Tấm bạt che mưa đa năng
+            new { item_model_id = 54, target_group_id = 4 }, // Adult
+            // Túi ngủ giữ nhiệt
+            new { item_model_id = 55, target_group_id = 4 }, // Adult
+            // Đệm hơi dã chiến
+            new { item_model_id = 56, target_group_id = 4 }, // Adult
+            // Màn chống côn trùng
+            new { item_model_id = 57, target_group_id = 4 }, // Adult
+            // Bộ cọc và dây lều – Reusable, dùng bởi rescuer
+            new { item_model_id = 58, target_group_id = 5 }, // Rescuer
+            // Tấm bạt chống thấm – rescuer phủ thiết bị ngoài hiện trường
+            new { item_model_id = 59, target_group_id = 4 }, // Adult
+            new { item_model_id = 59, target_group_id = 5 }, // Rescuer
+            // Dây buộc đa năng – Reusable
+            new { item_model_id = 60, target_group_id = 5 }, // Rescuer
+            // Đèn LED dã chiến – Reusable
+            new { item_model_id = 61, target_group_id = 5 }, // Rescuer
+            // Nến khẩn cấp – rescuer cũng dùng chiếu sáng tạm thời
+            new { item_model_id = 62, target_group_id = 4 }, // Adult
+            new { item_model_id = 62, target_group_id = 5 }, // Rescuer
+
+            // ── Category 7: Công cụ sửa chữa ─────────────────────────────────
+            // Búa đóng đinh – Reusable
+            new { item_model_id = 63, target_group_id = 5 }, // Rescuer
+            // Đinh các loại – Consumable, rescuer sửa chữa công trình khẩn cấp
+            new { item_model_id = 64, target_group_id = 5 }, // Rescuer
+            // Cưa tay đa năng – Reusable
+            new { item_model_id = 65, target_group_id = 5 }, // Rescuer
+            // Tua vít 2 đầu – Reusable
+            new { item_model_id = 66, target_group_id = 5 }, // Rescuer
+            // Kìm cắt dây – Reusable
+            new { item_model_id = 67, target_group_id = 5 }, // Rescuer
+            // Băng keo chống thấm – Consumable, dùng trong hiện trường
+            new { item_model_id = 68, target_group_id = 5 }, // Rescuer
+            // Dao đa năng dã chiến – Reusable
+            new { item_model_id = 69, target_group_id = 5 }, // Rescuer
+            // Xẻng tay – Reusable
+            new { item_model_id = 70, target_group_id = 5 }, // Rescuer
+            // Bao cát chống lũ – Reusable
+            new { item_model_id = 71, target_group_id = 5 }, // Rescuer
+            // Bộ dụng cụ sửa chữa điện cơ bản – Reusable
+            new { item_model_id = 72, target_group_id = 5 }, // Rescuer
+
+            // ── Category 8: Thiết bị cứu hộ (tất cả Reusable, chỉ Rescuer) ──
+            new { item_model_id = 4,  target_group_id = 5 }, // Áo phao cứu sinh
+            new { item_model_id = 21, target_group_id = 5 }, // Bình lọc nước dã chiến
+            new { item_model_id = 23, target_group_id = 5 }, // Can đựng nước 10L
+            new { item_model_id = 24, target_group_id = 5 }, // Túi đựng nước linh hoạt
+            new { item_model_id = 31, target_group_id = 5 }, // Nhiệt kế điện tử
+            new { item_model_id = 73, target_group_id = 5 }, // Xuồng cao su cứu hộ
+            new { item_model_id = 74, target_group_id = 5 }, // Dây thừng cứu sinh 30m
+            new { item_model_id = 75, target_group_id = 5 }, // Phao tròn cứu sinh
+            new { item_model_id = 76, target_group_id = 5 }, // Máy bơm nước di động
+            new { item_model_id = 77, target_group_id = 5 }, // Bộ đàm liên lạc dã chiến
+            new { item_model_id = 78, target_group_id = 5 }, // Đèn tín hiệu khẩn cấp
+            new { item_model_id = 79, target_group_id = 5 }, // Máy phát điện di động
+            new { item_model_id = 80, target_group_id = 5 }, // Cáng khiêng thương
+            new { item_model_id = 81, target_group_id = 5 }, // Mũ bảo hiểm cứu hộ
+
+            // ── Category 9: Sưởi ấm ──────────────────────────────────────────
+            // Chăn ấm giữ nhiệt – thiết yếu cho tất cả nhóm dân sự dễ tổn thương
+            new { item_model_id = 6,  target_group_id = 4 }, // Adult
+            new { item_model_id = 6,  target_group_id = 1 }, // Children
+            new { item_model_id = 6,  target_group_id = 2 }, // Elderly
+            new { item_model_id = 6,  target_group_id = 3 }, // Pregnant
+            // Than tổ ong
+            new { item_model_id = 82, target_group_id = 4 }, // Adult
+            // Máy sưởi điện mini
+            new { item_model_id = 83, target_group_id = 4 }, // Adult
+            // Túi sưởi ấm tay dùng một lần – rescuer giữ ấm khi tác nghiệp đêm
+            new { item_model_id = 84, target_group_id = 4 }, // Adult
+            new { item_model_id = 84, target_group_id = 5 }, // Rescuer
+            // Bộ quần áo nhiệt
+            new { item_model_id = 85, target_group_id = 4 }, // Adult
+            // Ấm đun nước du lịch
+            new { item_model_id = 86, target_group_id = 4 }, // Adult
+            // Bếp gas du lịch mini – rescuer nấu ăn ngoài dã chiến
+            new { item_model_id = 87, target_group_id = 4 }, // Adult
+            new { item_model_id = 87, target_group_id = 5 }, // Rescuer
+            // Bình gas mini dã chiến – kèm bếp, rescuer dùng trực tiếp
+            new { item_model_id = 88, target_group_id = 4 }, // Adult
+            new { item_model_id = 88, target_group_id = 5 }, // Rescuer
+            // Chăn điện sưởi
+            new { item_model_id = 89, target_group_id = 4 }, // Adult
+            // Tấm sưởi ấm bức xạ
+            new { item_model_id = 90, target_group_id = 4 }, // Adult
+
+            // ── Category 10: Phương tiện (Reusable, chỉ Rescuer) ─────────────
+            new { item_model_id = 101, target_group_id = 5 }, // Xe tải cứu trợ 2.5 tấn
+            new { item_model_id = 102, target_group_id = 5 }, // Xe cứu thương
+            new { item_model_id = 103, target_group_id = 5 }, // Xe bán tải 4x4
+            new { item_model_id = 104, target_group_id = 5 }, // Xe máy địa hình
+            new { item_model_id = 105, target_group_id = 5 }, // Ca nô cứu hộ
+            new { item_model_id = 106, target_group_id = 5 }, // Xe chở hàng nhẹ 1 tấn
+            new { item_model_id = 107, target_group_id = 5 }, // Xe tải đông lạnh 3.5 tấn
+            new { item_model_id = 108, target_group_id = 5 }, // Xe khách 16 chỗ
+            new { item_model_id = 109, target_group_id = 5 }, // Xe cẩu di động
+            new { item_model_id = 110, target_group_id = 5 }, // Xe chuyên dụng phòng cháy
+
+            // ── Category 99: Khác ─────────────────────────────────────────────
+            // Pin dự phòng – rescuer cần sạc thiết bị liên lạc
+            new { item_model_id = 91,  target_group_id = 4 }, // Adult
+            new { item_model_id = 91,  target_group_id = 5 }, // Rescuer
+            // Cáp sạc đa năng – rescuer giữ thiết bị hoạt động
+            new { item_model_id = 92,  target_group_id = 4 }, // Adult
+            new { item_model_id = 92,  target_group_id = 5 }, // Rescuer
+            // Bản đồ địa hình khẩn cấp – chủ yếu rescuer
+            new { item_model_id = 93,  target_group_id = 5 }, // Rescuer
+            // Còi báo động khẩn cấp – phát tín hiệu cầu cứu, rescuer cũng dùng
+            new { item_model_id = 94,  target_group_id = 4 }, // Adult
+            new { item_model_id = 94,  target_group_id = 5 }, // Rescuer
+            // Kính bảo hộ lao động – Reusable, rescuer
+            new { item_model_id = 95,  target_group_id = 5 }, // Rescuer
+            // Ba lô khẩn cấp – rescuer mang thiết bị vào hiện trường
+            new { item_model_id = 96,  target_group_id = 4 }, // Adult
+            new { item_model_id = 96,  target_group_id = 5 }, // Rescuer
+            // Sổ tay và bút ghi chép
+            new { item_model_id = 97,  target_group_id = 4 }, // Adult
+            // Bộ đèn pin đội đầu – Reusable
+            new { item_model_id = 98,  target_group_id = 5 }, // Rescuer
+            // Áo phản quang an toàn – Reusable
+            new { item_model_id = 99,  target_group_id = 5 }, // Rescuer
+            // Pháo sáng khẩn cấp – rescuer báo hiệu vị trí
+            new { item_model_id = 100, target_group_id = 5 }  // Rescuer
         );
     }
 
