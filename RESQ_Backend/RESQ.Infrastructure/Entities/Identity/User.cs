@@ -44,22 +44,12 @@ public partial class User
     [Column("password")]
     public string Password { get; set; } = null!;
 
-    [Column("rescuer_type")]
-    [StringLength(50)]
-    public string? RescuerType { get; set; }
-
     [Column("email")]
     [StringLength(255)]
     public string? Email { get; set; }
 
     [Column("is_email_verified")]
     public bool IsEmailVerified { get; set; } = false;
-
-    [Column("is_onboarded")]
-    public bool IsOnboarded { get; set; } = false;
-
-    [Column("is_eligible_rescuer")]
-    public bool IsEligibleRescuer { get; set; } = false;
 
     [Column("avatar_url")]
     [StringLength(500)]
@@ -106,12 +96,6 @@ public partial class User
     [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
-    [Column("approved_by")]
-    public Guid? ApprovedBy { get; set; }
-
-    [Column("approved_at", TypeName = "timestamp with time zone")]
-    public DateTime? ApprovedAt { get; set; }
-
     [Column("is_banned")]
     public bool IsBanned { get; set; } = false;
 
@@ -131,12 +115,8 @@ public partial class User
     [ForeignKey("AssemblyPointId")]
     public virtual AssemblyPoint? AssignedAssemblyPoint { get; set; }
 
-    [ForeignKey("ApprovedBy")]
-    [InverseProperty("ApprovedUsers")]
-    public virtual User? ApprovedByUser { get; set; }
-
     [InverseProperty("ApprovedByUser")]
-    public virtual ICollection<User> ApprovedUsers { get; set; } = new List<User>();
+    public virtual ICollection<RescuerProfile> ApprovedRescuerProfiles { get; set; } = new List<RescuerProfile>();
 
     [InverseProperty("User")]
     public virtual ICollection<ConversationParticipant> ConversationParticipants { get; set; } = new List<ConversationParticipant>();
@@ -169,6 +149,9 @@ public partial class User
     /// <summary>Phòng chat của Victim (1-1: mỗi victim có đúng 1 conversation).</summary>
     [InverseProperty("Victim")]
     public virtual ICollection<Conversation> OwnedConversations { get; set; } = new List<Conversation>();
+
+    [InverseProperty("User")]
+    public virtual RescuerProfile? RescuerProfile { get; set; }
 
     [InverseProperty("User")]
     public virtual ICollection<RescuerApplication> RescuerApplications { get; set; } = new List<RescuerApplication>();

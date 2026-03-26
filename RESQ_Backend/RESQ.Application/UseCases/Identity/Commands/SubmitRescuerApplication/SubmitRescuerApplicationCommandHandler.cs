@@ -48,6 +48,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
             user.Latitude = request.Latitude;
             user.Longitude = request.Longitude;
             user.RescuerType = Enum.Parse<RescuerType>(request.RescuerType);
+            user.RescuerStep = 1;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateAsync(user, cancellationToken);

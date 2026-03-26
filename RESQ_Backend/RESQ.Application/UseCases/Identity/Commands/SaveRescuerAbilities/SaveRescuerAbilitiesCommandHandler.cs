@@ -54,6 +54,7 @@ public class SaveRescuerAbilitiesCommandHandler(
         if (user != null && !user.IsOnboarded)
         {
             user.IsOnboarded = true;
+            user.RescuerStep = 3;
             await _userRepository.UpdateAsync(user, cancellationToken);
         }
 

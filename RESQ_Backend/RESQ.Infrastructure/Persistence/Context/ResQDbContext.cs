@@ -67,6 +67,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<TargetGroup> TargetGroups { get; set; }
     public virtual DbSet<RescuerApplication> RescuerApplications { get; set; }
     public virtual DbSet<RescuerApplicationDocument> RescuerApplicationDocuments { get; set; }
+    public virtual DbSet<RescuerProfile> RescuerProfiles { get; set; }
     public virtual DbSet<RescueTeam> RescueTeams { get; set; }
     public virtual DbSet<RescueTeamMember> RescueTeamMembers { get; set; } // Added
     public virtual DbSet<RescueTeamAiSuggestion> RescueTeamAiSuggestions { get; set; }
@@ -117,6 +118,22 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<RolePermission>(entity =>
         {
             entity.HasKey(e => new { e.RoleId, e.ClaimId }).HasName("role_permissions_pkey");
+        });
+
+        modelBuilder.Entity<RescuerProfile>(entity =>
+        {
+            entity.HasKey(e => e.UserId).HasName("rescuer_profiles_pkey");
+            entity.HasOne(e => e.User)
+                .WithOne(u => u.RescuerProfile)
+                .HasForeignKey<RescuerProfile>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_rescuer_profiles_users_user_id");
+
+            entity.HasOne(e => e.ApprovedByUser)
+                .WithMany(u => u.ApprovedRescuerProfiles)
+                .HasForeignKey(e => e.ApprovedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_rescuer_profiles_users_approved_by");
         });
 
         modelBuilder.Entity<DepotFund>(entity =>

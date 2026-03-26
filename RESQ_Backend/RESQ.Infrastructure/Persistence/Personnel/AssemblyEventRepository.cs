@@ -95,7 +95,9 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
 
         var query = _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
             .Where(p => p.AssemblyEventId == eventId && p.IsCheckedIn)
-            .Join(_unitOfWork.GetRepository<User>().AsQueryable(), p => p.RescuerId, u => u.Id, (p, u) => new { Participant = p, User = u })
+            .Join(
+                _unitOfWork.GetRepository<User>().AsQueryable().Include(u => u.RescuerProfile),
+                p => p.RescuerId, u => u.Id, (p, u) => new { Participant = p, User = u })
             .OrderByDescending(x => x.Participant.CheckInTime);
 
         var total = await query.CountAsync(cancellationToken);
@@ -144,7 +146,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             LastName = x.User.LastName,
             Phone = x.User.Phone,
             AvatarUrl = x.User.AvatarUrl,
-            RescuerType = x.User.RescuerType,
+            RescuerType = x.User.RescuerProfile?.RescuerType,
             CheckedInAt = (x.Participant.CheckInTime ?? DateTime.MinValue).ToVietnamTime(),
             IsInTeam = usersInTeam.Contains(x.User.Id),
             IsEarly = eventDateTime.HasValue && x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value < eventDateTime.Value,

@@ -20,7 +20,7 @@ public class DashboardHubService(
     {
         // Push default view: 6 tháng gần nhất, group by month
         var data = await _mediator.Send(
-            new GetVictimsByPeriodQuery(null, null, null, null),
+            new GetVictimsByPeriodQuery(null, null, null),
             cancellationToken);
 
         await _hubContext.Clients.Group(GroupName)

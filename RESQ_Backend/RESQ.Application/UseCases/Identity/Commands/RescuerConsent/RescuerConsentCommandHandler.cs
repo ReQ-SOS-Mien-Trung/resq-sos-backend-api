@@ -48,6 +48,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RescuerConsent
 
             // NOTE: IsEligibleRescuer is NOT set here.
             // It will only be set to true after admin approves the rescuer application.
+            user.RescuerStep = 2;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateAsync(user, cancellationToken);

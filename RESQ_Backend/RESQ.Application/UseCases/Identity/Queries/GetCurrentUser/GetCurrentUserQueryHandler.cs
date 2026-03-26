@@ -79,6 +79,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
                 IsEmailVerified = user.IsEmailVerified,
                 IsOnboarded = user.IsOnboarded,
                 IsEligibleRescuer = user.IsEligibleRescuer,
+                RescuerStep = user.RescuerStep,
                 AvatarUrl = user.AvatarUrl,
                 Latitude = user.Latitude,
                 Longitude = user.Longitude,

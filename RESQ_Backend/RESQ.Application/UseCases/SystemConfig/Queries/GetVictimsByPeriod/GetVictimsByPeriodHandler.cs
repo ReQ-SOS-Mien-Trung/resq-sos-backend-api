@@ -10,7 +10,7 @@ public class GetVictimsByPeriodHandler(
 ) : IRequestHandler<GetVictimsByPeriodQuery, List<VictimsByPeriodDto>>
 {
     private static readonly HashSet<string> AllowedGranularities =
-        new(StringComparer.OrdinalIgnoreCase) { "day", "week", "month" };
+        new(StringComparer.OrdinalIgnoreCase) { "day", "month" };
 
     public async Task<List<VictimsByPeriodDto>> Handle(
         GetVictimsByPeriodQuery request,
@@ -31,6 +31,6 @@ public class GetVictimsByPeriodHandler(
             from, to, granularity);
 
         return await dashboardRepository.GetVictimsByPeriodAsync(
-            from, to, granularity, request.Statuses, cancellationToken);
+            from, to, granularity, cancellationToken);
     }
 }

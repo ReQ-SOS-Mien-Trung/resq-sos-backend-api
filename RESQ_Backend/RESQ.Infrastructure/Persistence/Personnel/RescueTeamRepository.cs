@@ -28,7 +28,9 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
         var entity = await _unitOfWork.GetRepository<RescueTeam>().AsQueryable().FirstOrDefaultAsync(x => x.Code == code, cancellationToken);
         if (entity == null) return null;
 
-        var members = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable().Where(m => m.TeamId == entity.Id).ToListAsync(cancellationToken);
+        var members = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Include(m => m.User).ThenInclude(u => u!.RescuerProfile)
+            .Where(m => m.TeamId == entity.Id).ToListAsync(cancellationToken);
         return RescueTeamMapper.ToDomain(entity, members);
     }
 
@@ -39,7 +41,9 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
         var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
         
         var teamIds = items.Select(x => x.Id).ToList();
-        var allMembers = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable().Where(m => teamIds.Contains(m.TeamId)).ToListAsync(cancellationToken);
+        var allMembers = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Include(m => m.User).ThenInclude(u => u!.RescuerProfile)
+            .Where(m => teamIds.Contains(m.TeamId)).ToListAsync(cancellationToken);
 
         var domainItems = items.Select(e => RescueTeamMapper.ToDomain(e, allMembers.Where(m => m.TeamId == e.Id).ToList())).ToList();
 
