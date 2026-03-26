@@ -78,7 +78,7 @@ public static class RescueTeamMapper
                     m.User.LastName, 
                     m.User.Phone, 
                     m.User.AvatarUrl, 
-                    m.User.RescuerType
+                    m.User.RescuerProfile?.RescuerType
                 );
                 mem.LoadProfile(profile);
             }

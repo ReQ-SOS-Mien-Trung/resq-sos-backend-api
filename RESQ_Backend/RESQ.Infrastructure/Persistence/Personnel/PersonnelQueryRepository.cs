@@ -35,13 +35,14 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         var pagedUsers = await unitOfWork.GetRepository<User>().GetPagedAsync(
             pageNumber,
             pageSize,
-            filter: u => u.RoleId == 3 && u.IsEligibleRescuer && !activeTeamUserIds.Contains(u.Id)
+            filter: u => u.RoleId == 3 && u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer && !activeTeamUserIds.Contains(u.Id)
                 && (firstName == null || (u.FirstName != null && u.FirstName.Contains(firstName)))
                 && (lastName == null || (u.LastName != null && u.LastName.Contains(lastName)))
                 && (phone == null || (u.Phone != null && u.Phone.Contains(phone)))
                 && (email == null || (u.Email != null && u.Email.Contains(email)))
-                && (rescuerTypeStr == null || u.RescuerType == rescuerTypeStr),
-            orderBy: q => q.OrderByDescending(u => u.CreatedAt)
+                && (rescuerTypeStr == null || (u.RescuerProfile != null && u.RescuerProfile.RescuerType == rescuerTypeStr)),
+            orderBy: q => q.OrderByDescending(u => u.CreatedAt),
+            includeProperties: "RescuerProfile"
         );
 
         // 3. Map to Domain Models using Mapper
@@ -196,11 +197,11 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
 
         // Base: eligible rescuers (roleId = 3)
         var query = unitOfWork.GetRepository<User>().AsQueryable()
-            .Where(u => u.RoleId == 3 && u.IsEligibleRescuer);
+            .Where(u => u.RoleId == 3 && u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer);
 
         // Filter: rescuerType
         if (rescuerTypeStr != null)
-            query = query.Where(u => u.RescuerType == rescuerTypeStr);
+            query = query.Where(u => u.RescuerProfile != null && u.RescuerProfile.RescuerType == rescuerTypeStr);
 
         // Filter: firstName
         if (!string.IsNullOrWhiteSpace(firstName))
@@ -280,7 +281,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
                 Phone = u.Phone,
                 Email = u.Email,
                 AvatarUrl = u.AvatarUrl,
-                RescuerType = u.RescuerType,
+                RescuerType = u.RescuerProfile?.RescuerType,
                 Address = u.Address,
                 Ward = u.Ward,
                 Province = u.Province,

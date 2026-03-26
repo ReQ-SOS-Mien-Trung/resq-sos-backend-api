@@ -24,6 +24,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         public bool IsEmailVerified { get; set; }
         public bool IsOnboarded { get; set; }
         public bool IsEligibleRescuer { get; set; }
+        public int RescuerStep { get; set; }
         public string? AvatarUrl { get; set; }
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }

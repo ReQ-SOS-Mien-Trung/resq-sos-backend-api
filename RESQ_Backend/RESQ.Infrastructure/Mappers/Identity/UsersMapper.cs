@@ -17,11 +17,8 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 Username = model.Username,
                 Phone = model.Phone,
                 Password = model.Password,
-                RescuerType = model.RescuerType?.ToString(),
                 Email = model.Email,
                 IsEmailVerified = model.IsEmailVerified,
-                IsOnboarded = model.IsOnboarded,
-                IsEligibleRescuer = model.IsEligibleRescuer,
                 AvatarUrl = model.AvatarUrl,
                 EmailVerificationToken = model.EmailVerificationToken,
                 EmailVerificationTokenExpiry = model.EmailVerificationTokenExpiry,
@@ -34,12 +31,20 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 Province = model.Province,
                 CreatedAt = model.CreatedAt,
                 UpdatedAt = model.UpdatedAt,
-                ApprovedBy = model.ApprovedBy,
-                ApprovedAt = model.ApprovedAt,
                 IsBanned = model.IsBanned,
                 BannedBy = model.BannedBy,
                 BannedAt = model.BannedAt,
-                BanReason = model.BanReason
+                BanReason = model.BanReason,
+                RescuerProfile = new RescuerProfile
+                {
+                    UserId = model.Id,
+                    RescuerType = model.RescuerType?.ToString(),
+                    IsOnboarded = model.IsOnboarded,
+                    IsEligibleRescuer = model.IsEligibleRescuer,
+                    Step = model.RescuerStep,
+                    ApprovedBy = model.ApprovedBy,
+                    ApprovedAt = model.ApprovedAt
+                }
             };
 
             // Convert latitude/longitude to Point
@@ -62,11 +67,12 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 Username = entity.Username,
                 Phone = entity.Phone,
                 Password = entity.Password,
-                RescuerType = Enum.TryParse<RESQ.Domain.Enum.Identity.RescuerType>(entity.RescuerType, ignoreCase: true, out var type) ? type : null,
+                RescuerType = Enum.TryParse<RESQ.Domain.Enum.Identity.RescuerType>(entity.RescuerProfile?.RescuerType, ignoreCase: true, out var type) ? type : null,
                 Email = entity.Email,
                 IsEmailVerified = entity.IsEmailVerified,
-                IsOnboarded = entity.IsOnboarded,
-                IsEligibleRescuer = entity.IsEligibleRescuer,
+                IsOnboarded = entity.RescuerProfile?.IsOnboarded ?? false,
+                IsEligibleRescuer = entity.RescuerProfile?.IsEligibleRescuer ?? false,
+                RescuerStep = entity.RescuerProfile?.Step ?? 0,
                 AvatarUrl = entity.AvatarUrl,
                 EmailVerificationToken = entity.EmailVerificationToken,
                 EmailVerificationTokenExpiry = entity.EmailVerificationTokenExpiry,
@@ -81,8 +87,8 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 Longitude = entity.Location?.X,
                 CreatedAt = entity.CreatedAt,
                 UpdatedAt = entity.UpdatedAt,
-                ApprovedBy = entity.ApprovedBy,
-                ApprovedAt = entity.ApprovedAt,
+                ApprovedBy = entity.RescuerProfile?.ApprovedBy,
+                ApprovedAt = entity.RescuerProfile?.ApprovedAt,
                 IsBanned = entity.IsBanned,
                 BannedBy = entity.BannedBy,
                 BannedAt = entity.BannedAt,
