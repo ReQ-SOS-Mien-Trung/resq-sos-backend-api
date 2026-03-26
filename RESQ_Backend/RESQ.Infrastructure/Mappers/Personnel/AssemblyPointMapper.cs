@@ -53,7 +53,7 @@ public static class AssemblyPointMapper
     {
         if (!Enum.TryParse<AssemblyPointStatus>(entity.Status, ignoreCase: true, out var status))
         {
-            status = AssemblyPointStatus.Unavailable; 
+            status = AssemblyPointStatus.Created;
         }
 
         GeoLocation? location = null;

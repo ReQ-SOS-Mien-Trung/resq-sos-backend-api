@@ -1,4 +1,3 @@
-using RESQ.Domain.Entities.Exceptions;
 using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Entities.Personnel.Exceptions;
 using RESQ.Domain.Enum.Personnel;
@@ -25,6 +24,9 @@ public class AssemblyPointModel
 
     public AssemblyPointModel() { }
 
+    /// <summary>
+    /// Tạo điểm tập kết mới — trạng thái khởi đầu là <see cref="AssemblyPointStatus.Created"/>.
+    /// </summary>
     public static AssemblyPointModel Create(
         string code,
         string name,
@@ -40,23 +42,27 @@ public class AssemblyPointModel
             Name = name,
             MaxCapacity = maxCapacity,
             Location = location,
-            Status = AssemblyPointStatus.Active,
+            Status = AssemblyPointStatus.Created,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = null
         };
     }
 
+    /// <summary>
+    /// Cập nhật thông tin điểm tập kết.
+    /// Không được cập nhật khi đang <see cref="AssemblyPointStatus.Closed"/>
+    /// hoặc <see cref="AssemblyPointStatus.UnderMaintenance"/>.
+    /// </summary>
     public void UpdateDetails(string code, string name, int maxCapacity, GeoLocation location)
     {
         if (maxCapacity <= 0)
             throw new InvalidAssemblyPointCapacityException(maxCapacity);
 
-        // Rule: Cannot update details if the Assembly Point is Unavailable
-        // CHANGED: Generic DomainException -> AssemblyPointUnavailableException
-        if (Status == AssemblyPointStatus.Unavailable)
-        {
-             throw new AssemblyPointUnavailableException();
-        }
+        if (Status == AssemblyPointStatus.Closed)
+            throw new AssemblyPointClosedException();
+
+        if (Status == AssemblyPointStatus.UnderMaintenance)
+            throw new AssemblyPointUnavailableException();
 
         Code = code;
         Name = name;
@@ -65,18 +71,36 @@ public class AssemblyPointModel
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Chuyển trạng thái theo state-flow được phép:
+    /// <list type="bullet">
+    ///   <item>Created → Active</item>
+    ///   <item>Active → Overloaded | UnderMaintenance | Closed</item>
+    ///   <item>Overloaded → Active | UnderMaintenance | Closed</item>
+    ///   <item>UnderMaintenance → Active | Closed</item>
+    ///   <item>Closed → (không có chuyển đổi nào)</item>
+    /// </list>
+    /// </summary>
     public void ChangeStatus(AssemblyPointStatus newStatus)
     {
         if (Status == newStatus) return;
 
-        // Rule 1: Cannot switch to 'Overloaded' if currently 'Unavailable'
-        if (Status == AssemblyPointStatus.Unavailable && newStatus == AssemblyPointStatus.Overloaded)
+        // Closed là trạng thái cuối — không thể thoát ra
+        if (Status == AssemblyPointStatus.Closed)
+            throw new AssemblyPointClosedException();
+
+        var allowed = Status switch
         {
-            throw new InvalidAssemblyPointStatusTransitionException(
-                Status, 
-                newStatus, 
-                "Điểm tập kết phải được kích hoạt (Active) trước khi báo quá tải.");
-        }
+            AssemblyPointStatus.Created         => new[] { AssemblyPointStatus.Active },
+            AssemblyPointStatus.Active          => new[] { AssemblyPointStatus.Overloaded, AssemblyPointStatus.UnderMaintenance, AssemblyPointStatus.Closed },
+            AssemblyPointStatus.Overloaded      => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.UnderMaintenance, AssemblyPointStatus.Closed },
+            AssemblyPointStatus.UnderMaintenance => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.Closed },
+            _                                   => Array.Empty<AssemblyPointStatus>()
+        };
+
+        if (!allowed.Contains(newStatus))
+            throw new InvalidAssemblyPointStatusTransitionException(Status, newStatus,
+                $"Trạng thái cho phép từ {Status}: [{string.Join(", ", allowed)}].");
 
         Status = newStatus;
         UpdatedAt = DateTime.UtcNow;
@@ -84,14 +108,39 @@ public class AssemblyPointModel
 
     /// <summary>
     /// Kiểm tra năng lực trước khi gán thêm <paramref name="additionalTeams"/> đội vào điểm tập kết.
-    /// Throws nếu điểm tập kết không hoạt động hoặc vượt sức chứa.
+    /// Throws nếu điểm tập kết không trong trạng thái Active/Overloaded hoặc vượt sức chứa.
+    /// Tự động chuyển sang <see cref="AssemblyPointStatus.Overloaded"/> khi đạt giới hạn.
     /// </summary>
     public void ValidateTeamAssignment(int currentTeamCount, int additionalTeams)
     {
-        if (Status == AssemblyPointStatus.Unavailable)
+        if (Status == AssemblyPointStatus.Closed)
+            throw new AssemblyPointClosedException();
+
+        if (Status is not (AssemblyPointStatus.Active or AssemblyPointStatus.Overloaded))
             throw new AssemblyPointUnavailableException();
 
         if (currentTeamCount + additionalTeams > MaxCapacity)
             throw new AssemblyPointCapacityExceededException(MaxCapacity, currentTeamCount, additionalTeams);
+
+        // Tự động chuyển sang Overloaded khi đạt giới hạn
+        if (currentTeamCount + additionalTeams == MaxCapacity && Status == AssemblyPointStatus.Active)
+        {
+            Status = AssemblyPointStatus.Overloaded;
+            UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// Giải phóng sức chứa sau khi gỡ đội.
+    /// Tự động chuyển <see cref="AssemblyPointStatus.Overloaded"/> → <see cref="AssemblyPointStatus.Active"/>
+    /// khi còn chỗ trống.
+    /// </summary>
+    public void NotifyTeamRemoved(int remainingTeamCount)
+    {
+        if (Status == AssemblyPointStatus.Overloaded && remainingTeamCount < MaxCapacity)
+        {
+            Status = AssemblyPointStatus.Active;
+            UpdatedAt = DateTime.UtcNow;
+        }
     }
 }
