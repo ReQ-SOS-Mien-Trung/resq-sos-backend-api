@@ -88,6 +88,9 @@ public class StructuredDataDto
 
     [JsonPropertyName("injured_persons")]
     public List<InjuredPersonDto>? InjuredPersons { get; set; }
+
+    [JsonPropertyName("supply_details")]
+    public SupplyDetailsDto? SupplyDetails { get; set; }
 }
 
 public class InjuredPersonDto
@@ -151,4 +154,70 @@ public class SenderInfoDto
 
     [JsonPropertyName("is_online")]
     public bool? IsOnline { get; set; }
+}
+
+public class SupplyDetailsDto
+{
+    [JsonPropertyName("are_blankets_enough")]
+    public bool? AreBlanketsEnough { get; set; }
+
+    [JsonPropertyName("blanket_request_count")]
+    public int? BlanketRequestCount { get; set; }
+
+    [JsonPropertyName("clothing_persons")]
+    public List<ClothingPersonDto>? ClothingPersons { get; set; }
+
+    [JsonPropertyName("food_duration")]
+    public string? FoodDuration { get; set; }
+
+    [JsonPropertyName("medical_description")]
+    public string? MedicalDescription { get; set; }
+
+    [JsonPropertyName("medical_needs")]
+    public List<string>? MedicalNeeds { get; set; }
+
+    [JsonPropertyName("special_diet_persons")]
+    public List<SpecialDietPersonDto>? SpecialDietPersons { get; set; }
+
+    [JsonPropertyName("water_duration")]
+    public string? WaterDuration { get; set; }
+
+    [JsonPropertyName("water_remaining")]
+    public string? WaterRemaining { get; set; }
+}
+
+public class ClothingPersonDto
+{
+    [JsonPropertyName("index")]
+    public int? Index { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("custom_name")]
+    public string? CustomName { get; set; }
+
+    [JsonPropertyName("person_type")]
+    public string? PersonType { get; set; }
+
+    [JsonPropertyName("gender")]
+    public string? Gender { get; set; }
+}
+
+public class SpecialDietPersonDto
+{
+    [JsonPropertyName("index")]
+    public int? Index { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("custom_name")]
+    public string? CustomName { get; set; }
+
+    [JsonPropertyName("person_type")]
+    public string? PersonType { get; set; }
+
+    [JsonPropertyName("diet_description")]
+    public string? DietDescription { get; set; }
 }
