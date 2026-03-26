@@ -3,16 +3,11 @@
 # ===============================================
 #
 # Hướng dẫn sử dụng:
-# 1. Clone repo backend về máy
-# 2. Cấu hình Firebase credentials — chọn 1 trong 2 cách:
-#    Cách A (khuyên dùng): tạo file .env cùng thư mục với docker-compose.yml:
-#      FIREBASE_CREDENTIALS_JSON=<nội dung file JSON trên 1 dòng>
-#    Cách B: base64-encode rồi đặt vào .env:
-#      # Linux/macOS: base64 -w0 "PRM PE 142 Firebase Admin SDK.json"
-#      # Windows PS : [Convert]::ToBase64String([IO.File]::ReadAllBytes("PRM PE 142 Firebase Admin SDK.json"))
-#      FIREBASE_CREDENTIALS_JSON_BASE64=<chuỗi base64>
-# 3. Build và chạy:
-#    docker compose up -d --build
+# 1. Clone repo (hoặc chỉ cần file docker-compose.yml này)
+# 2. Copy file Firebase Admin SDK vào cùng thư mục, đổi tên thành:
+#      firebase-admin.json
+# 3. Chạy:
+#    docker compose up -d
 # 4. Backend API: http://localhost:8080
 #    Swagger UI: http://localhost:8080/swagger
 #
@@ -62,13 +57,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # RESQ Backend API (build local, native architecture)
+  # RESQ Backend API (pulled from Docker Hub)
   resq-api:
-    image: resq-backend-local:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    pull_policy: never
+    image: ntpan04/resq-backend:latest
     container_name: resq-backend
     ports:
       - "8080:8080"
@@ -82,19 +73,11 @@ services:
       - JwtSettings__Audience=RESQ.Client
       - JwtSettings__AccessTokenExpirationMinutes=60
       - JwtSettings__RefreshTokenExpirationDays=7
-      # ── Firebase credentials ────────────────────────────────────────────────
-      # Option A (recommended for Docker): paste the raw JSON as an env var.
-      #   Set FIREBASE_CREDENTIALS_JSON in a .env file or your CI/CD secrets.
-      # Option B: base64-encode the JSON and set FIREBASE_CREDENTIALS_JSON_BASE64.
-      # Option C (file mount): uncomment the volumes block below and set
-      #   FIREBASE_CONFIG to the absolute path of the JSON file on your host.
-      - FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON:-}
-      - FIREBASE_CREDENTIALS_JSON_BASE64=${FIREBASE_CREDENTIALS_JSON_BASE64:-}
-    # volumes:
-    #   - type: bind
-    #     source: ${FIREBASE_CONFIG}   # absolute path on host — no ~ expansion on Windows
-    #     target: /app/PRM PE 142 Firebase Admin SDK.json
-    #     read_only: true
+    volumes:
+      - type: bind
+        source: ./firebase-admin.json
+        target: /app/PRM PE 142 Firebase Admin SDK.json
+        read_only: true
     depends_on:
       resq-db:
         condition: service_healthy
