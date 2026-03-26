@@ -30,6 +30,15 @@ public interface IAssemblyPointRepository
     /// <summary>Lấy danh sách user ID của rescuer được gán vào điểm tập kết (User.AssemblyPointId).</summary>
     Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Lấy danh sách rescuer tại điểm tập kết mà CHƯA thuộc bất kỳ đội cứu hộ nào đang hoạt động.
+    /// Dùng cho luồng triệu tập — chỉ triệu tập rescuer chưa có team để xếp nhóm.
+    /// </summary>
+    Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default);
+
+    /// <summary>Kiểm tra rescuer có đang thuộc đội cứu hộ hoạt động nào không.</summary>
+    Task<bool> HasActiveTeamAsync(Guid rescuerUserId, CancellationToken cancellationToken = default);
+
     /// <summary>Gán hoặc thay đổi điểm tập kết cho rescuer. Truyền null để gỡ.</summary>
     Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default);
 }

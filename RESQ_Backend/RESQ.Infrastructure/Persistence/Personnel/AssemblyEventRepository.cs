@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
+using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Personnel;
@@ -285,5 +286,39 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
 
         if (evt == null) return null;
         return (evt.Id, evt.AssemblyPointId, evt.Status, evt.AssemblyDate);
+    }
+
+    public async Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(
+        Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var query = _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
+            .Where(p => p.RescuerId == rescuerId)
+            .Join(
+                _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable(),
+                p => p.AssemblyEventId,
+                e => e.Id,
+                (p, e) => new { Participant = p, Event = e })
+            .OrderByDescending(x => x.Event.AssemblyDate)
+            .ThenByDescending(x => x.Event.CreatedAt);
+
+        var total = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new MyAssemblyEventDto
+            {
+                EventId = x.Event.Id,
+                AssemblyPointId = x.Event.AssemblyPointId,
+                AssemblyPointName = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.Name : string.Empty,
+                AssemblyDate = x.Event.AssemblyDate,
+                EventStatus = x.Event.Status,
+                IsCheckedIn = x.Participant.IsCheckedIn,
+                CheckInTime = x.Participant.CheckInTime,
+                CreatedAt = x.Event.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<MyAssemblyEventDto>(items, total, pageNumber, pageSize);
     }
 }

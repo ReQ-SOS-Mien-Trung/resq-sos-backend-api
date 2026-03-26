@@ -40,8 +40,8 @@ public class ScheduleGatheringCommandHandler(
         var eventId = await assemblyEventRepository.CreateEventAsync(
             request.AssemblyPointId, assemblyDateUtc, request.CreatedBy, cancellationToken);
 
-        // 4. Snapshot: gán tất cả rescuer hiện tại của AP vào sự kiện
-        var rescuerIds = await assemblyPointRepository.GetAssignedRescuerUserIdsAsync(
+        // 4. Snapshot: chỉ gán rescuer CHƯA CÓ TEAM vào sự kiện triệu tập (để xếp nhóm)
+        var rescuerIds = await assemblyPointRepository.GetTeamlessRescuerUserIdsAsync(
             request.AssemblyPointId, cancellationToken);
 
         if (rescuerIds.Count > 0)
