@@ -62,5 +62,8 @@ public partial class MissionTeam
     public virtual ICollection<MissionTeamMember> MissionTeamMembers { get; set; } = new List<MissionTeamMember>();
 
     [InverseProperty("MissionTeam")]
+    public virtual MissionTeamReport? MissionTeamReport { get; set; }
+
+    [InverseProperty("MissionTeam")]
     public virtual ICollection<TeamIncident> TeamIncidents { get; set; } = new List<TeamIncident>();
 }

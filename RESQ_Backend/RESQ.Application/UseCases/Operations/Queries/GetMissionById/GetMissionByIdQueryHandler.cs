@@ -63,6 +63,9 @@ public class GetMissionByIdQueryHandler(
                 Longitude = t.Longitude,
                 LocationUpdatedAt = t.LocationUpdatedAt,
                 AssignedAt = t.AssignedAt,
+                ReportStatus = t.ReportStatus,
+                ReportLastEditedAt = t.ReportLastEditedAt,
+                ReportSubmittedAt = t.ReportSubmittedAt,
                 Members = t.RescueTeamMembers.Select(m => new RescueTeamMemberDto
                 {
                     UserId = m.UserId,

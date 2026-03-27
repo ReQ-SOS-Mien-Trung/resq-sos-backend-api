@@ -12,7 +12,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
     public async Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<MissionTeam>()
-            .GetByPropertyAsync(mt => mt.Id == id, tracked: false, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile");
+            .GetByPropertyAsync(mt => mt.Id == id, tracked: false, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile,MissionTeamReport");
 
         return entity is null ? null : ToModel(entity);
     }
@@ -20,7 +20,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
     public async Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
     {
         var entities = await _unitOfWork.GetRepository<MissionTeam>()
-            .GetAllByPropertyAsync(mt => mt.MissionId == missionId, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile");
+            .GetAllByPropertyAsync(mt => mt.MissionId == missionId, includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile,MissionTeamReport");
 
         return entities.OrderBy(mt => mt.AssignedAt).Select(ToModel);
     }
@@ -45,12 +45,21 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
 
     public async Task UpdateStatusAsync(int id, string status, CancellationToken cancellationToken = default)
     {
+        await UpdateStatusAsync(id, status, note: null, cancellationToken);
+    }
+
+    public async Task UpdateStatusAsync(int id, string status, string? note, CancellationToken cancellationToken = default)
+    {
         var entity = await _unitOfWork.GetRepository<MissionTeam>()
             .GetByPropertyAsync(mt => mt.Id == id, tracked: true);
 
         if (entity is null) return;
 
         entity.Status = status;
+        if (note is not null)
+        {
+            entity.Note = note;
+        }
         await _unitOfWork.SaveAsync();
     }
 
@@ -74,7 +83,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
                       && mt.MissionId != null
                       && mt.UnassignedAt == null
                       && mt.Status != "Cancelled",
-                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile");
+                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile,MissionTeamReport");
 
         return entities.OrderByDescending(mt => mt.AssignedAt).Select(ToModel);
     }
@@ -88,7 +97,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
                       && mt.UnassignedAt == null
                       && mt.Status != "Cancelled",
                 tracked: false,
-                includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile");
+                    includeProperties: "RescuerTeam,RescuerTeam.AssemblyPoint,RescuerTeam.RescueTeamMembers.User,RescuerTeam.RescueTeamMembers.User.RescuerProfile,MissionTeamReport");
 
         return entity is null ? null : ToModel(entity);
     }
@@ -109,6 +118,10 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
         LocationSource = entity.CurrentLocation is not null
             ? (string.IsNullOrWhiteSpace(entity.LocationSource) ? "MissionTeam.CurrentLocation" : entity.LocationSource)
             : "AssemblyPoint",
+        ReportStatus = entity.MissionTeamReport?.ReportStatus,
+        ReportStartedAt = entity.MissionTeamReport?.StartedAt,
+        ReportLastEditedAt = entity.MissionTeamReport?.LastEditedAt,
+        ReportSubmittedAt = entity.MissionTeamReport?.SubmittedAt,
         TeamName = entity.RescuerTeam?.Name,
         TeamCode = entity.RescuerTeam?.Code,
         AssemblyPointName = entity.RescuerTeam?.AssemblyPoint?.Name,

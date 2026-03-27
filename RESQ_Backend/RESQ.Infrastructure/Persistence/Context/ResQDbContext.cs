@@ -50,9 +50,11 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Message> Messages { get; set; }
     public virtual DbSet<Mission> Missions { get; set; }
     public virtual DbSet<MissionActivity> MissionActivities { get; set; }
+    public virtual DbSet<MissionActivityReport> MissionActivityReports { get; set; }
     public virtual DbSet<MissionAiSuggestion> MissionAiSuggestions { get; set; }
     public virtual DbSet<MissionItem> MissionItems { get; set; }
     public virtual DbSet<MissionTeam> MissionTeams { get; set; }
+    public virtual DbSet<MissionTeamReport> MissionTeamReports { get; set; }
     public virtual DbSet<MissionTeamMember> MissionTeamMembers { get; set; }
     public virtual DbSet<ReusableItem> ReusableItems { get; set; }
     public virtual DbSet<Notification> Notifications { get; set; }
@@ -245,6 +247,42 @@ public partial class ResQDbContext : DbContext
                 .HasDatabaseName("ix_depot_realtime_outbox_depot_version");
             entity.HasIndex(e => new { e.Status, e.NextAttemptAt })
                 .HasDatabaseName("ix_depot_realtime_outbox_status_next_attempt");
+        });
+
+        modelBuilder.Entity<MissionTeamReport>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("mission_team_reports_pkey");
+            entity.HasIndex(e => e.MissionTeamId)
+                .HasDatabaseName("ux_mission_team_reports_mission_team_id")
+                .IsUnique();
+
+            entity.HasOne(e => e.MissionTeam)
+                .WithOne(mt => mt.MissionTeamReport)
+                .HasForeignKey<MissionTeamReport>(e => e.MissionTeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.SubmittedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.SubmittedBy)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<MissionActivityReport>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("mission_activity_reports_pkey");
+            entity.HasIndex(e => new { e.MissionTeamReportId, e.MissionActivityId })
+                .HasDatabaseName("ux_mission_activity_reports_team_report_activity")
+                .IsUnique();
+
+            entity.HasOne(e => e.MissionTeamReport)
+                .WithMany(r => r.MissionActivityReports)
+                .HasForeignKey(e => e.MissionTeamReportId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.MissionActivity)
+                .WithMany(a => a.MissionActivityReports)
+                .HasForeignKey(e => e.MissionActivityId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<TargetGroup>(entity =>

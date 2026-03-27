@@ -7,7 +7,10 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
+using RESQ.Application.UseCases.Operations.Commands.CompleteMissionTeamExecution;
 using RESQ.Application.UseCases.Operations.Commands.CreateMission;
+using RESQ.Application.UseCases.Operations.Commands.SaveMissionTeamReportDraft;
+using RESQ.Application.UseCases.Operations.Commands.SubmitMissionTeamReport;
 using RESQ.Application.UseCases.Operations.Commands.UnassignTeamFromMission;
 using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMission;
@@ -15,6 +18,7 @@ using RESQ.Application.UseCases.Operations.Commands.UpdateMissionActivity;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
+using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamReport;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeams;
 using RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
@@ -283,6 +287,89 @@ public class MissionController(IMediator mediator) : ControllerBase
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new UnassignTeamFromMissionCommand(missionTeamId, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Đánh dấu đội đã hoàn tất phần thực thi ngoài hiện trường và chuyển sang chờ nộp báo cáo.
+    /// </summary>
+    [HttpPost("{missionId:int}/teams/{missionTeamId:int}/complete-execution")]
+    [Authorize]
+    public async Task<IActionResult> CompleteMissionTeamExecution([FromRoute] int missionId, [FromRoute] int missionTeamId, [FromBody] CompleteMissionTeamExecutionRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new CompleteMissionTeamExecutionCommand(missionId, missionTeamId, userId, dto.Note);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy báo cáo hiện tại của một mission team, bao gồm draft nếu có.
+    /// </summary>
+    [HttpGet("{missionId:int}/teams/{missionTeamId:int}/report")]
+    [Authorize]
+    public async Task<IActionResult> GetMissionTeamReport([FromRoute] int missionId, [FromRoute] int missionTeamId)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var result = await _mediator.Send(new GetMissionTeamReportQuery(missionId, missionTeamId, userId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lưu nháp báo cáo cho một mission team.
+    /// </summary>
+    [HttpPut("{missionId:int}/teams/{missionTeamId:int}/report-draft")]
+    [Authorize]
+    public async Task<IActionResult> SaveMissionTeamReportDraft([FromRoute] int missionId, [FromRoute] int missionTeamId, [FromBody] SaveMissionTeamReportDraftRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new SaveMissionTeamReportDraftCommand(
+            missionId,
+            missionTeamId,
+            userId,
+            dto.TeamSummary,
+            dto.TeamNote,
+            dto.IssuesJson,
+            dto.ResultJson,
+            dto.EvidenceJson,
+            dto.Activities);
+
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Nộp báo cáo cuối cùng cho một mission team. Chỉ đội trưởng được phép thực hiện.
+    /// </summary>
+    [HttpPost("{missionId:int}/teams/{missionTeamId:int}/report-submit")]
+    [Authorize]
+    public async Task<IActionResult> SubmitMissionTeamReport([FromRoute] int missionId, [FromRoute] int missionTeamId, [FromBody] SubmitMissionTeamReportRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new SubmitMissionTeamReportCommand(
+            missionId,
+            missionTeamId,
+            userId,
+            dto.TeamSummary,
+            dto.TeamNote,
+            dto.IssuesJson,
+            dto.ResultJson,
+            dto.EvidenceJson,
+            dto.Activities);
+
         var result = await _mediator.Send(command);
         return Ok(result);
     }

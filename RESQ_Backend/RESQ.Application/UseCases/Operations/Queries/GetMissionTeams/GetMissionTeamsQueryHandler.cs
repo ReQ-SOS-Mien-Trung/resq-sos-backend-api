@@ -29,7 +29,11 @@ public class GetMissionTeamsQueryHandler(
                 LocationUpdatedAt = t.LocationUpdatedAt,
                 LocationSource = t.LocationSource,
                 AssignedAt = t.AssignedAt,
-                UnassignedAt = t.UnassignedAt
+                UnassignedAt = t.UnassignedAt,
+                ReportStatus = t.ReportStatus,
+                ReportStartedAt = t.ReportStartedAt,
+                ReportLastEditedAt = t.ReportLastEditedAt,
+                ReportSubmittedAt = t.ReportSubmittedAt
             }).ToList()
         };
     }
