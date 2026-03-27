@@ -107,11 +107,11 @@ public class AssemblyPointModel
     }
 
     /// <summary>
-    /// Kiểm tra năng lực trước khi gán thêm <paramref name="additionalTeams"/> đội vào điểm tập kết.
+    /// Kiểm tra sức chứa trước khi thêm <paramref name="additionalPersons"/> người vào điểm tập kết.
     /// Throws nếu điểm tập kết không trong trạng thái Active/Overloaded hoặc vượt sức chứa.
     /// Tự động chuyển sang <see cref="AssemblyPointStatus.Overloaded"/> khi đạt giới hạn.
     /// </summary>
-    public void ValidateTeamAssignment(int currentTeamCount, int additionalTeams)
+    public void ValidatePersonCapacity(int currentPersonCount, int additionalPersons)
     {
         if (Status == AssemblyPointStatus.Closed)
             throw new AssemblyPointClosedException();
@@ -119,11 +119,11 @@ public class AssemblyPointModel
         if (Status is not (AssemblyPointStatus.Active or AssemblyPointStatus.Overloaded))
             throw new AssemblyPointUnavailableException();
 
-        if (currentTeamCount + additionalTeams > MaxCapacity)
-            throw new AssemblyPointCapacityExceededException(MaxCapacity, currentTeamCount, additionalTeams);
+        if (currentPersonCount + additionalPersons > MaxCapacity)
+            throw new AssemblyPointCapacityExceededException(MaxCapacity, currentPersonCount, additionalPersons);
 
         // Tự động chuyển sang Overloaded khi đạt giới hạn
-        if (currentTeamCount + additionalTeams == MaxCapacity && Status == AssemblyPointStatus.Active)
+        if (currentPersonCount + additionalPersons == MaxCapacity && Status == AssemblyPointStatus.Active)
         {
             Status = AssemblyPointStatus.Overloaded;
             UpdatedAt = DateTime.UtcNow;
@@ -131,13 +131,13 @@ public class AssemblyPointModel
     }
 
     /// <summary>
-    /// Giải phóng sức chứa sau khi gỡ đội.
+    /// Giải phóng sức chứa sau khi có người rời đi.
     /// Tự động chuyển <see cref="AssemblyPointStatus.Overloaded"/> → <see cref="AssemblyPointStatus.Active"/>
     /// khi còn chỗ trống.
     /// </summary>
-    public void NotifyTeamRemoved(int remainingTeamCount)
+    public void NotifyPersonRemoved(int remainingPersonCount)
     {
-        if (Status == AssemblyPointStatus.Overloaded && remainingTeamCount < MaxCapacity)
+        if (Status == AssemblyPointStatus.Overloaded && remainingPersonCount < MaxCapacity)
         {
             Status = AssemblyPointStatus.Active;
             UpdatedAt = DateTime.UtcNow;

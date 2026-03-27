@@ -45,11 +45,7 @@ public class GlobalExceptionMiddleware : IMiddleware
             // ✅ Domain rule violation
             case DomainException domainEx:
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Lỗi nghiệp vụ";
-                response.Errors = new Dictionary<string, string[]>
-                {
-                    ["_domainMsg"] = new[] { domainEx.Message }
-                };
+                response.Message = domainEx.Message;
                 _logger.LogWarning("Domain violation: {Message}", domainEx.Message);
                 break;
 
