@@ -20,6 +20,6 @@ public class UpdateAssemblyPointCommandValidator : AbstractValidator<UpdateAssem
             .InclusiveBetween(-180, 180).WithMessage("Kinh độ (Longitude) phải nằm trong khoảng từ -180 đến 180.");
 
         RuleFor(x => x.MaxCapacity)
-            .GreaterThan(0).WithMessage("Sức chứa đội cứu hộ phải lớn hơn 0.");
+            .GreaterThan(0).WithMessage("Số người tối đa phải lớn hơn 0.");
     }
 }

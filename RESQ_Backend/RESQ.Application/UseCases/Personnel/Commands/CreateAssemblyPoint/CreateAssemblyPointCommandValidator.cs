@@ -20,6 +20,6 @@ public class CreateAssemblyPointCommandValidator : AbstractValidator<CreateAssem
 
         RuleFor(x => x.MaxCapacity)
             .GreaterThan(0)
-            .WithMessage("Sức chứa đội cứu hộ phải lớn hơn 0.");
+            .WithMessage("Số người tối đa phải lớn hơn 0.");
     }
 }
