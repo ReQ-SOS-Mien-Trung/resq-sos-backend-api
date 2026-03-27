@@ -11,7 +11,7 @@
 
 2. **Chạy lệnh:**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 3. **Chờ khoảng 30-60 giây để các services khởi động**
@@ -115,47 +115,76 @@ Authorization: Bearer {access_token}
 
 ```bash
 # Khởi động tất cả services
-docker-compose up -d
+docker compose up -d
 
 # Dừng tất cả services
-docker-compose down
+docker compose down
 
 # Xem logs
-docker-compose logs -f resq-api
+docker compose logs -f resq-api
 
 # Khởi động lại backend
-docker-compose restart resq-api
+docker compose restart resq-api
 
 # Xóa tất cả data và bắt đầu lại
-docker-compose down -v
-docker-compose up -d
+docker compose down -v
+docker compose up -d
 ```
 
 ### 🔄 Cập nhật image mới
 
 ```bash
-docker-compose pull
-docker-compose up -d
+docker compose pull
+docker compose up -d
 ```
+
+### 💻 Chạy local từ source backend
+
+Nếu đang đứng trong repo backend và muốn build image từ source hiện tại thay vì dùng image Docker Hub:
+
+```bash
+docker compose -f docker-compose.local.yml up --build -d
+```
+
+File `docker-compose.local.yml` dùng image tag local để tránh đụng với image Docker Hub cũ trong máy.
 
 ### ⚠️ Troubleshooting
 
 **1. API không khởi động được:**
 ```bash
 # Kiểm tra logs
-docker-compose logs resq-api
+docker compose logs resq-api
 
 # Đảm bảo database và redis đã sẵn sàng
-docker-compose ps
+docker compose ps
 ```
 
 **2. Không kết nối được database:**
 ```bash
 # Xóa volume và tạo lại
-docker-compose down -v
-docker-compose up -d
+docker compose down -v
+docker compose up -d
 ```
 
-**3. Port đã bị sử dụng:**
+**3. Lỗi `relation "donations" does not exist`:**
+
+Lỗi này gần như luôn là do schema trong volume Postgres cũ hơn image backend đang chạy, hoặc máy đang giữ image backend cũ chưa chứa migration mới.
+
+```bash
+# Nếu đang dùng image prebuilt cho frontend team
+docker compose pull
+docker compose down -v
+docker compose up -d
+```
+
+```bash
+# Nếu đang chạy backend repo local từ source
+docker compose -f docker-compose.local.yml down -v
+docker compose -f docker-compose.local.yml up --build -d
+```
+
+Nếu vẫn còn lỗi sau khi reset volume, backend image đang dùng chưa được publish kèm migration mới và cần build/push lại image `ntpan04/resq-backend:latest`.
+
+**4. Port đã bị sử dụng:**
 - Đổi port trong `docker-compose.yml`
 - Ví dụ: `"8081:8080"` thay vì `"8080:8080"`

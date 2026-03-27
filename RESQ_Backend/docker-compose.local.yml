@@ -1,8 +1,11 @@
 services:
   resq-db:
-    image: ntpan04/resq-postgis:16-arm64
+    image: resq-postgis-local:16-arm64
+    build:
+      context: .
+      dockerfile: Dockerfile.postgis-arm64
     platform: linux/arm64
-    pull_policy: always
+    pull_policy: never
     container_name: resq-postgres
     environment:
       POSTGRES_USER: postgres
@@ -36,9 +39,12 @@ services:
       retries: 5
 
   resq-api:
-    image: ntpan04/resq-backend:latest
+    image: resq-backend-local:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     platform: linux/arm64
-    pull_policy: always
+    pull_policy: never
     container_name: resq-backend
     ports:
       - "8080:8080"
