@@ -30,6 +30,9 @@ public class UpdateMissionStatusCommandHandler(
         if (mission is null)
             throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
 
+        if (request.Status is MissionStatus.Completed or MissionStatus.Incompleted)
+            throw new BadRequestException("Mission chỉ được chốt sau khi các đội cứu hộ nộp báo cáo cuối cùng.");
+
         MissionStateMachine.EnsureValidTransition(mission.Status, request.Status);
 
         bool isCompleted = request.Status == MissionStatus.Completed || request.Status == MissionStatus.Incompleted;
@@ -41,10 +44,6 @@ public class UpdateMissionStatusCommandHandler(
             if (request.Status == MissionStatus.OnGoing)
             {
                 await _sosRequestRepository.UpdateStatusByClusterIdAsync(mission.ClusterId.Value, SosRequestStatus.InProgress, cancellationToken);
-            }
-            else if (request.Status == MissionStatus.Completed || request.Status == MissionStatus.Incompleted)
-            {
-                await _sosRequestRepository.UpdateStatusByClusterIdAsync(mission.ClusterId.Value, SosRequestStatus.Resolved, cancellationToken);
             }
         }
 

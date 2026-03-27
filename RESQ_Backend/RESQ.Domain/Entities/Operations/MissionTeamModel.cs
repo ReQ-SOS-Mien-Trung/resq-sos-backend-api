@@ -14,6 +14,10 @@ public class MissionTeamModel
     public double? Longitude { get; set; }
     public DateTime? LocationUpdatedAt { get; set; }
     public string? LocationSource { get; set; }
+    public string? ReportStatus { get; set; }
+    public DateTime? ReportStartedAt { get; set; }
+    public DateTime? ReportLastEditedAt { get; set; }
+    public DateTime? ReportSubmittedAt { get; set; }
 
     // Display hydration
     public string? TeamName { get; set; }

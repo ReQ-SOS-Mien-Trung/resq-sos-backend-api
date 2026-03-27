@@ -9,6 +9,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
+using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
@@ -51,9 +52,25 @@ public class UpdateActivityStatusCommandHandler(
             }
         }
 
+        MissionTeamModel? assignedMissionTeam = null;
+        if (activity.MissionTeamId.HasValue)
+        {
+            assignedMissionTeam = await _missionTeamRepository.GetByIdAsync(activity.MissionTeamId.Value, cancellationToken);
+        }
+
         MissionActivityStateMachine.EnsureValidTransition(activity.Status, request.Status);
 
         await _activityRepository.UpdateStatusAsync(request.ActivityId, request.Status, request.DecisionBy, cancellationToken);
+
+        if (assignedMissionTeam is not null
+            && string.Equals(assignedMissionTeam.Status, MissionTeamExecutionStatus.Assigned.ToString(), StringComparison.OrdinalIgnoreCase)
+            && request.Status is MissionActivityStatus.OnGoing or MissionActivityStatus.Succeed)
+        {
+            await _missionTeamRepository.UpdateStatusAsync(
+                assignedMissionTeam.Id,
+                MissionTeamExecutionStatus.InProgress.ToString(),
+                cancellationToken);
+        }
 
         // Only COLLECT_SUPPLIES activities affect depot inventory.
         // DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, EVACUATE do not consume stock directly.

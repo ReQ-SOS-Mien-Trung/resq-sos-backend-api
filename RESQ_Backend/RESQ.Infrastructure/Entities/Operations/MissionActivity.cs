@@ -100,4 +100,7 @@ public partial class MissionActivity
 
     [ForeignKey("AssemblyPointId")]
     public virtual AssemblyPoint? AssemblyPoint { get; set; }
+
+    [InverseProperty("MissionActivity")]
+    public virtual ICollection<MissionActivityReport> MissionActivityReports { get; set; } = new List<MissionActivityReport>();
 }

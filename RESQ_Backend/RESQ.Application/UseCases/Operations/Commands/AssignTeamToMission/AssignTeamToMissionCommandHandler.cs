@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 
@@ -29,7 +30,7 @@ public class AssignTeamToMissionCommandHandler(
         {
             MissionId = request.MissionId,
             RescuerTeamId = request.RescueTeamId,
-            Status = "Assigned",
+            Status = MissionTeamExecutionStatus.Assigned.ToString(),
             AssignedAt = now
         };
 
@@ -44,7 +45,7 @@ public class AssignTeamToMissionCommandHandler(
             MissionTeamId = missionTeamId,
             MissionId = request.MissionId,
             RescueTeamId = request.RescueTeamId,
-            Status = "Assigned",
+            Status = MissionTeamExecutionStatus.Assigned.ToString(),
             AssignedAt = now
         };
     }

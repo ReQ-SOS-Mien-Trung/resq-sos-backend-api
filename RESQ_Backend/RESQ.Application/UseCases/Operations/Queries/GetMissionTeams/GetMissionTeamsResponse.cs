@@ -22,4 +22,8 @@ public class MissionTeamDto
     public string? LocationSource { get; set; }
     public DateTime? AssignedAt { get; set; }
     public DateTime? UnassignedAt { get; set; }
+    public string? ReportStatus { get; set; }
+    public DateTime? ReportStartedAt { get; set; }
+    public DateTime? ReportLastEditedAt { get; set; }
+    public DateTime? ReportSubmittedAt { get; set; }
 }
