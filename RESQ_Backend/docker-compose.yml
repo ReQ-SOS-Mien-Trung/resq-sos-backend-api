@@ -1,6 +1,6 @@
 services:
   resq-db:
-    image: resq-postgis-local:16-arm64
+    image: ntpan04/resq-postgis:16-arm64
     build:
       context: .
       dockerfile: Dockerfile.postgis-arm64
@@ -39,7 +39,7 @@ services:
       retries: 5
 
   resq-api:
-    image: resq-backend-local:latest
+    image: ntpan04/resq-backend:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -63,8 +63,6 @@ services:
       - JwtSettings__Audience=RESQ.Client
       - JwtSettings__AccessTokenExpirationMinutes=60
       - JwtSettings__RefreshTokenExpirationDays=7
-      target: /app/PRM PE 142 Firebase Admin SDK.json
-        read_only: true
     depends_on:
       resq-db:
         condition: service_healthy
