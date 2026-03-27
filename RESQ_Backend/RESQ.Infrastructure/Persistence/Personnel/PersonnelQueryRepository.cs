@@ -147,7 +147,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         // 2. Lấy các member đã Accepted trong những đội đó, kèm thông tin User
         var members = await unitOfWork.GetRepository<RescueTeamMember>().GetAllByPropertyAsync(
             filter: m => teamIds.Contains(m.TeamId) && m.Status == acceptedStatus,
-            includeProperties: "User"
+            includeProperties: "User,User.RescuerProfile"
         );
 
         // 3. Deduplicate theo UserId (một user có thể trong nhiều đội)
@@ -197,6 +197,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
 
         // Base: eligible rescuers (roleId = 3)
         var query = unitOfWork.GetRepository<User>().AsQueryable()
+            .Include(u => u.RescuerProfile)
             .Where(u => u.RoleId == 3 && u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer);
 
         // Filter: rescuerType
