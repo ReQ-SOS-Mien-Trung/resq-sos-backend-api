@@ -49,7 +49,7 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
         entity.LastEditedAt = model.LastEditedAt ?? DateTime.UtcNow;
         entity.UpdatedAt = DateTime.UtcNow;
 
-        SyncActivityReports(entity, model.ActivityReports);
+        await SyncActivityReportsAsync(entity, model.ActivityReports);
 
         await _unitOfWork.SaveAsync();
         return entity.Id;
@@ -89,10 +89,10 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
         await _unitOfWork.SaveAsync();
     }
 
-    private void SyncActivityReports(MissionTeamReport entity, IEnumerable<MissionActivityReportModel> models)
+    private async Task SyncActivityReportsAsync(MissionTeamReport entity, IEnumerable<MissionActivityReportModel> models)
     {
         var reportRepository = _unitOfWork.GetRepository<MissionActivityReport>();
-        var incoming = models.ToDictionary(x => x.MissionActivityId);
+        var incoming = models.GroupBy(x => x.MissionActivityId).ToDictionary(g => g.Key, g => g.First());
 
         foreach (var existing in entity.MissionActivityReports.ToList())
         {
@@ -102,7 +102,7 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
             }
 
             entity.MissionActivityReports.Remove(existing);
-            reportRepository.DeleteAsyncById(existing.Id).GetAwaiter().GetResult();
+            await reportRepository.DeleteAsyncById(existing.Id);
         }
 
         foreach (var model in models)

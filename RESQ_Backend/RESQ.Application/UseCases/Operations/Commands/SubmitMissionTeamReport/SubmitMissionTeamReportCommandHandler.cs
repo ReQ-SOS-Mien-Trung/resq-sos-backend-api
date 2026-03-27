@@ -12,6 +12,7 @@ namespace RESQ.Application.UseCases.Operations.Commands.SubmitMissionTeamReport;
 
 public class SubmitMissionTeamReportCommandHandler(
     IMissionRepository missionRepository,
+    IMissionActivityRepository missionActivityRepository,
     IMissionTeamRepository missionTeamRepository,
     IMissionTeamReportRepository missionTeamReportRepository,
     ISosRequestRepository sosRequestRepository,
@@ -57,6 +58,23 @@ public class SubmitMissionTeamReportCommandHandler(
         if (invalidActivityId > 0)
             throw new BadRequestException($"Activity #{invalidActivityId} không thuộc mission team này.");
 
+        var activityStatusUpdates = new List<(int ActivityId, MissionActivityStatus Status)>();
+        foreach (var item in request.Activities)
+        {
+            if (string.IsNullOrWhiteSpace(item.ExecutionStatus))
+            {
+                continue;
+            }
+
+            if (!TryMapExecutionStatus(item.ExecutionStatus, out var mappedStatus))
+            {
+                throw new BadRequestException(
+                    $"ExecutionStatus '{item.ExecutionStatus}' của activity #{item.MissionActivityId} không hợp lệ.");
+            }
+
+            activityStatusUpdates.Add((item.MissionActivityId, mappedStatus));
+        }
+
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             await missionTeamReportRepository.UpsertDraftAsync(new MissionTeamReportModel
@@ -85,6 +103,17 @@ public class SubmitMissionTeamReportCommandHandler(
                 }).ToList()
             }, cancellationToken);
 
+            foreach (var statusUpdate in activityStatusUpdates)
+            {
+                await missionActivityRepository.UpdateStatusAsync(
+                    statusUpdate.ActivityId,
+                    statusUpdate.Status,
+                    request.SubmittedBy,
+                    cancellationToken);
+
+                assignedActivities[statusUpdate.ActivityId].Status = statusUpdate.Status;
+            }
+
             await missionTeamReportRepository.SubmitAsync(request.MissionTeamId, request.SubmittedBy, cancellationToken);
             await missionTeamRepository.UpdateStatusAsync(request.MissionTeamId, MissionTeamExecutionStatus.Reported.ToString(), cancellationToken);
 
@@ -92,8 +121,20 @@ public class SubmitMissionTeamReportCommandHandler(
                 .Where(x => !string.Equals(x.Status, MissionTeamExecutionStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            var allReported = refreshedTeams.Count > 0 && refreshedTeams.All(x => string.Equals(x.Status, MissionTeamExecutionStatus.Reported.ToString(), StringComparison.OrdinalIgnoreCase));
-            if (allReported)
+            var requiredTeamIds = mission.Activities
+                .Where(x => x.MissionTeamId.HasValue && x.Status != MissionActivityStatus.Cancelled)
+                .Select(x => x.MissionTeamId!.Value)
+                .Distinct()
+                .ToList();
+
+            var allRequiredTeamsReported = requiredTeamIds.Count > 0
+                && requiredTeamIds.All(teamId => refreshedTeams.Any(x => x.Id == teamId
+                    && string.Equals(x.Status, MissionTeamExecutionStatus.Reported.ToString(), StringComparison.OrdinalIgnoreCase)));
+
+            var allActivitiesSettled = mission.Activities.Count > 0
+                && mission.Activities.All(IsActivitySettledForMissionCompletion);
+
+            if (allActivitiesSettled && allRequiredTeamsReported)
             {
                 await missionRepository.UpdateStatusAsync(request.MissionId, MissionStatus.Completed, isCompleted: true, cancellationToken);
                 if (mission.ClusterId.HasValue)
@@ -108,5 +149,53 @@ public class SubmitMissionTeamReportCommandHandler(
         var report = await missionTeamReportRepository.GetByMissionTeamIdAsync(request.MissionTeamId, cancellationToken);
 
         return MissionTeamReportResponseFactory.Create(request.MissionId, refreshedMissionTeam, report, assignedActivities.Values, request.SubmittedBy);
+    }
+
+    private static bool IsActivitySettledForMissionCompletion(MissionActivityModel activity)
+    {
+        if (activity.Status == MissionActivityStatus.Cancelled)
+        {
+            return true;
+        }
+
+        return activity.MissionTeamId.HasValue
+            && activity.Status is MissionActivityStatus.Succeed or MissionActivityStatus.Failed;
+    }
+
+    private static bool TryMapExecutionStatus(string executionStatus, out MissionActivityStatus status)
+    {
+        switch (executionStatus.Trim().ToLowerInvariant())
+        {
+            case "planned":
+            case "pending":
+                status = MissionActivityStatus.Planned;
+                return true;
+            case "ongoing":
+            case "on-going":
+            case "on_going":
+            case "inprogress":
+            case "in_progress":
+            case "in-progress":
+                status = MissionActivityStatus.OnGoing;
+                return true;
+            case "completed":
+            case "complete":
+            case "succeed":
+            case "succeeded":
+            case "success":
+                status = MissionActivityStatus.Succeed;
+                return true;
+            case "failed":
+            case "fail":
+                status = MissionActivityStatus.Failed;
+                return true;
+            case "cancelled":
+            case "canceled":
+            case "cancel":
+                status = MissionActivityStatus.Cancelled;
+                return true;
+            default:
+                return Enum.TryParse(executionStatus, ignoreCase: true, out status);
+        }
     }
 }
