@@ -618,7 +618,8 @@ public static class LogisticsSeeder
                     DepotId = depotIds[d],
                     ItemModelId = consumableIds[i],
                     Quantity = qty,
-                    ReservedQuantity = qty / 10,
+                    MissionReservedQuantity = qty / 10,
+                    TransferReservedQuantity = 0,
                     LastStockedAt = now
                 });
                 id++;
@@ -630,7 +631,7 @@ public static class LogisticsSeeder
         //   D1 (Huế):    IDs  1- 72  | D2 (Đà Nẵng): IDs  73-144
         //   D3 (Hà Tĩnh): IDs 145-216 | D4 (HN-TW):   IDs 217-288
         //
-        // Override ReservedQuantity so that AvailableQty = Quantity - ReservedQuantity
+        // Override MissionReservedQuantity so that AvailableQty = Quantity - MissionReservedQuantity
         // falls into a warning/danger band relative to Quantity.
         //
         // 🔴 Danger (<10% available):
@@ -660,7 +661,7 @@ public static class LogisticsSeeder
         foreach (var entry in list)
         {
             if (lowStockOverrides.TryGetValue(entry.Id, out var overrideReserved))
-                entry.ReservedQuantity = Math.Min(overrideReserved, (entry.Quantity ?? 1) - 1);
+                entry.MissionReservedQuantity = Math.Min(overrideReserved, (entry.Quantity ?? 1) - 1);
         }
 
         modelBuilder.Entity<DepotSupplyInventory>().HasData(list.ToArray());

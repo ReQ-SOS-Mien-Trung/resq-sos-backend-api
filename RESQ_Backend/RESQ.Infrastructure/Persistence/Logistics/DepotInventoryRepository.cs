@@ -83,9 +83,10 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 select new
                 {
                     ri.Id, ri.Name, ri.CategoryId, ri.ItemType,
-                    Quantity         = inv.Quantity         ?? 0,
-                    ReservedQuantity = inv.ReservedQuantity ?? 0,
-                    LastStockedAt    = inv.LastStockedAt
+                    Quantity                 = inv.Quantity                 ?? 0,
+                    MissionReservedQuantity  = inv.MissionReservedQuantity,
+                    TransferReservedQuantity = inv.TransferReservedQuantity,
+                    LastStockedAt            = inv.LastStockedAt
                 }
             ).ToListAsync(cancellationToken);
 
@@ -127,7 +128,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     CategoryName   = x.CategoryId.HasValue && catDict.TryGetValue(x.CategoryId.Value, out var cn) ? cn : string.Empty,
                     ItemType       = x.ItemType,
                     TargetGroups   = consumableTgDict.TryGetValue(x.Id, out var tgNames) ? tgNames : new List<string>(),
-                    Availability   = _inventoryQueryService.ComputeAvailability(x.Quantity, x.ReservedQuantity),
+                    Availability   = _inventoryQueryService.ComputeAvailability(x.Quantity, x.MissionReservedQuantity, x.TransferReservedQuantity),
                     LastStockedAt  = x.LastStockedAt,
                     LotCount       = ls?.LotCount ?? 0,
                     NearestExpiryDate = ls?.NearestExpiryDate
@@ -151,17 +152,18 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     Name                = g.Key.Name,
                     CategoryId          = g.Key.CategoryId,
                     ItemType            = g.Key.ItemType,
-                    TotalUnits          = g.Count(),
-                    AvailableUnits      = g.Count(x => x.dri.Status == "Available"),
-                    ReservedUnits       = g.Count(x => x.dri.Status == "Reserved"),
-                    InTransitUnits      = g.Count(x => x.dri.Status == "InTransit"),
-                    InUseUnits          = g.Count(x => x.dri.Status == "InUse"),
-                    MaintenanceUnits    = g.Count(x => x.dri.Status == "Maintenance"),
-                    DecommissionedUnits = g.Count(x => x.dri.Status == "Decommissioned"),
-                    GoodCount           = g.Count(x => x.dri.Condition == "Good"),
-                    FairCount           = g.Count(x => x.dri.Condition == "Fair"),
-                    PoorCount           = g.Count(x => x.dri.Condition == "Poor"),
-                    LastStockedAt       = g.Max(x => x.dri.CreatedAt)
+                    TotalUnits               = g.Count(),
+                    AvailableUnits           = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.Available)),
+                    ReservedForMissionUnits  = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.Reserved) && x.dri.SupplyRequestId == null),
+                    ReservedForTransferUnits = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.Reserved) && x.dri.SupplyRequestId != null),
+                    InTransitUnits           = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.InTransit)),
+                    InUseUnits               = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.InUse)),
+                    MaintenanceUnits         = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.Maintenance)),
+                    DecommissionedUnits      = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.Decommissioned)),
+                    GoodCount                = g.Count(x => x.dri.Condition == "Good"),
+                    FairCount                = g.Count(x => x.dri.Condition == "Fair"),
+                    PoorCount                = g.Count(x => x.dri.Condition == "Poor"),
+                    LastStockedAt            = g.Max(x => x.dri.CreatedAt)
                 }
             ).ToListAsync(cancellationToken);
 
@@ -187,20 +189,22 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 TargetGroups      = reusableTgDict.TryGetValue(x.Id, out var tgNames) ? tgNames : new List<string>(),
                 Availability      = _inventoryQueryService.ComputeAvailability(
                                         x.TotalUnits,
-                                        x.ReservedUnits + x.InTransitUnits + x.InUseUnits + x.MaintenanceUnits),
+                                        x.ReservedForMissionUnits,
+                                        x.ReservedForTransferUnits),
                 LastStockedAt     = x.LastStockedAt,
                 ReusableBreakdown = new RESQ.Domain.Entities.Logistics.ValueObjects.ReusableBreakdown
                 {
-                    TotalUnits          = x.TotalUnits,
-                    AvailableUnits      = x.AvailableUnits,
-                    ReservedUnits       = x.ReservedUnits,
-                    InTransitUnits      = x.InTransitUnits,
-                    InUseUnits          = x.InUseUnits,
-                    MaintenanceUnits    = x.MaintenanceUnits,
-                    DecommissionedUnits = x.DecommissionedUnits,
-                    GoodCount           = x.GoodCount,
-                    FairCount           = x.FairCount,
-                    PoorCount           = x.PoorCount
+                    TotalUnits               = x.TotalUnits,
+                    AvailableUnits           = x.AvailableUnits,
+                    ReservedForMissionUnits  = x.ReservedForMissionUnits,
+                    ReservedForTransferUnits = x.ReservedForTransferUnits,
+                    InTransitUnits           = x.InTransitUnits,
+                    InUseUnits               = x.InUseUnits,
+                    MaintenanceUnits         = x.MaintenanceUnits,
+                    DecommissionedUnits      = x.DecommissionedUnits,
+                    GoodCount                = x.GoodCount,
+                    FairCount                = x.FairCount,
+                    PoorCount                = x.PoorCount
                 }
             }));
         }
@@ -262,7 +266,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     join depot in _unitOfWork.GetRepository<Depot>().AsQueryable() on dsi.DepotId equals depot.Id
                     where (depot.Status == "Available" || depot.Status == "Full")
                               && ri.ItemType == "Consumable"
-                       && (dsi.Quantity ?? 0) - (dsi.ReservedQuantity ?? 0) > 0
+                       && (dsi.Quantity ?? 0) - (dsi.MissionReservedQuantity + dsi.TransferReservedQuantity) > 0
                        && EF.Functions.ILike(cat.Name ?? string.Empty, "%" + categoryKeyword + "%")
                     select new { dsi, ri, cat, depot };
 
@@ -272,7 +276,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var total = await query.CountAsync(ct);
 
         var rawItems = await query
-            .OrderByDescending(x => (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0))
+            .OrderByDescending(x => (x.dsi.Quantity ?? 0) - (x.dsi.MissionReservedQuantity + x.dsi.TransferReservedQuantity))
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(x => new
@@ -282,7 +286,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 CategoryName     = x.cat.Name ?? string.Empty,
                 x.ri.ItemType,
                 x.ri.Unit,
-                AvailableQuantity = (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0),
+                AvailableQuantity = (x.dsi.Quantity ?? 0) - (x.dsi.MissionReservedQuantity + x.dsi.TransferReservedQuantity),
                 DepotId          = x.depot.Id,
                 DepotName        = x.depot.Name ?? string.Empty,
                 DepotAddress     = x.depot.Address,
@@ -330,12 +334,12 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     where dsi.DepotId == depotId && ri.CategoryId == cat.Id && ri.ItemType == "Consumable"
                     select (int?)dsi.Quantity
                 ).Sum() ?? 0,
-                // Consumable items: available = Quantity - ReservedQuantity
+                // Consumable items: available = Quantity - TotalReservedQuantity
                 AvailableConsumableQuantity = (
                     from dsi in supplyInventories
                     join ri in itemModels on dsi.ItemModelId equals ri.Id
                     where dsi.DepotId == depotId && ri.CategoryId == cat.Id && ri.ItemType == "Consumable"
-                    select (int?)(dsi.Quantity - dsi.ReservedQuantity)
+                    select (int?)(dsi.Quantity - (dsi.MissionReservedQuantity + dsi.TransferReservedQuantity))
                 ).Sum() ?? 0,
                 // Reusable items: total physical units in reusable_items
                 TotalReusableUnits = (
@@ -396,7 +400,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             consumableQuery = consumableQuery.Where(x => x.depot.Status == "Available" || x.depot.Status == "Full");
         if (hasIdFilter)
             consumableQuery = consumableQuery.Where(x => safeIds.Contains(x.ri.Id));
-        consumableQuery = consumableQuery.Where(x => (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0) >= 1);
+        consumableQuery = consumableQuery.Where(x => (x.dsi.Quantity ?? 0) - (x.dsi.MissionReservedQuantity + x.dsi.TransferReservedQuantity) >= 1);
 
         // Load consumable rows; geometry coords extracted in-memory to avoid ST_Y in SQL
         var consumableRaw = await consumableQuery
@@ -412,9 +416,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 DepotAddress      = x.depot.Address ?? string.Empty,
                 DepotStatus       = x.depot.Status,
                 DepotLocation     = x.depot.Location,
-                TotalQuantity          = x.dsi.Quantity ?? 0,
-                ReservedQuantity       = x.dsi.ReservedQuantity ?? 0,
-                AvailableQuantity      = (x.dsi.Quantity ?? 0) - (x.dsi.ReservedQuantity ?? 0),
+                TotalQuantity     = x.dsi.Quantity ?? 0,
+                ReservedQuantity  = x.dsi.MissionReservedQuantity + x.dsi.TransferReservedQuantity,
+                AvailableQuantity = (x.dsi.Quantity ?? 0) - (x.dsi.MissionReservedQuantity + x.dsi.TransferReservedQuantity),
                 LastStockedAt          = x.dsi.LastStockedAt,
                 GoodAvailableCount     = 0,  // N/A for Consumable
                 FairAvailableCount     = 0,
@@ -562,7 +566,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             select new
             {
                 ItemModelId = inv.ItemModelId!.Value,
-                Available = (inv.Quantity ?? 0) - (inv.ReservedQuantity ?? 0)
+                Available = (inv.Quantity ?? 0) - (inv.MissionReservedQuantity + inv.TransferReservedQuantity)
             })
             .ToDictionaryAsync(x => x.ItemModelId, x => x.Available, cancellationToken);
 
@@ -620,18 +624,18 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                         cancellationToken);
 
                 if (inventory != null)
-                    inventory.ReservedQuantity = (inventory.ReservedQuantity ?? 0) + quantity;
+                    inventory.MissionReservedQuantity += quantity;
             }
 
-            // Reusable items: Available → Reserved
+            // Reusable items: Available → Reserved (mission — no SupplyRequestId)
             var reusableUnits = await _unitOfWork.GetRepository<ReusableItem>().AsQueryable(tracked: true)
-                .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == "Available")
+                .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == nameof(ReusableItemStatus.Available))
                 .Take(quantity)
                 .ToListAsync(cancellationToken);
 
             foreach (var unit in reusableUnits)
             {
-                unit.Status    = "Reserved";
+                unit.Status    = nameof(ReusableItemStatus.Reserved);
                 unit.UpdatedAt = now;
             }
         }
@@ -667,20 +671,20 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     ?? throw new InvalidOperationException(
                         $"Không tìm thấy tồn kho vật tư #{itemModelId} tại kho #{depotId}.");
 
-                var currentQty      = inventory.Quantity         ?? 0;
-                var currentReserved = inventory.ReservedQuantity ?? 0;
+                var currentQty      = inventory.Quantity             ?? 0;
+                var currentReserved = inventory.MissionReservedQuantity;
 
                 if (currentReserved < quantity)
                     throw new InvalidOperationException(
-                        $"Vật tư #{itemModelId}: số lượng đặt trước ({currentReserved}) không đủ so với yêu cầu ({quantity}).");
+                        $"Vật tư #{itemModelId}: số lượng đặt trước nhiệm vụ ({currentReserved}) không đủ so với yêu cầu ({quantity}).");
 
                 if (currentQty < quantity)
                     throw new InvalidOperationException(
                         $"Vật tư #{itemModelId}: tồn kho thực ({currentQty}) không đủ so với yêu cầu ({quantity}).");
 
-                inventory.Quantity         = currentQty      - quantity;
-                inventory.ReservedQuantity = currentReserved - quantity;
-                inventory.LastStockedAt    = now;
+                inventory.Quantity                = currentQty      - quantity;
+                inventory.MissionReservedQuantity = currentReserved - quantity;
+                inventory.LastStockedAt           = now;
 
                 // ── FEFO lot deduction ──────────────────────────────────────────
                 var lots = await _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable(tracked: true)
@@ -741,13 +745,13 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             // Reusable items: Reserved → InUse
             var reusableUnits = await _unitOfWork.GetRepository<ReusableItem>().AsQueryable(tracked: true)
-                .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == "Reserved")
+                .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == nameof(ReusableItemStatus.Reserved) && r.SupplyRequestId == null)
                 .Take(quantity)
                 .ToListAsync(cancellationToken);
 
             foreach (var unit in reusableUnits)
             {
-                unit.Status    = "InUse";
+                unit.Status    = nameof(ReusableItemStatus.InUse);
                 unit.UpdatedAt = now;
             }
         }
@@ -779,18 +783,27 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                         cancellationToken);
 
                 if (inventory != null)
-                    inventory.ReservedQuantity = Math.Max(0, (inventory.ReservedQuantity ?? 0) - quantity);
+                {
+                    if (inventory.MissionReservedQuantity < quantity)
+                        throw new InvalidOperationException(
+                            $"Vật tư #{itemModelId}: không thể giải phóng {quantity} đơn vị, " +
+                            $"mission_reserved_quantity hiện là {inventory.MissionReservedQuantity}.");
+
+                    inventory.MissionReservedQuantity -= quantity;
+                }
             }
 
             // Reusable items: Reserved → Available
             var reusableUnits = await _unitOfWork.GetRepository<ReusableItem>().AsQueryable(tracked: true)
-                .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == "Reserved")
+                .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId
+                            && r.Status == nameof(ReusableItemStatus.Reserved)
+                            && r.SupplyRequestId == null)
                 .Take(quantity)
                 .ToListAsync(cancellationToken);
 
             foreach (var unit in reusableUnits)
             {
-                unit.Status    = "Available";
+                unit.Status    = nameof(ReusableItemStatus.Available);
                 unit.UpdatedAt = now;
             }
         }
@@ -820,8 +833,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 CategoryId       = item.CategoryId,
                 CategoryName     = cat != null ? cat.Name ?? string.Empty : string.Empty,
                 Quantity         = inv.Quantity ?? 0,
-                ReservedQuantity = inv.ReservedQuantity ?? 0,
-                Available        = (inv.Quantity ?? 0) - (inv.ReservedQuantity ?? 0)
+                ReservedQuantity = inv.MissionReservedQuantity + inv.TransferReservedQuantity,
+                Available        = (inv.Quantity ?? 0) - (inv.MissionReservedQuantity + inv.TransferReservedQuantity)
             };
 
         var raw = await query

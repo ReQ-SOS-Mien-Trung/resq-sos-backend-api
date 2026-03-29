@@ -70,11 +70,12 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
             {
                 inventory = new SupplyInventory
                 {
-                    DepotId = model.ReceivedAt,
-                    ItemModelId = model.ItemModelId,
-                    Quantity = model.Quantity,
-                    ReservedQuantity = 0,
-                    LastStockedAt = DateTime.UtcNow
+                    DepotId                  = model.ReceivedAt,
+                    ItemModelId              = model.ItemModelId,
+                    Quantity                 = model.Quantity,
+                    MissionReservedQuantity  = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt            = DateTime.UtcNow
                 };
                 await inventoryRepo.AddAsync(inventory);
             }
@@ -288,11 +289,12 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                 {
                     inventoryEntities.Add(new DepotSupplyInventory
                     {
-                        DepotId = model.ReceivedAt,
-                        ItemModelId = model.ItemModelId,
-                        Quantity = model.Quantity,
-                        ReservedQuantity = 0,
-                        LastStockedAt = DateTime.UtcNow
+                        DepotId                  = model.ReceivedAt,
+                        ItemModelId              = model.ItemModelId,
+                        Quantity                 = model.Quantity,
+                        MissionReservedQuantity  = 0,
+                        TransferReservedQuantity = 0,
+                        LastStockedAt            = DateTime.UtcNow
                     });
                 }
             }

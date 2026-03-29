@@ -91,6 +91,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<DepotFundTransaction> DepotFundTransactions { get; set; }
     public virtual DbSet<InventoryStockThresholdConfig> InventoryStockThresholdConfigs { get; set; }
     public virtual DbSet<InventoryStockThresholdConfigHistory> InventoryStockThresholdConfigHistories { get; set; }
+    public virtual DbSet<SystemMigrationAudit> SystemMigrationAudits { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -155,6 +156,12 @@ public partial class ResQDbContext : DbContext
             entity.HasIndex(e => new { e.SupplyInventoryId, e.RemainingQuantity, e.ExpiredDate })
                   .HasDatabaseName("ix_supply_inventory_lots_fefo");
             entity.UseXminAsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<SupplyInventory>(entity =>
+        {
+            entity.UseXminAsConcurrencyToken();
+            entity.Ignore(e => e.TotalReservedQuantity);
         });
 
         modelBuilder.Entity<InventoryStockThresholdConfig>(entity =>

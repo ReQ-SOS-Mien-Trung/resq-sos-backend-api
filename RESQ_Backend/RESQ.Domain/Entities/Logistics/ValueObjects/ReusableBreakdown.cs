@@ -11,8 +11,21 @@ public record ReusableBreakdown
 
     /// <summary>Số đơn vị đang sẵn sàng sử dụng.</summary>
     public int AvailableUnits { get; init; }
-    /// <summary>Số đơn vị đã được đặt trữ cho yêu cầu cung cấp (chưa xuất kho).</summary>
-    public int ReservedUnits { get; init; }
+
+    /// <summary>
+    /// Số đơn vị đã được đặt trước cho nhiệm vụ cứu hộ
+    /// (Status == Reserved và SupplyRequestId IS NULL).
+    /// </summary>
+    public int ReservedForMissionUnits { get; init; }
+
+    /// <summary>
+    /// Số đơn vị đã được đặt trước cho tiếp tế giữa kho
+    /// (Status == Reserved và SupplyRequestId IS NOT NULL).
+    /// </summary>
+    public int ReservedForTransferUnits { get; init; }
+
+    /// <summary>Tổng đơn vị được đặt trước = ReservedForMissionUnits + ReservedForTransferUnits.</summary>
+    public int TotalReservedUnits => ReservedForMissionUnits + ReservedForTransferUnits;
 
     /// <summary>Số đơn vị đang trên đường vận chuyển.</summary>
     public int InTransitUnits { get; init; }

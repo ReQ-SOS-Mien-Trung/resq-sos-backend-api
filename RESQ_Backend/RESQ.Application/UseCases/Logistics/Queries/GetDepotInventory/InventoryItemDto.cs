@@ -16,9 +16,17 @@ public class InventoryItemDto
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Quantity { get; set; }
 
-    /// <summary>Số lượng đang được giữ. Chỉ có với Consumable.</summary>
+    /// <summary>Tổng số lượng đang được giữ (mission + transfer). Chỉ có với Consumable.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? ReservedQuantity { get; set; }
+    public int? TotalReservedQuantity { get; set; }
+
+    /// <summary>Số lượng đang giữ cho nhiệm vụ. Chỉ có với Consumable.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ReservedForMissionQuantity { get; set; }
+
+    /// <summary>Số lượng đang giữ cho tiếp tế giữa kho. Chỉ có với Consumable.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ReservedForTransferQuantity { get; set; }
 
     /// <summary>Số lượng khả dụng. Chỉ có với Consumable.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -29,9 +37,17 @@ public class InventoryItemDto
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Unit { get; set; }
 
-    /// <summary>Số đơn vị đang bị giữ (Reserved + InTransit + InUse + Maintenance). Chỉ có với Reusable.</summary>
+    /// <summary>Tổng số đơn vị đang bị giữ (mission + transfer reserved). Chỉ có với Reusable.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? ReservedUnit { get; set; }
+    public int? TotalReservedUnit { get; set; }
+
+    /// <summary>Số đơn vị đang giữ cho nhiệm vụ. Chỉ có với Reusable.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ReservedForMissionUnit { get; set; }
+
+    /// <summary>Số đơn vị đang giữ cho tiếp tế giữa kho. Chỉ có với Reusable.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ReservedForTransferUnit { get; set; }
 
     /// <summary>Số đơn vị khả dụng. Chỉ có với Reusable.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -62,8 +78,12 @@ public class ReusableBreakdownDto
 {
     public int TotalUnits { get; set; }
     public int AvailableUnits { get; set; }
-    /// <summary>Đơn vị đã được đặt trữ cho yêu cầu cung cấp (chưa xuất kho).</summary>
-    public int ReservedUnits { get; set; }
+    /// <summary>Tổng đơn vị đã được đặt trữ (nhiệm vụ + chuyển kho).</summary>
+    public int TotalReservedUnits { get; set; }
+    /// <summary>Đơn vị đặt trữ cho nhiệm vụ (chưa xuất kho).</summary>
+    public int ReservedForMissionUnits { get; set; }
+    /// <summary>Đơn vị đặt trữ cho tiếp tế giữa kho (chưa xuất kho).</summary>
+    public int ReservedForTransferUnits { get; set; }
     /// <summary>Đơn vị đang trên đường vận chuyển.</summary>
     public int InTransitUnits { get; set; }
     public int InUseUnits { get; set; }

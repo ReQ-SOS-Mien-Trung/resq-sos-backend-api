@@ -2,6 +2,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Notifications;
 using ItemModelEntity = RESQ.Infrastructure.Entities.Logistics.ItemModel;
@@ -130,7 +131,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     .GetAllByPropertyAsync(x =>
                         x.DepotId == sourceDepotId &&
                         x.ItemModelId == itemModelId &&
-                        x.Status == "Available");
+                        x.Status == nameof(ReusableItemStatus.Available));
 
                 if (availableUnits.Count < quantity)
                     throw new BadRequestException(
@@ -140,7 +141,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 var unitsToReserve = availableUnits.Take(quantity).ToList();
                 foreach (var unit in unitsToReserve)
                 {
-                    unit.Status           = "Reserved";
+                    unit.Status           = nameof(ReusableItemStatus.Reserved);
                     unit.SupplyRequestId  = supplyRequestId;
                     unit.UpdatedAt        = now;
 
@@ -167,13 +168,13 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     ?? throw new BadRequestException(
                         $"Kho nguồn không có vật tư '{itemModel.Name}' (#{itemModelId}) trong tồn kho.");
 
-                var available = (inventory.Quantity ?? 0) - (inventory.ReservedQuantity ?? 0);
+                var available = (inventory.Quantity ?? 0) - (inventory.MissionReservedQuantity + inventory.TransferReservedQuantity);
                 if (available < quantity)
                     throw new BadRequestException(
                         $"Vật tư '{itemModel.Name}' (#{itemModelId}): tồn kho khả dụng ({available}) không đủ so với yêu cầu ({quantity}).");
 
-                inventory.ReservedQuantity = (inventory.ReservedQuantity ?? 0) + quantity;
-                inventory.LastStockedAt    = now;
+                inventory.TransferReservedQuantity += quantity;
+                inventory.LastStockedAt             = now;
 
                 await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                 {
@@ -215,7 +216,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     .GetAllByPropertyAsync(x =>
                         x.SupplyRequestId == supplyRequestId &&
                         x.ItemModelId     == itemModelId &&
-                        x.Status          == "Reserved");
+                        x.Status          == nameof(ReusableItemStatus.Reserved));
 
                 if (reservedUnits.Count != quantity)
                     throw new BadRequestException(
@@ -224,7 +225,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
                 foreach (var unit in reservedUnits)
                 {
-                    unit.Status    = "InTransit";
+                    unit.Status    = nameof(ReusableItemStatus.InTransit);
                     unit.DepotId   = null;   // en route — not at any depot
                     unit.UpdatedAt = now;
 
@@ -254,19 +255,19 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                         $"Vật tư '{itemModel.Name}' (#{itemModelId}): không tìm thấy tồn kho tại kho nguồn. " +
                         "Quy trình có thể bị bỏ qua bước Accept.");
 
-                var reserved = inventory.ReservedQuantity ?? 0;
+                var reserved = inventory.TransferReservedQuantity;
                 if (reserved < quantity)
                     throw new BadRequestException(
-                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): số lượng đặt trữ ({reserved}) không đủ so với yêu cầu ({quantity}). " +
+                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): số lượng đặt trữ tiếp tế ({reserved}) không đủ so với yêu cầu ({quantity}). " +
                         "Quy trình có thể bị bỏ qua bước Accept.");
 
                 if ((inventory.Quantity ?? 0) < quantity)
                     throw new BadRequestException(
                         $"Vật tư '{itemModel.Name}' (#{itemModelId}): tồn kho ({inventory.Quantity ?? 0}) không đủ so với yêu cầu ({quantity}).");
 
-                inventory.Quantity         = (inventory.Quantity ?? 0) - quantity;
-                inventory.ReservedQuantity = reserved - quantity;
-                inventory.LastStockedAt    = now;
+                inventory.Quantity                  = (inventory.Quantity ?? 0) - quantity;
+                inventory.TransferReservedQuantity  = reserved - quantity;
+                inventory.LastStockedAt             = now;
 
                 await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                 {
@@ -331,7 +332,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     .GetAllByPropertyAsync(x =>
                         x.SupplyRequestId == supplyRequestId &&
                         x.ItemModelId     == itemModelId &&
-                        x.Status          == "InTransit");
+                        x.Status          == nameof(ReusableItemStatus.InTransit));
 
                 if (inTransitUnits.Count != quantity)
                     throw new BadRequestException(
@@ -341,7 +342,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 foreach (var unit in inTransitUnits)
                 {
                     unit.DepotId         = requestingDepotId;
-                    unit.Status          = "Available";
+                    unit.Status          = nameof(ReusableItemStatus.Available);
                     unit.SupplyRequestId = null;   // no longer tied to a transfer
                     unit.UpdatedAt       = now;
 
@@ -370,11 +371,12 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 {
                     inventory = new SupplyInventory
                     {
-                        DepotId          = requestingDepotId,
-                        ItemModelId      = itemModelId,
-                        Quantity         = 0,
-                        ReservedQuantity = 0,
-                        LastStockedAt    = now
+                        DepotId                   = requestingDepotId,
+                        ItemModelId               = itemModelId,
+                        Quantity                  = 0,
+                        MissionReservedQuantity   = 0,
+                        TransferReservedQuantity  = 0,
+                        LastStockedAt             = now
                     };
                     await _unitOfWork.GetRepository<SupplyInventory>().AddAsync(inventory);
                     await _unitOfWork.SaveAsync(); // flush to get inventory.Id
