@@ -9,6 +9,7 @@ public class ItemModelRecord
     public string Unit { get; set; } = string.Empty;
     public string ItemType { get; set; } = string.Empty;
     public List<string> TargetGroups { get; set; } = new();
+    public string? ImageUrl { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

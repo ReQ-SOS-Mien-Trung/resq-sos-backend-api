@@ -36,5 +36,10 @@ public class UpdateItemModelCommandValidator : AbstractValidator<UpdateItemModel
             .NotEmpty().WithMessage("Nhóm đối tượng không được để trống.")
             .Must(groups => groups.All(g => !string.IsNullOrWhiteSpace(g) && ValidTargetGroups.Contains(g.Trim(), StringComparer.OrdinalIgnoreCase)))
             .WithMessage(x => $"Một hoặc nhiều nhóm đối tượng không hợp lệ. Giá trị hợp lệ: {string.Join(", ", ValidTargetGroups)}.");
+
+        RuleFor(x => x.ImageUrl)
+            .MaximumLength(2048).WithMessage("URL ảnh không được vượt quá 2048 ký tự.")
+            .Must(url => string.IsNullOrWhiteSpace(url) || Uri.TryCreate(url.Trim(), UriKind.Absolute, out _))
+            .WithMessage("URL ảnh không hợp lệ.");
     }
 }

@@ -32,6 +32,10 @@ public partial class ItemModel
     [StringLength(50)]
     public string? ItemType { get; set; }
 
+    [Column("image_url")]
+    [StringLength(2048)]
+    public string? ImageUrl { get; set; }
+
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 

@@ -206,6 +206,7 @@ public class ImportPurchasedInventoryCommandHandler(
                                     normalizedItemType,
                                     targetGroups,
                                     item.Description);
+                                resolvedRecord.ImageUrl = string.IsNullOrWhiteSpace(item.ImageUrl) ? null : item.ImageUrl.Trim();
                             }
                             catch (Exception ex)
                             {

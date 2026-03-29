@@ -18,6 +18,7 @@ public static class ItemModelMapper
             Description = model.Description,
             Unit = model.Unit,
             ItemType = model.ItemType,
+            ImageUrl = model.ImageUrl,
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt
         };
@@ -34,6 +35,7 @@ public static class ItemModelMapper
             Unit = entity.Unit ?? string.Empty,
             ItemType = entity.ItemType ?? string.Empty,
             TargetGroups = entity.TargetGroups?.Select(tg => tg.Name).ToList() ?? new(),
+            ImageUrl = entity.ImageUrl,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt
         };
