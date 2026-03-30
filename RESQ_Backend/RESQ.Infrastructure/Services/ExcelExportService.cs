@@ -44,12 +44,11 @@ public class ExcelExportService : IExcelExportService
         "Số lượng",         // H
         "Ngày hết hạn",    // I
         "Ngày nhận",        // J
-        "Ảnh"              // K
     ];
 
     private const int TemplateDataStartRow = 2;
     private const int TemplateDataEndRow   = 102; // 100 data rows
-    private const int TemplateCols         = 11;   // A..K
+    private const int TemplateCols         = 10;   // A..J
 
     public byte[] GenerateInventoryMovementReport(
         IReadOnlyList<InventoryMovementRow> rows,
@@ -408,15 +407,13 @@ public class ExcelExportService : IExcelExportService
         ws.Column(8).Width  = 12;  // Số lượng
         ws.Column(9).Width  = 16;  // Ngày hết hạn
         ws.Column(10).Width = 16;  // Ngày nhận
-        ws.Column(11).Width = 20;  // Ảnh
 
         // ── Data rows (2..102) ─────────────────────────────────────────────────
         for (int r = TemplateDataStartRow; r <= TemplateDataEndRow; r++)
         {
             int rowNum = r - TemplateDataStartRow + 1;
 
-            // Row height — tall enough for a thumbnail image
-            ws.Row(r).Height = 60;
+            ws.Row(r).Height = 20;
 
             // Col A: STT (auto-number)
             ws.Cell(r, 1).Value = rowNum;
@@ -498,13 +495,6 @@ public class ExcelExportService : IExcelExportService
             dvReceivedDate.ErrorMessage = "Vui lòng nhập ngày giờ hợp lệ (dd/MM/yyyy HH:mm).";
             dvReceivedDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col K: Ảnh — user inserts image directly into the cell
-            var dvImageUrl = ws.Cell(r, 11).GetDataValidation();
-            dvImageUrl.IgnoreBlanks = true;
-            dvImageUrl.ShowInputMessage = true;
-            dvImageUrl.InputTitle = "Ảnh vật phẩm";
-            dvImageUrl.InputMessage = "Chèn ảnh trực tiếp vào ô này (1 tấm).\nInsert → Illustrations → Pictures → Place in Cell\nĐể trống nếu không có ảnh.";
-
             // Alternate row background
             if (rowNum % 2 == 0)
             {
@@ -542,12 +532,11 @@ public class ExcelExportService : IExcelExportService
         "Đơn giá (VNĐ)",   // I  (9)
         "Ngày hết hạn",    // J  (10)
         "Ngày nhận",        // K  (11)
-        "Ảnh"              // L  (12)
     ];
 
     private const int PurchaseDataStartRow = 2;
     private const int PurchaseDataEndRow   = 102; // 101 data rows (2..102)
-    private const int PurchaseCols         = 12;  // A..L
+    private const int PurchaseCols         = 11;  // A..K
 
     public byte[] GeneratePurchaseImportTemplate(
         IReadOnlyList<DonationImportCategoryInfo> categories,
@@ -615,15 +604,13 @@ public class ExcelExportService : IExcelExportService
         ws.Column(9).Width  = 16;  // I: Đơn giá
         ws.Column(10).Width = 16;  // J: Ngày hết hạn
         ws.Column(11).Width = 18;  // K: Ngày nhận
-        ws.Column(12).Width = 20;  // L: Ảnh
 
         // ── Data rows (2..102) ─────────────────────────────────────────────────
         for (int r = PurchaseDataStartRow; r <= PurchaseDataEndRow; r++)
         {
             int rowNum = r - PurchaseDataStartRow + 1;
 
-            // Row height — tall enough for a thumbnail image
-            ws.Row(r).Height = 60;
+            ws.Row(r).Height = 20;
 
             // Col A: STT (auto-number)
             ws.Cell(r, 1).Value = rowNum;
@@ -710,13 +697,6 @@ public class ExcelExportService : IExcelExportService
             dvReceivedDate.ErrorMessage = "Vui lòng nhập ngày giờ hợp lệ (dd/MM/yyyy HH:mm).";
             dvReceivedDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col L: Ảnh — user inserts image directly into the cell
-            var dvImageUrl = ws.Cell(r, 12).GetDataValidation();
-            dvImageUrl.IgnoreBlanks = true;
-            dvImageUrl.ShowInputMessage = true;
-            dvImageUrl.InputTitle = "Ảnh vật phẩm";
-            dvImageUrl.InputMessage = "Chèn ảnh trực tiếp vào ô này (1 tấm).\nInsert → Illustrations → Pictures → Place in Cell\nĐể trống nếu không có ảnh."; 
-
             // ── Row styling ───────────────────────────────────────────────────
             if (rowNum % 2 == 0)
             {
@@ -754,12 +734,11 @@ public class ExcelExportService : IExcelExportService
         "Mô tả vật phẩm",   // G  (7)
         "Số lượng (*)",     // H  (8)
         "Đơn giá (VNĐ)",   // I  (9)
-        "Ảnh"              // J  (10)
     ];
 
     private const int FundingRequestDataStartRow = 2;
     private const int FundingRequestDataEndRow   = 102; // 101 data rows (2..102)
-    private const int FundingRequestCols         = 10;  // A..J
+    private const int FundingRequestCols         = 9;   // A..I
 
     public byte[] GenerateFundingRequestTemplate(
         IReadOnlyList<DonationImportCategoryInfo> categories,
@@ -825,15 +804,13 @@ public class ExcelExportService : IExcelExportService
         ws.Column(7).Width  = 35;  // G: Mô tả vật phẩm
         ws.Column(8).Width  = 12;  // H: Số lượng
         ws.Column(9).Width  = 16;  // I: Đơn giá
-        ws.Column(10).Width = 20;  // J: Ảnh
 
         // ── Data rows (2..102) ─────────────────────────────────────────────────
         for (int r = FundingRequestDataStartRow; r <= FundingRequestDataEndRow; r++)
         {
             int rowNum = r - FundingRequestDataStartRow + 1;
 
-            // Row height — tall enough for a thumbnail image
-            ws.Row(r).Height = 60;
+            ws.Row(r).Height = 20;
 
             // Col A: STT (auto-number)
             ws.Cell(r, 1).Value = rowNum;
@@ -891,13 +868,6 @@ public class ExcelExportService : IExcelExportService
             dvUnitPrice.ShowInputMessage = true;
             dvUnitPrice.InputTitle = "Đơn giá";
             dvUnitPrice.InputMessage = "Giá dự kiến mỗi đơn vị (VNĐ).\nĐể trống nếu chưa xác định.";
-
-            // Col J: Ảnh — user inserts image directly into the cell
-            var dvImageUrl = ws.Cell(r, 10).GetDataValidation();
-            dvImageUrl.IgnoreBlanks = true;
-            dvImageUrl.ShowInputMessage = true;
-            dvImageUrl.InputTitle = "Ảnh vật phẩm";
-            dvImageUrl.InputMessage = "Chèn ảnh trực tiếp vào ô này (1 tấm).\nInsert → Illustrations → Pictures → Place in Cell\nĐể trống nếu không có ảnh."; 
 
             // ── Row styling ───────────────────────────────────────────────────
             if (rowNum % 2 == 0)
