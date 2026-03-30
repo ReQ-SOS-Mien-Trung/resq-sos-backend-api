@@ -12,5 +12,7 @@ public class GetRescuerRouteResponse
     public double OriginLatitude { get; set; }
     public double OriginLongitude { get; set; }
     public string Vehicle { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string? ErrorMessage { get; set; }
     public GoongRouteSummary? Route { get; set; }
 }

@@ -47,6 +47,8 @@ public class GetRescuerRouteQueryHandler(
             OriginLatitude = request.OriginLat,
             OriginLongitude = request.OriginLng,
             Vehicle = request.Vehicle,
+            Status = routeResult.Status,
+            ErrorMessage = routeResult.ErrorMessage,
             Route = routeResult.Route
         };
     }
