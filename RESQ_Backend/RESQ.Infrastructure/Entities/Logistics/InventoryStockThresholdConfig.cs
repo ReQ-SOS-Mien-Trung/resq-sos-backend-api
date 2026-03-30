@@ -24,10 +24,13 @@ public class InventoryStockThresholdConfig
     public int? ItemModelId { get; set; }
 
     [Column("danger_ratio", TypeName = "numeric(5,4)")]
-    public decimal DangerRatio { get; set; }
+    public decimal? DangerRatio { get; set; }
 
     [Column("warning_ratio", TypeName = "numeric(5,4)")]
-    public decimal WarningRatio { get; set; }
+    public decimal? WarningRatio { get; set; }
+
+    [Column("minimum_threshold")]
+    public int? MinimumThreshold { get; set; }
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;

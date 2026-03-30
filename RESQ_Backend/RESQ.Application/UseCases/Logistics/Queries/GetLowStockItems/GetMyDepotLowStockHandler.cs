@@ -2,18 +2,17 @@ using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
-using RESQ.Domain.Entities.Logistics.Services;
-using RESQ.Domain.Enum.Logistics;
+using RESQ.Domain.Entities.Logistics.ValueObjects;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 
 public class GetMyDepotLowStockHandler(
     IDepotInventoryRepository depotInventoryRepo,
-    IStockThresholdResolver stockThresholdResolver)
+    IStockWarningEvaluatorService evaluatorService)
     : IRequestHandler<GetMyDepotLowStockQuery, LowStockChartResponseDto>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepo = depotInventoryRepo;
-    private readonly IStockThresholdResolver _stockThresholdResolver = stockThresholdResolver;
+    private readonly IStockWarningEvaluatorService _evaluatorService = evaluatorService;
 
     public async Task<LowStockChartResponseDto> Handle(
         GetMyDepotLowStockQuery request,
@@ -27,20 +26,21 @@ public class GetMyDepotLowStockHandler(
 
         foreach (var raw in rawItems)
         {
-            var threshold = await _stockThresholdResolver.ResolveAsync(raw.DepotId, raw.CategoryId, raw.ItemModelId, cancellationToken);
-            var level = StockLevelClassifier.Classify(raw.AvailableQuantity, raw.Quantity, threshold);
+            var result = await _evaluatorService.EvaluateAsync(
+                raw.DepotId, raw.CategoryId, raw.ItemModelId, raw.AvailableQuantity, cancellationToken);
 
-            if (level is not (StockLevel.Warning or StockLevel.Danger))
+            // Bỏ qua vật tư đang OK
+            if (result.Level == StockWarningLevel.Ok)
                 continue;
 
-            if (request.AlertLevel.HasValue)
-            {
-                var expected = request.AlertLevel.Value == StockAlertLevel.Danger
-                    ? StockLevel.Danger
-                    : StockLevel.Warning;
-                if (level != expected)
-                    continue;
-            }
+            // Bỏ qua UNCONFIGURED nếu không yêu cầu
+            if (result.Level == StockWarningLevel.Unconfigured && !request.IncludeUnconfigured)
+                continue;
+
+            // Lọc theo level nếu có
+            if (request.WarningLevel != null &&
+                !string.Equals(result.Level, request.WarningLevel, StringComparison.OrdinalIgnoreCase))
+                continue;
 
             items.Add(new LowStockItemDto
             {
@@ -55,13 +55,20 @@ public class GetMyDepotLowStockHandler(
                 Quantity = raw.Quantity,
                 ReservedQuantity = raw.ReservedQuantity,
                 AvailableQuantity = raw.AvailableQuantity,
-                AvailableRatio = raw.Quantity <= 0 ? 0 : Math.Round((double)raw.AvailableQuantity / raw.Quantity, 4),
-                AlertLevel = level.ToString(),
-                AlertLevelLabel = level == StockLevel.Danger ? "Nguy hiểm" : "Cảnh báo"
+                MinimumThreshold = result.ResolvedThreshold,
+                SeverityRatio = result.SeverityRatio,
+                WarningLevel = result.Level,
+                ResolvedThresholdScope = result.ResolvedScope.ToString(),
+                IsUsingGlobalDefault = result.IsUsingGlobalDefault
             });
         }
 
-        items = items.OrderBy(x => x.AvailableRatio).ThenBy(x => x.DepotId).ToList();
+        items = items
+            .OrderBy(x => x.SeverityRatio)
+            .ThenBy(x => x.DepotId)
+            .ToList();
+
         return LowStockChartBuilder.Build(items);
     }
 }
+

@@ -20,13 +20,19 @@ public class LowStockChartResponseDto
 
 public class LowStockSummaryDto
 {
-    /// <summary>Số vật tư ở mức 🔴 Danger theo threshold đã resolve.</summary>
-    public int DangerCount { get; set; }
+    /// <summary>Số vật tư ở mức 🔴 CRITICAL.</summary>
+    public int CriticalCount { get; set; }
 
-    /// <summary>Số vật tư ở mức 🟡 Warning theo threshold đã resolve.</summary>
-    public int WarningCount { get; set; }
+    /// <summary>Số vật tư ở mức 🟠 MEDIUM.</summary>
+    public int MediumCount { get; set; }
 
-    /// <summary>Tổng cộng (Danger + Warning).</summary>
+    /// <summary>Số vật tư ở mức 🟡 LOW.</summary>
+    public int LowCount { get; set; }
+
+    /// <summary>Số vật tư chưa được cấu hình threshold (UNCONFIGURED).</summary>
+    public int UnconfiguredCount { get; set; }
+
+    /// <summary>Tổng cộng (tất cả mức không phải OK).</summary>
     public int TotalCount { get; set; }
 }
 
@@ -34,16 +40,18 @@ public class LowStockByDepotDto
 {
     public int DepotId { get; set; }
     public string DepotName { get; set; } = string.Empty;
-    public int DangerCount { get; set; }
-    public int WarningCount { get; set; }
+    public int CriticalCount { get; set; }
+    public int MediumCount { get; set; }
+    public int LowCount { get; set; }
 }
 
 public class LowStockByCategoryDto
 {
     public int? CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
-    public int DangerCount { get; set; }
-    public int WarningCount { get; set; }
+    public int CriticalCount { get; set; }
+    public int MediumCount { get; set; }
+    public int LowCount { get; set; }
 }
 
 /// <summary>Helper tổng hợp flat list thành chart response.</summary>
@@ -55,29 +63,35 @@ internal static class LowStockChartBuilder
         {
             Summary = new LowStockSummaryDto
             {
-                DangerCount  = items.Count(x => x.AlertLevel == "Danger"),
-                WarningCount = items.Count(x => x.AlertLevel == "Warning"),
-                TotalCount   = items.Count
+                CriticalCount    = items.Count(x => x.WarningLevel == "CRITICAL"),
+                MediumCount      = items.Count(x => x.WarningLevel == "MEDIUM"),
+                LowCount         = items.Count(x => x.WarningLevel == "LOW"),
+                UnconfiguredCount = items.Count(x => x.WarningLevel == "UNCONFIGURED"),
+                TotalCount       = items.Count
             },
             ByDepot = items
+                .Where(x => x.WarningLevel is "CRITICAL" or "MEDIUM" or "LOW")
                 .GroupBy(x => new { x.DepotId, x.DepotName })
                 .Select(g => new LowStockByDepotDto
                 {
                     DepotId      = g.Key.DepotId,
                     DepotName    = g.Key.DepotName,
-                    DangerCount  = g.Count(x => x.AlertLevel == "Danger"),
-                    WarningCount = g.Count(x => x.AlertLevel == "Warning")
+                    CriticalCount = g.Count(x => x.WarningLevel == "CRITICAL"),
+                    MediumCount  = g.Count(x => x.WarningLevel == "MEDIUM"),
+                    LowCount     = g.Count(x => x.WarningLevel == "LOW")
                 })
                 .OrderBy(x => x.DepotId)
                 .ToList(),
             ByCategory = items
+                .Where(x => x.WarningLevel is "CRITICAL" or "MEDIUM" or "LOW")
                 .GroupBy(x => new { x.CategoryId, x.CategoryName })
                 .Select(g => new LowStockByCategoryDto
                 {
                     CategoryId   = g.Key.CategoryId,
                     CategoryName = g.Key.CategoryName,
-                    DangerCount  = g.Count(x => x.AlertLevel == "Danger"),
-                    WarningCount = g.Count(x => x.AlertLevel == "Warning")
+                    CriticalCount = g.Count(x => x.WarningLevel == "CRITICAL"),
+                    MediumCount  = g.Count(x => x.WarningLevel == "MEDIUM"),
+                    LowCount     = g.Count(x => x.WarningLevel == "LOW")
                 })
                 .OrderBy(x => x.CategoryId)
                 .ToList(),
@@ -85,3 +99,4 @@ internal static class LowStockChartBuilder
         };
     }
 }
+

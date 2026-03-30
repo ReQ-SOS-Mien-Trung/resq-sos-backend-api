@@ -39,9 +39,13 @@ public class StockThresholdResolver(
 
         foreach (var candidate in candidates.Where(x => x != null))
         {
+            // Skip configs that only have minimumThreshold (no danger/warning ratios for old classifier)
+            if (!candidate!.DangerRatio.HasValue || !candidate.WarningRatio.HasValue)
+                continue;
+
             try
             {
-                return new StockThreshold(candidate!.DangerRatio, candidate.WarningRatio);
+                return new StockThreshold(candidate.DangerRatio.Value, candidate.WarningRatio.Value);
             }
             catch (Exception ex)
             {
@@ -68,6 +72,39 @@ public class StockThresholdResolver(
     {
         _memoryCache.Remove("stock-threshold:global");
         return Task.CompletedTask;
+    }
+
+    public async Task<(int? Value, ThresholdResolutionScope Scope)> ResolveMinimumThresholdAsync(
+        int depotId,
+        int? categoryId,
+        int itemModelId,
+        CancellationToken cancellationToken = default)
+    {
+        var depotConfigs = await GetDepotConfigsAsync(depotId, cancellationToken);
+
+        var candidates = new List<(StockThresholdConfigDto? Config, ThresholdResolutionScope Scope)>
+        {
+            (depotConfigs.FirstOrDefault(x => x.ScopeType == StockThresholdScopeType.DepotItem && x.ItemModelId == itemModelId),
+             ThresholdResolutionScope.Item),
+            (categoryId.HasValue
+                ? depotConfigs.FirstOrDefault(x => x.ScopeType == StockThresholdScopeType.DepotCategory && x.CategoryId == categoryId.Value)
+                : null,
+             ThresholdResolutionScope.Category),
+            (depotConfigs.FirstOrDefault(x => x.ScopeType == StockThresholdScopeType.Depot),
+             ThresholdResolutionScope.Depot)
+        };
+
+        foreach (var (config, scope) in candidates)
+        {
+            if (config?.MinimumThreshold is > 0)
+                return (config.MinimumThreshold, scope);
+        }
+
+        var global = await GetGlobalConfigAsync(cancellationToken);
+        if (global?.MinimumThreshold is > 0)
+            return (global.MinimumThreshold, ThresholdResolutionScope.Global);
+
+        return (null, ThresholdResolutionScope.None);
     }
 
     private async Task<List<StockThresholdConfigDto>> GetDepotConfigsAsync(int depotId, CancellationToken cancellationToken)

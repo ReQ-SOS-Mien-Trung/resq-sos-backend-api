@@ -10,8 +10,7 @@ public class UpdateMyDepotThresholdCommand : IRequest<StockThresholdCommandRespo
     public StockThresholdScopeType ScopeType { get; set; }
     public int? CategoryId { get; set; }
     public int? ItemModelId { get; set; }
-    public decimal DangerPercent { get; set; }
-    public decimal WarningPercent { get; set; }
+    public int? MinimumThreshold { get; set; }
     public uint? RowVersion { get; set; }
     public string? Reason { get; set; }
 }

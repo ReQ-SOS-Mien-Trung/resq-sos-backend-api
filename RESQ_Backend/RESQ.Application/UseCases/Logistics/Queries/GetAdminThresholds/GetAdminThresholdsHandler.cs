@@ -54,8 +54,9 @@ public class GetAdminThresholdsHandler(
             ScopeType = x.ScopeType.ToString(),
             CategoryId = x.CategoryId,
             ItemModelId = x.ItemModelId,
-            DangerPercent = x.DangerRatio * 100m,
-            WarningPercent = x.WarningRatio * 100m,
+            DangerPercent = x.DangerRatio.HasValue ? x.DangerRatio.Value * 100m : null,
+            WarningPercent = x.WarningRatio.HasValue ? x.WarningRatio.Value * 100m : null,
+            MinimumThreshold = x.MinimumThreshold,
             RowVersion = x.RowVersion,
             UpdatedAt = x.UpdatedAt
         };

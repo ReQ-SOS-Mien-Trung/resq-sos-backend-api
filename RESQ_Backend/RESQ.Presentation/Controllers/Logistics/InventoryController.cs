@@ -14,6 +14,7 @@ using RESQ.Application.UseCases.Logistics.Commands.ManageMyDepotThresholds;
 using RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.RejectSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
+using RESQ.Application.UseCases.Logistics.Commands.UpsertWarningBandConfig;
 using RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
 using RESQ.Application.UseCases.Logistics.Queries.GenerateDonationImportTemplate;
 using RESQ.Application.UseCases.Logistics.Queries.GeneratePurchaseImportTemplate;
@@ -29,13 +30,13 @@ using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
-using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholdHistory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholds;
-using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholdHistory;
 using RESQ.Application.UseCases.Logistics.Queries.GetReliefItemsByCategoryCode;
 using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
+using RESQ.Application.UseCases.Logistics.Queries.GetWarningBandConfig;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
+using RESQ.Application.UseCases.Logistics.Thresholds;
 using RESQ.Domain.Enum.Logistics;
 using System.Security.Claims;
 
@@ -103,30 +104,33 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     /// <summary>[Admin] Chart data vật tư sắp hết trên tất cả kho hoặc một kho cụ thể.
-    /// stockRatio = available/total. Ngưỡng Danger/Warning được resolve theo cấu hình scope.
+    /// severityRatio = max(0, available / minimumThreshold). Ngưỡng được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("low-stock")]
     [Authorize(Roles = "1")]
     [ProducesResponseType(typeof(LowStockChartResponseDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetLowStockItems(
         [FromQuery] int? depotId = null,
-        [FromQuery] StockAlertLevel? level = null)
+        [FromQuery] string? warningLevel = null,
+        [FromQuery] bool includeUnconfigured = false)
     {
-        var result = await _mediator.Send(new GetLowStockItemsQuery(depotId, level));
+        var result = await _mediator.Send(new GetLowStockItemsQuery(depotId, warningLevel, includeUnconfigured));
         return Ok(result);
     }
 
     /// <summary>[Manager] Chart data vật tư sắp hết tại kho mình quản lý.
-    /// stockRatio = available/total. Ngưỡng Danger/Warning được resolve theo cấu hình scope.
+    /// severityRatio = max(0, available / minimumThreshold). Ngưỡng được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("my-depot/low-stock")]
     [Authorize(Roles = "4")]
     [ProducesResponseType(typeof(LowStockChartResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetMyDepotLowStockItems([FromQuery] StockAlertLevel? level = null)
+    public async Task<IActionResult> GetMyDepotLowStockItems(
+        [FromQuery] string? warningLevel = null,
+        [FromQuery] bool includeUnconfigured = false)
     {
         var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new GetMyDepotLowStockQuery(userId, level));
+        var result = await _mediator.Send(new GetMyDepotLowStockQuery(userId, warningLevel, includeUnconfigured));
         return Ok(result);
     }
 
@@ -165,8 +169,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
             ScopeType = request.ScopeType,
             CategoryId = request.CategoryId,
             ItemModelId = request.ItemModelId,
-            DangerPercent = request.DangerPercent,
-            WarningPercent = request.WarningPercent,
+            MinimumThreshold = request.MinimumThreshold,
             RowVersion = request.RowVersion,
             Reason = request.Reason
         });
@@ -213,6 +216,35 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     // NOTE: Đã tắt — không còn lưu lịch sử thay đổi threshold nữa
     // [HttpGet("thresholds/history")]
     // public async Task<IActionResult> GetAdminThresholdHistory(...) { ... }
+
+    /// <summary>[Admin] Xem cấu hình warning bands hiện tại (N-band, lưu trong DB). Dùng để frontend hiển thị/chỉnh sửa.</summary>
+    [HttpGet("warning-band-config")]
+    [Authorize(Roles = "1")]
+    [ProducesResponseType(typeof(WarningBandConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetWarningBandConfig()
+    {
+        var result = await _mediator.Send(new GetWarningBandConfigQuery());
+        if (result == null)
+            return NotFound("Chưa có cấu hình warning band nào trong hệ thống.");
+        return Ok(result);
+    }
+
+    /// <summary>[Admin] Cập nhật (overwrite) cấu hình warning bands. Phải phủ kín từ 0 đến +∞, không gap, không overlap.</summary>
+    [HttpPut("warning-band-config")]
+    [Authorize(Roles = "1")]
+    [ProducesResponseType(typeof(WarningBandConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpsertWarningBandConfig([FromBody] List<WarningBandDto> bands)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new UpsertWarningBandConfigCommand
+        {
+            UserId = userId,
+            Bands = bands
+        });
+        return Ok(result);
+    }
 
     /// <summary>Xem danh sách lô hàng (lots) của một item model trong kho (FEFO).</summary>
     [HttpGet("{itemModelId:int}/lots")]

@@ -46,16 +46,14 @@ public class UpdateMyDepotThresholdCommandHandler(
                 throw new NotFoundException("Không tìm thấy itemModelId.");
         }
 
-        var dangerRatio = decimal.Round(request.DangerPercent / 100m, 4, MidpointRounding.AwayFromZero);
-        var warningRatio = decimal.Round(request.WarningPercent / 100m, 4, MidpointRounding.AwayFromZero);
-
         var saved = await _stockThresholdConfigRepository.UpsertAsync(
             request.ScopeType,
             depotId,
             request.CategoryId,
             request.ItemModelId,
-            dangerRatio,
-            warningRatio,
+            dangerRatio: null,
+            warningRatio: null,
+            minimumThreshold: request.MinimumThreshold,
             request.UserId,
             request.RowVersion,
             request.Reason,
@@ -73,8 +71,7 @@ public class UpdateMyDepotThresholdCommandHandler(
             DepotId = saved.DepotId,
             CategoryId = saved.CategoryId,
             ItemModelId = saved.ItemModelId,
-            DangerPercent = saved.DangerRatio * 100m,
-            WarningPercent = saved.WarningRatio * 100m,
+            MinimumThreshold = saved.MinimumThreshold,
             RowVersion = saved.RowVersion,
             UpdatedAt = saved.UpdatedAt,
             Message = "Cập nhật ngưỡng tồn kho thành công."

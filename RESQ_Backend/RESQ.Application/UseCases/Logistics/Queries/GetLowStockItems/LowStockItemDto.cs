@@ -1,7 +1,7 @@
 namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 
 /// <summary>
-/// Một dòng vật tư tồn kho đang ở mức cảnh báo hoặc nguy hiểm.
+/// Một dòng vật tư tồn kho đang ở mức cảnh báo.
 /// </summary>
 public class LowStockItemDto
 {
@@ -26,12 +26,22 @@ public class LowStockItemDto
     /// <summary>Số lượng có thể dùng (Quantity - ReservedQuantity).</summary>
     public int AvailableQuantity { get; set; }
 
-    /// <summary>Tỉ lệ khả dụng so với tổng (0.00 – 1.00).</summary>
-    public double AvailableRatio { get; set; }
+    /// <summary>Ngưỡng tối thiểu đã được resolve (null nếu chưa cấu hình).</summary>
+    public int? MinimumThreshold { get; set; }
 
-    /// <summary>Mức cảnh báo: "Danger" hoặc "Warning".</summary>
-    public string AlertLevel { get; set; } = string.Empty;
+    /// <summary>severityRatio = max(0, available / minimumThreshold). 0 nếu chưa cấu hình.</summary>
+    public decimal SeverityRatio { get; set; }
 
-    /// <summary>Nhãn tiếng Việt của mức cảnh báo.</summary>
-    public string AlertLevelLabel { get; set; } = string.Empty;
+    /// <summary>Mức cảnh báo: OK / LOW / MEDIUM / CRITICAL / UNCONFIGURED.</summary>
+    public string WarningLevel { get; set; } = string.Empty;
+
+    /// <summary>Scope mà threshold được resolve từ: Item / Category / Depot / Global / None.</summary>
+    public string ResolvedThresholdScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True khi không có config riêng cho item/category/depot — đang dùng ngưỡng mặc định toàn hệ thống.
+    /// FE có thể dùng để hiển thị badge "Dùng ngưỡng mặc định" hoặc lọc danh sách chưa cấu hình riêng.
+    /// </summary>
+    public bool IsUsingGlobalDefault { get; set; }
 }
+
