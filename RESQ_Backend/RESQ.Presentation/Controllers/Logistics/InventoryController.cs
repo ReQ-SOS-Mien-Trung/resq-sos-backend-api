@@ -636,6 +636,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         var command = new ImportPurchasedInventoryCommand
         {
             UserId = userId,
+            AdvancedByName = request.AdvancedByName,
             Invoices = request.Invoices
         };
 
