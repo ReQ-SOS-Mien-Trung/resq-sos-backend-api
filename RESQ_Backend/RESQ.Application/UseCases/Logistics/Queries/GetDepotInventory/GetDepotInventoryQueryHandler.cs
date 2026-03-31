@@ -40,6 +40,7 @@ public class GetDepotInventoryQueryHandler(
             {
                 ItemModelId       = x.ItemModelId,
                 ItemModelName     = x.ItemModelName,
+                ImageUrl          = x.ImageUrl,
                 CategoryId        = x.CategoryId,
                 CategoryName      = x.CategoryName,
                 ItemType          = x.ItemType switch

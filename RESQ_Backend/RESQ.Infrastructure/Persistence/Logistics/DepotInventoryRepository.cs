@@ -82,7 +82,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                    && (!hasTargetGroupFilter || ri.TargetGroups.Any(tg => targetGroupSet.Contains(tg.Name.ToLower())))
                 select new
                 {
-                    ri.Id, ri.Name, ri.CategoryId, ri.ItemType,
+                    ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType,
                     Quantity                 = inv.Quantity                 ?? 0,
                     MissionReservedQuantity  = inv.MissionReservedQuantity,
                     TransferReservedQuantity = inv.TransferReservedQuantity,
@@ -124,6 +124,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 {
                     ItemModelId    = x.Id,
                     ItemModelName  = x.Name ?? string.Empty,
+                    ImageUrl       = x.ImageUrl,
                     CategoryId     = x.CategoryId,
                     CategoryName   = x.CategoryId.HasValue && catDict.TryGetValue(x.CategoryId.Value, out var cn) ? cn : string.Empty,
                     ItemType       = x.ItemType,
@@ -145,11 +146,12 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 where dri.DepotId == depotId
                    && (!hasCategoryFilter  || safeCategoryIds.Contains(ri.CategoryId ?? 0))
                    && (!hasTargetGroupFilter || ri.TargetGroups.Any(tg => targetGroupSet.Contains(tg.Name.ToLower())))
-                group new { dri, ri } by new { ri.Id, ri.Name, ri.CategoryId, ri.ItemType } into g
+                group new { dri, ri } by new { ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType } into g
                 select new
                 {
                     Id                  = g.Key.Id,
                     Name                = g.Key.Name,
+                    ImageUrl            = g.Key.ImageUrl,
                     CategoryId          = g.Key.CategoryId,
                     ItemType            = g.Key.ItemType,
                     TotalUnits               = g.Count(),
@@ -183,6 +185,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             {
                 ItemModelId      = x.Id,
                 ItemModelName    = x.Name ?? string.Empty,
+                ImageUrl         = x.ImageUrl,
                 CategoryId        = x.CategoryId,
                 CategoryName      = x.CategoryId.HasValue && catDict.TryGetValue(x.CategoryId.Value, out var cn) ? cn : string.Empty,
                 ItemType          = x.ItemType,

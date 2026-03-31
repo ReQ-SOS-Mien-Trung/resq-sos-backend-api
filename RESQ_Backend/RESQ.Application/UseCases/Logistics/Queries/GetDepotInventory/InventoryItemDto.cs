@@ -6,6 +6,7 @@ public class InventoryItemDto
 {
     public int ItemModelId { get; set; }
     public string ItemModelName { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
     public int? CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public string? ItemType { get; set; }

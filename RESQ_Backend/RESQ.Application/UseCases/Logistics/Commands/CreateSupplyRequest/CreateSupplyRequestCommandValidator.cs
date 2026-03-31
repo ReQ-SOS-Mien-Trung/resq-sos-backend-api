@@ -1,4 +1,5 @@
 using FluentValidation;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
 
@@ -17,6 +18,11 @@ public class CreateSupplyRequestCommandValidator : AbstractValidator<CreateSuppl
         {
             group.RuleFor(g => g.SourceDepotId)
                 .GreaterThan(0).WithMessage("ID kho nguồn không hợp lệ.");
+
+            group.RuleFor(g => g.PriorityLevel)
+                .IsInEnum()
+                .Must(x => x is SupplyRequestPriorityLevel.Urgent or SupplyRequestPriorityLevel.High or SupplyRequestPriorityLevel.Medium)
+                .WithMessage("Mức độ ưu tiên yêu cầu tiếp tế không hợp lệ.");
 
             group.RuleFor(g => g.Items)
                 .NotEmpty().WithMessage("Mỗi kho nguồn phải có ít nhất một vật tư yêu cầu.");

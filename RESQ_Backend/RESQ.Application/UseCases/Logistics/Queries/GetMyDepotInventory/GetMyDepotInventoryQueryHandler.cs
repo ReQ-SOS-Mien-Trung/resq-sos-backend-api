@@ -39,6 +39,7 @@ public class GetMyDepotInventoryQueryHandler(IDepotInventoryRepository depotInve
             {
                 ItemModelId       = x.ItemModelId,
                 ItemModelName     = x.ItemModelName,
+                ImageUrl          = x.ImageUrl,
                 CategoryId        = x.CategoryId,
                 CategoryName      = x.CategoryName,
                 ItemType          = x.ItemType,

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -17,6 +18,8 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         int requestingDepotId,
         int sourceDepotId,
         List<(int ItemModelId, int Quantity)> items,
+        SupplyRequestPriorityLevel priorityLevel,
+        DateTime autoRejectAt,
         string? note,
         Guid requestedBy,
         CancellationToken cancellationToken = default)
@@ -28,10 +31,12 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             RequestingDepotId = requestingDepotId,
             SourceDepotId     = sourceDepotId,
             Note              = note,
+            PriorityLevel     = priorityLevel.ToString(),
             SourceStatus      = "Pending",
             RequestingStatus  = "WaitingForApproval",
             RequestedBy       = requestedBy,
-            CreatedAt         = now
+            CreatedAt         = now,
+            AutoRejectAt      = autoRejectAt
         };
 
         await _unitOfWork.GetRepository<DepotSupplyRequest>().AddAsync(request);
@@ -62,9 +67,12 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             Id                = entity.Id,
             RequestingDepotId = entity.RequestingDepotId,
             SourceDepotId     = entity.SourceDepotId,
+            PriorityLevel     = ParsePriorityLevel(entity.PriorityLevel),
             SourceStatus      = entity.SourceStatus,
             RequestingStatus  = entity.RequestingStatus,
             RequestedBy       = entity.RequestedBy,
+            CreatedAt         = entity.CreatedAt,
+            AutoRejectAt      = entity.AutoRejectAt,
             Items             = entity.Items.Select(i => (i.ItemModelId, i.Quantity)).ToList()
         };
     }
@@ -106,6 +114,110 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             .GetByPropertyAsync(dm => dm.DepotId == depotId && dm.UnassignedAt == null, tracked: false);
 
         return manager?.UserId;
+    }
+
+    public async Task<List<PendingSupplyRequestMonitorItem>> GetPendingForMonitoringAsync(CancellationToken cancellationToken = default)
+    {
+        var items = await _unitOfWork.GetRepository<DepotSupplyRequest>()
+            .AsQueryable()
+            .Where(x => x.SourceStatus == nameof(SourceDepotStatus.Pending)
+                     && x.RequestingStatus == nameof(RequestingDepotStatus.WaitingForApproval))
+            .OrderBy(x => x.AutoRejectAt ?? x.CreatedAt)
+            .Select(x => new
+            {
+                Id = x.Id,
+                SourceDepotId = x.SourceDepotId,
+                RequestedBy = x.RequestedBy,
+                PriorityLevel = x.PriorityLevel,
+                CreatedAt = x.CreatedAt,
+                AutoRejectAt = x.AutoRejectAt,
+                HighEscalationNotified = x.HighEscalationNotified,
+                UrgentEscalationNotified = x.UrgentEscalationNotified
+            })
+            .ToListAsync(cancellationToken);
+
+        return items.Select(x => new PendingSupplyRequestMonitorItem
+        {
+            Id = x.Id,
+            SourceDepotId = x.SourceDepotId,
+            RequestedBy = x.RequestedBy,
+            PriorityLevel = ParsePriorityLevel(x.PriorityLevel),
+            CreatedAt = x.CreatedAt,
+            AutoRejectAt = x.AutoRejectAt,
+            HighEscalationNotified = x.HighEscalationNotified,
+            UrgentEscalationNotified = x.UrgentEscalationNotified
+        }).ToList();
+    }
+
+    public async Task SetAutoRejectAtAsync(int id, DateTime autoRejectAt, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
+            .GetByPropertyAsync(x => x.Id == id, tracked: true)
+            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y yÃªu cáº§u cung cáº¥p #{id}.");
+
+        if (entity.AutoRejectAt.HasValue)
+            return;
+
+        entity.AutoRejectAt = autoRejectAt;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _unitOfWork.SaveAsync();
+    }
+
+    public async Task MarkHighEscalationNotifiedAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
+            .GetByPropertyAsync(x => x.Id == id, tracked: true)
+            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y yÃªu cáº§u cung cáº¥p #{id}.");
+
+        if (entity.HighEscalationNotified)
+            return;
+
+        var now = DateTime.UtcNow;
+        entity.HighEscalationNotified = true;
+        entity.HighEscalationNotifiedAt = now;
+        entity.UpdatedAt = now;
+        await _unitOfWork.SaveAsync();
+    }
+
+    public async Task MarkUrgentEscalationNotifiedAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
+            .GetByPropertyAsync(x => x.Id == id, tracked: true)
+            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y yÃªu cáº§u cung cáº¥p #{id}.");
+
+        if (entity.UrgentEscalationNotified)
+            return;
+
+        var now = DateTime.UtcNow;
+        entity.UrgentEscalationNotified = true;
+        entity.UrgentEscalationNotifiedAt = now;
+        entity.UpdatedAt = now;
+        await _unitOfWork.SaveAsync();
+    }
+
+    public async Task<bool> AutoRejectIfPendingAsync(int id, string rejectedReason, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
+            .GetByPropertyAsync(x => x.Id == id, tracked: true);
+
+        if (entity == null)
+            return false;
+
+        if (entity.SourceStatus != nameof(SourceDepotStatus.Pending)
+            || entity.RequestingStatus != nameof(RequestingDepotStatus.WaitingForApproval))
+        {
+            return false;
+        }
+
+        var now = DateTime.UtcNow;
+        entity.SourceStatus = nameof(SourceDepotStatus.Rejected);
+        entity.RequestingStatus = nameof(RequestingDepotStatus.Rejected);
+        entity.RejectedReason = rejectedReason;
+        entity.RespondedAt = now;
+        entity.UpdatedAt = now;
+
+        await _unitOfWork.SaveAsync();
+        return true;
     }
 
     public async Task ReserveItemsAsync(
@@ -427,12 +539,14 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             RequestingDepotName = entity.RequestingDepot?.Name,
             SourceDepotId       = entity.SourceDepotId,
             SourceDepotName     = entity.SourceDepot?.Name,
+            PriorityLevel       = ParsePriorityLevel(entity.PriorityLevel),
             SourceStatus        = entity.SourceStatus,
             RequestingStatus    = entity.RequestingStatus,
             Note                = entity.Note,
             RejectedReason      = entity.RejectedReason,
             RequestedBy         = entity.RequestedBy,
             CreatedAt           = entity.CreatedAt,
+            AutoRejectAt        = entity.AutoRejectAt,
             RespondedAt         = entity.RespondedAt,
             ShippedAt           = entity.ShippedAt,
             CompletedAt         = entity.CompletedAt,
@@ -447,4 +561,9 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
         return new PagedResult<SupplyRequestListItem>(items, paged.TotalCount, pageNumber, pageSize);
     }
+
+    private static SupplyRequestPriorityLevel ParsePriorityLevel(string? priorityLevel)
+        => Enum.TryParse<SupplyRequestPriorityLevel>(priorityLevel, true, out var parsed)
+            ? parsed
+            : SupplyRequestPriorityLevel.Medium;
 }

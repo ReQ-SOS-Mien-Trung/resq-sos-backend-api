@@ -1,16 +1,19 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Logistics;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Exceptions.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
 
 public class CreateSupplyRequestCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     ISupplyRequestRepository supplyRequestRepository,
+    ISupplyRequestPriorityConfigRepository supplyRequestPriorityConfigRepository,
     IFirebaseService firebaseService,
     IUnitOfWork unitOfWork,
     ILogger<CreateSupplyRequestCommandHandler> logger)
@@ -18,6 +21,7 @@ public class CreateSupplyRequestCommandHandler(
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly ISupplyRequestRepository _supplyRequestRepository = supplyRequestRepository;
+    private readonly ISupplyRequestPriorityConfigRepository _supplyRequestPriorityConfigRepository = supplyRequestPriorityConfigRepository;
     private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<CreateSupplyRequestCommandHandler> _logger = logger;
@@ -35,6 +39,11 @@ public class CreateSupplyRequestCommandHandler(
             throw new InvalidSupplyRequestException("Không thể tạo yêu cầu cung cấp từ chính kho của bạn.");
 
         // 3. Xử lý từng kho nguồn trong transaction
+        var config = await _supplyRequestPriorityConfigRepository.GetAsync(cancellationToken);
+        var timing = config == null
+            ? SupplyRequestPriorityPolicy.DefaultTiming
+            : new SupplyRequestPriorityTiming(config.UrgentMinutes, config.HighMinutes, config.MediumMinutes);
+
         var createdRequests = new List<CreatedSupplyRequestDto>();
 
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -45,10 +54,17 @@ public class CreateSupplyRequestCommandHandler(
                     .Select(i => (i.ItemModelId, i.Quantity))
                     .ToList();
 
+                var autoRejectAt = SupplyRequestPriorityPolicy.ResolveAutoRejectAt(
+                    DateTime.UtcNow,
+                    group.PriorityLevel,
+                    timing);
+
                 var supplyRequestId = await _supplyRequestRepository.CreateAsync(
                     requestingDepotId.Value,
                     group.SourceDepotId,
                     items,
+                    group.PriorityLevel.ToString(),
+                    autoRejectAt,
                     group.Note,
                     request.RequestingUserId,
                     cancellationToken);
@@ -56,23 +72,34 @@ public class CreateSupplyRequestCommandHandler(
                 createdRequests.Add(new CreatedSupplyRequestDto
                 {
                     SupplyRequestId = supplyRequestId,
-                    SourceDepotId   = group.SourceDepotId
+                    SourceDepotId = group.SourceDepotId
                 });
             }
         });
 
-        // 4. Gửi Firebase notification cho manager của kho nguồn (ngoài transaction)
+        // 4. Gửi notification cho manager của kho nguồn
         foreach (var created in createdRequests)
         {
             var sourceManagerUserId = await _supplyRequestRepository.GetActiveManagerUserIdByDepotIdAsync(created.SourceDepotId, cancellationToken);
             if (sourceManagerUserId.HasValue)
             {
+                var createdGroup = request.Requests.First(x => x.SourceDepotId == created.SourceDepotId);
+                var isUrgent = createdGroup.PriorityLevel == SupplyRequestPriorityLevel.Urgent;
+                var notificationTitle = isUrgent ? "Yêu cầu tiếp tế khẩn cấp" : "Yêu cầu cung cấp vật tư mới";
+                var notificationBody = isUrgent
+                    ? $"Yêu cầu #{created.SupplyRequestId} đã vào mức khẩn cấp. Vui lòng ưu tiên xử lý ngay."
+                    : $"Kho của bạn vừa nhận được yêu cầu cung cấp vật tư #{created.SupplyRequestId}. Vui lòng kiểm tra và xử lý.";
+                var notificationType = isUrgent ? "supply_request_urgent" : "supply_request";
+
                 await _firebaseService.SendNotificationToUserAsync(
                     sourceManagerUserId.Value,
-                    "Yêu cầu cung cấp vật tư mới",
-                    $"Kho của bạn vừa nhận được yêu cầu cung cấp vật tư #{created.SupplyRequestId}. Vui lòng kiểm tra và xử lý.",
-                    "supply_request",
+                    notificationTitle,
+                    notificationBody,
+                    notificationType,
                     cancellationToken);
+
+                if (isUrgent)
+                    await _supplyRequestRepository.MarkUrgentEscalationNotifiedAsync(created.SupplyRequestId, cancellationToken);
             }
             else
             {

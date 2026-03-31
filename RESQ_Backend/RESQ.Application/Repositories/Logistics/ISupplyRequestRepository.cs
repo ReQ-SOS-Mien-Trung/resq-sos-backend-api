@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Repositories.Logistics;
 
@@ -7,9 +8,12 @@ public class SupplyRequestDetail
     public int Id { get; set; }
     public int RequestingDepotId { get; set; }
     public int SourceDepotId { get; set; }
+    public SupplyRequestPriorityLevel PriorityLevel { get; set; } = SupplyRequestPriorityLevel.Medium;
     public string SourceStatus { get; set; } = string.Empty;
     public string RequestingStatus { get; set; } = string.Empty;
     public Guid RequestedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? AutoRejectAt { get; set; }
     public List<(int ItemModelId, int Quantity)> Items { get; set; } = new();
 }
 
@@ -28,16 +32,30 @@ public class SupplyRequestListItem
     public string? RequestingDepotName { get; set; }
     public int SourceDepotId { get; set; }
     public string? SourceDepotName { get; set; }
+    public SupplyRequestPriorityLevel PriorityLevel { get; set; } = SupplyRequestPriorityLevel.Medium;
     public string SourceStatus { get; set; } = string.Empty;
     public string RequestingStatus { get; set; } = string.Empty;
     public string? Note { get; set; }
     public string? RejectedReason { get; set; }
     public Guid RequestedBy { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? AutoRejectAt { get; set; }
     public DateTime? RespondedAt { get; set; }
     public DateTime? ShippedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public List<SupplyRequestItemDetail> Items { get; set; } = new();
+}
+
+public class PendingSupplyRequestMonitorItem
+{
+    public int Id { get; set; }
+    public int SourceDepotId { get; set; }
+    public Guid RequestedBy { get; set; }
+    public SupplyRequestPriorityLevel PriorityLevel { get; set; } = SupplyRequestPriorityLevel.Medium;
+    public DateTime CreatedAt { get; set; }
+    public DateTime? AutoRejectAt { get; set; }
+    public bool HighEscalationNotified { get; set; }
+    public bool UrgentEscalationNotified { get; set; }
 }
 
 public interface ISupplyRequestRepository
@@ -46,6 +64,8 @@ public interface ISupplyRequestRepository
         int requestingDepotId,
         int sourceDepotId,
         List<(int ItemModelId, int Quantity)> items,
+        SupplyRequestPriorityLevel priorityLevel,
+        DateTime autoRejectAt,
         string? note,
         Guid requestedBy,
         CancellationToken cancellationToken = default);
@@ -88,4 +108,14 @@ public interface ISupplyRequestRepository
     /// Throws BadRequestException nếu số đơn vị InTransit không khớp.
     /// </summary>
     Task TransferInAsync(int requestingDepotId, List<(int ItemModelId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
+
+    Task<List<PendingSupplyRequestMonitorItem>> GetPendingForMonitoringAsync(CancellationToken cancellationToken = default);
+
+    Task SetAutoRejectAtAsync(int id, DateTime autoRejectAt, CancellationToken cancellationToken = default);
+
+    Task MarkHighEscalationNotifiedAsync(int id, CancellationToken cancellationToken = default);
+
+    Task MarkUrgentEscalationNotifiedAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<bool> AutoRejectIfPendingAsync(int id, string rejectedReason, CancellationToken cancellationToken = default);
 }

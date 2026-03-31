@@ -22,6 +22,10 @@ public partial class DepotSupplyRequest
     [Column("note")]
     public string? Note { get; set; }
 
+    [Column("priority_level")]
+    [StringLength(20)]
+    public string PriorityLevel { get; set; } = "Medium";
+
     /// <summary>Trạng thái từ góc nhìn kho nguồn.</summary>
     [Column("source_status")]
     [StringLength(50)]
@@ -40,6 +44,21 @@ public partial class DepotSupplyRequest
 
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime CreatedAt { get; set; }
+
+    [Column("auto_reject_at", TypeName = "timestamp with time zone")]
+    public DateTime? AutoRejectAt { get; set; }
+
+    [Column("high_escalation_notified")]
+    public bool HighEscalationNotified { get; set; }
+
+    [Column("high_escalation_notified_at", TypeName = "timestamp with time zone")]
+    public DateTime? HighEscalationNotifiedAt { get; set; }
+
+    [Column("urgent_escalation_notified")]
+    public bool UrgentEscalationNotified { get; set; }
+
+    [Column("urgent_escalation_notified_at", TypeName = "timestamp with time zone")]
+    public DateTime? UrgentEscalationNotifiedAt { get; set; }
 
     [Column("responded_at", TypeName = "timestamp with time zone")]
     public DateTime? RespondedAt { get; set; }

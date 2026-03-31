@@ -65,6 +65,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOrganizationMetadataRepository, OrganizationMetadataRepository>();
         services.AddScoped<IPurchasedInventoryRepository, PurchasedInventoryRepository>();
         services.AddScoped<ISupplyRequestRepository, SupplyRequestRepository>();
+        services.AddScoped<ISupplyRequestPriorityConfigRepository, SupplyRequestPriorityConfigRepository>();
         services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>();
         services.AddScoped<IAssemblyEventRepository, AssemblyEventRepository>();
         services.AddScoped<IRescueTeamRepository, RescueTeamRepository>();
@@ -148,6 +149,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<CampaignDeadlineBackgroundService>();
         services.AddHostedService<DepotRealtimeOutboxDispatcherBackgroundService>();
         services.AddHostedService<DepotRealtimeDeadLetterRetryBackgroundService>();
+        services.AddHostedService<SupplyRequestDeadlineBackgroundService>();
 
         return services;
     }

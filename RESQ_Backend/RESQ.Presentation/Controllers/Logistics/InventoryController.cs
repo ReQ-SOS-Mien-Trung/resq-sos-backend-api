@@ -14,6 +14,7 @@ using RESQ.Application.UseCases.Logistics.Commands.ManageMyDepotThresholds;
 using RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.RejectSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
+using RESQ.Application.UseCases.Logistics.Commands.UpsertSupplyRequestPriorityConfig;
 using RESQ.Application.UseCases.Logistics.Commands.UpsertWarningBandConfig;
 using RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
 using RESQ.Application.UseCases.Logistics.Queries.GenerateDonationImportTemplate;
@@ -33,6 +34,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetReliefItemsByCategoryCode;
+using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequestPriorityConfig;
 using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
 using RESQ.Application.UseCases.Logistics.Queries.GetWarningBandConfig;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
@@ -103,7 +105,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>[Admin] Chart data vật tư sắp hết trên tất cả kho hoặc một kho cụ thể.
+    /// <summary>[Admin] Dữ liệu biểu đồ vật tư sắp hết trên tất cả kho hoặc một kho cụ thể.
     /// severityRatio = max(0, available / minimumThreshold). Ngưỡng được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("low-stock")]
@@ -118,7 +120,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>[Manager] Chart data vật tư sắp hết tại kho mình quản lý.
+    /// <summary>[Manager] Dữ liệu biểu đồ vật tư sắp hết tại kho mình quản lý.
     /// severityRatio = max(0, available / minimumThreshold). Ngưỡng được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("my-depot/low-stock")]
@@ -146,7 +148,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    // NOTE: Đã tắt — không còn lưu lịch sử thay đổi threshold nữa (UpsertAsync/ResetAsync ghi đè trực tiếp)
+    // NOTE: Đã tắt - không còn lưu lịch sử thay đổi threshold nữa (UpsertAsync/ResetAsync ghi đè trực tiếp)
     // [HttpGet("my-depot/thresholds/history")]
     // public async Task<IActionResult> GetMyDepotThresholdHistory(...) { ... }
 
@@ -199,7 +201,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    // NOTE: Đã tắt — không còn có cấu hình inactive để restore (UpsertAsync ghi đè trực tiếp, ResetAsync xóa cứng)
+    // NOTE: Đã tắt - không còn có cấu hình inactive để restore (UpsertAsync ghi đè trực tiếp, ResetAsync xóa cứng)
     // [HttpPut("my-depot/thresholds/restore")]
     // public async Task<IActionResult> RestoreThreshold(...) { ... }
 
@@ -213,7 +215,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    // NOTE: Đã tắt — không còn lưu lịch sử thay đổi threshold nữa
+    // NOTE: Đã tắt - không còn lưu lịch sử thay đổi threshold nữa
     // [HttpGet("thresholds/history")]
     // public async Task<IActionResult> GetAdminThresholdHistory(...) { ... }
 
@@ -243,6 +245,35 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
             UserId = userId,
             Bands = bands
         });
+        return Ok(result);
+    }
+
+    /// <summary>[Admin] Xem cấu hình thời gian phản hồi cho 3 mức độ yêu cầu tiếp tế.</summary>
+    [HttpGet("supply-request-priority-config")]
+    [Authorize(Roles = "1")]
+    [ProducesResponseType(typeof(GetSupplyRequestPriorityConfigResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSupplyRequestPriorityConfig()
+    {
+        var result = await _mediator.Send(new GetSupplyRequestPriorityConfigQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Admin] Cập nhật cấu hình thời gian phản hồi cho 3 mức độ yêu cầu tiếp tế.</summary>
+    [HttpPut("supply-request-priority-config")]
+    [Authorize(Roles = "1")]
+    [ProducesResponseType(typeof(UpsertSupplyRequestPriorityConfigResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpsertSupplyRequestPriorityConfig([FromBody] UpsertSupplyRequestPriorityConfigRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new UpsertSupplyRequestPriorityConfigCommand
+        {
+            UserId = userId,
+            UrgentMinutes = request.UrgentMinutes,
+            HighMinutes = request.HighMinutes,
+            MediumMinutes = request.MediumMinutes
+        });
+
         return Ok(result);
     }
 
@@ -394,6 +425,14 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách mức độ ưu tiên yêu cầu tiếp tế (key tiếng Anh, value tiếng Việt).</summary>
+    [HttpGet("metadata/supply-request-priority-levels")]
+    public async Task<IActionResult> GetSupplyRequestPriorityLevels()
+    {
+        var result = await _mediator.Send(new GetSupplyRequestPriorityLevelsQuery());
+        return Ok(result);
+    }
+
     /// <summary>[Metadata] Danh sách loại phạm vi ngưỡng tồn kho (scope type).</summary>
     [HttpGet("metadata/scope-types")]
     public async Task<IActionResult> GetStockThresholdScopeTypes()
@@ -507,7 +546,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     /// <summary>Tải file Excel mẫu nhập kho từ thiện (donation import template).
-    /// File có dropdown chọn danh mục → dependent dropdown chọn vật phẩm,
+    /// File có dropdown chọn danh mục -> dependent dropdown chọn vật phẩm,
     /// và auto-fill VLOOKUP cho Đối tượng / Loại vật phẩm / Đơn vị.</summary>
     [HttpGet("template/donation-import")]
     [Authorize]
@@ -519,7 +558,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     }
 
     /// <summary>Tải file Excel mẫu nhập kho mua sắm (purchase import template).
-    /// File có cột thông tin hóa đơn VAT, dropdown danh mục → vật phẩm,
+    /// File có cột thông tin hóa đơn VAT, dropdown danh mục -> vật phẩm,
     /// auto-fill VLOOKUP và cột đơn giá.</summary>
     [HttpGet("template/purchase-import")]
     [Authorize]
@@ -587,7 +626,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>Nhập kho vật tư từ nguồn mua sắm theo hoá đơn.</summary>
+    /// <summary>Nhập kho vật tư từ nguồn mua sắm theo hóa đơn.</summary>
     [HttpPost("import-purchase")]
     //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> ImportPurchase([FromBody] ImportPurchasedInventoryRequest request)
@@ -623,7 +662,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
 
     /// <summary>
     /// Lấy danh sách yêu cầu tiếp tế của kho đang đăng nhập (cả hai chiều: gửi đi và nhận về).
-    /// Trả về field <c>role</c>: "Requester" — kho này đã gửi yêu cầu | "Source" — kho này nhận yêu cầu.
+    /// Trả về field <c>role</c>: "Requester" - kho này đã gửi yêu cầu | "Source" - kho này nhận yêu cầu.
     /// </summary>
     [HttpGet("supply-requests")]
     [Authorize]
@@ -648,7 +687,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>Manager kho nguồn bắt đầu đóng gói / picking (Accepted → Preparing).</summary>
+    /// <summary>Manager kho nguồn bắt đầu đóng gói / picking (Accepted -> Preparing).</summary>
     [HttpPut("supply-requests/{id:int}/prepare")]
     [Authorize]
     public async Task<IActionResult> PrepareSupplyRequest(int id)
@@ -699,7 +738,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>Manager kho nguồn xác nhận đã hoàn tất giao hàng (Shipping → Completed).</summary>
+    /// <summary>Manager kho nguồn xác nhận đã hoàn tất giao hàng (Shipping -> Completed).</summary>
     [HttpPut("supply-requests/{id:int}/complete")]
     [Authorize]
     public async Task<IActionResult> CompleteSupplyRequest(int id)

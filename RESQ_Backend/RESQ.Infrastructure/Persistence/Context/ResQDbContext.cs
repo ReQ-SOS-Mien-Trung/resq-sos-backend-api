@@ -41,6 +41,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<SupplyInventoryLot> SupplyInventoryLots { get; set; }
     public virtual DbSet<DepotSupplyRequest> DepotSupplyRequests { get; set; }
     public virtual DbSet<DepotSupplyRequestItem> DepotSupplyRequestItems { get; set; }
+    public virtual DbSet<SupplyRequestPriorityConfig> SupplyRequestPriorityConfigs { get; set; }
     public virtual DbSet<Donation> Donations { get; set; }
     public virtual DbSet<FundCampaign> FundCampaigns { get; set; }
     public virtual DbSet<FundTransaction> FundTransactions { get; set; }
@@ -163,6 +164,14 @@ public partial class ResQDbContext : DbContext
         {
             entity.UseXminAsConcurrencyToken();
             entity.Ignore(e => e.TotalReservedQuantity);
+        });
+
+        modelBuilder.Entity<SupplyRequestPriorityConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("supply_request_priority_configs_pkey");
+            entity.HasCheckConstraint(
+                "ck_supply_request_priority_configs_order",
+                "urgent_minutes > 0 AND urgent_minutes < high_minutes AND high_minutes < medium_minutes");
         });
 
         modelBuilder.Entity<InventoryStockThresholdConfig>(entity =>
