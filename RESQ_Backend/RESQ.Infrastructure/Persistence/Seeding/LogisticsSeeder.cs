@@ -757,34 +757,31 @@ public static class LogisticsSeeder
         //   D1 (Huế):    IDs  1- 72  | D2 (Đà Nẵng): IDs  73-144
         //   D3 (Hà Tĩnh): IDs 145-216 | D4 (HN-TW):   IDs 217-288
         //
-        // Each depot has 4 consumable items intentionally pushed into different low-stock levels.
-        // Value = remaining available ratio after mission reservation.
-        // This keeps the seed stable even if base quantities change later.
+        // Each depot has 3 consumable items intentionally pushed into the fixed warning bands:
+        // CRITICAL [0.0, 0.4), MEDIUM [0.4, 0.7), LOW [0.7, 1.0). The rest remain OK (>= 1.0).
+        // Value = target remaining available ratio after mission reservation.
+        // Ratios are kept away from boundaries so rounding still lands in the intended band.
         var lowStockAvailabilityRatios = new Dictionary<int, decimal>
         {
             // Depot 1 - Hue
-            [3]   = 0.04m, // Paracetamol: very low
-            [5]   = 0.28m, // Blanket: low
-            [23]  = 0.15m, // Medical gauze: medium
-            [63]  = 0.07m, // Mini gas canister: critical
+            [3]  = 0.20m, // Paracetamol: CRITICAL
+            [23] = 0.55m, // Medical gauze: MEDIUM
+            [5]  = 0.82m, // Blanket: LOW
 
             // Depot 2 - Da Nang
-            [110] = 0.18m, // Adult raincoat: medium
-            [113] = 0.32m, // Adult warm jacket: low
-            [129] = 0.26m, // Coal briquette: near threshold
-            [135] = 0.08m, // Mini gas canister: critical
+            [129] = 0.20m, // Coal briquette: CRITICAL
+            [110] = 0.55m, // Adult raincoat: MEDIUM
+            [113] = 0.82m, // Adult warm jacket: LOW
 
             // Depot 3 - Ha Tinh
-            [145] = 0.08m, // Instant noodles: critical
-            [154] = 0.15m, // Dried rice: medium
-            [172] = 0.18m, // First aid kit: medium
-            [173] = 0.06m, // Antibacterial soap: very low
+            [145] = 0.20m, // Instant noodles: CRITICAL
+            [154] = 0.55m, // Dried rice: MEDIUM
+            [172] = 0.82m, // First aid kit: LOW
 
             // Depot 4 - HN/TW
-            [219] = 0.05m, // Paracetamol: very low
-            [226] = 0.18m, // Dried rice: medium
-            [245] = 0.32m, // Antibacterial soap: low
-            [282] = 0.38m, // Power bank: near threshold
+            [219] = 0.20m, // Paracetamol: CRITICAL
+            [226] = 0.55m, // Dried rice: MEDIUM
+            [245] = 0.82m, // Antibacterial soap: LOW
         };
         foreach (var entry in list)
         {
@@ -1181,3 +1178,4 @@ public static class LogisticsSeeder
         );
     }
 }
+
