@@ -56,6 +56,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<MissionTeam> MissionTeams { get; set; }
     public virtual DbSet<MissionTeamReport> MissionTeamReports { get; set; }
     public virtual DbSet<MissionTeamMember> MissionTeamMembers { get; set; }
+    public virtual DbSet<MissionTeamMemberEvaluation> MissionTeamMemberEvaluations { get; set; }
     public virtual DbSet<ReusableItem> ReusableItems { get; set; }
     public virtual DbSet<Notification> Notifications { get; set; }
     public virtual DbSet<DepotRealtimeOutbox> DepotRealtimeOutboxEvents { get; set; }
@@ -70,6 +71,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<RescuerApplication> RescuerApplications { get; set; }
     public virtual DbSet<RescuerApplicationDocument> RescuerApplicationDocuments { get; set; }
     public virtual DbSet<RescuerProfile> RescuerProfiles { get; set; }
+    public virtual DbSet<RescuerScore> RescuerScores { get; set; }
     public virtual DbSet<RescueTeam> RescueTeams { get; set; }
     public virtual DbSet<RescueTeamMember> RescueTeamMembers { get; set; } // Added
     public virtual DbSet<RescueTeamAiSuggestion> RescueTeamAiSuggestions { get; set; }
@@ -136,6 +138,28 @@ public partial class ResQDbContext : DbContext
                 .HasForeignKey(e => e.ApprovedBy)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_rescuer_profiles_users_approved_by");
+        });
+
+        modelBuilder.Entity<RescuerScore>(entity =>
+        {
+            entity.HasKey(e => e.UserId).HasName("rescuer_scores_pkey");
+
+            entity.HasOne(e => e.RescuerProfile)
+                .WithOne(p => p.RescuerScore)
+                .HasForeignKey<RescuerScore>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_rescuer_scores_rescuer_profiles_user_id");
+
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_rescuer_scores_response_time_score_range", "\"response_time_score\" >= 0 AND \"response_time_score\" <= 10");
+                t.HasCheckConstraint("CK_rescuer_scores_rescue_effectiveness_score_range", "\"rescue_effectiveness_score\" >= 0 AND \"rescue_effectiveness_score\" <= 10");
+                t.HasCheckConstraint("CK_rescuer_scores_decision_handling_score_range", "\"decision_handling_score\" >= 0 AND \"decision_handling_score\" <= 10");
+                t.HasCheckConstraint("CK_rescuer_scores_safety_medical_skill_score_range", "\"safety_medical_skill_score\" >= 0 AND \"safety_medical_skill_score\" <= 10");
+                t.HasCheckConstraint("CK_rescuer_scores_teamwork_communication_score_range", "\"teamwork_communication_score\" >= 0 AND \"teamwork_communication_score\" <= 10");
+                t.HasCheckConstraint("CK_rescuer_scores_overall_average_score_range", "\"overall_average_score\" >= 0 AND \"overall_average_score\" <= 10");
+                t.HasCheckConstraint("CK_rescuer_scores_evaluation_count_non_negative", "\"evaluation_count\" >= 0");
+            });
         });
 
         modelBuilder.Entity<DepotFund>(entity =>
@@ -265,6 +289,35 @@ public partial class ResQDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.SubmittedBy)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<MissionTeamMemberEvaluation>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("mission_team_member_evaluations_pkey");
+            entity.HasIndex(e => new { e.MissionTeamReportId, e.RescuerId })
+                .HasDatabaseName("ux_mission_team_member_evaluations_report_rescuer")
+                .IsUnique();
+
+            entity.HasOne(e => e.MissionTeamReport)
+                .WithMany(r => r.MissionTeamMemberEvaluations)
+                .HasForeignKey(e => e.MissionTeamReportId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.RescuerProfile)
+                .WithMany(p => p.MissionTeamMemberEvaluations)
+                .HasForeignKey(e => e.RescuerId)
+                .HasPrincipalKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_mission_team_member_evaluations_rescuer_profiles_rescuer_id");
+
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_mission_team_member_evaluations_response_time_score_range", "\"response_time_score\" >= 0 AND \"response_time_score\" <= 10");
+                t.HasCheckConstraint("CK_mission_team_member_evaluations_rescue_effectiveness_score_range", "\"rescue_effectiveness_score\" >= 0 AND \"rescue_effectiveness_score\" <= 10");
+                t.HasCheckConstraint("CK_mission_team_member_evaluations_decision_handling_score_range", "\"decision_handling_score\" >= 0 AND \"decision_handling_score\" <= 10");
+                t.HasCheckConstraint("CK_mission_team_member_evaluations_safety_medical_skill_score_range", "\"safety_medical_skill_score\" >= 0 AND \"safety_medical_skill_score\" <= 10");
+                t.HasCheckConstraint("CK_mission_team_member_evaluations_teamwork_communication_score_range", "\"teamwork_communication_score\" >= 0 AND \"teamwork_communication_score\" <= 10");
+            });
         });
 
         modelBuilder.Entity<MissionActivityReport>(entity =>

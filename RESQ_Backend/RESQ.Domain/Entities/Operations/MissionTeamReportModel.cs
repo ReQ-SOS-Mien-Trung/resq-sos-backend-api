@@ -17,4 +17,5 @@ public class MissionTeamReportModel
     public DateTime? SubmittedAt { get; set; }
     public Guid? SubmittedBy { get; set; }
     public List<MissionActivityReportModel> ActivityReports { get; set; } = [];
+    public List<MissionTeamMemberEvaluationModel> MemberEvaluations { get; set; } = [];
 }

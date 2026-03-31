@@ -1,3 +1,5 @@
+using RESQ.Application.UseCases.Operations.Shared;
+
 namespace RESQ.Application.UseCases.Operations.Commands.SaveMissionTeamReportDraft;
 
 public class SaveMissionTeamReportDraftRequestDto
@@ -8,6 +10,7 @@ public class SaveMissionTeamReportDraftRequestDto
     public string? ResultJson { get; set; }
     public string? EvidenceJson { get; set; }
     public List<SaveMissionTeamReportDraftActivityItemDto> Activities { get; set; } = [];
+    public List<MissionTeamMemberEvaluationInputDto> MemberEvaluations { get; set; } = [];
 }
 
 public class SaveMissionTeamReportDraftActivityItemDto

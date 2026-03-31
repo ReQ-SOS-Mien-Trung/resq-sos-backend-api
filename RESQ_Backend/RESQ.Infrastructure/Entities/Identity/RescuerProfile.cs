@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using RESQ.Infrastructure.Entities.Operations;
 
 namespace RESQ.Infrastructure.Entities.Identity;
 
@@ -32,4 +34,10 @@ public class RescuerProfile
 
     [ForeignKey("ApprovedBy")]
     public virtual User? ApprovedByUser { get; set; }
+
+    [InverseProperty("RescuerProfile")]
+    public virtual ICollection<MissionTeamMemberEvaluation> MissionTeamMemberEvaluations { get; set; } = new List<MissionTeamMemberEvaluation>();
+
+    [InverseProperty("RescuerProfile")]
+    public virtual RescuerScore? RescuerScore { get; set; }
 }

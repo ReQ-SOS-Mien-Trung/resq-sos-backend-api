@@ -1,3 +1,5 @@
+using RESQ.Application.Common.Models;
+
 namespace RESQ.Application.UseCases.Identity.Queries.GetRescuers;
 
 public class GetRescuersItemResponse
@@ -20,4 +22,5 @@ public class GetRescuersItemResponse
     public string? Ward { get; set; }
     public string? Province { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public RescuerScoreDto RescuerScore { get; set; } = new();
 }

@@ -1,3 +1,5 @@
+using RESQ.Application.Common.Models;
+
 namespace RESQ.Application.UseCases.Identity.Queries.GetUserById;
 
 public class UserAbilityDto
@@ -47,6 +49,7 @@ public class GetUserByIdResponse
     public DateTime? ApprovedAt { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public RescuerScoreDto? RescuerScore { get; set; }
     public List<UserAbilityDto> Abilities { get; set; } = [];
     public List<RescuerDocumentDto> RescuerApplicationDocuments { get; set; } = [];
 }

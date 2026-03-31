@@ -16,7 +16,7 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
             .GetByPropertyAsync(
                 r => r.MissionTeamId == missionTeamId,
                 tracked: false,
-                includeProperties: "MissionActivityReports");
+                includeProperties: "MissionActivityReports,MissionTeamMemberEvaluations");
 
         return entity is null ? null : ToModel(entity);
     }
@@ -27,7 +27,7 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
         var entity = await repository.GetByPropertyAsync(
             r => r.MissionTeamId == model.MissionTeamId,
             tracked: true,
-            includeProperties: "MissionActivityReports");
+            includeProperties: "MissionActivityReports,MissionTeamMemberEvaluations");
 
         if (entity is null)
         {
@@ -50,6 +50,7 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
         entity.UpdatedAt = DateTime.UtcNow;
 
         await SyncActivityReportsAsync(entity, model.ActivityReports);
+        await SyncMemberEvaluationsAsync(entity, model.MemberEvaluations);
 
         await _unitOfWork.SaveAsync();
         return entity.Id;
@@ -62,7 +63,7 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
 
         if (entity is null)
         {
-            throw new InvalidOperationException($"Không tìm thấy báo cáo cho mission team {missionTeamId}.");
+            throw new InvalidOperationException($"KhÃ´ng tÃ¬m tháº¥y bÃ¡o cÃ¡o cho mission team {missionTeamId}.");
         }
 
         entity.ReportStatus = MissionTeamReportStatus.Submitted.ToString();
@@ -129,6 +130,44 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
         }
     }
 
+    private async Task SyncMemberEvaluationsAsync(MissionTeamReport entity, IEnumerable<MissionTeamMemberEvaluationModel> models)
+    {
+        var evaluationRepository = _unitOfWork.GetRepository<MissionTeamMemberEvaluation>();
+        var incoming = models.GroupBy(x => x.RescuerId).ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var existing in entity.MissionTeamMemberEvaluations.ToList())
+        {
+            if (incoming.ContainsKey(existing.RescuerId))
+            {
+                continue;
+            }
+
+            entity.MissionTeamMemberEvaluations.Remove(existing);
+            await evaluationRepository.DeleteAsyncById(existing.Id);
+        }
+
+        foreach (var model in models)
+        {
+            var existing = entity.MissionTeamMemberEvaluations.FirstOrDefault(x => x.RescuerId == model.RescuerId);
+            if (existing is null)
+            {
+                existing = new MissionTeamMemberEvaluation
+                {
+                    RescuerId = model.RescuerId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                entity.MissionTeamMemberEvaluations.Add(existing);
+            }
+
+            existing.ResponseTimeScore = model.ResponseTimeScore;
+            existing.RescueEffectivenessScore = model.RescueEffectivenessScore;
+            existing.DecisionHandlingScore = model.DecisionHandlingScore;
+            existing.SafetyMedicalSkillScore = model.SafetyMedicalSkillScore;
+            existing.TeamworkCommunicationScore = model.TeamworkCommunicationScore;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
     private static MissionTeamReportModel ToModel(MissionTeamReport entity) => new()
     {
         Id = entity.Id,
@@ -159,6 +198,22 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
                 IssuesJson = x.IssuesJson,
                 ResultJson = x.ResultJson,
                 EvidenceJson = x.EvidenceJson,
+                CreatedAt = x.CreatedAt,
+                UpdatedAt = x.UpdatedAt
+            })
+            .ToList(),
+        MemberEvaluations = entity.MissionTeamMemberEvaluations
+            .OrderBy(x => x.RescuerId)
+            .Select(x => new MissionTeamMemberEvaluationModel
+            {
+                Id = x.Id,
+                MissionTeamReportId = x.MissionTeamReportId,
+                RescuerId = x.RescuerId,
+                ResponseTimeScore = x.ResponseTimeScore,
+                RescueEffectivenessScore = x.RescueEffectivenessScore,
+                DecisionHandlingScore = x.DecisionHandlingScore,
+                SafetyMedicalSkillScore = x.SafetyMedicalSkillScore,
+                TeamworkCommunicationScore = x.TeamworkCommunicationScore,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
             })

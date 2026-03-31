@@ -4,10 +4,13 @@ using RESQ.Application.Repositories.Identity;
 
 namespace RESQ.Application.UseCases.Identity.Queries.GetRescuers;
 
-public class GetRescuersQueryHandler(IUserRepository userRepository)
+public class GetRescuersQueryHandler(
+    IUserRepository userRepository,
+    IRescuerScoreRepository rescuerScoreRepository)
     : IRequestHandler<GetRescuersQuery, PagedResult<GetRescuersItemResponse>>
 {
     private readonly IUserRepository _userRepository = userRepository;
+    private readonly IRescuerScoreRepository _rescuerScoreRepository = rescuerScoreRepository;
 
     public async Task<PagedResult<GetRescuersItemResponse>> Handle(GetRescuersQuery request, CancellationToken cancellationToken)
     {
@@ -19,6 +22,8 @@ public class GetRescuersQueryHandler(IUserRepository userRepository)
             search: request.Search,
             isEligible: true,
             cancellationToken: cancellationToken);
+
+        var rescuerScores = await _rescuerScoreRepository.GetByRescuerIdsAsync(paged.Items.Select(x => x.Id), cancellationToken);
 
         var items = paged.Items.Select(u => new GetRescuersItemResponse
         {
@@ -39,7 +44,9 @@ public class GetRescuersQueryHandler(IUserRepository userRepository)
             Address = u.Address,
             Ward = u.Ward,
             Province = u.Province,
-            CreatedAt = u.CreatedAt
+            CreatedAt = u.CreatedAt,
+            RescuerScore = RescuerScoreDto.FromModel(
+                rescuerScores.TryGetValue(u.Id, out var rescuerScore) ? rescuerScore : null)
         }).ToList();
 
         return new PagedResult<GetRescuersItemResponse>(items, paged.TotalCount, paged.PageNumber, paged.PageSize);

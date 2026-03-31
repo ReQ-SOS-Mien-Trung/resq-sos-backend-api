@@ -1,3 +1,5 @@
+using RESQ.Application.UseCases.Operations.Shared;
+
 namespace RESQ.Application.UseCases.Operations.Commands.SubmitMissionTeamReport;
 
 public class SubmitMissionTeamReportRequestDto
@@ -8,6 +10,7 @@ public class SubmitMissionTeamReportRequestDto
     public string? ResultJson { get; set; }
     public string? EvidenceJson { get; set; }
     public List<SubmitMissionTeamReportActivityItemDto> Activities { get; set; } = [];
+    public List<MissionTeamMemberEvaluationInputDto> MemberEvaluations { get; set; } = [];
 }
 
 public class SubmitMissionTeamReportActivityItemDto
