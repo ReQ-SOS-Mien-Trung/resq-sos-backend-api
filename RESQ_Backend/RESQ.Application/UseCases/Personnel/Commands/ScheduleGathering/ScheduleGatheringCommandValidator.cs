@@ -1,4 +1,5 @@
 using FluentValidation;
+using RESQ.Application.Extensions;
 
 namespace RESQ.Application.UseCases.Personnel.Commands.ScheduleGathering;
 
@@ -7,10 +8,19 @@ public class ScheduleGatheringCommandValidator : AbstractValidator<ScheduleGathe
     public ScheduleGatheringCommandValidator()
     {
         RuleFor(x => x.AssemblyPointId)
-            .GreaterThan(0).WithMessage("AssemblyPointId không hợp lệ.");
+            .GreaterThan(0)
+            .WithMessage("AssemblyPointId không hợp lệ.");
 
         RuleFor(x => x.AssemblyDate)
-            .GreaterThan(DateTime.UtcNow.AddHours(48))
-            .WithMessage("Ngày triệu tập phải sau ít nhất 48 giờ kể từ thời điểm hiện tại.");
+            .Must(BeOnOrAfterTodayInVietnam)
+            .WithMessage("Ngày triệu tập không được là ngày quá khứ.");
+    }
+
+    private static bool BeOnOrAfterTodayInVietnam(DateTime assemblyDate)
+    {
+        var assemblyDateInVietnam = assemblyDate.ToUtcForStorage().ToVietnamTime().Date;
+        var todayInVietnam = DateTime.UtcNow.ToVietnamTime().Date;
+
+        return assemblyDateInVietnam >= todayInVietnam;
     }
 }
