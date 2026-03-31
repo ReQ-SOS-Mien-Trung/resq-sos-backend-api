@@ -1,5 +1,6 @@
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Application.UseCases.Operations.Shared;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMissionTeamReport;
 
@@ -17,6 +18,7 @@ internal static class MissionTeamReportResponseFactory
         var reportStatus = report?.ReportStatus.ToString() ?? MissionTeamReportStatus.NotStarted.ToString();
         var isSubmitted = string.Equals(reportStatus, MissionTeamReportStatus.Submitted.ToString(), StringComparison.OrdinalIgnoreCase);
         var isCancelled = string.Equals(missionTeam.Status, MissionTeamExecutionStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase);
+        var evaluableMembers = MissionTeamMemberEvaluationHelper.GetEvaluableMembers(missionTeam);
 
         return new MissionTeamReportResponse
         {
@@ -29,6 +31,7 @@ internal static class MissionTeamReportResponseFactory
                 && !isCancelled
                 && !isSubmitted
                 && string.Equals(missionTeam.Status, MissionTeamExecutionStatus.CompletedWaitingReport.ToString(), StringComparison.OrdinalIgnoreCase),
+            CanEvaluateMembers = isLeader && !isCancelled && !isSubmitted,
             StartedAt = report?.StartedAt,
             LastEditedAt = report?.LastEditedAt,
             SubmittedAt = report?.SubmittedAt,
@@ -54,6 +57,29 @@ internal static class MissionTeamReportResponseFactory
                         IssuesJson = activityReport?.IssuesJson,
                         ResultJson = activityReport?.ResultJson,
                         EvidenceJson = activityReport?.EvidenceJson
+                    };
+                })
+                .ToList(),
+            MemberEvaluations = evaluableMembers.Values
+                .OrderBy(member => member.FullName)
+                .Select(member =>
+                {
+                    var evaluation = report?.MemberEvaluations.FirstOrDefault(x => x.RescuerId == member.UserId);
+                    return new MissionTeamReportMemberEvaluationDto
+                    {
+                        RescuerId = member.UserId,
+                        FullName = member.FullName,
+                        Username = member.Username,
+                        Phone = member.Phone,
+                        AvatarUrl = member.AvatarUrl,
+                        RescuerType = member.RescuerType,
+                        RoleInTeam = member.RoleInTeam,
+                        ResponseTimeScore = evaluation?.ResponseTimeScore,
+                        RescueEffectivenessScore = evaluation?.RescueEffectivenessScore,
+                        DecisionHandlingScore = evaluation?.DecisionHandlingScore,
+                        SafetyMedicalSkillScore = evaluation?.SafetyMedicalSkillScore,
+                        TeamworkCommunicationScore = evaluation?.TeamworkCommunicationScore,
+                        OverallScore = evaluation?.OverallScore
                     };
                 })
                 .ToList()

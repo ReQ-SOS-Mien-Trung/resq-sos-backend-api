@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Identity;
 
@@ -7,12 +8,14 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetUserById;
 public class GetUserByIdQueryHandler(
     IUserRepository userRepository,
     IAbilityRepository abilityRepository,
-    IRescuerApplicationRepository rescuerApplicationRepository
+    IRescuerApplicationRepository rescuerApplicationRepository,
+    IRescuerScoreRepository rescuerScoreRepository
 ) : IRequestHandler<GetUserByIdQuery, GetUserByIdResponse>
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IAbilityRepository _abilityRepository = abilityRepository;
     private readonly IRescuerApplicationRepository _rescuerApplicationRepository = rescuerApplicationRepository;
+    private readonly IRescuerScoreRepository _rescuerScoreRepository = rescuerScoreRepository;
 
     public async Task<GetUserByIdResponse> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
     {
@@ -37,6 +40,8 @@ public class GetUserByIdQueryHandler(
                 UploadedAt = d.UploadedAt
             }).ToList();
         }
+
+        var rescuerScore = await _rescuerScoreRepository.GetByRescuerIdAsync(user.Id, cancellationToken);
 
         return new GetUserByIdResponse
         {
@@ -65,6 +70,7 @@ public class GetUserByIdQueryHandler(
             ApprovedAt = user.ApprovedAt,
             CreatedAt = user.CreatedAt,
             UpdatedAt = user.UpdatedAt,
+            RescuerScore = rescuerScore is null ? null : RescuerScoreDto.FromModel(rescuerScore),
             Abilities = userAbilities.Select(a => new UserAbilityDto
             {
                 AbilityId = a.AbilityId,

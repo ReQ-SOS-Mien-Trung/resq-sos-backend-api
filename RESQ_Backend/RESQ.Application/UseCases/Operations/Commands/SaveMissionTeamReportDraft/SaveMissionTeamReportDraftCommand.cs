@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamReport;
 
 namespace RESQ.Application.UseCases.Operations.Commands.SaveMissionTeamReportDraft;
@@ -12,5 +13,6 @@ public record SaveMissionTeamReportDraftCommand(
     string? IssuesJson,
     string? ResultJson,
     string? EvidenceJson,
-    List<SaveMissionTeamReportDraftActivityItemDto> Activities
+    List<SaveMissionTeamReportDraftActivityItemDto> Activities,
+    List<MissionTeamMemberEvaluationInputDto> MemberEvaluations
 ) : IRequest<MissionTeamReportResponse>;

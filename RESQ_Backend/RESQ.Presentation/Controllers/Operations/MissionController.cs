@@ -342,7 +342,8 @@ public class MissionController(IMediator mediator) : ControllerBase
             dto.IssuesJson,
             dto.ResultJson,
             dto.EvidenceJson,
-            dto.Activities);
+            dto.Activities,
+            dto.MemberEvaluations);
 
         var result = await _mediator.Send(command);
         return Ok(result);
@@ -368,7 +369,8 @@ public class MissionController(IMediator mediator) : ControllerBase
             dto.IssuesJson,
             dto.ResultJson,
             dto.EvidenceJson,
-            dto.Activities);
+            dto.Activities,
+            dto.MemberEvaluations);
 
         var result = await _mediator.Send(command);
         return Ok(result);

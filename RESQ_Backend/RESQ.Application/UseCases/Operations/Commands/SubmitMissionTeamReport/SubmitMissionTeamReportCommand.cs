@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamReport;
 
 namespace RESQ.Application.UseCases.Operations.Commands.SubmitMissionTeamReport;
@@ -12,5 +13,6 @@ public record SubmitMissionTeamReportCommand(
     string? IssuesJson,
     string? ResultJson,
     string? EvidenceJson,
-    List<SubmitMissionTeamReportActivityItemDto> Activities
+    List<SubmitMissionTeamReportActivityItemDto> Activities,
+    List<MissionTeamMemberEvaluationInputDto> MemberEvaluations
 ) : IRequest<MissionTeamReportResponse>;

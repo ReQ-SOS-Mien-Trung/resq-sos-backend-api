@@ -60,4 +60,7 @@ public partial class MissionTeamReport
 
     [InverseProperty("MissionTeamReport")]
     public virtual ICollection<MissionActivityReport> MissionActivityReports { get; set; } = new List<MissionActivityReport>();
+
+    [InverseProperty("MissionTeamReport")]
+    public virtual ICollection<MissionTeamMemberEvaluation> MissionTeamMemberEvaluations { get; set; } = new List<MissionTeamMemberEvaluation>();
 }
