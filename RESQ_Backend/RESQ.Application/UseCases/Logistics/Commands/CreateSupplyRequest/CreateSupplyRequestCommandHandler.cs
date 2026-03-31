@@ -63,7 +63,7 @@ public class CreateSupplyRequestCommandHandler(
                     requestingDepotId.Value,
                     group.SourceDepotId,
                     items,
-                    group.PriorityLevel.ToString(),
+                    group.PriorityLevel,
                     autoRejectAt,
                     group.Note,
                     request.RequestingUserId,
