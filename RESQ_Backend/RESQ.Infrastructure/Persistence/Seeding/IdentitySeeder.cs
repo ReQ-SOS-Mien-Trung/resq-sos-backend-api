@@ -320,6 +320,90 @@ public static class IdentitySeeder
         }
 
         modelBuilder.Entity<RescuerProfile>().HasData(rescuerProfiles);
+        SeedRescuerScores(modelBuilder, now);
+    }
+
+    private static void SeedRescuerScores(ModelBuilder modelBuilder, DateTime now)
+    {
+        static RescuerScore CreateScore(
+            Guid userId,
+            decimal responseTimeScore,
+            decimal rescueEffectivenessScore,
+            decimal decisionHandlingScore,
+            decimal safetyMedicalSkillScore,
+            decimal teamworkCommunicationScore,
+            int evaluationCount,
+            DateTime createdAt)
+        {
+            var overallAverageScore = decimal.Round(
+                (responseTimeScore
+                + rescueEffectivenessScore
+                + decisionHandlingScore
+                + safetyMedicalSkillScore
+                + teamworkCommunicationScore) / 5m, 2);
+
+            return new RescuerScore
+            {
+                UserId = userId,
+                ResponseTimeScore = responseTimeScore,
+                RescueEffectivenessScore = rescueEffectivenessScore,
+                DecisionHandlingScore = decisionHandlingScore,
+                SafetyMedicalSkillScore = safetyMedicalSkillScore,
+                TeamworkCommunicationScore = teamworkCommunicationScore,
+                OverallAverageScore = overallAverageScore,
+                EvaluationCount = evaluationCount,
+                CreatedAt = createdAt,
+                UpdatedAt = createdAt
+            };
+        }
+
+        var rescuerScores = new List<RescuerScore>
+        {
+            CreateScore(
+                SeedConstants.RescuerUserId,
+                9.40m,
+                9.60m,
+                9.20m,
+                9.70m,
+                9.30m,
+                18,
+                now.AddDays(10)),
+            CreateScore(
+                SeedConstants.Applicant4UserId,
+                8.80m,
+                8.60m,
+                8.70m,
+                9.10m,
+                8.90m,
+                7,
+                now.AddDays(12))
+        };
+
+        for (int i = 1; i <= 80; i++)
+        {
+            var userId = Guid.Parse($"33333333-3333-3333-3333-33333333{i:D4}");
+            var isCoreRescuer = i % 2 == 0;
+            var typeBonus = isCoreRescuer ? 0.35m : 0.00m;
+
+            var responseTimeScore = 6.30m + (i % 7) * 0.35m;
+            var rescueEffectivenessScore = 6.60m + (i % 6) * 0.32m + typeBonus;
+            var decisionHandlingScore = 6.10m + (i % 8) * 0.28m + (i % 3 == 0 ? 0.20m : 0.00m);
+            var safetyMedicalSkillScore = 6.70m + (i % 5) * 0.34m + typeBonus;
+            var teamworkCommunicationScore = 6.40m + (i % 9) * 0.25m + (i % 4 == 0 ? 0.15m : 0.00m);
+            var evaluationCount = 3 + (i % 10);
+
+            rescuerScores.Add(CreateScore(
+                userId,
+                responseTimeScore,
+                rescueEffectivenessScore,
+                decisionHandlingScore,
+                safetyMedicalSkillScore,
+                teamworkCommunicationScore,
+                evaluationCount,
+                now.AddDays(15 + i)));
+        }
+
+        modelBuilder.Entity<RescuerScore>().HasData(rescuerScores);
     }
 
     private static void SeedRescuerApplications(ModelBuilder modelBuilder)

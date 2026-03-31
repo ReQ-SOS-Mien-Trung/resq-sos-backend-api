@@ -56,6 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
         services.AddScoped<IDepotInventoryRepository, DepotInventoryRepository>();
+        services.AddScoped<IUpcomingPickupActivityRepository, UpcomingPickupActivityRepository>();
         services.AddScoped<IStockThresholdConfigRepository, StockThresholdConfigRepository>();
         services.AddScoped<IStockWarningBandConfigRepository, StockWarningBandConfigRepository>();
         services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
