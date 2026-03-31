@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
@@ -15,32 +16,29 @@ public class ScheduleGatheringCommandHandler(
     ILogger<ScheduleGatheringCommandHandler> logger)
     : IRequestHandler<ScheduleGatheringCommand, int>
 {
-    /// <summary>Số giờ tối thiểu từ thời điểm hiện tại đến ngày triệu tập.</summary>
-    private const int MinHoursInAdvance = 48;
-
     public async Task<int> Handle(ScheduleGatheringCommand request, CancellationToken cancellationToken)
     {
-        // 1. Validate điểm tập kết tồn tại
+        // 1. Validate assembly point ton tai.
         var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId}");
 
-        // 2. Normalize về UTC (client có thể gửi giờ VN không có suffix Z)
-        var assemblyDateUtc = request.AssemblyDate.Kind == DateTimeKind.Utc
-            ? request.AssemblyDate
-            : DateTime.SpecifyKind(request.AssemblyDate, DateTimeKind.Utc);
+        // 2. Normalize ve UTC de luu tru.
+        var assemblyDateUtc = request.AssemblyDate.ToUtcForStorage();
 
-        // Validate ngày triệu tập phải sau ít nhất 48 giờ
-        var minAllowedDate = DateTime.UtcNow.AddHours(MinHoursInAdvance);
-        if (assemblyDateUtc < minAllowedDate)
+        // 3. Khong cho phep lap lich vao ngay qua khu theo gio Viet Nam.
+        var assemblyDateInVietnam = assemblyDateUtc.ToVietnamTime().Date;
+        var todayInVietnam = DateTime.UtcNow.ToVietnamTime().Date;
+        if (assemblyDateInVietnam < todayInVietnam)
+        {
             throw new BadRequestException(
-                $"Ngày triệu tập phải sau ít nhất {MinHoursInAdvance} giờ kể từ thời điểm hiện tại. " +
-                $"Thời gian sớm nhất cho phép: {minAllowedDate:dd/MM/yyyy HH:mm} UTC.");
+                $"Ngày triệu tập không được là ngày quá khứ. Ngày hiện tại theo giờ Việt Nam là {todayInVietnam:dd/MM/yyyy}.");
+        }
 
-        // 3. Tạo AssemblyEvent (rule: chỉ 1 active event per AP — enforce trong repository)
+        // 4. Tao AssemblyEvent (rule: chi 1 active event per AP, enforce trong repository).
         var eventId = await assemblyEventRepository.CreateEventAsync(
             request.AssemblyPointId, assemblyDateUtc, request.CreatedBy, cancellationToken);
 
-        // 4. Snapshot: chỉ gán rescuer CHƯA CÓ TEAM vào sự kiện triệu tập (để xếp nhóm)
+        // 5. Snapshot rescuer chua co team vao su kien trieu tap de xep nhom.
         var rescuerIds = await assemblyPointRepository.GetTeamlessRescuerUserIdsAsync(
             request.AssemblyPointId, cancellationToken);
 
@@ -51,8 +49,7 @@ public class ScheduleGatheringCommandHandler(
 
         await unitOfWork.SaveAsync();
 
-        // 5. Gửi thông báo Firebase cho tất cả rescuer được gán vào sự kiện
-        // Chuyển đổi UTC sang múi giờ Việt Nam (UTC+7) cho hiển thị
+        // 6. Gui thong bao Firebase cho tat ca rescuer duoc gan vao su kien.
         var vnTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
         var vnAssemblyDate = TimeZoneInfo.ConvertTimeFromUtc(assemblyDateUtc, vnTimeZone);
 
