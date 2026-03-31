@@ -109,7 +109,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     /// severityRatio = max(0, available / minimumThreshold). Ngưỡng được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("low-stock")]
-    [Authorize(Roles = "1")]
+    [Authorize(Roles = "1,4")]
     [ProducesResponseType(typeof(LowStockChartResponseDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetLowStockItems(
         [FromQuery] int? depotId = null,
