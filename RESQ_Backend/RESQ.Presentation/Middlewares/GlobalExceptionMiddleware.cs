@@ -89,6 +89,7 @@ public class GlobalExceptionMiddleware : IMiddleware
             case ConflictException conflictEx:
                 context.Response.StatusCode = StatusCodes.Status409Conflict;
                 response.Message = conflictEx.Message;
+                response.Code = "CONCURRENCY_CONFLICT";
                 _logger.LogWarning("Conflict: {Message}", conflictEx.Message);
                 break;
 
@@ -120,6 +121,7 @@ public class GlobalExceptionMiddleware : IMiddleware
 public class ErrorResponse
 {
     public string Message { get; set; } = string.Empty;
+    public string? Code { get; set; }
     public string? InnerError { get; set; }
     public IDictionary<string, string[]>? Errors { get; set; }
 }

@@ -41,6 +41,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<SupplyInventoryLot> SupplyInventoryLots { get; set; }
     public virtual DbSet<DepotSupplyRequest> DepotSupplyRequests { get; set; }
     public virtual DbSet<DepotSupplyRequestItem> DepotSupplyRequestItems { get; set; }
+    public virtual DbSet<SupplyRequestPriorityConfig> SupplyRequestPriorityConfigs { get; set; }
     public virtual DbSet<Donation> Donations { get; set; }
     public virtual DbSet<FundCampaign> FundCampaigns { get; set; }
     public virtual DbSet<FundTransaction> FundTransactions { get; set; }
@@ -93,6 +94,8 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<DepotFundTransaction> DepotFundTransactions { get; set; }
     public virtual DbSet<InventoryStockThresholdConfig> InventoryStockThresholdConfigs { get; set; }
     public virtual DbSet<InventoryStockThresholdConfigHistory> InventoryStockThresholdConfigHistories { get; set; }
+    public virtual DbSet<StockWarningBandConfig> StockWarningBandConfigs { get; set; }
+    public virtual DbSet<SystemMigrationAudit> SystemMigrationAudits { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -181,6 +184,20 @@ public partial class ResQDbContext : DbContext
             entity.UseXminAsConcurrencyToken();
         });
 
+        modelBuilder.Entity<SupplyInventory>(entity =>
+        {
+            entity.UseXminAsConcurrencyToken();
+            entity.Ignore(e => e.TotalReservedQuantity);
+        });
+
+        modelBuilder.Entity<SupplyRequestPriorityConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("supply_request_priority_configs_pkey");
+            entity.HasCheckConstraint(
+                "ck_supply_request_priority_configs_order",
+                "urgent_minutes > 0 AND urgent_minutes < high_minutes AND high_minutes < medium_minutes");
+        });
+
         modelBuilder.Entity<InventoryStockThresholdConfig>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("inventory_stock_threshold_configs_pkey");
@@ -202,7 +219,8 @@ public partial class ResQDbContext : DbContext
 
             entity.HasCheckConstraint(
                 "ck_inventory_stock_threshold_configs_ratio",
-                "danger_ratio > 0 AND danger_ratio < warning_ratio AND warning_ratio <= 1");
+                "(danger_ratio IS NULL AND warning_ratio IS NULL) OR " +
+                "(danger_ratio > 0 AND danger_ratio < warning_ratio AND warning_ratio <= 1)");
 
             entity.HasCheckConstraint(
                 "ck_inventory_stock_threshold_configs_scope",
@@ -251,6 +269,18 @@ public partial class ResQDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.ConfigId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<StockWarningBandConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("stock_warning_band_config_pkey");
+            entity.HasData(new StockWarningBandConfig
+            {
+                Id = 1,
+                BandsJson = "[{\"name\":\"CRITICAL\",\"from\":0.0,\"to\":0.4},{\"name\":\"MEDIUM\",\"from\":0.4,\"to\":0.7},{\"name\":\"LOW\",\"from\":0.7,\"to\":1.0},{\"name\":\"OK\",\"from\":1.0,\"to\":null}]",
+                UpdatedBy = null,
+                UpdatedAt = new DateTime(2026, 3, 30, 0, 0, 0, DateTimeKind.Utc)
+            });
         });
 
         modelBuilder.Entity<DepotRealtimeOutbox>(entity =>

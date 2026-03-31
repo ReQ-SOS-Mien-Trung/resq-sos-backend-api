@@ -1,5 +1,4 @@
 using RESQ.Application.UseCases.Logistics.Thresholds;
-using RESQ.Application.Common.Models;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Repositories.Logistics;
@@ -20,8 +19,9 @@ public interface IStockThresholdConfigRepository
         int depotId,
         int? categoryId,
         int? itemModelId,
-        decimal dangerRatio,
-        decimal warningRatio,
+        decimal? dangerRatio,
+        decimal? warningRatio,
+        int? minimumThreshold,
         Guid changedBy,
         uint? expectedRowVersion,
         string? reason,
@@ -35,39 +35,5 @@ public interface IStockThresholdConfigRepository
         Guid changedBy,
         uint? expectedRowVersion,
         string? reason,
-        CancellationToken cancellationToken = default);
-
-    Task<PagedResult<StockThresholdConfigHistoryDto>> GetHistoryPagedAsync(
-        int depotId,
-        StockThresholdScopeType? scopeType,
-        int? categoryId,
-        int? itemModelId,
-        int pageNumber,
-        int pageSize,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Khôi phục một cấu hình không hoạt động (inactive) thành active.
-    /// Tự động deactivate cấu hình đang active cùng scope trước khi kích hoạt lại.
-    /// </summary>
-    /// <param name="configId">ID của cấu hình cần khôi phục.</param>
-    /// <param name="managerDepotId">
-    ///   null = admin (chỉ restore được GLOBAL scope).
-    ///   int  = manager (chỉ restore được cấu hình thuộc kho của mình).
-    /// </param>
-    Task<StockThresholdConfigDto> RestoreAsync(
-        int configId,
-        int? managerDepotId,
-        Guid changedBy,
-        string? reason,
-        CancellationToken cancellationToken = default);
-
-    Task<PagedResult<StockThresholdConfigHistoryDto>> GetAdminHistoryPagedAsync(
-        int? depotId,
-        StockThresholdScopeType? scopeType,
-        int? categoryId,
-        int? itemModelId,
-        int pageNumber,
-        int pageSize,
         CancellationToken cancellationToken = default);
 }

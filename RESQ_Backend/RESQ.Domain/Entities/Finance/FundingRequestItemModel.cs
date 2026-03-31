@@ -19,4 +19,5 @@ public class FundingRequestItemModel
     public DateOnly? ReceivedDate { get; set; }
     public DateOnly? ExpiredDate { get; set; }
     public string? Notes { get; set; }
+    public string? ImageUrl { get; set; }
 }

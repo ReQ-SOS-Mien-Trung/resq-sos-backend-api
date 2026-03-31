@@ -21,8 +21,27 @@ public partial class SupplyInventory
     [Column("quantity")]
     public int? Quantity { get; set; }
 
-    [Column("reserved_quantity")]
-    public int? ReservedQuantity { get; set; }
+    /// <summary>
+    /// Số lượng đặt trước cho nhiệm vụ cứu hộ.
+    /// Cùng với TransferReservedQuantity là nguồn dữ liệu duy nhất;
+    /// không bao giờ cập nhật trực tiếp cột reserved_quantity cũ.
+    /// </summary>
+    [Column("mission_reserved_quantity")]
+    public int MissionReservedQuantity { get; set; }
+
+    /// <summary>
+    /// Số lượng đặt trước cho yêu cầu tiếp tế giữa kho.
+    /// Cùng với MissionReservedQuantity là nguồn dữ liệu duy nhất.
+    /// </summary>
+    [Column("transfer_reserved_quantity")]
+    public int TransferReservedQuantity { get; set; }
+
+    /// <summary>
+    /// Tổng số lượng đặt trước = MissionReservedQuantity + TransferReservedQuantity.
+    /// Chỉ được tính, không lưu xuống DB.
+    /// </summary>
+    [NotMapped]
+    public int TotalReservedQuantity => MissionReservedQuantity + TransferReservedQuantity;
 
     [Column("last_stocked_at", TypeName = "timestamp with time zone")]
     public DateTime? LastStockedAt { get; set; }

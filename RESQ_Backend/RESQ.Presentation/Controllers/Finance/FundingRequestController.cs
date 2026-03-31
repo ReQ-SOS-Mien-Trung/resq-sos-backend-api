@@ -38,6 +38,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
                 ItemType     = i.ItemType,
                 Unit         = i.Unit,
                 Description  = i.Description,
+                ImageUrl     = i.ImageUrl,
                 Quantity     = i.Quantity,
                 UnitPrice    = i.UnitPrice
             }).ToList(),

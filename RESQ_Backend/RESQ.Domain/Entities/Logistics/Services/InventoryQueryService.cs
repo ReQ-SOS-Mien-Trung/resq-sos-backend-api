@@ -4,8 +4,12 @@ namespace RESQ.Domain.Entities.Logistics.Services;
 
 public class InventoryQueryService : IInventoryQueryService
 {
-    public InventoryAvailability ComputeAvailability(int? quantity, int? reservedQuantity)
+    /// <inheritdoc />
+    public InventoryAvailability ComputeAvailability(int? quantity, int? missionReserved, int? transferReserved)
     {
-        return new InventoryAvailability(quantity ?? 0, reservedQuantity ?? 0);
+        return new InventoryAvailability(
+            quantity        ?? 0,
+            missionReserved ?? 0,
+            transferReserved ?? 0);
     }
-}
+}

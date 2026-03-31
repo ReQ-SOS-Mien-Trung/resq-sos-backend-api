@@ -19,18 +19,11 @@ public class UpdateMyDepotThresholdCommandValidator : AbstractValidator<UpdateMy
             .When(x => x.RoleId == 4)
             .WithMessage("Manager chỉ được cấu hình scope Depot, DepotCategory hoặc DepotItem.");
 
-        RuleFor(x => x.DangerPercent)
-            .GreaterThan(0).WithMessage("dangerPercent phải > 0.")
-            .GreaterThanOrEqualTo(1).WithMessage("dangerPercent phải >= 1.");
-
-        RuleFor(x => x.WarningPercent)
-            .GreaterThan(0).WithMessage("warningPercent phải > 0.")
-            .GreaterThanOrEqualTo(5).WithMessage("warningPercent phải >= 5.")
-            .LessThanOrEqualTo(100).WithMessage("warningPercent phải <= 100.");
-
-        RuleFor(x => x)
-            .Must(x => x.DangerPercent < x.WarningPercent)
-            .WithMessage("dangerPercent phải nhỏ hơn warningPercent.");
+        // MinimumThreshold: null = xóa config, otherwise must be > 0
+        RuleFor(x => x.MinimumThreshold)
+            .GreaterThan(0)
+            .When(x => x.MinimumThreshold.HasValue)
+            .WithMessage("minimumThreshold phải > 0.");
 
         // Admin + Global không nhận categoryId/itemModelId
         RuleFor(x => x)

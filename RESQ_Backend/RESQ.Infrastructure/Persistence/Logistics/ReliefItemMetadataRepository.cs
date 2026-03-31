@@ -179,6 +179,7 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
         entity.Description = model.Description;
         entity.Unit = model.Unit;
         entity.ItemType = model.ItemType;
+        entity.ImageUrl = model.ImageUrl;
         entity.UpdatedAt = model.UpdatedAt ?? DateTime.UtcNow;
 
         entity.TargetGroups.Clear();

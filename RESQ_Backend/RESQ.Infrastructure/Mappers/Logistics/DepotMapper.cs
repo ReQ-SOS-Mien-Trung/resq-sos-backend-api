@@ -111,12 +111,12 @@ namespace RESQ.Infrastructure.Mappers.Resources
             if (entity.SupplyInventories != null && entity.SupplyInventories.Count != 0)
             {
                 var lines = entity.SupplyInventories
-                    .Where(i => (i.Quantity ?? 0) - (i.ReservedQuantity ?? 0) > 0)
+                    .Where(i => (i.Quantity ?? 0) - (i.MissionReservedQuantity + i.TransferReservedQuantity) > 0)
                     .Select(i => new DepotInventoryLine(
                         i.ItemModelId,
                         i.ItemModel?.Name ?? $"Item #{i.ItemModelId}",
                         i.ItemModel?.Unit,
-                        (i.Quantity ?? 0) - (i.ReservedQuantity ?? 0)
+                        (i.Quantity ?? 0) - (i.MissionReservedQuantity + i.TransferReservedQuantity)
                     ));
                 model.SetInventoryLines(lines);
             }

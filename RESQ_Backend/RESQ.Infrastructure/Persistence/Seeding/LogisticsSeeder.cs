@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
@@ -75,7 +75,8 @@ public static class LogisticsSeeder
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<ReliefItem>().HasData(
+        var items = new[]
+        {
             // ── Category 1: Thực phẩm (Food) — 10 items ──────────────────────
             new ReliefItem { Id = 1,  CategoryId = 1, Name = "Mì tôm",                        Description = "Mì ăn liền đóng gói dùng cứu trợ khẩn cấp", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 7,  CategoryId = 1, Name = "Sữa bột trẻ em",                Description = "Sữa bột dinh dưỡng dành cho trẻ em dưới 6 tuổi", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now },
@@ -209,7 +210,132 @@ public static class LogisticsSeeder
             new ReliefItem { Id = 98,  CategoryId = 99, Name = "Bộ đèn pin đội đầu",              Description = "Đèn pin LED đội đầu rọi sáng rảnh tay", Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 99,  CategoryId = 99, Name = "Áo phản quang an toàn",           Description = "Áo ghi lê phản quang tăng nhận diện trong đêm", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 100, CategoryId = 99, Name = "Pháo sáng khẩn cấp",              Description = "Pháo sáng phát tín hiệu cầu cứu khẩn cấp", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), CreatedAt = now, UpdatedAt = now }
-        );
+        };
+
+        foreach (var item in items)
+        {
+            item.ImageUrl = GetReliefItemImageUrl(item.Id);
+        }
+
+        modelBuilder.Entity<ReliefItem>().HasData(items);
+    }
+
+    private static string? GetReliefItemImageUrl(int id)
+    {
+        return id switch
+        {
+            1 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865736/001-mi-tom_n1u4fq.jpg",
+            2 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865735/002-nuoc-tinh-khiet_xlky5f.png",
+            3 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865755/003-thuoc-ha-sot-paracetamol-500mg_yaeovi.jpg",
+            4 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774866312/004-ao-phao-cuu-sinh_ozit6b.jpg",
+            5 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865756/005-bang-ve-sinh_yhudge.png",
+            6 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865756/006-chan-am-giu-nhiet_ivibn8.png",
+            7 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865754/007-sua-bot-tre-em_vzydxc.png",
+            8 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865755/008-luong-kho_xhokm0.png",
+            9 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865754/009-dau-gio_rbndq6.jpg",
+            10 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865755/010-sat-vitamin-tong-hop_rtdjgu.png",
+            11 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865754/011-gao-say-kho_urtmri.jpg",
+            12 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865754/012-chao-an-lien_rgwjcq.jpg",
+            13 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865753/013-banh-mi-kho_xe7rew.jpg",
+            14 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865755/014-muoi-tinh_odzyix.png",
+            15 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865753/015-duong-cat-trang_vfhuvv.png",
+            16 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865753/016-dau-an-thuc-vat_l41nwp.jpg",
+            17 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865753/017-thit-hop-dong-goi_xrvcnj.png",
+            18 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865753/018-nuoc-loc-binh-20l_xyk8mp.png",
+            19 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865754/019-vien-loc-nuoc-khan-cap_jrezrb.jpg",
+            20 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865752/020-nuoc-dong-thung-24-chai_ktfzck.jpg",
+            21 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865752/021-binh-loc-nuoc-da-chien_gy22py.jpg",
+            22 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865752/022-nuoc-khoang-thien-nhien-500ml_fcjxnc.jpg",
+            23 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865751/023-can-dung-nuoc-10l_bkqljt.png",
+            24 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865751/024-tui-dung-nuoc-linh-hoat_zpizku.jpg",
+            25 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865751/025-nuoc-dua-dong-hop_t0ytn2.png",
+            26 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865751/026-bot-bu-dien-giai-ors_s47y7a.jpg",
+            27 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865751/027-bang-gac-y-te-vo-khuan_c2mkww.jpg",
+            28 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865751/028-bong-gon-y-te_jb2euw.png",
+            29 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865750/029-thuoc-khang-sinh-amoxicillin_hes4wt.png",
+            30 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865750/030-dung-dich-sat-khuan-betadine_zhbkce.jpg",
+            31 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865750/031-nhiet-ke-dien-tu_wxgjdw.png",
+            32 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865749/032-khau-trang-y-te-3-lop_darfut.jpg",
+            33 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865751/033-bo-so-cuu-co-ban_ws83xn.png",
+            34 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865749/034-xa-phong-diet-khuan_g09ho0.png",
+            35 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865749/035-nuoc-rua-tay-kho_bxhmvl.jpg",
+            36 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865749/036-khan-uot-khang-khuan_wwoh14.png",
+            37 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865748/037-kem-danh-rang_s2ibzl.jpg",
+            38 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865750/038-ban-chai-danh-rang_vd42ax.png",
+            39 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865748/039-dau-goi-dau_o9njdq.jpg",
+            40 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865748/040-khan-bong-tam_o94plx.png",
+            41 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865748/041-giay-ve-sinh_c3fryk.jpg",
+            42 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865748/042-ta-dung-mot-lan_yixozm.jpg",
+            43 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865747/043-ao-mua-nguoi-lon_fc7kry.jpg",
+            44 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865747/044-ung-cao-su-chong-lu_lz9qbw.jpg",
+            45 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865747/045-bo-quan-ao-tre-em_n4agu9.jpg",
+            46 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865747/046-ao-am-nguoi-lon_ma6thc.jpg",
+            47 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865747/047-bo-quan-ao-nguoi-lon_umzueu.png",
+            48 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865747/048-bo-quan-ao-nguoi-cao-tuoi_por2xe.jpg",
+            49 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865746/049-gang-tay-giu-am_k56rfm.jpg",
+            50 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865746/050-tat-len-giu-am_ov0jjd.jpg",
+            51 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865746/051-mu-len_wzipsi.jpg",
+            52 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865757/052-ao-mua-tre-em_b0mocf.jpg",
+            53 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865746/053-leu-bat-cuu-tro-4-nguoi_qj8w9i.png",
+            54 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865746/054-tam-bat-che-mua-da-nang_xvvydi.jpg",
+            55 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865746/055-tui-ngu-giu-nhiet_mnhbww.jpg",
+            56 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865745/056-dem-hoi-da-chien_ns7izi.jpg",
+            57 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865745/057-man-chong-con-trung_iip3fn.jpg",
+            58 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865745/058-bo-coc-va-day-leu_ywukij.jpg",
+            59 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865745/059-tam-bat-chong-tham_ensdzn.jpg",
+            60 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865745/060-day-buoc-da-nang_mpzo8n.jpg",
+            61 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865745/061-den-led-da-chien_hcylgj.jpg",
+            62 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865745/062-nen-khan-cap_fwzazj.png",
+            63 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865744/063-bua-dong-dinh_ulqde0.jpg",
+            64 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865744/064-dinh-cac-loai_k7fsm9.jpg",
+            65 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865744/065-cua-tay-da-nang_jopzf5.jpg",
+            66 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865744/066-tua-vit-2-dau_tzzrzx.jpg",
+            67 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865743/067-kim-cat-day_tiq6jt.jpg",
+            68 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865743/068-bang-keo-chong-tham_bbctyd.jpg",
+            69 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865742/069-dao-da-nang-da-chien_n68ore.jpg",
+            70 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865742/070-xeng-tay_ktfrdj.jpg",
+            71 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865742/071-bao-cat-chong-lu_cvey61.jpg",
+            72 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865741/072-bo-dung-cu-sua-chua-dien-co-ban_k2peyh.jpg",
+            73 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865741/073-xuong-cao-su-cuu-ho_t3gcxt.jpg",
+            74 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865740/074-day-thung-cuu-sinh-30m_nepsc3.png",
+            75 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865740/075-phao-tron-cuu-sinh_fosz4i.jpg",
+            76 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865739/076-may-bom-nuoc-di-dong_npf0tr.jpg",
+            77 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865740/077-bo-dam-lien-lac-da-chien_kwbfsm.jpg",
+            78 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865739/078-den-tin-hieu-khan-cap_o3frpt.jpg",
+            79 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865738/078-den-tin-hieu-khan-cap_yp3mui.jpg",
+            80 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865738/080-cang-khieng-thuong_xszlmj.jpg",
+            81 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865737/081-mu-bao-hiem-cuu-ho_qetnbw.jpg",
+            82 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865737/082-than-to-ong_m7sdry.jpg",
+            83 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865738/083-may-suoi-dien-mini_hy0wg4.png",
+            84 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865736/084-tui-suoi-am-tay-dung-mot-lan_sadxtb.jpg",
+            85 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865736/085-bo-quan-ao-nhiet_wxsmmj.jpg",
+            86 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865736/086-am-dun-nuoc-du-lich_vbh2ap.jpg",
+            87 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865736/087-bep-gas-du-lich-mini_zeyjrk.jpg",
+            88 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865735/088-binh-gas-mini-da-chien_yeapzn.jpg",
+            89 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865734/089-chan-dien-suoi_kvul8o.jpg",
+            90 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865744/090-tam-suoi-am-buc-xa_tysxho.png",
+            91 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865743/091-pin-du-phong-10000mah_gczx45.jpg",
+            92 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865743/092-cap-sac-da-nang_knsvuy.jpg",
+            93 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865742/093-ban-do-dia-hinh-khan-cap_pm5zkt.jpg",
+            94 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865741/094-coi-bao-dong-khan-cap_ukvhal.png",
+            95 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865741/095-kinh-bao-ho-lao-dong_wl8n1f.jpg",
+            96 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865742/096-ba-lo-khan-cap_jn7icq.jpg",
+            97 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865741/097-so-tay-va-but-ghi-chep_h9lums.jpg",
+            98 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865740/098-bo-den-pin-doi-dau_ucnidx.jpg",
+            99 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865739/099-ao-phan-quang-an-toan_trpgia.jpg",
+            100 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865738/100-phao-sang-khan-cap_t0nxwi.jpg",
+            101 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865738/101-xe-tai-cuu-tro-2-5-tan_ifxbqk.jpg",
+            102 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865738/102-xe-cuu-thuong_zqevrt.png",
+            103 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865739/103-xe-ban-tai-4x4_wrs2t4.png",
+            104 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865755/104-xe-may-dia-hinh_xphh0x.png",
+            105 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865737/105-ca-no-cuu-ho_lzudkx.jpg",
+            106 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865737/106-xe-cho-hang-nhe-1-tan_rrmaie.png",
+            107 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865736/107-xe-tai-dong-lanh-3-5-tan_ttxps8.jpg",
+            108 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865735/108-xe-khach-16-cho_h3tjcc.jpg",
+            109 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865735/109-xe-cau-di-dong_xcphgy.jpg",
+            110 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865735/110-xe-chuyen-dung-phong-chay_xoomtb.jpg",
+            _ => null
+        };
     }
 
     private static void SeedItemModelTargetGroups(ModelBuilder modelBuilder)
@@ -618,7 +744,8 @@ public static class LogisticsSeeder
                     DepotId = depotIds[d],
                     ItemModelId = consumableIds[i],
                     Quantity = qty,
-                    ReservedQuantity = qty / 10,
+                    MissionReservedQuantity = qty / 10,
+                    TransferReservedQuantity = 0,
                     LastStockedAt = now
                 });
                 id++;
@@ -630,37 +757,40 @@ public static class LogisticsSeeder
         //   D1 (Huế):    IDs  1- 72  | D2 (Đà Nẵng): IDs  73-144
         //   D3 (Hà Tĩnh): IDs 145-216 | D4 (HN-TW):   IDs 217-288
         //
-        // Override ReservedQuantity so that AvailableQty = Quantity - ReservedQuantity
-        // falls into a warning/danger band relative to Quantity.
-        //
-        // 🔴 Danger (<10% available):
-        //   DSI=3   D1 Paracetamol   qty≈20000 (0.25×80000) → reserved=19200  avail≈4%
-        //   DSI=145 D3 Mì tôm        qty≈12500 (0.25×50000) → reserved=11500  avail≈8%
-        //   DSI=173 D3 Xà phòng      qty≈1600  (0.20×8000)  → reserved=1470   avail≈8%
-        //   DSI=63  D1 Bình gas mini qty≈525   (0.35×1500)  → reserved=490    avail≈7%
-        //   DSI=135 D2 Bình gas mini qty≈450   (0.30×1500)  → reserved=415    avail≈8%
-        //
-        // 🟡 Warning (10-25% available):
-        //   DSI=23  D1 Băng gạc       qty≈2500  (0.25×10000) → reserved=2125   avail≈15%
-        //   DSI=154 D3 Gạo sấy khô   qty≈5000  (0.25×20000) → reserved=4250   avail≈15%
-        //   DSI=110 D2 Áo mưa NL      qty≈165   (0.30×500)   → reserved=132    avail≈20%
-        //   DSI=172 D3 Bộ sơ cứu     qty≈900   (0.25×3000+) → reserved=765    avail≈15%
-        var lowStockOverrides = new Dictionary<int, int>
+        // Each depot has 3 consumable items intentionally pushed into the fixed warning bands:
+        // CRITICAL [0.0, 0.4), MEDIUM [0.4, 0.7), LOW [0.7, 1.0). The rest remain OK (>= 1.0).
+        // Value = target remaining available ratio after mission reservation.
+        // Ratios are kept away from boundaries so rounding still lands in the intended band.
+        var lowStockAvailabilityRatios = new Dictionary<int, decimal>
         {
-            [3]   = 19200,  // 🔴 D1 Paracetamol — kho Huế hết thuốc
-            [23]  = 2125,   // 🟡 D1 Băng gạc    — kho Huế sắp hết băng
-            [63]  = 490,    // 🔴 D1 Bình gas mini — kho Huế hết sưởi
-            [110] = 132,    // 🟡 D2 Áo mưa NL   — kho ĐN thiếu quần áo
-            [135] = 415,    // 🔴 D2 Bình gas mini — kho ĐN hết sưởi
-            [145] = 11500,  // 🔴 D3 Mì tôm      — kho Hà Tĩnh hết thực phẩm
-            [154] = 4250,   // 🟡 D3 Gạo sấy     — kho Hà Tĩnh sắp hết gạo
-            [172] = 765,    // 🟡 D3 Bộ sơ cứu   — kho Hà Tĩnh thiếu y tế
-            [173] = 1470,   // 🔴 D3 Xà phòng    — kho Hà Tĩnh hết vệ sinh
+            // Depot 1 - Hue
+            [3]  = 0.20m, // Paracetamol: CRITICAL
+            [23] = 0.55m, // Medical gauze: MEDIUM
+            [5]  = 0.82m, // Blanket: LOW
+
+            // Depot 2 - Da Nang
+            [129] = 0.20m, // Coal briquette: CRITICAL
+            [110] = 0.55m, // Adult raincoat: MEDIUM
+            [113] = 0.82m, // Adult warm jacket: LOW
+
+            // Depot 3 - Ha Tinh
+            [145] = 0.20m, // Instant noodles: CRITICAL
+            [154] = 0.55m, // Dried rice: MEDIUM
+            [172] = 0.82m, // First aid kit: LOW
+
+            // Depot 4 - HN/TW
+            [219] = 0.20m, // Paracetamol: CRITICAL
+            [226] = 0.55m, // Dried rice: MEDIUM
+            [245] = 0.82m, // Antibacterial soap: LOW
         };
         foreach (var entry in list)
         {
-            if (lowStockOverrides.TryGetValue(entry.Id, out var overrideReserved))
-                entry.ReservedQuantity = Math.Min(overrideReserved, (entry.Quantity ?? 1) - 1);
+            if (!lowStockAvailabilityRatios.TryGetValue(entry.Id, out var availableRatio))
+                continue;
+
+            var quantity = entry.Quantity ?? 1;
+            var reserved = (int)Math.Floor(quantity * (1m - availableRatio));
+            entry.MissionReservedQuantity = Math.Clamp(reserved, 0, quantity - 1);
         }
 
         modelBuilder.Entity<DepotSupplyInventory>().HasData(list.ToArray());
@@ -1048,3 +1178,4 @@ public static class LogisticsSeeder
         );
     }
 }
+

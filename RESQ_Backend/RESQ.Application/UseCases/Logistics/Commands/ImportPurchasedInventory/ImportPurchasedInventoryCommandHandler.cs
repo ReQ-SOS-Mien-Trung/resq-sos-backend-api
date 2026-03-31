@@ -1,8 +1,9 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Exceptions;
 using RESQ.Domain.Entities.Finance;
@@ -17,6 +18,7 @@ public class ImportPurchasedInventoryCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     ICampaignDisbursementRepository campaignDisbursementRepository,
     IDepotFundRepository depotFundRepository,
+    IUserRepository userRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IUnitOfWork unitOfWork,
     ILogger<ImportPurchasedInventoryCommandHandler> logger)
@@ -27,6 +29,7 @@ public class ImportPurchasedInventoryCommandHandler(
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly ICampaignDisbursementRepository _disbursementRepo = campaignDisbursementRepository;
     private readonly IDepotFundRepository _depotFundRepo = depotFundRepository;
+    private readonly IUserRepository _userRepository = userRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ImportPurchasedInventoryCommandHandler> _logger = logger;
@@ -35,14 +38,14 @@ public class ImportPurchasedInventoryCommandHandler(
     {
         var response = new ImportPurchasedInventoryResponse();
 
-        // 1. Lấy kho đang hoạt động mà người dùng quản lý
+        // 1. Láº¥y kho Ä‘ang hoáº¡t Ä‘á»™ng mÃ  ngÆ°á»i dÃ¹ng quáº£n lÃ½
         var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken);
         if (depotId == null)
         {
-            throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động. Không thể nhập hàng.");
+            throw new BadRequestException("TÃ i khoáº£n hiá»‡n táº¡i khÃ´ng Ä‘Æ°á»£c chá»‰ Ä‘á»‹nh quáº£n lÃ½ báº¥t ká»³ kho nÃ o Ä‘ang hoáº¡t Ä‘á»™ng. KhÃ´ng thá»ƒ nháº­p hÃ ng.");
         }
 
-        // 2. Tải tất cả danh mục để mapping hiệu quả
+        // 2. Táº£i táº¥t cáº£ danh má»¥c Ä‘á»ƒ mapping hiá»‡u quáº£
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
         var categoriesByCode = categories
             .ToDictionary(c => c.Code.ToString(), c => c, StringComparer.OrdinalIgnoreCase);
@@ -72,7 +75,7 @@ public class ImportPurchasedInventoryCommandHandler(
             existingItemModels = new Dictionary<int, ItemModelRecord>();
         }
 
-        // 2c. Tính tổng chi phí từ tất cả hóa đơn và kiểm tra quỹ kho
+        // 2c. TÃ­nh tá»•ng chi phÃ­ tá»« táº¥t cáº£ hÃ³a Ä‘Æ¡n vÃ  kiá»ƒm tra quá»¹ kho
         var totalCost = request.Invoices
             .Where(g => g.VatInvoice.TotalAmount.HasValue)
             .Sum(g => g.VatInvoice.TotalAmount!.Value);
@@ -82,8 +85,8 @@ public class ImportPurchasedInventoryCommandHandler(
         {
             depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(depotId.Value, cancellationToken);
 
-            // Pre-check quỹ/hạn mức tự ứng trước khi ghi bất kỳ dữ liệu nhập hàng nào xuống DB.
-            // Dùng bản sao domain model để validate, không mutate trạng thái thật tại thời điểm này.
+            // Pre-check quá»¹/háº¡n má»©c tá»± á»©ng trÆ°á»›c khi ghi báº¥t ká»³ dá»¯ liá»‡u nháº­p hÃ ng nÃ o xuá»‘ng DB.
+            // DÃ¹ng báº£n sao domain model Ä‘á»ƒ validate, khÃ´ng mutate tráº¡ng thÃ¡i tháº­t táº¡i thá»i Ä‘iá»ƒm nÃ y.
             var fundCheck = DepotFundModel.Reconstitute(
                 depotFund.Id,
                 depotFund.DepotId,
@@ -94,7 +97,7 @@ public class ImportPurchasedInventoryCommandHandler(
             fundCheck.Debit(totalCost);
         }
 
-        // 3. Guard trùng serial+number ngay trong cùng request
+        // 3. Guard trÃ¹ng serial+number ngay trong cÃ¹ng request
         var seenInvoices = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         try
@@ -105,7 +108,7 @@ public class ImportPurchasedInventoryCommandHandler(
                 var groupResult = new ImportPurchaseGroupResultDto { GroupIndex = i };
                 var batchNote = NormalizeNote(group.BatchNote);
 
-                // 3a. Kiểm tra trùng hóa đơn VAT
+                // 3a. Kiá»ƒm tra trÃ¹ng hÃ³a Ä‘Æ¡n VAT
                 var vat = group.VatInvoice;
                 if (!string.IsNullOrWhiteSpace(vat.InvoiceSerial) && !string.IsNullOrWhiteSpace(vat.InvoiceNumber))
                 {
@@ -114,7 +117,7 @@ public class ImportPurchasedInventoryCommandHandler(
                     if (!seenInvoices.Add(key))
                     {
                         throw new ConflictException(
-                            $"Nhóm {i + 1}: Hóa đơn VAT ký hiệu '{vat.InvoiceSerial}' số '{vat.InvoiceNumber}' bị trùng lặp trong cùng yêu cầu nhập hàng.");
+                            $"NhÃ³m {i + 1}: HÃ³a Ä‘Æ¡n VAT kÃ½ hiá»‡u '{vat.InvoiceSerial}' sá»‘ '{vat.InvoiceNumber}' bá»‹ trÃ¹ng láº·p trong cÃ¹ng yÃªu cáº§u nháº­p hÃ ng.");
                     }
 
                     var isDuplicate = await _purchasedInventoryRepository.ExistsBySerialAndNumberAsync(
@@ -122,11 +125,11 @@ public class ImportPurchasedInventoryCommandHandler(
                     if (isDuplicate)
                     {
                         throw new ConflictException(
-                            $"Nhóm {i + 1}: Hóa đơn VAT ký hiệu '{vat.InvoiceSerial}' số '{vat.InvoiceNumber}' đã tồn tại trong hệ thống.");
+                            $"NhÃ³m {i + 1}: HÃ³a Ä‘Æ¡n VAT kÃ½ hiá»‡u '{vat.InvoiceSerial}' sá»‘ '{vat.InvoiceNumber}' Ä‘Ã£ tá»“n táº¡i trong há»‡ thá»‘ng.");
                     }
                 }
 
-                // 3b. Validate từng vật phẩm trong nhóm (dual-path)
+                // 3b. Validate tá»«ng váº­t pháº©m trong nhÃ³m (dual-path)
                 var validItems = new List<(ImportPurchasedItemDto dto, ItemModelRecord itemModel)>();
                 var rowErrors = new Dictionary<int, HashSet<string>>();
 
@@ -138,17 +141,17 @@ public class ImportPurchasedInventoryCommandHandler(
 
                         if (item.ItemModelId.HasValue)
                         {
-                            // ── Path A: Existing item by ID ──
+                            // â”€â”€ Path A: Existing item by ID â”€â”€
                             if (!existingItemModels.TryGetValue(item.ItemModelId.Value, out var existingRecord))
                             {
-                                AddRowError(rowErrors, item.Row, $"Không tìm thấy item model có ID: {item.ItemModelId.Value}");
+                                AddRowError(rowErrors, item.Row, $"KhÃ´ng tÃ¬m tháº¥y item model cÃ³ ID: {item.ItemModelId.Value}");
                                 continue;
                             }
                             resolvedRecord = existingRecord;
                         }
                         else
                         {
-                            // ── Path B: Create new item from metadata ──
+                            // â”€â”€ Path B: Create new item from metadata â”€â”€
                             var normalizedName = item.ItemName?.Trim();
                             var normalizedUnit = item.Unit?.Trim();
                             var normalizedItemType = item.ItemType?.Trim();
@@ -156,13 +159,13 @@ public class ImportPurchasedInventoryCommandHandler(
 
                             if (string.IsNullOrWhiteSpace(normalizedName))
                             {
-                                AddRowError(rowErrors, item.Row, "Tên vật phẩm không được để trống");
+                                AddRowError(rowErrors, item.Row, "TÃªn váº­t pháº©m khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng");
                                 continue;
                             }
 
                             if (string.IsNullOrWhiteSpace(normalizedCategoryCode))
                             {
-                                AddRowError(rowErrors, item.Row, "Mã danh mục không được để trống");
+                                AddRowError(rowErrors, item.Row, "MÃ£ danh má»¥c khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng");
                                 continue;
                             }
 
@@ -170,19 +173,19 @@ public class ImportPurchasedInventoryCommandHandler(
 
                             if (category == null)
                             {
-                                AddRowError(rowErrors, item.Row, $"Không tìm thấy danh mục vật phẩm có mã: {item.CategoryCode}");
+                                AddRowError(rowErrors, item.Row, $"KhÃ´ng tÃ¬m tháº¥y danh má»¥c váº­t pháº©m cÃ³ mÃ£: {item.CategoryCode}");
                                 continue;
                             }
 
                             if (string.IsNullOrWhiteSpace(normalizedUnit))
                             {
-                                AddRowError(rowErrors, item.Row, "Đơn vị tính không được để trống");
+                                AddRowError(rowErrors, item.Row, "ÄÆ¡n vá»‹ tÃ­nh khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng");
                                 continue;
                             }
 
                             if (string.IsNullOrWhiteSpace(normalizedItemType))
                             {
-                                AddRowError(rowErrors, item.Row, "Loại vật phẩm không được để trống");
+                                AddRowError(rowErrors, item.Row, "Loáº¡i váº­t pháº©m khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng");
                                 continue;
                             }
 
@@ -193,7 +196,7 @@ public class ImportPurchasedInventoryCommandHandler(
 
                             if (targetGroups.Count == 0)
                             {
-                                AddRowError(rowErrors, item.Row, "Nhóm đối tượng không được để trống");
+                                AddRowError(rowErrors, item.Row, "NhÃ³m Ä‘á»‘i tÆ°á»£ng khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng");
                                 continue;
                             }
 
@@ -206,11 +209,12 @@ public class ImportPurchasedInventoryCommandHandler(
                                     normalizedItemType,
                                     targetGroups,
                                     item.Description);
+                                resolvedRecord.ImageUrl = string.IsNullOrWhiteSpace(item.ImageUrl) ? null : item.ImageUrl.Trim();
                             }
                             catch (Exception ex)
                             {
                                 _logger.LogError(ex, "Unexpected error creating ItemModelRecord for row {Row} group {GroupIndex}", item.Row, i);
-                                AddRowError(rowErrors, item.Row, "Lỗi hệ thống khi tạo item model");
+                                AddRowError(rowErrors, item.Row, "Lá»—i há»‡ thá»‘ng khi táº¡o item model");
                                 continue;
                             }
                         }
@@ -227,7 +231,7 @@ public class ImportPurchasedInventoryCommandHandler(
                 // Flatten row errors into sorted error list for this group
                 var errors = rowErrors
                     .OrderBy(kv => kv.Key)
-                    .Select(kv => new ImportPurchasedErrorDto { Row = kv.Key, Message = $"[Dòng {kv.Key}] {string.Join("; ", kv.Value)}" })
+                    .Select(kv => new ImportPurchasedErrorDto { Row = kv.Key, Message = $"[DÃ²ng {kv.Key}] {string.Join("; ", kv.Value)}" })
                     .ToList();
 
                 groupResult.Failed = errors.Count;
@@ -243,18 +247,18 @@ public class ImportPurchasedInventoryCommandHandler(
                 // Sort resolved items by row for predictable output
                 validItems = validItems.OrderBy(x => x.dto.Row).ToList();
 
-                // 3c. Validate CampaignDisbursementId trước khi ghi bất kỳ dữ liệu nào
+                // 3c. Validate CampaignDisbursementId trÆ°á»›c khi ghi báº¥t ká»³ dá»¯ liá»‡u nÃ o
                 CampaignDisbursementModel? linkedDisbursement = null;
                 if (group.CampaignDisbursementId.HasValue)
                 {
                     linkedDisbursement = await _disbursementRepo.GetByIdAsync(group.CampaignDisbursementId.Value, cancellationToken)
-                        ?? throw new NotFoundException($"Không tìm thấy giải ngân #{group.CampaignDisbursementId.Value}.");
+                        ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y giáº£i ngÃ¢n #{group.CampaignDisbursementId.Value}.");
 
                     if (linkedDisbursement.DepotId != depotId.Value)
-                        throw new ForbiddenException("Giải ngân này không thuộc kho của bạn.");
+                        throw new ForbiddenException("Giáº£i ngÃ¢n nÃ y khÃ´ng thuá»™c kho cá»§a báº¡n.");
                 }
 
-                // 4. Tạo hóa đơn VAT cho nhóm này
+                // 4. Táº¡o hÃ³a Ä‘Æ¡n VAT cho nhÃ³m nÃ y
                 var vatInvoiceModel = VatInvoiceModel.Create(
                     vat.InvoiceSerial,
                     vat.InvoiceNumber,
@@ -274,7 +278,7 @@ public class ImportPurchasedInventoryCommandHandler(
                 var createdItems = await _purchasedInventoryRepository.CreateReliefItemsBulkAsync(newItemModels, cancellationToken);
                 var createdIndex = 0;
 
-                // 6. Map lại ItemModelId và tạo PurchasedInventoryItemModel
+                // 6. Map láº¡i ItemModelId vÃ  táº¡o PurchasedInventoryItemModel
                 var purchasedModels = new List<(PurchasedInventoryItemModel model, decimal? unitPrice, string itemType)>();
                 foreach (var (dto, reliefItem) in validItems)
                 {
@@ -303,11 +307,11 @@ public class ImportPurchasedInventoryCommandHandler(
                     purchasedModels.Add((purchasedModel, dto.UnitPrice, reliefItem.ItemType));
                 }
 
-                // 7. Bulk insert — kiểm tra sức chứa kho và lưu inventory log
+                // 7. Bulk insert â€” kiá»ƒm tra sá»©c chá»©a kho vÃ  lÆ°u inventory log
                 await _purchasedInventoryRepository.AddPurchasedInventoryItemsBulkAsync(purchasedModels, cancellationToken);
 
-                // 7b. Tự động ghi vào bảng công khai disbursement_items nếu nhóm liên kết với CampaignDisbursement
-                //     linkedDisbursement đã được validate ở step 3c — không query lại DB
+                // 7b. Tá»± Ä‘á»™ng ghi vÃ o báº£ng cÃ´ng khai disbursement_items náº¿u nhÃ³m liÃªn káº¿t vá»›i CampaignDisbursement
+                //     linkedDisbursement Ä‘Ã£ Ä‘Æ°á»£c validate á»Ÿ step 3c â€” khÃ´ng query láº¡i DB
                 if (linkedDisbursement != null)
                 {
                     var disbursementItems = validItems.Select(x =>
@@ -341,7 +345,7 @@ public class ImportPurchasedInventoryCommandHandler(
                 response.TotalFailed += errors.Count;
             }
 
-            // 8b. Trừ quỹ kho dựa trên tổng chi phí hóa đơn (cho phép balance âm nếu trong hạn mức tự ứng)
+            // 8b. Trá»« quá»¹ kho dá»±a trÃªn tá»•ng chi phÃ­ hÃ³a Ä‘Æ¡n (cho phÃ©p balance Ã¢m náº¿u trong háº¡n má»©c tá»± á»©ng)
             if (totalCost > 0 && depotFund != null)
             {
                 var debitResult = depotFund.Debit(totalCost);
@@ -351,7 +355,12 @@ public class ImportPurchasedInventoryCommandHandler(
 
                 if (debitResult.IsAdvanced)
                 {
-                    // Kho tự ứng — ghi transaction SelfAdvance
+                    var advancedByName = await ResolveAdvancedByNameAsync(
+                        request.AdvancedByName,
+                        request.UserId,
+                        cancellationToken);
+
+                    // Kho tá»± á»©ng â€” ghi transaction SelfAdvance
                     await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
                     {
                         DepotFundId = depotFund.Id,
@@ -359,14 +368,19 @@ public class ImportPurchasedInventoryCommandHandler(
                         Amount = totalCost,
                         ReferenceType = "VatInvoice",
                         ReferenceId = null,
-                        Note = $"{depotName} đã tự ứng {debitResult.AdvancedAmount:N0} VNĐ để nhập vật tư ({request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ)",
+                        Note = BuildSelfAdvanceNote(
+                            depotName,
+                            debitResult.AdvancedAmount,
+                            request.Invoices.Count,
+                            totalCost,
+                            advancedByName),
                         CreatedBy = request.UserId,
                         CreatedAt = DateTime.UtcNow
                     }, cancellationToken);
                 }
                 else
                 {
-                    // Đủ quỹ — ghi transaction Deduction bình thường
+                    // Äá»§ quá»¹ â€” ghi transaction Deduction bÃ¬nh thÆ°á»ng
                     await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
                     {
                         DepotFundId = depotFund.Id,
@@ -381,7 +395,7 @@ public class ImportPurchasedInventoryCommandHandler(
                 }
             }
 
-            // 9. Commit tất cả các nhóm trong 1 transaction
+            // 9. Commit táº¥t cáº£ cÃ¡c nhÃ³m trong 1 transaction
             await _unitOfWork.SaveChangesWithTransactionAsync();
         }
         catch (DomainException)
@@ -406,8 +420,8 @@ public class ImportPurchasedInventoryCommandHandler(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Lỗi trong quá trình nhập hàng có VAT. Tất cả thay đổi đã được hoàn tác.");
-            throw new CreateFailedException("Lỗi trong quá trình nhập hàng. Vui lòng thử lại.");
+            _logger.LogError(ex, "Lá»—i trong quÃ¡ trÃ¬nh nháº­p hÃ ng cÃ³ VAT. Táº¥t cáº£ thay Ä‘á»•i Ä‘Ã£ Ä‘Æ°á»£c hoÃ n tÃ¡c.");
+            throw new CreateFailedException("Lá»—i trong quÃ¡ trÃ¬nh nháº­p hÃ ng. Vui lÃ²ng thá»­ láº¡i.");
         }
 
         return response;
@@ -428,4 +442,55 @@ public class ImportPurchasedInventoryCommandHandler(
 
     private static string? NormalizeNote(string? note)
         => string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+
+    private async Task<string> ResolveAdvancedByNameAsync(string? requestedName, Guid userId, CancellationToken cancellationToken)
+    {
+        var normalizedRequestedName = NormalizeAdvancedByName(requestedName);
+        if (!string.IsNullOrWhiteSpace(normalizedRequestedName))
+            return normalizedRequestedName;
+
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        if (user != null)
+        {
+            var fullName = string.Join(" ", new[] { user.FirstName?.Trim(), user.LastName?.Trim() }
+                .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+            if (!string.IsNullOrWhiteSpace(fullName))
+                return fullName;
+
+            if (!string.IsNullOrWhiteSpace(user.Username))
+                return user.Username.Trim();
+
+            if (!string.IsNullOrWhiteSpace(user.Email))
+                return user.Email.Trim();
+
+            if (!string.IsNullOrWhiteSpace(user.Phone))
+                return user.Phone.Trim();
+        }
+
+        return userId.ToString();
+    }
+
+    private static string? NormalizeAdvancedByName(string? advancedByName)
+    {
+        if (string.IsNullOrWhiteSpace(advancedByName))
+            return null;
+
+        var names = advancedByName
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+        return names.Count == 0 ? null : string.Join(", ", names);
+    }
+
+    private static string BuildSelfAdvanceNote(
+        string depotName,
+        decimal advancedAmount,
+        int invoiceCount,
+        decimal totalCost,
+        string advancedByName)
+        => $"{depotName} da tu ung {advancedAmount:N0} VND de nhap vat tu ({invoiceCount} hoa don, tong {totalCost:N0} VND). Nguoi ung: {advancedByName}";
 }
+
+

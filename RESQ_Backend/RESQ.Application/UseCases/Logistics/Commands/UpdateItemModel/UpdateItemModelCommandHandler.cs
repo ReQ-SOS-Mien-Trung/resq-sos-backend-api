@@ -47,6 +47,7 @@ public class UpdateItemModelCommandHandler(IItemModelMetadataRepository itemMode
                 Unit = request.Unit.Trim(),
                 ItemType = normalizedItemType,
                 TargetGroups = normalizedTargetGroups,
+                ImageUrl = string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl.Trim(),
                 UpdatedAt = DateTime.UtcNow
             },
             cancellationToken);

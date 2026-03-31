@@ -22,6 +22,7 @@ public class FundingRequestItemDto
     public string ItemType { get; set; } = string.Empty;
     public string? Unit { get; set; }
     public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
 }

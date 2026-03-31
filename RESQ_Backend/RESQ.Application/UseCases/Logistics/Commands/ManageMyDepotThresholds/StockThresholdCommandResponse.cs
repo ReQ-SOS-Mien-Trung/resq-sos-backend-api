@@ -6,8 +6,7 @@ public class StockThresholdCommandResponse
     public int? DepotId { get; set; }
     public int? CategoryId { get; set; }
     public int? ItemModelId { get; set; }
-    public decimal? DangerPercent { get; set; }
-    public decimal? WarningPercent { get; set; }
+    public int? MinimumThreshold { get; set; }
     public uint? RowVersion { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public string Message { get; set; } = string.Empty;

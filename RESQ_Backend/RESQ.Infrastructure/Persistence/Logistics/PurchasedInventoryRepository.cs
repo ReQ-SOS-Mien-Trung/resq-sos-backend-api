@@ -195,11 +195,12 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                 {
                     newInventoryEntities.Add(new SupplyInventory
                     {
-                        DepotId          = model.ReceivedAt,
-                        ItemModelId      = model.ItemModelId,
-                        Quantity         = model.Quantity,
-                        ReservedQuantity = 0,
-                        LastStockedAt    = DateTime.UtcNow
+                        DepotId                   = model.ReceivedAt,
+                        ItemModelId               = model.ItemModelId,
+                        Quantity                  = model.Quantity,
+                        MissionReservedQuantity   = 0,
+                        TransferReservedQuantity  = 0,
+                        LastStockedAt             = DateTime.UtcNow
                     });
                 }
             }

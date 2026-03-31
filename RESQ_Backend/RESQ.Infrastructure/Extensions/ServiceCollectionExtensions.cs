@@ -57,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
         services.AddScoped<IDepotInventoryRepository, DepotInventoryRepository>();
         services.AddScoped<IStockThresholdConfigRepository, StockThresholdConfigRepository>();
+        services.AddScoped<IStockWarningBandConfigRepository, StockWarningBandConfigRepository>();
         services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
         services.AddScoped<IInventoryMovementExportRepository, InventoryMovementExportRepository>();
         services.AddScoped<IOrganizationReliefRepository, OrganizationReliefRepository>();
@@ -64,6 +65,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOrganizationMetadataRepository, OrganizationMetadataRepository>();
         services.AddScoped<IPurchasedInventoryRepository, PurchasedInventoryRepository>();
         services.AddScoped<ISupplyRequestRepository, SupplyRequestRepository>();
+        services.AddScoped<ISupplyRequestPriorityConfigRepository, SupplyRequestPriorityConfigRepository>();
         services.AddScoped<IAssemblyPointRepository, AssemblyPointRepository>();
         services.AddScoped<IAssemblyEventRepository, AssemblyEventRepository>();
         services.AddScoped<IRescueTeamRepository, RescueTeamRepository>();
@@ -128,6 +130,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFundDistributionManager, FundDistributionManager>();
         services.AddScoped<IInventoryQueryService, InventoryQueryService>();
         services.AddScoped<IStockThresholdResolver, StockThresholdResolver>();
+        services.AddScoped<IStockWarningEvaluatorService, StockWarningEvaluatorService>();
 
         // Payment Services
         services.AddScoped<PayOSService>();
@@ -147,6 +150,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<CampaignDeadlineBackgroundService>();
         services.AddHostedService<DepotRealtimeOutboxDispatcherBackgroundService>();
         services.AddHostedService<DepotRealtimeDeadLetterRetryBackgroundService>();
+        services.AddHostedService<SupplyRequestDeadlineBackgroundService>();
 
         return services;
     }

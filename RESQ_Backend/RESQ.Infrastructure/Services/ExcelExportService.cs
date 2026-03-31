@@ -43,7 +43,7 @@ public class ExcelExportService : IExcelExportService
         "Mô tả vật phẩm",   // G
         "Số lượng",         // H
         "Ngày hết hạn",    // I
-        "Ngày nhận"         // J
+        "Ngày nhận",        // J
     ];
 
     private const int TemplateDataStartRow = 2;
@@ -408,10 +408,12 @@ public class ExcelExportService : IExcelExportService
         ws.Column(9).Width  = 16;  // Ngày hết hạn
         ws.Column(10).Width = 16;  // Ngày nhận
 
-        // ── Data rows (2..102) ────────────────────────────────────────────────
+        // ── Data rows (2..102) ─────────────────────────────────────────────────
         for (int r = TemplateDataStartRow; r <= TemplateDataEndRow; r++)
         {
             int rowNum = r - TemplateDataStartRow + 1;
+
+            ws.Row(r).Height = 20;
 
             // Col A: STT (auto-number)
             ws.Cell(r, 1).Value = rowNum;
@@ -529,7 +531,7 @@ public class ExcelExportService : IExcelExportService
         "Số lượng (*)",     // H  (8)
         "Đơn giá (VNĐ)",   // I  (9)
         "Ngày hết hạn",    // J  (10)
-        "Ngày nhận"         // K  (11)
+        "Ngày nhận",        // K  (11)
     ];
 
     private const int PurchaseDataStartRow = 2;
@@ -603,10 +605,12 @@ public class ExcelExportService : IExcelExportService
         ws.Column(10).Width = 16;  // J: Ngày hết hạn
         ws.Column(11).Width = 18;  // K: Ngày nhận
 
-        // ── Data rows (2..102) ────────────────────────────────────────────────
+        // ── Data rows (2..102) ─────────────────────────────────────────────────
         for (int r = PurchaseDataStartRow; r <= PurchaseDataEndRow; r++)
         {
             int rowNum = r - PurchaseDataStartRow + 1;
+
+            ws.Row(r).Height = 20;
 
             // Col A: STT (auto-number)
             ws.Cell(r, 1).Value = rowNum;
@@ -729,7 +733,7 @@ public class ExcelExportService : IExcelExportService
         "Đơn vị",           // F  (6)
         "Mô tả vật phẩm",   // G  (7)
         "Số lượng (*)",     // H  (8)
-        "Đơn giá (VNĐ)"    // I  (9)
+        "Đơn giá (VNĐ)",   // I  (9)
     ];
 
     private const int FundingRequestDataStartRow = 2;
@@ -791,20 +795,22 @@ public class ExcelExportService : IExcelExportService
         ws.Row(1).Height = 24;
 
         // ── Column widths ─────────────────────────────────────────────────────
-        ws.Column(1).Width = 5;   // A: STT
-        ws.Column(2).Width = 30;  // B: Tên vật phẩm
-        ws.Column(3).Width = 25;  // C: Danh mục
-        ws.Column(4).Width = 25;  // D: Đối tượng
-        ws.Column(5).Width = 15;  // E: Loại vật phẩm
-        ws.Column(6).Width = 12;  // F: Đơn vị
-        ws.Column(7).Width = 35;  // G: Mô tả vật phẩm
-        ws.Column(8).Width = 12;  // H: Số lượng
-        ws.Column(9).Width = 16;  // I: Đơn giá
+        ws.Column(1).Width  = 5;   // A: STT
+        ws.Column(2).Width  = 30;  // B: Tên vật phẩm
+        ws.Column(3).Width  = 25;  // C: Danh mục
+        ws.Column(4).Width  = 25;  // D: Đối tượng
+        ws.Column(5).Width  = 15;  // E: Loại vật phẩm
+        ws.Column(6).Width  = 12;  // F: Đơn vị
+        ws.Column(7).Width  = 35;  // G: Mô tả vật phẩm
+        ws.Column(8).Width  = 12;  // H: Số lượng
+        ws.Column(9).Width  = 16;  // I: Đơn giá
 
-        // ── Data rows (2..102) ────────────────────────────────────────────────
+        // ── Data rows (2..102) ─────────────────────────────────────────────────
         for (int r = FundingRequestDataStartRow; r <= FundingRequestDataEndRow; r++)
         {
             int rowNum = r - FundingRequestDataStartRow + 1;
+
+            ws.Row(r).Height = 20;
 
             // Col A: STT (auto-number)
             ws.Cell(r, 1).Value = rowNum;
