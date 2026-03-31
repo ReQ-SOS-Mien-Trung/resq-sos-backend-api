@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
@@ -32,6 +33,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingPickupActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetReliefItemsByCategoryCode;
 using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequestPriorityConfig;
@@ -102,6 +104,25 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         };
 
         var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xem danh sách activity lấy hàng sắp tới của kho mình quản lý.</summary>
+    [HttpGet("my-depot/upcoming-pickups")]
+    [Authorize(Roles = "1,4")]
+    [ProducesResponseType(typeof(PagedResult<UpcomingPickupActivityDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyUpcomingPickups(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyUpcomingPickupActivitiesQuery(userId)
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        });
+
         return Ok(result);
     }
 
