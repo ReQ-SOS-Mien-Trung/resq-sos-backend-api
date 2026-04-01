@@ -129,6 +129,85 @@ public class GoongMapService : IGoongMapService
         };
     }
 
+    public async Task<MissionRouteResult> GetMissionRouteAsync(
+        double originLat,
+        double originLng,
+        IEnumerable<(double Lat, double Lng)> orderedWaypoints,
+        string vehicle = "car",
+        CancellationToken cancellationToken = default)
+    {
+        var points = orderedWaypoints.ToList();
+        if (points.Count == 0)
+            return new MissionRouteResult { Status = "NO_WAYPOINTS", ErrorMessage = "Không có điểm dừng nào có tọa độ." };
+
+        var fmt = CultureInfo.InvariantCulture;
+        var origin      = $"{originLat.ToString(fmt)},{originLng.ToString(fmt)}";
+        var destination = $"{points[^1].Lat.ToString(fmt)},{points[^1].Lng.ToString(fmt)}";
+        var url = $"{_baseUrl}/Direction?origin={origin}&destination={destination}&vehicle={vehicle}&api_key={_apiKey}";
+
+        if (points.Count > 1)
+        {
+            var waypointStr = string.Join("|",
+                points[..^1].Select(p => $"{p.Lat.ToString(fmt)},{p.Lng.ToString(fmt)}"));
+            url += $"&waypoints={waypointStr}";
+        }
+
+        _logger.LogInformation("Calling Goong Mission Route: origin={Origin} dest={Destination} waypoints={Count} vehicle={Vehicle}",
+            origin, destination, points.Count - 1, vehicle);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.GetAsync(url, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Goong Mission Route API call failed");
+            return new MissionRouteResult { Status = "ERROR", ErrorMessage = ex.Message };
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Goong Mission Route API returned HTTP {StatusCode}: {Body}", response.StatusCode, body);
+            return new MissionRouteResult { Status = "ERROR", ErrorMessage = $"HTTP {(int)response.StatusCode}: {body}" };
+        }
+
+        GoongDirectionResponse? goongResp;
+        try
+        {
+            var rawBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogDebug("Goong Mission Route raw response: {Body}", rawBody);
+            goongResp = JsonSerializer.Deserialize<GoongDirectionResponse>(rawBody, JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize Goong Mission Route response");
+            return new MissionRouteResult { Status = "ERROR", ErrorMessage = "Không thể đọc kết quả từ Goong API." };
+        }
+
+        if (goongResp?.Routes is null || goongResp.Routes.Count == 0)
+            return new MissionRouteResult { Status = "NO_ROUTES", ErrorMessage = "Goong API không trả về tuyến đường." };
+
+        var bestRoute = goongResp.Routes[0];
+        var legs = bestRoute.Legs ?? [];
+
+        return new MissionRouteResult
+        {
+            Status               = "OK",
+            TotalDistanceMeters  = legs.Sum(l => l.Distance?.Value ?? 0),
+            TotalDurationSeconds = legs.Sum(l => l.Duration?.Value ?? 0),
+            OverviewPolyline     = bestRoute.OverviewPolyline?.Points ?? string.Empty,
+            Legs = legs.Select(l => new GoongLegSummary
+            {
+                DistanceMeters  = l.Distance?.Value ?? 0,
+                DistanceText    = l.Distance?.Text ?? string.Empty,
+                DurationSeconds = l.Duration?.Value ?? 0,
+                DurationText    = l.Duration?.Text ?? string.Empty
+            }).ToList()
+        };
+    }
+
     private static string StripHtml(string html)
     {
         if (string.IsNullOrEmpty(html)) return html;

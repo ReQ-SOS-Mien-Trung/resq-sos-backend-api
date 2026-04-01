@@ -12,6 +12,17 @@ public interface IGoongMapService
         double destLng,
         string vehicle = "car",
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy tuyến đường qua nhiều điểm dừng (origin → waypoint1 → ... → destination).
+    /// Trả về danh sách legs tương ứng với từng đoạn.
+    /// </summary>
+    Task<MissionRouteResult> GetMissionRouteAsync(
+        double originLat,
+        double originLng,
+        IEnumerable<(double Lat, double Lng)> orderedWaypoints,
+        string vehicle = "car",
+        CancellationToken cancellationToken = default);
 }
 
 public class GoongRouteResult
@@ -59,4 +70,26 @@ public class GoongRouteStep
     public double EndLng { get; set; }
     /// <summary>Polyline mã hoá của bước này</summary>
     public string Polyline { get; set; } = string.Empty;
+}
+
+// ── Multi-waypoint result ─────────────────────────────────────────────────────
+
+public class MissionRouteResult
+{
+    public string Status { get; set; } = string.Empty;
+    public string? ErrorMessage { get; set; }
+    public int TotalDistanceMeters { get; set; }
+    public int TotalDurationSeconds { get; set; }
+    /// <summary>Polyline toàn tuyến từ Goong (encoded)</summary>
+    public string OverviewPolyline { get; set; } = string.Empty;
+    /// <summary>Mỗi phần tử = 1 đoạn: origin→wp[0], wp[0]→wp[1], ..., wp[n-2]→wp[n-1].</summary>
+    public List<GoongLegSummary> Legs { get; set; } = [];
+}
+
+public class GoongLegSummary
+{
+    public int DistanceMeters { get; set; }
+    public string DistanceText { get; set; } = string.Empty;
+    public int DurationSeconds { get; set; }
+    public string DurationText { get; set; } = string.Empty;
 }
