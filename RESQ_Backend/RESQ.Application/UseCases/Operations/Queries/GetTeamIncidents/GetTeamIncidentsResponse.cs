@@ -1,3 +1,5 @@
+using RESQ.Application.Common.Models;
+
 namespace RESQ.Application.UseCases.Operations.Queries.GetTeamIncidents;
 
 public class GetTeamIncidentsResponse
@@ -14,6 +16,6 @@ public class TeamIncidentDto
     public double? Longitude { get; set; }
     public string? Description { get; set; }
     public string? Status { get; set; }
-    public Guid? ReportedBy { get; set; }
+    public ReportedByDto? ReportedBy { get; set; }
     public DateTime? ReportedAt { get; set; }
 }
