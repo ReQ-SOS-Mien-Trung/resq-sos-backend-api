@@ -32,7 +32,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         {
             AssemblyPointId = assemblyPointId,
             AssemblyDate = assemblyDate,
-            Status = AssemblyEventStatus.Scheduled.ToString(),
+            Status = AssemblyEventStatus.Gathering.ToString(),
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow
         };
@@ -267,9 +267,13 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken)
             ?? throw new InvalidOperationException($"Không tìm thấy sự kiện tập trung id = {eventId}");
 
+        // Idempotent: nếu đã Gathering thì không làm gì thêm
+        if (evt.Status == AssemblyEventStatus.Gathering.ToString())
+            return;
+
         if (evt.Status != AssemblyEventStatus.Scheduled.ToString())
             throw new InvalidOperationException(
-                $"Không thể bắt đầu tập trung. Trạng thái hiện tại: {evt.Status}. Yêu cầu: Scheduled.");
+                $"Không thể bắt đầu tập trung. Trạng thái hiện tại: {evt.Status}. Yêu cầu: Scheduled hoặc Gathering.");
 
         evt.Status = AssemblyEventStatus.Gathering.ToString();
         evt.UpdatedAt = DateTime.UtcNow;

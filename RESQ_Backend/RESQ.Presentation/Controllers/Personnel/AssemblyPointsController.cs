@@ -166,15 +166,16 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(new { EventId = eventId });
         }
 
-        /// <summary>Mở check-in cho sự kiện tập trung (Scheduled → Gathering).</summary>
-        [HttpPost("events/{eventId}/start-gathering")]
-        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
-        public async Task<IActionResult> StartGathering(int eventId)
-        {
-            var command = new StartGatheringCommand(eventId);
-            await _mediator.Send(command);
-            return NoContent();
-        }
+        // [DEPRECATED] Không cần dùng nữa — event được tạo trực tiếp ở trạng thái Gathering khi schedule-gathering.
+        // /// <summary>Mở check-in cho sự kiện tập trung (Scheduled → Gathering).</summary>
+        // [HttpPost("events/{eventId}/start-gathering")]
+        // [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        // public async Task<IActionResult> StartGathering(int eventId)
+        // {
+        //     var command = new StartGatheringCommand(eventId);
+        //     await _mediator.Send(command);
+        //     return NoContent();
+        // }
 
         /// <summary>Rescuer check-in tại sự kiện tập trung (kèm GPS validation trong bán kính 200m).</summary>
         [HttpPost("events/{eventId}/check-in")]

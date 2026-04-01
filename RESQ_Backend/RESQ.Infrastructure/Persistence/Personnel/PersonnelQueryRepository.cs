@@ -177,6 +177,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         string? abilitySubgroupCode = null,
         string? abilityCategoryCode = null,
         string? search = null,
+        List<string>? assemblyPointCodes = null,
         CancellationToken cancellationToken = default)
     {
         var acceptedStatus = TeamMemberStatus.Accepted.ToString();
@@ -242,6 +243,25 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
                 query = query.Where(u => inApUserIds.Contains(u.Id));
             else
                 query = query.Where(u => !inApUserIds.Contains(u.Id));
+        }
+
+        // Filter: assemblyPointCodes (lọc theo danh sách mã điểm tập kết)
+        if (assemblyPointCodes != null && assemblyPointCodes.Count > 0)
+        {
+            var apIdsFromCodes = unitOfWork.GetRepository<AssemblyPoint>().AsQueryable()
+                .Where(ap => ap.Code != null && assemblyPointCodes.Contains(ap.Code))
+                .Select(ap => ap.Id);
+
+            var inApCodeUserIds = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+                .Where(m => m.Status == acceptedStatus &&
+                            m.Team!.Status != disbandedStatus &&
+                            m.Team.AssemblyPointId != null &&
+                            apIdsFromCodes.Contains(m.Team.AssemblyPointId!.Value))
+                .Select(m => m.UserId);
+
+            query = query.Where(u =>
+                (u.AssemblyPointId != null && apIdsFromCodes.Contains(u.AssemblyPointId.Value)) ||
+                inApCodeUserIds.Contains(u.Id));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);

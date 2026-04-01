@@ -13,4 +13,6 @@ public record GetRescuersQuery(
     string? AbilitySubgroupCode = null,
     string? AbilityCategoryCode = null,
     /// <summary>Tìm kiếm theo firstName, lastName, phone hoặc email (OR logic).</summary>
-    string? Search = null) : IRequest<PagedResult<RescuerDto>>;
+    string? Search = null,
+    /// <summary>Lọc theo danh sách mã điểm tập kết (OR logic). Null = không lọc.</summary>
+    List<string>? AssemblyPointCodes = null) : IRequest<PagedResult<RescuerDto>>;
