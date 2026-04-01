@@ -11,7 +11,10 @@ public interface IItemCategoryRepository
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
     Task<ItemCategoryModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<ItemCategoryModel?> GetByCodeAsync(ItemCategoryCode code, CancellationToken cancellationToken = default);
-    
+
+    /// <summary>Trả về danh sách Id tương ứng với các code đã cho trong một DB query duy nhất.</summary>
+    Task<List<int>> GetIdsByCodesAsync(IReadOnlyList<ItemCategoryCode> codes, CancellationToken cancellationToken = default);
+
     // Returns all items (e.g. for dropdowns)
     Task<List<ItemCategoryModel>> GetAllAsync(CancellationToken cancellationToken = default);
     

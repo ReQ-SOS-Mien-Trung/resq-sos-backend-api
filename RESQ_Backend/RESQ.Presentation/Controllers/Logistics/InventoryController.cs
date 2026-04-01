@@ -44,14 +44,17 @@ using RESQ.Application.UseCases.Logistics.Thresholds;
 using RESQ.Domain.Enum.Logistics;
 using System.Security.Claims;
 
+using RESQ.Application.Repositories.Logistics;
+
 namespace RESQ.Presentation.Controllers.Logistics;
 
 [Route("logistics/inventory")]
 [ApiController]
-public class InventoryController(IMediator mediator, ITokenService tokenService) : ControllerBase
+public class InventoryController(IMediator mediator, ITokenService tokenService, IItemCategoryRepository itemCategoryRepository) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
     private readonly ITokenService _tokenService = tokenService;
+    private readonly IItemCategoryRepository _itemCategoryRepository = itemCategoryRepository;
 
     /// <summary>Xem tồn kho (phân trang) của một kho theo ID.</summary>
     [HttpGet("depot/{depotId:int}")]
@@ -802,16 +805,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         CancellationToken cancellationToken)
     {
         if (categoryCodes == null || categoryCodes.Count == 0)
-        {
             return null;
-        }
 
-        var categoryTasks = categoryCodes
-            .Distinct()
-            .Select(code => _mediator.Send(new GetItemCategoryByCodeQuery(code), cancellationToken));
-
-        var categories = await Task.WhenAll(categoryTasks);
-
-        return categories.Select(category => category.Id).ToList();
+        var ids = await _itemCategoryRepository.GetIdsByCodesAsync(categoryCodes, cancellationToken);
+        return ids.Count > 0 ? ids : null;
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
@@ -50,6 +51,20 @@ public class ItemCategoryRepository(IUnitOfWork unitOfWork) : IItemCategoryRepos
             .GetByPropertyAsync(x => x.Code == codeString, tracked: false);
 
         return entity == null ? null : ItemCategoryMapper.ToDomain(entity);
+    }
+
+    public async Task<List<int>> GetIdsByCodesAsync(IReadOnlyList<ItemCategoryCode> codes, CancellationToken cancellationToken = default)
+    {
+        if (codes == null || codes.Count == 0)
+            return [];
+
+        var codeStrings = codes.Select(c => c.ToString()).Distinct().ToList();
+
+        return await _unitOfWork.GetRepository<Category>().AsQueryable()
+            .AsNoTracking()
+            .Where(c => codeStrings.Contains(c.Code))
+            .Select(c => c.Id)
+            .ToListAsync(cancellationToken);
     }
 
     // Original implementation restored for non-paged access
