@@ -46,5 +46,6 @@ public interface IPersonnelQueryRepository
         string? abilitySubgroupCode = null,
         string? abilityCategoryCode = null,
         string? search = null,
+        List<string>? assemblyPointCodes = null,
         CancellationToken cancellationToken = default);
 }

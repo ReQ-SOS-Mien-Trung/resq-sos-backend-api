@@ -20,6 +20,7 @@ public class GetRescuersQueryHandler(IPersonnelQueryRepository personnelQueryRep
             request.AbilitySubgroupCode,
             request.AbilityCategoryCode,
             request.Search,
+            request.AssemblyPointCodes,
             cancellationToken);
 
         var dtos = pagedModels.Items.Select(m => new RescuerDto

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Personnel.Queries.GetFreeRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetRescuers;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointCodeMetadata;
 using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Presentation.Controllers.Personnel;
@@ -32,6 +33,7 @@ public class RescuersController(IMediator mediator) : ControllerBase
     /// </summary>
     /// <summary>
     /// <paramref name="search"/>: tìm kiếm theo firstName, lastName, phone hoặc email (OR).
+    /// <paramref name="assemblyPointCodes"/>: lọc theo danh sách mã điểm tập kết (OR).
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetRescuers(
@@ -42,7 +44,8 @@ public class RescuersController(IMediator mediator) : ControllerBase
         [FromQuery] RescuerType? rescuerType = null,
         [FromQuery] string? abilitySubgroupCode = null,
         [FromQuery] string? abilityCategoryCode = null,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null,
+        [FromQuery] List<string>? assemblyPointCodes = null)
     {
         var query = new GetRescuersQuery(
             pageNumber,
@@ -52,9 +55,18 @@ public class RescuersController(IMediator mediator) : ControllerBase
             rescuerType,
             abilitySubgroupCode,
             abilityCategoryCode,
-            search);
+            search,
+            assemblyPointCodes);
 
         var result = await mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách điểm tập kết dùng cho dropdown filter (key = code, value = tên).</summary>
+    [HttpGet("assembly-point-metadata")]
+    public async Task<IActionResult> GetAssemblyPointMetadata()
+    {
+        var result = await mediator.Send(new GetAssemblyPointCodeMetadataQuery());
         return Ok(result);
     }
 }

@@ -77,7 +77,6 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
             request.Name, 
             request.Type, 
             request.AssemblyPointId,
-            request.AssemblyEventId,
             managedBy, 
             request.MaxMembers, 
             request.Members

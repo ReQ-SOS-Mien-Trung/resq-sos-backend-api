@@ -27,6 +27,11 @@ public class CreateRescueTeamCommandHandler(
         var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, ct)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {request.AssemblyPointId}");
 
+        // Tự động tìm event đang Gathering tại AP để validate check-in
+        var activeEvent = await assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.AssemblyPointId, ct)
+            ?? throw new BadRequestException($"Điểm tập kết id = {request.AssemblyPointId} hiện không có sự kiện tập trung đang diễn ra.");
+        var resolvedEventId = activeEvent.EventId;
+
         // Tạo đội ở trạng thái Gathering (rescuer đã có mặt tại AP)
         var team = RescueTeamModel.Create(
             request.Name, request.Type, request.AssemblyPointId, request.ManagedBy, request.MaxMembers);
@@ -52,7 +57,7 @@ public class CreateRescueTeamCommandHandler(
                     throw new ConflictException($"Nhân sự {user.FirstName} {user.LastName} đã tham gia một đội cứu hộ khác.");
 
                 // Validate rescuer đã check-in tại sự kiện tập trung
-                var isCheckedIn = await assemblyEventRepository.IsParticipantCheckedInAsync(request.AssemblyEventId, mem.UserId, ct);
+                var isCheckedIn = await assemblyEventRepository.IsParticipantCheckedInAsync(resolvedEventId, mem.UserId, ct);
                 if (!isCheckedIn)
                     throw new BadRequestException($"Nhân sự {user.FirstName} {user.LastName} chưa check-in tại điểm tập kết.");
 

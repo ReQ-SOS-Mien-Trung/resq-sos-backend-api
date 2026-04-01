@@ -8,7 +8,6 @@ public record CreateRescueTeamCommand(
     string Name, 
     RescueTeamType Type, 
     int AssemblyPointId,
-    int AssemblyEventId,
     Guid ManagedBy, 
     int MaxMembers,
     List<AddMemberRequestDto> Members) : IRequest<int>;
