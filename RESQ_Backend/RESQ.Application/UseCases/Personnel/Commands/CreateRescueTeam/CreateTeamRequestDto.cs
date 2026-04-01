@@ -8,7 +8,6 @@ public class CreateTeamRequestDto
     public string Name { get; set; } = string.Empty;
     public RescueTeamType Type { get; set; }
     public int AssemblyPointId { get; set; }
-    public int AssemblyEventId { get; set; }
     // Xoá ManagedBy, sẽ được tự động lấy từ Access Token
     public int MaxMembers { get; set; }
     public List<AddMemberRequestDto> Members { get; set; } = new();

@@ -192,6 +192,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             FirstName = x.User.FirstName,
             LastName = x.User.LastName,
             Phone = x.User.Phone,
+            Email = x.User.Email,
             AvatarUrl = x.User.AvatarUrl,
             RescuerType = x.User.RescuerProfile?.RescuerType,
             CheckedInAt = (x.Participant.CheckInTime ?? DateTime.MinValue).ToVietnamTime(),
