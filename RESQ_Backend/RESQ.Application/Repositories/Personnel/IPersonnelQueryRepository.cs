@@ -29,8 +29,14 @@ public interface IPersonnelQueryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lấy toàn bộ đội cứu hộ có trạng thái <c>Available</c> (không phân trang) — dùng khi cần so sánh khoảng cách để gán nhiệm vụ.
+    /// </summary>
+    Task<List<RescueTeamModel>> GetAllAvailableTeamsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Lấy danh sách rescuer với các filter tuỳ chọn:
     /// hasAssemblyPoint, hasTeam, rescuerType, abilitySubgroupCode, abilityCategoryCode.
+    /// <para><paramref name="search"/>: tìm đồng thời theo firstName, lastName, phone hoặc email (OR).</para>
     /// </summary>
     Task<PagedResult<RescuerModel>> GetRescuersAsync(
         int pageNumber, int pageSize,
@@ -39,8 +45,6 @@ public interface IPersonnelQueryRepository
         RescuerType? rescuerType = null,
         string? abilitySubgroupCode = null,
         string? abilityCategoryCode = null,
-        string? firstName = null,
-        string? lastName = null,
-        string? email = null,
+        string? search = null,
         CancellationToken cancellationToken = default);
 }

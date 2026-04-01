@@ -30,6 +30,9 @@ public class RescuersController(IMediator mediator) : ControllerBase
     /// có assembly point hay chưa, rescuerType, có team hay chưa,
     /// ability subgroup, ability category.
     /// </summary>
+    /// <summary>
+    /// <paramref name="search"/>: tìm kiếm theo firstName, lastName, phone hoặc email (OR).
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetRescuers(
         [FromQuery] int pageNumber = 1,
@@ -39,9 +42,7 @@ public class RescuersController(IMediator mediator) : ControllerBase
         [FromQuery] RescuerType? rescuerType = null,
         [FromQuery] string? abilitySubgroupCode = null,
         [FromQuery] string? abilityCategoryCode = null,
-        [FromQuery] string? firstName = null,
-        [FromQuery] string? lastName = null,
-        [FromQuery] string? email = null)
+        [FromQuery] string? search = null)
     {
         var query = new GetRescuersQuery(
             pageNumber,
@@ -51,9 +52,7 @@ public class RescuersController(IMediator mediator) : ControllerBase
             rescuerType,
             abilitySubgroupCode,
             abilityCategoryCode,
-            firstName,
-            lastName,
-            email);
+            search);
 
         var result = await mediator.Send(query);
         return Ok(result);

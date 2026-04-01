@@ -48,6 +48,7 @@ public class GetDepotByIdQueryHandler(
                 Phone = manager.Phone
             } : null,
             
+            ImageUrl = depot.ImageUrl,
             LastUpdatedAt = depot.LastUpdatedAt
         };
     }

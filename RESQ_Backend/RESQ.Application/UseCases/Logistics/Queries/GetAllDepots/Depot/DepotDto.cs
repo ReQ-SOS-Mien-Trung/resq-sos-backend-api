@@ -10,6 +10,7 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots.Depot
         public int? Capacity { get; set; }
         public int? CurrentUtilization { get; set; }
         public string Status { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
         
         // Changed from DepotManagerId (Guid) to Manager object
         public ManagerDto? Manager { get; set; }

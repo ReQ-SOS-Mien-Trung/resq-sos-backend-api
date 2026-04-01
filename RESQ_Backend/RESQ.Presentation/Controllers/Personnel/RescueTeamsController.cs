@@ -7,6 +7,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Personnel.Queries.GetAllRescueTeams;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyRescueTeam;
 using RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamDetail;
+using RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamsByCluster;
 using RESQ.Application.UseCases.Personnel.Queries.RescueTeamMetadata;
 using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 using RESQ.Application.UseCases.Personnel.RescueTeams.DTOs;
@@ -41,6 +42,18 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetDetail(int id)
     {
         var result = await mediator.Send(new GetRescueTeamDetailQuery(id));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy danh sách đội cứu hộ sắp xếp theo khoảng cách gần nhất so với cluster SOS.
+    /// Khoảng cách được tính từ toạ độ điểm tập kết của mỗi đội tới trung tâm cluster.
+    /// </summary>
+    [HttpGet("by-cluster/{clusterId}")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelAccess)]
+    public async Task<IActionResult> GetByCluster(int clusterId)
+    {
+        var result = await mediator.Send(new GetRescueTeamsByClusterQuery(clusterId));
         return Ok(result);
     }
 

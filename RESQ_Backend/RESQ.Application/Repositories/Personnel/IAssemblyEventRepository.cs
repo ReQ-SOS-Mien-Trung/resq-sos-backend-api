@@ -19,15 +19,15 @@ public interface IAssemblyEventRepository
     /// <summary>Kiểm tra rescuer đã check-in tại sự kiện chưa.</summary>
     Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
 
-    /// <summary>Lấy danh sách rescuer đã check-in tại sự kiện (phân trang).</summary>
+    /// <summary>Lấy danh sách rescuer đã check-in tại sự kiện (phân trang).
+    /// <para><paramref name="search"/>: tìm đồng thời theo firstName, lastName, phone hoặc email (OR).</para>
+    /// </summary>
     Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(
         int eventId, int pageNumber, int pageSize,
         RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
         string? abilitySubgroupCode = null,
         string? abilityCategoryCode = null,
-        string? firstName = null,
-        string? lastName = null,
-        string? email = null,
+        string? search = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Lấy danh sách sự kiện tập trung của một điểm tập kết (phân trang).</summary>
