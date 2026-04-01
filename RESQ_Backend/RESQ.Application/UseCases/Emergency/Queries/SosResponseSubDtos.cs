@@ -4,6 +4,9 @@ namespace RESQ.Application.UseCases.Emergency.Queries;
 
 public class SosStructuredDataDto
 {
+    [JsonPropertyName("address")]
+    public string? Address { get; set; }
+
     [JsonPropertyName("situation")]
     public string? Situation { get; set; }
 
@@ -174,4 +177,16 @@ public class SosSpecialDietPersonDto
 
     [JsonPropertyName("diet_description")]
     public string? DietDescription { get; set; }
+}
+
+public class SosVictimInfoDto
+{
+    [JsonPropertyName("user_id")]
+    public string? UserId { get; set; }
+
+    [JsonPropertyName("user_name")]
+    public string? UserName { get; set; }
+
+    [JsonPropertyName("user_phone")]
+    public string? UserPhone { get; set; }
 }

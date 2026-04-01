@@ -14,6 +14,9 @@ public class SosRequestDto
     public SosStructuredDataDto? StructuredData { get; set; }
     public SosNetworkMetadataDto? NetworkMetadata { get; set; }
     public SosSenderInfoDto? SenderInfo { get; set; }
+    public SosSenderInfoDto? ReporterInfo { get; set; }
+    public SosVictimInfoDto? VictimInfo { get; set; }
+    public bool IsSentOnBehalf { get; set; }
     public string? OriginId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? PriorityLevel { get; set; }

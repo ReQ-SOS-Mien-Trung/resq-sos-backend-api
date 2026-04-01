@@ -59,7 +59,9 @@ public class CreateSosRequestCommandHandler(
             request.Timestamp,
             SosRequestStatus.Pending,
             createdByCoordinatorId: request.CreatedByCoordinatorId,
-            clientCreatedAt: request.ClientCreatedAt);
+            clientCreatedAt: request.ClientCreatedAt,
+            victimInfo: request.VictimInfo,
+            isSentOnBehalf: request.IsSentOnBehalf);
 
         // Save SOS request first to get the ID
         await _sosRequestRepository.CreateAsync(sosRequest, cancellationToken);
@@ -126,6 +128,9 @@ public class CreateSosRequestCommandHandler(
             StructuredData = ParseJson<SosStructuredDataDto>(created.StructuredData),
             NetworkMetadata = ParseJson<SosNetworkMetadataDto>(created.NetworkMetadata),
             SenderInfo = ParseJson<SosSenderInfoDto>(created.SenderInfo),
+            ReporterInfo = ParseJson<SosSenderInfoDto>(created.SenderInfo),
+            VictimInfo = ParseJson<SosVictimInfoDto>(created.VictimInfo),
+            IsSentOnBehalf = created.IsSentOnBehalf,
             Status = created.Status.ToString(),
             PriorityLevel = evaluation.PriorityLevel.ToString(),
             Latitude = created.Location?.Latitude,
