@@ -191,6 +191,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         }
 
         /// <summary>Lấy danh sách rescuer đã check-in tại sự kiện tập trung (để coordinator chia team).</summary>
+        /// <summary><paramref name="search"/>: tìm kiếm theo firstName, lastName, phone hoặc email (OR).</summary>
         [HttpGet("events/{eventId}/checked-in-rescuers")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> GetCheckedInRescuers(
@@ -200,11 +201,9 @@ namespace RESQ.Presentation.Controllers.Personnel
             [FromQuery] RescuerType? rescuerType = null,
             [FromQuery] string? abilitySubgroupCode = null,
             [FromQuery] string? abilityCategoryCode = null,
-            [FromQuery] string? firstName = null,
-            [FromQuery] string? lastName = null,
-            [FromQuery] string? email = null)
+            [FromQuery] string? search = null)
         {
-            var query = new GetCheckedInRescuersQuery(eventId, pageNumber, pageSize, rescuerType, abilitySubgroupCode, abilityCategoryCode, firstName, lastName, email);
+            var query = new GetCheckedInRescuersQuery(eventId, pageNumber, pageSize, rescuerType, abilitySubgroupCode, abilityCategoryCode, search);
             var result = await _mediator.Send(query);
             return Ok(result);
         }

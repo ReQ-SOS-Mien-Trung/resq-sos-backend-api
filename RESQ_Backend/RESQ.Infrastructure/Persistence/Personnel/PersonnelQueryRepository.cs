@@ -176,9 +176,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
         string? abilitySubgroupCode = null,
         string? abilityCategoryCode = null,
-        string? firstName = null,
-        string? lastName = null,
-        string? email = null,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         var acceptedStatus = TeamMemberStatus.Accepted.ToString();
@@ -204,17 +202,16 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         if (rescuerTypeStr != null)
             query = query.Where(u => u.RescuerProfile != null && u.RescuerProfile.RescuerType == rescuerTypeStr);
 
-        // Filter: firstName
-        if (!string.IsNullOrWhiteSpace(firstName))
-            query = query.Where(u => u.FirstName != null && u.FirstName.ToLower().Contains(firstName.ToLower()));
-
-        // Filter: lastName
-        if (!string.IsNullOrWhiteSpace(lastName))
-            query = query.Where(u => u.LastName != null && u.LastName.ToLower().Contains(lastName.ToLower()));
-
-        // Filter: email
-        if (!string.IsNullOrWhiteSpace(email))
-            query = query.Where(u => u.Email != null && u.Email.ToLower().Contains(email.ToLower()));
+        // Filter: search (OR across firstName, lastName, phone, email)
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(u =>
+                (u.FirstName != null && u.FirstName.ToLower().Contains(term)) ||
+                (u.LastName  != null && u.LastName.ToLower().Contains(term))  ||
+                (u.Phone     != null && u.Phone.ToLower().Contains(term))     ||
+                (u.Email     != null && u.Email.ToLower().Contains(term)));
+        }
 
         // Filter: ability subgroup
         if (abilitySubgroupCode != null)
@@ -298,5 +295,20 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         }).ToList();
 
         return new PagedResult<RescuerModel>(models, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<List<RescueTeamModel>> GetAllAvailableTeamsAsync(CancellationToken cancellationToken = default)
+    {
+        var availableStatus = RescueTeamStatus.Available.ToString();
+
+        var teams = await unitOfWork.GetRepository<RescueTeam>().GetAllByPropertyAsync(
+            filter: t => t.Status == availableStatus,
+            includeProperties: "AssemblyPoint,RescueTeamMembers"
+        );
+
+        return teams
+            .OrderBy(t => t.CreatedAt)
+            .Select(t => RescueTeamMapper.ToDomain(t, t.RescueTeamMembers.ToList()))
+            .ToList();
     }
 }

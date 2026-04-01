@@ -22,9 +22,7 @@ public class GetCheckedInRescuersQueryHandler(
             request.RescuerType,
             request.AbilitySubgroupCode,
             request.AbilityCategoryCode,
-            request.FirstName,
-            request.LastName,
-            request.Email,
+            request.Search,
             cancellationToken);
     }
 }

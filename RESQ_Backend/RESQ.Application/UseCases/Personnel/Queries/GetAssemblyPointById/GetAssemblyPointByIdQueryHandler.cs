@@ -40,6 +40,7 @@ public class GetAssemblyPointByIdQueryHandler(
             Longitude = entity.Location?.Longitude,
             MaxCapacity = entity.MaxCapacity,
             Status = entity.Status.ToString(),
+            ImageUrl = entity.ImageUrl,
             LastUpdatedAt = entity.UpdatedAt,
             HasActiveEvent = activeEvent != null,
             Teams = teams

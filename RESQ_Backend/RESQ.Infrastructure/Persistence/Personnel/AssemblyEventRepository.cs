@@ -90,9 +90,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
         string? abilitySubgroupCode = null,
         string? abilityCategoryCode = null,
-        string? firstName = null,
-        string? lastName = null,
-        string? email = null,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         // Load event to get EventDateTime for IsEarly/IsLate computation
@@ -133,17 +131,16 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             joinedQuery = joinedQuery.Where(x => x.User.RescuerProfile != null &&
                                                  x.User.RescuerProfile.RescuerType == rescuerTypeStr);
 
-        if (!string.IsNullOrWhiteSpace(firstName))
-            joinedQuery = joinedQuery.Where(x => x.User.FirstName != null &&
-                                                 x.User.FirstName.ToLower().Contains(firstName.ToLower()));
-
-        if (!string.IsNullOrWhiteSpace(lastName))
-            joinedQuery = joinedQuery.Where(x => x.User.LastName != null &&
-                                                 x.User.LastName.ToLower().Contains(lastName.ToLower()));
-
-        if (!string.IsNullOrWhiteSpace(email))
-            joinedQuery = joinedQuery.Where(x => x.User.Email != null &&
-                                                 x.User.Email.ToLower().Contains(email.ToLower()));
+        // Filter: search (OR across firstName, lastName, phone, email)
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            joinedQuery = joinedQuery.Where(x =>
+                (x.User.FirstName != null && x.User.FirstName.ToLower().Contains(term)) ||
+                (x.User.LastName  != null && x.User.LastName.ToLower().Contains(term))  ||
+                (x.User.Phone     != null && x.User.Phone.ToLower().Contains(term))     ||
+                (x.User.Email     != null && x.User.Email.ToLower().Contains(term)));
+        }
 
         if (abilityFilteredUserIds != null)
             joinedQuery = joinedQuery.Where(x => abilityFilteredUserIds.Contains(x.User.Id));

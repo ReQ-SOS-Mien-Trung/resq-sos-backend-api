@@ -31,6 +31,8 @@ public class CreateRescueTeamCommandHandler(
         var team = RescueTeamModel.Create(
             request.Name, request.Type, request.AssemblyPointId, request.ManagedBy, request.MaxMembers);
 
+        team.LoadAssemblyPointName(ap.Name!);
+
         if (request.Members != null && request.Members.Any())
         {
             foreach (var mem in request.Members)

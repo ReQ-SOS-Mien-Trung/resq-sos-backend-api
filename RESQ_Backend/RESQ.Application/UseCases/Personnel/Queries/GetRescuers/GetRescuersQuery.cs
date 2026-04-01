@@ -12,6 +12,5 @@ public record GetRescuersQuery(
     RescuerType? RescuerType = null,
     string? AbilitySubgroupCode = null,
     string? AbilityCategoryCode = null,
-    string? FirstName = null,
-    string? LastName = null,
-    string? Email = null) : IRequest<PagedResult<RescuerDto>>;
+    /// <summary>Tìm kiếm theo firstName, lastName, phone hoặc email (OR logic).</summary>
+    string? Search = null) : IRequest<PagedResult<RescuerDto>>;

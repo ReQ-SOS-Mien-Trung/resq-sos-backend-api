@@ -28,6 +28,7 @@ public class GetAllAssemblyPointsQueryHandler(
             Longitude = ap.Location?.Longitude,
             MaxCapacity = ap.MaxCapacity,
             Status = ap.Status.ToString(),
+            ImageUrl = ap.ImageUrl,
             LastUpdatedAt = ap.UpdatedAt,
             HasActiveEvent = ap.HasActiveEvent
         }).ToList();

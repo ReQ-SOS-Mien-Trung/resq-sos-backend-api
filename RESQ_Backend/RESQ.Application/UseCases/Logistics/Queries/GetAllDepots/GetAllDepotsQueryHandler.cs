@@ -44,6 +44,7 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
                         Phone = manager.Phone
                     } : null,
                     
+                    ImageUrl = depot.ImageUrl,
                     LastUpdatedAt = depot.LastUpdatedAt
                 };
             }).ToList();

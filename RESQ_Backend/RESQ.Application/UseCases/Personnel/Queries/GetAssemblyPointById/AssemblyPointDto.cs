@@ -31,6 +31,7 @@ public class AssemblyPointDto
     public double? Longitude { get; set; }
     public int MaxCapacity { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
     public DateTime? LastUpdatedAt { get; set; }
     /// <summary>True khi điểm tập kết đang có sự kiện triệu tập (Scheduled/Gathering).</summary>
     public bool HasActiveEvent { get; set; }
