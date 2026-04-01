@@ -27,8 +27,10 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     [Authorize(Policy = PermissionConstants.SosRequestCreate)]
     public async Task<IActionResult> Create([FromBody] CreateSosRequestRequestDto dto)
     {
-        if (dto.SenderInfo?.UserId == null || !Guid.TryParse(dto.SenderInfo.UserId, out var senderUserId))
-            return BadRequest(new { message = "sender_info.user_id is required and must be a valid GUID." });
+        // reporter_info.user_id is the primary auth source; fall back to legacy sender_info.user_id
+        var reporterUserIdStr = dto.ReporterInfo?.UserId ?? dto.SenderInfo?.UserId;
+        if (reporterUserIdStr == null || !Guid.TryParse(reporterUserIdStr, out var reporterUserId))
+            return BadRequest(new { message = "reporter_info.user_id (or sender_info.user_id) is required and must be a valid GUID." });
 
         string? structuredDataJson = dto.StructuredData != null
             ? JsonSerializer.Serialize(dto.StructuredData)
@@ -38,12 +40,17 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             ? JsonSerializer.Serialize(dto.NetworkMetadata)
             : null;
 
-        string? senderInfoJson = dto.SenderInfo != null
-            ? JsonSerializer.Serialize(dto.SenderInfo)
+        // Store reporter_info in sender_info column; fall back to original sender_info for legacy requests
+        string? senderInfoJson = dto.ReporterInfo != null
+            ? JsonSerializer.Serialize(dto.ReporterInfo)
+            : (dto.SenderInfo != null ? JsonSerializer.Serialize(dto.SenderInfo) : null);
+
+        string? victimInfoJson = dto.VictimInfo != null
+            ? JsonSerializer.Serialize(dto.VictimInfo)
             : null;
 
         var command = new CreateSosRequestCommand(
-            senderUserId,
+            reporterUserId,
             new GeoLocation(dto.Location.Latitude, dto.Location.Longitude),
             dto.RawMessage,
             dto.PacketId,
@@ -57,7 +64,9 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             CreatedByCoordinatorId: TryGetRoleId(out var callerRoleId) && callerRoleId == 2 && TryGetUserId(out var callerUserId)
                 ? callerUserId
                 : null,
-            ClientCreatedAt: dto.CreatedAt
+            ClientCreatedAt: dto.CreatedAt,
+            VictimInfo: victimInfoJson,
+            IsSentOnBehalf: dto.IsSentOnBehalf ?? false
         );
 
         var result = await _mediator.Send(command);

@@ -34,6 +34,15 @@ public class CreateSosRequestRequestDto
 
     [JsonPropertyName("sender_info")]
     public SenderInfoDto? SenderInfo { get; set; }
+
+    [JsonPropertyName("reporter_info")]
+    public ReporterInfoDto? ReporterInfo { get; set; }
+
+    [JsonPropertyName("victim_info")]
+    public VictimInfoDto? VictimInfo { get; set; }
+
+    [JsonPropertyName("is_sent_on_behalf")]
+    public bool? IsSentOnBehalf { get; set; }
 }
 
 public class LocationDto
@@ -50,6 +59,9 @@ public class LocationDto
 
 public class StructuredDataDto
 {
+    [JsonPropertyName("address")]
+    public string? Address { get; set; }
+
     [JsonPropertyName("situation")]
     public string? Situation { get; set; }
 
@@ -220,4 +232,37 @@ public class SpecialDietPersonDto
 
     [JsonPropertyName("diet_description")]
     public string? DietDescription { get; set; }
+}
+
+public class ReporterInfoDto
+{
+    [JsonPropertyName("device_id")]
+    public string? DeviceId { get; set; }
+
+    [JsonPropertyName("user_id")]
+    public string? UserId { get; set; }
+
+    [JsonPropertyName("user_name")]
+    public string? UserName { get; set; }
+
+    [JsonPropertyName("user_phone")]
+    public string? UserPhone { get; set; }
+
+    [JsonPropertyName("battery_level")]
+    public int? BatteryLevel { get; set; }
+
+    [JsonPropertyName("is_online")]
+    public bool? IsOnline { get; set; }
+}
+
+public class VictimInfoDto
+{
+    [JsonPropertyName("user_id")]
+    public string? UserId { get; set; }
+
+    [JsonPropertyName("user_name")]
+    public string? UserName { get; set; }
+
+    [JsonPropertyName("user_phone")]
+    public string? UserPhone { get; set; }
 }

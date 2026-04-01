@@ -17,6 +17,8 @@ public class SosRequestModel
     public string? StructuredData { get; set; }
     public string? NetworkMetadata { get; set; }
     public string? SenderInfo { get; set; }
+    public string? VictimInfo { get; set; }
+    public bool IsSentOnBehalf { get; set; }
     public string? OriginId { get; set; }
     public SosPriorityLevel? PriorityLevel { get; set; }
     public SosRequestStatus Status { get; set; } = SosRequestStatus.Pending;
@@ -46,7 +48,9 @@ public class SosRequestModel
         SosRequestStatus status = SosRequestStatus.Pending,
         SosPriorityLevel? priorityLevel = null,
         Guid? createdByCoordinatorId = null,
-        DateTime? clientCreatedAt = null)
+        DateTime? clientCreatedAt = null,
+        string? victimInfo = null,
+        bool isSentOnBehalf = false)
     {
         if (userId == Guid.Empty)
             throw new InvalidSosRequestUserException();
@@ -68,6 +72,8 @@ public class SosRequestModel
             StructuredData = structuredData,
             NetworkMetadata = networkMetadata,
             SenderInfo = senderInfo,
+            VictimInfo = victimInfo,
+            IsSentOnBehalf = isSentOnBehalf,
             Timestamp = timestamp,
             Status = status,
             PriorityLevel = priorityLevel,

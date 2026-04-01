@@ -21,6 +21,8 @@ public static class SosRequestMapper
             StructuredData = model.StructuredData,
             NetworkMetadata = model.NetworkMetadata,
             SenderInfo = model.SenderInfo,
+            VictimInfo = model.VictimInfo,
+            IsSentOnBehalf = model.IsSentOnBehalf,
             OriginId = model.OriginId,
             PriorityLevel = model.PriorityLevel?.ToString(),
             Status = model.Status.ToString(),
@@ -67,6 +69,8 @@ public static class SosRequestMapper
             StructuredData = entity.StructuredData,
             NetworkMetadata = entity.NetworkMetadata,
             SenderInfo = entity.SenderInfo,
+            VictimInfo = entity.VictimInfo,
+            IsSentOnBehalf = entity.IsSentOnBehalf,
             OriginId = entity.OriginId,
             PriorityLevel = Enum.TryParse<SosPriorityLevel>(entity.PriorityLevel, out var priority) ? priority : null,
             Status = Enum.TryParse<SosRequestStatus>(entity.Status, out var status) ? status : SosRequestStatus.Pending,
@@ -90,6 +94,8 @@ public static class SosRequestMapper
         entity.StructuredData = model.StructuredData;
         entity.NetworkMetadata = model.NetworkMetadata;
         entity.SenderInfo = model.SenderInfo;
+        entity.VictimInfo = model.VictimInfo;
+        entity.IsSentOnBehalf = model.IsSentOnBehalf;
         entity.OriginId = model.OriginId;
         entity.PriorityLevel = model.PriorityLevel?.ToString();
         entity.Status = model.Status.ToString();

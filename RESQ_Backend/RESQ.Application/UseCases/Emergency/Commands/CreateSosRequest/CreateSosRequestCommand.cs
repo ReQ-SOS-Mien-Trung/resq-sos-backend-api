@@ -16,5 +16,7 @@ public record CreateSosRequestCommand(
     string? SenderInfo = null,
     long? Timestamp = null,
     Guid? CreatedByCoordinatorId = null,
-    DateTime? ClientCreatedAt = null
+    DateTime? ClientCreatedAt = null,
+    string? VictimInfo = null,
+    bool IsSentOnBehalf = false
 ) : IRequest<CreateSosRequestResponse>;
