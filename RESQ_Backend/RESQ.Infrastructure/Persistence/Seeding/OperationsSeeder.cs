@@ -13,6 +13,9 @@ public static class OperationsSeeder
         SeedMissionActivities(modelBuilder);
         SeedMissionItems(modelBuilder);
         SeedMissionTeams(modelBuilder);
+        SeedMissionTeamMembers(modelBuilder);
+        SeedMissionTeamReports(modelBuilder);
+        SeedMissionActivityReports(modelBuilder);
         SeedTeamIncidents(modelBuilder);
         SeedConversations(modelBuilder);
         SeedConversationParticipants(modelBuilder);
@@ -49,6 +52,21 @@ public static class OperationsSeeder
                 ExpectedEndTime = now.AddHours(8),
                 CreatedAt = now,
                 CreatedById = SeedConstants.AdminUserId
+            },
+            // Mission 3: Rescue Phong Điền (Cluster 4) — Đã hoàn thành (Scenario 4)
+            new Mission
+            {
+                Id = 3,
+                ClusterId = 4,
+                MissionType = "Rescue",
+                PriorityScore = 8.5,
+                Status = MissionStatus.Completed.ToString(),
+                StartTime = new DateTime(2026, 3, 1, 8, 0, 0, DateTimeKind.Utc),
+                ExpectedEndTime = new DateTime(2026, 3, 1, 14, 0, 0, DateTimeKind.Utc),
+                IsCompleted = true,
+                CompletedAt = new DateTime(2026, 3, 1, 13, 30, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 3, 1, 7, 45, 0, DateTimeKind.Utc),
+                CreatedById = SeedConstants.CoordinatorUserId
             }
         );
     }
@@ -86,6 +104,60 @@ public static class OperationsSeeder
                 Status = MissionActivityStatus.Planned.ToString(),
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.AdminUserId
+            },
+            // Activity 3: Hỗ trợ y tế cho Mission 1 (bước 2, chưa bắt đầu)
+            new MissionActivity
+            {
+                Id = 3,
+                MissionId = 1,
+                Step = 2,
+                ActivityCode = "MEDICAL_SUPPORT",
+                ActivityType = "Medical",
+                Description = "Sơ cứu và hỗ trợ y tế tại chỗ, ưu tiên cụ bà 82t và phụ nữ mang thai.",
+                Target = "{\"location\": \"Khu vực ngập Huế\", \"count\": 9}",
+                TargetLocation = new Point(107.568, 16.455) { SRID = 4326 },
+                Status = MissionActivityStatus.Planned.ToString(),
+                AssignedAt = now,
+                LastDecisionBy = SeedConstants.CoordinatorUserId,
+                MissionTeamId = 1
+            },
+            // Activity 4: Di tản Mission 3 Phong Điền (Succeed)
+            new MissionActivity
+            {
+                Id = 4,
+                MissionId = 3,
+                Step = 1,
+                ActivityCode = "EVACUATE",
+                ActivityType = "Evacuation",
+                Description = "Di tản nạn nhân ra khỏi vùng ngập Phong Điền, ưu tiên người già và trẻ em.",
+                Target = "{\"location\": \"Phong Điền, Huế\", \"count\": 10}",
+                TargetLocation = new Point(107.582, 16.465) { SRID = 4326 },
+                Status = MissionActivityStatus.Succeed.ToString(),
+                AssignedAt = new DateTime(2026, 3, 1, 8, 5, 0, DateTimeKind.Utc),
+                CompletedAt = new DateTime(2026, 3, 1, 11, 0, 0, DateTimeKind.Utc),
+                LastDecisionBy = SeedConstants.CoordinatorUserId,
+                CompletedBy = Guid.Parse("33333333-3333-3333-3333-333333330007"),
+                MissionTeamId = 2,
+                SosRequestId = 7
+            },
+            // Activity 5: Hỗ trợ y tế Mission 3 Phong Điền (Succeed)
+            new MissionActivity
+            {
+                Id = 5,
+                MissionId = 3,
+                Step = 2,
+                ActivityCode = "MEDICAL_SUPPORT",
+                ActivityType = "Medical",
+                Description = "Sơ cứu và xử lý y tế tại hiện trường, chuyển ca nặng lên tuyến trên.",
+                Target = "{\"location\": \"Phong Điền, Huế\", \"count\": 3}",
+                TargetLocation = new Point(107.584, 16.467) { SRID = 4326 },
+                Status = MissionActivityStatus.Succeed.ToString(),
+                AssignedAt = new DateTime(2026, 3, 1, 8, 10, 0, DateTimeKind.Utc),
+                CompletedAt = new DateTime(2026, 3, 1, 13, 0, 0, DateTimeKind.Utc),
+                LastDecisionBy = SeedConstants.CoordinatorUserId,
+                CompletedBy = Guid.Parse("33333333-3333-3333-3333-333333330007"),
+                MissionTeamId = 2,
+                SosRequestId = 8
             }
         );
     }
@@ -123,17 +195,107 @@ public static class OperationsSeeder
         var now = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<MissionTeam>().HasData(
-            // Team 4 (Biệt đội Ca nô Hà Tĩnh) được giao Mission 1 (Rescue — để test luồng nhận nhiệm vụ của rescuer)
+            // MissionTeam 1: RescueTeam 4 (Biệt đội Ca nô Hà Tĩnh) — Mission 1 đang diễn ra
             new MissionTeam
             {
                 Id = 1,
                 MissionId = 1,
                 RescuerTeamId = 4,
                 TeamType = "Rescue",
-                Status = "Assigned",
+                Status = "InProgress",
                 AssignedAt = now,
                 CreatedAt = now,
-                Note = "Đội được giao nhiệm vụ cứu hộ tại Lệ Thủy"
+                Note = "Đội đang tiếp cận khu vực ngập sâu Lệ Thủy"
+            },
+            // MissionTeam 2: RescueTeam 2 (Đội Y tế Huế) — Mission 3 đã hoàn thành và đã nộp báo cáo
+            new MissionTeam
+            {
+                Id = 2,
+                MissionId = 3,
+                RescuerTeamId = 2,
+                TeamType = "Medical",
+                Status = "Reported",
+                AssignedAt = new DateTime(2026, 3, 1, 7, 50, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 3, 1, 7, 50, 0, DateTimeKind.Utc),
+                Note = "Đội y tế Huế hoàn thành nhiệm vụ tại Phong Điền"
+            }
+        );
+    }
+
+    private static void SeedMissionTeamMembers(ModelBuilder modelBuilder)
+    {
+        var now1 = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc);   // Mission 1 join time
+        var now3 = new DateTime(2026, 3, 1, 7, 50, 0, DateTimeKind.Utc);    // Mission 3 join time
+
+        modelBuilder.Entity<MissionTeamMember>().HasData(
+            // MissionTeam 1 members (RescueTeam 4: Biệt đội Ca nô Hà Tĩnh)
+            new MissionTeamMember { Id = 1, MissionTeamId = 1, RescuerId = SeedConstants.RescuerUserId, RoleInTeam = "Leader", JoinedAt = now1 },
+            new MissionTeamMember { Id = 2, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330020"), RoleInTeam = "Member", JoinedAt = now1 },
+            new MissionTeamMember { Id = 3, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330021"), RoleInTeam = "Member", JoinedAt = now1 },
+            new MissionTeamMember { Id = 4, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330022"), RoleInTeam = "Member", JoinedAt = now1 },
+            new MissionTeamMember { Id = 5, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330023"), RoleInTeam = "Member", JoinedAt = now1 },
+            new MissionTeamMember { Id = 6, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330024"), RoleInTeam = "Member", JoinedAt = now1 },
+            // MissionTeam 2 members (RescueTeam 2: Đội Phản ứng nhanh Y tế Huế)
+            new MissionTeamMember { Id = 7, MissionTeamId = 2, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330007"), RoleInTeam = "Leader", JoinedAt = now3 },
+            new MissionTeamMember { Id = 8, MissionTeamId = 2, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330008"), RoleInTeam = "Member", JoinedAt = now3 },
+            new MissionTeamMember { Id = 9, MissionTeamId = 2, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330009"), RoleInTeam = "Member", JoinedAt = now3 },
+            new MissionTeamMember { Id = 10, MissionTeamId = 2, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330010"), RoleInTeam = "Member", JoinedAt = now3 },
+            new MissionTeamMember { Id = 11, MissionTeamId = 2, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330011"), RoleInTeam = "Member", JoinedAt = now3 },
+            new MissionTeamMember { Id = 12, MissionTeamId = 2, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330012"), RoleInTeam = "Member", JoinedAt = now3 }
+        );
+    }
+
+    private static void SeedMissionTeamReports(ModelBuilder modelBuilder)
+    {
+        var submitted = new DateTime(2026, 3, 1, 13, 30, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<MissionTeamReport>().HasData(
+            new MissionTeamReport
+            {
+                Id = 1,
+                MissionTeamId = 2,
+                ReportStatus = "Submitted",
+                TeamSummary = "Đội hoàn thành nhiệm vụ: di tản 10 người, sơ cứu 3 người bị thương.",
+                TeamNote = "Điều kiện đường bộ khó khăn nhưng hoàn thành đúng tiến độ.",
+                ResultJson = "{\"rescued\":10,\"treated\":3,\"referred\":1}",
+                StartedAt = new DateTime(2026, 3, 1, 13, 0, 0, DateTimeKind.Utc),
+                LastEditedAt = new DateTime(2026, 3, 1, 13, 20, 0, DateTimeKind.Utc),
+                SubmittedAt = submitted,
+                SubmittedBy = Guid.Parse("33333333-3333-3333-3333-333333330007"),
+                CreatedAt = new DateTime(2026, 3, 1, 13, 0, 0, DateTimeKind.Utc),
+                UpdatedAt = submitted
+            }
+        );
+    }
+
+    private static void SeedMissionActivityReports(ModelBuilder modelBuilder)
+    {
+        var created = new DateTime(2026, 3, 1, 13, 5, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<MissionActivityReport>().HasData(
+            new MissionActivityReport
+            {
+                Id = 1,
+                MissionTeamReportId = 1,
+                MissionActivityId = 4,
+                ActivityCode = "EVACUATE",
+                ActivityType = "Evacuation",
+                ExecutionStatus = "Succeed",
+                Summary = "Di tản thành công 10 người ra điểm tập kết an toàn.",
+                CreatedAt = created,
+                UpdatedAt = created
+            },
+            new MissionActivityReport
+            {
+                Id = 2,
+                MissionTeamReportId = 1,
+                MissionActivityId = 5,
+                ActivityCode = "MEDICAL_SUPPORT",
+                ActivityType = "Medical",
+                ExecutionStatus = "Succeed",
+                Summary = "Sơ cứu 3 người bị thương nhẹ, chuyển 1 ca nặng lên tuyến trên.",
+                CreatedAt = created.AddMinutes(5),
+                UpdatedAt = created.AddMinutes(5)
             }
         );
     }
@@ -183,18 +345,23 @@ public static class OperationsSeeder
     {
         modelBuilder.Entity<Conversation>().HasData(
             new Conversation { Id = 1, MissionId = 1 },
-            new Conversation { Id = 2, MissionId = 2 }
+            new Conversation { Id = 2, MissionId = 2 },
+            new Conversation { Id = 3, MissionId = 3 }
         );
     }
 
     private static void SeedConversationParticipants(ModelBuilder modelBuilder)
     {
         var now = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc);
+        var now3 = new DateTime(2026, 3, 1, 7, 50, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<ConversationParticipant>().HasData(
             new ConversationParticipant { Id = 1, ConversationId = 1, UserId = SeedConstants.AdminUserId, RoleInConversation = "Monitor", JoinedAt = now },
             new ConversationParticipant { Id = 2, ConversationId = 1, UserId = SeedConstants.RescuerUserId, RoleInConversation = "Leader", JoinedAt = now },
-            new ConversationParticipant { Id = 3, ConversationId = 2, UserId = SeedConstants.CoordinatorUserId, RoleInConversation = "Logistics", JoinedAt = now }
+            new ConversationParticipant { Id = 3, ConversationId = 2, UserId = SeedConstants.CoordinatorUserId, RoleInConversation = "Logistics", JoinedAt = now },
+            // Conversation 3: Mission 3 (Phong Điền, đã hoàn thành)
+            new ConversationParticipant { Id = 4, ConversationId = 3, UserId = SeedConstants.CoordinatorUserId, RoleInConversation = "Monitor", JoinedAt = now3 },
+            new ConversationParticipant { Id = 5, ConversationId = 3, UserId = Guid.Parse("33333333-3333-3333-3333-333333330007"), RoleInConversation = "Leader", JoinedAt = now3 }
         );
     }
 

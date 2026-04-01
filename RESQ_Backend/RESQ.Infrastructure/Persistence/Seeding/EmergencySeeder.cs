@@ -21,7 +21,7 @@ public static class EmergencySeeder
 
         modelBuilder.Entity<SosCluster>().HasData(
             // Cluster 1: Thừa Thiên Huế — Lũ lụt nghiêm trọng
-            // Tâm cụm gần cặp SOS A (Id=1, Id=2)
+            // Tâm cụm gần cặp SOS A (Id=1, Id=2) — Đang có Mission #1 OnGoing
             new SosCluster
             {
                 Id = 1,
@@ -34,7 +34,8 @@ public static class EmergencySeeder
                 ElderlyCount = 50,
                 MedicalUrgencyScore = 0.9,
                 CreatedAt = now,
-                LastUpdatedAt = now
+                LastUpdatedAt = now,
+                IsMissionCreated = true
             },
             // Cluster 2: Đà Nẵng — Sử dụng cho AI analysis, không có SOS request gắn trực tiếp
             new SosCluster
@@ -53,7 +54,7 @@ public static class EmergencySeeder
                 IsMissionCreated = true
             },
             // Cluster 3: Hà Tĩnh — Sạt lở + cô lập
-            // Tâm cụm gần cặp SOS B (Id=3, Id=4)
+            // Tâm cụm gần cặp SOS B (Id=3, Id=4) — IsMissionCreated=false, chờ coordinator tạo mission
             new SosCluster
             {
                 Id = 3,
@@ -67,6 +68,23 @@ public static class EmergencySeeder
                 MedicalUrgencyScore = 0.7,
                 CreatedAt = now,
                 LastUpdatedAt = now
+            },
+            // Cluster 4: Phong Điền, Thừa Thiên Huế — Đã có Mission #3 Completed
+            // Tâm cụm gần SOS G (Id=7, Id=8)
+            new SosCluster
+            {
+                Id = 4,
+                CenterLocation = new Point(107.582, 16.465) { SRID = 4326 }, // Phong Điền, Huế
+                RadiusKm = 4.0,
+                SeverityLevel = "High",
+                WaterLevel = "Ngập 1.5m, thôn bị cô lập",
+                VictimEstimated = 80,
+                ChildrenCount = 20,
+                ElderlyCount = 15,
+                MedicalUrgencyScore = 0.65,
+                CreatedAt = new DateTime(2026, 3, 1, 7, 0, 0, DateTimeKind.Utc),
+                LastUpdatedAt = new DateTime(2026, 3, 1, 15, 0, 0, DateTimeKind.Utc),
+                IsMissionCreated = true
             }
         );
     }
@@ -132,7 +150,7 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1760517000L, // 2025-10-15 08:30 UTC
                 PriorityLevel = SosPriorityLevel.Critical.ToString(),
-                Status = SosRequestStatus.Pending.ToString(),
+                Status = SosRequestStatus.InProgress.ToString(),
                 CreatedAt = new DateTime(2025, 10, 15, 8, 30, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2025, 10, 15, 8, 30, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2025, 10, 15, 8, 30, 0, DateTimeKind.Utc),
@@ -195,7 +213,7 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1763627700L, // 2025-11-20 08:35 UTC
                 PriorityLevel = SosPriorityLevel.Critical.ToString(),
-                Status = SosRequestStatus.Pending.ToString(),
+                Status = SosRequestStatus.InProgress.ToString(),
                 CreatedAt = new DateTime(2025, 11, 20, 8, 35, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2025, 11, 20, 8, 35, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2025, 11, 20, 8, 40, 0, DateTimeKind.Utc),
@@ -271,7 +289,7 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1766047500L, // 2025-12-18 08:45 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
-                Status = SosRequestStatus.Pending.ToString(),
+                Status = SosRequestStatus.Assigned.ToString(),
                 CreatedAt = new DateTime(2025, 12, 18, 8, 45, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2025, 12, 18, 8, 45, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2025, 12, 18, 8, 45, 0, DateTimeKind.Utc),
@@ -334,7 +352,7 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1769071920L, // 2026-01-22 08:50 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
-                Status = SosRequestStatus.Pending.ToString(),
+                Status = SosRequestStatus.Assigned.ToString(),
                 CreatedAt = new DateTime(2026, 1, 22, 8, 50, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2026, 1, 22, 8, 52, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2026, 1, 22, 9, 10, 0, DateTimeKind.Utc),
@@ -400,7 +418,7 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1772010600L, // 2026-02-25 09:10 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
-                Status = SosRequestStatus.Pending.ToString(),
+                Status = SosRequestStatus.Assigned.ToString(),
                 CreatedAt = new DateTime(2026, 2, 25, 9, 10, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2026, 2, 25, 9, 10, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2026, 2, 25, 9, 10, 0, DateTimeKind.Utc),
@@ -408,6 +426,181 @@ public static class EmergencySeeder
                 ReviewedById = SeedConstants.CoordinatorUserId,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"medium","suggested_severity":"Moderate","confidence":0.85,"risk_factors":["isolated_forest","broken_leg","low_battery"],"needs":["search_rescue","medical"]}"""
+            },
+
+            // ============================================================
+            // SOS #6 — Huế (Cluster chưa có): Scenario 1 "SOS mới đến"
+            // Người gửi: victim (55555555) — mới nhất, xuất hiện đầu dashboard
+            // ============================================================
+            new SosRequest
+            {
+                Id = 6,
+                PacketId = Guid.Parse("D6000000-0000-0000-0000-000000000006"),
+                ClusterId = null,
+                UserId = SeedConstants.VictimUserId,
+                Location = new Point(107.583, 16.466) { SRID = 4326 }, // Phong Điền, Huế
+                LocationAccuracy = 10,
+                SosType = "RESCUE",
+                OriginId = "D1D00006-0000-4A8A-B0BF-000000000006",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 4 | Người già: 2 | Ghi chú: Nuoc lu dang len cao, can xuong can to de chuyen nguoi gia ra, 2 cu gia khong di chuyen duoc",
+                StructuredData = """
+                    {
+                      "situation": "FLOODING",
+                      "can_move": false,
+                      "has_injured": false,
+                      "need_medical": false,
+                      "others_are_stable": false,
+                      "people_count": { "adult": 2, "child": 0, "elderly": 2 },
+                      "medical_issues": [],
+                      "supplies": ["WATER", "TRANSPORTATION"],
+                      "additional_description": "Nuoc lu dang len cao, can xuong can to de chuyen nguoi gia ra, 2 cu gia khong di chuyen duoc"
+                    }
+                    """,
+                NetworkMetadata = """
+                    {
+                      "hop_count": 0,
+                      "path": ["D1D00006-0000-4A8A-B0BF-000000000006"]
+                    }
+                    """,
+                SenderInfo = """
+                    {
+                      "device_id": "D1D00006-0000-4A8A-B0BF-000000000006",
+                      "is_online": true,
+                      "user_id": "55555555-5555-5555-5555-555555555555",
+                      "user_name": "0945678901",
+                      "user_phone": "0945678901"
+                    }
+                    """,
+                Timestamp = 1775030400L, // 2026-04-01 06:40 UTC
+                PriorityLevel = SosPriorityLevel.High.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
+                CreatedAt = new DateTime(2026, 4, 1, 6, 40, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2026, 4, 1, 6, 40, 0, DateTimeKind.Utc),
+                LastUpdatedAt = new DateTime(2026, 4, 1, 6, 40, 0, DateTimeKind.Utc),
+                ReviewedAt = null,
+                ReviewedById = null,
+                CreatedByCoordinatorId = null,
+                AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.88,"risk_factors":["flooding","elderly_immobile","water_rising"],"needs":["boat","evacuation"]}"""
+            },
+
+            // ============================================================
+            // SOS #7 — Phong Điền, Huế (Cluster 4): Scenario 4 "Đã hoàn thành"
+            // Người gửi: applicant3 (66666666-...-6663) — 0963333333
+            // ============================================================
+            new SosRequest
+            {
+                Id = 7,
+                PacketId = Guid.Parse("E7000000-0000-0000-0000-000000000007"),
+                ClusterId = 4,
+                UserId = SeedConstants.Applicant3UserId,
+                Location = new Point(107.580, 16.463) { SRID = 4326 }, // Phong Điền, Huế
+                LocationAccuracy = 8,
+                SosType = "RESCUE",
+                OriginId = "D1G00007-0000-4A8A-B0BF-000000000007",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 7 | Trẻ em: 3 | Người già: 1 | Ghi chú: Nuoc lu ngang mat nen, can xuong cuu nguoi va hang cu tro can thiet",
+                StructuredData = """
+                    {
+                      "situation": "FLOODING",
+                      "can_move": false,
+                      "has_injured": false,
+                      "need_medical": false,
+                      "others_are_stable": false,
+                      "people_count": { "adult": 3, "child": 3, "elderly": 1 },
+                      "medical_issues": [],
+                      "supplies": ["FOOD", "WATER", "TRANSPORTATION"],
+                      "additional_description": "Nuoc lu ngang mat nen, can xuong cuu nguoi va hang cu tro can thiet"
+                    }
+                    """,
+                NetworkMetadata = """
+                    {
+                      "hop_count": 0,
+                      "path": ["D1G00007-0000-4A8A-B0BF-000000000007"]
+                    }
+                    """,
+                SenderInfo = """
+                    {
+                      "device_id": "D1G00007-0000-4A8A-B0BF-000000000007",
+                      "is_online": false,
+                      "user_id": "66666666-6666-6666-6666-666666666663",
+                      "user_name": "0963333333",
+                      "user_phone": "0963333333"
+                    }
+                    """,
+                Timestamp = 1772038200L, // 2026-03-01 07:10 UTC
+                PriorityLevel = SosPriorityLevel.High.ToString(),
+                Status = SosRequestStatus.Resolved.ToString(),
+                CreatedAt = new DateTime(2026, 3, 1, 7, 10, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2026, 3, 1, 7, 10, 0, DateTimeKind.Utc),
+                LastUpdatedAt = new DateTime(2026, 3, 1, 14, 0, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2026, 3, 1, 7, 30, 0, DateTimeKind.Utc),
+                ReviewedById = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = null,
+                AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.87,"risk_factors":["flooding","family_with_children","elderly"],"needs":["boat","evacuation","food_water"]}"""
+            },
+
+            // ============================================================
+            // SOS #8 — Phong Điền, Huế (Cluster 4): Scenario 4 "Đã hoàn thành"
+            // Người gửi: applicant4 (66666666-...-6664) — 0964444444
+            // ============================================================
+            new SosRequest
+            {
+                Id = 8,
+                PacketId = Guid.Parse("E8000000-0000-0000-0000-000000000008"),
+                ClusterId = 4,
+                UserId = SeedConstants.Applicant4UserId,
+                Location = new Point(107.584, 16.467) { SRID = 4326 }, // Phong Điền, Huế (~500m từ SOS 7)
+                LocationAccuracy = 12,
+                SosType = "RESCUE",
+                OriginId = "D1G00008-0000-4A8A-B0BF-000000000008",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 3 | Bị thương: Người lớn 1: Trầy xước (Nhẹ) | Ghi chú: Nuoc vao nha cap 1, nguoi bi thuong nhe do leo len mai, can ho tro di tan",
+                StructuredData = """
+                    {
+                      "situation": "FLOODING",
+                      "can_move": false,
+                      "has_injured": true,
+                      "need_medical": false,
+                      "others_are_stable": true,
+                      "people_count": { "adult": 2, "child": 0, "elderly": 1 },
+                      "medical_issues": ["MINOR_INJURY"],
+                      "supplies": ["TRANSPORTATION"],
+                      "additional_description": "Nuoc vao nha cap 1, nguoi bi thuong nhe do leo len mai, can ho tro di tan",
+                      "injured_persons": [
+                        {
+                          "index": 1,
+                          "name": "Người lớn 1",
+                          "custom_name": null,
+                          "person_type": "adult",
+                          "medical_issues": ["MINOR_INJURY"],
+                          "severity": "Minor"
+                        }
+                      ]
+                    }
+                    """,
+                NetworkMetadata = """
+                    {
+                      "hop_count": 1,
+                      "path": ["D1G00007-0000-4A8A-B0BF-000000000007", "D1G00008-0000-4A8A-B0BF-000000000008"]
+                    }
+                    """,
+                SenderInfo = """
+                    {
+                      "device_id": "D1G00008-0000-4A8A-B0BF-000000000008",
+                      "is_online": false,
+                      "user_id": "66666666-6666-6666-6666-666666666664",
+                      "user_name": "0964444444",
+                      "user_phone": "0964444444"
+                    }
+                    """,
+                Timestamp = 1772039100L, // 2026-03-01 07:25 UTC
+                PriorityLevel = SosPriorityLevel.Medium.ToString(),
+                Status = SosRequestStatus.Resolved.ToString(),
+                CreatedAt = new DateTime(2026, 3, 1, 7, 25, 0, DateTimeKind.Utc),
+                ReceivedAt = new DateTime(2026, 3, 1, 7, 25, 0, DateTimeKind.Utc),
+                LastUpdatedAt = new DateTime(2026, 3, 1, 14, 0, 0, DateTimeKind.Utc),
+                ReviewedAt = new DateTime(2026, 3, 1, 7, 35, 0, DateTimeKind.Utc),
+                ReviewedById = SeedConstants.CoordinatorUserId,
+                CreatedByCoordinatorId = null,
+                AiAnalysis = """{"urgency":"medium","suggested_severity":"Moderate","confidence":0.83,"risk_factors":["flooding","minor_injury","elderly"],"needs":["evacuation"]}"""
             }
         );
     }
@@ -496,6 +689,54 @@ public static class EmergencySeeder
                 RuleVersion = "1.0",
                 ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
                 CreatedAt = now.AddMinutes(2)
+            },
+            // SOS 6: Lũ lụt Phong Điền, 2 người già không di chuyển → High (58.0)
+            new SosRuleEvaluation
+            {
+                Id = 6,
+                SosRequestId = 6,
+                MedicalScore = 0.0,    // need_medical=false
+                InjuryScore = 30.0,    // has_injured=false(0) + others_not_stable(30)
+                MobilityScore = 80.0,  // can_move=false
+                EnvironmentScore = 80.0, // RESCUE(40) + FLOODING(40)
+                FoodScore = 60.0,      // 4 people(40) + elderly(15) = min(40,50)=40+15=55→clamp
+                TotalScore = 58.0,
+                PriorityLevel = SosPriorityLevel.High.ToString(),
+                RuleVersion = "1.0",
+                ItemsNeeded = "[\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
+                CreatedAt = new DateTime(2026, 4, 1, 6, 42, 0, DateTimeKind.Utc)
+            },
+            // SOS 7: Phong Điền, gia đình 7 người (3 trẻ, 1 người già) → High Resolved
+            new SosRuleEvaluation
+            {
+                Id = 7,
+                SosRequestId = 7,
+                MedicalScore = 0.0,    // need_medical=false
+                InjuryScore = 30.0,    // has_injured=false(0) + others_not_stable(30)
+                MobilityScore = 80.0,
+                EnvironmentScore = 80.0, // RESCUE(40) + FLOODING(40)
+                FoodScore = 80.0,      // min(7*10,50)=50 + child(15) + elderly(15)
+                TotalScore = 60.0,
+                PriorityLevel = SosPriorityLevel.High.ToString(),
+                RuleVersion = "1.0",
+                ItemsNeeded = "[\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
+                CreatedAt = new DateTime(2026, 3, 1, 7, 12, 0, DateTimeKind.Utc)
+            },
+            // SOS 8: Phong Điền, 3 người, 1 thương nhẹ → Medium Resolved
+            new SosRuleEvaluation
+            {
+                Id = 8,
+                SosRequestId = 8,
+                MedicalScore = 0.0,    // need_medical=false
+                InjuryScore = 40.0,    // has_injured(40) + others_stable(0)
+                MobilityScore = 80.0,
+                EnvironmentScore = 80.0, // RESCUE(40) + FLOODING(40)
+                FoodScore = 45.0,      // min(3*10,50)=30 + elderly(15)
+                TotalScore = 45.0,
+                PriorityLevel = SosPriorityLevel.Medium.ToString(),
+                RuleVersion = "1.0",
+                ItemsNeeded = "[\"LIFE_JACKET\",\"RESCUE_BOAT\",\"FOOD_RATIONS\",\"WATER\"]",
+                CreatedAt = new DateTime(2026, 3, 1, 7, 27, 0, DateTimeKind.Utc)
             }
         );
     }
