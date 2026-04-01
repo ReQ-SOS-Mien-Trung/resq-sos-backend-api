@@ -12,6 +12,10 @@ public interface IFundingRequestRepository
         List<int>? depotIds = null, List<string>? statuses = null,
         CancellationToken cancellationToken = default);
 
+    Task<PagedResult<FundingRequestItemModel>> GetItemsPagedAsync(
+        int fundingRequestId, int pageNumber, int pageSize,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Tạo mới funding request, lưu ngay và trả về ID được sinh ra từ DB.</summary>
     Task<int> CreateAsync(FundingRequestModel model, CancellationToken cancellationToken = default);
     Task UpdateAsync(FundingRequestModel model, CancellationToken cancellationToken = default);

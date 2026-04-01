@@ -44,14 +44,17 @@ using RESQ.Application.UseCases.Logistics.Thresholds;
 using RESQ.Domain.Enum.Logistics;
 using System.Security.Claims;
 
+using RESQ.Application.Repositories.Logistics;
+
 namespace RESQ.Presentation.Controllers.Logistics;
 
 [Route("logistics/inventory")]
 [ApiController]
-public class InventoryController(IMediator mediator, ITokenService tokenService) : ControllerBase
+public class InventoryController(IMediator mediator, ITokenService tokenService, IItemCategoryRepository itemCategoryRepository) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
     private readonly ITokenService _tokenService = tokenService;
+    private readonly IItemCategoryRepository _itemCategoryRepository = itemCategoryRepository;
 
     /// <summary>Xem tồn kho (phân trang) của một kho theo ID.</summary>
     [HttpGet("depot/{depotId:int}")]
@@ -243,7 +246,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     /// <summary>[Admin] Xem cấu hình warning bands hiện tại (N-band, lưu trong DB). Dùng để frontend hiển thị/chỉnh sửa.</summary>
     [HttpGet("warning-band-config")]
     [Authorize(Roles = "1")]
-    [ProducesResponseType(typeof(WarningBandConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(WarningBandConfigResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetWarningBandConfig()
     {
@@ -253,18 +256,18 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>[Admin] Cập nhật (overwrite) cấu hình warning bands. Phải phủ kín từ 0 đến +∞, không gap, không overlap.</summary>
+    /// <summary>[Admin] Cập nhật cấu hình 4 bậc ngưỡng tồn kho. Chỉ nhập giới hạn trên (%) cho 3 bậc đầu; backend tự tính From từ bậc trước.</summary>
     [HttpPut("warning-band-config")]
     [Authorize(Roles = "1")]
-    [ProducesResponseType(typeof(WarningBandConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(WarningBandConfigResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UpsertWarningBandConfig([FromBody] List<WarningBandDto> bands)
+    public async Task<IActionResult> UpsertWarningBandConfig([FromBody] UpsertWarningBandRequest request)
     {
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new UpsertWarningBandConfigCommand
         {
             UserId = userId,
-            Bands = bands
+            Request = request
         });
         return Ok(result);
     }
@@ -802,16 +805,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         CancellationToken cancellationToken)
     {
         if (categoryCodes == null || categoryCodes.Count == 0)
-        {
             return null;
-        }
 
-        var categoryTasks = categoryCodes
-            .Distinct()
-            .Select(code => _mediator.Send(new GetItemCategoryByCodeQuery(code), cancellationToken));
-
-        var categories = await Task.WhenAll(categoryTasks);
-
-        return categories.Select(category => category.Id).ToList();
+        var ids = await _itemCategoryRepository.GetIdsByCodesAsync(categoryCodes, cancellationToken);
+        return ids.Count > 0 ? ids : null;
     }
 }

@@ -36,7 +36,6 @@ public class FundingRequestRepository : IFundingRequestRepository
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.GetRepository<FundingRequest>().AsQueryable()
-            .Include(x => x.FundingRequestItems)
             .Include(x => x.Depot)
             .Include(x => x.RequestedByUser)
             .Include(x => x.ReviewedByUser)
@@ -59,6 +58,44 @@ public class FundingRequestRepository : IFundingRequestRepository
 
         var models = entities.Select(FundingRequestMapper.ToModel).ToList();
         return new PagedResult<FundingRequestModel>(models, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<PagedResult<FundingRequestItemModel>> GetItemsPagedAsync(
+        int fundingRequestId, int pageNumber, int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _unitOfWork.GetRepository<FundingRequestItem>().AsQueryable()
+            .Where(x => x.FundingRequestId == fundingRequestId)
+            .OrderBy(x => x.Row);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var entities = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var models = entities.Select(i => new FundingRequestItemModel
+        {
+            Id               = i.Id,
+            FundingRequestId = i.FundingRequestId,
+            Row              = i.Row,
+            ItemName         = i.ItemName,
+            CategoryCode     = i.CategoryCode,
+            Unit             = i.Unit,
+            Quantity         = i.Quantity,
+            UnitPrice        = i.UnitPrice,
+            TotalPrice       = i.TotalPrice,
+            ItemType         = i.ItemType,
+            TargetGroups     = string.IsNullOrEmpty(i.TargetGroup)
+                                   ? new List<string>()
+                                   : i.TargetGroup.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                                  .Select(s => s.Trim()).ToList(),
+            ReceivedDate     = i.ReceivedDate,
+            ExpiredDate      = i.ExpiredDate,
+            Notes            = i.Notes
+        }).ToList();
+
+        return new PagedResult<FundingRequestItemModel>(models, totalCount, pageNumber, pageSize);
     }
 
     public async Task<int> CreateAsync(FundingRequestModel model, CancellationToken cancellationToken = default)

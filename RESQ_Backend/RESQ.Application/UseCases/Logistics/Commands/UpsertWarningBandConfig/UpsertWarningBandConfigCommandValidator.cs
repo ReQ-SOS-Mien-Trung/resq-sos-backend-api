@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using RESQ.Domain.Entities.Logistics.ValueObjects;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.UpsertWarningBandConfig;
 
@@ -7,35 +6,23 @@ public class UpsertWarningBandConfigCommandValidator : AbstractValidator<UpsertW
 {
     public UpsertWarningBandConfigCommandValidator()
     {
-        RuleFor(x => x.Bands)
-            .NotNull().WithMessage("Bands khong duoc null.")
-            .NotEmpty().WithMessage("Phai co it nhat mot band.")
-            .Custom((bands, context) =>
-            {
-                if (bands == null)
-                    return;
+        RuleFor(x => x.Request)
+            .NotNull().WithMessage("Request không được null.");
 
-                var domainBands = bands
-                    .Select(b => new WarningBand(b.Name, b.From, b.To))
-                    .ToList();
+        RuleFor(x => x.Request.Critical)
+            .GreaterThan(0m)
+                .WithMessage("Critical phải > 0.")
+            .LessThan(x => x.Request.Medium)
+                .WithMessage("Critical phải nhỏ hơn Medium.");
 
-                var validationError = WarningBandSet.ValidateFixedBandDefinition(domainBands);
-                if (validationError != null)
-                    context.AddFailure(validationError);
-            });
+        RuleFor(x => x.Request.Medium)
+            .GreaterThan(x => x.Request.Critical)
+                .WithMessage("Medium phải lớn hơn Critical.")
+            .LessThan(x => x.Request.Low)
+                .WithMessage("Medium phải nhỏ hơn Low.");
 
-        RuleForEach(x => x.Bands).ChildRules(band =>
-        {
-            band.RuleFor(b => b.Name)
-                .NotEmpty().WithMessage("Ten band khong duoc rong.");
-
-            band.RuleFor(b => b.From)
-                .GreaterThanOrEqualTo(0m).WithMessage("From phai >= 0.");
-
-            band.RuleFor(b => b.To)
-                .GreaterThan(b => b.From)
-                .When(b => b.To.HasValue)
-                .WithMessage("To phai > From.");
-        });
+        RuleFor(x => x.Request.Low)
+            .GreaterThan(x => x.Request.Medium)
+                .WithMessage("Low phải lớn hơn Medium.");
     }
 }
