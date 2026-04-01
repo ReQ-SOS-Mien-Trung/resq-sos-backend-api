@@ -132,10 +132,10 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     (excludeRoleId == null || u.RoleId != excludeRoleId) &&
                     (isBanned == null || u.IsBanned == isBanned) &&
                     (isEligible == null || (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer == isEligible)) &&
-                    (search == null || (u.Phone != null && u.Phone.Contains(search)) ||
-                     (u.Email != null && u.Email.Contains(search)) ||
-                     (u.FirstName != null && u.FirstName.Contains(search)) ||
-                     (u.LastName != null && u.LastName.Contains(search))),
+                    (search == null || (u.Phone != null && u.Phone.ToLower().Contains(search.ToLower())) ||
+                     (u.Email != null && u.Email.ToLower().Contains(search.ToLower())) ||
+                     (u.FirstName != null && u.FirstName.ToLower().Contains(search.ToLower())) ||
+                     (u.LastName != null && u.LastName.ToLower().Contains(search.ToLower()))),
                 orderBy: q => q.OrderByDescending(u => u.CreatedAt),
                 includeProperties: "RescuerProfile"
             );
@@ -159,10 +159,10 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer) &&
                     (roleId == null || u.RoleId == roleId) &&
                     (search == null ||
-                     (u.Phone != null && u.Phone.Contains(search)) ||
-                     (u.Email != null && u.Email.Contains(search)) ||
-                     (u.FirstName != null && u.FirstName.Contains(search)) ||
-                     (u.LastName != null && u.LastName.Contains(search))),
+                     (u.Phone != null && u.Phone.ToLower().Contains(search.ToLower())) ||
+                     (u.Email != null && u.Email.ToLower().Contains(search.ToLower())) ||
+                     (u.FirstName != null && u.FirstName.ToLower().Contains(search.ToLower())) ||
+                     (u.LastName != null && u.LastName.ToLower().Contains(search.ToLower()))),
                 orderBy: q => q.OrderByDescending(u => u.CreatedAt),
                 includeProperties: "RescuerProfile"
             );
