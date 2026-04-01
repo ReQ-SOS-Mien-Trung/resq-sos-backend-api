@@ -19,6 +19,7 @@ using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamReport;
+using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamRoute;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeams;
 using RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
@@ -243,6 +244,21 @@ public class MissionController(IMediator mediator) : ControllerBase
         [FromQuery] string vehicle = "car")
     {
         var result = await _mediator.Send(new GetRescuerRouteQuery(activityId, originLat, originLng, vehicle));
+        return Ok(result);
+    }
+
+    /// <summary>Lấy tuyến đường toàn bộ mission của một team, bao gồm tất cả điểm cần tới theo thứ tự activity.</summary>
+    [HttpGet("{missionId:int}/teams/{missionTeamId:int}/route")]
+    [Authorize(Policy = PermissionConstants.PolicyRouteAccess)]
+    public async Task<IActionResult> GetMissionTeamRoute(
+        [FromRoute] int missionId,
+        [FromRoute] int missionTeamId,
+        [FromQuery] double originLat,
+        [FromQuery] double originLng,
+        [FromQuery] string vehicle = "car")
+    {
+        var result = await _mediator.Send(
+            new GetMissionTeamRouteQuery(missionId, missionTeamId, originLat, originLng, vehicle));
         return Ok(result);
     }
 
