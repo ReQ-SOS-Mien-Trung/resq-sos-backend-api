@@ -9,26 +9,55 @@ namespace RESQ.Application.UseCases.Logistics.Commands.UpsertWarningBandConfig;
 public class UpsertWarningBandConfigCommandHandler(
     IStockWarningBandConfigRepository repo,
     IStockWarningEvaluatorService evaluatorService)
-    : IRequestHandler<UpsertWarningBandConfigCommand, WarningBandConfigDto>
+    : IRequestHandler<UpsertWarningBandConfigCommand, WarningBandConfigResponse>
 {
     private readonly IStockWarningBandConfigRepository _repo = repo;
     private readonly IStockWarningEvaluatorService _evaluatorService = evaluatorService;
 
-    public async Task<WarningBandConfigDto> Handle(UpsertWarningBandConfigCommand request, CancellationToken cancellationToken)
+    public async Task<WarningBandConfigResponse> Handle(UpsertWarningBandConfigCommand request, CancellationToken cancellationToken)
     {
-        // Validate bands bằng WarningBandSet (throws InvalidWarningBandSetException nếu sai)
-        // DomainExceptionBehaviour sẽ map exception này thành 422.
-        var domainBands = request.Bands
-            .Select(b => new WarningBand(b.Name, b.From, b.To))
-            .ToList();
+        var r = request.Request;
 
-        _ = new WarningBandSet(domainBands); // validate only — throws on invalid
+        // Convert percent → ratio; From của mỗi bậc = To của bậc trước
+        var criticalTo = r.Critical / 100m;
+        var mediumTo   = r.Medium   / 100m;
+        var lowTo      = r.Low      / 100m;
 
-        var saved = await _repo.UpsertAsync(request.Bands, request.UserId, cancellationToken);
+        var internalBands = new List<WarningBandDto>
+        {
+            new() { Name = "CRITICAL", From = 0m,         To = criticalTo },
+            new() { Name = "MEDIUM",   From = criticalTo,  To = mediumTo   },
+            new() { Name = "LOW",      From = mediumTo,    To = lowTo      },
+            new() { Name = "OK",       From = lowTo,       To = null       }
+        };
+
+        // Domain validation (throws InvalidWarningBandSetException → 422 qua DomainExceptionBehaviour)
+        var domainBands = internalBands.Select(b => new WarningBand(b.Name, b.From, b.To)).ToList();
+        _ = new WarningBandSet(domainBands);
+
+        var saved = await _repo.UpsertAsync(internalBands, request.UserId, cancellationToken);
 
         // Invalidate cache để lần đánh giá tiếp theo dùng config mới
         await _evaluatorService.InvalidateBandCacheAsync();
 
-        return saved;
+        return ToResponse(saved);
+    }
+
+    /// <summary>Maps internal <see cref="WarningBandConfigDto"/> to the simplified API response.</summary>
+    internal static WarningBandConfigResponse ToResponse(WarningBandConfigDto dto)
+    {
+        var critical = dto.Bands.FirstOrDefault(b => b.Name == "CRITICAL");
+        var medium   = dto.Bands.FirstOrDefault(b => b.Name == "MEDIUM");
+        var low      = dto.Bands.FirstOrDefault(b => b.Name == "LOW");
+
+        return new WarningBandConfigResponse
+        {
+            Id        = dto.Id,
+            Critical  = (critical?.To ?? 0m) * 100m,
+            Medium    = (medium?.To   ?? 0m) * 100m,
+            Low       = (low?.To      ?? 0m) * 100m,
+            UpdatedBy = dto.UpdatedBy,
+            UpdatedAt = dto.UpdatedAt
+        };
     }
 }

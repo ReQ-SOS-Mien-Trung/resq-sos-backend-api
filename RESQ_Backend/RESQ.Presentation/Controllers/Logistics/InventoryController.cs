@@ -243,7 +243,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
     /// <summary>[Admin] Xem cấu hình warning bands hiện tại (N-band, lưu trong DB). Dùng để frontend hiển thị/chỉnh sửa.</summary>
     [HttpGet("warning-band-config")]
     [Authorize(Roles = "1")]
-    [ProducesResponseType(typeof(WarningBandConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(WarningBandConfigResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetWarningBandConfig()
     {
@@ -253,18 +253,18 @@ public class InventoryController(IMediator mediator, ITokenService tokenService)
         return Ok(result);
     }
 
-    /// <summary>[Admin] Cập nhật (overwrite) cấu hình warning bands. Phải phủ kín từ 0 đến +∞, không gap, không overlap.</summary>
+    /// <summary>[Admin] Cập nhật cấu hình 4 bậc ngưỡng tồn kho. Chỉ nhập giới hạn trên (%) cho 3 bậc đầu; backend tự tính From từ bậc trước.</summary>
     [HttpPut("warning-band-config")]
     [Authorize(Roles = "1")]
-    [ProducesResponseType(typeof(WarningBandConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(WarningBandConfigResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UpsertWarningBandConfig([FromBody] List<WarningBandDto> bands)
+    public async Task<IActionResult> UpsertWarningBandConfig([FromBody] UpsertWarningBandRequest request)
     {
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new UpsertWarningBandConfigCommand
         {
             UserId = userId,
-            Bands = bands
+            Request = request
         });
         return Ok(result);
     }
