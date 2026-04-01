@@ -306,8 +306,8 @@ Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này
 
         var ageWeights = new Dictionary<string, double>
         {
-            ["child"] = 1.4, ["trẻ em"] = 1.4,
-            ["elderly"] = 1.3, ["elder"] = 1.3, ["người già"] = 1.3,
+            ["child"] = 1.4,
+            ["elderly"] = 1.3, ["elder"] = 1.3,
             ["adult"] = 1.0
         };
 
