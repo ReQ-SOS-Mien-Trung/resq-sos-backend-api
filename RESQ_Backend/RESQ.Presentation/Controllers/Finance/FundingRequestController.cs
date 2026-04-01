@@ -7,6 +7,7 @@ using RESQ.Application.UseCases.Finance.Commands.ApproveFundingRequest;
 using RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 using RESQ.Application.UseCases.Finance.Commands.RejectFundingRequest;
 using RESQ.Application.UseCases.Finance.Queries.GenerateFundingRequestTemplate;
+using RESQ.Application.UseCases.Finance.Queries.GetFundingRequestItems;
 using RESQ.Application.UseCases.Finance.Queries.GetFundingRequests;
 using RESQ.Domain.Enum.Finance;
 using System.Security.Claims;
@@ -106,6 +107,20 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         [FromQuery] List<FundingRequestStatus>? statuses = null)
     {
         var query = new GetFundingRequestsQuery(pageNumber, pageSize, depotIds, statuses);
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>Lấy danh sách dòng vật tư trong một yêu cầu cấp quỹ (phân trang).</summary>
+    [HttpGet("{id}/items")]
+    [Authorize(Roles = "1,4")]
+    [ProducesResponseType(typeof(PagedResult<FundingRequestItemListDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetItems(
+        int id,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var query = new GetFundingRequestItemsQuery(id, pageNumber, pageSize);
         var result = await _mediator.Send(query);
         return Ok(result);
     }

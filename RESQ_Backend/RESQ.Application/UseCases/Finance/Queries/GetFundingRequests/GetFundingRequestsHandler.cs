@@ -1,5 +1,4 @@
 using MediatR;
-using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Finance;
 
@@ -38,23 +37,7 @@ public class GetFundingRequestsHandler : IRequestHandler<GetFundingRequestsQuery
             ReviewedByUserName = x.ReviewedByUserName,
             RejectionReason = x.RejectionReason,
             CreatedAt = x.CreatedAt,
-            ReviewedAt = x.ReviewedAt,
-            Items = x.Items.Select(i => new FundingRequestItemListDto
-            {
-                Id           = i.Id,
-                Row          = i.Row,
-                ItemName     = i.ItemName,
-                CategoryCode = i.CategoryCode,
-                Unit         = i.Unit,
-                Quantity     = i.Quantity,
-                UnitPrice    = i.UnitPrice,
-                TotalPrice   = i.TotalPrice,
-                ItemType     = i.ItemType,
-                TargetGroup  = TargetGroupTranslations.JoinAsVietnamese(i.TargetGroups),
-                ReceivedDate = i.ReceivedDate,
-                ExpiredDate  = i.ExpiredDate,
-                Notes        = i.Notes
-            }).ToList()
+            ReviewedAt = x.ReviewedAt
         }).ToList();
 
         return new PagedResult<FundingRequestListDto>(dtos, pagedModels.TotalCount, pagedModels.PageNumber, pagedModels.PageSize);
