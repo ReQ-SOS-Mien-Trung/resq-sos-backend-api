@@ -27,11 +27,11 @@ public static class OperationsSeeder
         var now = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Mission>().HasData(
-            // Mission 1: Rescue in Le Thuy
+            // Mission 1: Rescue in Dà Nẵng (Cluster 2) — Đang diễn ra (Scenario 3)
             new Mission
             {
                 Id = 1,
-                ClusterId = 1,
+                ClusterId = 2,
                 MissionType = "Rescue",
                 PriorityScore = 10.0,
                 Status = MissionStatus.OnGoing.ToString(),
@@ -39,19 +39,6 @@ public static class OperationsSeeder
                 ExpectedEndTime = now.AddHours(6),
                 CreatedAt = now,
                 CreatedById = SeedConstants.CoordinatorUserId
-            },
-            // Mission 2: Relief Distribution in Huong Tra
-            new Mission
-            {
-                Id = 2,
-                ClusterId = 2,
-                MissionType = "Relief",
-                PriorityScore = 7.0,
-                Status = MissionStatus.Planned.ToString(),
-                StartTime = now.AddHours(2),
-                ExpectedEndTime = now.AddHours(8),
-                CreatedAt = now,
-                CreatedById = SeedConstants.AdminUserId
             },
             // Mission 3: Rescue Phong Điền (Cluster 4) — Đã hoàn thành (Scenario 4)
             new Mission
@@ -90,20 +77,6 @@ public static class OperationsSeeder
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
                 MissionTeamId = 1 // Biệt đội Ca nô Hà Tĩnh
-            },
-            new MissionActivity
-            {
-                Id = 2,
-                MissionId = 2,
-                Step = 1,
-                ActivityCode = "DISTRIBUTE",
-                ActivityType = "Distribution",
-                Description = "Phân phát lương thực cứu trợ (gạo, mì) tại vùng lũ TT-Huế.",
-                Target = "{\"items\": [\"rice\", \"food\"], \"count\": 200}",
-                TargetLocation = new Point(107.5680, 16.4546) { SRID = 4326 },
-                Status = MissionActivityStatus.Planned.ToString(),
-                AssignedAt = now,
-                LastDecisionBy = SeedConstants.AdminUserId
             },
             // Activity 3: Hỗ trợ y tế cho Mission 1 (bước 2, chưa bắt đầu)
             new MissionActivity
@@ -175,17 +148,6 @@ public static class OperationsSeeder
                 RequiredQuantity = 20,
                 AllocatedQuantity = 20,
                 SourceDepotId = 2 // Le Thuy Depot
-            },
-            // Mission 2 (Relief): Needs Food.
-            // ReliefItem ID 1 (Rice/Food)
-            new MissionItem
-            {
-                Id = 2,
-                ItemModelId = 1, 
-                MissionId = 2, 
-                RequiredQuantity = 100,
-                AllocatedQuantity = 100,
-                SourceDepotId = 1 // Hue Depot
             }
         );
     }
@@ -345,7 +307,6 @@ public static class OperationsSeeder
     {
         modelBuilder.Entity<Conversation>().HasData(
             new Conversation { Id = 1, MissionId = 1 },
-            new Conversation { Id = 2, MissionId = 2 },
             new Conversation { Id = 3, MissionId = 3 }
         );
     }
@@ -358,7 +319,6 @@ public static class OperationsSeeder
         modelBuilder.Entity<ConversationParticipant>().HasData(
             new ConversationParticipant { Id = 1, ConversationId = 1, UserId = SeedConstants.AdminUserId, RoleInConversation = "Monitor", JoinedAt = now },
             new ConversationParticipant { Id = 2, ConversationId = 1, UserId = SeedConstants.RescuerUserId, RoleInConversation = "Leader", JoinedAt = now },
-            new ConversationParticipant { Id = 3, ConversationId = 2, UserId = SeedConstants.CoordinatorUserId, RoleInConversation = "Logistics", JoinedAt = now },
             // Conversation 3: Mission 3 (Phong Điền, đã hoàn thành)
             new ConversationParticipant { Id = 4, ConversationId = 3, UserId = SeedConstants.CoordinatorUserId, RoleInConversation = "Monitor", JoinedAt = now3 },
             new ConversationParticipant { Id = 5, ConversationId = 3, UserId = Guid.Parse("33333333-3333-3333-3333-333333330007"), RoleInConversation = "Leader", JoinedAt = now3 }
@@ -376,14 +336,6 @@ public static class OperationsSeeder
                 ConversationId = 1,
                 SenderId = SeedConstants.RescuerUserId,
                 Content = "Đội đã tiếp cận được đầu làng. Đang sử dụng vật tư y tế để sơ cứu người bị thương.",
-                CreatedAt = now
-            },
-            new Message
-            {
-                Id = 2,
-                ConversationId = 2,
-                SenderId = SeedConstants.CoordinatorUserId,
-                Content = "Đã xuất kho 100 thùng mì tôm từ kho MTTQ Huế, xe đang di chuyển.",
                 CreatedAt = now
             }
         );

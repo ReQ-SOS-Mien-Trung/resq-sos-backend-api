@@ -21,7 +21,7 @@ public static class EmergencySeeder
 
         modelBuilder.Entity<SosCluster>().HasData(
             // Cluster 1: Thừa Thiên Huế — Lũ lụt nghiêm trọng
-            // Tâm cụm gần cặp SOS A (Id=1, Id=2) — Đang có Mission #1 OnGoing
+            // Tâm cụm gần cặp SOS A (Id=1, Id=2) — PENDING: chờ coordinator gom SOS và tạo mission
             new SosCluster
             {
                 Id = 1,
@@ -35,7 +35,7 @@ public static class EmergencySeeder
                 MedicalUrgencyScore = 0.9,
                 CreatedAt = now,
                 LastUpdatedAt = now,
-                IsMissionCreated = true
+                IsMissionCreated = false
             },
             // Cluster 2: Đà Nẵng — Sử dụng cho AI analysis, không có SOS request gắn trực tiếp
             new SosCluster
@@ -54,7 +54,7 @@ public static class EmergencySeeder
                 IsMissionCreated = true
             },
             // Cluster 3: Hà Tĩnh — Sạt lở + cô lập
-            // Tâm cụm gần cặp SOS B (Id=3, Id=4) — IsMissionCreated=false, chờ coordinator tạo mission
+            // Tâm cụm gần cặp SOS B (Id=3, Id=4) — PENDING: chờ coordinator gom SOS và tạo mission
             new SosCluster
             {
                 Id = 3,
@@ -103,7 +103,7 @@ public static class EmergencySeeder
             {
                 Id = 1,
                 PacketId = Guid.Parse("A1000000-0000-0000-0000-000000000001"),
-                ClusterId = 1,
+                ClusterId = null,
                 UserId = SeedConstants.VictimUserId,
                 Location = new Point(107.567, 16.454) { SRID = 4326 }, // Gần Depot 1 (Huế)
                 LocationAccuracy = 8,
@@ -150,12 +150,12 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1760517000L, // 2025-10-15 08:30 UTC
                 PriorityLevel = SosPriorityLevel.Critical.ToString(),
-                Status = SosRequestStatus.InProgress.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
                 CreatedAt = new DateTime(2025, 10, 15, 8, 30, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2025, 10, 15, 8, 30, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2025, 10, 15, 8, 30, 0, DateTimeKind.Utc),
-                ReviewedAt = new DateTime(2025, 10, 15, 8, 40, 0, DateTimeKind.Utc),
-                ReviewedById = SeedConstants.CoordinatorUserId,
+                ReviewedAt = null,
+                ReviewedById = null,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"critical","suggested_severity":"Critical","confidence":0.96,"risk_factors":["deep_flooding","elderly_paralyzed","water_rising"],"needs":["boat_rescue","medical_team"]}"""
             },
@@ -166,7 +166,7 @@ public static class EmergencySeeder
             {
                 Id = 2,
                 PacketId = Guid.Parse("A2000000-0000-0000-0000-000000000002"),
-                ClusterId = 1,
+                ClusterId = null,
                 UserId = SeedConstants.Applicant1UserId,
                 Location = new Point(107.569, 16.456) { SRID = 4326 }, // Gần Depot 1 (Huế)
                 LocationAccuracy = 12,
@@ -213,12 +213,12 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1763627700L, // 2025-11-20 08:35 UTC
                 PriorityLevel = SosPriorityLevel.Critical.ToString(),
-                Status = SosRequestStatus.InProgress.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
                 CreatedAt = new DateTime(2025, 11, 20, 8, 35, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2025, 11, 20, 8, 35, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2025, 11, 20, 8, 40, 0, DateTimeKind.Utc),
-                ReviewedAt = new DateTime(2025, 11, 20, 8, 45, 0, DateTimeKind.Utc),
-                ReviewedById = SeedConstants.CoordinatorUserId,
+                LastUpdatedAt = new DateTime(2025, 11, 20, 8, 35, 0, DateTimeKind.Utc),
+                ReviewedAt = null,
+                ReviewedById = null,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"critical","suggested_severity":"Critical","confidence":0.94,"risk_factors":["pregnant_woman","young_children","rooftop_refuge"],"needs":["boat_rescue","obstetrics_support"]}"""
             },
@@ -234,7 +234,7 @@ public static class EmergencySeeder
             {
                 Id = 3,
                 PacketId = Guid.Parse("B3000000-0000-0000-0000-000000000003"),
-                ClusterId = 3,
+                ClusterId = null,
                 UserId = SeedConstants.Applicant2UserId,
                 Location = new Point(105.902, 18.351) { SRID = 4326 }, // Gần Depot 3 (Hà Tĩnh)
                 LocationAccuracy = 6,
@@ -289,12 +289,12 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1766047500L, // 2025-12-18 08:45 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
-                Status = SosRequestStatus.Assigned.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
                 CreatedAt = new DateTime(2025, 12, 18, 8, 45, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2025, 12, 18, 8, 45, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2025, 12, 18, 8, 45, 0, DateTimeKind.Utc),
-                ReviewedAt = new DateTime(2025, 12, 18, 8, 55, 0, DateTimeKind.Utc),
-                ReviewedById = SeedConstants.CoordinatorUserId,
+                ReviewedAt = null,
+                ReviewedById = null,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.89,"risk_factors":["landslide","bleeding_injury","road_blocked"],"needs":["medical_evacuation","helicopter"]}"""
             },
@@ -305,7 +305,7 @@ public static class EmergencySeeder
             {
                 Id = 4,
                 PacketId = Guid.Parse("B4000000-0000-0000-0000-000000000004"),
-                ClusterId = 3,
+                ClusterId = null,
                 UserId = SeedConstants.Applicant3UserId,
                 Location = new Point(105.899, 18.349) { SRID = 4326 }, // Gần Depot 3 (Hà Tĩnh)
                 LocationAccuracy = 15,
@@ -352,12 +352,12 @@ public static class EmergencySeeder
                     """,
                 Timestamp = 1769071920L, // 2026-01-22 08:50 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
-                Status = SosRequestStatus.Assigned.ToString(),
+                Status = SosRequestStatus.Pending.ToString(),
                 CreatedAt = new DateTime(2026, 1, 22, 8, 50, 0, DateTimeKind.Utc),
                 ReceivedAt = new DateTime(2026, 1, 22, 8, 52, 0, DateTimeKind.Utc),
-                LastUpdatedAt = new DateTime(2026, 1, 22, 9, 10, 0, DateTimeKind.Utc),
-                ReviewedAt = new DateTime(2026, 1, 22, 9, 0, 0, DateTimeKind.Utc),
-                ReviewedById = SeedConstants.CoordinatorUserId,
+                LastUpdatedAt = new DateTime(2026, 1, 22, 8, 52, 0, DateTimeKind.Utc),
+                ReviewedAt = null,
+                ReviewedById = null,
                 CreatedByCoordinatorId = null,
                 AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.91,"risk_factors":["prolonged_isolation","infant_malnutrition","medication_shortage"],"needs":["food_drop","water","medicine"]}"""
             },

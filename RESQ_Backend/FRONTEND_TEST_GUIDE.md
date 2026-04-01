@@ -45,11 +45,11 @@
 
 ## Tổng quan 4 Scenario
 
-| # | Tên | Trạng thái | SOS | Cluster | Mission |
+| # | Tên | Trạng thái SOS | SOS | Cluster | Mission |
 |---|---|---|---|---|---|
 | 1 | SOS mới đến | `Pending` | #6 | Chưa có | Chưa có |
-| 2 | Cluster chờ Mission | `Assigned` | #3, #4 | #3 (Hà Tĩnh) | Chưa có |
-| 3 | Mission đang diễn ra | `InProgress` | #1, #2 | #1 (Huế) | #1 OnGoing |
+| 2 | Cluster chờ gom SOS & tạo Mission | `Pending` | #1, #2 (Huế) / #3, #4 (Hà Tĩnh) | #1 & #3 (trống) | Chưa có |
+| 3 | Mission đang diễn ra | `Assigned` | #5 | #2 (Đà Nẵng) | #1 OnGoing |
 | 4 | Mission hoàn thành | `Resolved` | #7, #8 | #4 (Phong Điền) | #3 Completed |
 
 ---
@@ -81,45 +81,53 @@
 
 ---
 
-## Scenario 2 — Cluster đã hình thành, chờ tạo Mission
+## Scenario 2 — Cluster trống, chờ gom SOS & tạo Mission
 
-**Mô tả:** SOS #3 và #4 tại Hà Tĩnh đã được gom vào Cluster #3. Cluster chưa có mission (`IsMissionCreated = false`). Coordinator cần chỉ định đội cứu hộ để tạo mission.
+**Mô tả:** Cluster #1 (Huế) và Cluster #3 (Hà Tĩnh) đang trống — không có Mission, không có SOS được gán. Các SOS #1, #2 (tại Huế) và SOS #3, #4 (tại Hà Tĩnh) ở trạng thái `Pending`. Coordinator cần review SOS, gom vào cluster và tạo Mission để hoàn thành toàn bộ luồng.
 
 ### Trạng thái DB
 
 | Đối tượng | Trạng thái | Chi tiết |
 |---|---|---|
-| SOS #3 | `Assigned`, ClusterId=3 | Sạt lở đường, 5 người, 2 bị thương (gãy tay + chảy máu đầu) |
-| SOS #4 | `Assigned`, ClusterId=3 | Cả thôn cô lập 3 ngày, 120 người, hết lương thực và thuốc |
-| Cluster #3 | `IsMissionCreated = false` | Hà Tĩnh (105.901, 18.350), 85 nạn nhân ước tính, mức độ High |
+| SOS #1 | `Pending`, ClusterId=null | Cụ bà 82t liệt nửa người, 3 người, nước lên nhanh *(Critical)* — Huế |
+| SOS #2 | `Pending`, ClusterId=null | Phụ nữ mang thai tháng 8 + 3 trẻ nhỏ trú trên mái *(Critical)* — Huế |
+| SOS #3 | `Pending`, ClusterId=null | Sạt lở đường, 5 người, 2 bị thương (gãy tay + chảy máu đầu) — Hà Tĩnh |
+| SOS #4 | `Pending`, ClusterId=null | Cả thôn cô lập 3 ngày, 120 người, hết lương thực và thuốc — Hà Tĩnh |
+| Cluster #1 | `IsMissionCreated = false` | Trung tâm Huế (107.568, 16.455), trống, chờ gom SOS |
+| Cluster #3 | `IsMissionCreated = false` | Hà Tĩnh (105.901, 18.350), trống, chờ gom SOS |
 
 ### Các bước test
 
-1. Đăng nhập **Coordinator** → vào màn hình Cluster
-2. Cluster #3 phải hiện trạng thái **"Chờ tạo mission"** / chưa có mission
-3. Xem 2 SOS trong cluster (SOS #3, #4), kiểm tra nội dung và mức độ ưu tiên
-4. **Tạo Mission** → gán đội cứu hộ, thêm hoạt động → submit
-5. Kiểm tra `IsMissionCreated` chuyển thành `true` trên Cluster #3
-6. Kiểm tra SOS #3, #4 chuyển sang `InProgress`
+**Luồng A — Huế (Cluster #1):**
+1. Đăng nhập **Coordinator** → vào danh sách SOS → SOS #1, #2 hiện badge `Pending`
+2. Review SOS #1 → gom vào Cluster #1 → SOS #1 chuyển sang `Assigned`
+3. Review SOS #2 → gom vào Cluster #1 → SOS #2 chuyển sang `Assigned`
+4. Vào Cluster #1 → `IsMissionCreated = false` → **Tạo Mission** → gán đội cứu hộ, thêm hoạt động → submit
+5. Cluster #1 → `IsMissionCreated = true`, SOS #1, #2 → `InProgress`
+
+**Luồng B — Hà Tĩnh (Cluster #3):**
+1. Review SOS #3, #4 → gom vào Cluster #3 theo cùng quy trình trên
+2. Tạo Mission cho Cluster #3
 
 ---
 
 ## Scenario 3 — Mission đang diễn ra
 
-**Mô tả:** Mission #1 tại Huế đang `OnGoing`. Đội cứu hộ (MissionTeam #1) đang `InProgress` — gồm đội trưởng `rescuer` và 5 thành viên. Có 2 hoạt động: #1 đang chạy, #3 chờ bắt đầu. Có 1 sự cố đội đã báo cáo.
+**Mô tả:** Mission #1 tại Đà Nẵng (Cluster #2) đang `OnGoing`. Đội cứu hộ (MissionTeam #1) đang `InProgress` — gồm đội trưởng `rescuer` và 5 thành viên. Có 2 hoạt động: #1 đang chạy, #3 chờ bắt đầu. Có 3 sự cố đội đã báo cáo.
 
 ### Trạng thái DB
 
 | Đối tượng | Trạng thái | Chi tiết |
 |---|---|---|
-| Mission #1 | `OnGoing` | Cluster #1, Huế, ưu tiên Critical |
-| SOS #1 | `InProgress` | Cụ bà 82t liệt nửa người, 3 người, nước lên nhanh *(Critical)* |
-| SOS #2 | `InProgress` | Phụ nữ mang thai tháng 8 + 3 trẻ nhỏ trú trên mái *(Critical)* |
+| Mission #1 | `OnGoing` | Cluster #2, Đà Nẵng, ưu tiên Critical |
+| SOS #5 | `Assigned` | Người đi rừng gãy chân, 1 người, pin điện thoại 8% *(High)* |
 | MissionTeam #1 | `InProgress` | Biệt đội Ca nô Hà Tĩnh, đội trưởng = `rescuer` |
 | Thành viên đội | 6 người | rescuer (Leader) + rescuer20, 21, 22, 23, 24 |
 | MissionActivity #1 | `OnGoing` | EVACUATE — Tiếp cận khu ngập, di tản |
 | MissionActivity #3 | `Planned` | MEDICAL_SUPPORT — Sơ cứu cụ bà 82t và phụ nữ mang thai |
 | TeamIncident #1 | `Reported` | Thuyền hỏng động cơ |
+| TeamIncident #2 | `Acknowledged` | Thành viên bị thương nhẹ |
+| TeamIncident #3 | `Resolved` | Mất liên lạc tạm thời 15 phút |
 | Conversation #1 | — | Chat Mission #1, có tin nhắn mẫu từ rescuer |
 
 ### Cấu trúc đội (MissionTeam #1)
