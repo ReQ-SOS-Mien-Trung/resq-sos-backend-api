@@ -39,6 +39,12 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
             RuleFor(x => x.Longitude)
                 .InclusiveBetween(-180, 180).When(x => x.Longitude.HasValue)
                 .WithMessage("Kinh độ phải nằm trong khoảng -180 đến 180");
+
+            RuleFor(x => x.AvatarUrl)
+                .MaximumLength(500).WithMessage("Avatar URL không được vượt quá 500 ký tự")
+                .Must(url => url == null || Uri.TryCreate(url, UriKind.Absolute, out _))
+                .WithMessage("Avatar URL không hợp lệ")
+                .When(x => x.AvatarUrl != null);
         }
     }
 }

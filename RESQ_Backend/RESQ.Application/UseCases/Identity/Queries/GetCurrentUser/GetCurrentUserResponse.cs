@@ -1,5 +1,17 @@
 namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
 {
+    public class RescuerScoreDto
+    {
+        public decimal ResponseTimeScore { get; set; }
+        public decimal RescueEffectivenessScore { get; set; }
+        public decimal DecisionHandlingScore { get; set; }
+        public decimal SafetyMedicalSkillScore { get; set; }
+        public decimal TeamworkCommunicationScore { get; set; }
+        public decimal OverallAverageScore { get; set; }
+        public int EvaluationCount { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+    }
+
     public class RescuerDocumentDto
     {
         public int Id { get; set; }
@@ -35,5 +47,6 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         public List<string> Permissions { get; set; } = [];
         public int? DepotId { get; set; }
         public string? DepotName { get; set; }
+        public RescuerScoreDto? RescuerScore { get; set; }
     }
 }

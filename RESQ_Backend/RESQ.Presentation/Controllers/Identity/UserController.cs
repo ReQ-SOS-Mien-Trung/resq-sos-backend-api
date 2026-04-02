@@ -84,7 +84,8 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.Ward,
                 dto.Province,
                 dto.Latitude,
-                dto.Longitude
+                dto.Longitude,
+                dto.AvatarUrl
             );
             var result = await _mediator.Send(command);
             return Ok(result);
