@@ -201,7 +201,7 @@ public class SubmitMissionTeamReportCommandHandler(
             }
 
             await missionTeamReportRepository.SubmitAsync(request.MissionTeamId, request.SubmittedBy, cancellationToken);
-            await rescuerScoreRepository.RefreshAsync(memberEvaluations.Select(x => x.RescuerId), cancellationToken);
+            await rescuerScoreRepository.RefreshAsync(memberEvaluations, cancellationToken);
             await missionTeamRepository.UpdateStatusAsync(request.MissionTeamId, MissionTeamExecutionStatus.Reported.ToString(), cancellationToken);
 
             var refreshedTeams = (await missionTeamRepository.GetByMissionIdAsync(request.MissionId, cancellationToken))
