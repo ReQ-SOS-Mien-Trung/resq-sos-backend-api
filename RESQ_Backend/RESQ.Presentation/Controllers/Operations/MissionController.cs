@@ -19,6 +19,7 @@ using RESQ.Application.UseCases.Operations.Commands.UpdateMissionActivity;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
+using RESQ.Application.UseCases.Operations.Queries.GetMyTeamActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamReport;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamRoute;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeams;
@@ -141,6 +142,21 @@ public class MissionController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMissionActivities([FromRoute] int missionId)
     {
         var result = await _mediator.Send(new GetMissionActivitiesQuery(missionId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy danh sách activities được giao cho đội của user hiện tại trong một mission.
+    /// </summary>
+    [HttpGet("{missionId:int}/activities/my-team")]
+    [Authorize]
+    public async Task<IActionResult> GetMyTeamActivities([FromRoute] int missionId)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var result = await _mediator.Send(new GetMyTeamActivitiesQuery(missionId, userId));
         return Ok(result);
     }
 
