@@ -15,13 +15,13 @@ public static class MissionMapper
     };
 
     private static readonly Dictionary<string, MissionStatus> StringToStatus =
-        StatusToString.ToDictionary(x => x.Value, x => x.Key);
+        StatusToString.ToDictionary(x => x.Value, x => x.Key, StringComparer.OrdinalIgnoreCase);
 
     public static string ToDbString(MissionStatus status) =>
         StatusToString.GetValueOrDefault(status, "planned");
 
     public static MissionStatus ToEnum(string? status) =>
-        status is not null && StringToStatus.TryGetValue(status, out var val) ? val : MissionStatus.Planned;
+        status is not null && StringToStatus.TryGetValue(status.Trim(), out var val) ? val : MissionStatus.Planned;
 
     public static Mission ToEntity(MissionModel model)
     {
