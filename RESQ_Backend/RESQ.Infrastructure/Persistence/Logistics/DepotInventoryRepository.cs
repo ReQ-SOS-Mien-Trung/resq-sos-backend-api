@@ -867,4 +867,204 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             AvailableQuantity = r.Available
         }).ToList();
     }
+
+    public async Task ExportInventoryAsync(
+        int depotId,
+        int itemModelId,
+        int quantity,
+        Guid performedBy,
+        string? note,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        var inventory = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+            .FirstOrDefaultAsync(x => x.DepotId == depotId && x.ItemModelId == itemModelId, cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Không tìm thấy tồn kho vật tư #{itemModelId} tại kho #{depotId}.");
+
+        var available = (inventory.Quantity ?? 0) - (inventory.MissionReservedQuantity + inventory.TransferReservedQuantity);
+        if (available < quantity)
+            throw new InvalidOperationException(
+                $"Vật tư #{itemModelId}: số lượng khả dụng ({available}) không đủ so với yêu cầu xuất ({quantity}).");
+
+        inventory.Quantity      = (inventory.Quantity ?? 0) - quantity;
+        inventory.LastStockedAt = now;
+
+        // ── FEFO lot deduction ──────────────────────────────────────────
+        var lots = await _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable(tracked: true)
+            .Where(l => l.SupplyInventoryId == inventory.Id && l.RemainingQuantity > 0)
+            .OrderBy(l => l.ExpiredDate == null ? 1 : 0)  // items WITH expiry first
+            .ThenBy(l => l.ExpiredDate)                    // soonest expiry first (FEFO)
+            .ThenBy(l => l.ReceivedDate)                   // oldest received first (FIFO tie-breaker)
+            .ToListAsync(cancellationToken);
+
+        if (lots.Count > 0)
+        {
+            var remaining = quantity;
+            foreach (var lot in lots)
+            {
+                if (remaining <= 0) break;
+                var deduct = Math.Min(lot.RemainingQuantity, remaining);
+                lot.RemainingQuantity -= deduct;
+                remaining -= deduct;
+
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    DepotSupplyInventoryId = inventory.Id,
+                    SupplyInventoryLotId   = lot.Id,
+                    ActionType             = InventoryActionType.Export.ToString(),
+                    QuantityChange         = deduct,
+                    SourceType             = InventorySourceType.System.ToString(),
+                    PerformedBy            = performedBy,
+                    Note                   = !string.IsNullOrWhiteSpace(note)
+                        ? note
+                        : $"Xuất kho FEFO lô #{lot.Id} vật tư #{itemModelId} SL {deduct}",
+                    CreatedAt              = now
+                });
+            }
+
+            if (remaining > 0)
+                throw new InvalidOperationException(
+                    $"Vật tư #{itemModelId}: không đủ lô để xuất {quantity} đơn vị.");
+        }
+        else
+        {
+            // Fallback: no lots yet (legacy data) — single log
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                DepotSupplyInventoryId = inventory.Id,
+                ActionType             = InventoryActionType.Export.ToString(),
+                QuantityChange         = quantity,
+                SourceType             = InventorySourceType.System.ToString(),
+                PerformedBy            = performedBy,
+                Note                   = !string.IsNullOrWhiteSpace(note)
+                    ? note
+                    : $"Xuất kho vật tư #{itemModelId} SL {quantity} (legacy – không có lô)",
+                CreatedAt              = now
+            });
+        }
+
+        await _unitOfWork.SaveAsync();
+    }
+
+    public async Task AdjustInventoryAsync(
+        int depotId,
+        int itemModelId,
+        int quantityChange,
+        Guid performedBy,
+        string reason,
+        string? note,
+        DateTime? expiredDate,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        var inventory = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+            .FirstOrDefaultAsync(x => x.DepotId == depotId && x.ItemModelId == itemModelId, cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Không tìm thấy tồn kho vật tư #{itemModelId} tại kho #{depotId}.");
+
+        if (quantityChange < 0)
+        {
+            // ── Decrease: FEFO lot deduction ───────────────────────────────
+            var decrease  = -quantityChange;
+            var available = (inventory.Quantity ?? 0) - (inventory.MissionReservedQuantity + inventory.TransferReservedQuantity);
+            if (available < decrease)
+                throw new InvalidOperationException(
+                    $"Vật tư #{itemModelId}: số lượng khả dụng ({available}) không đủ để điều chỉnh giảm {decrease}.");
+
+            inventory.Quantity      = (inventory.Quantity ?? 0) - decrease;
+            inventory.LastStockedAt = now;
+
+            var lots = await _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable(tracked: true)
+                .Where(l => l.SupplyInventoryId == inventory.Id && l.RemainingQuantity > 0)
+                .OrderBy(l => l.ExpiredDate == null ? 1 : 0)
+                .ThenBy(l => l.ExpiredDate)
+                .ThenBy(l => l.ReceivedDate)
+                .ToListAsync(cancellationToken);
+
+            if (lots.Count > 0)
+            {
+                var remaining = decrease;
+                foreach (var lot in lots)
+                {
+                    if (remaining <= 0) break;
+                    var deduct = Math.Min(lot.RemainingQuantity, remaining);
+                    lot.RemainingQuantity -= deduct;
+                    remaining -= deduct;
+
+                    await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                    {
+                        DepotSupplyInventoryId = inventory.Id,
+                        SupplyInventoryLotId   = lot.Id,
+                        ActionType             = InventoryActionType.Adjust.ToString(),
+                        QuantityChange         = -deduct,
+                        SourceType             = InventorySourceType.Adjustment.ToString(),
+                        PerformedBy            = performedBy,
+                        Note                   = !string.IsNullOrWhiteSpace(note)
+                            ? $"{note} [lô #{lot.Id}, SL -{deduct}]"
+                            : $"Điều chỉnh giảm FEFO lô #{lot.Id} vật tư #{itemModelId} SL {deduct}: {reason}",
+                        CreatedAt              = now
+                    });
+                }
+
+                if (remaining > 0)
+                    throw new InvalidOperationException(
+                        $"Vật tư #{itemModelId}: không đủ lô để điều chỉnh giảm {decrease}.");
+            }
+            else
+            {
+                // Fallback: no lots (legacy data)
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    DepotSupplyInventoryId = inventory.Id,
+                    ActionType             = InventoryActionType.Adjust.ToString(),
+                    QuantityChange         = quantityChange,
+                    SourceType             = InventorySourceType.Adjustment.ToString(),
+                    PerformedBy            = performedBy,
+                    Note                   = !string.IsNullOrWhiteSpace(note)
+                        ? note
+                        : $"Điều chỉnh giảm vật tư #{itemModelId} SL {decrease}: {reason} (legacy – không có lô)",
+                    CreatedAt              = now
+                });
+            }
+        }
+        else
+        {
+            // ── Increase: create new lot + increment quantity ───────────────
+            var lot = new SupplyInventoryLot
+            {
+                SupplyInventoryId = inventory.Id,
+                Quantity          = quantityChange,
+                RemainingQuantity = quantityChange,
+                ReceivedDate      = now,
+                ExpiredDate       = expiredDate,
+                SourceType        = InventorySourceType.Adjustment.ToString(),
+                SourceId          = null,
+                CreatedAt         = now
+            };
+            await _unitOfWork.GetRepository<SupplyInventoryLot>().AddAsync(lot);
+            await _unitOfWork.SaveAsync(); // flush to get lot.Id
+
+            inventory.Quantity      = (inventory.Quantity ?? 0) + quantityChange;
+            inventory.LastStockedAt = now;
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                DepotSupplyInventoryId = inventory.Id,
+                SupplyInventoryLotId   = lot.Id,
+                ActionType             = InventoryActionType.Adjust.ToString(),
+                QuantityChange         = quantityChange,
+                SourceType             = InventorySourceType.Adjustment.ToString(),
+                PerformedBy            = performedBy,
+                Note                   = !string.IsNullOrWhiteSpace(note)
+                    ? note
+                    : $"Điều chỉnh tăng vật tư #{itemModelId} SL {quantityChange}: {reason}",
+                CreatedAt              = now
+            });
+        }
+
+        await _unitOfWork.SaveAsync();
+    }
 }
