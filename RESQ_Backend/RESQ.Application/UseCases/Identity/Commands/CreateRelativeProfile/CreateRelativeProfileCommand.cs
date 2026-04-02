@@ -16,6 +16,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.CreateRelativeProfile
         string? MedicalBaselineNote,
         string? SpecialNeedsNote,
         string? SpecialDietNote,
+        string? Gender,
+        string? MedicalProfileJson,
         DateTime? UpdatedAt
     ) : IRequest<RelativeProfileResponse>;
 }

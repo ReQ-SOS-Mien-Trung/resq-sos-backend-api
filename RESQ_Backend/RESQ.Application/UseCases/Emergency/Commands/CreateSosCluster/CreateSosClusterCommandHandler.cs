@@ -116,7 +116,12 @@ public class CreateSosClusterCommandHandler(
             try
             {
                 var doc = JsonDocument.Parse(sos.StructuredData);
-                if (doc.RootElement.TryGetProperty("people_count", out var pc))
+                // Dual-read: try new nested format first, fallback to old flat
+                JsonElement pc;
+                bool hasPc = (doc.RootElement.TryGetProperty("incident", out var incident)
+                              && incident.TryGetProperty("people_count", out pc))
+                             || doc.RootElement.TryGetProperty("people_count", out pc);
+                if (hasPc)
                 {
                     hasPeopleCount = true;
                     if (pc.TryGetProperty("adult", out var a) && a.ValueKind == JsonValueKind.Number)

@@ -49,6 +49,15 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRelativeProfile
             When(x => !string.IsNullOrEmpty(x.SpecialDietNote), () =>
                 RuleFor(x => x.SpecialDietNote)
                     .MaximumLength(2000).WithMessage("specialDietNote tối đa 2000 ký tự."));
+
+            When(x => !string.IsNullOrEmpty(x.Gender), () =>
+                RuleFor(x => x.Gender)
+                    .Must(v => v == "MALE" || v == "FEMALE")
+                    .WithMessage("gender phải là MALE hoặc FEMALE."));
+
+            When(x => !string.IsNullOrEmpty(x.MedicalProfileJson), () =>
+                RuleFor(x => x.MedicalProfileJson)
+                    .MaximumLength(10000).WithMessage("medicalProfile tối đa 10000 ký tự."));
         }
     }
 }

@@ -243,33 +243,43 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 5 | Bị thương: Người lớn 1: Gãy tay (Trung bình); Người lớn 2: Chảy máu đầu (Nghiêm trọng) | Ghi chú: Sat lo dat chan duong tinh lo, xe tai bi chan lai, can truc thang hoac di bo rung",
                 StructuredData = """
                     {
-                      "situation": "LANDSLIDE",
-                      "can_move": false,
-                      "has_injured": true,
-                      "need_medical": true,
-                      "others_are_stable": false,
-                      "people_count": { "adult": 5, "child": 0, "elderly": 0 },
-                      "medical_issues": ["FRACTURE", "BLEEDING"],
-                      "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
-                      "additional_description": "Sat lo dat chan duong tinh lo, 2 nguoi bi thuong nang, can truc thang hoac di bo rung",
-                      "injured_persons": [
+                      "incident": {
+                        "situation": "LANDSLIDE",
+                        "can_move": false,
+                        "has_injured": true,
+                        "need_medical": true,
+                        "others_are_stable": false,
+                        "people_count": { "adult": 5, "child": 0, "elderly": 0 },
+                        "additional_description": "Sat lo dat chan duong tinh lo, 2 nguoi bi thuong nang, can truc thang hoac di bo rung"
+                      },
+                      "group_needs": {
+                        "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
+                        "medicine": {
+                          "needs_urgent_medicine": true,
+                          "conditions": ["FRACTURE", "BLEEDING"]
+                        }
+                      },
+                      "victims": [
                         {
                           "index": 1,
-                          "name": "Người lớn 1",
-                          "custom_name": null,
                           "person_type": "adult",
-                          "medical_issues": ["FRACTURE"],
-                          "severity": "Moderate"
+                          "incident_status": {
+                            "is_injured": true,
+                            "severity": "Moderate",
+                            "medical_issues": ["FRACTURE"]
+                          }
                         },
                         {
                           "index": 2,
-                          "name": "Người lớn 2",
-                          "custom_name": null,
                           "person_type": "adult",
-                          "medical_issues": ["BLEEDING"],
-                          "severity": "Critical"
+                          "incident_status": {
+                            "is_injured": true,
+                            "severity": "Critical",
+                            "medical_issues": ["BLEEDING"]
+                          }
                         }
-                      ]
+                      ],
+                      "prepared_profiles": []
                     }
                     """,
                 NetworkMetadata = """
@@ -314,25 +324,35 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị cô lập | Số người: 120 | Trẻ em: 4 | Người già: 25 | Bị thương: Người lớn 1: Bệnh nền (Trung bình) | Ghi chú: Ca thon co lap 3 ngay, het luong thuc va nuoc sach, 4 be can sua gap, nguoi gia het thuoc huyet ap",
                 StructuredData = """
                     {
-                      "situation": "FLOODING",
-                      "can_move": false,
-                      "has_injured": true,
-                      "need_medical": true,
-                      "others_are_stable": false,
-                      "people_count": { "adult": 91, "child": 4, "elderly": 25 },
-                      "medical_issues": ["CHRONIC_DISEASE"],
-                      "supplies": ["FOOD", "WATER", "MEDICINE"],
-                      "additional_description": "Ca thon co lap 3 ngay, het luong thuc va nuoc sach, 4 be duoi 1 tuoi can sua gap, nguoi gia het thuoc huyet ap",
-                      "injured_persons": [
+                      "incident": {
+                        "situation": "FLOODING",
+                        "can_move": false,
+                        "has_injured": true,
+                        "need_medical": true,
+                        "others_are_stable": false,
+                        "people_count": { "adult": 91, "child": 4, "elderly": 25 },
+                        "additional_description": "Ca thon co lap 3 ngay, het luong thuc va nuoc sach, 4 be duoi 1 tuoi can sua gap, nguoi gia het thuoc huyet ap"
+                      },
+                      "group_needs": {
+                        "supplies": ["FOOD", "WATER", "MEDICINE"],
+                        "medicine": {
+                          "needs_urgent_medicine": true,
+                          "conditions": ["CHRONIC_DISEASE"]
+                        }
+                      },
+                      "victims": [
                         {
                           "index": 1,
-                          "name": "Người lớn 1",
-                          "custom_name": "Người già bệnh huyết áp",
                           "person_type": "elderly",
-                          "medical_issues": ["CHRONIC_DISEASE"],
-                          "severity": "Moderate"
+                          "custom_name": "Người già bệnh huyết áp",
+                          "incident_status": {
+                            "is_injured": true,
+                            "severity": "Moderate",
+                            "medical_issues": ["CHRONIC_DISEASE"]
+                          }
                         }
-                      ]
+                      ],
+                      "prepared_profiles": []
                     }
                     """,
                 NetworkMetadata = """
@@ -380,25 +400,35 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 1 | Bị thương: Người lớn 1: Gãy chân (Nghiêm trọng) | Ghi chú: Lac trong rung Hoa Phu, gay chan trai khong di duoc, dien thoai sap het pin 8%",
                 StructuredData = """
                     {
-                      "situation": "ACCIDENT",
-                      "can_move": false,
-                      "has_injured": true,
-                      "need_medical": true,
-                      "others_are_stable": true,
-                      "people_count": { "adult": 1, "child": 0, "elderly": 0 },
-                      "medical_issues": ["FRACTURE"],
-                      "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
-                      "additional_description": "Lac trong rung Hoa Phu tu sang, gay chan trai khong tu di duoc, dien thoai con 8% pin, toa do GPS 16.0240N 108.0100E",
-                      "injured_persons": [
+                      "incident": {
+                        "situation": "ACCIDENT",
+                        "can_move": false,
+                        "has_injured": true,
+                        "need_medical": true,
+                        "others_are_stable": true,
+                        "people_count": { "adult": 1, "child": 0, "elderly": 0 },
+                        "additional_description": "Lac trong rung Hoa Phu tu sang, gay chan trai khong tu di duoc, dien thoai con 8% pin, toa do GPS 16.0240N 108.0100E"
+                      },
+                      "group_needs": {
+                        "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
+                        "medicine": {
+                          "needs_urgent_medicine": true,
+                          "conditions": ["FRACTURE"]
+                        }
+                      },
+                      "victims": [
                         {
                           "index": 1,
-                          "name": "Người lớn 1",
-                          "custom_name": "Bản thân",
                           "person_type": "adult",
-                          "medical_issues": ["FRACTURE"],
-                          "severity": "Critical"
+                          "custom_name": "Bản thân",
+                          "incident_status": {
+                            "is_injured": true,
+                            "severity": "Critical",
+                            "medical_issues": ["FRACTURE"]
+                          }
                         }
-                      ]
+                      ],
+                      "prepared_profiles": []
                     }
                     """,
                 NetworkMetadata = """
@@ -445,15 +475,20 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 4 | Người già: 2 | Ghi chú: Nuoc lu dang len cao, can xuong can to de chuyen nguoi gia ra, 2 cu gia khong di chuyen duoc",
                 StructuredData = """
                     {
-                      "situation": "FLOODING",
-                      "can_move": false,
-                      "has_injured": false,
-                      "need_medical": false,
-                      "others_are_stable": false,
-                      "people_count": { "adult": 2, "child": 0, "elderly": 2 },
-                      "medical_issues": [],
-                      "supplies": ["WATER", "TRANSPORTATION"],
-                      "additional_description": "Nuoc lu dang len cao, can xuong can to de chuyen nguoi gia ra, 2 cu gia khong di chuyen duoc"
+                      "incident": {
+                        "situation": "FLOODING",
+                        "can_move": false,
+                        "has_injured": false,
+                        "need_medical": false,
+                        "others_are_stable": false,
+                        "people_count": { "adult": 2, "child": 0, "elderly": 2 },
+                        "additional_description": "Nuoc lu dang len cao, can xuong can to de chuyen nguoi gia ra, 2 cu gia khong di chuyen duoc"
+                      },
+                      "group_needs": {
+                        "supplies": ["WATER", "TRANSPORTATION"]
+                      },
+                      "victims": [],
+                      "prepared_profiles": []
                     }
                     """,
                 NetworkMetadata = """
@@ -500,15 +535,20 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 7 | Trẻ em: 3 | Người già: 1 | Ghi chú: Nuoc lu ngang mat nen, can xuong cuu nguoi va hang cu tro can thiet",
                 StructuredData = """
                     {
-                      "situation": "FLOODING",
-                      "can_move": false,
-                      "has_injured": false,
-                      "need_medical": false,
-                      "others_are_stable": false,
-                      "people_count": { "adult": 3, "child": 3, "elderly": 1 },
-                      "medical_issues": [],
-                      "supplies": ["FOOD", "WATER", "TRANSPORTATION"],
-                      "additional_description": "Nuoc lu ngang mat nen, can xuong cuu nguoi va hang cu tro can thiet"
+                      "incident": {
+                        "situation": "FLOODING",
+                        "can_move": false,
+                        "has_injured": false,
+                        "need_medical": false,
+                        "others_are_stable": false,
+                        "people_count": { "adult": 3, "child": 3, "elderly": 1 },
+                        "additional_description": "Nuoc lu ngang mat nen, can xuong cuu nguoi va hang cu tro can thiet"
+                      },
+                      "group_needs": {
+                        "supplies": ["FOOD", "WATER", "TRANSPORTATION"]
+                      },
+                      "victims": [],
+                      "prepared_profiles": []
                     }
                     """,
                 NetworkMetadata = """
@@ -555,25 +595,30 @@ public static class EmergencySeeder
                 RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 3 | Bị thương: Người lớn 1: Trầy xước (Nhẹ) | Ghi chú: Nuoc vao nha cap 1, nguoi bi thuong nhe do leo len mai, can ho tro di tan",
                 StructuredData = """
                     {
-                      "situation": "FLOODING",
-                      "can_move": false,
-                      "has_injured": true,
-                      "need_medical": false,
-                      "others_are_stable": true,
-                      "people_count": { "adult": 2, "child": 0, "elderly": 1 },
-                      "medical_issues": ["MINOR_INJURY"],
-                      "supplies": ["TRANSPORTATION"],
-                      "additional_description": "Nuoc vao nha cap 1, nguoi bi thuong nhe do leo len mai, can ho tro di tan",
-                      "injured_persons": [
+                      "incident": {
+                        "situation": "FLOODING",
+                        "can_move": false,
+                        "has_injured": true,
+                        "need_medical": false,
+                        "others_are_stable": true,
+                        "people_count": { "adult": 2, "child": 0, "elderly": 1 },
+                        "additional_description": "Nuoc vao nha cap 1, nguoi bi thuong nhe do leo len mai, can ho tro di tan"
+                      },
+                      "group_needs": {
+                        "supplies": ["TRANSPORTATION"]
+                      },
+                      "victims": [
                         {
                           "index": 1,
-                          "name": "Người lớn 1",
-                          "custom_name": null,
                           "person_type": "adult",
-                          "medical_issues": ["MINOR_INJURY"],
-                          "severity": "Minor"
+                          "incident_status": {
+                            "is_injured": true,
+                            "severity": "Minor",
+                            "medical_issues": ["MINOR_INJURY"]
+                          }
                         }
-                      ]
+                      ],
+                      "prepared_profiles": []
                     }
                     """,
                 NetworkMetadata = """

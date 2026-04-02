@@ -61,6 +61,11 @@ namespace RESQ.Application.UseCases.Identity.Commands.SyncRelativeProfiles
                 item.When(p => !string.IsNullOrEmpty(p.SpecialDietNote), () =>
                     item.RuleFor(p => p.SpecialDietNote)
                         .MaximumLength(2000).WithMessage("specialDietNote tối đa 2000 ký tự."));
+
+                item.When(p => !string.IsNullOrEmpty(p.Gender), () =>
+                    item.RuleFor(p => p.Gender)
+                        .Must(v => v == "MALE" || v == "FEMALE")
+                        .WithMessage("gender phải là MALE hoặc FEMALE."));
             });
         }
     }

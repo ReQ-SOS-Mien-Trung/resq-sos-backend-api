@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Repositories.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
@@ -29,10 +30,10 @@ public class GetMySosRequestsQueryHandler(
                 UserId = x.UserId,
                 SosType = x.SosType,
                 RawMessage = x.RawMessage,
-                StructuredData = ParseJson<SosStructuredDataDto>(x.StructuredData),
+                StructuredData = SosStructuredDataParser.Parse(x.StructuredData),
                 NetworkMetadata = ParseJson<SosNetworkMetadataDto>(x.NetworkMetadata),
                 SenderInfo = ParseJson<SosSenderInfoDto>(x.SenderInfo),
-                ReporterInfo = ParseJson<SosSenderInfoDto>(x.SenderInfo),
+                ReporterInfo = SosStructuredDataParser.ParseReporterInfo(x.ReporterInfo, x.SenderInfo),
                 VictimInfo = ParseJson<SosVictimInfoDto>(x.VictimInfo),
                 IsSentOnBehalf = x.IsSentOnBehalf,
                 OriginId = x.OriginId,

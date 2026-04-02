@@ -26,7 +26,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRelativeProfile
                 throw new NotFoundException($"Relative profile {request.ProfileId} not found.");
 
             var (displayName, phoneNumber, personType, relationGroup, tagsJson,
-                 medicalBaselineNote, specialNeedsNote, specialDietNote) =
+                 medicalBaselineNote, specialNeedsNote, specialDietNote, gender, medicalProfileJson) =
                 RelativeProfileNormalizer.Normalize(
                     request.DisplayName,
                     request.PhoneNumber,
@@ -35,7 +35,9 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRelativeProfile
                     request.Tags,
                     request.MedicalBaselineNote,
                     request.SpecialNeedsNote,
-                    request.SpecialDietNote);
+                    request.SpecialDietNote,
+                    request.Gender,
+                    request.MedicalProfileJson);
 
             var now = DateTime.UtcNow;
             existing.DisplayName = displayName;
@@ -46,6 +48,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRelativeProfile
             existing.MedicalBaselineNote = medicalBaselineNote;
             existing.SpecialNeedsNote = specialNeedsNote;
             existing.SpecialDietNote = specialDietNote;
+            existing.Gender = gender;
+            existing.MedicalProfileJson = medicalProfileJson;
             existing.ProfileUpdatedAt = request.UpdatedAt ?? now;
             existing.UpdatedAt = now;
 
@@ -63,6 +67,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRelativeProfile
                 MedicalBaselineNote = updated.MedicalBaselineNote,
                 SpecialNeedsNote = updated.SpecialNeedsNote,
                 SpecialDietNote = updated.SpecialDietNote,
+                Gender = updated.Gender,
+                MedicalProfile = RelativeProfileNormalizer.DeserializeMedicalProfile(updated.MedicalProfileJson),
                 ProfileUpdatedAt = updated.ProfileUpdatedAt,
                 CreatedAt = updated.CreatedAt,
                 UpdatedAt = updated.UpdatedAt

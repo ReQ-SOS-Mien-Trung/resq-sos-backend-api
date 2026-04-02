@@ -30,6 +30,10 @@ public class UserRelativeProfile
     [StringLength(20)]
     public string RelationGroup { get; set; } = null!;
 
+    [Column("gender")]
+    [StringLength(20)]
+    public string? Gender { get; set; }
+
     [Column("tags_json", TypeName = "jsonb")]
     public string TagsJson { get; set; } = "[]";
 
@@ -41,6 +45,9 @@ public class UserRelativeProfile
 
     [Column("special_diet_note")]
     public string? SpecialDietNote { get; set; }
+
+    [Column("medical_profile_json", TypeName = "jsonb")]
+    public string MedicalProfileJson { get; set; } = "{}";
 
     [Column("profile_updated_at", TypeName = "timestamp with time zone")]
     public DateTime ProfileUpdatedAt { get; set; }

@@ -18,6 +18,7 @@ public class SosRequestModel
     public string? NetworkMetadata { get; set; }
     public string? SenderInfo { get; set; }
     public string? VictimInfo { get; set; }
+    public string? ReporterInfo { get; set; }
     public bool IsSentOnBehalf { get; set; }
     public string? OriginId { get; set; }
     public SosPriorityLevel? PriorityLevel { get; set; }
@@ -50,7 +51,8 @@ public class SosRequestModel
         Guid? createdByCoordinatorId = null,
         DateTime? clientCreatedAt = null,
         string? victimInfo = null,
-        bool isSentOnBehalf = false)
+        bool isSentOnBehalf = false,
+        string? reporterInfo = null)
     {
         if (userId == Guid.Empty)
             throw new InvalidSosRequestUserException();
@@ -73,6 +75,7 @@ public class SosRequestModel
             NetworkMetadata = networkMetadata,
             SenderInfo = senderInfo,
             VictimInfo = victimInfo,
+            ReporterInfo = reporterInfo,
             IsSentOnBehalf = isSentOnBehalf,
             Timestamp = timestamp,
             Status = status,

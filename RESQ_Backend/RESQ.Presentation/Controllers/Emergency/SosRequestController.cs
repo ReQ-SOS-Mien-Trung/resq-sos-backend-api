@@ -40,10 +40,13 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             ? JsonSerializer.Serialize(dto.NetworkMetadata)
             : null;
 
-        // Store reporter_info in sender_info column; fall back to original sender_info for legacy requests
-        string? senderInfoJson = dto.ReporterInfo != null
+        string? senderInfoJson = dto.SenderInfo != null
+            ? JsonSerializer.Serialize(dto.SenderInfo)
+            : null;
+
+        string? reporterInfoJson = dto.ReporterInfo != null
             ? JsonSerializer.Serialize(dto.ReporterInfo)
-            : (dto.SenderInfo != null ? JsonSerializer.Serialize(dto.SenderInfo) : null);
+            : null;
 
         string? victimInfoJson = dto.VictimInfo != null
             ? JsonSerializer.Serialize(dto.VictimInfo)
@@ -66,7 +69,8 @@ public class SosRequestController(IMediator mediator) : ControllerBase
                 : null,
             ClientCreatedAt: dto.CreatedAt,
             VictimInfo: victimInfoJson,
-            IsSentOnBehalf: dto.IsSentOnBehalf ?? false
+            IsSentOnBehalf: dto.IsSentOnBehalf ?? false,
+            ReporterInfo: reporterInfoJson
         );
 
         var result = await _mediator.Send(command);

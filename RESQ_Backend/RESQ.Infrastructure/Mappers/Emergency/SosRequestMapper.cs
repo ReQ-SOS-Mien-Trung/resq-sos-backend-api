@@ -22,6 +22,7 @@ public static class SosRequestMapper
             NetworkMetadata = model.NetworkMetadata,
             SenderInfo = model.SenderInfo,
             VictimInfo = model.VictimInfo,
+            ReporterInfo = model.ReporterInfo,
             IsSentOnBehalf = model.IsSentOnBehalf,
             OriginId = model.OriginId,
             PriorityLevel = model.PriorityLevel?.ToString(),
@@ -70,6 +71,7 @@ public static class SosRequestMapper
             NetworkMetadata = entity.NetworkMetadata,
             SenderInfo = entity.SenderInfo,
             VictimInfo = entity.VictimInfo,
+            ReporterInfo = entity.ReporterInfo,
             IsSentOnBehalf = entity.IsSentOnBehalf,
             OriginId = entity.OriginId,
             PriorityLevel = Enum.TryParse<SosPriorityLevel>(entity.PriorityLevel, out var priority) ? priority : null,
@@ -95,6 +97,7 @@ public static class SosRequestMapper
         entity.NetworkMetadata = model.NetworkMetadata;
         entity.SenderInfo = model.SenderInfo;
         entity.VictimInfo = model.VictimInfo;
+        entity.ReporterInfo = model.ReporterInfo;
         entity.IsSentOnBehalf = model.IsSentOnBehalf;
         entity.OriginId = model.OriginId;
         entity.PriorityLevel = model.PriorityLevel?.ToString();
