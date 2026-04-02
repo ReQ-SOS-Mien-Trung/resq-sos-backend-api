@@ -3,9 +3,14 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Identity.Commands.CreateRelativeProfile;
+using RESQ.Application.UseCases.Identity.Commands.DeleteRelativeProfile;
 using RESQ.Application.UseCases.Identity.Commands.RescuerConsent;
+using RESQ.Application.UseCases.Identity.Commands.SyncRelativeProfiles;
+using RESQ.Application.UseCases.Identity.Commands.UpdateRelativeProfile;
 using RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile;
 using RESQ.Application.UseCases.Identity.Queries.GetCurrentUser;
+using RESQ.Application.UseCases.Identity.Queries.GetRelativeProfiles;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerTypeMetadata;
 
 namespace RESQ.Presentation.Controllers.Identity
@@ -121,6 +126,107 @@ namespace RESQ.Presentation.Controllers.Identity
 
             await _firebaseService.UnsubscribeFromUserTopicAsync(request.Token, userId, HttpContext.RequestAborted);
             return Ok(new { message = "FCM token unregistered successfully." });
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Relative Profiles
+        // ─────────────────────────────────────────────────────────────────────
+
+        /// <summary>Lấy danh sách hồ sơ người thân của user hiện tại.</summary>
+        [HttpGet("me/relative-profiles")]
+        [Authorize]
+        public async Task<IActionResult> GetRelativeProfiles()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            var result = await _mediator.Send(new GetRelativeProfilesQuery(userId));
+            return Ok(result);
+        }
+
+        /// <summary>Tạo một hồ sơ người thân mới.</summary>
+        [HttpPost("me/relative-profiles")]
+        [Authorize]
+        public async Task<IActionResult> CreateRelativeProfile([FromBody] CreateRelativeProfileRequestDto dto)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            var command = new CreateRelativeProfileCommand(
+                userId,
+                dto.Id,
+                dto.DisplayName,
+                dto.PhoneNumber,
+                dto.PersonType,
+                dto.RelationGroup,
+                dto.Tags,
+                dto.MedicalBaselineNote,
+                dto.SpecialNeedsNote,
+                dto.SpecialDietNote,
+                dto.UpdatedAt
+            );
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>Cập nhật toàn bộ hồ sơ người thân.</summary>
+        [HttpPut("me/relative-profiles/{profileId:guid}")]
+        [Authorize]
+        public async Task<IActionResult> UpdateRelativeProfile(
+            Guid profileId,
+            [FromBody] UpdateRelativeProfileRequestDto dto)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            if (dto.Id.HasValue && dto.Id.Value != profileId)
+                return BadRequest(new { message = "id trong body không khớp với profileId trên đường dẫn." });
+
+            var command = new UpdateRelativeProfileCommand(
+                userId,
+                profileId,
+                dto.DisplayName,
+                dto.PhoneNumber,
+                dto.PersonType,
+                dto.RelationGroup,
+                dto.Tags,
+                dto.MedicalBaselineNote,
+                dto.SpecialNeedsNote,
+                dto.SpecialDietNote,
+                dto.UpdatedAt
+            );
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>Xóa hồ sơ người thân.</summary>
+        [HttpDelete("me/relative-profiles/{profileId:guid}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteRelativeProfile(Guid profileId)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            await _mediator.Send(new DeleteRelativeProfileCommand(userId, profileId));
+            return NoContent();
+        }
+
+        /// <summary>Đồng bộ toàn bộ snapshot hồ sơ người thân từ thiết bị lên server (client-wins).</summary>
+        [HttpPut("me/relative-profiles/sync")]
+        [Authorize]
+        public async Task<IActionResult> SyncRelativeProfiles([FromBody] SyncRelativeProfilesRequestDto dto)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            var command = new SyncRelativeProfilesCommand(userId, dto.Profiles);
+            var result = await _mediator.Send(command);
+            return Ok(result);
         }
     }
 }

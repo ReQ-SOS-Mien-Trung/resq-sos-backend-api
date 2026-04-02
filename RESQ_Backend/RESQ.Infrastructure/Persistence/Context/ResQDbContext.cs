@@ -96,6 +96,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<InventoryStockThresholdConfigHistory> InventoryStockThresholdConfigHistories { get; set; }
     public virtual DbSet<StockWarningBandConfig> StockWarningBandConfigs { get; set; }
     public virtual DbSet<SystemMigrationAudit> SystemMigrationAudits { get; set; }
+    public virtual DbSet<UserRelativeProfile> UserRelativeProfiles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -390,6 +391,33 @@ public partial class ResQDbContext : DbContext
                 r => r.HasOne(typeof(ItemModel)).WithMany().HasForeignKey("item_model_id").HasConstraintName("FK_item_model_target_groups_item_model_id"),
                 j => j.HasKey("item_model_id", "target_group_id").HasName("PK_item_model_target_groups")
             );
+
+        modelBuilder.Entity<UserRelativeProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("user_relative_profiles_pkey");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.RelativeProfiles)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_user_relative_profiles_users_user_id");
+
+            entity.HasIndex(e => e.UserId)
+                .HasDatabaseName("ix_user_relative_profiles_user_id");
+
+            entity.HasIndex(e => new { e.UserId, e.ProfileUpdatedAt })
+                .HasDatabaseName("ix_user_relative_profiles_user_id_profile_updated_at");
+
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "ck_user_relative_profiles_person_type",
+                    "person_type IN ('ADULT','CHILD','ELDERLY')");
+                t.HasCheckConstraint(
+                    "ck_user_relative_profiles_relation_group",
+                    "relation_group IN ('gia_dinh','nha_noi','nha_ngoai','hang_xom','ban_be','khac')");
+            });
+        });
 
         OnModelCreatingPartial(modelBuilder);
     }

@@ -72,6 +72,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRescueTeamRepository, RescueTeamRepository>();
         services.AddScoped<IPersonnelQueryRepository, PersonnelQueryRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRelativeProfileRepository, RelativeProfileRepository>();
         services.AddScoped<IRescuerScoreRepository, RescuerScoreRepository>();
         services.AddScoped<IRescuerApplicationRepository, RescuerApplicationRepository>();
         services.AddScoped<IAbilityRepository, AbilityRepository>();
