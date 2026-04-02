@@ -109,4 +109,30 @@ public interface IDepotInventoryRepository
         int depotId,
         List<(int ItemModelId, int Quantity)> items,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Xuất kho thủ công (Export): giảm Quantity, áp dụng FEFO trên các lô và ghi InventoryLog.
+    /// Chỉ được xuất số lượng khả dụng (Quantity - ReservedQuantity).
+    /// </summary>
+    Task ExportInventoryAsync(
+        int depotId,
+        int itemModelId,
+        int quantity,
+        Guid performedBy,
+        string? note,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Điều chỉnh tồn kho (Adjust): quantityChange dương → tạo lô mới + tăng Quantity;
+    /// quantityChange âm → FEFO deduction trên các lô + giảm Quantity.
+    /// </summary>
+    Task AdjustInventoryAsync(
+        int depotId,
+        int itemModelId,
+        int quantityChange,
+        Guid performedBy,
+        string reason,
+        string? note,
+        DateTime? expiredDate,
+        CancellationToken cancellationToken = default);
 }

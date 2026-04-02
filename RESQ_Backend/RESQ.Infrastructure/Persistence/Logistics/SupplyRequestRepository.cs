@@ -264,7 +264,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                         ReusableItemId = unit.Id,
                         ActionType     = "Reserve",
                         QuantityChange = 1,
-                        SourceType     = "SupplyRequest",
+                        SourceType     = InventorySourceType.Transfer.ToString(),
                         SourceId       = supplyRequestId,
                         PerformedBy    = performedBy,
                         Note           = $"Đặt trữ {itemModel.Name} (S/N: {unit.SerialNumber}) cho yêu cầu #{supplyRequestId}",
@@ -293,7 +293,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     DepotSupplyInventoryId = inventory.Id,
                     ActionType             = "Reserve",
                     QuantityChange         = quantity,
-                    SourceType             = "SupplyRequest",
+                    SourceType             = InventorySourceType.Transfer.ToString(),
                     SourceId               = supplyRequestId,
                     PerformedBy            = performedBy,
                     Note                   = $"Đặt trữ {itemModel.Name} (#{itemModelId}) cho yêu cầu #{supplyRequestId}",
@@ -346,9 +346,9 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                     {
                         ReusableItemId = unit.Id,
-                        ActionType     = "TransferOut",
+                        ActionType     = InventoryActionType.TransferOut.ToString(),
                         QuantityChange = 1,
-                        SourceType     = "SupplyRequest",
+                        SourceType     = InventorySourceType.Transfer.ToString(),
                         SourceId       = supplyRequestId,
                         PerformedBy    = performedBy,
                         Note           = $"Xuất tiếp tế {itemModel.Name} (S/N: {unit.SerialNumber}) cho yêu cầu #{supplyRequestId}",
@@ -381,17 +381,57 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 inventory.TransferReservedQuantity  = reserved - quantity;
                 inventory.LastStockedAt             = now;
 
-                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                // ── FEFO lot deduction ──────────────────────────────────────────
+                var lots = await _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable(tracked: true)
+                    .Where(l => l.SupplyInventoryId == inventory.Id && l.RemainingQuantity > 0)
+                    .OrderBy(l => l.ExpiredDate == null ? 1 : 0)  // items WITH expiry first
+                    .ThenBy(l => l.ExpiredDate)                    // soonest expiry first (FEFO)
+                    .ThenBy(l => l.ReceivedDate)                   // oldest received first (FIFO tie-breaker)
+                    .ToListAsync(cancellationToken);
+
+                if (lots.Count > 0)
                 {
-                    DepotSupplyInventoryId = inventory.Id,
-                    ActionType             = "TransferOut",
-                    QuantityChange         = quantity,
-                    SourceType             = "SupplyRequest",
-                    SourceId               = supplyRequestId,
-                    PerformedBy            = performedBy,
-                    Note                   = $"Xuất tiếp tế {itemModel.Name} (#{itemModelId}) cho yêu cầu #{supplyRequestId}",
-                    CreatedAt              = now
-                });
+                    var remaining = quantity;
+                    foreach (var lot in lots)
+                    {
+                        if (remaining <= 0) break;
+                        var deduct = Math.Min(lot.RemainingQuantity, remaining);
+                        lot.RemainingQuantity -= deduct;
+                        remaining -= deduct;
+
+                        await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                        {
+                            DepotSupplyInventoryId = inventory.Id,
+                            SupplyInventoryLotId   = lot.Id,
+                            ActionType             = InventoryActionType.TransferOut.ToString(),
+                            QuantityChange         = deduct,
+                            SourceType             = InventorySourceType.Transfer.ToString(),
+                            SourceId               = supplyRequestId,
+                            PerformedBy            = performedBy,
+                            Note                   = $"Xuất tiếp tế FEFO lô #{lot.Id} {itemModel.Name} (#{itemModelId}) SL {deduct} cho yêu cầu #{supplyRequestId}",
+                            CreatedAt              = now
+                        });
+                    }
+
+                    if (remaining > 0)
+                        throw new InvalidOperationException(
+                            $"Vật tư '{itemModel.Name}' (#{itemModelId}): không đủ lô để xuất tiếp tế {quantity} đơn vị.");
+                }
+                else
+                {
+                    // Fallback: no lots yet (legacy data) — single log
+                    await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                    {
+                        DepotSupplyInventoryId = inventory.Id,
+                        ActionType             = InventoryActionType.TransferOut.ToString(),
+                        QuantityChange         = quantity,
+                        SourceType             = InventorySourceType.Transfer.ToString(),
+                        SourceId               = supplyRequestId,
+                        PerformedBy            = performedBy,
+                        Note                   = $"Xuất tiếp tế {itemModel.Name} (#{itemModelId}) SL {quantity} cho yêu cầu #{supplyRequestId} (legacy – không có lô)",
+                        CreatedAt              = now
+                    });
+                }
             }
         }
 
@@ -463,9 +503,9 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                     {
                         ReusableItemId = unit.Id,
-                        ActionType     = "TransferIn",
+                        ActionType     = InventoryActionType.TransferIn.ToString(),
                         QuantityChange = 1,
-                        SourceType     = "SupplyRequest",
+                        SourceType     = InventorySourceType.Transfer.ToString(),
                         SourceId       = supplyRequestId,
                         PerformedBy    = performedBy,
                         Note           = $"Nhận tiếp tế {itemModel.Name} (S/N: {unit.SerialNumber}) tại kho #{requestingDepotId} từ yêu cầu #{supplyRequestId}",
@@ -494,15 +534,31 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     await _unitOfWork.SaveAsync(); // flush to get inventory.Id
                 }
 
+                // Tạo lô mới cho hàng được tiếp tế vào kho
+                var lot = new SupplyInventoryLot
+                {
+                    SupplyInventoryId = inventory.Id,
+                    Quantity          = quantity,
+                    RemainingQuantity = quantity,
+                    ReceivedDate      = now,
+                    ExpiredDate       = null,
+                    SourceType        = InventorySourceType.Transfer.ToString(),
+                    SourceId          = supplyRequestId,
+                    CreatedAt         = now
+                };
+                await _unitOfWork.GetRepository<SupplyInventoryLot>().AddAsync(lot);
+                await _unitOfWork.SaveAsync(); // flush để lấy lot.Id
+
                 inventory.Quantity      = (inventory.Quantity ?? 0) + quantity;
                 inventory.LastStockedAt = now;
 
                 await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                 {
                     DepotSupplyInventoryId = inventory.Id,
-                    ActionType             = "TransferIn",
+                    SupplyInventoryLotId   = lot.Id,
+                    ActionType             = InventoryActionType.TransferIn.ToString(),
                     QuantityChange         = quantity,
-                    SourceType             = "SupplyRequest",
+                    SourceType             = InventorySourceType.Transfer.ToString(),
                     SourceId               = supplyRequestId,
                     PerformedBy            = performedBy,
                     Note                   = $"Nhận tiếp tế {itemModel.Name} (#{itemModelId}) từ yêu cầu #{supplyRequestId}",

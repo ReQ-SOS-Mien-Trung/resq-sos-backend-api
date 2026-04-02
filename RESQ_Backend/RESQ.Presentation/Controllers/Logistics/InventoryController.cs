@@ -8,6 +8,8 @@ using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 using RESQ.Application.UseCases.Logistics.Commands.AcceptSupplyRequest;
+using RESQ.Application.UseCases.Logistics.Commands.AdjustInventory;
+using RESQ.Application.UseCases.Logistics.Commands.ExportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
@@ -627,6 +629,44 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
         };
 
         var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xuất kho thủ công (Export): giảm tồn kho theo FEFO và ghi nhật ký.
+    /// Chỉ xuất được số lượng khả dụng (Quantity - ReservedQuantity).</summary>
+    [HttpPost("my-depot/export")]
+    [Authorize(Roles = "4")]
+    [ProducesResponseType(typeof(ExportInventoryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ExportInventory([FromBody] ExportInventoryRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new ExportInventoryCommand(
+            userId,
+            request.ItemModelId,
+            request.Quantity,
+            request.Note));
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Điều chỉnh tồn kho (Adjust): quantityChange dương → tạo lô mới + tăng số lượng;
+    /// quantityChange âm → FEFO deduction trên các lô + giảm số lượng. Bắt buộc ghi lý do.</summary>
+    [HttpPost("my-depot/adjust")]
+    [Authorize(Roles = "4")]
+    [ProducesResponseType(typeof(AdjustInventoryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AdjustInventory([FromBody] AdjustInventoryRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new AdjustInventoryCommand(
+            userId,
+            request.ItemModelId,
+            request.QuantityChange,
+            request.Reason,
+            request.Note,
+            request.ExpiredDate));
         return Ok(result);
     }
 
