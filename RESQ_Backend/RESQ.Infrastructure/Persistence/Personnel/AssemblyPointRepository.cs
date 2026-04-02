@@ -203,4 +203,44 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
             user.UpdatedAt = DateTime.UtcNow;
         }
     }
+
+    public async Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(
+        IReadOnlyList<Guid> userIds,
+        int? assemblyPointId,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        // Single round-trip: bulk UPDATE for all matching rescuers in one statement
+        await _unitOfWork.GetRepository<User>().AsQueryable(tracked: false)
+            .Where(u => userIds.Contains(u.Id) && u.RoleId == 3)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(u => u.AssemblyPointId, assemblyPointId)
+                    .SetProperty(u => u.UpdatedAt, now),
+                cancellationToken);
+
+        // Return only the IDs that actually exist and are rescuers (for downstream processing)
+        return await _unitOfWork.GetRepository<User>().AsQueryable(tracked: false)
+            .Where(u => userIds.Contains(u.Id) && u.RoleId == 3)
+            .Select(u => u.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(
+        IReadOnlyList<Guid> userIds,
+        CancellationToken cancellationToken = default)
+    {
+        var withTeam = _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Where(m => userIds.Contains(m.UserId)
+                     && m.Status == "Accepted"
+                     && m.Team != null
+                     && m.Team.Status != _disbandedStatus)
+            .Select(m => m.UserId);
+
+        return await _unitOfWork.GetRepository<User>().AsQueryable(tracked: false)
+            .Where(u => userIds.Contains(u.Id) && !withTeam.Contains(u.Id))
+            .Select(u => u.Id)
+            .ToListAsync(cancellationToken);
+    }
 }

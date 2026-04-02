@@ -131,7 +131,7 @@ public class RescueTeamModel
 
     public void Disband()
     {
-        if (Status is not (RescueTeamStatus.Available or RescueTeamStatus.Unavailable or RescueTeamStatus.Gathering))
+        if (Status is not (RescueTeamStatus.Gathering or RescueTeamStatus.Unavailable))
             throw new InvalidTeamTransitionException(Status, RescueTeamStatus.Disbanded);
 
         Status = RescueTeamStatus.Disbanded;

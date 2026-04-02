@@ -12,6 +12,7 @@ using RESQ.Application.UseCases.Personnel.Queries.RescueTeamMetadata;
 using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 using RESQ.Application.UseCases.Personnel.RescueTeams.DTOs;
 using RESQ.Application.UseCases.Personnel.Commands.SetTeamAvailable;
+using RESQ.Application.UseCases.Personnel.Commands.SetTeamUnavailable;
 
 namespace RESQ.Presentation.Controllers.Personnel;
 
@@ -153,21 +154,28 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Đánh dấu đội không sẵn sàng nhận nhiệm vụ.</summary>
+    /// <summary>Đánh dấu đội không sẵn sàng nhận nhiệm vụ. Dành cho đội trưởng hoặc coordinator.</summary>
     [HttpPost("{id}/set-unavailable")]
-    [Authorize(Roles = "2")]
+    [Authorize]
     public async Task<IActionResult> SetUnavailable(int id)
     {
-        await mediator.Send(new ChangeTeamMissionStateCommand(id, "SetUnavailable"));
+        var userId = GetCurrentUserId();
+        var roleIdStr = User.FindFirst(ClaimTypes.Role)?.Value;
+        if (!int.TryParse(roleIdStr, out var roleId))
+            return Forbid();
+        await mediator.Send(new SetTeamUnavailableCommand(id, userId, roleId));
         return NoContent();
     }
 
-    /// <summary>Giải tán đội cứu hộ.</summary>
+    /// <summary>Giải tán đội cứu hộ. Chỉ coordinator, đội phải ở trạng thái Unavailable.</summary>
     [HttpPost("{id}/disband")]
-    [Authorize(Roles = "2")]
+    [Authorize]
     public async Task<IActionResult> DisbandTeam(int id)
     {
-        await mediator.Send(new DisbandTeamCommand(id));
+        var roleIdStr = User.FindFirst(ClaimTypes.Role)?.Value;
+        if (!int.TryParse(roleIdStr, out var roleId))
+            return Forbid();
+        await mediator.Send(new DisbandTeamCommand(id, roleId));
         return NoContent();
     }
 

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -22,6 +23,16 @@ namespace RESQ.Infrastructure.Persistence.Identity
         {
             var entity = await _unitOfWork.GetRepository<User>().GetByPropertyAsync(x => x.Id == id, includeProperties: "RescuerProfile");
             return entity is null ? null : UsersMapper.ToModel(entity);
+        }
+
+        public async Task<List<UserModel>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+        {
+            var idList = ids as IReadOnlyList<Guid> ?? ids.ToList();
+            var entities = await _unitOfWork.GetRepository<User>()
+                .AsQueryable(tracked: false)
+                .Where(u => idList.Contains(u.Id))
+                .ToListAsync(cancellationToken);
+            return entities.Select(UsersMapper.ToModel).ToList();
         }
 
         public async Task<UserModel?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
