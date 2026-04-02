@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
@@ -19,7 +20,8 @@ public class SubmitMissionTeamReportCommandHandler(
     IMissionTeamReportRepository missionTeamReportRepository,
     IRescuerScoreRepository rescuerScoreRepository,
     ISosRequestRepository sosRequestRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ILogger<SubmitMissionTeamReportCommandHandler> logger)
     : IRequestHandler<SubmitMissionTeamReportCommand, MissionTeamReportResponse>
 {
     public async Task<MissionTeamReportResponse> Handle(SubmitMissionTeamReportCommand request, CancellationToken cancellationToken)
@@ -123,13 +125,79 @@ public class SubmitMissionTeamReportCommandHandler(
 
             foreach (var statusUpdate in activityStatusUpdates)
             {
+                var effectiveStatus = statusUpdate.Status;
+
+                // Intercept: RETURN_SUPPLIES cannot go directly to Succeed
+                if (assignedActivities.TryGetValue(statusUpdate.ActivityId, out var activityForUpdate)
+                    && string.Equals(activityForUpdate.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+                    && effectiveStatus == MissionActivityStatus.Succeed
+                    && activityForUpdate.Status == MissionActivityStatus.OnGoing)
+                {
+                    effectiveStatus = MissionActivityStatus.PendingConfirmation;
+                    logger.LogInformation(
+                        "RETURN_SUPPLIES ActivityId={activityId}: intercepted Succeed → PendingConfirmation in report",
+                        statusUpdate.ActivityId);
+                }
+
                 await missionActivityRepository.UpdateStatusAsync(
                     statusUpdate.ActivityId,
-                    statusUpdate.Status,
+                    effectiveStatus,
                     request.SubmittedBy,
                     cancellationToken);
 
-                assignedActivities[statusUpdate.ActivityId].Status = statusUpdate.Status;
+                assignedActivities[statusUpdate.ActivityId].Status = effectiveStatus;
+            }
+
+            // Auto-create RETURN_SUPPLIES for each failed DELIVER_SUPPLIES with items
+            foreach (var statusUpdate in activityStatusUpdates)
+            {
+                if (statusUpdate.Status != MissionActivityStatus.Failed) continue;
+                if (!assignedActivities.TryGetValue(statusUpdate.ActivityId, out var failedActivity)) continue;
+                if (!string.Equals(failedActivity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase)) continue;
+                if (string.IsNullOrWhiteSpace(failedActivity.Items) || !failedActivity.DepotId.HasValue) continue;
+
+                try
+                {
+                    var maxStep = mission.Activities.Any() ? mission.Activities.Max(a => a.Step ?? 0) : 0;
+                    var returnActivity = new MissionActivityModel
+                    {
+                        MissionId = request.MissionId,
+                        Step = maxStep + 1,
+                        ActivityCode = $"RET-{failedActivity.ActivityCode}",
+                        ActivityType = "RETURN_SUPPLIES",
+                        Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
+                        Priority = failedActivity.Priority,
+                        EstimatedTime = failedActivity.EstimatedTime,
+                        SosRequestId = failedActivity.SosRequestId,
+                        DepotId = failedActivity.DepotId,
+                        DepotName = failedActivity.DepotName,
+                        DepotAddress = failedActivity.DepotAddress,
+                        Items = failedActivity.Items,
+                        Status = MissionActivityStatus.Planned
+                    };
+
+                    var returnActivityId = await missionActivityRepository.AddAsync(returnActivity, cancellationToken);
+                    returnActivity.Id = returnActivityId;
+
+                    if (failedActivity.MissionTeamId.HasValue)
+                    {
+                        await missionActivityRepository.AssignTeamAsync(returnActivityId, failedActivity.MissionTeamId.Value, cancellationToken);
+                        returnActivity.MissionTeamId = failedActivity.MissionTeamId;
+                    }
+
+                    // Add to mission.Activities so completion check sees it as unsettled
+                    mission.Activities.Add(returnActivity);
+
+                    logger.LogInformation(
+                        "Auto-created RETURN_SUPPLIES ActivityId={returnActivityId} for failed DELIVER_SUPPLIES ActivityId={failedActivityId} in report",
+                        returnActivityId, failedActivity.Id);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex,
+                        "Failed to auto-create RETURN_SUPPLIES for DELIVER_SUPPLIES ActivityId={activityId} in report",
+                        failedActivity.Id);
+                }
             }
 
             await missionTeamReportRepository.SubmitAsync(request.MissionTeamId, request.SubmittedBy, cancellationToken);
@@ -212,6 +280,11 @@ public class SubmitMissionTeamReportCommandHandler(
             case "canceled":
             case "cancel":
                 status = MissionActivityStatus.Cancelled;
+                return true;
+            case "pending_confirmation":
+            case "pendingconfirmation":
+            case "pending-confirmation":
+                status = MissionActivityStatus.PendingConfirmation;
                 return true;
             default:
                 return Enum.TryParse(executionStatus, ignoreCase: true, out status);
