@@ -16,7 +16,13 @@ public class SupplyRequestDto
     public string? RejectedReason      { get; set; }
     public Guid    RequestedBy         { get; set; }
     public DateTime  CreatedAt         { get; set; }
-    public DateTime? AutoRejectAt      { get; set; }
+
+    /// <summary>Thời điểm yêu cầu bị tự động từ chối (UTC+7). Dùng cho countdown trên FE.</summary>
+    public DateTimeOffset ResponseDeadline { get; set; }
+
+    /// <summary>Số giây còn lại đến deadline (>= 0). Tính tại thời điểm server xử lý request.</summary>
+    public long RemainingSeconds { get; set; }
+
     public DateTime? RespondedAt       { get; set; }
     public DateTime? ShippedAt         { get; set; }
     public DateTime? CompletedAt       { get; set; }

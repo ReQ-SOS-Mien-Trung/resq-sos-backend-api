@@ -60,6 +60,9 @@ builder.Services.AddCors(options =>
 // Swagger + JWT support
 builder.Services.AddSwaggerGen(c =>
 {
+    // Dùng full type name làm schemaId để tránh xung đột khi có 2 class cùng tên ở namespace khác nhau
+    c.CustomSchemaIds(type => type.FullName);
+
     c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "RESQ API",
