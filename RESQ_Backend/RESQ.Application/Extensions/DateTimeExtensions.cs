@@ -10,7 +10,9 @@ public static class DateTimeExtensions
     private static readonly TimeZoneInfo VietnamTimeZone =
         TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
 
-    /// <summary>Chuyển DateTime UTC sang giờ Việt Nam (+7) để trả về client.</summary>
+    private static readonly TimeSpan VietnamOffset = TimeSpan.FromHours(7);
+
+    /// <summary>Chuyển DateTime UTC sang giờ Việt Nam (+7). Core conversion logic.</summary>
     public static DateTime ToVietnamTime(this DateTime utcDateTime)
     {
         if (utcDateTime == DateTime.MinValue || utcDateTime == DateTime.MaxValue)
@@ -25,9 +27,20 @@ public static class DateTimeExtensions
             VietnamTimeZone);
     }
 
-    /// <summary>Chuyển DateTime? UTC sang giờ Việt Nam (+7) để trả về client.</summary>
+    /// <summary>Nullable version của ToVietnamTime.</summary>
     public static DateTime? ToVietnamTime(this DateTime? utcDateTime)
-        => utcDateTime.HasValue ? utcDateTime.Value.ToVietnamTime() : null;
+        => utcDateTime?.ToVietnamTime();
+
+    /// <summary>
+    /// Chuyển DateTime UTC sang DateTimeOffset +07:00 để trả về client.
+    /// Dùng ToVietnamTime() làm core, wrap với VietnamOffset để tránh trùng lặp logic.
+    /// </summary>
+    public static DateTimeOffset ToVietnamOffset(this DateTime utcDateTime)
+        => new DateTimeOffset(utcDateTime.ToVietnamTime(), VietnamOffset);
+
+    /// <summary>Nullable version của ToVietnamOffset.</summary>
+    public static DateTimeOffset? ToVietnamOffset(this DateTime? utcDateTime)
+        => utcDateTime?.ToVietnamOffset();
 
     /// <summary>
     /// Đảm bảo DateTime được lưu xuống DB là UTC.
@@ -42,5 +55,5 @@ public static class DateTimeExtensions
 
     /// <summary>Nullable version của ToUtcForStorage.</summary>
     public static DateTime? ToUtcForStorage(this DateTime? dt)
-        => dt.HasValue ? dt.Value.ToUtcForStorage() : null;
+        => dt?.ToUtcForStorage();
 }

@@ -731,6 +731,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     /// </summary>
     [HttpGet("supply-requests")]
     [Authorize]
+    [ProducesResponseType(typeof(GetSupplyRequestsResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSupplyRequests(
         [FromQuery] SourceDepotStatus? sourceStatus,
         [FromQuery] RequestingDepotStatus? requestingStatus,

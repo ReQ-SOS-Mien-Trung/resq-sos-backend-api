@@ -1,7 +1,9 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Logistics;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
@@ -10,13 +12,13 @@ public class GetSupplyRequestsQueryHandler(
     IDepotInventoryRepository depotInventoryRepository,
     ISupplyRequestRepository  supplyRequestRepository,
     ILogger<GetSupplyRequestsQueryHandler> logger)
-    : IRequestHandler<GetSupplyRequestsQuery, PagedResult<SupplyRequestDto>>
+    : IRequestHandler<GetSupplyRequestsQuery, GetSupplyRequestsResponse>
 {
     private readonly IDepotInventoryRepository     _depotInventoryRepository = depotInventoryRepository;
     private readonly ISupplyRequestRepository      _supplyRequestRepository  = supplyRequestRepository;
     private readonly ILogger<GetSupplyRequestsQueryHandler> _logger          = logger;
 
-    public async Task<PagedResult<SupplyRequestDto>> Handle(GetSupplyRequestsQuery request, CancellationToken cancellationToken)
+    public async Task<GetSupplyRequestsResponse> Handle(GetSupplyRequestsQuery request, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Handling GetSupplyRequestsQuery for UserId={UserId}", request.UserId);
 
@@ -32,34 +34,62 @@ public class GetSupplyRequestsQueryHandler(
             request.PageSize,
             cancellationToken);
 
-        var dtos = paged.Items.Select(item => new SupplyRequestDto
+        // Snapshot một lần để RemainingSeconds nhất quán trong toàn bộ response
+        var nowUtc = DateTime.UtcNow;
+
+        var dtos = paged.Items.Select(item =>
         {
-            Id                  = item.Id,
-            RequestingDepotId   = item.RequestingDepotId,
-            RequestingDepotName = item.RequestingDepotName,
-            SourceDepotId       = item.SourceDepotId,
-            SourceDepotName     = item.SourceDepotName,
-            PriorityLevel       = item.PriorityLevel,
-            SourceStatus        = item.SourceStatus,
-            RequestingStatus    = item.RequestingStatus,
-            Note                = item.Note,
-            RejectedReason      = item.RejectedReason,
-            RequestedBy         = item.RequestedBy,
-            CreatedAt           = item.CreatedAt,
-            AutoRejectAt        = item.AutoRejectAt,
-            RespondedAt         = item.RespondedAt,
-            ShippedAt           = item.ShippedAt,
-            CompletedAt         = item.CompletedAt,
-            Role                = depotIds.Contains(item.RequestingDepotId) ? "Requester" : "Source",
-            Items               = item.Items.Select(i => new SupplyRequestItemDto
+            // Null guard: AutoRejectAt phải luôn có giá trị với data hợp lệ
+            DateTime deadlineUtc;
+            if (item.AutoRejectAt.HasValue)
             {
-                ItemModelId   = i.ItemModelId,
-                ItemModelName = i.ItemModelName,
-                Unit           = i.Unit,
-                Quantity       = i.Quantity
-            }).ToList()
+                deadlineUtc = item.AutoRejectAt.Value;
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "SupplyRequest {Id} has null AutoRejectAt — falling back to CreatedAt + default MediumMinutes ({Minutes} min)",
+                    item.Id,
+                    SupplyRequestPriorityPolicy.DefaultTiming.MediumMinutes);
+                deadlineUtc = item.CreatedAt.AddMinutes(SupplyRequestPriorityPolicy.DefaultTiming.MediumMinutes);
+            }
+
+            return new SupplyRequestDto
+            {
+                Id                  = item.Id,
+                RequestingDepotId   = item.RequestingDepotId,
+                RequestingDepotName = item.RequestingDepotName,
+                SourceDepotId       = item.SourceDepotId,
+                SourceDepotName     = item.SourceDepotName,
+                PriorityLevel       = item.PriorityLevel,
+                SourceStatus        = item.SourceStatus,
+                RequestingStatus    = item.RequestingStatus,
+                Note                = item.Note,
+                RejectedReason      = item.RejectedReason,
+                RequestedBy         = item.RequestedBy,
+                CreatedAt           = item.CreatedAt,
+                ResponseDeadline    = deadlineUtc.ToVietnamOffset(),
+                RemainingSeconds    = Math.Max(0, (long)Math.Ceiling((deadlineUtc - nowUtc).TotalSeconds)),
+                RespondedAt         = item.RespondedAt,
+                ShippedAt           = item.ShippedAt,
+                CompletedAt         = item.CompletedAt,
+                Role                = depotIds.Contains(item.RequestingDepotId) ? "Requester" : "Source",
+                Items               = item.Items.Select(i => new SupplyRequestItemDto
+                {
+                    ItemModelId   = i.ItemModelId,
+                    ItemModelName = i.ItemModelName,
+                    Unit           = i.Unit,
+                    Quantity       = i.Quantity
+                }).ToList()
+            };
         }).ToList();
 
-        return new PagedResult<SupplyRequestDto>(dtos, paged.TotalCount, request.PageNumber, request.PageSize);
+        var pagedDtos = new PagedResult<SupplyRequestDto>(dtos, paged.TotalCount, request.PageNumber, request.PageSize);
+
+        return new GetSupplyRequestsResponse
+        {
+            Data       = pagedDtos,
+            ServerTime = nowUtc.ToVietnamOffset()
+        };
     }
 }

@@ -4,7 +4,7 @@ using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
 
-public record GetSupplyRequestsQuery : IRequest<PagedResult<SupplyRequestDto>>
+public record GetSupplyRequestsQuery : IRequest<GetSupplyRequestsResponse>
 {
     public Guid                   UserId           { get; init; }
     public SourceDepotStatus?     SourceStatus     { get; init; }

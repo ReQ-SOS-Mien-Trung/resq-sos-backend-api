@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -71,8 +72,9 @@ public class CreateSupplyRequestCommandHandler(
 
                 createdRequests.Add(new CreatedSupplyRequestDto
                 {
-                    SupplyRequestId = supplyRequestId,
-                    SourceDepotId = group.SourceDepotId
+                    SupplyRequestId  = supplyRequestId,
+                    SourceDepotId    = group.SourceDepotId,
+                    ResponseDeadline = autoRejectAt.ToVietnamOffset()
                 });
             }
         });
@@ -110,7 +112,8 @@ public class CreateSupplyRequestCommandHandler(
         return new CreateSupplyRequestResponse
         {
             CreatedRequests = createdRequests,
-            Message = $"Đã tạo {createdRequests.Count} yêu cầu cung cấp vật tư thành công."
+            Message         = $"Đã tạo {createdRequests.Count} yêu cầu cung cấp vật tư thành công.",
+            ServerTime      = DateTime.UtcNow.ToVietnamOffset()
         };
     }
 }
