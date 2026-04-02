@@ -13,6 +13,7 @@ public static class MissionActivityMapper
         [MissionActivityStatus.Planned] = "planned",
         [MissionActivityStatus.OnGoing] = "on_going",
         [MissionActivityStatus.Succeed] = "succeed",
+        [MissionActivityStatus.PendingConfirmation] = "pending_confirmation",
         [MissionActivityStatus.Failed] = "failed",
         [MissionActivityStatus.Cancelled] = "cancelled"
     };

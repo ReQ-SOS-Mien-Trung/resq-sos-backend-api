@@ -58,13 +58,25 @@ public class UpdateActivityStatusCommandHandler(
             assignedMissionTeam = await _missionTeamRepository.GetByIdAsync(activity.MissionTeamId.Value, cancellationToken);
         }
 
-        MissionActivityStateMachine.EnsureValidTransition(activity.Status, request.Status);
+        // Intercept: RETURN_SUPPLIES cannot go directly to Succeed — must go through PendingConfirmation first
+        var effectiveStatus = request.Status;
+        if (string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+            && request.Status == MissionActivityStatus.Succeed
+            && activity.Status == MissionActivityStatus.OnGoing)
+        {
+            effectiveStatus = MissionActivityStatus.PendingConfirmation;
+            _logger.LogInformation(
+                "RETURN_SUPPLIES ActivityId={activityId}: intercepted Succeed → PendingConfirmation (awaiting depot manager confirmation)",
+                request.ActivityId);
+        }
 
-        await _activityRepository.UpdateStatusAsync(request.ActivityId, request.Status, request.DecisionBy, cancellationToken);
+        MissionActivityStateMachine.EnsureValidTransition(activity.Status, effectiveStatus);
+
+        await _activityRepository.UpdateStatusAsync(request.ActivityId, effectiveStatus, request.DecisionBy, cancellationToken);
 
         if (assignedMissionTeam is not null
             && string.Equals(assignedMissionTeam.Status, MissionTeamExecutionStatus.Assigned.ToString(), StringComparison.OrdinalIgnoreCase)
-            && request.Status is MissionActivityStatus.OnGoing or MissionActivityStatus.Succeed)
+            && effectiveStatus is MissionActivityStatus.OnGoing or MissionActivityStatus.Succeed)
         {
             await _missionTeamRepository.UpdateStatusAsync(
                 assignedMissionTeam.Id,
@@ -78,7 +90,7 @@ public class UpdateActivityStatusCommandHandler(
 
         // Side-effect: consume inventory when a COLLECT_SUPPLIES activity succeeds
         // (team physically arrived at depot and picked up the supplies)
-        if (request.Status == MissionActivityStatus.Succeed
+        if (effectiveStatus == MissionActivityStatus.Succeed
             && isCollectActivity
             && activity.DepotId.HasValue
             && !string.IsNullOrWhiteSpace(activity.Items))
@@ -108,7 +120,7 @@ public class UpdateActivityStatusCommandHandler(
 
         // Side-effect: release reservations when a COLLECT_SUPPLIES activity is cancelled OR failed.
         // Both outcomes mean the team will NOT pick up supplies → reserved stock must be freed.
-        var shouldRelease = request.Status is MissionActivityStatus.Cancelled or MissionActivityStatus.Failed;
+        var shouldRelease = effectiveStatus is MissionActivityStatus.Cancelled or MissionActivityStatus.Failed;
         if (shouldRelease
             && isCollectActivity
             && activity.DepotId.HasValue
@@ -129,7 +141,7 @@ public class UpdateActivityStatusCommandHandler(
                         await _depotInventoryRepository.ReleaseReservedSuppliesAsync(activity.DepotId.Value, itemsToRelease, cancellationToken);
                         _logger.LogInformation(
                             "Reservation released for ActivityId={activityId} DepotId={depotId} due to status={status}: {count} item type(s)",
-                            activity.Id, activity.DepotId.Value, request.Status, itemsToRelease.Count);
+                            activity.Id, activity.DepotId.Value, effectiveStatus, itemsToRelease.Count);
                     }
                 }
             }
@@ -146,11 +158,67 @@ public class UpdateActivityStatusCommandHandler(
 
         await _unitOfWork.SaveAsync();
 
+        // Side-effect: auto-create RETURN_SUPPLIES when a DELIVER_SUPPLIES activity fails
+        var isDeliverActivity = string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+        if (effectiveStatus == MissionActivityStatus.Failed
+            && isDeliverActivity
+            && !string.IsNullOrWhiteSpace(activity.Items)
+            && activity.DepotId.HasValue)
+        {
+            await CreateReturnSuppliesActivityAsync(activity, request.DecisionBy, cancellationToken);
+        }
+
         return new UpdateActivityStatusResponse
         {
             ActivityId = request.ActivityId,
-            Status = request.Status.ToString(),
+            Status = effectiveStatus.ToString(),
             DecisionBy = request.DecisionBy
         };
+    }
+
+    private async Task CreateReturnSuppliesActivityAsync(MissionActivityModel failedActivity, Guid decisionBy, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var missionId = failedActivity.MissionId ?? 0;
+            var existingActivities = await _activityRepository.GetByMissionIdAsync(missionId, cancellationToken);
+            var maxStep = existingActivities.Any() ? existingActivities.Max(a => a.Step ?? 0) : 0;
+
+            var returnActivity = new MissionActivityModel
+            {
+                MissionId = missionId,
+                Step = maxStep + 1,
+                ActivityCode = $"RET-{failedActivity.ActivityCode}",
+                ActivityType = "RETURN_SUPPLIES",
+                Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
+                Priority = failedActivity.Priority,
+                EstimatedTime = failedActivity.EstimatedTime,
+                SosRequestId = failedActivity.SosRequestId,
+                DepotId = failedActivity.DepotId,
+                DepotName = failedActivity.DepotName,
+                DepotAddress = failedActivity.DepotAddress,
+                Items = failedActivity.Items,
+                Status = MissionActivityStatus.Planned
+            };
+
+            var returnActivityId = await _activityRepository.AddAsync(returnActivity, cancellationToken);
+
+            if (failedActivity.MissionTeamId.HasValue)
+            {
+                await _activityRepository.AssignTeamAsync(returnActivityId, failedActivity.MissionTeamId.Value, cancellationToken);
+            }
+
+            await _unitOfWork.SaveAsync();
+
+            _logger.LogInformation(
+                "Auto-created RETURN_SUPPLIES ActivityId={returnActivityId} for failed DELIVER_SUPPLIES ActivityId={failedActivityId} MissionId={missionId}",
+                returnActivityId, failedActivity.Id, missionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to auto-create RETURN_SUPPLIES activity for failed DELIVER_SUPPLIES ActivityId={activityId} MissionId={missionId}",
+                failedActivity.Id, failedActivity.MissionId);
+        }
     }
 }

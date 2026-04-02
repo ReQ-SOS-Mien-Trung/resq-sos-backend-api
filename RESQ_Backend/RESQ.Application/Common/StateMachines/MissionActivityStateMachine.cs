@@ -5,19 +5,21 @@ namespace RESQ.Application.Common.StateMachines;
 
 /// <summary>
 /// Enforces valid MissionActivity status transitions per the state diagram:
-/// Planned → OnGoing → Succeed | Failed
+/// Planned → OnGoing → Succeed | Failed | PendingConfirmation
 /// Planned → Cancelled
 /// OnGoing → Cancelled
+/// PendingConfirmation → Succeed | Failed | Cancelled
 /// </summary>
 public static class MissionActivityStateMachine
 {
     private static readonly Dictionary<MissionActivityStatus, HashSet<MissionActivityStatus>> _allowed = new()
     {
-        [MissionActivityStatus.Planned]   = [MissionActivityStatus.OnGoing, MissionActivityStatus.Cancelled],
-        [MissionActivityStatus.OnGoing]   = [MissionActivityStatus.Succeed, MissionActivityStatus.Failed, MissionActivityStatus.Cancelled],
-        [MissionActivityStatus.Succeed]   = [],
-        [MissionActivityStatus.Failed]    = [],
-        [MissionActivityStatus.Cancelled] = [],
+        [MissionActivityStatus.Planned]             = [MissionActivityStatus.OnGoing, MissionActivityStatus.Cancelled],
+        [MissionActivityStatus.OnGoing]             = [MissionActivityStatus.Succeed, MissionActivityStatus.Failed, MissionActivityStatus.Cancelled, MissionActivityStatus.PendingConfirmation],
+        [MissionActivityStatus.Succeed]             = [],
+        [MissionActivityStatus.PendingConfirmation] = [MissionActivityStatus.Succeed, MissionActivityStatus.Failed, MissionActivityStatus.Cancelled],
+        [MissionActivityStatus.Failed]              = [],
+        [MissionActivityStatus.Cancelled]           = [],
     };
 
     public static void EnsureValidTransition(MissionActivityStatus from, MissionActivityStatus to)

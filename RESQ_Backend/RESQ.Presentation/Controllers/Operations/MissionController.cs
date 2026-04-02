@@ -8,6 +8,7 @@ using RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Application.UseCases.Operations.Commands.CompleteMissionTeamExecution;
+using RESQ.Application.UseCases.Operations.Commands.ConfirmReturnSupplies;
 using RESQ.Application.UseCases.Operations.Commands.CreateMission;
 using RESQ.Application.UseCases.Operations.Commands.SaveMissionTeamReportDraft;
 using RESQ.Application.UseCases.Operations.Commands.SubmitMissionTeamReport;
@@ -211,6 +212,22 @@ public class MissionController(IMediator mediator) : ControllerBase
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new UpdateActivityStatusCommand(activityId, dto.Status, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Depot manager xác nhận đã nhận lại vật tư từ đội cứu hộ (RETURN_SUPPLIES: PendingConfirmation → Succeed + restock kho).
+    /// </summary>
+    [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-return")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
+    public async Task<IActionResult> ConfirmReturnSupplies([FromRoute] int missionId, [FromRoute] int activityId)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new ConfirmReturnSuppliesCommand(activityId, missionId, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }
