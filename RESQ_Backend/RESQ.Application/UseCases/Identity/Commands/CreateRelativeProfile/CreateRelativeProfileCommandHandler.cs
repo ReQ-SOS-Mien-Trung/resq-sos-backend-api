@@ -21,7 +21,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.CreateRelativeProfile
         public async Task<RelativeProfileResponse> Handle(CreateRelativeProfileCommand request, CancellationToken cancellationToken)
         {
             var (displayName, phoneNumber, personType, relationGroup, tagsJson,
-                 medicalBaselineNote, specialNeedsNote, specialDietNote) =
+                 medicalBaselineNote, specialNeedsNote, specialDietNote, gender, medicalProfileJson) =
                 RelativeProfileNormalizer.Normalize(
                     request.DisplayName,
                     request.PhoneNumber,
@@ -30,7 +30,9 @@ namespace RESQ.Application.UseCases.Identity.Commands.CreateRelativeProfile
                     request.Tags,
                     request.MedicalBaselineNote,
                     request.SpecialNeedsNote,
-                    request.SpecialDietNote);
+                    request.SpecialDietNote,
+                    request.Gender,
+                    request.MedicalProfileJson);
 
             var now = DateTime.UtcNow;
             var model = new UserRelativeProfileModel
@@ -45,6 +47,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.CreateRelativeProfile
                 MedicalBaselineNote = medicalBaselineNote,
                 SpecialNeedsNote = specialNeedsNote,
                 SpecialDietNote = specialDietNote,
+                Gender = gender,
+                MedicalProfileJson = medicalProfileJson,
                 ProfileUpdatedAt = request.UpdatedAt ?? now,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -64,6 +68,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.CreateRelativeProfile
                 MedicalBaselineNote = created.MedicalBaselineNote,
                 SpecialNeedsNote = created.SpecialNeedsNote,
                 SpecialDietNote = created.SpecialDietNote,
+                Gender = created.Gender,
+                MedicalProfile = RelativeProfileNormalizer.DeserializeMedicalProfile(created.MedicalProfileJson),
                 ProfileUpdatedAt = created.ProfileUpdatedAt,
                 CreatedAt = created.CreatedAt,
                 UpdatedAt = created.UpdatedAt

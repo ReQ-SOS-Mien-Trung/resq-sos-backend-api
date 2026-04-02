@@ -33,6 +33,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRelativeProfiles
                 MedicalBaselineNote = m.MedicalBaselineNote,
                 SpecialNeedsNote = m.SpecialNeedsNote,
                 SpecialDietNote = m.SpecialDietNote,
+                Gender = m.Gender,
+                MedicalProfile = RelativeProfileNormalizer.DeserializeMedicalProfile(m.MedicalProfileJson),
                 ProfileUpdatedAt = m.ProfileUpdatedAt,
                 CreatedAt = m.CreatedAt,
                 UpdatedAt = m.UpdatedAt

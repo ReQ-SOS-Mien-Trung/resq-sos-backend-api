@@ -9,6 +9,7 @@ using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Emergency.Exceptions;
 using RESQ.Domain.Enum.Emergency;
 
+using RESQ.Application.Common;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Exceptions;
 
@@ -61,7 +62,8 @@ public class CreateSosRequestCommandHandler(
             createdByCoordinatorId: request.CreatedByCoordinatorId,
             clientCreatedAt: request.ClientCreatedAt,
             victimInfo: request.VictimInfo,
-            isSentOnBehalf: request.IsSentOnBehalf);
+            isSentOnBehalf: request.IsSentOnBehalf,
+            reporterInfo: request.ReporterInfo);
 
         // Save SOS request first to get the ID
         await _sosRequestRepository.CreateAsync(sosRequest, cancellationToken);
@@ -125,10 +127,10 @@ public class CreateSosRequestCommandHandler(
             UserId = created.UserId,
             SosType = created.SosType,
             RawMessage = created.RawMessage,
-            StructuredData = ParseJson<SosStructuredDataDto>(created.StructuredData),
+            StructuredData = SosStructuredDataParser.Parse(created.StructuredData),
             NetworkMetadata = ParseJson<SosNetworkMetadataDto>(created.NetworkMetadata),
             SenderInfo = ParseJson<SosSenderInfoDto>(created.SenderInfo),
-            ReporterInfo = ParseJson<SosSenderInfoDto>(created.SenderInfo),
+            ReporterInfo = SosStructuredDataParser.ParseReporterInfo(created.ReporterInfo, created.SenderInfo),
             VictimInfo = ParseJson<SosVictimInfoDto>(created.VictimInfo),
             IsSentOnBehalf = created.IsSentOnBehalf,
             Status = created.Status.ToString(),

@@ -15,6 +15,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetRelativeProfiles
         public string? MedicalBaselineNote { get; set; }
         public string? SpecialNeedsNote { get; set; }
         public string? SpecialDietNote { get; set; }
+        public string? Gender { get; set; }
+        public object? MedicalProfile { get; set; }
         public DateTime ProfileUpdatedAt { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }

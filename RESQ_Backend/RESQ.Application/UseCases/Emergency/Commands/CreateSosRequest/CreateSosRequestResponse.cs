@@ -15,7 +15,7 @@ public class CreateSosRequestResponse
     public SosStructuredDataDto? StructuredData { get; set; }
     public SosNetworkMetadataDto? NetworkMetadata { get; set; }
     public SosSenderInfoDto? SenderInfo { get; set; }
-    public SosSenderInfoDto? ReporterInfo { get; set; }
+    public SosReporterInfoDto? ReporterInfo { get; set; }
     public SosVictimInfoDto? VictimInfo { get; set; }
     public bool IsSentOnBehalf { get; set; }
     public string? OriginId { get; set; }

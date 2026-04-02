@@ -49,6 +49,9 @@ public partial class SosRequest
     [Column("victim_info", TypeName = "jsonb")]
     public string? VictimInfo { get; set; }
 
+    [Column("reporter_info", TypeName = "jsonb")]
+    public string? ReporterInfo { get; set; }
+
     [Column("is_sent_on_behalf")]
     public bool IsSentOnBehalf { get; set; }
 

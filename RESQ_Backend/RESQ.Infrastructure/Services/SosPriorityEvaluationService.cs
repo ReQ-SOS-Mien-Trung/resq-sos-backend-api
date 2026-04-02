@@ -80,14 +80,18 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
         int requestTypeScore = GetRequestTypeScore(sosType, requestTypeScores);
 
         // ── 2. situationMultiplier + situationSevere flag ──
-        var (situationMultiplier, situationSevere) = GetSituationMultiplier(data?.Situation, situationMultipliers);
+        // Dual-read: prefer new nested format, fallback to old flat
+        var situation = data?.Incident?.Situation ?? data?.Situation;
+        var (situationMultiplier, situationSevere) = GetSituationMultiplier(situation, situationMultipliers);
 
         // ── 3. medicalScore ──
+        // Dual-read: build injured persons from new victims or old injured_persons
         double medicalScore = 0;
         bool medicalSevere = false;
-        if (data?.InjuredPersons is { Count: > 0 } persons)
+        var injuredPersons = BuildInjuredPersons(data);
+        if (injuredPersons is { Count: > 0 })
         {
-            foreach (var person in persons)
+            foreach (var person in injuredPersons)
             {
                 var issues = person.MedicalIssues ?? [];
                 double issueScore = issues.Sum(k => issueWeight.GetValueOrDefault(k, 1));
@@ -232,11 +236,17 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
     {
         var items = new List<string>();
 
-        var allIssues = data?.InjuredPersons?
+        // Dual-read: build injured persons from new victims or old injured_persons
+        var injuredPersons = BuildInjuredPersons(data);
+        var hasInjured = data?.Incident?.HasInjured ?? data?.HasInjured;
+        var peopleCount = data?.Incident?.PeopleCount ?? data?.PeopleCount;
+        var situation = data?.Incident?.Situation ?? data?.Situation;
+
+        var allIssues = injuredPersons?
             .SelectMany(p => p.MedicalIssues ?? [])
             .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
 
-        if (data?.InjuredPersons?.Count > 0 || data?.HasInjured == true)
+        if (injuredPersons?.Count > 0 || hasInjured == true)
         {
             items.Add("FIRST_AID_KIT");
             items.Add("MEDICAL_SUPPLIES");
@@ -248,28 +258,26 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
             items.Add("BLOOD_CLOTTING_AGENTS");
         }
 
-        var situation = data?.Situation?.ToLowerInvariant();
-
-        if (situation is "flooding")
+        if (situation?.ToLowerInvariant() is "flooding")
         {
             items.Add("LIFE_JACKET");
             items.Add("RESCUE_BOAT");
             items.Add("ROPE");
         }
 
-        if (situation is "trapped" or "building_collapse")
+        if (situation?.ToLowerInvariant() is "trapped" or "building_collapse")
         {
             items.Add("ROPE");
             items.Add("RESCUE_EQUIPMENT");
         }
 
-        if (situation is "fire")
+        if (situation?.ToLowerInvariant() is "fire")
         {
             items.Add("FIRE_EXTINGUISHER");
             items.Add("PROTECTIVE_GEAR");
         }
 
-        if (data?.PeopleCount is { } pc)
+        if (peopleCount is { } pc)
         {
             var total = (pc.Adult ?? 0) + (pc.Child ?? 0) + (pc.Elderly ?? 0);
             if (total > 0)
@@ -287,6 +295,22 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
         }
 
         return items.Count > 0 ? JsonSerializer.Serialize(items) : null;
+    }
+
+    // ── Dual-read helper ──
+
+    private static List<InjuredPerson>? BuildInjuredPersons(StructuredData? data)
+    {
+        if (data?.Victims is { Count: > 0 } victims)
+        {
+            return victims.Select(v => new InjuredPerson
+            {
+                PersonType = v.PersonType,
+                MedicalIssues = v.IncidentStatus?.MedicalIssues,
+                Severity = v.IncidentStatus?.Severity
+            }).ToList();
+        }
+        return data?.InjuredPersons;
     }
 
     // ── Config model classes ──
@@ -311,14 +335,38 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
         public bool RequireSevere { get; set; }
     }
 
-    // ── Structured data models ──
+    // ── Structured data models (supports both old flat and new nested) ──
 
     private class StructuredData
     {
+        // Old flat format fields
         public string? Situation { get; set; }
         public bool? HasInjured { get; set; }
         public PeopleCount? PeopleCount { get; set; }
         public List<InjuredPerson>? InjuredPersons { get; set; }
+        // New nested format fields
+        public Incident? Incident { get; set; }
+        public List<Victim>? Victims { get; set; }
+    }
+
+    private class Incident
+    {
+        public string? Situation { get; set; }
+        public bool? HasInjured { get; set; }
+        public PeopleCount? PeopleCount { get; set; }
+    }
+
+    private class Victim
+    {
+        public string? PersonType { get; set; }
+        public VictimIncidentStatus? IncidentStatus { get; set; }
+    }
+
+    private class VictimIncidentStatus
+    {
+        public bool? IsInjured { get; set; }
+        public string? Severity { get; set; }
+        public List<string>? MedicalIssues { get; set; }
     }
 
     private class PeopleCount

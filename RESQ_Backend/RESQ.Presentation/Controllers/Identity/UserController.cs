@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -154,6 +155,10 @@ namespace RESQ.Presentation.Controllers.Identity
             if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
                 return Unauthorized();
 
+            var medicalProfileJson = dto.MedicalProfile != null
+                ? JsonSerializer.Serialize(dto.MedicalProfile)
+                : null;
+
             var command = new CreateRelativeProfileCommand(
                 userId,
                 dto.Id,
@@ -165,6 +170,8 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.MedicalBaselineNote,
                 dto.SpecialNeedsNote,
                 dto.SpecialDietNote,
+                dto.Gender,
+                medicalProfileJson,
                 dto.UpdatedAt
             );
             var result = await _mediator.Send(command);
@@ -185,6 +192,10 @@ namespace RESQ.Presentation.Controllers.Identity
             if (dto.Id.HasValue && dto.Id.Value != profileId)
                 return BadRequest(new { message = "id trong body không khớp với profileId trên đường dẫn." });
 
+            var medicalProfileJson = dto.MedicalProfile != null
+                ? JsonSerializer.Serialize(dto.MedicalProfile)
+                : null;
+
             var command = new UpdateRelativeProfileCommand(
                 userId,
                 profileId,
@@ -196,6 +207,8 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.MedicalBaselineNote,
                 dto.SpecialNeedsNote,
                 dto.SpecialDietNote,
+                dto.Gender,
+                medicalProfileJson,
                 dto.UpdatedAt
             );
             var result = await _mediator.Send(command);

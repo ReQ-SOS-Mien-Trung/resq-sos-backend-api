@@ -396,6 +396,9 @@ public partial class ResQDbContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("user_relative_profiles_pkey");
 
+            entity.Property(e => e.MedicalProfileJson)
+                .HasDefaultValueSql("'{}'::jsonb");
+
             entity.HasOne(e => e.User)
                 .WithMany(u => u.RelativeProfiles)
                 .HasForeignKey(e => e.UserId)
@@ -416,6 +419,9 @@ public partial class ResQDbContext : DbContext
                 t.HasCheckConstraint(
                     "ck_user_relative_profiles_relation_group",
                     "relation_group IN ('gia_dinh','nha_noi','nha_ngoai','hang_xom','ban_be','khac')");
+                t.HasCheckConstraint(
+                    "ck_user_relative_profiles_gender",
+                    "gender IS NULL OR gender IN ('MALE','FEMALE')");
             });
         });
 

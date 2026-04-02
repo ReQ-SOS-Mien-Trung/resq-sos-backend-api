@@ -10,10 +10,12 @@ namespace RESQ.Domain.Entities.Identity
         public string? PhoneNumber { get; set; }
         public string PersonType { get; set; } = null!;
         public string RelationGroup { get; set; } = null!;
+        public string? Gender { get; set; }
         public string TagsJson { get; set; } = "[]";
         public string? MedicalBaselineNote { get; set; }
         public string? SpecialNeedsNote { get; set; }
         public string? SpecialDietNote { get; set; }
+        public string MedicalProfileJson { get; set; } = "{}";
         public DateTime ProfileUpdatedAt { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }

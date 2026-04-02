@@ -47,8 +47,24 @@ namespace RESQ.Application.Common
             }
         }
 
+        public static object? DeserializeMedicalProfile(string? medicalProfileJson)
+        {
+            if (string.IsNullOrWhiteSpace(medicalProfileJson) || medicalProfileJson == "{}")
+                return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<object>(medicalProfileJson);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public static (string displayName, string? phoneNumber, string personType, string relationGroup,
-                       string tagsJson, string? medicalBaselineNote, string? specialNeedsNote, string? specialDietNote)
+                       string tagsJson, string? medicalBaselineNote, string? specialNeedsNote, string? specialDietNote,
+                       string? gender, string medicalProfileJson)
             Normalize(
                 string displayName,
                 string? phoneNumber,
@@ -57,7 +73,9 @@ namespace RESQ.Application.Common
                 IEnumerable<string>? tags,
                 string? medicalBaselineNote,
                 string? specialNeedsNote,
-                string? specialDietNote)
+                string? specialDietNote,
+                string? gender = null,
+                string? medicalProfileJson = null)
         {
             return (
                 displayName.Trim(),
@@ -67,7 +85,9 @@ namespace RESQ.Application.Common
                 NormalizeTags(tags),
                 NullIfEmpty(medicalBaselineNote),
                 NullIfEmpty(specialNeedsNote),
-                NullIfEmpty(specialDietNote)
+                NullIfEmpty(specialDietNote),
+                NullIfEmpty(gender),
+                string.IsNullOrWhiteSpace(medicalProfileJson) ? "{}" : medicalProfileJson
             );
         }
     }

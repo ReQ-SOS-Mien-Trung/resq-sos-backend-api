@@ -29,9 +29,12 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
             SELECT
                 date_trunc(@granularity, received_at) AS "Period",
                 COALESCE(SUM(
-                    COALESCE((structured_data -> 'people_count' ->> 'adult')::int, 0)
-                  + COALESCE((structured_data -> 'people_count' ->> 'child')::int, 0)
-                  + COALESCE((structured_data -> 'people_count' ->> 'elderly')::int, 0)
+                    COALESCE((structured_data -> 'incident' -> 'people_count' ->> 'adult')::int,
+                             (structured_data -> 'people_count' ->> 'adult')::int, 0)
+                  + COALESCE((structured_data -> 'incident' -> 'people_count' ->> 'child')::int,
+                             (structured_data -> 'people_count' ->> 'child')::int, 0)
+                  + COALESCE((structured_data -> 'incident' -> 'people_count' ->> 'elderly')::int,
+                             (structured_data -> 'people_count' ->> 'elderly')::int, 0)
                 ), 0)::int AS "TotalVictims"
             FROM valid_requests
             GROUP BY date_trunc(@granularity, received_at)

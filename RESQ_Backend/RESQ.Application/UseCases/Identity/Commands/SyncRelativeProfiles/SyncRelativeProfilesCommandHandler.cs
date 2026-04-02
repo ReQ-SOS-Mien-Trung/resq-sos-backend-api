@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -33,8 +34,12 @@ namespace RESQ.Application.UseCases.Identity.Commands.SyncRelativeProfiles
             // Normalize and map all items to domain models
             var models = request.Profiles.Select(item =>
             {
+                var medicalProfileJson = item.MedicalProfile != null
+                    ? JsonSerializer.Serialize(item.MedicalProfile)
+                    : null;
+
                 var (displayName, phoneNumber, personType, relationGroup, tagsJson,
-                     medicalBaselineNote, specialNeedsNote, specialDietNote) =
+                     medicalBaselineNote, specialNeedsNote, specialDietNote, gender, normalizedMedicalProfileJson) =
                     RelativeProfileNormalizer.Normalize(
                         item.DisplayName,
                         item.PhoneNumber,
@@ -43,7 +48,9 @@ namespace RESQ.Application.UseCases.Identity.Commands.SyncRelativeProfiles
                         item.Tags,
                         item.MedicalBaselineNote,
                         item.SpecialNeedsNote,
-                        item.SpecialDietNote);
+                        item.SpecialDietNote,
+                        item.Gender,
+                        medicalProfileJson);
 
                 return new UserRelativeProfileModel
                 {
@@ -57,6 +64,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.SyncRelativeProfiles
                     MedicalBaselineNote = medicalBaselineNote,
                     SpecialNeedsNote = specialNeedsNote,
                     SpecialDietNote = specialDietNote,
+                    Gender = gender,
+                    MedicalProfileJson = normalizedMedicalProfileJson,
                     ProfileUpdatedAt = item.UpdatedAt,
                     CreatedAt = now,
                     UpdatedAt = now
@@ -82,6 +91,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.SyncRelativeProfiles
                     MedicalBaselineNote = m.MedicalBaselineNote,
                     SpecialNeedsNote = m.SpecialNeedsNote,
                     SpecialDietNote = m.SpecialDietNote,
+                    Gender = m.Gender,
+                    MedicalProfile = RelativeProfileNormalizer.DeserializeMedicalProfile(m.MedicalProfileJson),
                     ProfileUpdatedAt = m.ProfileUpdatedAt,
                     CreatedAt = m.CreatedAt,
                     UpdatedAt = m.UpdatedAt

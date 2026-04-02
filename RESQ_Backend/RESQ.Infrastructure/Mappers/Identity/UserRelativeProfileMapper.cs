@@ -15,10 +15,12 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 PhoneNumber = model.PhoneNumber,
                 PersonType = model.PersonType,
                 RelationGroup = model.RelationGroup,
+                Gender = model.Gender,
                 TagsJson = model.TagsJson,
                 MedicalBaselineNote = model.MedicalBaselineNote,
                 SpecialNeedsNote = model.SpecialNeedsNote,
                 SpecialDietNote = model.SpecialDietNote,
+                MedicalProfileJson = model.MedicalProfileJson,
                 ProfileUpdatedAt = model.ProfileUpdatedAt,
                 CreatedAt = model.CreatedAt,
                 UpdatedAt = model.UpdatedAt
@@ -35,10 +37,12 @@ namespace RESQ.Infrastructure.Mappers.Identity
                 PhoneNumber = entity.PhoneNumber,
                 PersonType = entity.PersonType,
                 RelationGroup = entity.RelationGroup,
+                Gender = entity.Gender,
                 TagsJson = entity.TagsJson,
                 MedicalBaselineNote = entity.MedicalBaselineNote,
                 SpecialNeedsNote = entity.SpecialNeedsNote,
                 SpecialDietNote = entity.SpecialDietNote,
+                MedicalProfileJson = entity.MedicalProfileJson,
                 ProfileUpdatedAt = entity.ProfileUpdatedAt,
                 CreatedAt = entity.CreatedAt,
                 UpdatedAt = entity.UpdatedAt
@@ -51,10 +55,12 @@ namespace RESQ.Infrastructure.Mappers.Identity
             entity.PhoneNumber = model.PhoneNumber;
             entity.PersonType = model.PersonType;
             entity.RelationGroup = model.RelationGroup;
+            entity.Gender = model.Gender;
             entity.TagsJson = model.TagsJson;
             entity.MedicalBaselineNote = model.MedicalBaselineNote;
             entity.SpecialNeedsNote = model.SpecialNeedsNote;
             entity.SpecialDietNote = model.SpecialDietNote;
+            entity.MedicalProfileJson = model.MedicalProfileJson;
             entity.ProfileUpdatedAt = model.ProfileUpdatedAt;
             entity.UpdatedAt = model.UpdatedAt;
         }

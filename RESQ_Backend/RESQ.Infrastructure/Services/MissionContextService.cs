@@ -194,40 +194,94 @@ public class MissionContextService(
             {
                 using var doc = JsonDocument.Parse(sos.StructuredData);
                 var root = doc.RootElement;
-                if (root.TryGetProperty("supplies", out var supplies)
-                    && supplies.ValueKind == JsonValueKind.Array)
+
+                // Dual-read: try new nested format first, fallback to old flat
+                if (root.TryGetProperty("group_needs", out var groupNeeds))
                 {
-                    foreach (var item in supplies.EnumerateArray())
+                    // New nested format
+                    if (groupNeeds.TryGetProperty("supplies", out var supplies)
+                        && supplies.ValueKind == JsonValueKind.Array)
                     {
-                        var val = item.GetString();
-                        if (!string.IsNullOrWhiteSpace(val))
-                            needed.Add(val.Trim().ToUpperInvariant());
+                        foreach (var item in supplies.EnumerateArray())
+                        {
+                            var val = item.GetString();
+                            if (!string.IsNullOrWhiteSpace(val))
+                                needed.Add(val.Trim().ToUpperInvariant());
+                        }
+                    }
+
+                    if (groupNeeds.TryGetProperty("water", out var water) && water.ValueKind == JsonValueKind.Object)
+                    {
+                        if (water.TryGetProperty("duration", out var wd) && wd.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(wd.GetString()))
+                            needed.Add("WATER");
+                        if (water.TryGetProperty("remaining", out var wr) && wr.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(wr.GetString()))
+                            needed.Add("WATER");
+                    }
+
+                    if (groupNeeds.TryGetProperty("food", out var food) && food.ValueKind == JsonValueKind.Object)
+                    {
+                        if (food.TryGetProperty("duration", out var fd) && fd.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(fd.GetString()))
+                            needed.Add("FOOD");
+                    }
+
+                    if (groupNeeds.TryGetProperty("blanket", out var blanket) && blanket.ValueKind == JsonValueKind.Object)
+                    {
+                        if (blanket.TryGetProperty("request_count", out var rc) && rc.ValueKind == JsonValueKind.Number && rc.GetInt32() > 0)
+                            needed.Add("CLOTHING");
+                    }
+
+                    if (groupNeeds.TryGetProperty("medicine", out var medicine) && medicine.ValueKind == JsonValueKind.Object)
+                    {
+                        if (medicine.TryGetProperty("medical_needs", out var mn) && mn.ValueKind == JsonValueKind.Array && mn.GetArrayLength() > 0)
+                            needed.Add("MEDICINE");
+                        if (medicine.TryGetProperty("medical_description", out var md) && md.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(md.GetString()))
+                            needed.Add("MEDICINE");
+                    }
+
+                    if (groupNeeds.TryGetProperty("clothing", out var clothing) && clothing.ValueKind == JsonValueKind.Object)
+                    {
+                        if (clothing.TryGetProperty("status", out var cs) && cs.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(cs.GetString()))
+                            needed.Add("CLOTHING");
                     }
                 }
-
-                if (root.TryGetProperty("supply_details", out var supplyDetails) && supplyDetails.ValueKind == JsonValueKind.Object)
+                else
                 {
-                    if (supplyDetails.TryGetProperty("are_blankets_enough", out var blanketsEnough) && blanketsEnough.ValueKind == JsonValueKind.False)
-                        needed.Add("CLOTHING");
-                    if (supplyDetails.TryGetProperty("blanket_request_count", out var blanketCount) && blanketCount.ValueKind == JsonValueKind.Number && blanketCount.GetInt32() > 0)
-                        needed.Add("CLOTHING");
-                    if (supplyDetails.TryGetProperty("clothing_persons", out var clothingArr) && clothingArr.ValueKind == JsonValueKind.Array && clothingArr.GetArrayLength() > 0)
-                        needed.Add("CLOTHING");
+                    // Old flat format
+                    if (root.TryGetProperty("supplies", out var supplies)
+                        && supplies.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in supplies.EnumerateArray())
+                        {
+                            var val = item.GetString();
+                            if (!string.IsNullOrWhiteSpace(val))
+                                needed.Add(val.Trim().ToUpperInvariant());
+                        }
+                    }
 
-                    if (supplyDetails.TryGetProperty("food_duration", out var foodDur) && foodDur.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(foodDur.GetString()))
-                        needed.Add("FOOD");
-                    if (supplyDetails.TryGetProperty("special_diet_persons", out var dietArr) && dietArr.ValueKind == JsonValueKind.Array && dietArr.GetArrayLength() > 0)
-                        needed.Add("FOOD");
+                    if (root.TryGetProperty("supply_details", out var supplyDetails) && supplyDetails.ValueKind == JsonValueKind.Object)
+                    {
+                        if (supplyDetails.TryGetProperty("are_blankets_enough", out var blanketsEnough) && blanketsEnough.ValueKind == JsonValueKind.False)
+                            needed.Add("CLOTHING");
+                        if (supplyDetails.TryGetProperty("blanket_request_count", out var blanketCount) && blanketCount.ValueKind == JsonValueKind.Number && blanketCount.GetInt32() > 0)
+                            needed.Add("CLOTHING");
+                        if (supplyDetails.TryGetProperty("clothing_persons", out var clothingArr) && clothingArr.ValueKind == JsonValueKind.Array && clothingArr.GetArrayLength() > 0)
+                            needed.Add("CLOTHING");
 
-                    if (supplyDetails.TryGetProperty("water_duration", out var waterDur) && waterDur.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(waterDur.GetString()))
-                        needed.Add("WATER");
-                    if (supplyDetails.TryGetProperty("water_remaining", out var waterRem) && waterRem.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(waterRem.GetString()))
-                        needed.Add("WATER");
+                        if (supplyDetails.TryGetProperty("food_duration", out var foodDur) && foodDur.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(foodDur.GetString()))
+                            needed.Add("FOOD");
+                        if (supplyDetails.TryGetProperty("special_diet_persons", out var dietArr) && dietArr.ValueKind == JsonValueKind.Array && dietArr.GetArrayLength() > 0)
+                            needed.Add("FOOD");
 
-                    if (supplyDetails.TryGetProperty("medical_needs", out var medNeeds) && medNeeds.ValueKind == JsonValueKind.Array && medNeeds.GetArrayLength() > 0)
-                        needed.Add("MEDICINE");
-                    if (supplyDetails.TryGetProperty("medical_description", out var medDesc) && medDesc.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(medDesc.GetString()))
-                        needed.Add("MEDICINE");
+                        if (supplyDetails.TryGetProperty("water_duration", out var waterDur) && waterDur.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(waterDur.GetString()))
+                            needed.Add("WATER");
+                        if (supplyDetails.TryGetProperty("water_remaining", out var waterRem) && waterRem.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(waterRem.GetString()))
+                            needed.Add("WATER");
+
+                        if (supplyDetails.TryGetProperty("medical_needs", out var medNeeds) && medNeeds.ValueKind == JsonValueKind.Array && medNeeds.GetArrayLength() > 0)
+                            needed.Add("MEDICINE");
+                        if (supplyDetails.TryGetProperty("medical_description", out var medDesc) && medDesc.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(medDesc.GetString()))
+                            needed.Add("MEDICINE");
+                    }
                 }
             }
             catch (JsonException) { /* ignore invalid StructuredData */ }
