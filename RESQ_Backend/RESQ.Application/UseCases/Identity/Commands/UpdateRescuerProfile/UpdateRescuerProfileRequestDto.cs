@@ -10,5 +10,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
         public string Province { get; set; } = null!;
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
+        public string? AvatarUrl { get; set; }
     }
 }

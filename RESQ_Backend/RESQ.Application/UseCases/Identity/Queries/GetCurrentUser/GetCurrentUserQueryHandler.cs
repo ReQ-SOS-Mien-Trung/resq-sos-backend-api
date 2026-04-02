@@ -12,7 +12,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         IPermissionRepository permissionRepository,
         ILogger<GetCurrentUserQueryHandler> logger,
         IDepotInventoryRepository depotInventoryRepository,
-        IDepotRepository depotRepository
+        IDepotRepository depotRepository,
+        IRescuerScoreRepository rescuerScoreRepository
     ) : IRequestHandler<GetCurrentUserQuery, GetCurrentUserResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
@@ -21,6 +22,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         private readonly ILogger<GetCurrentUserQueryHandler> _logger = logger;
         private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
         private readonly IDepotRepository _depotRepository = depotRepository;
+        private readonly IRescuerScoreRepository _rescuerScoreRepository = rescuerScoreRepository;
 
         public async Task<GetCurrentUserResponse> Handle(GetCurrentUserQuery request, CancellationToken cancellationToken)
         {
@@ -66,6 +68,26 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
                 depotName = depot?.Name;
             }
 
+            RescuerScoreDto? rescuerScoreDto = null;
+            if (user.RescuerStep > 0)
+            {
+                var rescuerScore = await _rescuerScoreRepository.GetByRescuerIdAsync(request.UserId, cancellationToken);
+                if (rescuerScore is not null)
+                {
+                    rescuerScoreDto = new RescuerScoreDto
+                    {
+                        ResponseTimeScore = rescuerScore.ResponseTimeScore,
+                        RescueEffectivenessScore = rescuerScore.RescueEffectivenessScore,
+                        DecisionHandlingScore = rescuerScore.DecisionHandlingScore,
+                        SafetyMedicalSkillScore = rescuerScore.SafetyMedicalSkillScore,
+                        TeamworkCommunicationScore = rescuerScore.TeamworkCommunicationScore,
+                        OverallAverageScore = rescuerScore.OverallAverageScore,
+                        EvaluationCount = rescuerScore.EvaluationCount,
+                        UpdatedAt = rescuerScore.UpdatedAt
+                    };
+                }
+            }
+
             return new GetCurrentUserResponse
             {
                 Id = user.Id,
@@ -89,7 +111,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
                 RescuerApplicationDocuments = documents,
                 Permissions = permissions,
                 DepotId = depotId,
-                DepotName = depotName
+                DepotName = depotName,
+                RescuerScore = rescuerScoreDto
             };
         }
     }

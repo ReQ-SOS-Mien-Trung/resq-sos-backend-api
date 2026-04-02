@@ -11,6 +11,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
         string? Ward,
         string Province,
         double? Latitude,
-        double? Longitude
+        double? Longitude,
+        string? AvatarUrl
     ) : IRequest<UpdateRescuerProfileResponse>;
 }
