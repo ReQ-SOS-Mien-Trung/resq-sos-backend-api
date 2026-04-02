@@ -99,7 +99,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         var team = await unitOfWork.GetRepository<RescueTeam>().GetByPropertyAsync(
             filter: t => t.Id == teamId,
             tracked: false,
-            includeProperties: "AssemblyPoint,RescueTeamMembers,RescueTeamMembers.User"
+            includeProperties: "AssemblyPoint,RescueTeamMembers,RescueTeamMembers.User,RescueTeamMembers.User.RescuerProfile"
         );
 
         if (team == null) return null;

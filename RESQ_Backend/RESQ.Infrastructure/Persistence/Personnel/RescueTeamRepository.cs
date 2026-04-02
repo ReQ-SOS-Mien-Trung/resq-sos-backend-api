@@ -85,6 +85,21 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
     public async Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default)
     {
         var entity = RescueTeamMapper.ToEntity(team);
+
+        // Persist members via EF navigation property so TeamId FK is auto-resolved on save
+        foreach (var member in team.Members)
+        {
+            entity.RescueTeamMembers.Add(new RescueTeamMember
+            {
+                UserId = member.UserId,
+                Status = member.Status.ToString(),
+                InvitedAt = member.JoinedAt,
+                IsLeader = member.IsLeader,
+                RoleInTeam = member.RoleInTeam,
+                CheckedIn = false
+            });
+        }
+
         await _unitOfWork.GetRepository<RescueTeam>().AddAsync(entity);
     }
 
