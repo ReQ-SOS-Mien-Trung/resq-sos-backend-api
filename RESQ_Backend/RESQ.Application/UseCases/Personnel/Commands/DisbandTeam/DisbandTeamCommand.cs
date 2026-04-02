@@ -2,4 +2,4 @@ using MediatR;
 
 namespace RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 
-public record DisbandTeamCommand(int TeamId) : IRequest;
+public record DisbandTeamCommand(int TeamId, int CallerRoleId) : IRequest;

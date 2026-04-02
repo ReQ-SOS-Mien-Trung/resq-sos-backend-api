@@ -39,6 +39,7 @@ public class GetRescueTeamDetailQueryHandler(
                 FirstName = m.Profile?.FirstName,
                 LastName = m.Profile?.LastName,
                 Phone = m.Profile?.Phone,
+                Email = m.Profile?.Email,
                 AvatarUrl = m.Profile?.AvatarUrl,
                 RescuerType = m.Profile?.RescuerType,
                 Status = m.Status.ToString(),

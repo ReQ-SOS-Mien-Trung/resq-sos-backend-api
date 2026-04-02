@@ -41,4 +41,15 @@ public interface IAssemblyPointRepository
 
     /// <summary>Gán hoặc thay đổi điểm tập kết cho rescuer. Truyền null để gỡ.</summary>
     Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gán hoặc thay đổi điểm tập kết cho nhiều rescuer cùng lúc (single bulk UPDATE).
+    /// Trả về danh sách UserId thực sự được cập nhật (tồn tại trong DB và có roleId = 3).
+    /// </summary>
+    Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(IReadOnlyList<Guid> userIds, int? assemblyPointId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Trong tập <paramref name="userIds"/>, trả về các UserId KHÔNG thuộc đội cứu hộ đang hoạt động.
+    /// </summary>
+    Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(IReadOnlyList<Guid> userIds, CancellationToken cancellationToken = default);
 }

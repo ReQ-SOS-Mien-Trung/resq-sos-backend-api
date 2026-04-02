@@ -9,6 +9,7 @@ namespace RESQ.Application.Repositories.Identity
         Task<UserModel?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
         Task<UserModel?> GetByPhoneAsync(string phone, CancellationToken cancellationToken = default);
         Task<UserModel?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+        Task<List<UserModel>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
         Task<UserModel?> GetByEmailVerificationTokenAsync(string token, CancellationToken cancellationToken = default);
         Task<UserModel?> GetByPasswordResetTokenAsync(string token, CancellationToken cancellationToken = default);
         Task CreateAsync(UserModel user, CancellationToken cancellationToken = default);

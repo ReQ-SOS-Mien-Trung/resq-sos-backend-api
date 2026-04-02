@@ -152,6 +152,19 @@ namespace RESQ.Presentation.Controllers.Personnel
             return NoContent();
         }
 
+        /// <summary>
+        /// Gán một hoặc nhiều rescuer vào cùng một điểm tập kết (bulk).
+        /// AssemblyPointId = null → gỡ tất cả khỏi điểm tập kết hiện tại.
+        /// </summary>
+        [HttpPost("rescuers/assignment")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> BulkAssignRescuers([FromBody] BulkAssignRescuersToAssemblyPointRequestDto dto)
+        {
+            var command = new BulkAssignRescuersToAssemblyPointCommand(dto.UserIds, dto.AssemblyPointId);
+            await _mediator.Send(command);
+            return NoContent();
+        }
+
         /// <summary>Lên lịch tập trung tại điểm tập kết → tạo AssemblyEvent + gán participant + gửi Firebase.</summary>
         [HttpPost("{id}/schedule-gathering")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]

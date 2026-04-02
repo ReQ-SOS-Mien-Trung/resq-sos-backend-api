@@ -74,10 +74,11 @@ public static class RescueTeamMapper
             if (m.User != null)
             {
                 var profile = new RescuerProfile(
-                    m.User.FirstName, 
-                    m.User.LastName, 
-                    m.User.Phone, 
-                    m.User.AvatarUrl, 
+                    m.User.FirstName,
+                    m.User.LastName,
+                    m.User.Phone,
+                    m.User.Email,
+                    m.User.AvatarUrl,
                     m.User.RescuerProfile?.RescuerType
                 );
                 mem.LoadProfile(profile);
