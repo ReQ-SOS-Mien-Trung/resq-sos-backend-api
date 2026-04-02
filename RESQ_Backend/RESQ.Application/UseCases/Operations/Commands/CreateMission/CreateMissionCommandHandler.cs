@@ -7,6 +7,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 using RESQ.Domain.Entities.Operations;
@@ -21,8 +22,10 @@ public class CreateMissionCommandHandler(
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IRescueTeamRepository rescueTeamRepository,
     IUnitOfWork unitOfWork,
     IMediator mediator,
+    IFirebaseService firebaseService,
     ILogger<CreateMissionCommandHandler> logger
 ) : IRequestHandler<CreateMissionCommand, CreateMissionResponse>
 {
@@ -30,8 +33,10 @@ public class CreateMissionCommandHandler(
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IMediator _mediator = mediator;
+    private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ILogger<CreateMissionCommandHandler> _logger = logger;
 
     public async Task<CreateMissionResponse> Handle(CreateMissionCommand request, CancellationToken cancellationToken)
@@ -141,6 +146,9 @@ public class CreateMissionCommandHandler(
 
         _logger.LogInformation("Mission created: MissionId={missionId}", missionId);
 
+        // Notify team members about the new mission assignment
+        await NotifyTeamMembersAsync(request.Activities, missionId, cancellationToken);
+
         return new CreateMissionResponse
         {
             MissionId = missionId,
@@ -195,6 +203,49 @@ public class CreateMissionCommandHandler(
 
         if (allErrors.Count > 0)
             throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", allErrors)}");
+    }
+
+    private async Task NotifyTeamMembersAsync(List<CreateActivityItemDto> activities, int missionId, CancellationToken cancellationToken)
+    {
+        var teamIds = activities
+            .Where(a => a.RescueTeamId.HasValue)
+            .Select(a => a.RescueTeamId!.Value)
+            .Distinct()
+            .ToList();
+
+        foreach (var teamId in teamIds)
+        {
+            try
+            {
+                var team = await _rescueTeamRepository.GetByIdAsync(teamId, cancellationToken);
+                if (team?.Members is null) continue;
+
+                foreach (var member in team.Members)
+                {
+                    try
+                    {
+                        await _firebaseService.SendNotificationToUserAsync(
+                            member.UserId,
+                            "Nhiệm vụ mới",
+                            $"Đội của bạn đã được phân công vào nhiệm vụ #{missionId}. Vui lòng kiểm tra chi tiết.",
+                            "mission_assigned",
+                            cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "Failed to send notification to UserId={userId} for MissionId={missionId}",
+                            member.UserId, missionId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to fetch team or notify members for RescueTeamId={teamId}, MissionId={missionId}",
+                    teamId, missionId);
+            }
+        }
     }
 
     private async Task ReserveSuppliesAsync(List<CreateActivityItemDto> activities, CancellationToken cancellationToken)
