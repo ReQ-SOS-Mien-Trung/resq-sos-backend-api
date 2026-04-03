@@ -156,6 +156,22 @@ public class UpdateActivityStatusCommandHandler(
             }
         }
 
+        if (assignedMissionTeam is not null
+            && effectiveStatus is MissionActivityStatus.Succeed or MissionActivityStatus.PendingConfirmation
+            && TryGetActivityLocation(activity, out var latitude, out var longitude, out var locationSource))
+        {
+            await _missionTeamRepository.UpdateCurrentLocationAsync(
+                assignedMissionTeam.Id,
+                latitude,
+                longitude,
+                $"{locationSource}:{activity.Id}",
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Updated MissionTeamId={missionTeamId} location from ActivityId={activityId} ({locationSource}) to {latitude},{longitude}",
+                assignedMissionTeam.Id, activity.Id, locationSource, latitude, longitude);
+        }
+
         await _unitOfWork.SaveAsync();
 
         // Side-effect: auto-create RETURN_SUPPLIES when a DELIVER_SUPPLIES activity fails
@@ -174,6 +190,30 @@ public class UpdateActivityStatusCommandHandler(
             Status = effectiveStatus.ToString(),
             DecisionBy = request.DecisionBy
         };
+    }
+
+    private static bool TryGetActivityLocation(MissionActivityModel activity, out double latitude, out double longitude, out string locationSource)
+    {
+        if (activity.TargetLatitude.HasValue && activity.TargetLongitude.HasValue)
+        {
+            latitude = activity.TargetLatitude.Value;
+            longitude = activity.TargetLongitude.Value;
+            locationSource = "MissionActivity.Target";
+            return true;
+        }
+
+        if (activity.AssemblyPointLatitude.HasValue && activity.AssemblyPointLongitude.HasValue)
+        {
+            latitude = activity.AssemblyPointLatitude.Value;
+            longitude = activity.AssemblyPointLongitude.Value;
+            locationSource = "MissionActivity.AssemblyPoint";
+            return true;
+        }
+
+        latitude = default;
+        longitude = default;
+        locationSource = string.Empty;
+        return false;
     }
 
     private async Task CreateReturnSuppliesActivityAsync(MissionActivityModel failedActivity, Guid decisionBy, CancellationToken cancellationToken)

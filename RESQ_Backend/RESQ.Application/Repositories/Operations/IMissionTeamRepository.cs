@@ -9,6 +9,7 @@ public interface IMissionTeamRepository
     Task<int> CreateAsync(MissionTeamModel model, CancellationToken cancellationToken = default);
     Task UpdateStatusAsync(int id, string status, CancellationToken cancellationToken = default);
     Task UpdateStatusAsync(int id, string status, string? note, CancellationToken cancellationToken = default);
+    Task UpdateCurrentLocationAsync(int id, double latitude, double longitude, string locationSource, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<MissionTeamModel>> GetActiveByRescuerTeamIdAsync(int rescuerTeamId, CancellationToken cancellationToken = default);

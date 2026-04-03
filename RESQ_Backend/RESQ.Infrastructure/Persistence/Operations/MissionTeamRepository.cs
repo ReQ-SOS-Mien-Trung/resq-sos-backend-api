@@ -2,6 +2,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Infrastructure.Entities.Operations;
+using NetTopologySuite.Geometries;
 
 namespace RESQ.Infrastructure.Persistence.Operations;
 
@@ -61,6 +62,18 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
             entity.Note = note;
         }
         await _unitOfWork.SaveAsync();
+    }
+
+    public async Task UpdateCurrentLocationAsync(int id, double latitude, double longitude, string locationSource, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<MissionTeam>()
+            .GetByPropertyAsync(mt => mt.Id == id, tracked: true);
+
+        if (entity is null) return;
+
+        entity.CurrentLocation = new Point(longitude, latitude) { SRID = 4326 };
+        entity.LocationUpdatedAt = DateTime.UtcNow;
+        entity.LocationSource = locationSource;
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
