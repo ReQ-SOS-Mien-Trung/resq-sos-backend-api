@@ -127,6 +127,9 @@ public class CreateSosRequestCommandHandler(
         try
         {
             var phones = ExtractVictimPhones(request.StructuredData);
+            _logger.LogInformation("SOS #{SosId}: Extracted {Count} victim phones: [{Phones}]",
+                created.Id, phones.Count, string.Join(", ", phones));
+
             if (phones.Count > 0)
             {
                 foreach (var phone in phones)
@@ -142,12 +145,24 @@ public class CreateSosRequestCommandHandler(
                         foundUser = await _userRepository.GetByPhoneAsync("0" + phone[3..], cancellationToken);
                     }
 
-                    if (foundUser is null || foundUser.Id == request.UserId)
+                    if (foundUser is null)
+                    {
+                        _logger.LogWarning("SOS #{SosId}: No user found for phone {Phone}", created.Id, phone);
                         continue;
+                    }
+
+                    if (foundUser.Id == request.UserId)
+                    {
+                        _logger.LogInformation("SOS #{SosId}: Skipping phone {Phone} — same as reporter", created.Id, phone);
+                        continue;
+                    }
 
                     // Avoid duplicates
                     if (linkedCompanions.Any(c => c.UserId == foundUser.Id))
                         continue;
+
+                    _logger.LogInformation("SOS #{SosId}: Matched phone {Phone} to user {UserId}",
+                        created.Id, phone, foundUser.Id);
 
                     linkedCompanions.Add(new CompanionLinkedResult
                     {
