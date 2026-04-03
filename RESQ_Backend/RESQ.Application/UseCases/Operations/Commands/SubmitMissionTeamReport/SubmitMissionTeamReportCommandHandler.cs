@@ -123,6 +123,8 @@ public class SubmitMissionTeamReportCommandHandler(
                 MemberEvaluations = memberEvaluations
             }, cancellationToken);
 
+            MissionActivityModel? latestCompletedActivityWithLocation = null;
+
             foreach (var statusUpdate in activityStatusUpdates)
             {
                 var effectiveStatus = statusUpdate.Status;
@@ -146,6 +148,30 @@ public class SubmitMissionTeamReportCommandHandler(
                     cancellationToken);
 
                 assignedActivities[statusUpdate.ActivityId].Status = effectiveStatus;
+
+                var updatedActivity = assignedActivities[statusUpdate.ActivityId];
+                if (effectiveStatus is MissionActivityStatus.Succeed or MissionActivityStatus.PendingConfirmation
+                    && TryGetActivityLocation(updatedActivity, out _, out _, out _)
+                    && (latestCompletedActivityWithLocation is null
+                        || (updatedActivity.Step ?? int.MinValue) >= (latestCompletedActivityWithLocation.Step ?? int.MinValue)))
+                {
+                    latestCompletedActivityWithLocation = updatedActivity;
+                }
+            }
+
+            if (latestCompletedActivityWithLocation is not null
+                && TryGetActivityLocation(latestCompletedActivityWithLocation, out var latitude, out var longitude, out var locationSource))
+            {
+                await missionTeamRepository.UpdateCurrentLocationAsync(
+                    request.MissionTeamId,
+                    latitude,
+                    longitude,
+                    $"{locationSource}:{latestCompletedActivityWithLocation.Id}",
+                    cancellationToken);
+
+                logger.LogInformation(
+                    "Updated MissionTeamId={missionTeamId} location from report-completed ActivityId={activityId} ({locationSource}) to {latitude},{longitude}",
+                    request.MissionTeamId, latestCompletedActivityWithLocation.Id, locationSource, latitude, longitude);
             }
 
             // Auto-create RETURN_SUPPLIES for each failed DELIVER_SUPPLIES with items
@@ -247,6 +273,30 @@ public class SubmitMissionTeamReportCommandHandler(
 
         return activity.MissionTeamId.HasValue
             && activity.Status is MissionActivityStatus.Succeed or MissionActivityStatus.Failed;
+    }
+
+    private static bool TryGetActivityLocation(MissionActivityModel activity, out double latitude, out double longitude, out string locationSource)
+    {
+        if (activity.TargetLatitude.HasValue && activity.TargetLongitude.HasValue)
+        {
+            latitude = activity.TargetLatitude.Value;
+            longitude = activity.TargetLongitude.Value;
+            locationSource = "MissionActivity.Target";
+            return true;
+        }
+
+        if (activity.AssemblyPointLatitude.HasValue && activity.AssemblyPointLongitude.HasValue)
+        {
+            latitude = activity.AssemblyPointLatitude.Value;
+            longitude = activity.AssemblyPointLongitude.Value;
+            locationSource = "MissionActivity.AssemblyPoint";
+            return true;
+        }
+
+        latitude = default;
+        longitude = default;
+        locationSource = string.Empty;
+        return false;
     }
 
     private static bool TryMapExecutionStatus(string executionStatus, out MissionActivityStatus status)
