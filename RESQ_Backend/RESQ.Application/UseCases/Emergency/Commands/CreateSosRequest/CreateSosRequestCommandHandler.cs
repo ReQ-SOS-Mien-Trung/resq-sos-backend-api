@@ -119,9 +119,6 @@ public class CreateSosRequestCommandHandler(
 
         _logger.LogInformation("Queued AI analysis task for SOS Request Id={sosRequestId}", created.Id);
 
-        // Push updated dashboard chart data to all connected admin clients (fire-and-forget)
-        _ = _dashboardHubService.PushVictimsByPeriodAsync(CancellationToken.None);
-
         // ── Companion linking: extract person_phone from structured_data.victims ──
         var linkedCompanions = new List<CompanionLinkedResult>();
         try
@@ -200,6 +197,10 @@ public class CreateSosRequestCommandHandler(
         {
             _logger.LogWarning(ex, "Failed to link companions for SOS Request Id={sosRequestId}", created.Id);
         }
+
+        // Push updated dashboard chart data to all connected admin clients (fire-and-forget)
+        // Must be after companion linking to avoid DbContext concurrency
+        _ = _dashboardHubService.PushVictimsByPeriodAsync(CancellationToken.None);
 
         return new CreateSosRequestResponse
         {
