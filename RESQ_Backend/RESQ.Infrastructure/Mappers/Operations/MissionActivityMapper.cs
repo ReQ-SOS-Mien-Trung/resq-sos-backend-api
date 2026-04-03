@@ -19,7 +19,7 @@ public static class MissionActivityMapper
     };
 
     private static readonly Dictionary<string, MissionActivityStatus> StringToStatus =
-        StatusToString.ToDictionary(x => x.Value, x => x.Key);
+        StatusToString.ToDictionary(x => x.Value, x => x.Key, StringComparer.OrdinalIgnoreCase);
 
     public static string ToDbString(MissionActivityStatus status) =>
         StatusToString.GetValueOrDefault(status, "planned");

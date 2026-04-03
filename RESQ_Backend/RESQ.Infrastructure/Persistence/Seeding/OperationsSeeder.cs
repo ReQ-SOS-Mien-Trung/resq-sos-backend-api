@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Infrastructure.Entities.Operations;
+using RESQ.Infrastructure.Mappers.Operations;
 
 namespace RESQ.Infrastructure.Persistence.Seeding;
 
@@ -34,7 +35,7 @@ public static class OperationsSeeder
                 ClusterId = 2,
                 MissionType = "Rescue",
                 PriorityScore = 10.0,
-                Status = MissionStatus.OnGoing.ToString(),
+                Status = MissionMapper.ToDbString(MissionStatus.OnGoing),
                 StartTime = now,
                 ExpectedEndTime = now.AddHours(6),
                 CreatedAt = now,
@@ -47,7 +48,7 @@ public static class OperationsSeeder
                 ClusterId = 4,
                 MissionType = "Rescue",
                 PriorityScore = 8.5,
-                Status = MissionStatus.Completed.ToString(),
+                Status = MissionMapper.ToDbString(MissionStatus.Completed),
                 StartTime = new DateTime(2026, 3, 1, 8, 0, 0, DateTimeKind.Utc),
                 ExpectedEndTime = new DateTime(2026, 3, 1, 14, 0, 0, DateTimeKind.Utc),
                 IsCompleted = true,
@@ -73,7 +74,7 @@ public static class OperationsSeeder
                 Description = "Tiếp cận khu vực ngập sâu Lệ Thủy, hỗ trợ y tế và di tản.",
                 Target = "{\"location\": \"Xã An Thủy\", \"count\": 30}",
                 TargetLocation = new Point(106.7865, 17.2140) { SRID = 4326 },
-                Status = MissionActivityStatus.OnGoing.ToString(),
+                Status = MissionActivityMapper.ToDbString(MissionActivityStatus.OnGoing),
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
                 MissionTeamId = 1 // Biệt đội Ca nô Hà Tĩnh
@@ -89,7 +90,7 @@ public static class OperationsSeeder
                 Description = "Sơ cứu và hỗ trợ y tế tại chỗ, ưu tiên cụ bà 82t và phụ nữ mang thai.",
                 Target = "{\"location\": \"Khu vực ngập Huế\", \"count\": 9}",
                 TargetLocation = new Point(107.568, 16.455) { SRID = 4326 },
-                Status = MissionActivityStatus.Planned.ToString(),
+                Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Planned),
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
                 MissionTeamId = 1
@@ -105,7 +106,7 @@ public static class OperationsSeeder
                 Description = "Di tản nạn nhân ra khỏi vùng ngập Phong Điền, ưu tiên người già và trẻ em.",
                 Target = "{\"location\": \"Phong Điền, Huế\", \"count\": 10}",
                 TargetLocation = new Point(107.582, 16.465) { SRID = 4326 },
-                Status = MissionActivityStatus.Succeed.ToString(),
+                Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Succeed),
                 AssignedAt = new DateTime(2026, 3, 1, 8, 5, 0, DateTimeKind.Utc),
                 CompletedAt = new DateTime(2026, 3, 1, 11, 0, 0, DateTimeKind.Utc),
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
@@ -124,7 +125,7 @@ public static class OperationsSeeder
                 Description = "Sơ cứu và xử lý y tế tại hiện trường, chuyển ca nặng lên tuyến trên.",
                 Target = "{\"location\": \"Phong Điền, Huế\", \"count\": 3}",
                 TargetLocation = new Point(107.584, 16.467) { SRID = 4326 },
-                Status = MissionActivityStatus.Succeed.ToString(),
+                Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Succeed),
                 AssignedAt = new DateTime(2026, 3, 1, 8, 10, 0, DateTimeKind.Utc),
                 CompletedAt = new DateTime(2026, 3, 1, 13, 0, 0, DateTimeKind.Utc),
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
