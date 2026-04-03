@@ -15,4 +15,5 @@ public interface ISosRequestRepository
     Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default);
     Task UpdateStatusAsync(int id, SosRequestStatus status, CancellationToken cancellationToken = default);
     Task UpdateStatusByClusterIdAsync(int clusterId, SosRequestStatus status, CancellationToken cancellationToken = default);
+    Task<IEnumerable<SosRequestModel>> GetByCompanionUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
 }

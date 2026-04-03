@@ -8,6 +8,7 @@ namespace RESQ.Application.UseCases.Emergency.Commands.CancelSosRequest;
 
 public class CancelSosRequestCommandHandler(
     ISosRequestRepository sosRequestRepository,
+    ISosRequestCompanionRepository companionRepository,
     IUnitOfWork unitOfWork
 ) : IRequestHandler<CancelSosRequestCommand, CancelSosRequestResponse>
 {
@@ -16,9 +17,13 @@ public class CancelSosRequestCommandHandler(
         var sos = await sosRequestRepository.GetByIdAsync(request.SosRequestId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy SOS request với ID: {request.SosRequestId}");
 
-        // Only victim who owns the SOS can cancel it
+        // Owner or companion can cancel
         if (sos.UserId != request.RequestedByUserId)
-            throw new ForbiddenException("Bạn không có quyền huỷ SOS request này.");
+        {
+            var isCompanion = await companionRepository.IsCompanionAsync(request.SosRequestId, request.RequestedByUserId, cancellationToken);
+            if (!isCompanion)
+                throw new ForbiddenException("Bạn không có quyền huỷ SOS request này.");
+        }
 
         if (sos.Status != SosRequestStatus.Pending && sos.Status != SosRequestStatus.Assigned)
             throw new BadRequestException($"Không thể huỷ SOS request ở trạng thái {sos.Status}.");

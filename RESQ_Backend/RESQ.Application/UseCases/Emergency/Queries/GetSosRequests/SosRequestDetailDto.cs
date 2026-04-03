@@ -31,4 +31,5 @@ public class SosRequestDetailDto
     public DateTime? ReviewedAt { get; set; }
     public Guid? ReviewedById { get; set; }
     public Guid? CreatedByCoordinatorId { get; set; }
+    public List<CompanionResultDto>? Companions { get; set; }
 }

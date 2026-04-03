@@ -21,6 +21,8 @@ public class CreateSosRequestCommandHandler(
     ISosPriorityEvaluationService priorityEvaluationService,
     ISosAiAnalysisQueue aiAnalysisQueue,
     IUserRepository userRepository,
+    ISosRequestCompanionRepository companionRepository,
+    IFirebaseService firebaseService,
     IUnitOfWork unitOfWork,
     IDashboardHubService dashboardHubService,
     ILogger<CreateSosRequestCommandHandler> logger
@@ -31,6 +33,8 @@ public class CreateSosRequestCommandHandler(
     private readonly ISosPriorityEvaluationService _priorityEvaluationService = priorityEvaluationService;
     private readonly ISosAiAnalysisQueue _aiAnalysisQueue = aiAnalysisQueue;
     private readonly IUserRepository _userRepository = userRepository;
+    private readonly ISosRequestCompanionRepository _companionRepository = companionRepository;
+    private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
     private readonly ILogger<CreateSosRequestCommandHandler> _logger = logger;
@@ -118,6 +122,70 @@ public class CreateSosRequestCommandHandler(
         // Push updated dashboard chart data to all connected admin clients (fire-and-forget)
         _ = _dashboardHubService.PushVictimsByPeriodAsync(CancellationToken.None);
 
+        // ── Companion linking: extract person_phone from structured_data.victims ──
+        var linkedCompanions = new List<CompanionLinkedResult>();
+        try
+        {
+            var phones = ExtractVictimPhones(request.StructuredData);
+            if (phones.Count > 0)
+            {
+                foreach (var phone in phones)
+                {
+                    // Try both formats: original and +84 normalized
+                    var foundUser = await _userRepository.GetByPhoneAsync(phone, cancellationToken);
+                    if (foundUser is null && phone.StartsWith("0"))
+                    {
+                        foundUser = await _userRepository.GetByPhoneAsync("+84" + phone[1..], cancellationToken);
+                    }
+                    else if (foundUser is null && phone.StartsWith("+84"))
+                    {
+                        foundUser = await _userRepository.GetByPhoneAsync("0" + phone[3..], cancellationToken);
+                    }
+
+                    if (foundUser is null || foundUser.Id == request.UserId)
+                        continue;
+
+                    // Avoid duplicates
+                    if (linkedCompanions.Any(c => c.UserId == foundUser.Id))
+                        continue;
+
+                    linkedCompanions.Add(new CompanionLinkedResult
+                    {
+                        UserId = foundUser.Id,
+                        FullName = $"{foundUser.FirstName} {foundUser.LastName}".Trim(),
+                        Phone = foundUser.Phone ?? phone,
+                    });
+                }
+
+                if (linkedCompanions.Count > 0)
+                {
+                    var records = linkedCompanions.Select(c => new SosRequestCompanionRecord(
+                        0, created.Id, c.UserId, c.Phone, DateTime.UtcNow
+                    ));
+                    await _companionRepository.CreateRangeAsync(records, cancellationToken);
+                    await _unitOfWork.SaveAsync();
+
+                    _logger.LogInformation("Linked {count} companions to SOS Request Id={sosRequestId}",
+                        linkedCompanions.Count, created.Id);
+
+                    // Send notifications to companions (fire-and-forget)
+                    foreach (var companion in linkedCompanions)
+                    {
+                        _ = _firebaseService.SendNotificationToUserAsync(
+                            companion.UserId,
+                            "Yêu cầu SOS cứu hộ",
+                            $"Bạn đã được thêm vào yêu cầu SOS #{created.Id}. Nhấn để theo dõi tình hình.",
+                            "sos_companion",
+                            CancellationToken.None);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to link companions for SOS Request Id={sosRequestId}", created.Id);
+        }
+
         return new CreateSosRequestResponse
         {
             Id = created.Id,
@@ -144,8 +212,39 @@ public class CreateSosRequestCommandHandler(
             LastUpdatedAt = created.LastUpdatedAt,
             ReviewedAt = created.ReviewedAt,
             ReviewedById = created.ReviewedById,
-            CreatedByCoordinatorId = created.CreatedByCoordinatorId
+            CreatedByCoordinatorId = created.CreatedByCoordinatorId,
+            LinkedCompanions = linkedCompanions.Count > 0 ? linkedCompanions : null
         };
+    }
+
+    /// <summary>
+    /// Extract all non-empty person_phone values from structured_data.victims array.
+    /// </summary>
+    private static List<string> ExtractVictimPhones(string? structuredDataJson)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrWhiteSpace(structuredDataJson)) return result;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(structuredDataJson);
+            if (doc.RootElement.TryGetProperty("victims", out var victims) && victims.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var victim in victims.EnumerateArray())
+                {
+                    if (victim.TryGetProperty("person_phone", out var phoneProp) &&
+                        phoneProp.ValueKind == JsonValueKind.String)
+                    {
+                        var phone = phoneProp.GetString()?.Trim();
+                        if (!string.IsNullOrEmpty(phone) && !result.Contains(phone))
+                            result.Add(phone);
+                    }
+                }
+            }
+        }
+        catch { /* malformed JSON — skip */ }
+
+        return result;
     }
 
     private static T? ParseJson<T>(string? json)

@@ -31,4 +31,12 @@ public class CreateSosRequestResponse
     public DateTime? ReviewedAt { get; set; }
     public Guid? ReviewedById { get; set; }
     public Guid? CreatedByCoordinatorId { get; set; }
+    public List<CompanionLinkedResult>? LinkedCompanions { get; set; }
+}
+
+public class CompanionLinkedResult
+{
+    public Guid UserId { get; set; }
+    public string? FullName { get; set; }
+    public string? Phone { get; set; }
 }

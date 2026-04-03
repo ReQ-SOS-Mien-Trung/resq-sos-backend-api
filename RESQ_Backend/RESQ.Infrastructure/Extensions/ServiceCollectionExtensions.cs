@@ -82,6 +82,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<ISosRequestRepository, SosRequestRepository>();
+        services.AddScoped<ISosRequestCompanionRepository, SosRequestCompanionRepository>();
         services.AddScoped<ISosClusterRepository, SosClusterRepository>();
         services.AddScoped<ISosRuleEvaluationRepository, SosRuleEvaluationRepository>();
         services.AddScoped<ISosAiAnalysisRepository, SosAiAnalysisRepository>();

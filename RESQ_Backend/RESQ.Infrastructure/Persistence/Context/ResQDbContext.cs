@@ -81,6 +81,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<SosAiAnalysis> SosAiAnalyses { get; set; }
     public virtual DbSet<SosCluster> SosClusters { get; set; }
     public virtual DbSet<SosRequest> SosRequests { get; set; }
+    public virtual DbSet<SosRequestCompanion> SosRequestCompanions { get; set; }
     public virtual DbSet<SosRequestUpdate> SosRequestUpdates { get; set; }
     public virtual DbSet<SosRuleEvaluation> SosRuleEvaluations { get; set; }
     public virtual DbSet<TeamIncident> TeamIncidents { get; set; }
