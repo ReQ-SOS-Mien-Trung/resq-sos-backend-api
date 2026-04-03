@@ -793,6 +793,24 @@ public static class LogisticsSeeder
             entry.MissionReservedQuantity = Math.Clamp(reserved, 0, quantity - 1);
         }
 
+        // ── Transfer reservation overrides — khớp với supply requests đã seed ──
+        // Request #2 (Depot 2 = Đà Nẵng là kho nguồn, trạng thái Accepted):
+        //   DSI 75 = Depot 2, Item #3  (Thuốc Paracetamol 500mg) → đặt trữ 10000
+        //   DSI 80 = Depot 2, Item #9  (Dầu gió)                 → đặt trữ 500
+        // Request #3 (Depot 4 = Hà Nội là kho nguồn, trạng thái Shipping):
+        //   DSI 222 = Depot 4, Item #7  (Sữa bột trẻ em)         → đặt trữ 2000
+        var transferReservedOverrides = new Dictionary<int, int>
+        {
+            [75]  = 10000,
+            [80]  = 500,
+            [222] = 2000,
+        };
+        foreach (var entry in list)
+        {
+            if (transferReservedOverrides.TryGetValue(entry.Id, out var transferReserved))
+                entry.TransferReservedQuantity = transferReserved;
+        }
+
         modelBuilder.Entity<DepotSupplyInventory>().HasData(list.ToArray());
     }
 

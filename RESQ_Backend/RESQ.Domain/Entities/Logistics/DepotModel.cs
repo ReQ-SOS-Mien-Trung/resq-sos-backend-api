@@ -64,6 +64,9 @@ public class DepotModel
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
+        if (Status == DepotStatus.Closing)
+            throw new DepotClosingException();
+
         if (capacity <= 0)
             throw new InvalidDepotCapacityException(capacity);
 
@@ -95,6 +98,58 @@ public class DepotModel
         LastUpdatedAt = DateTime.UtcNow;
     }
 
+    // ── Depot Closure Methods ─────────────────────────────────────────
+
+    /// <summary>
+    /// Bước 1 đóng kho: đặt soft-lock Closing.
+    /// Sau khi gọi method này, mọi thao tác xuất/nhập/điều chỉnh sẽ bị block.
+    /// </summary>
+    public void InitiateClosing()
+    {
+        if (Status == DepotStatus.Closing)
+            return; // Idempotent
+
+        if (Status == DepotStatus.Closed)
+            throw new DepotClosedException();
+
+        if (Status != DepotStatus.Available && Status != DepotStatus.Full)
+            throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closing,
+                "Chỉ có thể đóng kho đang ở trạng thái Available hoặc Full.");
+
+        Status = DepotStatus.Closing;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Bước 2 đóng kho: hoàn tất đóng kho sau khi đã xử lý hàng tồn.
+    /// </summary>
+    public void CompleteClosing()
+    {
+        if (Status != DepotStatus.Closing)
+            throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
+                "Kho phải ở trạng thái Closing trước khi đóng hoàn toàn.");
+
+        Status = DepotStatus.Closed;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Khôi phục kho về trạng thái cũ khi huỷ hoặc timeout.
+    /// </summary>
+    public void RestoreFromClosing(DepotStatus previousStatus)
+    {
+        if (Status != DepotStatus.Closing)
+            throw new InvalidDepotStatusTransitionException(Status, previousStatus,
+                "Chỉ có thể khôi phục kho từ trạng thái Closing.");
+
+        if (previousStatus != DepotStatus.Available && previousStatus != DepotStatus.Full)
+            throw new InvalidDepotStatusTransitionException(Status, previousStatus,
+                "Trạng thái khôi phục không hợp lệ.");
+
+        Status = previousStatus;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
     public void AddHistory(IEnumerable<DepotManagerAssignment> history)
     {
         _managerHistory.AddRange(history);
@@ -104,6 +159,9 @@ public class DepotModel
     {
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
+
+        if (Status == DepotStatus.Closing)
+            throw new DepotClosingException();
 
         if (amount <= 0)
             throw new InvalidDepotUtilizationAmountException(amount);

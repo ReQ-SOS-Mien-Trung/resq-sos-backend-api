@@ -30,6 +30,8 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Conversation> Conversations { get; set; }
     public virtual DbSet<ConversationParticipant> ConversationParticipants { get; set; }
     public virtual DbSet<Depot> Depots { get; set; }
+    public virtual DbSet<DepotClosure> DepotClosures { get; set; }
+    public virtual DbSet<DepotClosureTransfer> DepotClosureTransfers { get; set; }
     public virtual DbSet<CampaignDisbursement> CampaignDisbursements { get; set; }
     public virtual DbSet<DisbursementItem> DisbursementItems { get; set; }
     public virtual DbSet<FundingRequest> FundingRequests { get; set; }
@@ -189,6 +191,52 @@ public partial class ResQDbContext : DbContext
         {
             entity.UseXminAsConcurrencyToken();
             entity.Ignore(e => e.TotalReservedQuantity);
+        });
+
+        modelBuilder.Entity<DepotClosure>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_closures_pkey");
+
+            // Chỉ 1 closure InProgress/Processing per depot — database-level guard
+            entity.HasIndex(e => e.DepotId)
+                  .HasDatabaseName("uix_depot_closures_active")
+                  .HasFilter("status IN ('InProgress', 'Processing')")
+                  .IsUnique();
+
+            // Index cho timeout daemon
+            entity.HasIndex(e => e.ClosingTimeoutAt)
+                  .HasDatabaseName("ix_depot_closures_timeout_sweep")
+                  .HasFilter("status = 'InProgress'");
+
+            entity.HasOne(e => e.Depot)
+                .WithMany()
+                .HasForeignKey(e => e.DepotId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TargetDepot)
+                .WithMany()
+                .HasForeignKey(e => e.TargetDepotId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DepotClosureTransfer>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_closure_transfers_pkey");
+
+            // Index để tìm transfer theo closure_id nhanh
+            entity.HasIndex(e => e.ClosureId)
+                  .HasDatabaseName("ix_depot_closure_transfers_closure_id");
+
+            // Chỉ 1 transfer active per closure
+            entity.HasIndex(e => e.ClosureId)
+                  .HasDatabaseName("uix_depot_closure_transfers_active")
+                  .HasFilter("status NOT IN ('Completed', 'Cancelled')")
+                  .IsUnique();
+
+            entity.HasOne(e => e.Closure)
+                .WithMany()
+                .HasForeignKey(e => e.ClosureId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<SupplyRequestPriorityConfig>(entity =>

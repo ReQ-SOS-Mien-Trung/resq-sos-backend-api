@@ -135,4 +135,41 @@ public interface IDepotInventoryRepository
         string? note,
         DateTime? expiredDate,
         CancellationToken cancellationToken = default);
+
+    // ── Depot Closure helpers ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Chuyển toàn bộ inventory từ kho đóng sang kho đích.
+    /// Consumable: upsert supply_inventory tại đích + chuyển tất cả lots + ghi log.
+    /// Reusable (Available): cập nhật depot_id sang kho đích + ghi log.
+    /// Reusable (InUse): đánh dấu pending_reassignment, không di chuyển ngay.
+    /// Xử lý theo cursor-based batch để có thể resume khi retry.
+    /// Returns (processedRows, lastInventoryId) để handler lưu tiến trình.
+    /// </summary>
+    Task<(int ProcessedRows, int? LastInventoryId)> BulkTransferForClosureAsync(
+        int sourceDepotId,
+        int targetDepotId,
+        int closureId,
+        Guid performedBy,
+        int? lastProcessedInventoryId = null,
+        int batchSize = 100,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tra cứu userId của quản lý đang được phân công tại kho (ngược với GetActiveDepotIdByManagerAsync).
+    /// </summary>
+    Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Zero-out toàn bộ inventory khi đóng kho theo hình thức xử lý bên ngoài.
+    /// Ghi log đầy đủ từng lô hàng với closure_id để audit.
+    /// Reusable (Available): chuyển sang Decommissioned.
+    /// Reusable (InUse): đánh dấu pending_reassignment.
+    /// </summary>
+    Task ZeroOutForClosureAsync(
+        int depotId,
+        int closureId,
+        Guid performedBy,
+        string? note,
+        CancellationToken cancellationToken = default);
 }
