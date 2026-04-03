@@ -4,11 +4,14 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Repositories.Identity;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 
 public class GetSosRequestQueryHandler(
     ISosRequestRepository sosRequestRepository,
+    ISosRequestCompanionRepository companionRepository,
+    IUserRepository userRepository,
     ILogger<GetSosRequestQueryHandler> logger
 ) : IRequestHandler<GetSosRequestQuery, GetSosRequestResponse>
 {
@@ -16,6 +19,8 @@ public class GetSosRequestQueryHandler(
     private const int VICTIM_ROLE_ID = 5;
 
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestCompanionRepository _companionRepository = companionRepository;
+    private readonly IUserRepository _userRepository = userRepository;
     private readonly ILogger<GetSosRequestQueryHandler> _logger = logger;
 
     public async Task<GetSosRequestResponse> Handle(GetSosRequestQuery request, CancellationToken cancellationToken)
@@ -26,11 +31,38 @@ public class GetSosRequestQueryHandler(
         if (sosRequest is null)
             throw new NotFoundException("Không tìm thấy yêu cầu SOS");
 
+        // Victim access: must be owner OR companion
         if (request.RequestingRoleId == VICTIM_ROLE_ID && sosRequest.UserId != request.RequestingUserId)
-            throw new ForbiddenException("Bạn không có quyền xem SOS request này");
+        {
+            var isCompanion = await _companionRepository.IsCompanionAsync(request.Id, request.RequestingUserId, cancellationToken);
+            if (!isCompanion)
+                throw new ForbiddenException("Bạn không có quyền xem SOS request này");
+        }
 
         if (request.RequestingRoleId != COORDINATOR_ROLE_ID && request.RequestingRoleId != VICTIM_ROLE_ID)
             throw new ForbiddenException("Bạn không có quyền truy cập");
+
+        // Load companion list
+        var companionRecords = await _companionRepository.GetBySosRequestIdAsync(request.Id, cancellationToken);
+        List<CompanionResultDto>? companions = null;
+        if (companionRecords.Count > 0)
+        {
+            var userIds = companionRecords.Select(c => c.UserId).ToList();
+            var users = await _userRepository.GetByIdsAsync(userIds, cancellationToken);
+            var userMap = users.ToDictionary(u => u.Id);
+
+            companions = companionRecords.Select(c =>
+            {
+                userMap.TryGetValue(c.UserId, out var u);
+                return new CompanionResultDto
+                {
+                    UserId = c.UserId,
+                    FullName = u != null ? $"{u.FirstName} {u.LastName}".Trim() : null,
+                    Phone = c.PhoneNumber ?? u?.Phone,
+                    AddedAt = c.AddedAt
+                };
+            }).ToList();
+        }
 
         return new GetSosRequestResponse
         {
@@ -60,7 +92,8 @@ public class GetSosRequestQueryHandler(
                 LastUpdatedAt = sosRequest.LastUpdatedAt,
                 ReviewedAt = sosRequest.ReviewedAt,
                 ReviewedById = sosRequest.ReviewedById,
-                CreatedByCoordinatorId = sosRequest.CreatedByCoordinatorId
+                CreatedByCoordinatorId = sosRequest.CreatedByCoordinatorId,
+                Companions = companions
             }
         };
     }

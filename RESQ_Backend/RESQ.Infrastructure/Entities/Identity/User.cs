@@ -190,4 +190,8 @@ public partial class User
     [InverseProperty("ReviewedByUser")]
     public virtual ICollection<FundingRequest> FundingRequestsReviewed { get; set; } = new List<FundingRequest>();
     [InverseProperty("User")]
-    public virtual ICollection<UserRelativeProfile> RelativeProfiles { get; set; } = new List<UserRelativeProfile>();}
+    public virtual ICollection<UserRelativeProfile> RelativeProfiles { get; set; } = new List<UserRelativeProfile>();
+
+    [InverseProperty("User")]
+    public virtual ICollection<SosRequestCompanion> CompanionSosRequests { get; set; } = new List<SosRequestCompanion>();
+}
