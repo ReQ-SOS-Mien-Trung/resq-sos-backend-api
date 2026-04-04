@@ -70,8 +70,8 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(result);
         }
 
-        /// <summary>Cập nhật thông tin hồ sơ rescuer.</summary>
-        [HttpPut("rescuer/profile")]
+        /// <summary>Cập nhật thông tin hồ sơ.</summary>
+        [HttpPut("profile")]
         [Authorize]
         public async Task<IActionResult> UpdateRescuerProfile([FromBody] UpdateRescuerProfileRequestDto dto)
         {

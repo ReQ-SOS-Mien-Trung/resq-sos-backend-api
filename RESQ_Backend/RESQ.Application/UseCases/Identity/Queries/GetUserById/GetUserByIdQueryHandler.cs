@@ -2,6 +2,7 @@ using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Identity;
+using RESQ.Application.Repositories.System;
 
 namespace RESQ.Application.UseCases.Identity.Queries.GetUserById;
 
@@ -9,13 +10,15 @@ public class GetUserByIdQueryHandler(
     IUserRepository userRepository,
     IAbilityRepository abilityRepository,
     IRescuerApplicationRepository rescuerApplicationRepository,
-    IRescuerScoreRepository rescuerScoreRepository
+    IRescuerScoreRepository rescuerScoreRepository,
+    IRescuerScoreVisibilityConfigRepository rescuerScoreVisibilityConfigRepository
 ) : IRequestHandler<GetUserByIdQuery, GetUserByIdResponse>
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IAbilityRepository _abilityRepository = abilityRepository;
     private readonly IRescuerApplicationRepository _rescuerApplicationRepository = rescuerApplicationRepository;
     private readonly IRescuerScoreRepository _rescuerScoreRepository = rescuerScoreRepository;
+    private readonly IRescuerScoreVisibilityConfigRepository _rescuerScoreVisibilityConfigRepository = rescuerScoreVisibilityConfigRepository;
 
     public async Task<GetUserByIdResponse> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
     {
@@ -41,7 +44,8 @@ public class GetUserByIdQueryHandler(
             }).ToList();
         }
 
-        var rescuerScore = await _rescuerScoreRepository.GetByRescuerIdAsync(user.Id, cancellationToken);
+        var minimumEvaluationCount = (await _rescuerScoreVisibilityConfigRepository.GetAsync(cancellationToken))?.MinimumEvaluationCount ?? 0;
+        var rescuerScore = await _rescuerScoreRepository.GetVisibleByRescuerIdAsync(user.Id, minimumEvaluationCount, cancellationToken);
 
         return new GetUserByIdResponse
         {
@@ -70,7 +74,7 @@ public class GetUserByIdQueryHandler(
             ApprovedAt = user.ApprovedAt,
             CreatedAt = user.CreatedAt,
             UpdatedAt = user.UpdatedAt,
-            RescuerScore = rescuerScore is null ? null : RescuerScoreDto.FromModel(rescuerScore),
+            RescuerScore = RescuerScoreDto.FromModel(rescuerScore),
             Abilities = userAbilities.Select(a => new UserAbilityDto
             {
                 AbilityId = a.AbilityId,

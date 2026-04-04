@@ -19,6 +19,16 @@ public class RescuerScoreRepository(IUnitOfWork unitOfWork) : IRescuerScoreRepos
         return entity is null ? null : ToModel(entity);
     }
 
+    public async Task<RescuerScoreModel?> GetVisibleByRescuerIdAsync(Guid rescuerId, int minimumEvaluationCount, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<RescuerScore>()
+            .AsQueryable()
+            .Where(x => x.UserId == rescuerId && x.EvaluationCount >= minimumEvaluationCount)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return entity is null ? null : ToModel(entity);
+    }
+
     public async Task<IDictionary<Guid, RescuerScoreModel>> GetByRescuerIdsAsync(IEnumerable<Guid> rescuerIds, CancellationToken cancellationToken = default)
     {
         var ids = rescuerIds.Distinct().ToList();
@@ -30,6 +40,22 @@ public class RescuerScoreRepository(IUnitOfWork unitOfWork) : IRescuerScoreRepos
         var entities = await _unitOfWork.GetRepository<RescuerScore>()
             .AsQueryable()
             .Where(x => ids.Contains(x.UserId))
+            .ToListAsync(cancellationToken);
+
+        return entities.ToDictionary(x => x.UserId, ToModel);
+    }
+
+    public async Task<IDictionary<Guid, RescuerScoreModel>> GetVisibleByRescuerIdsAsync(IEnumerable<Guid> rescuerIds, int minimumEvaluationCount, CancellationToken cancellationToken = default)
+    {
+        var ids = rescuerIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<Guid, RescuerScoreModel>();
+        }
+
+        var entities = await _unitOfWork.GetRepository<RescuerScore>()
+            .AsQueryable()
+            .Where(x => ids.Contains(x.UserId) && x.EvaluationCount >= minimumEvaluationCount)
             .ToListAsync(cancellationToken);
 
         return entities.ToDictionary(x => x.UserId, ToModel);
