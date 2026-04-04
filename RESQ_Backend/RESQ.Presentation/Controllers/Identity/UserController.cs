@@ -85,7 +85,6 @@ namespace RESQ.Presentation.Controllers.Identity
                 userId,
                 dto.FirstName,
                 dto.LastName,
-                dto.Phone,
                 dto.Address,
                 dto.Ward,
                 dto.Province,

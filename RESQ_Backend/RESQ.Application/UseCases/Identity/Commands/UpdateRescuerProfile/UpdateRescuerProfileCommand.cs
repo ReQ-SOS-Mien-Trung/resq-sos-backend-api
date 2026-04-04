@@ -6,7 +6,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
         Guid UserId,
         string FirstName,
         string? LastName,
-        string Phone,
         string Address,
         string? Ward,
         string Province,
