@@ -110,6 +110,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPromptRepository, PromptRepository>();
         services.AddScoped<IRescuerScoreVisibilityConfigRepository, RescuerScoreVisibilityConfigRepository>();
         services.AddScoped<IServiceZoneRepository, ServiceZoneRepository>();
+        services.AddScoped<ISosClusterGroupingConfigRepository, SosClusterGroupingConfigRepository>();
         services.AddScoped<ISosPriorityRuleConfigRepository, SosPriorityRuleConfigRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
 
