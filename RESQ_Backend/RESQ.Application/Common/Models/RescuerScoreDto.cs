@@ -12,11 +12,11 @@ public class RescuerScoreDto
     public decimal OverallAverageScore { get; set; }
     public int EvaluationCount { get; set; }
 
-    public static RescuerScoreDto FromModel(RescuerScoreModel? model)
+    public static RescuerScoreDto? FromModel(RescuerScoreModel? model)
     {
         if (model is null)
         {
-            return new RescuerScoreDto();
+            return null;
         }
 
         return new RescuerScoreDto

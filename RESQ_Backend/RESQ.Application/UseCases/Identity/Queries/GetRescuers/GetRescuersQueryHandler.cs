@@ -1,16 +1,19 @@
 using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Identity;
+using RESQ.Application.Repositories.System;
 
 namespace RESQ.Application.UseCases.Identity.Queries.GetRescuers;
 
 public class GetRescuersQueryHandler(
     IUserRepository userRepository,
-    IRescuerScoreRepository rescuerScoreRepository)
+    IRescuerScoreRepository rescuerScoreRepository,
+    IRescuerScoreVisibilityConfigRepository rescuerScoreVisibilityConfigRepository)
     : IRequestHandler<GetRescuersQuery, PagedResult<GetRescuersItemResponse>>
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IRescuerScoreRepository _rescuerScoreRepository = rescuerScoreRepository;
+    private readonly IRescuerScoreVisibilityConfigRepository _rescuerScoreVisibilityConfigRepository = rescuerScoreVisibilityConfigRepository;
 
     public async Task<PagedResult<GetRescuersItemResponse>> Handle(GetRescuersQuery request, CancellationToken cancellationToken)
     {
@@ -23,7 +26,11 @@ public class GetRescuersQueryHandler(
             isEligible: true,
             cancellationToken: cancellationToken);
 
-        var rescuerScores = await _rescuerScoreRepository.GetByRescuerIdsAsync(paged.Items.Select(x => x.Id), cancellationToken);
+        var minimumEvaluationCount = (await _rescuerScoreVisibilityConfigRepository.GetAsync(cancellationToken))?.MinimumEvaluationCount ?? 0;
+        var rescuerScores = await _rescuerScoreRepository.GetVisibleByRescuerIdsAsync(
+            paged.Items.Select(x => x.Id),
+            minimumEvaluationCount,
+            cancellationToken);
 
         var items = paged.Items.Select(u => new GetRescuersItemResponse
         {

@@ -11,6 +11,7 @@ public static class SystemSeeder
     {
         SeedNotifications(modelBuilder);
         SeedPrompts(modelBuilder);
+        SeedRescuerScoreVisibilityConfig(modelBuilder);
         SeedServiceZone(modelBuilder);
         SeedSosPriorityRuleConfig(modelBuilder);
     }
@@ -268,6 +269,21 @@ Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này
                 CoordinatesJson = JsonSerializer.Serialize(defaultCoords),
                 IsActive = true,
                 CreatedAt = now,
+                UpdatedAt = now
+            }
+        );
+    }
+
+    private static void SeedRescuerScoreVisibilityConfig(ModelBuilder modelBuilder)
+    {
+        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<RescuerScoreVisibilityConfig>().HasData(
+            new RescuerScoreVisibilityConfig
+            {
+                Id = 1,
+                MinimumEvaluationCount = 0,
+                UpdatedBy = null,
                 UpdatedAt = now
             }
         );
