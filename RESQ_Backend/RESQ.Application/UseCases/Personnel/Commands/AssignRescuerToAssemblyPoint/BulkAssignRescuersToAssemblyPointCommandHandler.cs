@@ -75,6 +75,8 @@ public class BulkAssignRescuersToAssemblyPointCommandHandler(
         await unitOfWork.SaveAsync();
 
         // 5. Gửi Firebase notification cho từng rescuer (song song, không block, không throw)
+        // Dùng CancellationToken.None để notification luôn được gửi sau khi SaveAsync() thành công,
+        // không bị cancel theo HTTP request. SendNotificationToUserAsync đã catch all exceptions nội bộ.
         var notificationTasks = updatedIds.Select(userId =>
         {
             string title, body;
@@ -92,13 +94,8 @@ public class BulkAssignRescuersToAssemblyPointCommandHandler(
             }
 
             return firebaseService
-                .SendNotificationToUserAsync(userId, title, body, "assembly_point_assignment", cancellationToken)
-                .ContinueWith(t =>
-                {
-                    if (t.IsFaulted)
-                        logger.LogWarning(t.Exception, "Không thể gửi thông báo cho rescuer {UserId}", userId);
-                }, TaskContinuationOptions.OnlyOnFaulted);
-        });
+                .SendNotificationToUserAsync(userId, title, body, "assembly_point_assignment", CancellationToken.None);
+        }).ToList();
 
         await Task.WhenAll(notificationTasks);
     }

@@ -215,6 +215,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var totalCount = combined.Count;
         var pagedItems = combined
             .OrderByDescending(x => x.LastStockedAt)
+            .ThenBy(x => x.ItemModelId)   // stable tiebreaker: giữ thứ tự cố định khi LastStockedAt bằng nhau
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToList();
