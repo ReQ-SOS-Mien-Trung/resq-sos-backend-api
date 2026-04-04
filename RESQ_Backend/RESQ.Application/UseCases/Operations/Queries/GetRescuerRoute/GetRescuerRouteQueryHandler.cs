@@ -14,10 +14,16 @@ public class GetRescuerRouteQueryHandler(
 {
     public async Task<GetRescuerRouteResponse> Handle(GetRescuerRouteQuery request, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Getting rescue route for ActivityId={ActivityId}", request.ActivityId);
+        logger.LogInformation(
+            "Getting rescue route for MissionId={MissionId}, ActivityId={ActivityId}",
+            request.MissionId,
+            request.ActivityId);
 
         var activity = await activityRepository.GetByIdAsync(request.ActivityId, cancellationToken)
             ?? throw new NotFoundException($"Activity {request.ActivityId} không tồn tại.");
+
+        if (activity.MissionId != request.MissionId)
+            throw new BadRequestException("Activity không thuộc mission được yêu cầu.");
 
         if (activity.TargetLatitude is null || activity.TargetLongitude is null)
             throw new BadRequestException($"Activity {request.ActivityId} chưa có tọa độ đích.");
