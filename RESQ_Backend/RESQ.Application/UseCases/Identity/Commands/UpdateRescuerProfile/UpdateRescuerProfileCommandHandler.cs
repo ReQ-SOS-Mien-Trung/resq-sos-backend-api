@@ -31,7 +31,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
             // Update user profile information
             user.FirstName = request.FirstName;
             user.LastName = request.LastName;
-            user.Phone = request.Phone;
             user.Address = request.Address;
             user.Ward = request.Ward;
             user.Province = request.Province;
