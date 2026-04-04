@@ -67,6 +67,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<OrganizationReliefItem> OrganizationReliefItems { get; set; }
     public virtual DbSet<Permission> Permissions { get; set; }
     public virtual DbSet<Prompt> Prompts { get; set; }
+    public virtual DbSet<RescuerScoreVisibilityConfig> RescuerScoreVisibilityConfigs { get; set; }
     public virtual DbSet<ServiceZone> ServiceZones { get; set; }
     public virtual DbSet<SosPriorityRuleConfig> SosPriorityRuleConfigs { get; set; }
     public virtual DbSet<ItemModel> ItemModels { get; set; }
@@ -83,6 +84,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<SosAiAnalysis> SosAiAnalyses { get; set; }
     public virtual DbSet<SosCluster> SosClusters { get; set; }
     public virtual DbSet<SosRequest> SosRequests { get; set; }
+    public virtual DbSet<SosRequestCompanion> SosRequestCompanions { get; set; }
     public virtual DbSet<SosRequestUpdate> SosRequestUpdates { get; set; }
     public virtual DbSet<SosRuleEvaluation> SosRuleEvaluations { get; set; }
     public virtual DbSet<TeamIncident> TeamIncidents { get; set; }
@@ -165,6 +167,18 @@ public partial class ResQDbContext : DbContext
                 t.HasCheckConstraint("CK_rescuer_scores_teamwork_communication_score_range", "\"teamwork_communication_score\" >= 0 AND \"teamwork_communication_score\" <= 10");
                 t.HasCheckConstraint("CK_rescuer_scores_overall_average_score_range", "\"overall_average_score\" >= 0 AND \"overall_average_score\" <= 10");
                 t.HasCheckConstraint("CK_rescuer_scores_evaluation_count_non_negative", "\"evaluation_count\" >= 0");
+            });
+        });
+
+        modelBuilder.Entity<RescuerScoreVisibilityConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("rescuer_score_visibility_configs_pkey");
+
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_rescuer_score_visibility_configs_minimum_evaluation_count_non_negative",
+                    "\"minimum_evaluation_count\" >= 0");
             });
         });
 

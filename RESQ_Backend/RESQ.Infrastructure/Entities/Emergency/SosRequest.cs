@@ -112,4 +112,7 @@ public partial class SosRequest
 
     [InverseProperty("SosRequest")]
     public virtual ICollection<SosRuleEvaluation> SosRuleEvaluations { get; set; } = new List<SosRuleEvaluation>();
+
+    [InverseProperty("SosRequest")]
+    public virtual ICollection<SosRequestCompanion> Companions { get; set; } = new List<SosRequestCompanion>();
 }

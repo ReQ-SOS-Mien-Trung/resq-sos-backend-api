@@ -119,4 +119,21 @@ public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepositor
             await _unitOfWork.GetRepository<SosRequest>().UpdateAsync(entity);
         }
     }
+
+    public async Task<IEnumerable<SosRequestModel>> GetByCompanionUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var companionEntities = await _unitOfWork.GetRepository<SosRequestCompanion>()
+            .GetAllByPropertyAsync(x => x.UserId == userId);
+
+        var sosRequestIds = companionEntities.Select(c => c.SosRequestId).Distinct().ToList();
+        if (sosRequestIds.Count == 0)
+            return Enumerable.Empty<SosRequestModel>();
+
+        var entities = await _unitOfWork.GetRepository<SosRequest>()
+            .GetAllByPropertyAsync(x => sosRequestIds.Contains(x.Id));
+
+        return entities
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(SosRequestMapper.ToDomain);
+    }
 }

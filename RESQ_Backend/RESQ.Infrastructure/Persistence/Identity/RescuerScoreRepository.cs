@@ -2,9 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Domain.Entities.Identity;
+using RESQ.Domain.Entities.Operations;
 using RESQ.Infrastructure.Entities.Identity;
-using RESQ.Infrastructure.Entities.Operations;
-using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Infrastructure.Persistence.Identity;
 
@@ -16,6 +15,16 @@ public class RescuerScoreRepository(IUnitOfWork unitOfWork) : IRescuerScoreRepos
     {
         var entity = await _unitOfWork.GetRepository<RescuerScore>()
             .GetByPropertyAsync(x => x.UserId == rescuerId, tracked: false);
+
+        return entity is null ? null : ToModel(entity);
+    }
+
+    public async Task<RescuerScoreModel?> GetVisibleByRescuerIdAsync(Guid rescuerId, int minimumEvaluationCount, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<RescuerScore>()
+            .AsQueryable()
+            .Where(x => x.UserId == rescuerId && x.EvaluationCount >= minimumEvaluationCount)
+            .FirstOrDefaultAsync(cancellationToken);
 
         return entity is null ? null : ToModel(entity);
     }
@@ -36,34 +45,46 @@ public class RescuerScoreRepository(IUnitOfWork unitOfWork) : IRescuerScoreRepos
         return entities.ToDictionary(x => x.UserId, ToModel);
     }
 
-    public async Task RefreshAsync(IEnumerable<Guid> rescuerIds, CancellationToken cancellationToken = default)
+    public async Task<IDictionary<Guid, RescuerScoreModel>> GetVisibleByRescuerIdsAsync(IEnumerable<Guid> rescuerIds, int minimumEvaluationCount, CancellationToken cancellationToken = default)
     {
         var ids = rescuerIds.Distinct().ToList();
         if (ids.Count == 0)
         {
+            return new Dictionary<Guid, RescuerScoreModel>();
+        }
+
+        var entities = await _unitOfWork.GetRepository<RescuerScore>()
+            .AsQueryable()
+            .Where(x => ids.Contains(x.UserId) && x.EvaluationCount >= minimumEvaluationCount)
+            .ToListAsync(cancellationToken);
+
+        return entities.ToDictionary(x => x.UserId, ToModel);
+    }
+
+    public async Task RefreshAsync(IEnumerable<MissionTeamMemberEvaluationModel> newEvaluations, CancellationToken cancellationToken = default)
+    {
+        var evaluationList = newEvaluations.ToList();
+        if (evaluationList.Count == 0)
+        {
             return;
         }
 
-        var aggregates = await _unitOfWork.GetRepository<MissionTeamMemberEvaluation>()
-            .AsQueryable()
-            .Where(x =>
-                ids.Contains(x.RescuerId) &&
-                x.MissionTeamReport != null &&
-                x.MissionTeamReport.ReportStatus == MissionTeamReportStatus.Submitted.ToString())
+        // Group new evaluations by rescuer to handle batch (multiple evals for same rescuer)
+        var grouped = evaluationList
             .GroupBy(x => x.RescuerId)
-            .Select(group => new
+            .Select(g => new
             {
-                RescuerId = group.Key,
-                EvaluationCount = group.Count(),
-                ResponseTimeScore = group.Average(x => x.ResponseTimeScore),
-                RescueEffectivenessScore = group.Average(x => x.RescueEffectivenessScore),
-                DecisionHandlingScore = group.Average(x => x.DecisionHandlingScore),
-                SafetyMedicalSkillScore = group.Average(x => x.SafetyMedicalSkillScore),
-                TeamworkCommunicationScore = group.Average(x => x.TeamworkCommunicationScore)
+                RescuerId = g.Key,
+                Count = g.Count(),
+                ResponseTimeScore = g.Average(x => x.ResponseTimeScore),
+                RescueEffectivenessScore = g.Average(x => x.RescueEffectivenessScore),
+                DecisionHandlingScore = g.Average(x => x.DecisionHandlingScore),
+                SafetyMedicalSkillScore = g.Average(x => x.SafetyMedicalSkillScore),
+                TeamworkCommunicationScore = g.Average(x => x.TeamworkCommunicationScore)
             })
-            .ToListAsync(cancellationToken);
+            .ToList();
 
-        var aggregateByRescuer = aggregates.ToDictionary(x => x.RescuerId);
+        var ids = grouped.Select(x => x.RescuerId).ToList();
 
         var existingScores = await _unitOfWork.GetRepository<RescuerScore>()
             .AsQueryable(tracked: true)
@@ -71,62 +92,72 @@ public class RescuerScoreRepository(IUnitOfWork unitOfWork) : IRescuerScoreRepos
             .ToListAsync(cancellationToken);
 
         var existingByRescuer = existingScores.ToDictionary(x => x.UserId);
-        var profileIds = await _unitOfWork.GetRepository<RescuerProfile>()
-            .AsQueryable()
-            .Where(x => ids.Contains(x.UserId))
-            .Select(x => x.UserId)
-            .ToListAsync(cancellationToken);
 
-        var existingProfileIds = profileIds.ToHashSet();
+        // Only check profiles for rescuers that don't have a score record yet
+        var missingIds = ids.Where(id => !existingByRescuer.ContainsKey(id)).ToList();
+        var existingProfileIds = new HashSet<Guid>();
+        if (missingIds.Count > 0)
+        {
+            var profileIds = await _unitOfWork.GetRepository<RescuerProfile>()
+                .AsQueryable()
+                .Where(x => missingIds.Contains(x.UserId))
+                .Select(x => x.UserId)
+                .ToListAsync(cancellationToken);
+            existingProfileIds = profileIds.ToHashSet();
+        }
+
         var now = DateTime.UtcNow;
 
-        foreach (var rescuerId in ids)
+        foreach (var newScore in grouped)
         {
-            if (!aggregateByRescuer.TryGetValue(rescuerId, out var aggregate))
+            if (!existingByRescuer.TryGetValue(newScore.RescuerId, out var entity))
             {
-                if (existingByRescuer.TryGetValue(rescuerId, out var staleScore))
-                {
-                    staleScore.ResponseTimeScore = 0m;
-                    staleScore.RescueEffectivenessScore = 0m;
-                    staleScore.DecisionHandlingScore = 0m;
-                    staleScore.SafetyMedicalSkillScore = 0m;
-                    staleScore.TeamworkCommunicationScore = 0m;
-                    staleScore.OverallAverageScore = 0m;
-                    staleScore.EvaluationCount = 0;
-                    staleScore.UpdatedAt = now;
-                }
-
-                continue;
-            }
-
-            if (!existingByRescuer.TryGetValue(rescuerId, out var entity))
-            {
-                if (!existingProfileIds.Contains(rescuerId))
+                if (!existingProfileIds.Contains(newScore.RescuerId))
                 {
                     continue;
                 }
 
+                // First evaluation for this rescuer — create new record
                 entity = new RescuerScore
                 {
-                    UserId = rescuerId,
-                    CreatedAt = now
+                    UserId = newScore.RescuerId,
+                    ResponseTimeScore = RoundScore(newScore.ResponseTimeScore),
+                    RescueEffectivenessScore = RoundScore(newScore.RescueEffectivenessScore),
+                    DecisionHandlingScore = RoundScore(newScore.DecisionHandlingScore),
+                    SafetyMedicalSkillScore = RoundScore(newScore.SafetyMedicalSkillScore),
+                    TeamworkCommunicationScore = RoundScore(newScore.TeamworkCommunicationScore),
+                    EvaluationCount = newScore.Count,
+                    CreatedAt = now,
+                    UpdatedAt = now
                 };
+                entity.OverallAverageScore = RoundScore(
+                    (entity.ResponseTimeScore
+                     + entity.RescueEffectivenessScore
+                     + entity.DecisionHandlingScore
+                     + entity.SafetyMedicalSkillScore
+                     + entity.TeamworkCommunicationScore) / 5m);
+
                 await _unitOfWork.GetRepository<RescuerScore>().AddAsync(entity);
-                existingByRescuer[rescuerId] = entity;
+                continue;
             }
 
-            entity.ResponseTimeScore = RoundScore(aggregate.ResponseTimeScore);
-            entity.RescueEffectivenessScore = RoundScore(aggregate.RescueEffectivenessScore);
-            entity.DecisionHandlingScore = RoundScore(aggregate.DecisionHandlingScore);
-            entity.SafetyMedicalSkillScore = RoundScore(aggregate.SafetyMedicalSkillScore);
-            entity.TeamworkCommunicationScore = RoundScore(aggregate.TeamworkCommunicationScore);
+            // Incremental running average: NewAvg = (OldAvg * OldCount + NewSum) / (OldCount + NewCount)
+            var oldCount = entity.EvaluationCount;
+            var newCount = newScore.Count;
+            var totalCount = oldCount + newCount;
+
+            entity.ResponseTimeScore = RunningAverage(entity.ResponseTimeScore, oldCount, newScore.ResponseTimeScore, newCount, totalCount);
+            entity.RescueEffectivenessScore = RunningAverage(entity.RescueEffectivenessScore, oldCount, newScore.RescueEffectivenessScore, newCount, totalCount);
+            entity.DecisionHandlingScore = RunningAverage(entity.DecisionHandlingScore, oldCount, newScore.DecisionHandlingScore, newCount, totalCount);
+            entity.SafetyMedicalSkillScore = RunningAverage(entity.SafetyMedicalSkillScore, oldCount, newScore.SafetyMedicalSkillScore, newCount, totalCount);
+            entity.TeamworkCommunicationScore = RunningAverage(entity.TeamworkCommunicationScore, oldCount, newScore.TeamworkCommunicationScore, newCount, totalCount);
             entity.OverallAverageScore = RoundScore(
-                (aggregate.ResponseTimeScore
-                 + aggregate.RescueEffectivenessScore
-                 + aggregate.DecisionHandlingScore
-                 + aggregate.SafetyMedicalSkillScore
-                 + aggregate.TeamworkCommunicationScore) / 5m);
-            entity.EvaluationCount = aggregate.EvaluationCount;
+                (entity.ResponseTimeScore
+                 + entity.RescueEffectivenessScore
+                 + entity.DecisionHandlingScore
+                 + entity.SafetyMedicalSkillScore
+                 + entity.TeamworkCommunicationScore) / 5m);
+            entity.EvaluationCount = totalCount;
             entity.UpdatedAt = now;
         }
 
@@ -145,6 +176,12 @@ public class RescuerScoreRepository(IUnitOfWork unitOfWork) : IRescuerScoreRepos
         EvaluationCount = entity.EvaluationCount,
         UpdatedAt = entity.UpdatedAt
     };
+
+    private static decimal RunningAverage(decimal oldAvg, int oldCount, decimal newAvg, int newCount, int totalCount)
+    {
+        if (totalCount == 0) return 0m;
+        return RoundScore((oldAvg * oldCount + newAvg * newCount) / totalCount);
+    }
 
     private static decimal RoundScore(decimal value)
     {

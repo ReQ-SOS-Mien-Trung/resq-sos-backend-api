@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Repositories.System;
 
 namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
 {
@@ -13,7 +14,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         ILogger<GetCurrentUserQueryHandler> logger,
         IDepotInventoryRepository depotInventoryRepository,
         IDepotRepository depotRepository,
-        IRescuerScoreRepository rescuerScoreRepository
+        IRescuerScoreRepository rescuerScoreRepository,
+        IRescuerScoreVisibilityConfigRepository rescuerScoreVisibilityConfigRepository
     ) : IRequestHandler<GetCurrentUserQuery, GetCurrentUserResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
@@ -23,6 +25,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
         private readonly IDepotRepository _depotRepository = depotRepository;
         private readonly IRescuerScoreRepository _rescuerScoreRepository = rescuerScoreRepository;
+        private readonly IRescuerScoreVisibilityConfigRepository _rescuerScoreVisibilityConfigRepository = rescuerScoreVisibilityConfigRepository;
 
         public async Task<GetCurrentUserResponse> Handle(GetCurrentUserQuery request, CancellationToken cancellationToken)
         {
@@ -71,7 +74,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
             RescuerScoreDto? rescuerScoreDto = null;
             if (user.RescuerStep > 0)
             {
-                var rescuerScore = await _rescuerScoreRepository.GetByRescuerIdAsync(request.UserId, cancellationToken);
+                var minimumEvaluationCount = (await _rescuerScoreVisibilityConfigRepository.GetAsync(cancellationToken))?.MinimumEvaluationCount ?? 0;
+                var rescuerScore = await _rescuerScoreRepository.GetVisibleByRescuerIdAsync(request.UserId, minimumEvaluationCount, cancellationToken);
                 if (rescuerScore is not null)
                 {
                     rescuerScoreDto = new RescuerScoreDto

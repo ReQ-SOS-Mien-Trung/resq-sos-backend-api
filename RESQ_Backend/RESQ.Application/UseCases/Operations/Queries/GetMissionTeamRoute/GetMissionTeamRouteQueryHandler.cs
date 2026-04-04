@@ -2,6 +2,7 @@ using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
+using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMissionTeamRoute;
 
@@ -14,10 +15,18 @@ public class GetMissionTeamRouteQueryHandler(
     {
         var allActivities = await activityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken);
 
+        var excludedStatuses = new[]
+        {
+            MissionActivityStatus.Succeed,
+            MissionActivityStatus.Failed,
+            MissionActivityStatus.Cancelled
+        };
+
         var teamActivities = allActivities
             .Where(a => a.MissionTeamId == request.MissionTeamId
                      && a.TargetLatitude.HasValue
-                     && a.TargetLongitude.HasValue)
+                     && a.TargetLongitude.HasValue
+                     && !excludedStatuses.Contains(a.Status))
             .OrderBy(a => a.Step ?? int.MaxValue)
             .ToList();
 

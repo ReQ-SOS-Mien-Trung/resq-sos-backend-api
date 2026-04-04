@@ -84,6 +84,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<ISosRequestRepository, SosRequestRepository>();
+        services.AddScoped<ISosRequestCompanionRepository, SosRequestCompanionRepository>();
         services.AddScoped<ISosClusterRepository, SosClusterRepository>();
         services.AddScoped<ISosRuleEvaluationRepository, SosRuleEvaluationRepository>();
         services.AddScoped<ISosAiAnalysisRepository, SosAiAnalysisRepository>();
@@ -109,6 +110,7 @@ public static class ServiceCollectionExtensions
 
         // System Repositories
         services.AddScoped<IPromptRepository, PromptRepository>();
+        services.AddScoped<IRescuerScoreVisibilityConfigRepository, RescuerScoreVisibilityConfigRepository>();
         services.AddScoped<IServiceZoneRepository, ServiceZoneRepository>();
         services.AddScoped<ISosPriorityRuleConfigRepository, SosPriorityRuleConfigRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
