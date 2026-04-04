@@ -17,6 +17,7 @@ public static class SeedConstants
     public static readonly Guid Manager2UserId    = Guid.Parse("44444444-4444-4444-4444-444444444442");
     public static readonly Guid Manager3UserId    = Guid.Parse("44444444-4444-4444-4444-444444444443");
     public static readonly Guid Manager4UserId    = Guid.Parse("44444444-4444-4444-4444-444444444445");
+    public static readonly Guid Manager5UserId    = Guid.Parse("44444444-4444-4444-4444-444444444446");
     public static readonly Guid VictimUserId      = Guid.Parse("55555555-5555-5555-5555-555555555555");
 
     // Rescuer Applicant GUIDs (dùng để seed đơn đăng ký rescuer)

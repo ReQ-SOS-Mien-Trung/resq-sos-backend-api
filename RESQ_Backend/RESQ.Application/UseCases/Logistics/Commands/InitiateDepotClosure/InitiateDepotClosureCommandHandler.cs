@@ -91,8 +91,8 @@ public class InitiateDepotClosureCommandHandler(
                     totalReusableUnits: 0);
                 completedClosure.Complete(DateTime.UtcNow);
 
-                await closureRepository.CreateAsync(completedClosure, cancellationToken);
-                await unitOfWork.SaveAsync();
+                var emptyId = await closureRepository.CreateAsync(completedClosure, cancellationToken);
+                completedClosure.SetGeneratedId(emptyId);
             });
 
             logger.LogInformation("Depot {DepotId} closed immediately (empty inventory)", request.DepotId);
@@ -116,8 +116,8 @@ public class InitiateDepotClosureCommandHandler(
                 totalConsumableRows: consumableRowCount,
                 totalReusableUnits: totalReusable);
 
-            await closureRepository.CreateAsync(closure, cancellationToken);
-            await unitOfWork.SaveAsync();
+            var generatedId = await closureRepository.CreateAsync(closure, cancellationToken);
+            closure!.SetGeneratedId(generatedId);
         });
 
         logger.LogInformation(

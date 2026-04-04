@@ -4,7 +4,7 @@ namespace RESQ.Domain.Entities.Logistics;
 
 /// <summary>
 /// Domain entity theo dõi quá trình chuyển hàng khi đóng kho.
-/// Vòng đời: AwaitingShipment → Shipping (source manager) → Completed (target manager).
+/// Vòng đời: AwaitingPreparation → Preparing (source) → Shipping (source) → Completed (source) → Received (target).
 /// </summary>
 public class DepotClosureTransferRecord
 {
@@ -14,7 +14,7 @@ public class DepotClosureTransferRecord
     public int TargetDepotId { get; private set; }
 
     /// <see cref="RESQ.Domain.Enum.Logistics.DepotClosureTransferStatus"/>
-    public string Status { get; private set; } = "AwaitingShipment";
+    public string Status { get; private set; } = "AwaitingPreparation";
 
     public DateTime CreatedAt { get; private set; }
 
@@ -59,7 +59,7 @@ public class DepotClosureTransferRecord
             ClosureId = closureId,
             SourceDepotId = sourceDepotId,
             TargetDepotId = targetDepotId,
-            Status = "AwaitingShipment",
+            Status = "AwaitingPreparation",
             CreatedAt = DateTime.UtcNow,
             TransferDeadlineAt = deadlineOverride ?? DateTime.UtcNow.AddHours(48),
             SnapshotConsumableUnits = snapshotConsumableUnits,
@@ -103,12 +103,24 @@ public class DepotClosureTransferRecord
     // State transitions
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Kho nguồn xác nhận đã xuất hàng → Shipping.</summary>
-    public void MarkShipped(Guid shippedBy, string? note = null)
+    /// <summary>Kho nguồn xác nhận đang chuẩn bị hàng → Preparing.</summary>
+    public void MarkPreparing(Guid preparedBy, string? note = null)
     {
-        if (Status != "AwaitingShipment")
+        if (Status != "AwaitingPreparation")
             throw new DepotClosingException(
-                $"Không thể chuyển sang Shipping — trạng thái hiện tại: {Status}.");
+                $"Không thể chuyển sang Preparing — trạng thái hiện tại: {Status}.");
+
+        Status = "Preparing";
+        ShippedBy = preparedBy;
+        ShipNote = note;
+    }
+
+    /// <summary>Kho nguồn bắt đầu vận chuyển hàng → Shipping.</summary>
+    public void MarkShipping(Guid shippedBy, string? note = null)
+    {
+        if (Status != "Preparing")
+            throw new DepotClosingException(
+                $"Không thể bắt đầu vận chuyển — trạng thái hiện tại: {Status}.");
 
         Status = "Shipping";
         ShippedAt = DateTime.UtcNow;
@@ -116,14 +128,26 @@ public class DepotClosureTransferRecord
         ShipNote = note;
     }
 
-    /// <summary>Kho đích xác nhận đã nhận hàng → Completed.</summary>
-    public void MarkReceived(Guid receivedBy, string? note = null)
+    /// <summary>Kho nguồn xác nhận đã xuất toàn bộ hàng → Completed.</summary>
+    public void MarkCompleted(Guid completedBy, string? note = null)
     {
         if (Status != "Shipping")
             throw new DepotClosingException(
-                $"Không thể xác nhận nhận hàng — trạng thái hiện tại: {Status}.");
+                $"Không thể xác nhận hoàn tất xuất hàng — trạng thái hiện tại: {Status}.");
 
         Status = "Completed";
+        ShipNote = string.IsNullOrWhiteSpace(note) ? ShipNote : note;
+        ShippedBy = completedBy;
+    }
+
+    /// <summary>Kho đích xác nhận đã nhận hàng → Received.</summary>
+    public void MarkReceived(Guid receivedBy, string? note = null)
+    {
+        if (Status != "Completed")
+            throw new DepotClosingException(
+                $"Không thể xác nhận nhận hàng — trạng thái hiện tại: {Status}. Kho nguồn phải xác nhận hoàn tất xuất hàng trước.");
+
+        Status = "Received";
         ReceivedAt = DateTime.UtcNow;
         ReceivedBy = receivedBy;
         ReceiveNote = note;
@@ -132,7 +156,7 @@ public class DepotClosureTransferRecord
     /// <summary>Huỷ quá trình chuyển hàng (chỉ khi chưa nhận).</summary>
     public void Cancel(Guid cancelledBy, string? reason = null)
     {
-        if (Status == "Completed")
+        if (Status == "Received")
             throw new DepotClosingException("Không thể huỷ — quá trình chuyển hàng đã hoàn tất.");
 
         Status = "Cancelled";

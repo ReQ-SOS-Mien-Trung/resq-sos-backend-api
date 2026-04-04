@@ -58,7 +58,15 @@ public class GetInventoryLogsQueryHandler(
             CreatedAt = log.CreatedAt.ToVietnamTime(),
             ReceivedDate = log.ReceivedDate.ToVietnamTime(),
             ExpiredDate = log.ExpiredDate.ToVietnamTime(),
-            PerformedByName = log.PerformedByName
+            PerformedByName = log.PerformedByName,
+            VatInvoiceId = log.VatInvoiceId,
+            InvoiceSerial = log.InvoiceSerial,
+            InvoiceNumber = log.InvoiceNumber,
+            SupplierName = log.SupplierName,
+            SupplierTaxCode = log.SupplierTaxCode,
+            InvoiceDate = log.InvoiceDate,
+            InvoiceTotalAmount = log.InvoiceTotalAmount,
+            InvoiceFileUrl = log.InvoiceFileUrl
         }).ToList();
 
         return new PagedResult<InventoryLogDto>(dtos, pagedData.TotalCount, pagedData.PageNumber, pagedData.PageSize);

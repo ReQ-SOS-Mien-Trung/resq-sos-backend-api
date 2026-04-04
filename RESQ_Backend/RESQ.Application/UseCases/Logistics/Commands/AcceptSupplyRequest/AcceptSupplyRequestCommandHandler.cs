@@ -42,10 +42,10 @@ public class AcceptSupplyRequestCommandHandler(
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "Yêu cầu tiếp tế được chấp nhận",
-            $"Yêu cầu #{sr.Id} đã được kho nguồn chấp nhận và đang chuẩn bị hàng.",
+            $"Yêu cầu tiếp tế số {sr.Id} đã được kho nguồn chấp nhận và đang chuẩn bị hàng.",
             "supply_accepted",
             cancellationToken);
 
-        return new AcceptSupplyRequestResponse { Message = $"Đã chấp nhận yêu cầu #{sr.Id}." };
+        return new AcceptSupplyRequestResponse { Message = $"Đã chấp nhận yêu cầu số {sr.Id}." };
     }
 }

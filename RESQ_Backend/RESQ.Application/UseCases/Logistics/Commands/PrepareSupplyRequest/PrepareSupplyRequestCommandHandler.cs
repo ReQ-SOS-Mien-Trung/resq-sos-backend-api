@@ -35,10 +35,10 @@ public class PrepareSupplyRequestCommandHandler(
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "Kho nguồn đang chuẩn bị hàng",
-            $"Yêu cầu #{sr.Id}: kho nguồn đang đóng gói và chuẩn bị xuất hàng.",
+            $"Yêu cầu tiếp tế số {sr.Id}: kho nguồn đang đóng gói và chuẩn bị xuất hàng.",
             "supply_preparing",
             cancellationToken);
 
-        return new PrepareSupplyRequestResponse { Message = $"Yêu cầu #{sr.Id} đã chuyển sang trạng thái đang chuẩn bị hàng." };
+        return new PrepareSupplyRequestResponse { Message = $"Yêu cầu số {sr.Id} đã chuyển sang trạng thái đang chuẩn bị hàng." };
     }
 }

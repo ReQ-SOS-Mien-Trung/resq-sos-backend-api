@@ -33,9 +33,9 @@ public class FundTransactionRepository(IUnitOfWork unitOfWork) : IFundTransactio
             pageNumber,
             pageSize,
             x => x.FundCampaignId == campaignId
-              && (typeStrings          == null || typeStrings.Contains(x.Type))
-              && (directionStrings     == null || directionStrings.Contains(x.Direction))
-              && (referenceTypeStrings == null || referenceTypeStrings.Contains(x.ReferenceType)),
+              && (typeStrings          == null || typeStrings.Count == 0 || typeStrings.Contains(x.Type))
+              && (directionStrings     == null || directionStrings.Count == 0 || directionStrings.Contains(x.Direction))
+              && (referenceTypeStrings == null || referenceTypeStrings.Count == 0 || referenceTypeStrings.Contains(x.ReferenceType)),
             q => q.OrderByDescending(x => x.CreatedAt),
             "CreatedByUser"
         );

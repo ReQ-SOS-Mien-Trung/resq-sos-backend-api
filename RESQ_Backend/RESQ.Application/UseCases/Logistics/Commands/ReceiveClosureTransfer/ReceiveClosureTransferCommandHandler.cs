@@ -8,7 +8,7 @@ using RESQ.Application.Services;
 namespace RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 
 /// <summary>
-/// Quản lý kho đích xác nhận nhận hàng → Completed.
+/// Quản lý kho đích xác nhận nhận hàng → Received.
 /// Sau đó kích hoạt BulkTransferForClosure và hoàn tất bản ghi đóng kho + depot.
 /// </summary>
 public class ReceiveClosureTransferCommandHandler(
@@ -44,7 +44,7 @@ public class ReceiveClosureTransferCommandHandler(
         var sourceDepot = await depotRepository.GetByIdAsync(transfer.SourceDepotId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy kho nguồn #{transfer.SourceDepotId}.");
 
-        // Transition: Shipping → Completed (domain validates)
+        // Transition: Completed → Received (domain validates)
         transfer.MarkReceived(request.UserId, request.Note);
         var completedAt = DateTime.UtcNow;
 

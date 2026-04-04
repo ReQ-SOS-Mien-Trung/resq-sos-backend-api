@@ -77,6 +77,11 @@ public class DepotClosureRecord
     private DepotClosureRecord() { }
 
     /// <summary>
+    /// Gán Id do DB sinh ra sau khi CreateAsync. Chỉ gọi đúng 1 lần trong repository flow.
+    /// </summary>
+    public void SetGeneratedId(int id) => Id = id;
+
+    /// <summary>
     /// Khôi phục domain object từ dữ liệu DB (dùng bởi repository mapper).
     /// </summary>
     public static DepotClosureRecord FromEntity(

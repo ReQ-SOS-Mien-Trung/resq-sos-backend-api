@@ -35,6 +35,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .Include(x => x.ReusableItem)
                 .ThenInclude(x => x!.Depot)
             .Include(x => x.PerformedByUser)
+            .Include(x => x.VatInvoice)
             .AsQueryable();
 
         // Filter by depot — cover both Consumable (SupplyInventory) and Reusable (ReusableItem)
@@ -127,7 +128,15 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             DepotId = x.SupplyInventory?.DepotId ?? x.ReusableItem?.DepotId,
             DepotName = x.SupplyInventory?.Depot?.Name ?? x.ReusableItem?.Depot?.Name ?? string.Empty,
             ItemModelId = x.SupplyInventory?.ItemModelId ?? x.ReusableItem?.ItemModelId,
-            ItemModelName = x.SupplyInventory?.ItemModel?.Name ?? x.ReusableItem?.ItemModel?.Name ?? string.Empty
+            ItemModelName = x.SupplyInventory?.ItemModel?.Name ?? x.ReusableItem?.ItemModel?.Name ?? string.Empty,
+            VatInvoiceId = x.VatInvoiceId,
+            InvoiceSerial = x.VatInvoice?.InvoiceSerial,
+            InvoiceNumber = x.VatInvoice?.InvoiceNumber,
+            SupplierName = x.VatInvoice?.SupplierName,
+            SupplierTaxCode = x.VatInvoice?.SupplierTaxCode,
+            InvoiceDate = x.VatInvoice?.InvoiceDate,
+            InvoiceTotalAmount = x.VatInvoice?.TotalAmount,
+            InvoiceFileUrl = x.VatInvoice?.FileUrl
         }).ToList();
 
         return new PagedResult<InventoryLogModel>(logs, totalCount, pageNumber, pageSize);
@@ -160,6 +169,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 .ThenInclude(x => x!.ItemModel)
                     .ThenInclude(x => x!.TargetGroups)
             .Include(x => x.PerformedByUser)
+            .Include(x => x.VatInvoice)
             .AsQueryable();
 
         // Depot filter: consumable logs via SupplyInventory, reusable logs via SupplyRequest depot fields.
@@ -254,6 +264,14 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                     : string.Empty,
                 Note = NormalizeMultilineText(firstItem.Note),
                 CreatedAt = createdAt ?? DateTime.MinValue,
+                VatInvoiceId = firstItem.VatInvoiceId,
+                InvoiceSerial = firstItem.VatInvoice?.InvoiceSerial,
+                InvoiceNumber = firstItem.VatInvoice?.InvoiceNumber,
+                SupplierName = firstItem.VatInvoice?.SupplierName,
+                SupplierTaxCode = firstItem.VatInvoice?.SupplierTaxCode,
+                InvoiceDate = firstItem.VatInvoice?.InvoiceDate,
+                InvoiceTotalAmount = firstItem.VatInvoice?.TotalAmount,
+                InvoiceFileUrl = firstItem.VatInvoice?.FileUrl,
                 Items = g.Select(item =>
                 {
                     return new InventoryTransactionItemDto

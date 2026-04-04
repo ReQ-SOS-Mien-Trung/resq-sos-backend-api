@@ -8,8 +8,10 @@ using RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 using RESQ.Application.UseCases.Logistics.Commands.CancelDepotClosure;
 using RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
+using RESQ.Application.UseCases.Logistics.Commands.CompleteClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.CreateDepot;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
+using RESQ.Application.UseCases.Logistics.Commands.PrepareClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.ResolveDepotClosure;
 using RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
@@ -212,6 +214,25 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
+        /// [Manager kho nguồn] Xác nhận đang chuẩn bị hàng — chuyển transfer sang Preparing.
+        /// </summary>
+        [HttpPost("{id}/close/{closureId}/transfer/{transferId}/prepare")]
+        [Authorize]
+        [ProducesResponseType(typeof(PrepareClosureTransferResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> PrepareClosureTransfer(
+            int id, int closureId, int transferId,
+            [FromBody] ClosureTransferActionDto dto)
+        {
+            var userId = GetUserId();
+            var command = new PrepareClosureTransferCommand(id, closureId, transferId, userId, dto.Note);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// [Manager kho nguồn] Xác nhận đã xuất hàng — chuyển transfer sang Shipping.
         /// </summary>
         [HttpPost("{id}/close/{closureId}/transfer/{transferId}/ship")]
@@ -226,6 +247,25 @@ namespace RESQ.Presentation.Controllers.Logistics
         {
             var userId = GetUserId();
             var command = new ShipClosureTransferCommand(id, closureId, transferId, userId, dto.Note);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// [Manager kho nguồn] Xác nhận đã xuất toàn bộ hàng — chuyển transfer sang Completed.
+        /// </summary>
+        [HttpPost("{id}/close/{closureId}/transfer/{transferId}/complete")]
+        [Authorize]
+        [ProducesResponseType(typeof(CompleteClosureTransferResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> CompleteClosureTransfer(
+            int id, int closureId, int transferId,
+            [FromBody] ClosureTransferActionDto dto)
+        {
+            var userId = GetUserId();
+            var command = new CompleteClosureTransferCommand(id, closureId, transferId, userId, dto.Note);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
@@ -251,6 +291,7 @@ namespace RESQ.Presentation.Controllers.Logistics
 
         /// <summary>
         /// Xem trạng thái bản ghi chuyển hàng khi đóng kho.
+        /// Admin truyền depotId (kho nguồn) từ route. Manager kho nguồn / kho đích được tự động xác định depot từ token.
         /// </summary>
         [HttpGet("{id}/close/{closureId}/transfer/{transferId}")]
         [Authorize]
@@ -258,7 +299,8 @@ namespace RESQ.Presentation.Controllers.Logistics
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetClosureTransfer(int id, int closureId, int transferId)
         {
-            var query = new GetClosureTransferQuery(id, closureId, transferId);
+            var userId = GetUserId();
+            var query = new GetClosureTransferQuery(id, closureId, transferId, userId);
             var result = await _mediator.Send(query);
             return Ok(result);
         }
