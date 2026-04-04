@@ -267,8 +267,16 @@ public class MissionController(IMediator mediator) : ControllerBase
     // ============================================================
 
     /// <summary>Lấy tuyến đường từ vị trí rescuer đến đích activity (vehicle: car|bike|taxi|hd).</summary>
+    /// <remarks>
+    /// API này vẫn có thể trả HTTP 200 nếu request hợp lệ nhưng Goong không tạo được tuyến đường.
+    /// Frontend phải kiểm tra trường <c>status</c> trong response body trước khi dùng dữ liệu tuyến đường.
+    /// Chỉ sử dụng <c>route</c> khi <c>status</c> là <c>OK</c>; nếu không, đọc <c>errorMessage</c> để xử lý lỗi.
+    /// </remarks>
     [HttpGet("{missionId:int}/activities/{activityId:int}/route")]
     [Authorize(Policy = PermissionConstants.PolicyRouteAccess)]
+    [ProducesResponseType(typeof(GetRescuerRouteResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetRescuerRoute(
         [FromRoute] int missionId,
         [FromRoute] int activityId,
@@ -276,7 +284,7 @@ public class MissionController(IMediator mediator) : ControllerBase
         [FromQuery] double originLng,
         [FromQuery] string vehicle = "car")
     {
-        var result = await _mediator.Send(new GetRescuerRouteQuery(activityId, originLat, originLng, vehicle));
+        var result = await _mediator.Send(new GetRescuerRouteQuery(missionId, activityId, originLat, originLng, vehicle));
         return Ok(result);
     }
 
