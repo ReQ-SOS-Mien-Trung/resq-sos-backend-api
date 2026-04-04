@@ -13,6 +13,7 @@ public static class SystemSeeder
         SeedPrompts(modelBuilder);
         SeedRescuerScoreVisibilityConfig(modelBuilder);
         SeedServiceZone(modelBuilder);
+      SeedSosClusterGroupingConfig(modelBuilder);
         SeedSosPriorityRuleConfig(modelBuilder);
     }
 
@@ -288,6 +289,21 @@ Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này
             }
         );
     }
+
+          private static void SeedSosClusterGroupingConfig(ModelBuilder modelBuilder)
+          {
+            var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            modelBuilder.Entity<SosClusterGroupingConfig>().HasData(
+              new SosClusterGroupingConfig
+              {
+                Id = 1,
+                MaximumDistanceKm = 10.0,
+                UpdatedBy = null,
+                UpdatedAt = now
+              }
+            );
+          }
 
     private static void SeedSosPriorityRuleConfig(ModelBuilder modelBuilder)
     {
