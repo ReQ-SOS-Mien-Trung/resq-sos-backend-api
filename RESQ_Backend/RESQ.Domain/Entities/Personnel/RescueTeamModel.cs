@@ -1,4 +1,5 @@
 using RESQ.Domain.Entities.Personnel.Exceptions;
+using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Enum.Personnel;
 using System.Text.RegularExpressions;
 
@@ -13,6 +14,7 @@ public class RescueTeamModel
     public RescueTeamStatus Status { get; private set; }
     public int AssemblyPointId { get; private set; }
     public string? AssemblyPointName { get; private set; }
+    public GeoLocation? AssemblyPointLocation { get; private set; }
     public Guid ManagedBy { get; private set; }
     public int MaxMembers { get; private set; }
     public DateTime CreatedAt { get; private set; }
@@ -52,6 +54,11 @@ public class RescueTeamModel
     public void LoadAssemblyPointName(string name)
     {
         AssemblyPointName = name;
+    }
+
+    public void LoadAssemblyPointLocation(GeoLocation location)
+    {
+        AssemblyPointLocation = location;
     }
 
     /// <summary>

@@ -55,6 +55,12 @@ public static class RescueTeamMapper
             domain.LoadAssemblyPointName(entity.AssemblyPoint.Name);
         }
 
+        if (entity.AssemblyPoint?.Location != null)
+        {
+            domain.LoadAssemblyPointLocation(
+                new GeoLocation(entity.AssemblyPoint.Location.Y, entity.AssemblyPoint.Location.X));
+        }
+
         SetPrivateProperty(domain, nameof(domain.MaxMembers), entity.MaxMembers ?? 8);
         SetPrivateProperty(domain, nameof(domain.CreatedAt), entity.CreatedAt ?? DateTime.UtcNow);
         SetPrivateProperty(domain, nameof(domain.UpdatedAt), entity.UpdatedAt);

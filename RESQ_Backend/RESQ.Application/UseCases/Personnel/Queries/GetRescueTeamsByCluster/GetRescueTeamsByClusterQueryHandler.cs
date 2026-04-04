@@ -9,8 +9,7 @@ namespace RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamsByCluster;
 
 public class GetRescueTeamsByClusterQueryHandler(
     ISosClusterRepository sosClusterRepository,
-    IPersonnelQueryRepository personnelQueryRepository,
-    IAssemblyPointRepository assemblyPointRepository)
+    IPersonnelQueryRepository personnelQueryRepository)
     : IRequestHandler<GetRescueTeamsByClusterQuery, List<RescueTeamByClusterDto>>
 {
     public async Task<List<RescueTeamByClusterDto>> Handle(
@@ -25,27 +24,25 @@ public class GetRescueTeamsByClusterQueryHandler(
         double? clusterLon = cluster.CenterLongitude;
 
         // 2. Lấy tất cả đội cứu hộ đang ở trạng thái Available (sẵn sàng nhận nhiệm vụ)
+        // GetAllAvailableTeamsAsync đã eager-load AssemblyPoint kèm Location,
+        // nên dùng team.AssemblyPointLocation trực tiếp mà không cần query AP riêng.
         var teams = await personnelQueryRepository.GetAllAvailableTeamsAsync(cancellationToken);
 
         if (teams.Count == 0)
             return [];
 
-        // 3. Lấy tất cả điểm tập kết để tra cứu toạ độ
-        var assemblyPoints = await assemblyPointRepository.GetAllAsync(cancellationToken);
-        var apLocationMap = assemblyPoints
-            .Where(ap => ap.Location is not null)
-            .ToDictionary(ap => ap.Id, ap => ap.Location!);
-
-        // 4. Build DTO + tính khoảng cách
+        // 3. Build DTO + tính khoảng cách dựa trên location của AP đã được eager-load sẵn
         var dtos = teams.Select(team =>
         {
             double? distKm = null;
 
             if (clusterLat.HasValue && clusterLon.HasValue
-                && apLocationMap.TryGetValue(team.AssemblyPointId, out var apLocation))
+                && team.AssemblyPointLocation is not null)
             {
                 distKm = Math.Round(
-                    HaversineKm(clusterLat.Value, clusterLon.Value, apLocation.Latitude, apLocation.Longitude),
+                    HaversineKm(clusterLat.Value, clusterLon.Value,
+                                team.AssemblyPointLocation.Latitude,
+                                team.AssemblyPointLocation.Longitude),
                     2);
             }
 
@@ -64,7 +61,7 @@ public class GetRescueTeamsByClusterQueryHandler(
             };
         }).ToList();
 
-        // 5. Sắp xếp: đội có distKm trước (gần nhất), đội không xác định toạ độ sau
+        // 4. Sắp xếp: đội có distKm trước (gần nhất), đội không xác định toạ độ sau
         return [.. dtos
             .OrderBy(d => d.DistanceKm.HasValue ? 0 : 1)
             .ThenBy(d => d.DistanceKm)];
