@@ -10,22 +10,41 @@ public static class MissionActivityMapper
 {
     private static readonly Dictionary<MissionActivityStatus, string> StatusToString = new()
     {
-        [MissionActivityStatus.Planned] = "planned",
-        [MissionActivityStatus.OnGoing] = "on_going",
-        [MissionActivityStatus.Succeed] = "succeed",
-        [MissionActivityStatus.PendingConfirmation] = "pending_confirmation",
-        [MissionActivityStatus.Failed] = "failed",
-        [MissionActivityStatus.Cancelled] = "cancelled"
+        [MissionActivityStatus.Planned] = nameof(MissionActivityStatus.Planned),
+        [MissionActivityStatus.OnGoing] = nameof(MissionActivityStatus.OnGoing),
+        [MissionActivityStatus.Succeed] = nameof(MissionActivityStatus.Succeed),
+        [MissionActivityStatus.PendingConfirmation] = nameof(MissionActivityStatus.PendingConfirmation),
+        [MissionActivityStatus.Failed] = nameof(MissionActivityStatus.Failed),
+        [MissionActivityStatus.Cancelled] = nameof(MissionActivityStatus.Cancelled)
     };
 
-    private static readonly Dictionary<string, MissionActivityStatus> StringToStatus =
-        StatusToString.ToDictionary(x => x.Value, x => x.Key, StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, MissionActivityStatus> StringToStatus = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [NormalizeStatusKey(nameof(MissionActivityStatus.Planned))] = MissionActivityStatus.Planned,
+        [NormalizeStatusKey("planned")] = MissionActivityStatus.Planned,
+        [NormalizeStatusKey(nameof(MissionActivityStatus.OnGoing))] = MissionActivityStatus.OnGoing,
+        [NormalizeStatusKey("on_going")] = MissionActivityStatus.OnGoing,
+        [NormalizeStatusKey(nameof(MissionActivityStatus.Succeed))] = MissionActivityStatus.Succeed,
+        [NormalizeStatusKey("succeed")] = MissionActivityStatus.Succeed,
+        [NormalizeStatusKey(nameof(MissionActivityStatus.PendingConfirmation))] = MissionActivityStatus.PendingConfirmation,
+        [NormalizeStatusKey("pending_confirmation")] = MissionActivityStatus.PendingConfirmation,
+        [NormalizeStatusKey(nameof(MissionActivityStatus.Failed))] = MissionActivityStatus.Failed,
+        [NormalizeStatusKey("failed")] = MissionActivityStatus.Failed,
+        [NormalizeStatusKey(nameof(MissionActivityStatus.Cancelled))] = MissionActivityStatus.Cancelled,
+        [NormalizeStatusKey("cancelled")] = MissionActivityStatus.Cancelled
+    };
 
     public static string ToDbString(MissionActivityStatus status) =>
-        StatusToString.GetValueOrDefault(status, "planned");
+        StatusToString.GetValueOrDefault(status, nameof(MissionActivityStatus.Planned));
 
     public static MissionActivityStatus ToEnum(string? status) =>
-        status is not null && StringToStatus.TryGetValue(status, out var val) ? val : MissionActivityStatus.Planned;
+        status is not null && StringToStatus.TryGetValue(NormalizeStatusKey(status.Trim()), out var val)
+            ? val
+            : MissionActivityStatus.Planned;
+
+    private static string NormalizeStatusKey(string status) =>
+        status.Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
 
     public static MissionActivity ToEntity(MissionActivityModel model)
     {

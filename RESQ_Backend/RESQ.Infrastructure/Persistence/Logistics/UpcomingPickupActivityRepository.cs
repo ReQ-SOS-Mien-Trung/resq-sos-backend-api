@@ -41,12 +41,14 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
                   && EF.Functions.ILike(activity.ActivityType, "COLLECT_SUPPLIES")
                   && activity.Status != null
                   && (EF.Functions.ILike(activity.Status, "Planned")
-                      || EF.Functions.ILike(activity.Status, "OnGoing"))
+                      || EF.Functions.ILike(activity.Status, "OnGoing")
+                      || EF.Functions.ILike(activity.Status, "on_going"))
                   && activity.Mission.IsCompleted != true
                   && (activity.Mission.Status == null
                       || (!EF.Functions.ILike(activity.Mission.Status, "Completed")
                           && !EF.Functions.ILike(activity.Mission.Status, "Incompleted")))
-            orderby EF.Functions.ILike(activity.Status!, "OnGoing") ? 0 : 1,
+            orderby (EF.Functions.ILike(activity.Status!, "OnGoing")
+                     || EF.Functions.ILike(activity.Status!, "on_going")) ? 0 : 1,
                 activity.Mission!.StartTime ?? DateTime.MaxValue,
                 activity.Step ?? int.MaxValue,
                 activity.Id
