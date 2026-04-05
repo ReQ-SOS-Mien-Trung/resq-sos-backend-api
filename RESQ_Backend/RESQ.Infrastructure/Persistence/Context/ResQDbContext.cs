@@ -70,6 +70,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<RescuerScoreVisibilityConfig> RescuerScoreVisibilityConfigs { get; set; }
     public virtual DbSet<ServiceZone> ServiceZones { get; set; }
     public virtual DbSet<SosClusterGroupingConfig> SosClusterGroupingConfigs { get; set; }
+    public virtual DbSet<RescueTeamRadiusConfig> RescueTeamRadiusConfigs { get; set; }
     public virtual DbSet<SosPriorityRuleConfig> SosPriorityRuleConfigs { get; set; }
     public virtual DbSet<ItemModel> ItemModels { get; set; }
     public virtual DbSet<TargetGroup> TargetGroups { get; set; }
@@ -192,6 +193,18 @@ public partial class ResQDbContext : DbContext
                 t.HasCheckConstraint(
                     "CK_sos_cluster_grouping_configs_maximum_distance_km_positive",
                     "\"maximum_distance_km\" > 0");
+            });
+        });
+
+        modelBuilder.Entity<RescueTeamRadiusConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("rescue_team_radius_configs_pkey");
+
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_rescue_team_radius_configs_max_radius_km_positive",
+                    "\"max_radius_km\" > 0");
             });
         });
 

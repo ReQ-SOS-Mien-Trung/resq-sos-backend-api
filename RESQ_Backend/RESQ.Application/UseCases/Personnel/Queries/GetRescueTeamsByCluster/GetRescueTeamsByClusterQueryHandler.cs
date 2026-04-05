@@ -3,15 +3,19 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Repositories.System;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Personnel.Queries.GetRescueTeamsByCluster;
 
 public class GetRescueTeamsByClusterQueryHandler(
     ISosClusterRepository sosClusterRepository,
-    IPersonnelQueryRepository personnelQueryRepository)
+    IPersonnelQueryRepository personnelQueryRepository,
+    IRescueTeamRadiusConfigRepository rescueTeamRadiusConfigRepository)
     : IRequestHandler<GetRescueTeamsByClusterQuery, List<RescueTeamByClusterDto>>
 {
+    private const double DefaultMaxRadiusKm = 10.0;
+
     public async Task<List<RescueTeamByClusterDto>> Handle(
         GetRescueTeamsByClusterQuery request,
         CancellationToken cancellationToken)
@@ -23,15 +27,17 @@ public class GetRescueTeamsByClusterQueryHandler(
         double? clusterLat = cluster.CenterLatitude;
         double? clusterLon = cluster.CenterLongitude;
 
-        // 2. Lấy tất cả đội cứu hộ đang ở trạng thái Available (sẵn sàng nhận nhiệm vụ)
-        // GetAllAvailableTeamsAsync đã eager-load AssemblyPoint kèm Location,
-        // nên dùng team.AssemblyPointLocation trực tiếp mà không cần query AP riêng.
+        // 2. Lấy bán kính tối đa từ cấu hình (mặc định 10 km)
+        var radiusConfig = await rescueTeamRadiusConfigRepository.GetAsync(cancellationToken);
+        var maxRadiusKm = radiusConfig?.MaxRadiusKm ?? DefaultMaxRadiusKm;
+
+        // 3. Lấy tất cả đội cứu hộ đang ở trạng thái Available (sẵn sàng nhận nhiệm vụ)
         var teams = await personnelQueryRepository.GetAllAvailableTeamsAsync(cancellationToken);
 
         if (teams.Count == 0)
             return [];
 
-        // 3. Build DTO + tính khoảng cách dựa trên location của AP đã được eager-load sẵn
+        // 4. Build DTO + tính khoảng cách dựa trên location của AP đã được eager-load sẵn
         var dtos = teams.Select(team =>
         {
             double? distKm = null;
@@ -59,12 +65,12 @@ public class GetRescueTeamsByClusterQueryHandler(
                 MaxMembers = team.MaxMembers,
                 CurrentMemberCount = team.Members.Count(m => m.Status != TeamMemberStatus.Removed)
             };
-        }).ToList();
+        });
 
-        // 4. Sắp xếp: đội có distKm trước (gần nhất), đội không xác định toạ độ sau
+        // 5. Chỉ lấy các đội trong bán kính cho phép, sắp xếp theo khoảng cách
         return [.. dtos
-            .OrderBy(d => d.DistanceKm.HasValue ? 0 : 1)
-            .ThenBy(d => d.DistanceKm)];
+            .Where(d => d.DistanceKm.HasValue && d.DistanceKm.Value <= maxRadiusKm)
+            .OrderBy(d => d.DistanceKm)];
     }
 
     /// <summary>Haversine formula — returns straight-line distance in kilometres.</summary>
