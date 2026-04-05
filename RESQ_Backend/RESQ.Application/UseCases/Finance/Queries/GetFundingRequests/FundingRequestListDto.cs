@@ -7,7 +7,6 @@ public class FundingRequestListDto
     public string DepotName { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
     public string? Description { get; set; }
-    public string? AttachmentUrl { get; set; }
     public string Status { get; set; } = string.Empty;
     public int? ApprovedCampaignId { get; set; }
     public string? ApprovedCampaignName { get; set; }

@@ -631,11 +631,13 @@ public static class LogisticsSeeder
         // CurrentUtilization = tổng consumable qty (factor × 573600) + 84 reusable phi xe + vehicle units
         // Depot 1 (×1.0): 573600 + 84 + 40 = 573724   | Depot 2 (×0.8): 458880 + 84 + 29 = 458993
         // Depot 3 (×0.6): 344160 + 84 + 20 = 344264   | Depot 4 (×0.9): 516240 + 84 + 30 = 516354
+        // Depot 5 (trống — dùng để test tiếp nhận đóng kho): 0 utilization, capacity 900000
         modelBuilder.Entity<Depot>().HasData(
             new Depot { Id = 1, Name = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", Address = "46 Đống Đa, TP. Huế, Thừa Thiên Huế", Location = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 750000, CurrentUtilization = 573724, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg" },
             new Depot { Id = 2, Name = "Ủy ban MTTQVN TP Đà Nẵng", Address = "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", Location = new Point(108.22283205420794, 16.080298466000496) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 600000, CurrentUtilization = 458993, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
             new Depot { Id = 3, Name = "Ủy Ban MTTQ Tỉnh Hà Tĩnh", Address = "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", Location = new Point(105.90102499916586, 18.349622333272194) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 450000, CurrentUtilization = 344264, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg" },
-            new Depot { Id = 4, Name = "Ủy ban MTTQVN Việt Nam", Address = "46 Tràng Thi, Hoàn Kiếm, Hà Nội", Location = new Point(106.6973581406628, 10.786765331782663) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 680000, CurrentUtilization = 516354, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" }
+            new Depot { Id = 4, Name = "Ủy ban MTTQVN Việt Nam", Address = "46 Tràng Thi, Hoàn Kiếm, Hà Nội", Location = new Point(106.6973581406628, 10.786765331782663) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 680000, CurrentUtilization = 516354, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
+            new Depot { Id = 5, Name = "Ủy ban MTTQVN Tỉnh Quảng Nam", Address = "72 Hùng Vương, TP. Tam Kỳ, Quảng Nam", Location = new Point(108.47388, 15.57360) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 900000, CurrentUtilization = 0, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" }
         );
     }
 
@@ -647,7 +649,8 @@ public static class LogisticsSeeder
             new DepotManager { Id = 1, DepotId = 1, UserId = SeedConstants.ManagerUserId,   AssignedAt = now },
             new DepotManager { Id = 2, DepotId = 2, UserId = SeedConstants.Manager2UserId,  AssignedAt = now },
             new DepotManager { Id = 3, DepotId = 3, UserId = SeedConstants.Manager3UserId,  AssignedAt = now },
-            new DepotManager { Id = 4, DepotId = 4, UserId = SeedConstants.Manager4UserId,  AssignedAt = now }
+            new DepotManager { Id = 4, DepotId = 4, UserId = SeedConstants.Manager4UserId,  AssignedAt = now },
+            new DepotManager { Id = 5, DepotId = 5, UserId = SeedConstants.Manager5UserId,  AssignedAt = now }
         );
     }
 
@@ -791,6 +794,24 @@ public static class LogisticsSeeder
             var quantity = entry.Quantity ?? 1;
             var reserved = (int)Math.Floor(quantity * (1m - availableRatio));
             entry.MissionReservedQuantity = Math.Clamp(reserved, 0, quantity - 1);
+        }
+
+        // ── Transfer reservation overrides — khớp với supply requests đã seed ──
+        // Request #2 (Depot 2 = Đà Nẵng là kho nguồn, trạng thái Accepted):
+        //   DSI 75 = Depot 2, Item #3  (Thuốc Paracetamol 500mg) → đặt trữ 10000
+        //   DSI 80 = Depot 2, Item #9  (Dầu gió)                 → đặt trữ 500
+        // Request #3 (Depot 4 = Hà Nội là kho nguồn, trạng thái Shipping):
+        //   DSI 222 = Depot 4, Item #7  (Sữa bột trẻ em)         → đặt trữ 2000
+        var transferReservedOverrides = new Dictionary<int, int>
+        {
+            [75]  = 10000,
+            [80]  = 500,
+            [222] = 2000,
+        };
+        foreach (var entry in list)
+        {
+            if (transferReservedOverrides.TryGetValue(entry.Id, out var transferReserved))
+                entry.TransferReservedQuantity = transferReserved;
         }
 
         modelBuilder.Entity<DepotSupplyInventory>().HasData(list.ToArray());

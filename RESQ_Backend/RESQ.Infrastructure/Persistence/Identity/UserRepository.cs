@@ -155,6 +155,15 @@ namespace RESQ.Infrastructure.Persistence.Identity
             return new PagedResult<UserModel>(models, paged.TotalCount, paged.PageNumber, paged.PageSize);
         }
 
+        public async Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken cancellationToken = default)
+        {
+            return await _unitOfWork.GetRepository<User>()
+                .AsQueryable(tracked: false)
+                .Where(u => u.RoleId == 1 && !u.IsBanned)
+                .Select(u => u.Id)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<PagedResult<UserModel>> GetPagedForPermissionAsync(
             int pageNumber, int pageSize,
             int? roleId = null, string? search = null,

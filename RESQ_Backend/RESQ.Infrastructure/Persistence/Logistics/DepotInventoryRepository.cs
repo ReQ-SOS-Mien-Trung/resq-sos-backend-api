@@ -41,6 +41,17 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         return records.Where(dm => dm.DepotId.HasValue).Select(dm => dm.DepotId!.Value).ToList();
     }
 
+    public async Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken ct = default)
+    {
+        var managerRecord = await _unitOfWork.GetRepository<DepotManager>()
+            .GetByPropertyAsync(
+                dm => dm.DepotId == depotId && dm.UnassignedAt == null,
+                tracked: false
+            );
+
+        return managerRecord?.UserId;
+    }
+
     public async Task<PagedResult<InventoryItemModel>> GetInventoryPagedAsync(
         int depotId, 
         List<int>? categoryIds, 
@@ -1063,6 +1074,262 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     ? note
                     : $"Điều chỉnh tăng vật tư #{itemModelId} SL {quantityChange}: {reason}",
                 CreatedAt              = now
+            });
+        }
+
+        await _unitOfWork.SaveAsync();
+    }
+
+    // ─── Depot Closure bulk operations ───────────────────────────────────────
+
+    /// <summary>
+    /// Cursor-based, resumable batch transfer of ALL consumable + reusable inventory
+    /// from <paramref name="sourceDepotId"/> to <paramref name="targetDepotId"/>.
+    /// Each call processes up to <paramref name="batchSize"/> supply_inventory rows.
+    /// Returns (processedRows, lastInventoryId) so the handler can persist progress.
+    /// Reusable items are re-homed in a single pass after consumables.
+    /// </summary>
+    public async Task<(int ProcessedRows, int? LastInventoryId)> BulkTransferForClosureAsync(
+        int sourceDepotId,
+        int targetDepotId,
+        int closureId,
+        Guid performedBy,
+        int? lastProcessedInventoryId,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        int processedRows = 0;
+        int? lastId = lastProcessedInventoryId;
+
+        // ── 1. Consumable rows (supply_inventory) — cursor paginated ─────────
+        var inventoryQuery = _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+            .Where(inv => inv.DepotId == sourceDepotId && (inv.Quantity ?? 0) > 0);
+
+        if (lastId.HasValue)
+            inventoryQuery = inventoryQuery.Where(inv => inv.Id > lastId.Value);
+
+        var batch = await inventoryQuery
+            .OrderBy(inv => inv.Id)
+            .Take(batchSize)
+            .Include(inv => inv.Lots)
+            .ToListAsync(cancellationToken);
+
+        foreach (var srcInv in batch)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var itemModelId = srcInv.ItemModelId;
+            var totalQty    = srcInv.Quantity ?? 0;
+            if (totalQty <= 0) { lastId = srcInv.Id; processedRows++; continue; }
+
+            // ── find or create destination SupplyInventory row ───────────────
+            var dstInv = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+                .FirstOrDefaultAsync(inv => inv.DepotId == targetDepotId && inv.ItemModelId == itemModelId, cancellationToken);
+
+            if (dstInv == null)
+            {
+                dstInv = new SupplyInventory
+                {
+                    DepotId           = targetDepotId,
+                    ItemModelId       = itemModelId,
+                    Quantity          = 0,
+                    MissionReservedQuantity  = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt     = now
+                };
+                await _unitOfWork.GetRepository<SupplyInventory>().AddAsync(dstInv);
+                await _unitOfWork.SaveAsync(); // flush to get dstInv.Id
+            }
+
+            // ── transfer lots FEFO ───────────────────────────────────────────
+            var lots = srcInv.Lots
+                .Where(l => l.RemainingQuantity > 0)
+                .OrderBy(l => l.ExpiredDate == null ? 1 : 0)
+                .ThenBy(l => l.ExpiredDate)
+                .ThenBy(l => l.ReceivedDate)
+                .ToList();
+
+            foreach (var srcLot in lots)
+            {
+                var qty = srcLot.RemainingQuantity;
+
+                // source: zero out lot
+                srcLot.RemainingQuantity = 0;
+
+                // source: log outbound
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    DepotSupplyInventoryId = srcInv.Id,
+                    SupplyInventoryLotId   = srcLot.Id,
+                    ActionType             = InventoryActionType.TransferOut.ToString(),
+                    QuantityChange         = -qty,
+                    SourceType             = "DepotClosure",
+                    SourceId               = closureId,
+                    PerformedBy            = performedBy,
+                    Note                   = $"Đóng kho #{sourceDepotId}: chuyển lô #{srcLot.Id} vật tư #{itemModelId} SL {qty} sang kho #{targetDepotId}",
+                    ExpiredDate            = srcLot.ExpiredDate,
+                    ReceivedDate           = srcLot.ReceivedDate,
+                    CreatedAt              = now
+                });
+
+                // destination: create new lot
+                var dstLot = new SupplyInventoryLot
+                {
+                    SupplyInventoryId = dstInv.Id,
+                    Quantity          = qty,
+                    RemainingQuantity = qty,
+                    ReceivedDate      = srcLot.ReceivedDate ?? now,
+                    ExpiredDate       = srcLot.ExpiredDate,
+                    SourceType        = "DepotClosure",
+                    SourceId          = closureId,
+                    CreatedAt         = now
+                };
+                await _unitOfWork.GetRepository<SupplyInventoryLot>().AddAsync(dstLot);
+                await _unitOfWork.SaveAsync(); // flush to get dstLot.Id
+
+                // destination: log inbound
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    DepotSupplyInventoryId = dstInv.Id,
+                    SupplyInventoryLotId   = dstLot.Id,
+                    ActionType             = InventoryActionType.TransferIn.ToString(),
+                    QuantityChange         = qty,
+                    SourceType             = "DepotClosure",
+                    SourceId               = closureId,
+                    PerformedBy            = performedBy,
+                    Note                   = $"Đóng kho #{sourceDepotId}: nhận lô từ kho nguồn, vật tư #{itemModelId} SL {qty}",
+                    ExpiredDate            = srcLot.ExpiredDate,
+                    ReceivedDate           = srcLot.ReceivedDate,
+                    CreatedAt              = now
+                });
+
+                dstInv.Quantity      = (dstInv.Quantity ?? 0) + qty;
+                dstInv.LastStockedAt = now;
+            }
+
+            // zero out source inventory
+            srcInv.Quantity                = 0;
+            srcInv.MissionReservedQuantity = 0;
+            srcInv.TransferReservedQuantity = 0;
+            srcInv.LastStockedAt            = now;
+
+            lastId = srcInv.Id;
+            processedRows++;
+        }
+
+        // ── 2. Reusable items — move Available units to target depot ─────────
+        // Only run when consumable batch is exhausted (batch.Count < batchSize)
+        // so caller knows it's the final pass.
+        if (batch.Count < batchSize)
+        {
+            var reusableItems = await _unitOfWork.GetRepository<ReusableItem>()
+                .AsQueryable(tracked: true)
+                .Where(r => r.DepotId == sourceDepotId && r.Status == nameof(ReusableItemStatus.Available))
+                .ToListAsync(cancellationToken);
+
+            foreach (var unit in reusableItems)
+            {
+                var oldDepotId = unit.DepotId;
+                unit.DepotId    = targetDepotId;
+                unit.UpdatedAt  = now;
+
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    ReusableItemId = unit.Id,
+                    ActionType     = InventoryActionType.TransferOut.ToString(),
+                    QuantityChange = 1,
+                    SourceType     = "DepotClosure",
+                    SourceId       = closureId,
+                    PerformedBy    = performedBy,
+                    Note           = $"Đóng kho #{oldDepotId}: di chuyển thiết bị #{unit.Id} sang kho #{targetDepotId}",
+                    CreatedAt      = now
+                });
+            }
+        }
+
+        await _unitOfWork.SaveAsync();
+        return (processedRows, lastId);
+    }
+
+    /// <summary>
+    /// Zero out ALL consumable inventory and decommission Available reusable items
+    /// for a depot being closed via external resolution.
+    /// Creates per-lot inventory logs with SourceType = "DepotClosure".
+    /// </summary>
+    public async Task ZeroOutForClosureAsync(
+        int depotId,
+        int closureId,
+        Guid performedBy,
+        string? note,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+
+        // ── 1. Consumables ────────────────────────────────────────────────────
+        var inventories = await _unitOfWork.GetRepository<SupplyInventory>()
+            .AsQueryable(tracked: true)
+            .Where(inv => inv.DepotId == depotId && (inv.Quantity ?? 0) > 0)
+            .Include(inv => inv.Lots)
+            .ToListAsync(cancellationToken);
+
+        foreach (var inv in inventories)
+        {
+            var lots = inv.Lots
+                .Where(l => l.RemainingQuantity > 0)
+                .OrderBy(l => l.ExpiredDate == null ? 1 : 0)
+                .ThenBy(l => l.ExpiredDate)
+                .ThenBy(l => l.ReceivedDate)
+                .ToList();
+
+            foreach (var lot in lots)
+            {
+                var qty = lot.RemainingQuantity;
+                lot.RemainingQuantity = 0;
+
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    DepotSupplyInventoryId = inv.Id,
+                    SupplyInventoryLotId   = lot.Id,
+                    ActionType             = "DepotClosureExternalDisposal",
+                    QuantityChange         = -qty,
+                    SourceType             = "DepotClosure",
+                    SourceId               = closureId,
+                    PerformedBy            = performedBy,
+                    Note                   = $"Đóng kho #{depotId} (xử lý bên ngoài): xuất lô #{lot.Id} vật tư #{inv.ItemModelId} SL {qty}. {note}",
+                    ExpiredDate            = lot.ExpiredDate,
+                    ReceivedDate           = lot.ReceivedDate,
+                    CreatedAt              = now
+                });
+            }
+
+            inv.Quantity                 = 0;
+            inv.MissionReservedQuantity  = 0;
+            inv.TransferReservedQuantity = 0;
+            inv.LastStockedAt            = now;
+        }
+
+        // ── 2. Reusable items — decommission Available units ──────────────────
+        var reusableItems = await _unitOfWork.GetRepository<ReusableItem>()
+            .AsQueryable(tracked: true)
+            .Where(r => r.DepotId == depotId && r.Status == nameof(ReusableItemStatus.Available))
+            .ToListAsync(cancellationToken);
+
+        foreach (var unit in reusableItems)
+        {
+            unit.Status    = nameof(ReusableItemStatus.Decommissioned);
+            unit.UpdatedAt = now;
+            unit.Note      = $"Đóng kho #{depotId} (xử lý bên ngoài) — closureId #{closureId}. {note}";
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                ReusableItemId = unit.Id,
+                ActionType     = "DepotClosureReusableDecommissioned",
+                QuantityChange = -1,
+                SourceType     = "DepotClosure",
+                SourceId       = closureId,
+                PerformedBy    = performedBy,
+                Note           = $"Đóng kho #{depotId} (xử lý bên ngoài): thanh lý thiết bị #{unit.Id}. {note}",
+                CreatedAt      = now
             });
         }
 

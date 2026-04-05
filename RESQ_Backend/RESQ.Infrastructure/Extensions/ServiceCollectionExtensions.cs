@@ -56,6 +56,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
         services.AddScoped<IDepotInventoryRepository, DepotInventoryRepository>();
+        services.AddScoped<IDepotClosureRepository, DepotClosureRepository>();
+        services.AddScoped<IDepotClosureTransferRepository, DepotClosureTransferRepository>();
         services.AddScoped<IUpcomingPickupActivityRepository, UpcomingPickupActivityRepository>();
         services.AddScoped<IStockThresholdConfigRepository, StockThresholdConfigRepository>();
         services.AddScoped<IStockWarningBandConfigRepository, StockWarningBandConfigRepository>();
@@ -111,6 +113,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRescuerScoreVisibilityConfigRepository, RescuerScoreVisibilityConfigRepository>();
         services.AddScoped<IServiceZoneRepository, ServiceZoneRepository>();
         services.AddScoped<ISosClusterGroupingConfigRepository, SosClusterGroupingConfigRepository>();
+        services.AddScoped<IRescueTeamRadiusConfigRepository, RescueTeamRadiusConfigRepository>();
         services.AddScoped<ISosPriorityRuleConfigRepository, SosPriorityRuleConfigRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
 
@@ -156,6 +159,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<DepotRealtimeOutboxDispatcherBackgroundService>();
         services.AddHostedService<DepotRealtimeDeadLetterRetryBackgroundService>();
         services.AddHostedService<SupplyRequestDeadlineBackgroundService>();
+        services.AddHostedService<DepotClosureTimeoutBackgroundService>();
 
         return services;
     }

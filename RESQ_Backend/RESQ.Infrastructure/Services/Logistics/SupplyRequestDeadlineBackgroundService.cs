@@ -73,7 +73,7 @@ public class SupplyRequestDeadlineBackgroundService(
                 await firebaseService.SendNotificationToUserAsync(
                     request.RequestedBy,
                     "Yêu cầu tiếp tế đã bị tự động từ chối",
-                    $"Yêu cầu #{request.Id} đã bị hệ thống tự động từ chối vì quá thời gian phản hồi từ kho nguồn.",
+                    $"Yêu cầu tiếp tế số {request.Id} đã bị hệ thống tự động từ chối vì quá thời gian phản hồi từ kho nguồn.",
                     "supply_request_auto_rejected",
                     cancellationToken);
 
@@ -91,7 +91,7 @@ public class SupplyRequestDeadlineBackgroundService(
                         await firebaseService.SendNotificationToUserAsync(
                             sourceManagerUserId.Value,
                             "Yêu cầu tiếp tế đã vào ngưỡng gấp",
-                            $"Yêu cầu #{request.Id} đã vào ngưỡng gấp. Vui lòng ưu tiên kiểm tra và phản hồi.",
+                            $"Yêu cầu tiếp tế số {request.Id} đã vào ngưỡng gấp. Vui lòng ưu tiên kiểm tra và phản hồi.",
                             "supply_request_high_escalation",
                             cancellationToken);
 
@@ -111,7 +111,7 @@ public class SupplyRequestDeadlineBackgroundService(
                         await firebaseService.SendNotificationToUserAsync(
                             sourceManagerUserId.Value,
                             "Yêu cầu tiếp tế đã vào ngưỡng khẩn cấp",
-                            $"Yêu cầu #{request.Id} đã vào ngưỡng khẩn cấp. Vui lòng xử lý ngay để tránh tự động từ chối.",
+                            $"Yêu cầu tiếp tế số {request.Id} đã vào ngưỡng khẩn cấp. Vui lòng xử lý ngay để tránh tự động từ chối.",
                             "supply_request_urgent_escalation",
                             cancellationToken);
 

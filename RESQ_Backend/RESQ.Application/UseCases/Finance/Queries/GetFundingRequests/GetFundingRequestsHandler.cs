@@ -29,7 +29,6 @@ public class GetFundingRequestsHandler : IRequestHandler<GetFundingRequestsQuery
             DepotName = x.DepotName ?? string.Empty,
             TotalAmount = x.TotalAmount,
             Description = x.Description,
-            AttachmentUrl = x.AttachmentUrl,
             Status = x.Status.ToString(),
             ApprovedCampaignId = x.ApprovedCampaignId,
             ApprovedCampaignName = x.ApprovedCampaignName,

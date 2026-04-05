@@ -95,6 +95,9 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
+    // Render enum properties as string names in Swagger (mirrors JsonStringEnumConverter)
+    c.SchemaFilter<RESQ.Presentation.Extensions.EnumSchemaFilter>();
+
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);

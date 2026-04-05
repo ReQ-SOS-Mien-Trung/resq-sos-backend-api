@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Exceptions;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Logistics;
@@ -21,6 +22,7 @@ public class ImportPurchasedInventoryCommandHandler(
     IUserRepository userRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IUnitOfWork unitOfWork,
+    IFirebaseService firebaseService,
     ILogger<ImportPurchasedInventoryCommandHandler> logger)
     : IRequestHandler<ImportPurchasedInventoryCommand, ImportPurchasedInventoryResponse>
 {
@@ -32,6 +34,7 @@ public class ImportPurchasedInventoryCommandHandler(
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ILogger<ImportPurchasedInventoryCommandHandler> _logger = logger;
 
     public async Task<ImportPurchasedInventoryResponse> Handle(ImportPurchasedInventoryCommand request, CancellationToken cancellationToken)
@@ -353,14 +356,15 @@ public class ImportPurchasedInventoryCommandHandler(
 
                 var depotName = depotFund.DepotName ?? $"Kho #{depotFund.DepotId}";
 
+                // Resolve tên người nhập cho cả 2 case (Deduction và SelfAdvance)
+                var importerName = await ResolveAdvancedByNameAsync(
+                    request.AdvancedByName,
+                    request.UserId,
+                    cancellationToken);
+
                 if (debitResult.IsAdvanced)
                 {
-                    var advancedByName = await ResolveAdvancedByNameAsync(
-                        request.AdvancedByName,
-                        request.UserId,
-                        cancellationToken);
-
-                    // Kho tá»± á»©ng â€” ghi transaction SelfAdvance
+                    // Kho tự ứng  ghi transaction SelfAdvance
                     await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
                     {
                         DepotFundId = depotFund.Id,
@@ -373,14 +377,26 @@ public class ImportPurchasedInventoryCommandHandler(
                             debitResult.AdvancedAmount,
                             request.Invoices.Count,
                             totalCost,
-                            advancedByName),
+                            importerName),
                         CreatedBy = request.UserId,
                         CreatedAt = DateTime.UtcNow
                     }, cancellationToken);
+
+                    // Notify tất cả admin biết kho đang tự ứng vượt quỹ (fire-and-forget)
+                    var adminIds = await _userRepository.GetActiveAdminUserIdsAsync(cancellationToken);
+                    foreach (var adminId in adminIds)
+                    {
+                        _ = _firebaseService.SendNotificationToUserAsync(
+                            adminId,
+                            "Kho tự ứng quỹ nhập hàng",
+                            $"{depotName} vừa tự ứng {debitResult.AdvancedAmount:N0} VNĐ để nhập vật tư ({request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ). Người ứng: {importerName}.",
+                            "depot_fund_self_advance",
+                            CancellationToken.None);
+                    }
                 }
                 else
                 {
-                    // Äá»§ quá»¹ â€” ghi transaction Deduction bÃ¬nh thÆ°á»ng
+                    // Đủ quỹ  ghi transaction Deduction bình thường
                     await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
                     {
                         DepotFundId = depotFund.Id,
@@ -490,7 +506,7 @@ public class ImportPurchasedInventoryCommandHandler(
         int invoiceCount,
         decimal totalCost,
         string advancedByName)
-        => $"{depotName} da tu ung {advancedAmount:N0} VND de nhap vat tu ({invoiceCount} hoa don, tong {totalCost:N0} VND). Nguoi ung: {advancedByName}";
+        => $"{depotName} đã tự ứng {advancedAmount:N0} VNĐ để nhập vật tư ({invoiceCount} hóa đơn, tổng {totalCost:N0} VNĐ). Người ứng: {advancedByName}.";
 }
 
 

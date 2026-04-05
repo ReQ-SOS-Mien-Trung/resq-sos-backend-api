@@ -62,8 +62,8 @@ public class GetSupplyRequestsQueryHandler(
                 SourceDepotId       = item.SourceDepotId,
                 SourceDepotName     = item.SourceDepotName,
                 PriorityLevel       = item.PriorityLevel,
-                SourceStatus        = item.SourceStatus,
-                RequestingStatus    = item.RequestingStatus,
+                SourceStatus        = TranslateSourceStatus(item.SourceStatus),
+                RequestingStatus    = TranslateRequestingStatus(item.RequestingStatus),
                 Note                = item.Note,
                 RejectedReason      = item.RejectedReason,
                 RequestedBy         = item.RequestedBy,
@@ -92,4 +92,25 @@ public class GetSupplyRequestsQueryHandler(
             ServerTime = nowUtc.ToVietnamOffset()
         };
     }
+
+    private static string TranslateSourceStatus(string? status) => status switch
+    {
+        "Pending"   => "Chờ xử lý",
+        "Accepted"  => "Đã chấp nhận",
+        "Preparing" => "Đang chuẩn bị",
+        "Shipping"  => "Đang vận chuyển",
+        "Completed" => "Đã hoàn tất giao",
+        "Rejected"  => "Đã từ chối",
+        _           => status ?? string.Empty
+    };
+
+    private static string TranslateRequestingStatus(string? status) => status switch
+    {
+        "WaitingForApproval" => "Chờ duyệt",
+        "Approved"           => "Đã được chấp nhận",
+        "InTransit"          => "Đang vận chuyển",
+        "Received"           => "Đã nhận hàng",
+        "Rejected"           => "Đã bị từ chối",
+        _                    => status ?? string.Empty
+    };
 }

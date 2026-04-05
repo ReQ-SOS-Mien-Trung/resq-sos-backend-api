@@ -45,10 +45,10 @@ public class ShipSupplyRequestCommandHandler(
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "Vật tư đang được vận chuyển",
-            $"Yêu cầu #{sr.Id}: hàng đã xuất kho và đang vận chuyển đến kho của bạn.",
+            $"Yêu cầu tiếp tế số {sr.Id}: hàng đã xuất kho và đang vận chuyển đến kho của bạn.",
             "supply_shipped",
             cancellationToken);
 
-        return new ShipSupplyRequestResponse { Message = $"Đã xuất hàng cho yêu cầu #{sr.Id}." };
+        return new ShipSupplyRequestResponse { Message = $"Đã xuất hàng cho yêu cầu số {sr.Id}." };
     }
 }

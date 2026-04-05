@@ -35,10 +35,10 @@ public class CompleteSupplyRequestCommandHandler(
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "Kho nguồn đã hoàn tất giao hàng",
-            $"Yêu cầu #{sr.Id}: kho nguồn xác nhận đã giao hàng. Vui lòng kiểm tra và xác nhận nhận hàng.",
+            $"Yêu cầu tiếp tế số {sr.Id}: kho nguồn xác nhận đã giao hàng. Vui lòng kiểm tra và xác nhận nhận hàng.",
             "supply_completed",
             cancellationToken);
 
-        return new CompleteSupplyRequestResponse { Message = $"Đã xác nhận hoàn tất giao hàng cho yêu cầu #{sr.Id}." };
+        return new CompleteSupplyRequestResponse { Message = $"Đã xác nhận hoàn tất giao hàng cho yêu cầu số {sr.Id}." };
     }
 }

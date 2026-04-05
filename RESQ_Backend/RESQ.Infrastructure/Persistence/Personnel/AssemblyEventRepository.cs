@@ -312,7 +312,15 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             {
                 EventId = x.Event.Id,
                 AssemblyPointId = x.Event.AssemblyPointId,
-                AssemblyPointName = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.Name : string.Empty,
+                AssemblyPointName = x.Event.AssemblyPoint != null ? (x.Event.AssemblyPoint.Name ?? string.Empty) : string.Empty,
+                AssemblyPointCode = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.Code : null,
+                AssemblyPointStatus = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.Status : null,
+                AssemblyPointMaxCapacity = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.MaxCapacity : null,
+                AssemblyPointImageUrl = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.ImageUrl : null,
+                AssemblyPointLatitude = x.Event.AssemblyPoint != null && x.Event.AssemblyPoint.Location != null
+                    ? x.Event.AssemblyPoint.Location.Y : null,
+                AssemblyPointLongitude = x.Event.AssemblyPoint != null && x.Event.AssemblyPoint.Location != null
+                    ? x.Event.AssemblyPoint.Location.X : null,
                 AssemblyDate = x.Event.AssemblyDate,
                 EventStatus = x.Event.Status,
                 IsCheckedIn = x.Participant.IsCheckedIn,

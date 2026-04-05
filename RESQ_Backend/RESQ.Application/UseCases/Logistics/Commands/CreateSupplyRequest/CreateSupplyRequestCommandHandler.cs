@@ -89,8 +89,8 @@ public class CreateSupplyRequestCommandHandler(
                 var isUrgent = createdGroup.PriorityLevel == SupplyRequestPriorityLevel.Urgent;
                 var notificationTitle = isUrgent ? "Yêu cầu tiếp tế khẩn cấp" : "Yêu cầu cung cấp vật tư mới";
                 var notificationBody = isUrgent
-                    ? $"Yêu cầu #{created.SupplyRequestId} đã vào mức khẩn cấp. Vui lòng ưu tiên xử lý ngay."
-                    : $"Kho của bạn vừa nhận được yêu cầu cung cấp vật tư #{created.SupplyRequestId}. Vui lòng kiểm tra và xử lý.";
+                    ? $"Yêu cầu tiếp tế số {created.SupplyRequestId} đã vào mức khẩn cấp. Vui lòng ưu tiên xử lý ngay."
+                    : $"Kho của bạn vừa nhận được yêu cầu cung cấp vật tư số {created.SupplyRequestId}. Vui lòng kiểm tra và xử lý.";
                 var notificationType = isUrgent ? "supply_request_urgent" : "supply_request";
 
                 await _firebaseService.SendNotificationToUserAsync(

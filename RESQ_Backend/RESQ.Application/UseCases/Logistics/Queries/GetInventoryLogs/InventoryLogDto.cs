@@ -15,4 +15,14 @@ public class InventoryLogDto
     public DateTime? ReceivedDate { get; set; }
     public DateTime? ExpiredDate { get; set; }
     public string? PerformedByName { get; set; }
+
+    // VatInvoice
+    public int? VatInvoiceId { get; set; }
+    public string? InvoiceSerial { get; set; }
+    public string? InvoiceNumber { get; set; }
+    public string? SupplierName { get; set; }
+    public string? SupplierTaxCode { get; set; }
+    public DateOnly? InvoiceDate { get; set; }
+    public decimal? InvoiceTotalAmount { get; set; }
+    public string? InvoiceFileUrl { get; set; }
 }

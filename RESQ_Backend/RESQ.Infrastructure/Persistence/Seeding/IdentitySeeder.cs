@@ -162,6 +162,23 @@ public static class IdentitySeeder
             },
             new User
             {
+                Id = SeedConstants.Manager5UserId,
+                RoleId = 4,
+                FirstName = "Tuấn",
+                LastName = "Trần Quốc",
+                Username = "manager5",
+                Email = "manager5@resq.vn",
+                Phone = "0934567894",
+                Password = SeedConstants.ManagerPasswordHash,
+                Address = "45 Trần Phú",
+                Ward = "Phường An Mỹ",
+                Province = "Quảng Nam",
+                IsEmailVerified = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            new User
+            {
                 Id = SeedConstants.VictimUserId,
                 RoleId = 5,
                 FirstName = "Tâm",
