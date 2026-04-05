@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
@@ -23,6 +24,7 @@ using RESQ.Application.UseCases.Operations.Queries.GetMyTeamActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamReport;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamRoute;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeams;
+using RESQ.Application.UseCases.Operations.Queries.MissionMetadata;
 using RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetRescuerRoute;
@@ -34,6 +36,24 @@ namespace RESQ.Presentation.Controllers.Operations;
 public class MissionController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
+
+    /// <summary>[Metadata] Danh sách trạng thái mission.</summary>
+    [HttpGet("metadata/statuses")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMissionStatusesMetadata()
+    {
+        var result = await _mediator.Send(new GetMissionStatusesMetadataQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách trạng thái mission activity.</summary>
+    [HttpGet("metadata/activity-statuses")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMissionActivityStatusesMetadata()
+    {
+        var result = await _mediator.Send(new GetMissionActivityStatusesMetadataQuery());
+        return Ok(result);
+    }
 
     // ============================================================
     // MISSIONS
@@ -267,8 +287,16 @@ public class MissionController(IMediator mediator) : ControllerBase
     // ============================================================
 
     /// <summary>Lấy tuyến đường từ vị trí rescuer đến đích activity (vehicle: car|bike|taxi|hd).</summary>
+    /// <remarks>
+    /// API này vẫn có thể trả HTTP 200 nếu request hợp lệ nhưng Goong không tạo được tuyến đường.
+    /// Frontend phải kiểm tra trường <c>status</c> trong response body trước khi dùng dữ liệu tuyến đường.
+    /// Chỉ sử dụng <c>route</c> khi <c>status</c> là <c>OK</c>; nếu không, đọc <c>errorMessage</c> để xử lý lỗi.
+    /// </remarks>
     [HttpGet("{missionId:int}/activities/{activityId:int}/route")]
     [Authorize(Policy = PermissionConstants.PolicyRouteAccess)]
+    [ProducesResponseType(typeof(GetRescuerRouteResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetRescuerRoute(
         [FromRoute] int missionId,
         [FromRoute] int activityId,
@@ -276,7 +304,7 @@ public class MissionController(IMediator mediator) : ControllerBase
         [FromQuery] double originLng,
         [FromQuery] string vehicle = "car")
     {
-        var result = await _mediator.Send(new GetRescuerRouteQuery(activityId, originLat, originLng, vehicle));
+        var result = await _mediator.Send(new GetRescuerRouteQuery(missionId, activityId, originLat, originLng, vehicle));
         return Ok(result);
     }
 

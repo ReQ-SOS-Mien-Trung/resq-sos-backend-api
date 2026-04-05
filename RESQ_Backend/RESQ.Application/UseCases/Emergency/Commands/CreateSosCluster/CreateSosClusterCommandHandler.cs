@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Repositories.System;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Enum.Emergency;
 
@@ -12,15 +13,17 @@ namespace RESQ.Application.UseCases.Emergency.Commands.CreateSosCluster;
 public class CreateSosClusterCommandHandler(
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
+    ISosClusterGroupingConfigRepository sosClusterGroupingConfigRepository,
     IUnitOfWork unitOfWork,
     ILogger<CreateSosClusterCommandHandler> logger
 ) : IRequestHandler<CreateSosClusterCommand, CreateSosClusterResponse>
 {
     /// <summary>Khoảng cách tối đa (km) giữa 2 SOS request bất kỳ trong cùng một cluster.</summary>
-    private const double MaxClusterSpreadKm = 10.0;
+    private const double DefaultMaxClusterSpreadKm = 10.0;
 
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosClusterGroupingConfigRepository _sosClusterGroupingConfigRepository = sosClusterGroupingConfigRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<CreateSosClusterCommandHandler> _logger = logger;
 
@@ -49,6 +52,11 @@ public class CreateSosClusterCommandHandler(
         if (resolvedRequests.Count == 0)
             throw new BadRequestException("Không có SOS request hợp lệ để tạo cluster");
 
+        var clusterGroupingConfig = await _sosClusterGroupingConfigRepository.GetAsync(cancellationToken);
+        var maxClusterSpreadKm = clusterGroupingConfig?.MaximumDistanceKm > 0
+            ? clusterGroupingConfig.MaximumDistanceKm
+            : DefaultMaxClusterSpreadKm;
+
         // Validate: all SOS requests must be Pending
         var nonPendingRequests = resolvedRequests
             .Where(r => r.Status != SosRequestStatus.Pending)
@@ -67,7 +75,7 @@ public class CreateSosClusterCommandHandler(
                 $"Các SOS request sau đã thuộc cluster khác: " +
                 $"{string.Join(", ", alreadyClusteredRequests.Select(r => $"#{r.Id} (Cluster #{r.ClusterId})"))}");
 
-        // Validate: no two SOS requests may be farther apart than MaxClusterSpreadKm
+        // Validate: no two SOS requests may be farther apart than configured max spread distance
         var withCoords = resolvedRequests
             .Where(r => r.Location != null)
             .ToList();
@@ -82,10 +90,10 @@ public class CreateSosClusterCommandHandler(
                     a.Location!.Latitude, a.Location.Longitude,
                     b.Location!.Latitude, b.Location.Longitude);
 
-                if (distKm > MaxClusterSpreadKm)
+                if (distKm > maxClusterSpreadKm)
                     throw new BadRequestException(
                         $"SOS request #{a.Id} và #{b.Id} cách nhau {distKm:F1} km, " +
-                        $"vượt quá giới hạn {MaxClusterSpreadKm} km cho phép trong một cluster. " +
+                        $"vượt quá giới hạn {maxClusterSpreadKm:F1} km cho phép trong một cluster. " +
                         $"Vui lòng chỉ nhóm các yêu cầu trong cùng khu vực địa lý.");
             }
         }

@@ -69,6 +69,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Prompt> Prompts { get; set; }
     public virtual DbSet<RescuerScoreVisibilityConfig> RescuerScoreVisibilityConfigs { get; set; }
     public virtual DbSet<ServiceZone> ServiceZones { get; set; }
+    public virtual DbSet<SosClusterGroupingConfig> SosClusterGroupingConfigs { get; set; }
     public virtual DbSet<SosPriorityRuleConfig> SosPriorityRuleConfigs { get; set; }
     public virtual DbSet<ItemModel> ItemModels { get; set; }
     public virtual DbSet<TargetGroup> TargetGroups { get; set; }
@@ -179,6 +180,18 @@ public partial class ResQDbContext : DbContext
                 t.HasCheckConstraint(
                     "CK_rescuer_score_visibility_configs_minimum_evaluation_count_non_negative",
                     "\"minimum_evaluation_count\" >= 0");
+            });
+        });
+
+        modelBuilder.Entity<SosClusterGroupingConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("sos_cluster_grouping_configs_pkey");
+
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_sos_cluster_grouping_configs_maximum_distance_km_positive",
+                    "\"maximum_distance_km\" > 0");
             });
         });
 

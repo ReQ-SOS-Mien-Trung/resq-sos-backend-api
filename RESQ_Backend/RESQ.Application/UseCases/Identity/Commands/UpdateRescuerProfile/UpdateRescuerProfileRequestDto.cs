@@ -4,7 +4,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
     {
         public string FirstName { get; set; } = null!;
         public string? LastName { get; set; }
-        public string Phone { get; set; } = null!;
         public string Address { get; set; } = null!;
         public string? Ward { get; set; }
         public string Province { get; set; } = null!;

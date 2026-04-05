@@ -34,6 +34,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyPickupHistoryActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingPickupActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholds;
@@ -124,6 +125,29 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new GetMyUpcomingPickupActivitiesQuery(userId)
         {
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xem lịch sử các activity đã đến kho mình quản lý để lấy vật tư thành công.</summary>
+    [HttpGet("my-depot/pickup-history")]
+    [Authorize(Roles = "1,4")]
+    [ProducesResponseType(typeof(PagedResult<PickupHistoryActivityDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyPickupHistory(
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyPickupHistoryActivitiesQuery(userId)
+        {
+            FromDate = fromDate,
+            ToDate = toDate,
             PageNumber = pageNumber,
             PageSize = pageSize
         });
