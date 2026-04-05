@@ -1,5 +1,5 @@
 using System.Globalization;
-using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -140,73 +140,325 @@ public class GoongMapService : IGoongMapService
         if (points.Count == 0)
             return new MissionRouteResult { Status = "NO_WAYPOINTS", ErrorMessage = "Không có điểm dừng nào có tọa độ." };
 
-        var fmt = CultureInfo.InvariantCulture;
-        var origin      = $"{originLat.ToString(fmt)},{originLng.ToString(fmt)}";
-        var destination = $"{points[^1].Lat.ToString(fmt)},{points[^1].Lng.ToString(fmt)}";
-        var url = $"{_baseUrl}/Direction?origin={origin}&destination={destination}&vehicle={vehicle}&api_key={_apiKey}";
+        _logger.LogInformation(
+            "Calling Goong Mission Route by segments: origin={OriginLat},{OriginLng} stops={StopCount} vehicle={Vehicle}",
+            originLat,
+            originLng,
+            points.Count,
+            vehicle);
 
-        if (points.Count > 1)
+        var legs = new List<GoongLegSummary>(points.Count);
+        var currentLat = originLat;
+        var currentLng = originLng;
+
+        foreach (var point in points)
         {
-            var waypointStr = string.Join("|",
-                points[..^1].Select(p => $"{p.Lat.ToString(fmt)},{p.Lng.ToString(fmt)}"));
-            url += $"&waypoints={waypointStr}";
-        }
+            var leg = await GetMissionLegAsync(
+                currentLat,
+                currentLng,
+                point.Lat,
+                point.Lng,
+                vehicle,
+                cancellationToken);
 
-        _logger.LogInformation("Calling Goong Mission Route: origin={Origin} dest={Destination} waypoints={Count} vehicle={Vehicle}",
-            origin, destination, points.Count - 1, vehicle);
-
-        HttpResponseMessage response;
-        try
-        {
-            response = await _httpClient.GetAsync(url, cancellationToken);
+            legs.Add(leg);
+            currentLat = point.Lat;
+            currentLng = point.Lng;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Goong Mission Route API call failed");
-            return new MissionRouteResult { Status = "ERROR", ErrorMessage = ex.Message };
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("Goong Mission Route API returned HTTP {StatusCode}: {Body}", response.StatusCode, body);
-            return new MissionRouteResult { Status = "ERROR", ErrorMessage = $"HTTP {(int)response.StatusCode}: {body}" };
-        }
-
-        GoongDirectionResponse? goongResp;
-        try
-        {
-            var rawBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogDebug("Goong Mission Route raw response: {Body}", rawBody);
-            goongResp = JsonSerializer.Deserialize<GoongDirectionResponse>(rawBody, JsonOptions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize Goong Mission Route response");
-            return new MissionRouteResult { Status = "ERROR", ErrorMessage = "Không thể đọc kết quả từ Goong API." };
-        }
-
-        if (goongResp?.Routes is null || goongResp.Routes.Count == 0)
-            return new MissionRouteResult { Status = "NO_ROUTES", ErrorMessage = "Goong API không trả về tuyến đường." };
-
-        var bestRoute = goongResp.Routes[0];
-        var legs = bestRoute.Legs ?? [];
 
         return new MissionRouteResult
         {
-            Status               = "OK",
-            TotalDistanceMeters  = legs.Sum(l => l.Distance?.Value ?? 0),
-            TotalDurationSeconds = legs.Sum(l => l.Duration?.Value ?? 0),
-            OverviewPolyline     = bestRoute.OverviewPolyline?.Points ?? string.Empty,
-            Legs = legs.Select(l => new GoongLegSummary
-            {
-                DistanceMeters  = l.Distance?.Value ?? 0,
-                DistanceText    = l.Distance?.Text ?? string.Empty,
-                DurationSeconds = l.Duration?.Value ?? 0,
-                DurationText    = l.Duration?.Text ?? string.Empty
-            }).ToList()
+            Status               = BuildMissionRouteStatus(legs),
+            ErrorMessage         = BuildMissionRouteErrorMessage(legs),
+            TotalDistanceMeters  = legs.Sum(l => l.DistanceMeters),
+            TotalDurationSeconds = legs.Sum(l => l.DurationSeconds),
+            OverviewPolyline     = BuildOverviewPolyline(legs),
+            Legs                 = legs
         };
     }
+
+    private async Task<GoongLegSummary> GetMissionLegAsync(
+        double fromLat,
+        double fromLng,
+        double toLat,
+        double toLng,
+        string vehicle,
+        CancellationToken cancellationToken)
+    {
+        if (AreSameLocation(fromLat, fromLng, toLat, toLng))
+        {
+            return new GoongLegSummary
+            {
+                FromLatitude = fromLat,
+                FromLongitude = fromLng,
+                ToLatitude = toLat,
+                ToLongitude = toLng,
+                DistanceMeters = 0,
+                DistanceText = FormatDistance(0),
+                DurationSeconds = 0,
+                DurationText = FormatDuration(0),
+                OverviewPolyline = EncodePolyline(new[] { (fromLat, fromLng) }),
+                VehicleUsed = vehicle,
+                Status = "OK"
+            };
+        }
+
+        var routeResult = await GetRouteAsync(fromLat, fromLng, toLat, toLng, vehicle, cancellationToken);
+
+        if (routeResult.Status == "OK" && routeResult.Route is not null)
+        {
+            return new GoongLegSummary
+            {
+                FromLatitude = fromLat,
+                FromLongitude = fromLng,
+                ToLatitude = toLat,
+                ToLongitude = toLng,
+                DistanceMeters = routeResult.Route.TotalDistanceMeters,
+                DistanceText = string.IsNullOrWhiteSpace(routeResult.Route.TotalDistanceText)
+                    ? FormatDistance(routeResult.Route.TotalDistanceMeters)
+                    : routeResult.Route.TotalDistanceText,
+                DurationSeconds = routeResult.Route.TotalDurationSeconds,
+                DurationText = string.IsNullOrWhiteSpace(routeResult.Route.TotalDurationText)
+                    ? FormatDuration(routeResult.Route.TotalDurationSeconds)
+                    : routeResult.Route.TotalDurationText,
+                OverviewPolyline = string.IsNullOrWhiteSpace(routeResult.Route.OverviewPolyline)
+                    ? null
+                    : routeResult.Route.OverviewPolyline,
+                VehicleUsed = vehicle,
+                Status = "OK"
+            };
+        }
+
+        if (routeResult.Status == "NO_ROUTES")
+        {
+            return new GoongLegSummary
+            {
+                FromLatitude = fromLat,
+                FromLongitude = fromLng,
+                ToLatitude = toLat,
+                ToLongitude = toLng,
+                DistanceMeters = 0,
+                DistanceText = FormatDistance(0),
+                DurationSeconds = 0,
+                DurationText = FormatDuration(0),
+                OverviewPolyline = null,
+                VehicleUsed = vehicle,
+                Status = "NO_ROUTE",
+                ErrorMessage = routeResult.ErrorMessage
+            };
+        }
+
+        var fallbackDistance = EstimateDirectDistanceMeters(fromLat, fromLng, toLat, toLng);
+        var fallbackDuration = EstimateDurationSeconds(fallbackDistance, vehicle);
+
+        return new GoongLegSummary
+        {
+            FromLatitude = fromLat,
+            FromLongitude = fromLng,
+            ToLatitude = toLat,
+            ToLongitude = toLng,
+            DistanceMeters = fallbackDistance,
+            DistanceText = FormatDistance(fallbackDistance),
+            DurationSeconds = fallbackDuration,
+            DurationText = FormatDuration(fallbackDuration),
+            OverviewPolyline = EncodePolyline(new[] { (fromLat, fromLng), (toLat, toLng) }),
+            VehicleUsed = vehicle,
+            Status = "FALLBACK",
+            ErrorMessage = string.IsNullOrWhiteSpace(routeResult.ErrorMessage)
+                ? "Không thể lấy tuyến đường từ Goong, trả về dữ liệu ước lượng theo đường thẳng."
+                : routeResult.ErrorMessage
+        };
+    }
+
+    private static string BuildMissionRouteStatus(IEnumerable<GoongLegSummary> legs)
+    {
+        var summaries = legs.ToList();
+
+        if (summaries.Any(leg => leg.Status == "NO_ROUTE"))
+            return "NO_ROUTE";
+
+        if (summaries.Any(leg => leg.Status == "FALLBACK"))
+            return "FALLBACK";
+
+        return "OK";
+    }
+
+    private static string? BuildMissionRouteErrorMessage(IEnumerable<GoongLegSummary> legs)
+    {
+        var summaries = legs.Where(leg => leg.Status != "OK").ToList();
+        if (summaries.Count == 0)
+            return null;
+
+        var noRouteCount = summaries.Count(leg => leg.Status == "NO_ROUTE");
+        var fallbackCount = summaries.Count(leg => leg.Status == "FALLBACK");
+
+        var parts = new List<string>();
+        if (noRouteCount > 0)
+            parts.Add($"{noRouteCount} chặng không có tuyến đường");
+        if (fallbackCount > 0)
+            parts.Add($"{fallbackCount} chặng dùng dữ liệu ước lượng");
+
+        var firstError = summaries.FirstOrDefault(leg => !string.IsNullOrWhiteSpace(leg.ErrorMessage))?.ErrorMessage;
+        return firstError is null ? string.Join("; ", parts) : $"{string.Join("; ", parts)}. {firstError}";
+    }
+
+    private static string BuildOverviewPolyline(IEnumerable<GoongLegSummary> legs)
+    {
+        var summaries = legs.ToList();
+        if (summaries.Count == 0 || summaries.Any(leg => string.IsNullOrWhiteSpace(leg.OverviewPolyline)))
+            return string.Empty;
+
+        var mergedPoints = new List<(double Lat, double Lng)>();
+
+        foreach (var leg in summaries)
+        {
+            var points = DecodePolyline(leg.OverviewPolyline!);
+            if (points.Count == 0)
+                return string.Empty;
+
+            if (mergedPoints.Count > 0 && AreSameLocation(
+                    mergedPoints[^1].Lat,
+                    mergedPoints[^1].Lng,
+                    points[0].Lat,
+                    points[0].Lng))
+            {
+                points.RemoveAt(0);
+            }
+
+            mergedPoints.AddRange(points);
+        }
+
+        return mergedPoints.Count == 0 ? string.Empty : EncodePolyline(mergedPoints);
+    }
+
+    private static List<(double Lat, double Lng)> DecodePolyline(string encodedPolyline)
+    {
+        var points = new List<(double Lat, double Lng)>();
+        var index = 0;
+        var latitude = 0;
+        var longitude = 0;
+
+        while (index < encodedPolyline.Length)
+        {
+            latitude += DecodeNextValue(encodedPolyline, ref index);
+            longitude += DecodeNextValue(encodedPolyline, ref index);
+            points.Add((latitude / 1E5, longitude / 1E5));
+        }
+
+        return points;
+    }
+
+    private static string EncodePolyline(IEnumerable<(double Lat, double Lng)> points)
+    {
+        var builder = new StringBuilder();
+        var previousLatitude = 0;
+        var previousLongitude = 0;
+
+        foreach (var (lat, lng) in points)
+        {
+            var latitude = (int)Math.Round(lat * 1E5);
+            var longitude = (int)Math.Round(lng * 1E5);
+
+            EncodeValue(latitude - previousLatitude, builder);
+            EncodeValue(longitude - previousLongitude, builder);
+
+            previousLatitude = latitude;
+            previousLongitude = longitude;
+        }
+
+        return builder.ToString();
+    }
+
+    private static int DecodeNextValue(string encodedPolyline, ref int index)
+    {
+        var result = 0;
+        var shift = 0;
+        int chunk;
+
+        do
+        {
+            chunk = encodedPolyline[index++] - 63;
+            result |= (chunk & 0x1F) << shift;
+            shift += 5;
+        } while (chunk >= 0x20 && index < encodedPolyline.Length + 1);
+
+        return (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    }
+
+    private static void EncodeValue(int value, StringBuilder builder)
+    {
+        value <<= 1;
+        if (value < 0)
+            value = ~value;
+
+        while (value >= 0x20)
+        {
+            builder.Append((char)((0x20 | (value & 0x1F)) + 63));
+            value >>= 5;
+        }
+
+        builder.Append((char)(value + 63));
+    }
+
+    private static int EstimateDirectDistanceMeters(double fromLat, double fromLng, double toLat, double toLng)
+    {
+        const double earthRadiusMeters = 6371000;
+
+        var deltaLatitude = DegreesToRadians(toLat - fromLat);
+        var deltaLongitude = DegreesToRadians(toLng - fromLng);
+        var fromLatitude = DegreesToRadians(fromLat);
+        var toLatitude = DegreesToRadians(toLat);
+
+        var a = Math.Sin(deltaLatitude / 2) * Math.Sin(deltaLatitude / 2)
+                + Math.Cos(fromLatitude) * Math.Cos(toLatitude)
+                * Math.Sin(deltaLongitude / 2) * Math.Sin(deltaLongitude / 2);
+
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return (int)Math.Round(earthRadiusMeters * c);
+    }
+
+    private static int EstimateDurationSeconds(int distanceMeters, string vehicle)
+    {
+        if (distanceMeters <= 0)
+            return 0;
+
+        var metersPerSecond = vehicle.ToLowerInvariant() switch
+        {
+            "bike" => 4.2,
+            "hd" => 6.9,
+            "taxi" => 9.7,
+            _ => 8.3
+        };
+
+        return (int)Math.Ceiling(distanceMeters / metersPerSecond);
+    }
+
+    private static string FormatDistance(int distanceMeters)
+    {
+        if (distanceMeters < 1000)
+            return $"{distanceMeters} m";
+
+        var distanceKm = distanceMeters / 1000d;
+        return $"{distanceKm.ToString("0.#", CultureInfo.InvariantCulture)} km";
+    }
+
+    private static string FormatDuration(int durationSeconds)
+    {
+        if (durationSeconds < 60)
+            return $"{durationSeconds} giây";
+
+        if (durationSeconds < 3600)
+            return $"{Math.Max(1, (int)Math.Round(durationSeconds / 60d))} phút";
+
+        var hours = durationSeconds / 3600;
+        var minutes = (int)Math.Round((durationSeconds % 3600) / 60d);
+        return minutes == 0 ? $"{hours} giờ" : $"{hours} giờ {minutes} phút";
+    }
+
+    private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180d;
+
+    private static bool AreSameLocation(double leftLat, double leftLng, double rightLat, double rightLng)
+        => Math.Abs(leftLat - rightLat) < 0.000001 && Math.Abs(leftLng - rightLng) < 0.000001;
 
     private static string StripHtml(string html)
     {

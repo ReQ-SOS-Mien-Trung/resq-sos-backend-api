@@ -309,8 +309,16 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>Lấy tuyến đường toàn bộ mission của một team, bao gồm tất cả điểm cần tới theo thứ tự activity.</summary>
+    /// <remarks>
+    /// Response giữ các field tổng cũ để tương thích ngược, đồng thời bổ sung metadata chi tiết cho từng leg.
+    /// Frontend nên ưu tiên vẽ theo <c>legs</c> để phản ánh đúng từng chặng giữa các điểm dừng.
+    /// Nếu một leg không lấy được route, API vẫn trả HTTP 200 và đánh dấu riêng leg đó bằng <c>status</c>.
+    /// </remarks>
     [HttpGet("{missionId:int}/teams/{missionTeamId:int}/route")]
     [Authorize(Policy = PermissionConstants.PolicyRouteAccess)]
+    [ProducesResponseType(typeof(GetMissionTeamRouteResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMissionTeamRoute(
         [FromRoute] int missionId,
         [FromRoute] int missionTeamId,

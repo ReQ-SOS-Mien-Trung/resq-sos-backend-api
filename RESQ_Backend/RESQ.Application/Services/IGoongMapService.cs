@@ -14,8 +14,9 @@ public interface IGoongMapService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lấy tuyến đường qua nhiều điểm dừng (origin → waypoint1 → ... → destination).
-    /// Trả về danh sách legs tương ứng với từng đoạn.
+    /// Lấy tuyến đường qua nhiều điểm dừng theo từng chặng liên tiếp
+    /// (origin → waypoint1 → waypoint2 → ...).
+    /// Mỗi leg được xử lý độc lập để không làm fail toàn bộ response nếu một chặng lỗi.
     /// </summary>
     Task<MissionRouteResult> GetMissionRouteAsync(
         double originLat,
@@ -80,7 +81,10 @@ public class MissionRouteResult
     public string? ErrorMessage { get; set; }
     public int TotalDistanceMeters { get; set; }
     public int TotalDurationSeconds { get; set; }
-    /// <summary>Polyline toàn tuyến từ Goong (encoded)</summary>
+    /// <summary>
+    /// Polyline toàn tuyến ghép từ từng leg khi đủ dữ liệu.
+    /// Có thể rỗng nếu một hoặc nhiều leg không có polyline.
+    /// </summary>
     public string OverviewPolyline { get; set; } = string.Empty;
     /// <summary>Mỗi phần tử = 1 đoạn: origin→wp[0], wp[0]→wp[1], ..., wp[n-2]→wp[n-1].</summary>
     public List<GoongLegSummary> Legs { get; set; } = [];
@@ -88,8 +92,23 @@ public class MissionRouteResult
 
 public class GoongLegSummary
 {
+    /// <summary>Step nguồn của chặng. Null với chặng đầu tiên đi từ origin hiện tại.</summary>
+    public int? FromStep { get; set; }
+
+    /// <summary>Step đích của chặng.</summary>
+    public int? ToStep { get; set; }
+
+    public double FromLatitude { get; set; }
+    public double FromLongitude { get; set; }
+    public double ToLatitude { get; set; }
+    public double ToLongitude { get; set; }
     public int DistanceMeters { get; set; }
     public string DistanceText { get; set; } = string.Empty;
     public int DurationSeconds { get; set; }
     public string DurationText { get; set; } = string.Empty;
+    public string? OverviewPolyline { get; set; }
+    public string VehicleUsed { get; set; } = string.Empty;
+    /// <summary>OK | NO_ROUTE | FALLBACK</summary>
+    public string Status { get; set; } = string.Empty;
+    public string? ErrorMessage { get; set; }
 }

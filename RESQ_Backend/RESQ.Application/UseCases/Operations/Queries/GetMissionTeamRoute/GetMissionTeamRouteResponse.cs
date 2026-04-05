@@ -11,7 +11,10 @@ public class GetMissionTeamRouteResponse
     public string OverviewPolyline { get; set; } = string.Empty;
     /// <summary>Các điểm cần ghé, theo thứ tự Step của activity.</summary>
     public List<MissionRouteWaypoint> Waypoints { get; set; } = [];
-    /// <summary>Legs[i] = đoạn từ Waypoints[i-1] đến Waypoints[i] (Legs[0] = origin → Waypoints[0]).</summary>
+    /// <summary>
+    /// Các chặng thực tế sau khi gộp waypoint trùng liên tiếp.
+    /// Legs[0] = origin → điểm dừng đầu tiên; các phần tử sau là giữa hai điểm dừng liên tiếp.
+    /// </summary>
     public List<GoongLegSummary> Legs { get; set; } = [];
 }
 
