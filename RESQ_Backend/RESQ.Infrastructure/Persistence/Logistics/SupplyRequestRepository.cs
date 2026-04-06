@@ -382,7 +382,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 inventory.LastStockedAt             = now;
 
                 // ── FEFO lot deduction ──────────────────────────────────────────
-                var lots = await _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable(tracked: true)
+                var lots = await _unitOfWork.SetTracked<SupplyInventoryLot>()
                     .Where(l => l.SupplyInventoryId == inventory.Id && l.RemainingQuantity > 0)
                     .OrderBy(l => l.ExpiredDate == null ? 1 : 0)  // items WITH expiry first
                     .ThenBy(l => l.ExpiredDate)                    // soonest expiry first (FEFO)

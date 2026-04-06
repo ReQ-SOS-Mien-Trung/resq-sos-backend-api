@@ -18,7 +18,7 @@ public class StockWarningBandConfigRepository(IUnitOfWork unitOfWork) : IStockWa
 
     public async Task<WarningBandConfigDto?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<StockWarningBandConfig>().AsQueryable()
+        var entity = await _unitOfWork.Set<StockWarningBandConfig>()
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
 

@@ -5,7 +5,8 @@
         PendingAssignment,
         Available,
         Full,
-        Closing, // Trạng thái trung gian khi admin đang thực hiện đóng kho
+        UnderMaintenance, // Tạm ngưng hoạt động để bảo trì; có thể trở lại Available
+        Closing,          // Trạng thái trung gian khi admin đang thực hiện đóng kho
         Closed
     }
 }

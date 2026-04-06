@@ -18,9 +18,11 @@ using RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.UpdateDepot;
 using RESQ.Application.UseCases.Logistics.Queries.DepotStatusMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots;
+using RESQ.Domain.Enum.Logistics;
 using RESQ.Application.UseCases.Logistics.Queries.GetClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotById;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureMetadata;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 using System.Security.Claims;
 
@@ -35,12 +37,16 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// <summary>Lấy danh sách tất cả kho có phân trang.</summary>
         [HttpGet]
         [Authorize(Policy = PermissionConstants.PolicyDepotView)]
-        public async Task<IActionResult> Get([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> Get(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] List<DepotStatus>? statuses = null)
         {
             var query = new GetAllDepotsQuery
             {
                 PageNumber = pageNumber,
-                PageSize = pageSize
+                PageSize = pageSize,
+                Statuses = statuses
             };
 
             var result = await _mediator.Send(query);
@@ -143,6 +149,17 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         // ─── Depot Closure endpoints ──────────────────────────────────────────
+
+        /// <summary>[Admin] Lấy toàn bộ lịch sử phiên đóng kho của một kho.</summary>
+        [HttpGet("{id}/closures")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ProducesResponseType(typeof(List<DepotClosureDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetClosures(int id)
+        {
+            var result = await _mediator.Send(new GetDepotClosuresQuery(id));
+            return Ok(result);
+        }
 
         /// <summary>[Metadata] Danh sách resolutionType cho quy trình đóng kho.</summary>
         [HttpGet("metadata/closure")]

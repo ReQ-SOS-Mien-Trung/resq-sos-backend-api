@@ -85,8 +85,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (includeConsumable)
         {
             var consumableRaw = await (
-                from inv in _unitOfWork.GetRepository<SupplyInventory>().AsQueryable()
-                join ri  in _unitOfWork.GetRepository<ItemModel>().AsQueryable() on inv.ItemModelId equals ri.Id
+                from inv in _unitOfWork.Set<SupplyInventory>()
+                join ri  in _unitOfWork.Set<ItemModel>() on inv.ItemModelId equals ri.Id
                 where inv.DepotId == depotId
                          && ri.ItemType == "Consumable"
                    && (!hasCategoryFilter  || safeCategoryIds.Contains(ri.CategoryId ?? 0))
@@ -103,20 +103,20 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             // Fetch TargetGroups for consumable ItemModels in one query
             var consumableItemModelIds = consumableRaw.Select(x => x.Id).Distinct().ToList();
-            var consumableTgDict = await _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+            var consumableTgDict = await _unitOfWork.Set<ItemModel>()
                 .Include(r => r.TargetGroups)
                 .Where(r => consumableItemModelIds.Contains(r.Id))
                 .ToDictionaryAsync(r => r.Id, r => r.TargetGroups.Select(tg => TargetGroupTranslations.ToVietnamese(tg.Name)).ToList(), cancellationToken);
 
             var catIds = consumableRaw.Where(x => x.CategoryId.HasValue).Select(x => x.CategoryId!.Value).Distinct().ToList();
-            var catDict = await _unitOfWork.GetRepository<Category>().AsQueryable()
+            var catDict = await _unitOfWork.Set<Category>()
                 .Where(c => catIds.Contains(c.Id))
                 .ToDictionaryAsync(c => c.Id, c => c.Name ?? string.Empty, cancellationToken);
 
             // Lot summary per item model (FEFO info)
             var lotSummaries = await (
-                from lot in _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable()
-                join inv in _unitOfWork.GetRepository<SupplyInventory>().AsQueryable() on lot.SupplyInventoryId equals inv.Id
+                from lot in _unitOfWork.Set<SupplyInventoryLot>()
+                join inv in _unitOfWork.Set<SupplyInventory>() on lot.SupplyInventoryId equals inv.Id
                 where inv.DepotId == depotId && lot.RemainingQuantity > 0
                 group lot by inv.ItemModelId into g
                 select new
@@ -152,8 +152,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (includeReusable)
         {
             var reusableRaw = await (
-                from dri in _unitOfWork.GetRepository<ReusableItem>().AsQueryable()
-                join ri  in _unitOfWork.GetRepository<ItemModel>().AsQueryable() on dri.ItemModelId equals ri.Id
+                from dri in _unitOfWork.Set<ReusableItem>()
+                join ri  in _unitOfWork.Set<ItemModel>() on dri.ItemModelId equals ri.Id
                 where dri.DepotId == depotId
                    && (!hasCategoryFilter  || safeCategoryIds.Contains(ri.CategoryId ?? 0))
                    && (!hasTargetGroupFilter || ri.TargetGroups.Any(tg => targetGroupSet.Contains(tg.Name.ToLower())))
@@ -181,13 +181,13 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             ).ToListAsync(cancellationToken);
 
             var catIds = reusableRaw.Where(x => x.CategoryId.HasValue).Select(x => x.CategoryId!.Value).Distinct().ToList();
-            var catDict = await _unitOfWork.GetRepository<Category>().AsQueryable()
+            var catDict = await _unitOfWork.Set<Category>()
                 .Where(c => catIds.Contains(c.Id))
                 .ToDictionaryAsync(c => c.Id, c => c.Name ?? string.Empty, cancellationToken);
 
             // Fetch TargetGroups for each reusable ItemModel
             var reusableItemModelIds = reusableRaw.Select(x => x.Id).Distinct().ToList();
-            var reusableTgDict = await _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+            var reusableTgDict = await _unitOfWork.Set<ItemModel>()
                 .Include(r => r.TargetGroups)
                 .Where(r => reusableItemModelIds.Contains(r.Id))
                 .ToDictionaryAsync(r => r.Id, r => r.TargetGroups.Select(tg => TargetGroupTranslations.ToVietnamese(tg.Name)).ToList(), cancellationToken);
@@ -238,8 +238,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int depotId, int itemModelId, int pageNumber, int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = from lot in _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable()
-                    join inv in _unitOfWork.GetRepository<SupplyInventory>().AsQueryable() on lot.SupplyInventoryId equals inv.Id
+        var query = from lot in _unitOfWork.Set<SupplyInventoryLot>()
+                    join inv in _unitOfWork.Set<SupplyInventory>() on lot.SupplyInventoryId equals inv.Id
                     where inv.DepotId == depotId && inv.ItemModelId == itemModelId && lot.RemainingQuantity > 0
                     select lot;
 
@@ -275,10 +275,10 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int pageSize,
         CancellationToken ct = default)
     {
-        var query = from dsi in _unitOfWork.GetRepository<SupplyInventory>().AsQueryable()
-                    join ri in _unitOfWork.GetRepository<ItemModel>().AsQueryable() on dsi.ItemModelId equals ri.Id
-                    join cat in _unitOfWork.GetRepository<Category>().AsQueryable() on ri.CategoryId equals cat.Id
-                    join depot in _unitOfWork.GetRepository<Depot>().AsQueryable() on dsi.DepotId equals depot.Id
+        var query = from dsi in _unitOfWork.Set<SupplyInventory>()
+                    join ri in _unitOfWork.Set<ItemModel>() on dsi.ItemModelId equals ri.Id
+                    join cat in _unitOfWork.Set<Category>() on ri.CategoryId equals cat.Id
+                    join depot in _unitOfWork.Set<Depot>() on dsi.DepotId equals depot.Id
                     where (depot.Status == "Available" || depot.Status == "Full")
                               && ri.ItemType == "Consumable"
                        && (dsi.Quantity ?? 0) - (dsi.MissionReservedQuantity + dsi.TransferReservedQuantity) > 0
@@ -329,10 +329,10 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
     public async Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default)
     {
-        var categories = _unitOfWork.GetRepository<Category>().AsQueryable();
-        var supplyInventories = _unitOfWork.GetRepository<SupplyInventory>().AsQueryable();
-        var itemModels = _unitOfWork.GetRepository<ItemModel>().AsQueryable();
-        var reusableItems = _unitOfWork.GetRepository<ReusableItem>().AsQueryable();
+        var categories = _unitOfWork.Set<Category>();
+        var supplyInventories = _unitOfWork.Set<SupplyInventory>();
+        var itemModels = _unitOfWork.Set<ItemModel>();
+        var reusableItems = _unitOfWork.Set<ReusableItem>();
 
         var result = await (
             from cat in categories
@@ -380,7 +380,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int depotId,
         CancellationToken cancellationToken = default)
     {
-        var location = await _unitOfWork.GetRepository<Depot>().AsQueryable()
+        var location = await _unitOfWork.Set<Depot>()
             .Where(d => d.Id == depotId)
             .Select(d => d.Location)
             .FirstOrDefaultAsync(cancellationToken);
@@ -402,10 +402,10 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var hasIdFilter = safeIds.Count > 0;
 
         // ── 1. Consumable rows — tracked by quantity in supply_inventory ──────
-        var consumableQuery = from dsi in _unitOfWork.GetRepository<SupplyInventory>().AsQueryable()
-                              join ri    in _unitOfWork.GetRepository<ItemModel>().AsQueryable()  on dsi.ItemModelId equals ri.Id
-                              join cat   in _unitOfWork.GetRepository<Category>().AsQueryable()  on ri.CategoryId  equals cat.Id
-                              join depot in _unitOfWork.GetRepository<Depot>().AsQueryable()      on dsi.DepotId    equals depot.Id
+        var consumableQuery = from dsi in _unitOfWork.Set<SupplyInventory>()
+                              join ri    in _unitOfWork.Set<ItemModel>()  on dsi.ItemModelId equals ri.Id
+                              join cat   in _unitOfWork.Set<Category>()  on ri.CategoryId  equals cat.Id
+                              join depot in _unitOfWork.Set<Depot>()      on dsi.DepotId    equals depot.Id
                               where ri.ItemType == "Consumable"
                               select new { dsi, ri, cat, depot };
 
@@ -442,10 +442,10 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             .ToListAsync(cancellationToken);
 
         // ── 2. Reusable rows — each physical unit tracked individually ────────
-        var reusableQuery = from dri in _unitOfWork.GetRepository<ReusableItem>().AsQueryable()
-                            join ri    in _unitOfWork.GetRepository<ItemModel>().AsQueryable()  on dri.ItemModelId equals ri.Id
-                            join cat   in _unitOfWork.GetRepository<Category>().AsQueryable()  on ri.CategoryId  equals cat.Id
-                            join depot in _unitOfWork.GetRepository<Depot>().AsQueryable()      on dri.DepotId    equals depot.Id
+        var reusableQuery = from dri in _unitOfWork.Set<ReusableItem>()
+                            join ri    in _unitOfWork.Set<ItemModel>()  on dri.ItemModelId equals ri.Id
+                            join cat   in _unitOfWork.Set<Category>()  on ri.CategoryId  equals cat.Id
+                            join depot in _unitOfWork.Set<Depot>()      on dri.DepotId    equals depot.Id
                             select new { dri, ri, cat, depot };
 
         if (excludeDepotId.HasValue)
@@ -572,8 +572,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var itemModelIds = items.Select(i => i.ItemModelId).ToList();
 
         var inventory = await (
-            from inv in _unitOfWork.GetRepository<SupplyInventory>().AsQueryable().AsNoTracking()
-            join im in _unitOfWork.GetRepository<ItemModel>().AsQueryable().AsNoTracking() on inv.ItemModelId equals im.Id
+            from inv in _unitOfWork.Set<SupplyInventory>().AsNoTracking()
+            join im in _unitOfWork.Set<ItemModel>().AsNoTracking() on inv.ItemModelId equals im.Id
             where inv.DepotId == depotId
                && inv.ItemModelId != null
                && itemModelIds.Contains(inv.ItemModelId!.Value)
@@ -622,7 +622,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     {
         var now = DateTime.UtcNow;
         var itemIds = items.Select(x => x.ItemModelId).Distinct().ToList();
-        var itemTypeDict = await _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+        var itemTypeDict = await _unitOfWork.Set<ItemModel>()
             .Where(i => itemIds.Contains(i.Id))
             .ToDictionaryAsync(i => i.Id, i => i.ItemType ?? string.Empty, cancellationToken);
 
@@ -633,7 +633,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             if (!isReusable)
             {
-                var inventory = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+                var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
                     .FirstOrDefaultAsync(
                         x => x.DepotId == depotId && x.ItemModelId == itemModelId,
                         cancellationToken);
@@ -643,7 +643,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             }
 
             // Reusable items: Available → Reserved (mission — no SupplyRequestId)
-            var reusableUnits = await _unitOfWork.GetRepository<ReusableItem>().AsQueryable(tracked: true)
+            var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
                 .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == nameof(ReusableItemStatus.Available))
                 .Take(quantity)
                 .ToListAsync(cancellationToken);
@@ -668,7 +668,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     {
         var now = DateTime.UtcNow;
         var itemIds = items.Select(x => x.ItemModelId).Distinct().ToList();
-        var itemTypeDict = await _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+        var itemTypeDict = await _unitOfWork.Set<ItemModel>()
             .Where(i => itemIds.Contains(i.Id))
             .ToDictionaryAsync(i => i.Id, i => i.ItemType ?? string.Empty, cancellationToken);
 
@@ -679,7 +679,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             if (!isReusable)
             {
-                var inventory = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+                var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
                     .FirstOrDefaultAsync(
                         x => x.DepotId == depotId && x.ItemModelId == itemModelId,
                         cancellationToken)
@@ -702,7 +702,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 inventory.LastStockedAt           = now;
 
                 // ── FEFO lot deduction ──────────────────────────────────────────
-                var lots = await _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable(tracked: true)
+                var lots = await _unitOfWork.SetTracked<SupplyInventoryLot>()
                     .Where(l => l.SupplyInventoryId == inventory.Id
                              && l.RemainingQuantity > 0
                              && (!l.ExpiredDate.HasValue || l.ExpiredDate.Value >= now)) // skip expired lots
@@ -759,7 +759,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             }
 
             // Reusable items: Reserved → InUse
-            var reusableUnits = await _unitOfWork.GetRepository<ReusableItem>().AsQueryable(tracked: true)
+            var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
                 .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == nameof(ReusableItemStatus.Reserved) && r.SupplyRequestId == null)
                 .Take(quantity)
                 .ToListAsync(cancellationToken);
@@ -781,7 +781,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     {
         var now = DateTime.UtcNow;
         var itemIds = items.Select(x => x.ItemModelId).Distinct().ToList();
-        var itemTypeDict = await _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+        var itemTypeDict = await _unitOfWork.Set<ItemModel>()
             .Where(i => itemIds.Contains(i.Id))
             .ToDictionaryAsync(i => i.Id, i => i.ItemType ?? string.Empty, cancellationToken);
 
@@ -792,7 +792,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             if (!isReusable)
             {
-                var inventory = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+                var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
                     .FirstOrDefaultAsync(
                         x => x.DepotId == depotId && x.ItemModelId == itemModelId,
                         cancellationToken);
@@ -809,7 +809,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             }
 
             // Reusable items: Reserved → Available
-            var reusableUnits = await _unitOfWork.GetRepository<ReusableItem>().AsQueryable(tracked: true)
+            var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
                 .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId
                             && r.Status == nameof(ReusableItemStatus.Reserved)
                             && r.SupplyRequestId == null)
@@ -831,10 +831,10 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         CancellationToken cancellationToken = default)
     {
         var query =
-            from inv  in _unitOfWork.GetRepository<SupplyInventory>().AsQueryable()
-            join item in _unitOfWork.GetRepository<ItemModel>().AsQueryable()     on inv.ItemModelId equals item.Id
-            join depot in _unitOfWork.GetRepository<Depot>().AsQueryable()        on inv.DepotId     equals depot.Id
-            join cat  in _unitOfWork.GetRepository<Category>().AsQueryable()      on item.CategoryId equals cat.Id into catJoin
+            from inv  in _unitOfWork.Set<SupplyInventory>()
+            join item in _unitOfWork.Set<ItemModel>()     on inv.ItemModelId equals item.Id
+            join depot in _unitOfWork.Set<Depot>()        on inv.DepotId     equals depot.Id
+            join cat  in _unitOfWork.Set<Category>()      on item.CategoryId equals cat.Id into catJoin
             from cat in catJoin.DefaultIfEmpty()
             where item.ItemType == "Consumable"
                && (depotId == null || inv.DepotId == depotId)
@@ -859,7 +859,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         // Fetch TargetGroups for all item models in one query
         var lowStockItemModelIds = raw.Select(r => r.ItemModelId).Distinct().ToList();
-        var lowStockTgDict = await _unitOfWork.GetRepository<ItemModel>().AsQueryable()
+        var lowStockTgDict = await _unitOfWork.Set<ItemModel>()
             .Include(r => r.TargetGroups)
             .Where(r => lowStockItemModelIds.Contains(r.Id))
             .ToDictionaryAsync(r => r.Id, r => TargetGroupTranslations.JoinAsVietnamese(r.TargetGroups.Select(tg => tg.Name)), cancellationToken);
@@ -890,7 +890,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     {
         var now = DateTime.UtcNow;
 
-        var inventory = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+        var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
             .FirstOrDefaultAsync(x => x.DepotId == depotId && x.ItemModelId == itemModelId, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"Không tìm thấy tồn kho vật tư #{itemModelId} tại kho #{depotId}.");
@@ -904,7 +904,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         inventory.LastStockedAt = now;
 
         // ── FEFO lot deduction ──────────────────────────────────────────
-        var lots = await _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable(tracked: true)
+        var lots = await _unitOfWork.SetTracked<SupplyInventoryLot>()
             .Where(l => l.SupplyInventoryId == inventory.Id && l.RemainingQuantity > 0)
             .OrderBy(l => l.ExpiredDate == null ? 1 : 0)  // items WITH expiry first
             .ThenBy(l => l.ExpiredDate)                    // soonest expiry first (FEFO)
@@ -972,7 +972,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     {
         var now = DateTime.UtcNow;
 
-        var inventory = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+        var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
             .FirstOrDefaultAsync(x => x.DepotId == depotId && x.ItemModelId == itemModelId, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"Không tìm thấy tồn kho vật tư #{itemModelId} tại kho #{depotId}.");
@@ -989,7 +989,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             inventory.Quantity      = (inventory.Quantity ?? 0) - decrease;
             inventory.LastStockedAt = now;
 
-            var lots = await _unitOfWork.GetRepository<SupplyInventoryLot>().AsQueryable(tracked: true)
+            var lots = await _unitOfWork.SetTracked<SupplyInventoryLot>()
                 .Where(l => l.SupplyInventoryId == inventory.Id && l.RemainingQuantity > 0)
                 .OrderBy(l => l.ExpiredDate == null ? 1 : 0)
                 .ThenBy(l => l.ExpiredDate)
@@ -1103,7 +1103,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int? lastId = lastProcessedInventoryId;
 
         // ── 1. Consumable rows (supply_inventory) — cursor paginated ─────────
-        var inventoryQuery = _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+        var inventoryQuery = _unitOfWork.SetTracked<SupplyInventory>()
             .Where(inv => inv.DepotId == sourceDepotId && (inv.Quantity ?? 0) > 0);
 
         if (lastId.HasValue)
@@ -1123,7 +1123,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             if (totalQty <= 0) { lastId = srcInv.Id; processedRows++; continue; }
 
             // ── find or create destination SupplyInventory row ───────────────
-            var dstInv = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable(tracked: true)
+            var dstInv = await _unitOfWork.SetTracked<SupplyInventory>()
                 .FirstOrDefaultAsync(inv => inv.DepotId == targetDepotId && inv.ItemModelId == itemModelId, cancellationToken);
 
             if (dstInv == null)

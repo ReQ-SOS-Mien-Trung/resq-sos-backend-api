@@ -20,7 +20,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
         // Chỉ lấy conversation đang ở trạng thái AiAssist (chưa chọn chủ đề).
         // Nếu không tìm thấy (victim đã chọn chủ đề trước đó), tạo conversation mới.
         // Điều này đảm bảo mỗi chủ đề chat là một đoạn hội thoại riêng biệt.
-        var entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable(tracked: true)
+        var entity = await _unitOfWork.SetTracked<Conversation>()
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
             .FirstOrDefaultAsync(
@@ -50,7 +50,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
             await _unitOfWork.SaveAsync();
 
             // Reload with navigation
-            entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable(tracked: true)
+            entity = await _unitOfWork.SetTracked<Conversation>()
                 .Include(c => c.ConversationParticipants)
                     .ThenInclude(p => p.User)
                 .FirstAsync(c => c.Id == entity.Id, cancellationToken);
@@ -62,7 +62,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
     public async Task<IEnumerable<ConversationModel>> GetVictimConversationsAsync(
         Guid victimId, CancellationToken cancellationToken = default)
     {
-        var entities = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
+        var entities = await _unitOfWork.Set<Conversation>()
             .Where(c => c.VictimId == victimId)
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
@@ -75,7 +75,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
     public async Task<ConversationModel?> GetByVictimIdAsync(
         Guid victimId, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
+        var entity = await _unitOfWork.Set<Conversation>()
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
             .OrderByDescending(c => c.CreatedAt)
@@ -87,7 +87,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
     public async Task<ConversationModel?> GetByIdAsync(
         int conversationId, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
+        var entity = await _unitOfWork.Set<Conversation>()
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
             .FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken);
@@ -100,7 +100,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
     public async Task<IEnumerable<ConversationModel>> GetAllByMissionIdForUserAsync(
         int missionId, Guid userId, CancellationToken cancellationToken = default)
     {
-        var entities = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
+        var entities = await _unitOfWork.Set<Conversation>()
             .Where(c => c.MissionId == missionId &&
                         c.ConversationParticipants.Any(p => p.UserId == userId))
             .Include(c => c.ConversationParticipants)
@@ -119,7 +119,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
         int? linkedSosRequestId = null,
         CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<Conversation>().AsQueryable(tracked: true)
+        var entity = await _unitOfWork.SetTracked<Conversation>()
             .FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken);
 
         if (entity == null) return;
@@ -141,14 +141,14 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
     public async Task<bool> IsParticipantAsync(
         int conversationId, Guid userId, CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.GetRepository<ConversationParticipant>().AsQueryable()
+        return await _unitOfWork.Set<ConversationParticipant>()
             .AnyAsync(p => p.ConversationId == conversationId && p.UserId == userId, cancellationToken);
     }
 
     public async Task AddCoordinatorAsync(
         int conversationId, Guid coordinatorId, CancellationToken cancellationToken = default)
     {
-        var alreadyJoined = await _unitOfWork.GetRepository<ConversationParticipant>().AsQueryable()
+        var alreadyJoined = await _unitOfWork.Set<ConversationParticipant>()
             .AnyAsync(p => p.ConversationId == conversationId && p.UserId == coordinatorId, cancellationToken);
 
         if (!alreadyJoined)
@@ -167,7 +167,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
     public async Task RemoveCoordinatorAsync(
         int conversationId, Guid coordinatorId, CancellationToken cancellationToken = default)
     {
-        var participant = await _unitOfWork.GetRepository<ConversationParticipant>().AsQueryable(tracked: true)
+        var participant = await _unitOfWork.SetTracked<ConversationParticipant>()
             .FirstOrDefaultAsync(
                 p => p.ConversationId == conversationId && p.UserId == coordinatorId,
                 cancellationToken);
@@ -182,7 +182,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
     public async Task<IEnumerable<ConversationModel>> GetConversationsWaitingForCoordinatorAsync(
         CancellationToken cancellationToken = default)
     {
-        var entities = await _unitOfWork.GetRepository<Conversation>().AsQueryable()
+        var entities = await _unitOfWork.Set<Conversation>()
             .Where(c => c.Status == nameof(ConversationStatus.WaitingCoordinator))
             .Include(c => c.ConversationParticipants)
                 .ThenInclude(p => p.User)
@@ -197,7 +197,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
     public async Task<IEnumerable<MessageModel>> GetMessagesAsync(
         int conversationId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        var messages = await _unitOfWork.GetRepository<Message>().AsQueryable()
+        var messages = await _unitOfWork.Set<Message>()
             .Where(m => m.ConversationId == conversationId)
             .Include(m => m.Sender)
             .OrderBy(m => m.CreatedAt)
@@ -230,7 +230,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
         User? sender = null;
         if (senderId.HasValue)
         {
-            sender = await _unitOfWork.GetRepository<User>().AsQueryable()
+            sender = await _unitOfWork.Set<User>()
                 .FirstOrDefaultAsync(u => u.Id == senderId.Value, cancellationToken);
         }
 

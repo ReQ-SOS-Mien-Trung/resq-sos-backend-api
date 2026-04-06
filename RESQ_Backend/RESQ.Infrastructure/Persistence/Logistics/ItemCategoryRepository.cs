@@ -60,7 +60,7 @@ public class ItemCategoryRepository(IUnitOfWork unitOfWork) : IItemCategoryRepos
 
         var codeStrings = codes.Select(c => c.ToString()).Distinct().ToList();
 
-        return await _unitOfWork.GetRepository<Category>().AsQueryable()
+        return await _unitOfWork.Set<Category>()
             .AsNoTracking()
             .Where(c => codeStrings.Contains(c.Code))
             .Select(c => c.Id)

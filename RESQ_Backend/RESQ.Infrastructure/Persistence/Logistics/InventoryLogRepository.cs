@@ -24,7 +24,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<InventoryLog>().AsQueryable()
+        var query = _unitOfWork.Set<InventoryLog>()
             .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.Depot)
             .Include(x => x.SupplyInventory)
@@ -45,7 +45,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         // (Reserve, TransferOut) that happened at depot 2 — causing them to leak into depot 1's view.
         if (depotId.HasValue)
         {
-            var supplyRequests = _unitOfWork.GetRepository<DepotSupplyRequest>().AsQueryable();
+            var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
 
             query = query.Where(x =>
                 // Consumable: SupplyInventory.DepotId is stable (one record per depot+item)
@@ -152,7 +152,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<InventoryLog>().AsQueryable()
+        var query = _unitOfWork.Set<InventoryLog>()
             .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.Depot)
             .Include(x => x.SupplyInventory)
@@ -178,7 +178,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         // (Reserve, TransferOut at depot 2) to appear in depot 1's view after a TransferIn.
         if (depotId.HasValue)
         {
-            var supplyRequests = _unitOfWork.GetRepository<DepotSupplyRequest>().AsQueryable();
+            var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
 
             query = query.Where(x =>
                 // Consumable: SupplyInventory.DepotId is stable
@@ -325,7 +325,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
     private string GetOrganizationName(int organizationId)
     {
-        var organization = _unitOfWork.GetRepository<Organization>().AsQueryable()
+        var organization = _unitOfWork.Set<Organization>()
             .Where(o => o.Id == organizationId)
             .Select(o => o.Name)
             .FirstOrDefault();

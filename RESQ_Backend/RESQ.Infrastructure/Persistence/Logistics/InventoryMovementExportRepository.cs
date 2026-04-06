@@ -18,7 +18,7 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
         int? depotId,
         CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<InventoryLog>().AsQueryable()
+        var query = _unitOfWork.Set<InventoryLog>()
             .Include(l => l.SupplyInventory)
                 .ThenInclude(d => d!.ItemModel)
                     .ThenInclude(r => r!.Category)

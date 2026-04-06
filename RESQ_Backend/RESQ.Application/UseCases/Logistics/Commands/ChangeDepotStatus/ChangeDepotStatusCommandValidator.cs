@@ -12,9 +12,12 @@ public class ChangeDepotStatusCommandValidator : AbstractValidator<ChangeDepotSt
 
         RuleFor(x => x.Status)
             .IsInEnum().WithMessage("Trạng thái kho không hợp lệ.")
-            .Must(s => s != DepotStatus.Closing && s != DepotStatus.Closed)
-            .WithMessage("Không thể đặt trạng thái Closing hoặc Closed qua endpoint này. " +
-                         "Vui lòng dùng POST /logistics/depot/{id}/close/initiate để đóng kho.");
+            .Must(s => s != DepotStatus.PendingAssignment
+                    && s != DepotStatus.Closing
+                    && s != DepotStatus.Closed)
+            .WithMessage("Trạng thái đưa vào không hợp lệ. " +
+                         "Các trạng thái được phép: Available, Full, UnderMaintenance. " +
+                         "Dùng POST /logistics/depot/{id}/close/initiate để đóng kho.");
     }
 }
 

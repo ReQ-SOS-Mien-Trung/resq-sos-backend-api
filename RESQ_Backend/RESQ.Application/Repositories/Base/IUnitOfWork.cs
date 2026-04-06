@@ -3,6 +3,18 @@
 public interface IUnitOfWork
 {
     IGenericRepository<T> GetRepository<T>() where T : class;
+
+    /// <summary>
+    /// Shorthand cho GetRepository&lt;T&gt;().AsQueryable(tracked: false).
+    /// Dùng cho read-only queries, tương đương _dbContext.Set&lt;T&gt;().AsNoTracking().
+    /// </summary>
+    IQueryable<T> Set<T>() where T : class;
+
+    /// <summary>
+    /// Shorthand cho GetRepository&lt;T&gt;().AsQueryable(tracked: true).
+    /// Dùng khi cần track entity để update/delete, tương đương _dbContext.Set&lt;T&gt;().
+    /// </summary>
+    IQueryable<T> SetTracked<T>() where T : class;
     int SaveChangesWithTransaction();
     Task<int> SaveChangesWithTransactionAsync();
     Task<int> SaveAsync();

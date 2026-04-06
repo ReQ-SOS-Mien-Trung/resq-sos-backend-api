@@ -44,8 +44,8 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
         var categoryCodeString = categoryCode.ToString();
 
         var items = await (
-            from ri in _unitOfWork.GetRepository<ItemModel>().AsQueryable()
-            join cat in _unitOfWork.GetRepository<Category>().AsQueryable() on ri.CategoryId equals cat.Id
+            from ri in _unitOfWork.Set<ItemModel>()
+            join cat in _unitOfWork.Set<Category>() on ri.CategoryId equals cat.Id
             where cat.Code == categoryCodeString
             orderby ri.Id
             select new MetadataDto

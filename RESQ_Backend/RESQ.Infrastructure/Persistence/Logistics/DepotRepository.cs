@@ -3,6 +3,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Mappers.Resources;
 using RESQ.Infrastructure.Persistence.Context;
@@ -35,16 +36,21 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         }
     }
 
-    public async Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, CancellationToken cancellationToken = default)
     {
         var repository = _unitOfWork.GetRepository<Depot>();
-        
+
+        // Convert enum values to string for DB comparison
+        var statusStrings = statuses?.Select(s => s.ToString()).ToList();
+
         // UPDATED: Pass OrderBy to ensure consistent pagination (Order by LastUpdated DESC)
         // UPDATED: Included "DepotManagers.User" to fetch manager details
         var pagedEntities = await repository.GetPagedAsync(
             pageNumber, 
             pageSize,
-            filter: null,
+            filter: statusStrings != null && statusStrings.Count > 0
+                ? d => statusStrings.Contains(d.Status)
+                : null,
             orderBy: q => q.OrderByDescending(d => d.LastUpdatedAt), 
             includeProperties: "DepotManagers.User"
         );
@@ -107,10 +113,11 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
 
     public async Task<int> GetActiveDepotCountExcludingAsync(int depotId, CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.GetRepository<Depot>().AsQueryable()
+        return await _unitOfWork.Set<Depot>()
             .CountAsync(
                 d => d.Id != depotId
-                     && (d.Status == "Available" || d.Status == "Full" || d.Status == "Closing"),
+                     && (d.Status == "Available" || d.Status == "Full"
+                         || d.Status == "UnderMaintenance" || d.Status == "Closing"),
                 cancellationToken);
     }
 
@@ -122,7 +129,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         var terminalSourceStatuses      = new[] { "Completed", "Rejected", "Cancelled" };
         var terminalRequestingStatuses  = new[] { "Received",  "Rejected", "Cancelled" };
 
-        var repo = _unitOfWork.GetRepository<DepotSupplyRequest>().AsQueryable();
+        var repo = _unitOfWork.Set<DepotSupplyRequest>();
 
         var asSource = await repo
             .CountAsync(r => r.SourceDepotId == depotId
@@ -139,7 +146,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
 
     public async Task<int> GetConsumableTransferVolumeAsync(int depotId, CancellationToken cancellationToken = default)
     {
-        var total = await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable()
+        var total = await _unitOfWork.Set<SupplyInventory>()
             .Where(inv => inv.DepotId == depotId && (inv.Quantity ?? 0) > 0)
             .SumAsync(inv => (int?)(inv.Quantity ?? 0), cancellationToken);
 
@@ -149,7 +156,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
     public async Task<(int AvailableCount, int InUseCount)> GetReusableItemCountsAsync(
         int depotId, CancellationToken cancellationToken = default)
     {
-        var repo = _unitOfWork.GetRepository<ReusableItem>().AsQueryable();
+        var repo = _unitOfWork.Set<ReusableItem>();
 
         var available = await repo
             .CountAsync(ri => ri.DepotId == depotId && ri.Status == "Available", cancellationToken);
@@ -162,7 +169,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
 
     public async Task<int> GetConsumableInventoryRowCountAsync(int depotId, CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.GetRepository<SupplyInventory>().AsQueryable()
+        return await _unitOfWork.Set<SupplyInventory>()
             .CountAsync(inv => inv.DepotId == depotId && (inv.Quantity ?? 0) > 0, cancellationToken);
     }
 }

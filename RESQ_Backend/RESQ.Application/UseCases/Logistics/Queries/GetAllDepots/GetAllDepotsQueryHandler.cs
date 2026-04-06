@@ -17,7 +17,7 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
         {
             _logger.LogInformation("Handling {handler} - retrieving all depots page {page}", nameof(GetAllDepotsQueryHandler), request.PageNumber);
 
-            var pagedResult = await _depotRepository.GetAllPagedAsync(request.PageNumber, request.PageSize, cancellationToken);
+            var pagedResult = await _depotRepository.GetAllPagedAsync(request.PageNumber, request.PageSize, request.Statuses, cancellationToken);
             
             var dtos = pagedResult.Items.Select(depot => 
             {

@@ -1,5 +1,6 @@
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Repositories.Logistics
 {
@@ -8,8 +9,8 @@ namespace RESQ.Application.Repositories.Logistics
         Task CreateAsync(DepotModel depotModel, CancellationToken cancellationToken = default);
         Task UpdateAsync(DepotModel depotModel, CancellationToken cancellationToken = default);
         
-        // NEW: Pagination
-        Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+        // NEW: Pagination with optional status filter
+        Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, CancellationToken cancellationToken = default);
         
         // Legacy GetAll (optional, can be kept or removed)
         Task<IEnumerable<DepotModel>> GetAllAsync(CancellationToken cancellationToken = default);
