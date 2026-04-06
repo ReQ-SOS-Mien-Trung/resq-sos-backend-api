@@ -3,7 +3,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Exceptions;
-using RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 using RESQ.Application.UseCases.Operations.Commands.UpdateTeamIncidentStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetAllTeamIncidents;
 using RESQ.Application.UseCases.Operations.Queries.GetTeamIncidents;
@@ -25,22 +24,6 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetAllIncidents()
     {
         var result = await _mediator.Send(new GetAllTeamIncidentsQuery());
-        return Ok(result);
-    }
-
-    /// <summary>Đội cứu hộ báo cáo sự cố trong khi thực hiện nhiệm vụ.</summary>
-    [HttpPost]
-    [Authorize(Roles = "1,2,3")]
-    public async Task<IActionResult> ReportIncident([FromBody] ReportTeamIncidentRequestDto dto)
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
-
-        var command = new ReportTeamIncidentCommand(
-            dto.MissionTeamId, dto.Description, dto.Latitude, dto.Longitude, userId);
-
-        var result = await _mediator.Send(command);
         return Ok(result);
     }
 

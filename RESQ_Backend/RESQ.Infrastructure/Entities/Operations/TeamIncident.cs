@@ -17,6 +17,9 @@ public partial class TeamIncident
     [Column("mission_team_id")]
     public int? MissionTeamId { get; set; }
 
+    [Column("mission_activity_id")]
+    public int? MissionActivityId { get; set; }
+
     [Column("location", TypeName = "geography(Point,4326)")]
     public Point? Location { get; set; }
 
@@ -27,6 +30,10 @@ public partial class TeamIncident
     [StringLength(50)]
     public string? Status { get; set; }
 
+    [Column("incident_scope")]
+    [StringLength(50)]
+    public string? IncidentScope { get; set; }
+
     [Column("reported_by")]
     public Guid? ReportedBy { get; set; }
 
@@ -36,4 +43,7 @@ public partial class TeamIncident
     [ForeignKey("MissionTeamId")]
     [InverseProperty("TeamIncidents")]
     public virtual MissionTeam? MissionTeam { get; set; }
-}
+
+    [ForeignKey("MissionActivityId")]
+    public virtual MissionActivity? MissionActivity { get; set; }
+}

@@ -414,6 +414,7 @@ public static class OperationsSeeder
             {
                 Id = 1,
                 MissionTeamId = 1,
+                IncidentScope = TeamIncidentScope.Mission.ToString(),
                 Location = new Point(106.7870, 17.2145) { SRID = 4326 },
                 Description = "Thuyền cứu hộ bị hỏng động cơ khi đang tiếp cận khu vực ngập sâu tại xã An Thủy. Đội đang chờ hỗ trợ.",
                 Status = TeamIncidentStatus.Reported.ToString(),
@@ -425,6 +426,7 @@ public static class OperationsSeeder
             {
                 Id = 2,
                 MissionTeamId = 1,
+                IncidentScope = TeamIncidentScope.Mission.ToString(),
                 Location = new Point(106.7860, 17.2138) { SRID = 4326 },
                 Description = "Một thành viên đội cứu hộ bị trượt chân và bị thương nhẹ ở chân khi di chuyển qua khu vực bùn lầy.",
                 Status = TeamIncidentStatus.Acknowledged.ToString(),
@@ -436,6 +438,7 @@ public static class OperationsSeeder
             {
                 Id = 3,
                 MissionTeamId = 1,
+                IncidentScope = TeamIncidentScope.Mission.ToString(),
                 Location = new Point(106.7855, 17.2150) { SRID = 4326 },
                 Description = "Đội mất liên lạc với trung tâm chỉ huy trong 15 phút do sóng yếu tại khu vực vùng trũng.",
                 Status = TeamIncidentStatus.Resolved.ToString(),

@@ -5,5 +5,6 @@ namespace RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 
 public record UpdateMissionStatusCommand(
     int MissionId,
-    MissionStatus Status
+    MissionStatus Status,
+    Guid DecisionBy
 ) : IRequest<UpdateMissionStatusResponse>;

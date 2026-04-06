@@ -10,6 +10,9 @@ public class UpdateMissionStatusCommandValidator : AbstractValidator<UpdateMissi
         RuleFor(x => x.MissionId)
             .GreaterThan(0).WithMessage("MissionId phải lớn hơn 0");
 
+        RuleFor(x => x.DecisionBy)
+            .NotEmpty().WithMessage("DecisionBy không được để trống");
+
         RuleFor(x => x.Status)
             .IsInEnum().WithMessage("Status phải là một trong: Planned, OnGoing, Completed, Incompleted");
     }

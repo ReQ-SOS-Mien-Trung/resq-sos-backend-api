@@ -4,6 +4,7 @@ namespace RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 
 public record ReportTeamIncidentCommand(
     int MissionTeamId,
+    int? MissionActivityId,
     string Description,
     double? Latitude,
     double? Longitude,

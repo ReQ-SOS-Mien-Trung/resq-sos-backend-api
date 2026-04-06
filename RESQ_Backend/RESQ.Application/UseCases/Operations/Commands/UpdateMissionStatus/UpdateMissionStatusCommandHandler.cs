@@ -5,6 +5,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
 
@@ -12,12 +13,16 @@ namespace RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 
 public class UpdateMissionStatusCommandHandler(
     IMissionRepository missionRepository,
+    IMissionActivityRepository missionActivityRepository,
+    IMissionTeamRepository missionTeamRepository,
     ISosRequestRepository sosRequestRepository,
     IUnitOfWork unitOfWork,
     ILogger<UpdateMissionStatusCommandHandler> logger
 ) : IRequestHandler<UpdateMissionStatusCommand, UpdateMissionStatusResponse>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
+    private readonly IMissionActivityRepository _missionActivityRepository = missionActivityRepository;
+    private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<UpdateMissionStatusCommandHandler> _logger = logger;
@@ -44,6 +49,26 @@ public class UpdateMissionStatusCommandHandler(
             if (request.Status == MissionStatus.OnGoing)
             {
                 await _sosRequestRepository.UpdateStatusByClusterIdAsync(mission.ClusterId.Value, SosRequestStatus.InProgress, cancellationToken);
+            }
+        }
+
+        if (request.Status == MissionStatus.OnGoing)
+        {
+            var autoStartedActivityIds = await MissionActivityAutoStartHelper.AutoStartFirstActivitiesPerTeamAsync(
+                request.MissionId,
+                request.DecisionBy,
+                _missionActivityRepository,
+                _missionTeamRepository,
+                _logger,
+                cancellationToken);
+
+            if (autoStartedActivityIds.Count > 0)
+            {
+                _logger.LogInformation(
+                    "MissionId={MissionId} auto-started {Count} first team activities: [{ActivityIds}]",
+                    request.MissionId,
+                    autoStartedActivityIds.Count,
+                    string.Join(", ", autoStartedActivityIds));
             }
         }
 

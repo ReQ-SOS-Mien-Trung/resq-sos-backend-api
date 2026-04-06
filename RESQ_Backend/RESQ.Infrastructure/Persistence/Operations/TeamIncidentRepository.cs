@@ -53,12 +53,14 @@ public class TeamIncidentRepository(IUnitOfWork unitOfWork) : ITeamIncidentRepos
 
         var entity = new TeamIncident
         {
-            MissionTeamId = model.MissionTeamId,
-            Description   = model.Description,
-            Location      = location,
-            Status        = model.Status.ToString(),
-            ReportedBy    = model.ReportedBy,
-            ReportedAt    = model.ReportedAt ?? DateTime.UtcNow
+            MissionTeamId    = model.MissionTeamId,
+            MissionActivityId = model.MissionActivityId,
+            Description      = model.Description,
+            Location         = location,
+            Status           = model.Status.ToString(),
+            IncidentScope    = model.IncidentScope.ToString(),
+            ReportedBy       = model.ReportedBy,
+            ReportedAt       = model.ReportedAt ?? DateTime.UtcNow
         };
 
         await _unitOfWork.GetRepository<TeamIncident>().AddAsync(entity);
@@ -79,13 +81,15 @@ public class TeamIncidentRepository(IUnitOfWork unitOfWork) : ITeamIncidentRepos
 
     private static TeamIncidentModel ToModel(TeamIncident entity) => new()
     {
-        Id            = entity.Id,
-        MissionTeamId = entity.MissionTeamId ?? 0,
-        Latitude      = entity.Location?.Y,
-        Longitude     = entity.Location?.X,
-        Description   = entity.Description,
-        Status        = Enum.TryParse<TeamIncidentStatus>(entity.Status, out var s) ? s : TeamIncidentStatus.Reported,
-        ReportedBy    = entity.ReportedBy,
-        ReportedAt    = entity.ReportedAt
+        Id               = entity.Id,
+        MissionTeamId    = entity.MissionTeamId ?? 0,
+        MissionActivityId = entity.MissionActivityId,
+        IncidentScope    = Enum.TryParse<TeamIncidentScope>(entity.IncidentScope, out var scope) ? scope : TeamIncidentScope.Mission,
+        Latitude         = entity.Location?.Y,
+        Longitude        = entity.Location?.X,
+        Description      = entity.Description,
+        Status           = Enum.TryParse<TeamIncidentStatus>(entity.Status, out var s) ? s : TeamIncidentStatus.Reported,
+        ReportedBy       = entity.ReportedBy,
+        ReportedAt       = entity.ReportedAt
     };
 }

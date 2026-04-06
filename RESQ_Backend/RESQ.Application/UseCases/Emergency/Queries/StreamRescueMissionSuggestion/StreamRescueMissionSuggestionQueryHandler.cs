@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Domain.Entities.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.StreamRescueMissionSuggestion;
@@ -54,36 +55,40 @@ public class StreamRescueMissionSuggestionQueryHandler(
         yield return new SseMissionEvent
         {
             EventType = "status",
-            Data = $"Đã tải {context!.SosRequests.Count} SOS request, {context.NearbyDepots.Count} kho tiếp tế."
+            Data = $"Đã tải {context!.SosRequests.Count} SOS request, {context.NearbyDepots.Count} kho tiếp tế, {context.NearbyTeams.Count} đội nearby."
         };
 
         // 2. Stream AI generation — forward every event and capture the final result
         RescueMissionSuggestionResult? aiResult = null;
 
         await foreach (var evt in _suggestionService.GenerateSuggestionStreamAsync(
-            context.SosRequests, context.NearbyDepots, context.MultiDepotRecommended, cancellationToken))
+            context.SosRequests, context.NearbyDepots, context.NearbyTeams, context.MultiDepotRecommended, cancellationToken))
         {
-            if (evt.EventType == "result")
+            if (evt.EventType == "result" && evt.Result is not null)
+            {
                 aiResult = evt.Result;
+
+                RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(aiResult, context.NearbyTeams);
+
+                if (aiResult.IsSuccess && aiResult.ConfidenceScore < LowConfidenceThreshold)
+                {
+                    aiResult.NeedsManualReview = true;
+                    aiResult.LowConfidenceWarning =
+                        $"AI chỉ đạt độ tự tin {aiResult.ConfidenceScore:P0} (ngưỡng: {LowConfidenceThreshold:P0}). " +
+                        "Kế hoạch có thể chưa chính xác — điều phối viên nên xem xét và điều chỉnh thủ công.";
+                    _logger.LogWarning(
+                        "AI low-confidence result for ClusterId={clusterId}: ConfidenceScore={score}",
+                        request.ClusterId, aiResult.ConfidenceScore);
+                }
+                aiResult.MultiDepotRecommended = context.MultiDepotRecommended;
+            }
+
             yield return evt;
         }
 
         if (aiResult is null) yield break;
 
-        // 3. Post-process confidence + multi-depot flags
-        if (aiResult.IsSuccess && aiResult.ConfidenceScore < LowConfidenceThreshold)
-        {
-            aiResult.NeedsManualReview = true;
-            aiResult.LowConfidenceWarning =
-                $"AI chỉ đạt độ tự tin {aiResult.ConfidenceScore:P0} (ngưỡng: {LowConfidenceThreshold:P0}). " +
-                "Kế hoạch có thể chưa chính xác — điều phối viên nên xem xét và điều chỉnh thủ công.";
-            _logger.LogWarning(
-                "AI low-confidence result for ClusterId={clusterId}: ConfidenceScore={score}",
-                request.ClusterId, aiResult.ConfidenceScore);
-        }
-        aiResult.MultiDepotRecommended = context.MultiDepotRecommended;
-
-        // 4. Persist to DB
+        // 3. Persist to DB
         int? savedId = null;
         try
         {

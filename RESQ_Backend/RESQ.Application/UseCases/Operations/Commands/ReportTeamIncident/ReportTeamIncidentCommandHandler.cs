@@ -2,7 +2,8 @@ using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
-using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
+using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 
@@ -11,6 +12,8 @@ namespace RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 public class ReportTeamIncidentCommandHandler(
     IMissionTeamRepository missionTeamRepository,
     ITeamIncidentRepository teamIncidentRepository,
+    IMissionActivityRepository missionActivityRepository,
+    IRescueTeamRepository rescueTeamRepository,
     IMediator mediator,
     IUnitOfWork unitOfWork
 ) : IRequestHandler<ReportTeamIncidentCommand, ReportTeamIncidentResponse>
@@ -28,6 +31,8 @@ public class ReportTeamIncidentCommandHandler(
         var incident = new TeamIncidentModel
         {
             MissionTeamId = request.MissionTeamId,
+            MissionActivityId = request.MissionActivityId,
+            IncidentScope = request.MissionActivityId.HasValue ? TeamIncidentScope.Activity : TeamIncidentScope.Mission,
             Description = request.Description,
             Latitude = request.Latitude,
             Longitude = request.Longitude,
@@ -38,10 +43,50 @@ public class ReportTeamIncidentCommandHandler(
 
         var incidentId = await teamIncidentRepository.CreateAsync(incident, cancellationToken);
 
-        // Update rescue team status: OnMission → Stuck
-        await mediator.Send(new ChangeTeamMissionStateCommand(missionTeam.RescuerTeamId, "reportincident"), cancellationToken);
+        var rescueTeam = await rescueTeamRepository.GetByIdAsync(missionTeam.RescuerTeamId, cancellationToken)
+            ?? throw new NotFoundException($"Không tìm thấy đội cứu hộ với ID: {missionTeam.RescuerTeamId}");
 
-        await unitOfWork.SaveAsync();
+        rescueTeam.ReportIncident();
+        await rescueTeamRepository.UpdateAsync(rescueTeam, cancellationToken);
+
+        MissionActivityModel? currentActivity;
+        if (request.MissionActivityId.HasValue)
+        {
+            currentActivity = await missionActivityRepository.GetByIdAsync(request.MissionActivityId.Value, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy activity với ID: {request.MissionActivityId.Value}");
+
+            if (currentActivity.MissionId != missionTeam.MissionId || currentActivity.MissionTeamId != request.MissionTeamId)
+            {
+                throw new BadRequestException(
+                    $"Activity #{request.MissionActivityId.Value} không thuộc MissionTeamId={request.MissionTeamId}.");
+            }
+
+            if (currentActivity.Status != MissionActivityStatus.OnGoing)
+            {
+                throw new BadRequestException(
+                    $"Activity #{request.MissionActivityId.Value} không ở trạng thái OnGoing để có thể báo incident.");
+            }
+        }
+        else
+        {
+            currentActivity = (await missionActivityRepository.GetByMissionIdAsync(missionTeam.MissionId, cancellationToken))
+                .Where(activity => activity.MissionTeamId == request.MissionTeamId
+                    && activity.Status == MissionActivityStatus.OnGoing)
+                .OrderBy(activity => activity.Step ?? int.MaxValue)
+                .ThenBy(activity => activity.Id)
+                .FirstOrDefault();
+        }
+
+        if (currentActivity is not null)
+        {
+            await mediator.Send(
+                new UpdateActivityStatusCommand(currentActivity.Id, MissionActivityStatus.Failed, request.ReportedBy),
+                cancellationToken);
+        }
+        else
+        {
+            await unitOfWork.SaveAsync();
+        }
 
         return new ReportTeamIncidentResponse
         {

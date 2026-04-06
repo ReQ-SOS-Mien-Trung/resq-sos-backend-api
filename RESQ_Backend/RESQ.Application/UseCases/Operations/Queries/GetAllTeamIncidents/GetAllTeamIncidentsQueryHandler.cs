@@ -17,6 +17,8 @@ public class GetAllTeamIncidentsQueryHandler(
             {
                 IncidentId = i.Id,
                 MissionTeamId = i.MissionTeamId,
+                MissionActivityId = i.MissionActivityId,
+                IncidentScope = i.IncidentScope.ToString(),
                 Latitude = i.Latitude,
                 Longitude = i.Longitude,
                 Description = i.Description,
