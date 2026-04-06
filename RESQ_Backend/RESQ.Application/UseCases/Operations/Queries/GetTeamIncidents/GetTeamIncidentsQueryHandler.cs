@@ -48,14 +48,16 @@ public class GetTeamIncidentsQueryHandler(
 
                 return new TeamIncidentDto
                 {
-                    IncidentId    = i.Id,
-                    MissionTeamId = i.MissionTeamId,
-                    Latitude      = i.Latitude,
-                    Longitude     = i.Longitude,
-                    Description   = i.Description,
-                    Status        = i.Status.ToString(),
-                    ReportedBy    = reportedBy,
-                    ReportedAt    = i.ReportedAt
+                    IncidentId       = i.Id,
+                    MissionTeamId    = i.MissionTeamId,
+                    MissionActivityId = i.MissionActivityId,
+                    IncidentScope    = i.IncidentScope.ToString(),
+                    Latitude         = i.Latitude,
+                    Longitude        = i.Longitude,
+                    Description      = i.Description,
+                    Status           = i.Status.ToString(),
+                    ReportedBy       = reportedBy,
+                    ReportedAt       = i.ReportedAt
                 };
             }).ToList()
         };

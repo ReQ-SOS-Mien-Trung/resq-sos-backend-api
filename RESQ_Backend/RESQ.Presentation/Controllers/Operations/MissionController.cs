@@ -11,6 +11,8 @@ using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Application.UseCases.Operations.Commands.CompleteMissionTeamExecution;
 using RESQ.Application.UseCases.Operations.Commands.ConfirmReturnSupplies;
 using RESQ.Application.UseCases.Operations.Commands.CreateMission;
+using RESQ.Application.UseCases.Operations.Commands.ReportMissionActivityIncident;
+using RESQ.Application.UseCases.Operations.Commands.ReportMissionTeamIncident;
 using RESQ.Application.UseCases.Operations.Commands.SaveMissionTeamReportDraft;
 using RESQ.Application.UseCases.Operations.Commands.SubmitMissionTeamReport;
 using RESQ.Application.UseCases.Operations.Commands.UnassignTeamFromMission;
@@ -154,6 +156,30 @@ public class MissionController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Đội cứu hộ báo sự cố cho toàn bộ phần mission của chính missionTeam này.</summary>
+    [HttpPost("{missionId:int}/teams/{missionTeamId:int}/incident")]
+    [Authorize(Roles = "1,2,3")]
+    public async Task<IActionResult> ReportMissionTeamIncident(
+        [FromRoute] int missionId,
+        [FromRoute] int missionTeamId,
+        [FromBody] ReportMissionTeamIncidentRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new ReportMissionTeamIncidentCommand(
+            missionId,
+            missionTeamId,
+            dto.Description,
+            dto.Latitude,
+            dto.Longitude,
+            userId);
+
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
     // ============================================================
     // ACTIVITIES
     // ============================================================
@@ -250,6 +276,30 @@ public class MissionController(IMediator mediator) : ControllerBase
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new UpdateActivityStatusCommand(activityId, dto.Status, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>Đội cứu hộ báo sự cố cho một activity cụ thể; activity đó sẽ fail và activity kế tiếp của cùng team có thể auto-start.</summary>
+    [HttpPost("{missionId:int}/activities/{activityId:int}/incident")]
+    [Authorize(Roles = "1,2,3")]
+    public async Task<IActionResult> ReportMissionActivityIncident(
+        [FromRoute] int missionId,
+        [FromRoute] int activityId,
+        [FromBody] ReportMissionActivityIncidentRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new ReportMissionActivityIncidentCommand(
+            missionId,
+            activityId,
+            dto.Description,
+            dto.Latitude,
+            dto.Longitude,
+            userId);
+
         var result = await _mediator.Send(command);
         return Ok(result);
     }

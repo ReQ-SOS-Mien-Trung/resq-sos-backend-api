@@ -31,6 +31,8 @@ public class ReportTeamIncidentCommandHandler(
         var incident = new TeamIncidentModel
         {
             MissionTeamId = request.MissionTeamId,
+            MissionActivityId = request.MissionActivityId,
+            IncidentScope = request.MissionActivityId.HasValue ? TeamIncidentScope.Activity : TeamIncidentScope.Mission,
             Description = request.Description,
             Latitude = request.Latitude,
             Longitude = request.Longitude,
