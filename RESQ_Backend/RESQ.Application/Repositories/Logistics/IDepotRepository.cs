@@ -8,6 +8,12 @@ namespace RESQ.Application.Repositories.Logistics
     {
         Task CreateAsync(DepotModel depotModel, CancellationToken cancellationToken = default);
         Task UpdateAsync(DepotModel depotModel, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gán / đổi manager cho kho: unassign manager cũ (nếu có), thêm bản ghi manager mới,
+        /// cập nhật status kho → Available.
+        /// </summary>
+        Task AssignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
         
         // NEW: Pagination with optional status filter and full-text search
         Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default);

@@ -6,6 +6,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
+using RESQ.Application.UseCases.Logistics.Commands.AssignDepotManager;
 using RESQ.Application.UseCases.Logistics.Commands.CancelDepotClosure;
 using RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
 using RESQ.Application.UseCases.Logistics.Commands.CompleteClosureTransfer;
@@ -16,6 +17,8 @@ using RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.ResolveDepotClosure;
 using RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.UpdateDepot;
+using RESQ.Application.Repositories.Identity;
+using RESQ.Application.UseCases.Logistics.Queries.GetAvailableManagersMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.DepotStatusMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots;
 using RESQ.Domain.Enum.Logistics;
@@ -64,18 +67,18 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>Tạo kho mới.</summary>
+        /// <summary>Tạo kho mới. Manager là optional — nếu gán ngay thì kho chuyển sang Available.</summary>
         [HttpPost]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         public async Task<IActionResult> Create([FromBody] CreateDepotRequestDto dto)
         {
-            // Pass primitives to command. GeoLocation creation moved to Handler.
             var command = new CreateDepotCommand(
                 dto.Name,
                 dto.Address,
                 dto.Latitude,
                 dto.Longitude,
-                dto.Capacity
+                dto.Capacity,
+                dto.ManagerId
             );
 
             var result = await _mediator.Send(command);
@@ -99,6 +102,22 @@ namespace RESQ.Presentation.Controllers.Logistics
 
             await _mediator.Send(command);
             return NoContent();
+        }
+
+        /// <summary>
+        /// Gán / đổi manager cho kho. Nếu kho đang có manager khác, manager cũ sẽ được unassign tự động.
+        /// Kho chuyển sang trạng thái Available sau khi gán.
+        /// </summary>
+        [HttpPatch("{id}/manager")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ProducesResponseType(typeof(AssignDepotManagerResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> AssignManager(int id, [FromBody] AssignDepotManagerRequestDto dto)
+        {
+            var command = new AssignDepotManagerCommand(id, dto.ManagerId);
+            var result = await _mediator.Send(command);
+            return Ok(result);
         }
 
         /// <summary>Thay đổi trạng thái kho (Available / Full / Closed / ...).</summary>
@@ -125,6 +144,18 @@ namespace RESQ.Presentation.Controllers.Logistics
         public async Task<IActionResult> GetDepotMetadata()
         {
             var result = await _mediator.Send(new GetDepotMetadataQuery());
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// [Metadata] Danh sách Manager (RoleId=4) chưa quản lý kho nào — dùng cho dropdown gán manager.
+        /// </summary>
+        [HttpGet("metadata/available-managers")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ProducesResponseType(typeof(List<AvailableManagerDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAvailableManagers()
+        {
+            var result = await _mediator.Send(new GetAvailableManagersMetadataQuery());
             return Ok(result);
         }
 

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Exceptions;
@@ -10,8 +11,9 @@ using RESQ.Domain.Entities.Logistics.ValueObjects;
 namespace RESQ.Application.UseCases.Logistics.Commands.CreateDepot;
 
 public class CreateDepotCommandHandler(
-    IDepotRepository depotRepository, 
-    IUnitOfWork unitOfWork, 
+    IDepotRepository depotRepository,
+    IUserRepository userRepository,
+    IUnitOfWork unitOfWork,
     ILogger<CreateDepotCommandHandler> logger) 
     : IRequestHandler<CreateDepotCommand, CreateDepotResponse>
 {
@@ -29,13 +31,25 @@ public class CreateDepotCommandHandler(
             throw new DepotNameDuplicatedException(request.Name);
         }
 
+        // Validate manager nếu có
+        if (request.ManagerId.HasValue && request.ManagerId.Value != Guid.Empty)
+        {
+            var manager = await userRepository.GetByIdAsync(request.ManagerId.Value, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy người dùng với ID = {request.ManagerId.Value}");
+
+            if (manager.RoleId != 4)
+                throw new BadRequestException(
+                    $"Người dùng {manager.LastName} {manager.FirstName} không có vai trò Quản lý kho (Manager).");
+        }
+
         var location = new GeoLocation(request.Latitude, request.Longitude);
 
         var depot = DepotModel.Create(
             request.Name,
             request.Address,
             location,
-            request.Capacity
+            request.Capacity,
+            request.ManagerId
         );
 
         await _depotRepository.CreateAsync(depot, cancellationToken);
