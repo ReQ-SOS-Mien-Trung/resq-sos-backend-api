@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMissionTeamRoute;
@@ -10,6 +12,7 @@ namespace RESQ.Application.UseCases.Operations.Queries.GetMissionTeamRoute;
 public class GetMissionTeamRouteQueryHandler(
     IMissionActivityRepository activityRepository,
     IMissionTeamRepository missionTeamRepository,
+    IDepotRepository depotRepository,
     IGoongMapService goongMapService,
     ILogger<GetMissionTeamRouteQueryHandler> logger
 ) : IRequestHandler<GetMissionTeamRouteQuery, GetMissionTeamRouteResponse>
@@ -38,18 +41,51 @@ public class GetMissionTeamRouteQueryHandler(
 
         var teamActivities = allActivities
             .Where(a => a.MissionTeamId == request.MissionTeamId
-                     && a.TargetLatitude.HasValue
-                     && a.TargetLongitude.HasValue
                      && !excludedStatuses.Contains(a.Status))
             .OrderBy(a => a.Step ?? int.MaxValue)
             .ToList();
 
-        if (teamActivities.Count == 0)
+        var resolvedActivities = new List<(int ActivityId, int? Step, string? ActivityType, string? Description, double Latitude, double Longitude)>();
+
+        foreach (var activity in teamActivities)
+        {
+            var requiresDepotFallback = MissionRouteCoordinateResolver.RequiresDepotFallback(activity);
+            var coordinates = await MissionRouteCoordinateResolver.ResolveAsync(activity, depotRepository, cancellationToken);
+
+            if (coordinates is null)
+            {
+                logger.LogWarning(
+                    "Skipping activity {ActivityId} in MissionId={MissionId}, MissionTeamId={MissionTeamId} because no usable route coordinates were found.",
+                    activity.Id,
+                    request.MissionId,
+                    request.MissionTeamId);
+                continue;
+            }
+
+            if (requiresDepotFallback)
+            {
+                logger.LogInformation(
+                    "Using depot coordinates for COLLECT_SUPPLIES activity {ActivityId} in MissionId={MissionId}, MissionTeamId={MissionTeamId}.",
+                    activity.Id,
+                    request.MissionId,
+                    request.MissionTeamId);
+            }
+
+            resolvedActivities.Add((
+                activity.Id,
+                activity.Step,
+                activity.ActivityType,
+                activity.Description,
+                coordinates.Value.Latitude,
+                coordinates.Value.Longitude));
+        }
+
+        if (resolvedActivities.Count == 0)
             throw new NotFoundException(
                 $"Không có activity nào có tọa độ cho MissionTeamId={request.MissionTeamId} trong Mission={request.MissionId}.");
 
-        var waypoints = teamActivities
-            .Select(a => (a.TargetLatitude!.Value, a.TargetLongitude!.Value));
+        var waypoints = resolvedActivities
+            .Select(a => (a.Latitude, a.Longitude));
 
         var routeResult = await goongMapService.GetMissionRouteAsync(
             request.OriginLat,
@@ -74,14 +110,14 @@ public class GetMissionTeamRouteQueryHandler(
             TotalDurationSeconds = routeResult.TotalDurationSeconds,
             OverviewPolyline     = routeResult.OverviewPolyline,
             Legs                 = routeResult.Legs,
-            Waypoints            = teamActivities.Select(a => new MissionRouteWaypoint
+            Waypoints            = resolvedActivities.Select(a => new MissionRouteWaypoint
             {
-                ActivityId   = a.Id,
+                ActivityId   = a.ActivityId,
                 Step         = a.Step,
                 ActivityType = a.ActivityType,
                 Description  = a.Description,
-                Latitude     = a.TargetLatitude!.Value,
-                Longitude    = a.TargetLongitude!.Value
+                Latitude     = a.Latitude,
+                Longitude    = a.Longitude
             }).ToList()
         };
     }

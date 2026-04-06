@@ -1,13 +1,16 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Operations.Shared;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetRescuerRoute;
 
 public class GetRescuerRouteQueryHandler(
     IMissionActivityRepository activityRepository,
+    IDepotRepository depotRepository,
     IGoongMapService goongMapService,
     ILogger<GetRescuerRouteQueryHandler> logger
 ) : IRequestHandler<GetRescuerRouteQuery, GetRescuerRouteResponse>
@@ -25,11 +28,22 @@ public class GetRescuerRouteQueryHandler(
         if (activity.MissionId != request.MissionId)
             throw new BadRequestException("Activity không thuộc mission được yêu cầu.");
 
-        if (activity.TargetLatitude is null || activity.TargetLongitude is null)
-            throw new BadRequestException($"Activity {request.ActivityId} chưa có tọa độ đích.");
+        var requiresDepotFallback = MissionRouteCoordinateResolver.RequiresDepotFallback(activity);
+        var destination = await MissionRouteCoordinateResolver.ResolveAsync(activity, depotRepository, cancellationToken);
 
-        var destLat = activity.TargetLatitude.Value;
-        var destLng = activity.TargetLongitude.Value;
+        if (destination is null)
+            throw new BadRequestException($"Activity {request.ActivityId} chưa có tọa độ đích hợp lệ.");
+
+        if (requiresDepotFallback)
+        {
+            logger.LogInformation(
+                "Using depot coordinates for COLLECT_SUPPLIES activity {ActivityId} in MissionId={MissionId}.",
+                request.ActivityId,
+                request.MissionId);
+        }
+
+        var destLat = destination.Value.Latitude;
+        var destLng = destination.Value.Longitude;
 
         var routeResult = await goongMapService.GetRouteAsync(
             request.OriginLat,
