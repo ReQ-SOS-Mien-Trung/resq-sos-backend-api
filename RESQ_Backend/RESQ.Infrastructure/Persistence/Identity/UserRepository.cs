@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Domain.Entities.Identity;
 using RESQ.Infrastructure.Entities.Identity;
+using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Mappers.Identity;
 
 namespace RESQ.Infrastructure.Persistence.Identity
@@ -163,6 +164,31 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 .Select(u => u.Id)
                 .ToListAsync(cancellationToken);
         }
+
+        public async Task<List<AvailableManagerDto>> GetAvailableManagersAsync(CancellationToken cancellationToken = default)
+        {
+            // Sub-query: userId của manager đang giữ kho (UnassignedAt == null)
+            var busyManagerIds = _unitOfWork.Set<DepotManager>()
+                .Where(dm => dm.UnassignedAt == null && dm.UserId != null)
+                .Select(dm => dm.UserId!.Value)
+                .Distinct();
+
+            return await _unitOfWork.GetRepository<User>()
+                .AsQueryable(tracked: false)
+                .Where(u => u.RoleId == 4 && !u.IsBanned && !busyManagerIds.Contains(u.Id))
+                .OrderBy(u => u.LastName)
+                .ThenBy(u => u.FirstName)
+                .Select(u => new AvailableManagerDto
+                {
+                    Id       = u.Id,
+                    FullName = (u.LastName + " " + u.FirstName).Trim(),
+                    Email    = u.Email,
+                    Phone    = u.Phone
+                })
+                .ToListAsync(cancellationToken);
+        }
+    }
+}
 
         public async Task<PagedResult<UserModel>> GetPagedForPermissionAsync(
             int pageNumber, int pageSize,

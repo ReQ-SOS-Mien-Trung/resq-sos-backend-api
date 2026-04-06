@@ -174,6 +174,39 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         return (available, inUse);
     }
 
+    public async Task AssignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        // Unassign manager cũ (nếu có) — set UnassignedAt trực tiếp trên entity
+        var existingManagers = await _unitOfWork.Set<DepotManager>()
+            .Where(dm => dm.DepotId == depot.Id && dm.UnassignedAt == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var old in existingManagers)
+            old.UnassignedAt = now;
+
+        // Thêm bản ghi manager mới
+        var newManager = depot.CurrentManager!;
+        await _unitOfWork.GetRepository<DepotManager>().AddAsync(new DepotManager
+        {
+            DepotId    = depot.Id,
+            UserId     = newManager.UserId,
+            AssignedAt = newManager.AssignedAt
+        });
+
+        // Cập nhật status + LastUpdatedAt của kho
+        var depotEntity = await _unitOfWork.GetRepository<Depot>()
+            .GetByPropertyAsync(x => x.Id == depot.Id, tracked: true);
+
+        if (depotEntity != null)
+        {
+            depotEntity.Status        = depot.Status.ToString();
+            depotEntity.LastUpdatedAt = depot.LastUpdatedAt;
+            await _unitOfWork.GetRepository<Depot>().UpdateAsync(depotEntity);
+        }
+    }
+
     public async Task<int> GetConsumableInventoryRowCountAsync(int depotId, CancellationToken cancellationToken = default)
     {
         return await _unitOfWork.Set<SupplyInventory>()
