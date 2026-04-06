@@ -19,7 +19,6 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IPromptRepository _promptRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository;
-    private readonly IRescueTeamRepository _rescueTeamRepository;
     private readonly IAssemblyPointRepository _assemblyPointRepository;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
 
@@ -47,14 +46,12 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         IHttpClientFactory httpClientFactory,
         IPromptRepository promptRepository,
         IDepotInventoryRepository depotInventoryRepository,
-        IRescueTeamRepository rescueTeamRepository,
         IAssemblyPointRepository assemblyPointRepository,
         ILogger<RescueMissionSuggestionService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _promptRepository = promptRepository;
         _depotInventoryRepository = depotInventoryRepository;
-        _rescueTeamRepository = rescueTeamRepository;
         _assemblyPointRepository = assemblyPointRepository;
         _logger = logger;
     }
@@ -62,6 +59,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     public async Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
         List<SosRequestSummary> sosRequests,
         List<DepotSummary>? nearbyDepots = null,
+        List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
         CancellationToken cancellationToken = default)
     {
@@ -71,7 +69,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         try
         {
             await foreach (var evt in GenerateSuggestionStreamAsync(
-                sosRequests, nearbyDepots, isMultiDepotRecommended, cancellationToken))
+                sosRequests, nearbyDepots, nearbyTeams, isMultiDepotRecommended, cancellationToken))
             {
                 if (evt.EventType == "result" && evt.Result != null)
                     finalResult = evt.Result;
@@ -186,7 +184,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             Bạn có thể gọi ba công cụ để tìm kiếm dữ liệu thực từ hệ thống trước khi lập kế hoạch:
 
             - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế", "Cứu hộ"). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, **available_quantity** (số lượng thực tế có thể lấy), depot_id, tên kho, địa chỉ kho, depot_latitude, depot_longitude. Mỗi hàng trong kết quả là một (vật tư, kho) riêng biệt — cùng một vật tư có thể xuất hiện ở nhiều hàng nếu có ở nhiều kho khác nhau.
-            - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ. Có thể lọc theo khả năng (team_type) và trạng thái khả dụng. Trả về team_id, tên, loại, trạng thái, số thành viên và vị trí điểm tập kết (assembly_point_name, latitude, longitude).
+            - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ trong pool nearby teams của cluster hiện tại. Có thể lọc theo khả năng (team_type). Trả về team_id, tên, loại, trạng thái, số thành viên, vị trí điểm tập kết (assembly_point_name, latitude, longitude) và distance_km.
             - **getAssemblyPoints(page)**: Lấy danh sách điểm tập kết đang hoạt động. Trả về assembly_point_id, tên, sức chứa tối đa và vị trí (latitude, longitude).
 
             **BẮT BUỘC trước khi lập kế hoạch**:
@@ -281,10 +279,11 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             - Với mỗi bước EVACUATE, phải điền `assembly_point_id` bằng điểm tập kết đang hoạt động gần vị trí nạn nhân nhất từ kết quả `getAssemblyPoints`.
 
             **QUY TẮC RETRY khi tìm đội (rất quan trọng)**:
-            - Luôn thử `getTeams(available=true, page=1)` trước để ưu tiên đội sẵn sàng.
-            - Nếu kết quả trả về `total_teams = 0` hoặc `teams` rỗng, bắt buộc gọi lại `getTeams(available=false, page=1)` để lấy danh sách đội không bị giải thể.
-            - Nếu bạn có dùng lọc `ability` mà không thấy đội nào, gọi lại `getTeams` **không truyền `ability`** để lấy tất cả đội.
-            - Chỉ khi đã thử các bước trên mà vẫn không có đội nào, lúc đó mới được để `suggested_team` = null.
+            - Luôn thử `getTeams(page=1)` hoặc `getTeams(ability=..., page=1)` trước để lấy đội gần nhất trong vùng.
+            - Nếu bạn có dùng lọc `ability` mà không thấy đội nào, gọi lại `getTeams` **không truyền `ability`** để lấy toàn bộ nearby team pool.
+            - Công cụ `getTeams` **chỉ** trả về các đội đang Available và nằm trong bán kính cluster hiện tại. Truyền `available=false` **không** được hiểu là mở rộng ra đội xa hơn hoặc đội không Available.
+            - Nếu `getTeams` vẫn rỗng sau khi bỏ ability filter, lúc đó mới được để `suggested_team = null` và phải ghi rõ trong `coordination_notes` hoặc `reason` rằng cluster hiện không có nearby team phù hợp.
+            - KHÔNG được tự suy diễn hoặc tạo ra team ngoài kết quả thực tế của `getTeams`.
 
             ## SỬ DỤNG VỊ TRÍ ĐỂ LẬP KẾ HOẠCH
             Mỗi SOS request có trường `vi_tri` chứa tọa độ (latitude, longitude) của sự cố.
@@ -302,15 +301,29 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             - `assembly_point_name`: tên điểm tập kết (lấy từ kết quả getTeams)
             - `latitude`: vĩ độ điểm tập kết (lấy từ kết quả getTeams)
             - `longitude`: kinh độ điểm tập kết (lấy từ kết quả getTeams)
+                        - `distance_km`: khoảng cách từ điểm tập kết đến cluster (lấy từ kết quả getTeams nếu có)
             Nếu đội không có điểm tập kết (giá trị null trong kết quả), hãy để các trường đó là null.
+
+                        ## QUY TẮC PHÂN TÍCH MỘT ĐỘI HAY NHIỀU ĐỘI
+                        - Mỗi activity **bắt buộc** phải có các trường sau:
+                            - `execution_mode`: chỉ được là `SingleTeam` hoặc `SplitAcrossTeams`
+                            - `required_team_count`: số đội tối thiểu cần cho mục tiêu thực tế của activity này
+                            - `coordination_group_key`: để `null` nếu `execution_mode = SingleTeam`; bắt buộc có nếu `execution_mode = SplitAcrossTeams`
+                            - `coordination_notes`: giải thích rõ vì sao activity này do một đội tự làm được hoặc là một phần của kế hoạch nhiều đội
+                        - `SingleTeam` nghĩa là một đội có thể hoàn thành mục tiêu của activity này một cách độc lập.
+                        - `SplitAcrossTeams` nghĩa là mục tiêu thực tế cần nhiều đội, nhưng **mỗi activity trong JSON vẫn chỉ đại diện cho phần việc của đúng một đội**.
+                        - Backend hiện chỉ thực thi theo mô hình **một activity - một team**. Vì vậy nếu cần nhiều đội, bạn **phải tách thành nhiều activity riêng**, mỗi activity có `suggested_team` riêng nhưng dùng cùng `coordination_group_key`.
+                        - Ví dụ đúng: Team A đi lấy nước và y tế ở Kho X, Team B đi lấy dụng cụ cứu hộ ở chính Kho X. Khi đó phải tạo **hai** `COLLECT_SUPPLIES` khác nhau, cùng `depot_id = X`, nhưng khác `supplies_to_collect`, khác `suggested_team`, cùng `coordination_group_key`, và `coordination_notes` phải nói rõ đây là kế hoạch chia vật tư theo đội.
+                        - Ví dụ sai: chỉ tạo một `COLLECT_SUPPLIES` tại Kho X rồi ghi trong mô tả rằng cả Team A và Team B cùng làm activity đó.
 
             ## QUY TẮC PHÂN CÔNG ĐỘI VÀO ACTIVITY
             - **MỖI activity PHẢI có trường `suggested_team`** — không được để null trừ khi thực sự không tìm được đội nào.
             - Sau khi gọi getTeams, phân công đội phù hợp vào từng activity dựa trên loại hoạt động và vị trí.
             - Nếu một đội đảm nhận nhiều activity, điền cùng một đội vào `suggested_team` của từng activity đó.
+                        - Nếu một mục tiêu thực tế cần nhiều đội, tách thành nhiều activity đơn-team. Mỗi activity vẫn chỉ có **một** `suggested_team`, nhưng `execution_mode` phải là `SplitAcrossTeams` và các activity liên quan phải chia sẻ cùng `coordination_group_key`.
             - **KHÔNG** chỉ điền đội vào mảng `resources` rồi để `suggested_team` là null trong activities.
             - Nếu không có đủ đội cho tất cả activity, ưu tiên gán đội cho các bước có `priority = Critical` và các bước RESCUE/MEDICAL_AID/EVACUATE trước.
-            - Format `suggested_team` bên trong mỗi activity:
+                        - Format `suggested_team` bên trong mỗi activity:
               ```json
               "suggested_team": {
                 "team_id": 5,
@@ -319,9 +332,17 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 "reason": "Gần nhất với sự cố, có khả năng y tế",
                 "assembly_point_name": "Trụ sở PCCC Quảng Bình",
                 "latitude": 17.46,
-                "longitude": 106.62
+                                "longitude": 106.62,
+                                "distance_km": 3.2
               }
               ```
+                        - Format tối thiểu cho phần phân tích execution trong mỗi activity:
+                            ```json
+                            "execution_mode": "SplitAcrossTeams",
+                            "required_team_count": 2,
+                            "coordination_group_key": "collect-depot-12-sos-45",
+                            "coordination_notes": "Kho này được chia cho 2 đội; activity này là phần lấy vật tư của Team A."
+                            ```
 
             ## QUY TẮC LẬP KẾ HOẠCH
             - Không lập kế hoạch tuần tự nếu có nhiều sự cố.
@@ -408,6 +429,10 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 Description = a.Description ?? string.Empty,
                 Priority = a.Priority,
                 EstimatedTime = a.EstimatedTime,
+                ExecutionMode = a.ExecutionMode,
+                RequiredTeamCount = a.RequiredTeamCount,
+                CoordinationGroupKey = a.CoordinationGroupKey,
+                CoordinationNotes = a.CoordinationNotes,
                 SosRequestId = a.SosRequestId,
                 DepotId = a.DepotId,
                 DepotName = a.DepotName,
@@ -431,7 +456,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                     Reason            = a.SuggestedTeam.Reason,
                     AssemblyPointName = a.SuggestedTeam.AssemblyPointName,
                     Latitude          = a.SuggestedTeam.Latitude,
-                    Longitude         = a.SuggestedTeam.Longitude
+                    Longitude         = a.SuggestedTeam.Longitude,
+                    DistanceKm        = a.SuggestedTeam.DistanceKm
                 }
             }).ToList() ?? [],
             SuggestedResources = parsed.Resources?.Select(r => new SuggestedResourceDto
@@ -449,7 +475,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 Reason             = parsed.SuggestedTeam.Reason,
                 AssemblyPointName  = parsed.SuggestedTeam.AssemblyPointName,
                 Latitude           = parsed.SuggestedTeam.Latitude,
-                Longitude          = parsed.SuggestedTeam.Longitude
+                Longitude          = parsed.SuggestedTeam.Longitude,
+                DistanceKm         = parsed.SuggestedTeam.DistanceKm
             },
             EstimatedDuration = parsed.EstimatedDuration,
             SpecialNotes = parsed.SpecialNotes,
@@ -486,6 +513,10 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 if (a.TryGetProperty("description", out var d)) dto.Description = d.GetString() ?? string.Empty;
                 if (a.TryGetProperty("priority", out var p)) dto.Priority = p.GetString();
                 if (a.TryGetProperty("estimated_time", out var et)) dto.EstimatedTime = et.GetString();
+                if (a.TryGetProperty("execution_mode", out var em) && em.ValueKind != JsonValueKind.Null) dto.ExecutionMode = em.GetString();
+                if (a.TryGetProperty("required_team_count", out var rtc) && rtc.ValueKind != JsonValueKind.Null && rtc.TryGetInt32(out var rtcv)) dto.RequiredTeamCount = rtcv;
+                if (a.TryGetProperty("coordination_group_key", out var cgk) && cgk.ValueKind != JsonValueKind.Null) dto.CoordinationGroupKey = cgk.GetString();
+                if (a.TryGetProperty("coordination_notes", out var cn) && cn.ValueKind != JsonValueKind.Null) dto.CoordinationNotes = cn.GetString();
                 if (a.TryGetProperty("sos_request_id", out var sri) && sri.ValueKind != JsonValueKind.Null && sri.TryGetInt32(out var sriv)) dto.SosRequestId = sriv;
                 if (a.TryGetProperty("depot_id", out var di) && di.ValueKind != JsonValueKind.Null && di.TryGetInt32(out var div)) dto.DepotId = div;
                 if (a.TryGetProperty("depot_name", out var dn) && dn.ValueKind != JsonValueKind.Null) dto.DepotName = dn.GetString();
@@ -514,6 +545,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                     if (ast.TryGetProperty("assembly_point_name", out var apn)  && apn.ValueKind != JsonValueKind.Null)                                  teamDto.AssemblyPointName = apn.GetString();
                     if (ast.TryGetProperty("latitude",            out var lat)  && lat.ValueKind != JsonValueKind.Null && lat.TryGetDouble(out var latv)) teamDto.Latitude          = latv;
                     if (ast.TryGetProperty("longitude",           out var lon)  && lon.ValueKind != JsonValueKind.Null && lon.TryGetDouble(out var lonv)) teamDto.Longitude         = lonv;
+                    if (ast.TryGetProperty("distance_km",         out var dkm)  && dkm.ValueKind != JsonValueKind.Null && dkm.TryGetDouble(out var dkmv)) teamDto.DistanceKm        = dkmv;
                     dto.SuggestedTeam = teamDto;
                 }
                 return dto;
@@ -543,6 +575,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             if (st.TryGetProperty("assembly_point_name",out var apn) && apn.ValueKind != JsonValueKind.Null)                                        teamDto.AssemblyPointName = apn.GetString();
             if (st.TryGetProperty("latitude",           out var lat) && lat.ValueKind != JsonValueKind.Null && lat.TryGetDouble(out var latv))       teamDto.Latitude          = latv;
             if (st.TryGetProperty("longitude",          out var lon) && lon.ValueKind != JsonValueKind.Null && lon.TryGetDouble(out var lonv))       teamDto.Longitude         = lonv;
+            if (st.TryGetProperty("distance_km",        out var dkm) && dkm.ValueKind != JsonValueKind.Null && dkm.TryGetDouble(out var dkmv))       teamDto.DistanceKm        = dkmv;
             result.SuggestedTeam = teamDto;
         }
 
@@ -669,6 +702,10 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             Description = activity.Description,
             Priority = activity.Priority,
             EstimatedTime = activity.EstimatedTime,
+            ExecutionMode = activity.ExecutionMode,
+            RequiredTeamCount = activity.RequiredTeamCount,
+            CoordinationGroupKey = activity.CoordinationGroupKey,
+            CoordinationNotes = activity.CoordinationNotes,
             SosRequestId = activity.SosRequestId,
             DepotId = activity.DepotId,
             DepotName = activity.DepotName,
@@ -692,7 +729,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 Reason = activity.SuggestedTeam.Reason,
                 AssemblyPointName = activity.SuggestedTeam.AssemblyPointName,
                 Latitude = activity.SuggestedTeam.Latitude,
-                Longitude = activity.SuggestedTeam.Longitude
+                Longitude = activity.SuggestedTeam.Longitude,
+                DistanceKm = activity.SuggestedTeam.DistanceKm
             }
         };
     }
@@ -893,9 +931,12 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     public async IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(
         List<SosRequestSummary> sosRequests,
         List<DepotSummary>? nearbyDepots = null,
+        List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var availableNearbyTeams = nearbyTeams ?? [];
+
         yield return Status("Đang tải cấu hình AI agent...");
 
         var prompt = await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
@@ -921,6 +962,12 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             .Replace("{{total_count}}", sosRequests.Count.ToString())
             .Replace("{{depots_data}}", "(Dữ liệu kho không được truyền trực tiếp. Hãy gọi công cụ searchInventory để tra cứu vật tư khả dụng theo từng danh mục, rồi dùng dữ liệu đó để lập bước COLLECT_SUPPLIES và DELIVER_SUPPLIES.)")
             .TrimEnd();
+
+        var nearbyTeamsNote = availableNearbyTeams.Count > 0
+            ? $"\n\nDữ liệu đội cứu hộ không được truyền trực tiếp. Hãy gọi công cụ getTeams để xem {availableNearbyTeams.Count} đội nearby currently available trong bán kính cluster. Công cụ này chỉ trả về các đội gần nhất trong pool đó, không bao giờ mở rộng ra team xa hơn."
+            : "\n\nHiện không có đội Available nào trong bán kính cluster. Nếu công cụ getTeams trả về rỗng, không được tự bịa team ngoài vùng; hãy để suggested_team = null và ghi rõ cần manual review.";
+
+        userMessage += nearbyTeamsNote;
 
         var systemPrompt = (prompt.SystemPrompt ?? string.Empty).TrimEnd()
             + "\n\n" + BuildAgentInstructions(isMultiDepotRecommended);
@@ -1083,7 +1130,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 JsonElement toolResult;
                 try
                 {
-                    toolResult = await ExecuteToolAsync(fc.Name, fc.Args, cancellationToken);
+                    toolResult = await ExecuteToolAsync(fc.Name, fc.Args, availableNearbyTeams, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -1132,7 +1179,11 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
     // ─── Tool execution ────────────────────────────────────────────────────────
 
-    private async Task<JsonElement> ExecuteToolAsync(string toolName, JsonElement args, CancellationToken ct)
+    private async Task<JsonElement> ExecuteToolAsync(
+        string toolName,
+        JsonElement args,
+        IReadOnlyCollection<AgentTeamInfo> nearbyTeams,
+        CancellationToken ct)
     {
         switch (toolName)
         {
@@ -1160,8 +1211,20 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 var ability = args.TryGetProperty("ability", out var a) ? a.GetString() : null;
                 var page = args.TryGetProperty("page", out var pg) && pg.TryGetInt32(out var pgv) ? pgv : 1;
 
-                var (teams, total) = await _rescueTeamRepository.GetTeamsForAgentAsync(
-                    ability, true, page, AgentPageSize, ct);
+                var filteredTeams = nearbyTeams
+                    .Where(team => string.IsNullOrWhiteSpace(ability)
+                        || (!string.IsNullOrWhiteSpace(team.TeamType)
+                            && team.TeamType.Contains(ability!, StringComparison.OrdinalIgnoreCase)))
+                    .OrderBy(team => team.DistanceKm ?? double.MaxValue)
+                    .ThenBy(team => team.TeamName)
+                    .ThenBy(team => team.TeamId)
+                    .ToList();
+
+                var total = filteredTeams.Count;
+                var teams = filteredTeams
+                    .Skip((page - 1) * AgentPageSize)
+                    .Take(AgentPageSize)
+                    .ToList();
 
                 var totalPages = (int)Math.Ceiling((double)total / AgentPageSize);
                 return JsonSerializer.SerializeToElement(new
@@ -1169,7 +1232,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                     teams,
                     page,
                     total_pages = totalPages,
-                    total_teams = total
+                    total_teams = total,
+                    scope = "nearby_available_teams_only"
                 }, _jsonOpts);
             }
 
@@ -1233,14 +1297,14 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             new()
             {
                 Name        = "getTeams",
-                Description = "Tìm kiếm đội cứu hộ trong hệ thống. Có thể lọc theo loại kỹ năng và trạng thái sẵn sàng. Trả về team_id, tên, loại, trạng thái, số thành viên và vị trí điểm tập kết (assembly_point_name, latitude, longitude).",
+                Description = "Tìm kiếm đội cứu hộ trong pool nearby teams của cluster hiện tại. Có thể lọc theo loại kỹ năng/team_type. Trả về team_id, tên, loại, trạng thái, số thành viên, vị trí điểm tập kết (assembly_point_name, latitude, longitude) và distance_km.",
                 Parameters  = new GeminiFunctionParameters
                 {
                     Type       = "object",
                     Properties = new Dictionary<string, GeminiFunctionProperty>
                     {
                         ["ability"]   = new() { Type = "string",  Description = "Lọc theo loại kỹ năng/team_type (tuỳ chọn)" },
-                        ["available"] = new() { Type = "boolean", Description = "Chỉ trả về đội đang Available hoặc Ready (mặc định luôn true, không thể thay đổi)" },
+                        ["available"] = new() { Type = "boolean", Description = "Chỉ mang tính tương thích. Công cụ này luôn chỉ trả về nearby teams đang Available; truyền false cũng không mở rộng phạm vi." },
                         ["page"]      = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
                     },
                     Required = []
@@ -1460,6 +1524,9 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
         [JsonPropertyName("longitude")]
         public double? Longitude { get; set; }
+
+        [JsonPropertyName("distance_km")]
+        public double? DistanceKm { get; set; }
     }
 
     private class AiSupplyToCollect
@@ -1493,6 +1560,18 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
         [JsonPropertyName("estimated_time")]
         public string? EstimatedTime { get; set; }
+
+        [JsonPropertyName("execution_mode")]
+        public string? ExecutionMode { get; set; }
+
+        [JsonPropertyName("required_team_count")]
+        public int? RequiredTeamCount { get; set; }
+
+        [JsonPropertyName("coordination_group_key")]
+        public string? CoordinationGroupKey { get; set; }
+
+        [JsonPropertyName("coordination_notes")]
+        public string? CoordinationNotes { get; set; }
 
         [JsonPropertyName("sos_request_id")]
         public int? SosRequestId { get; set; }

@@ -3,8 +3,11 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Infrastructure.Services;
 
@@ -12,10 +15,13 @@ public class MissionContextService(
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
     IDepotRepository depotRepository,
+    IPersonnelQueryRepository personnelQueryRepository,
+    IRescueTeamRadiusConfigRepository rescueTeamRadiusConfigRepository,
     ILogger<MissionContextService> logger) : IMissionContextService
 {
     private const int MaxDepotContext = 5;
     private const double MaxDepotRadiusKm = 20.0;
+    private const double DefaultMaxTeamRadiusKm = 10.0;
 
     private static readonly Dictionary<string, int> PriorityRank = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -59,12 +65,14 @@ public class MissionContextService(
 
         var (nearbyDepots, multiDepotRecommended) = await BuildNearbyDepotSummariesAsync(
             anchorSos, neededSupplies, cancellationToken);
+        var nearbyTeams = await BuildNearbyTeamSummariesAsync(cluster, cancellationToken);
 
         return new MissionContext
         {
             Cluster = cluster,
             SosRequests = sosRequestSummaries,
             NearbyDepots = nearbyDepots,
+            NearbyTeams = nearbyTeams,
             MultiDepotRecommended = multiDepotRecommended
         };
     }
@@ -182,6 +190,44 @@ public class MissionContextService(
         }
 
         return (chosen.Select(x => MapToDepotSummary(x.depot, x.distKm)).ToList(), multiDepotRecommended);
+    }
+
+    private async Task<List<AgentTeamInfo>> BuildNearbyTeamSummariesAsync(
+        RESQ.Domain.Entities.Emergency.SosClusterModel cluster,
+        CancellationToken cancellationToken)
+    {
+        if (!cluster.CenterLatitude.HasValue || !cluster.CenterLongitude.HasValue)
+            return [];
+
+        var radiusConfig = await rescueTeamRadiusConfigRepository.GetAsync(cancellationToken);
+        var maxRadiusKm = radiusConfig?.MaxRadiusKm ?? DefaultMaxTeamRadiusKm;
+        var teams = await personnelQueryRepository.GetAllAvailableTeamsAsync(cancellationToken);
+
+        return teams
+            .Where(team => team.AssemblyPointLocation is not null)
+            .Select(team => new AgentTeamInfo
+            {
+                TeamId = team.Id,
+                TeamName = team.Name,
+                TeamType = team.TeamType.ToString(),
+                Status = team.Status.ToString(),
+                IsAvailable = true,
+                MemberCount = team.Members.Count(member => member.Status != TeamMemberStatus.Removed),
+                AssemblyPointName = team.AssemblyPointName,
+                Latitude = team.AssemblyPointLocation?.Latitude,
+                Longitude = team.AssemblyPointLocation?.Longitude,
+                DistanceKm = Math.Round(
+                    HaversineKm(
+                        cluster.CenterLatitude.Value,
+                        cluster.CenterLongitude.Value,
+                        team.AssemblyPointLocation!.Latitude,
+                        team.AssemblyPointLocation.Longitude),
+                    2)
+            })
+            .Where(team => team.DistanceKm.HasValue && team.DistanceKm.Value <= maxRadiusKm)
+            .OrderBy(team => team.DistanceKm)
+            .ThenBy(team => team.TeamName)
+            .ToList();
     }
 
     private static HashSet<string> ExtractNeededSupplies(List<SosRequestSummary> sosRequests)

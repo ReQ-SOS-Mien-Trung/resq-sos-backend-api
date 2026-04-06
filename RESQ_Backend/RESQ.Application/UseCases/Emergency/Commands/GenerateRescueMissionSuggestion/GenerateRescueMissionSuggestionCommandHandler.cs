@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Domain.Entities.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
@@ -48,13 +49,18 @@ public class GenerateRescueMissionSuggestionCommandHandler(
 
         // 2. Call AI to generate suggestion
         var result = await _suggestionService.GenerateSuggestionAsync(
-            context.SosRequests, context.NearbyDepots, context.MultiDepotRecommended, cancellationToken);
+            context.SosRequests, context.NearbyDepots, context.NearbyTeams, context.MultiDepotRecommended, cancellationToken);
 
         // 3. Post-process: backfill fields AI often leaves null (item_id, sos_request_id)
         if (result.IsSuccess && result.SuggestedActivities.Count > 0)
         {
             BackfillItemIds(result.SuggestedActivities, context.NearbyDepots);
             BackfillSosRequestIds(result.SuggestedActivities, context.SosRequests);
+        }
+
+        if (result.IsSuccess)
+        {
+            RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(result, context.NearbyTeams);
         }
 
         // 4. Flag low-confidence results for manual review

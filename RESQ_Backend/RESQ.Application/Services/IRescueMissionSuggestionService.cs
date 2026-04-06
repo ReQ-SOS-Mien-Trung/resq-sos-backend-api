@@ -5,6 +5,7 @@ public interface IRescueMissionSuggestionService
     Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
         List<SosRequestSummary> sosRequests,
         List<DepotSummary>? nearbyDepots = null,
+        List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
         CancellationToken cancellationToken = default);
 
@@ -15,6 +16,7 @@ public interface IRescueMissionSuggestionService
     IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(
         List<SosRequestSummary> sosRequests,
         List<DepotSummary>? nearbyDepots = null,
+        List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
         CancellationToken cancellationToken = default);
 }
@@ -121,6 +123,14 @@ public class SuggestedActivityDto
     public string Description { get; set; } = string.Empty;
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
+    /// <summary>`SingleTeam` nếu một đội tự hoàn thành được, `SplitAcrossTeams` nếu đây là một nhánh trong kế hoạch nhiều đội.</summary>
+    public string? ExecutionMode { get; set; }
+    /// <summary>Số đội tối thiểu cần cho mục tiêu thực tế mà activity này thuộc về.</summary>
+    public int? RequiredTeamCount { get; set; }
+    /// <summary>Khoá nhóm để nối các activity khác nhau nhưng cùng thuộc một kế hoạch phối hợp nhiều đội.</summary>
+    public string? CoordinationGroupKey { get; set; }
+    /// <summary>Giải thích vì sao activity này là single-team hay là một phần của kế hoạch nhiều đội.</summary>
+    public string? CoordinationNotes { get; set; }
     /// <summary>ID của SOS request mà activity này phục vụ trực tiếp.</summary>
     public int? SosRequestId { get; set; }
     /// <summary>ID kho tiếp tế (chỉ có khi ActivityType = COLLECT_SUPPLIES hoặc DELIVER_SUPPLIES)</summary>
@@ -161,6 +171,8 @@ public class SuggestedTeamDto
     public double? Latitude { get; set; }
     /// <summary>Kinh độ điểm tập kết / vị trí đội.</summary>
     public double? Longitude { get; set; }
+    /// <summary>Khoảng cách (km) từ điểm tập kết của đội tới tâm cluster hiện tại nếu backend xác định được.</summary>
+    public double? DistanceKm { get; set; }
 }
 
 /// <summary>Thông tin vật tư trong kho trả về bởi searchInventory tool.</summary>
@@ -196,6 +208,8 @@ public class AgentTeamInfo
     public double? Latitude { get; set; }
     /// <summary>Kinh độ điểm tập kết.</summary>
     public double? Longitude { get; set; }
+    /// <summary>Khoảng cách (km) từ điểm tập kết của đội tới cluster; dùng để AI chỉ chọn các đội gần.</summary>
+    public double? DistanceKm { get; set; }
 }
 
 /// <summary>Thông tin điểm tập kết trả về bởi getAssemblyPoints tool.</summary>
