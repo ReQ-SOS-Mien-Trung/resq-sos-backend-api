@@ -6,4 +6,6 @@ public class UpdateAssemblyPointRequestDto
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public int MaxCapacity { get; set; }
+    /// <summary>URL ảnh đại diện điểm tập kết (tuỳ chọn). Truyền null để giữ nguyên ảnh cũ.</summary>
+    public string? ImageUrl { get; set; }
 }

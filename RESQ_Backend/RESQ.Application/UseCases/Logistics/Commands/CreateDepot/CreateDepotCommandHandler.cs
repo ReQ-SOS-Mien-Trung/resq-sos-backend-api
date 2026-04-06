@@ -49,7 +49,8 @@ public class CreateDepotCommandHandler(
             request.Address,
             location,
             request.Capacity,
-            request.ManagerId
+            request.ManagerId,
+            request.ImageUrl
         );
 
         await _depotRepository.CreateAsync(depot, cancellationToken);

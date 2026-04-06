@@ -42,7 +42,8 @@ public class CreateAssemblyPointCommandHandler(
             generatedCode,
             request.Name,
             request.MaxCapacity,
-            location
+            location,
+            request.ImageUrl
         );
 
         await _repository.CreateAsync(assemblyPoint, cancellationToken);

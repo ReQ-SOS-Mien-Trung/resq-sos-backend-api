@@ -31,7 +31,8 @@ public class AssemblyPointModel
         string code,
         string name,
         int maxCapacity,
-        GeoLocation location)
+        GeoLocation location,
+        string? imageUrl = null)
     {
         if (maxCapacity <= 0)
             throw new InvalidAssemblyPointCapacityException(maxCapacity);
@@ -43,6 +44,7 @@ public class AssemblyPointModel
             MaxCapacity = maxCapacity,
             Location = location,
             Status = AssemblyPointStatus.Created,
+            ImageUrl = imageUrl,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = null
         };
@@ -53,7 +55,7 @@ public class AssemblyPointModel
     /// Không được cập nhật khi đang <see cref="AssemblyPointStatus.Closed"/>
     /// hoặc <see cref="AssemblyPointStatus.UnderMaintenance"/>.
     /// </summary>
-    public void UpdateDetails(string code, string name, int maxCapacity, GeoLocation location)
+    public void UpdateDetails(string code, string name, int maxCapacity, GeoLocation location, string? imageUrl = null)
     {
         if (maxCapacity <= 0)
             throw new InvalidAssemblyPointCapacityException(maxCapacity);
@@ -68,6 +70,7 @@ public class AssemblyPointModel
         Name = name;
         MaxCapacity = maxCapacity;
         Location = location;
+        if (imageUrl != null) ImageUrl = imageUrl;
         UpdatedAt = DateTime.UtcNow;
     }
 
@@ -91,11 +94,12 @@ public class AssemblyPointModel
 
         var allowed = Status switch
         {
-            AssemblyPointStatus.Created         => new[] { AssemblyPointStatus.Active },
-            AssemblyPointStatus.Active          => new[] { AssemblyPointStatus.Overloaded, AssemblyPointStatus.UnderMaintenance, AssemblyPointStatus.Closed },
-            AssemblyPointStatus.Overloaded      => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.UnderMaintenance, AssemblyPointStatus.Closed },
-            AssemblyPointStatus.UnderMaintenance => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.Closed },
-            _                                   => Array.Empty<AssemblyPointStatus>()
+            AssemblyPointStatus.Created          => new[] { AssemblyPointStatus.Active },
+            AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Overloaded, AssemblyPointStatus.UnderMaintenance, AssemblyPointStatus.Closed },
+            AssemblyPointStatus.Overloaded       => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.UnderMaintenance, AssemblyPointStatus.Closed },
+            // Theo state diagram: UnderMaintenance chỉ có thể chuyển về Active (Complete maintenance)
+            AssemblyPointStatus.UnderMaintenance => new[] { AssemblyPointStatus.Active },
+            _                                    => Array.Empty<AssemblyPointStatus>()
         };
 
         if (!allowed.Contains(newStatus))

@@ -7,4 +7,6 @@ public class UpdateDepotRequestDto
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public int Capacity { get; set; }
+    /// <summary>URL ảnh đại diện kho (tuỳ chọn). Truyền null để giữ nguyên ảnh cũ.</summary>
+    public string? ImageUrl { get; set; }
 }

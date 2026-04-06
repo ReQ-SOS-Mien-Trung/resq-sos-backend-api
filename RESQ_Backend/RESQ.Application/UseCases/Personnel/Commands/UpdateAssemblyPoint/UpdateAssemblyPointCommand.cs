@@ -7,5 +7,6 @@ public record UpdateAssemblyPointCommand(
     string Name,
     double Latitude,
     double Longitude,
-    int MaxCapacity
+    int MaxCapacity,
+    string? ImageUrl = null
 ) : IRequest;

@@ -46,7 +46,8 @@ public class UpdateAssemblyPointCommandHandler(
             assemblyPoint.Code, 
             request.Name,
             request.MaxCapacity,
-            location
+            location,
+            request.ImageUrl
         );
 
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
