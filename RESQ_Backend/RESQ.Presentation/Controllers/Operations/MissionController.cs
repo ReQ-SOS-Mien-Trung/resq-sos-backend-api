@@ -307,13 +307,21 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>Lấy tuyến đường toàn bộ mission của một team, bao gồm tất cả điểm cần tới theo thứ tự activity.</summary>
+    /// <remarks>
+    /// Nếu truyền <c>originLat</c>/<c>originLng</c>, API tính route từ vị trí được chỉ định như hành vi cũ.
+    /// Nếu bỏ trống cả hai, API tự lấy vị trí snapshot hiện tại của team (hoặc điểm tập kết nếu chưa có current location)
+    /// để frontend có thể theo dõi team trực tiếp trên Goong map.
+    /// </remarks>
     [HttpGet("{missionId:int}/teams/{missionTeamId:int}/route")]
     [Authorize(Policy = PermissionConstants.PolicyRouteAccess)]
+    [ProducesResponseType(typeof(GetMissionTeamRouteResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMissionTeamRoute(
         [FromRoute] int missionId,
         [FromRoute] int missionTeamId,
-        [FromQuery] double originLat,
-        [FromQuery] double originLng,
+        [FromQuery] double? originLat = null,
+        [FromQuery] double? originLng = null,
         [FromQuery] string vehicle = "car")
     {
         var result = await _mediator.Send(

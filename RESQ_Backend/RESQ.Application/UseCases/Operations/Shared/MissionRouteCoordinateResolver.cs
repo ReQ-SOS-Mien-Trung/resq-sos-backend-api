@@ -5,10 +5,13 @@ namespace RESQ.Application.UseCases.Operations.Shared;
 
 internal static class MissionRouteCoordinateResolver
 {
+    public static bool HasUsableCoordinates(double? latitude, double? longitude) =>
+        latitude.HasValue
+        && longitude.HasValue
+        && !IsZeroCoordinate(latitude.Value, longitude.Value);
+
     public static bool HasUsableTargetCoordinates(MissionActivityModel activity) =>
-        activity.TargetLatitude.HasValue
-        && activity.TargetLongitude.HasValue
-        && !IsZeroCoordinate(activity.TargetLatitude.Value, activity.TargetLongitude.Value);
+        HasUsableCoordinates(activity.TargetLatitude, activity.TargetLongitude);
 
     public static bool RequiresDepotFallback(MissionActivityModel activity) =>
         string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)

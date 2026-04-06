@@ -30,6 +30,26 @@ public class GetMissionTeamRouteQueryHandler(
         if (missionTeam.MissionId != request.MissionId)
             throw new BadRequestException("Mission team không thuộc mission được yêu cầu.");
 
+        var hasExplicitOriginLat = request.OriginLat.HasValue;
+        var hasExplicitOriginLng = request.OriginLng.HasValue;
+
+        if (hasExplicitOriginLat != hasExplicitOriginLng)
+            throw new BadRequestException("Nếu muốn ghi đè vị trí xuất phát, phải truyền đồng thời originLat và originLng.");
+
+        if (!MissionRouteCoordinateResolver.HasUsableCoordinates(missionTeam.Latitude, missionTeam.Longitude))
+            throw new BadRequestException(
+                $"MissionTeamId={request.MissionTeamId} chưa có vị trí hiện tại hoặc điểm tập kết hợp lệ để tính route.");
+
+        var originLatitude = hasExplicitOriginLat
+            ? request.OriginLat!.Value
+            : missionTeam.Latitude!.Value;
+        var originLongitude = hasExplicitOriginLng
+            ? request.OriginLng!.Value
+            : missionTeam.Longitude!.Value;
+        var originSource = hasExplicitOriginLat
+            ? "RequestQuery"
+            : (string.IsNullOrWhiteSpace(missionTeam.LocationSource) ? "MissionTeam" : missionTeam.LocationSource);
+
         var allActivities = await activityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken);
 
         var excludedStatuses = new[]
@@ -88,8 +108,8 @@ public class GetMissionTeamRouteQueryHandler(
             .Select(a => (a.Latitude, a.Longitude));
 
         var routeResult = await goongMapService.GetMissionRouteAsync(
-            request.OriginLat,
-            request.OriginLng,
+            originLatitude,
+            originLongitude,
             waypoints,
             request.Vehicle,
             cancellationToken);
@@ -104,6 +124,19 @@ public class GetMissionTeamRouteQueryHandler(
 
         return new GetMissionTeamRouteResponse
         {
+            MissionTeamId        = missionTeam.Id,
+            RescueTeamId         = missionTeam.RescuerTeamId,
+            TeamName             = missionTeam.TeamName,
+            TeamCode             = missionTeam.TeamCode,
+            MissionTeamStatus    = missionTeam.Status,
+            RescueTeamStatus     = missionTeam.TeamStatus,
+            TeamLatitude         = missionTeam.Latitude,
+            TeamLongitude        = missionTeam.Longitude,
+            TeamLocationUpdatedAt = missionTeam.LocationUpdatedAt,
+            TeamLocationSource   = missionTeam.LocationSource,
+            OriginLatitude       = originLatitude,
+            OriginLongitude      = originLongitude,
+            OriginSource         = originSource,
             Status               = routeResult.Status,
             ErrorMessage         = routeResult.ErrorMessage,
             TotalDistanceMeters  = routeResult.TotalDistanceMeters,
