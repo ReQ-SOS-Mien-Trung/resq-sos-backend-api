@@ -9,6 +9,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 
@@ -73,6 +74,7 @@ public class UpdateActivityStatusCommandHandler(
         MissionActivityStateMachine.EnsureValidTransition(activity.Status, effectiveStatus);
 
         await _activityRepository.UpdateStatusAsync(request.ActivityId, effectiveStatus, request.DecisionBy, cancellationToken);
+        activity.Status = effectiveStatus;
 
         if (assignedMissionTeam is not null
             && string.Equals(assignedMissionTeam.Status, MissionTeamExecutionStatus.Assigned.ToString(), StringComparison.OrdinalIgnoreCase)
@@ -182,6 +184,22 @@ public class UpdateActivityStatusCommandHandler(
             && activity.DepotId.HasValue)
         {
             await CreateReturnSuppliesActivityAsync(activity, request.DecisionBy, cancellationToken);
+        }
+
+        if (effectiveStatus is MissionActivityStatus.Succeed or MissionActivityStatus.Failed or MissionActivityStatus.Cancelled)
+        {
+            var autoStartedNextActivityId = await MissionActivityAutoStartHelper.AutoStartNextActivityForSameTeamAsync(
+                activity,
+                request.DecisionBy,
+                _activityRepository,
+                _missionTeamRepository,
+                _logger,
+                cancellationToken);
+
+            if (autoStartedNextActivityId.HasValue)
+            {
+                await _unitOfWork.SaveAsync();
+            }
         }
 
         return new UpdateActivityStatusResponse

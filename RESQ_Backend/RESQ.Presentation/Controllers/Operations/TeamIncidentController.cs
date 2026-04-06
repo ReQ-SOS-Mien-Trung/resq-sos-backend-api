@@ -38,7 +38,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new ReportTeamIncidentCommand(
-            dto.MissionTeamId, dto.Description, dto.Latitude, dto.Longitude, userId);
+            dto.MissionTeamId, dto.MissionActivityId, dto.Description, dto.Latitude, dto.Longitude, userId);
 
         var result = await _mediator.Send(command);
         return Ok(result);

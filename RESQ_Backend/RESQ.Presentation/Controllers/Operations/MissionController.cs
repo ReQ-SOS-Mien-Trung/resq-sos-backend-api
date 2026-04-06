@@ -145,7 +145,11 @@ public class MissionController(IMediator mediator) : ControllerBase
     [Authorize(Policy = PermissionConstants.PolicyActivityManage)] // Global | Point | TeamUpdate
     public async Task<IActionResult> UpdateMissionStatus([FromRoute] int missionId, [FromBody] UpdateMissionStatusRequestDto dto)
     {
-        var command = new UpdateMissionStatusCommand(missionId, dto.Status);
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new UpdateMissionStatusCommand(missionId, dto.Status, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }
