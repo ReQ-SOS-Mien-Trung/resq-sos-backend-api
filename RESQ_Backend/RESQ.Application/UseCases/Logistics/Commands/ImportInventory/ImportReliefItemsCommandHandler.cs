@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 
@@ -12,6 +13,7 @@ public class ImportReliefItemsCommandHandler(
     IOrganizationReliefRepository organizationReliefRepository,
     IOrganizationMetadataRepository organizationMetadataRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IDepotRepository depotRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IUnitOfWork unitOfWork,
     ILogger<ImportReliefItemsCommandHandler> logger)
@@ -21,6 +23,7 @@ public class ImportReliefItemsCommandHandler(
     private readonly IOrganizationReliefRepository _organizationReliefRepository = organizationReliefRepository;
     private readonly IOrganizationMetadataRepository _organizationMetadataRepository = organizationMetadataRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IDepotRepository _depotRepository = depotRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ImportReliefItemsCommandHandler> _logger = logger;
@@ -35,6 +38,10 @@ public class ImportReliefItemsCommandHandler(
         {
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động. Không thể nhập hàng.");
         }
+
+        var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId.Value, cancellationToken);
+        if (depotStatus is DepotStatus.Closing or DepotStatus.Closed)
+            throw new ConflictException("Kho đang trong quá trình đóng hoặc đã đóng. Không thể nhập hàng vào kho này.");
 
         // 2. Resolve organization ID
         int organizationId;

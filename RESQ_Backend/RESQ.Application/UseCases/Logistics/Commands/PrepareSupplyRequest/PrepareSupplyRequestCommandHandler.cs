@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Exceptions.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 
@@ -14,6 +15,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 public class PrepareSupplyRequestCommandHandler(
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IDepotRepository depotRepository,
     IFirebaseService firebaseService)
     : IRequestHandler<PrepareSupplyRequestCommand, PrepareSupplyRequestResponse>
 {
@@ -29,6 +31,10 @@ public class PrepareSupplyRequestCommandHandler(
 
         if (managerDepotId != sr.SourceDepotId)
             throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho nguồn trong yêu cầu này.");
+
+        var depotStatus = await depotRepository.GetStatusByIdAsync(managerDepotId, cancellationToken);
+        if (depotStatus is DepotStatus.Closing or DepotStatus.Closed)
+            throw new ConflictException("Kho nguồn đang trong quá trình đóng hoặc đã đóng. Không thể chuẩn bị yêu cầu tiếp tế.");
 
         await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Preparing", "Approved", null, cancellationToken);
 

@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Exceptions.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
 
@@ -15,6 +16,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
 public class ShipSupplyRequestCommandHandler(
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IDepotRepository depotRepository,
     IFirebaseService firebaseService,
     IUnitOfWork unitOfWork)
     : IRequestHandler<ShipSupplyRequestCommand, ShipSupplyRequestResponse>
@@ -31,6 +33,10 @@ public class ShipSupplyRequestCommandHandler(
 
         if (managerDepotId != sr.SourceDepotId)
             throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho nguồn trong yêu cầu này.");
+
+        var depotStatus = await depotRepository.GetStatusByIdAsync(managerDepotId, cancellationToken);
+        if (depotStatus is DepotStatus.Closing or DepotStatus.Closed)
+            throw new ConflictException("Kho nguồn đang trong quá trình đóng hoặc đã đóng. Không thể xuất hàng cho yêu cầu tiếp tế.");
 
         // Wrap trong transaction để đảm bảo TransferOut + UpdateStatus đồng bộ
         await unitOfWork.ExecuteInTransactionAsync(async () =>
