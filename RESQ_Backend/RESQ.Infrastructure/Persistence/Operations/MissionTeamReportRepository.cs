@@ -119,7 +119,6 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
                 entity.MissionActivityReports.Add(existing);
             }
 
-            existing.ActivityCode = model.ActivityCode;
             existing.ActivityType = model.ActivityType;
             existing.ExecutionStatus = model.ExecutionStatus;
             existing.Summary = model.Summary;
@@ -191,7 +190,6 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
                 Id = x.Id,
                 MissionTeamReportId = x.MissionTeamReportId,
                 MissionActivityId = x.MissionActivityId,
-                ActivityCode = x.ActivityCode,
                 ActivityType = x.ActivityType,
                 ExecutionStatus = x.ExecutionStatus,
                 Summary = x.Summary,

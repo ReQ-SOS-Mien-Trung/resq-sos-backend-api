@@ -91,7 +91,6 @@ public class UpdateMissionActivityCommandHandler(
 
         // 3. Update activity fields
         activity.Step = request.Step ?? activity.Step;
-        activity.ActivityCode = request.ActivityCode ?? activity.ActivityCode;
         activity.ActivityType = request.ActivityType ?? activity.ActivityType;
         activity.Description = request.Description ?? activity.Description;
         activity.Target = request.Target ?? activity.Target;

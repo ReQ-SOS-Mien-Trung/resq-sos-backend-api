@@ -13,7 +13,6 @@ public class UpcomingPickupActivityListItem
     public DateTime? MissionExpectedEndTime { get; set; }
     public int ActivityId { get; set; }
     public int? Step { get; set; }
-    public string? ActivityCode { get; set; }
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
     public string? Priority { get; set; }
@@ -39,7 +38,6 @@ public class PickupHistoryActivityListItem
     public DateTime? MissionExpectedEndTime { get; set; }
     public int ActivityId { get; set; }
     public int? Step { get; set; }
-    public string? ActivityCode { get; set; }
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
     public string? Priority { get; set; }

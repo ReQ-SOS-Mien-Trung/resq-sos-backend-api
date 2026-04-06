@@ -16,9 +16,6 @@ public partial class MissionActivityReport
     [Column("mission_activity_id")]
     public int MissionActivityId { get; set; }
 
-    [Column("activity_code")]
-    public string? ActivityCode { get; set; }
-
     [Column("activity_type")]
     public string? ActivityType { get; set; }
 

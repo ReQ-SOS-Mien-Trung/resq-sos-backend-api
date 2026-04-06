@@ -40,7 +40,6 @@ public class GetMyUpcomingPickupActivitiesQueryHandler(
             MissionExpectedEndTime = x.MissionExpectedEndTime,
             ActivityId = x.ActivityId,
             Step = x.Step,
-            ActivityCode = x.ActivityCode,
             ActivityType = x.ActivityType,
             Description = x.Description,
             Priority = x.Priority,

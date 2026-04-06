@@ -192,7 +192,6 @@ public class MissionController(IMediator mediator) : ControllerBase
         var command = new AddMissionActivityCommand(
             missionId,
             dto.Step,
-            dto.ActivityCode,
             dto.ActivityType,
             dto.Description,
             dto.Priority,
@@ -223,7 +222,6 @@ public class MissionController(IMediator mediator) : ControllerBase
         var command = new UpdateMissionActivityCommand(
             activityId,
             dto.Step,
-            dto.ActivityCode,
             dto.ActivityType,
             dto.Description,
             dto.Target,

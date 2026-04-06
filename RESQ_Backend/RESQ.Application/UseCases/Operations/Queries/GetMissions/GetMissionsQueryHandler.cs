@@ -104,7 +104,6 @@ public class GetMissionsQueryHandler(
                     {
                         Id = a.Id,
                         Step = a.Step,
-                        ActivityCode = a.ActivityCode,
                         ActivityType = a.ActivityType,
                         Description = a.Description,
                         Priority = a.Priority,

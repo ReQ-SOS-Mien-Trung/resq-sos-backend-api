@@ -63,7 +63,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
                 MissionExpectedEndTime = activity.Mission.ExpectedEndTime,
                 ActivityId = activity.Id,
                 Step = activity.Step,
-                ActivityCode = activity.ActivityCode,
                 ActivityType = activity.ActivityType,
                 Description = activity.Description,
                 Priority = activity.Priority,
@@ -101,7 +100,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
             MissionExpectedEndTime = x.MissionExpectedEndTime,
             ActivityId = x.ActivityId,
             Step = x.Step,
-            ActivityCode = x.ActivityCode,
             ActivityType = x.ActivityType,
             Description = x.Description,
             Priority = x.Priority,
@@ -180,7 +178,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
                 MissionExpectedEndTime = activity.Mission.ExpectedEndTime,
                 ActivityId = activity.Id,
                 Step = activity.Step,
-                ActivityCode = activity.ActivityCode,
                 ActivityType = activity.ActivityType,
                 Description = activity.Description,
                 Priority = activity.Priority,
@@ -223,7 +220,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
             MissionExpectedEndTime = x.MissionExpectedEndTime,
             ActivityId = x.ActivityId,
             Step = x.Step,
-            ActivityCode = x.ActivityCode,
             ActivityType = x.ActivityType,
             Description = x.Description,
             Priority = x.Priority,
@@ -287,7 +283,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
         public DateTime? MissionExpectedEndTime { get; set; }
         public int ActivityId { get; set; }
         public int? Step { get; set; }
-        public string? ActivityCode { get; set; }
         public string? ActivityType { get; set; }
         public string? Description { get; set; }
         public string? Priority { get; set; }
@@ -313,7 +308,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
         public DateTime? MissionExpectedEndTime { get; set; }
         public int ActivityId { get; set; }
         public int? Step { get; set; }
-        public string? ActivityCode { get; set; }
         public string? ActivityType { get; set; }
         public string? Description { get; set; }
         public string? Priority { get; set; }

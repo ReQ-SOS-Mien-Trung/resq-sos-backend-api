@@ -34,7 +34,6 @@ public class GetMyTeamActivitiesQueryHandler(
             {
                 Id = a.Id,
                 Step = a.Step,
-                ActivityCode = a.ActivityCode,
                 ActivityType = a.ActivityType,
                 Description = a.Description,
                 Priority = a.Priority,

@@ -5,7 +5,6 @@ public class MissionActivityReportModel
     public int Id { get; set; }
     public int MissionTeamReportId { get; set; }
     public int MissionActivityId { get; set; }
-    public string? ActivityCode { get; set; }
     public string? ActivityType { get; set; }
     public string? ExecutionStatus { get; set; }
     public string? Summary { get; set; }

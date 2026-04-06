@@ -49,7 +49,6 @@ internal static class MissionTeamReportResponseFactory
                     return new MissionTeamReportActivityDto
                     {
                         MissionActivityId = activity.Id,
-                        ActivityCode = activity.ActivityCode,
                         ActivityType = activity.ActivityType,
                         ActivityStatus = activity.Status.ToString(),
                         ExecutionStatus = activityReport?.ExecutionStatus,

@@ -24,7 +24,6 @@ public class MissionTeamReportResponse
 public class MissionTeamReportActivityDto
 {
     public int MissionActivityId { get; set; }
-    public string? ActivityCode { get; set; }
     public string? ActivityType { get; set; }
     public string? ActivityStatus { get; set; }
     public string? ExecutionStatus { get; set; }

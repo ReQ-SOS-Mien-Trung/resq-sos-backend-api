@@ -73,7 +73,6 @@ public class AddMissionActivityCommandHandler(
         {
             MissionId = request.MissionId,
             Step = request.Step,
-            ActivityCode = request.ActivityCode,
             ActivityType = request.ActivityType,
             Description = request.Description,
             Priority = request.Priority,
