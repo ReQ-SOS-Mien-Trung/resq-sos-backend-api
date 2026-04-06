@@ -468,7 +468,7 @@ public class ImportPurchasedInventoryCommandHandler(
         var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
         if (user != null)
         {
-            var fullName = string.Join(" ", new[] { user.FirstName?.Trim(), user.LastName?.Trim() }
+            var fullName = string.Join(" ", new[] { user.LastName?.Trim(), user.FirstName?.Trim() }
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
 
             if (!string.IsNullOrWhiteSpace(fullName))

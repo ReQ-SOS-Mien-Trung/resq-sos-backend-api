@@ -260,7 +260,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 SourceId = firstItem.SourceId,
                 SourceName = GetSourceName(firstItem.SourceType, firstItem.SourceId),
                 PerformedByName = firstItem.PerformedByUser != null
-                    ? $"{firstItem.PerformedByUser.FirstName} {firstItem.PerformedByUser.LastName}".Trim()
+                    ? $"{firstItem.PerformedByUser.LastName} {firstItem.PerformedByUser.FirstName}".Trim()
                     : string.Empty,
                 Note = NormalizeMultilineText(firstItem.Note),
                 CreatedAt = createdAt ?? DateTime.MinValue,

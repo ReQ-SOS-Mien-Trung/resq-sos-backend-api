@@ -47,19 +47,19 @@ public class CreateRescueTeamCommandHandler(
 
                 // Validate Role ID = 3 (Rescuer)
                 if (user.RoleId != 3)
-                    throw new BadRequestException($"Người dùng {user.FirstName} {user.LastName} không phải là nhân sự cứu hộ (Role Rescuer).");
+                    throw new BadRequestException($"Người dùng {user.LastName} {user.FirstName} không phải là nhân sự cứu hộ (Role Rescuer).");
 
                 // Validate Leader must be Core
                 if (mem.IsLeader && !string.Equals(user.RescuerType?.ToString(), RescuerType.Core.ToString(), StringComparison.OrdinalIgnoreCase))
-                    throw new BadRequestException($"Thành viên {user.FirstName} {user.LastName} không thể làm đội trưởng vì không phải là nhân sự nòng cốt (Core Rescuer).");
+                    throw new BadRequestException($"Thành viên {user.LastName} {user.FirstName} không thể làm đội trưởng vì không phải là nhân sự nòng cốt (Core Rescuer).");
 
                 if (await teamRepository.IsUserInActiveTeamAsync(mem.UserId, ct))
-                    throw new ConflictException($"Nhân sự {user.FirstName} {user.LastName} đã tham gia một đội cứu hộ khác.");
+                    throw new ConflictException($"Nhân sự {user.LastName} {user.FirstName} đã tham gia một đội cứu hộ khác.");
 
                 // Validate rescuer đã check-in tại sự kiện tập trung
                 var isCheckedIn = await assemblyEventRepository.IsParticipantCheckedInAsync(resolvedEventId, mem.UserId, ct);
                 if (!isCheckedIn)
-                    throw new BadRequestException($"Nhân sự {user.FirstName} {user.LastName} chưa check-in tại điểm tập kết.");
+                    throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} chưa check-in tại điểm tập kết.");
 
                 string? roleInTeam = null;
 
@@ -77,7 +77,7 @@ public class CreateRescueTeamCommandHandler(
                     {
                         bool hasRequired = await teamRepository.HasRequiredAbilityCategoryAsync(mem.UserId, requiredCategory, ct);
                         if (!hasRequired)
-                            throw new BadRequestException($"Thành viên {user.FirstName} {user.LastName} không có kỹ năng thuộc nhóm {requiredCategory} để tham gia đội {request.Type}.");
+                            throw new BadRequestException($"Thành viên {user.LastName} {user.FirstName} không có kỹ năng thuộc nhóm {requiredCategory} để tham gia đội {request.Type}.");
 
                         roleInTeam = requiredCategory;
                     }

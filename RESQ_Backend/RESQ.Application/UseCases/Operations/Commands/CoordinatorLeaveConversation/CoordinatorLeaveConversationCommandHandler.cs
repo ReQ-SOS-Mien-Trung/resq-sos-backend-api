@@ -43,7 +43,7 @@ public class CoordinatorLeaveConversationCommandHandler(
 
         var coordinator = await userRepository.GetByIdAsync(request.CoordinatorId, cancellationToken);
         var coordinatorName = coordinator != null
-            ? $"{coordinator.FirstName} {coordinator.LastName}".Trim()
+            ? $"{coordinator.LastName} {coordinator.FirstName}".Trim()
             : "Coordinator";
 
         var systemMsg = $"👤 {coordinatorName} đã rời phòng chat. Vui lòng chờ coordinator khác tham gia hỗ trợ bạn.";

@@ -147,11 +147,11 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
                 ExternalNote         = closure.ExternalNote,
                 InitiatedBy          = closure.InitiatedBy,
                 InitiatedByFullName  = initiator != null
-                                        ? (initiator.FirstName + " " + initiator.LastName).Trim()
+                                        ? (initiator.LastName + " " + initiator.FirstName).Trim()
                                         : null,
                 CancelledBy          = closure.CancelledBy,
                 CancelledByFullName  = canceller != null
-                                        ? (canceller.FirstName + " " + canceller.LastName).Trim()
+                                        ? (canceller.LastName + " " + canceller.FirstName).Trim()
                                         : null,
                 CancellationReason   = closure.CancellationReason,
                 SnapshotConsumableUnits = closure.SnapshotConsumableUnits,

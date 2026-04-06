@@ -57,7 +57,7 @@ public class GetSosRequestQueryHandler(
                 return new CompanionResultDto
                 {
                     UserId = c.UserId,
-                    FullName = u != null ? $"{u.FirstName} {u.LastName}".Trim() : null,
+                    FullName = u != null ? $"{u.LastName} {u.FirstName}".Trim() : null,
                     Phone = c.PhoneNumber ?? u?.Phone,
                     AddedAt = c.AddedAt
                 };

@@ -35,7 +35,6 @@ public class DepotRealtimeOutboxDispatcherBackgroundService(
             {
                 await using var scope = _scopeFactory.CreateAsyncScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-                await EnsureSchemaAsync(dbContext, stoppingToken);
 
                 var dueDepotIds = await dbContext.DepotRealtimeOutboxEvents
                     .Where(x => (x.Status == "Pending" || x.Status == "Failed")
@@ -319,44 +318,6 @@ public class DepotRealtimeOutboxDispatcherBackgroundService(
 
         await command.ExecuteScalarAsync(cancellationToken);
         await dbContext.Database.CloseConnectionAsync();
-    }
-
-    private static async Task EnsureSchemaAsync(ResQDbContext dbContext, CancellationToken cancellationToken)
-    {
-        const string sql = """
-            CREATE SEQUENCE IF NOT EXISTS depot_realtime_version_seq;
-
-            CREATE TABLE IF NOT EXISTS depot_realtime_outbox (
-                id uuid PRIMARY KEY,
-                depot_id integer NOT NULL,
-                mission_id integer NULL,
-                version bigint NOT NULL DEFAULT nextval('depot_realtime_version_seq'),
-                event_type varchar(120) NOT NULL,
-                operation varchar(40) NOT NULL,
-                payload_kind varchar(20) NOT NULL,
-                is_critical boolean NOT NULL,
-                changed_fields text NULL,
-                snapshot_payload text NULL,
-                status varchar(20) NOT NULL DEFAULT 'Pending',
-                attempt_count integer NOT NULL DEFAULT 0,
-                next_attempt_at timestamp with time zone NOT NULL,
-                occurred_at timestamp with time zone NOT NULL,
-                lock_owner varchar(120) NULL,
-                lock_expires_at timestamp with time zone NULL,
-                last_error text NULL,
-                processed_at timestamp with time zone NULL,
-                created_at timestamp with time zone NOT NULL DEFAULT now(),
-                updated_at timestamp with time zone NOT NULL DEFAULT now()
-            );
-
-            CREATE INDEX IF NOT EXISTS ix_depot_realtime_outbox_depot_version
-                ON depot_realtime_outbox (depot_id, version);
-
-            CREATE INDEX IF NOT EXISTS ix_depot_realtime_outbox_status_next_attempt
-                ON depot_realtime_outbox (status, next_attempt_at);
-            """;
-
-        await dbContext.Database.ExecuteSqlRawAsync(sql, cancellationToken);
     }
 
     private sealed record DispatchPlanItem(DepotRealtimeOutbox Event, bool ShouldDispatch);

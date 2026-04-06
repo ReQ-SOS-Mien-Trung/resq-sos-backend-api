@@ -240,7 +240,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
             ConversationId = conversationId,
             SenderId = senderId,
             SenderName = sender is not null
-                ? $"{sender.FirstName} {sender.LastName}".Trim()
+                ? $"{sender.LastName} {sender.FirstName}".Trim()
                 : null,
             Content = content,
             MessageType = messageType,
@@ -266,7 +266,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
             ConversationId = p.ConversationId,
             UserId = p.UserId,
             UserName = p.User is not null
-                ? $"{p.User.FirstName} {p.User.LastName}".Trim()
+                ? $"{p.User.LastName} {p.User.FirstName}".Trim()
                 : null,
             RoleInConversation = p.RoleInConversation,
             JoinedAt = p.JoinedAt
@@ -279,7 +279,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
         ConversationId = m.ConversationId,
         SenderId = m.SenderId,
         SenderName = m.Sender is not null
-            ? $"{m.Sender.FirstName} {m.Sender.LastName}".Trim()
+            ? $"{m.Sender.LastName} {m.Sender.FirstName}".Trim()
             : null,
         Content = m.Content,
         MessageType = Enum.TryParse<MessageType>(m.MessageType, out var mt) ? mt : MessageType.UserMessage,

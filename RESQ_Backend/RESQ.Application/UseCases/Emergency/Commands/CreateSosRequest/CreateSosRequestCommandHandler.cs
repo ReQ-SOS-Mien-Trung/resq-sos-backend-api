@@ -164,7 +164,7 @@ public class CreateSosRequestCommandHandler(
                     linkedCompanions.Add(new CompanionLinkedResult
                     {
                         UserId = foundUser.Id,
-                        FullName = $"{foundUser.FirstName} {foundUser.LastName}".Trim(),
+                        FullName = $"{foundUser.LastName} {foundUser.FirstName}".Trim(),
                         Phone = foundUser.Phone ?? phone,
                     });
                 }

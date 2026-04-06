@@ -24,7 +24,7 @@ public class AssignRescuerToAssemblyPointCommandHandler(
             ?? throw new NotFoundException($"Không tìm thấy người dùng với ID = {request.RescuerUserId}");
 
         if (user.RoleId != 3)
-            throw new BadRequestException($"Người dùng {user.FirstName} {user.LastName} không phải là nhân sự cứu hộ.");
+            throw new BadRequestException($"Người dùng {user.LastName} {user.FirstName} không phải là nhân sự cứu hộ.");
 
         string? apName = null;
 
