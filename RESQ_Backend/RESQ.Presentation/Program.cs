@@ -106,15 +106,27 @@ builder.Services.AddSwaggerGen(c =>
 // Health check
 builder.Services.AddHealthChecks();
 
-// Firebase Admin SDK initialization — đọc từ appsettings (FIREBASE_CREDENTIALS_JSON_BASE64)
+// Firebase Admin SDK initialization — đọc từ appsettings section "Firebase"
 if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 {
-    var firebaseJsonBase64 = builder.Configuration["FIREBASE_CREDENTIALS_JSON_BASE64"]
-        ?? throw new InvalidOperationException(
-            "Firebase credential is not configured. Add 'FIREBASE_CREDENTIALS_JSON_BASE64' to appsettings.");
+    var fb = builder.Configuration.GetSection("Firebase");
 
-    var jsonBytes = Convert.FromBase64String(firebaseJsonBase64);
-    using var stream = new MemoryStream(jsonBytes);
+    var credentialJson = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        type                          = fb["Type"],
+        project_id                    = fb["ProjectId"],
+        private_key_id                = fb["PrivateKeyId"],
+        private_key                   = fb["PrivateKey"],
+        client_email                  = fb["ClientEmail"],
+        client_id                     = fb["ClientId"],
+        auth_uri                      = fb["AuthUri"],
+        token_uri                     = fb["TokenUri"],
+        auth_provider_x509_cert_url   = fb["AuthProviderX509CertUrl"],
+        client_x509_cert_url          = fb["ClientX509CertUrl"],
+        universe_domain               = fb["UniverseDomain"]
+    });
+
+    using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(credentialJson));
     var firebaseCredential = Google.Apis.Auth.OAuth2.GoogleCredential.FromStream(stream);
 
     FirebaseAdmin.FirebaseApp.Create(new FirebaseAdmin.AppOptions
