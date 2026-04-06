@@ -4,11 +4,11 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile
 {
     public record UpdateRescuerProfileCommand(
         Guid UserId,
-        string FirstName,
+        string? FirstName,
         string? LastName,
-        string Address,
+        string? Address,
         string? Ward,
-        string Province,
+        string? Province,
         double? Latitude,
         double? Longitude,
         string? AvatarUrl
