@@ -618,6 +618,34 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         return new PagedResult<SupplyRequestListItem>(items, paged.TotalCount, pageNumber, pageSize);
     }
 
+    public async Task<List<DepotRequestItem>> GetRequestsByDepotIdsAsync(
+        List<int> depotIds,
+        CancellationToken cancellationToken = default)
+    {
+        var items = await _unitOfWork.Set<DepotSupplyRequest>()
+            .Where(r =>
+                depotIds.Contains(r.RequestingDepotId)
+                || depotIds.Contains(r.SourceDepotId))
+            .Select(r => new DepotRequestItem
+            {
+                Id                  = r.Id,
+                RequestingDepotId   = r.RequestingDepotId,
+                RequestingDepotName = r.RequestingDepot != null ? r.RequestingDepot.Name : null,
+                SourceDepotId       = r.SourceDepotId,
+                SourceDepotName     = r.SourceDepot != null ? r.SourceDepot.Name : null,
+                PriorityLevel       = r.PriorityLevel,
+                SourceStatus        = r.SourceStatus,
+                RequestingStatus    = r.RequestingStatus,
+                CreatedAt           = r.CreatedAt,
+                AutoRejectAt        = r.AutoRejectAt,
+                ShippedAt           = r.ShippedAt,
+                CompletedAt         = r.CompletedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        return items;
+    }
+
     private static SupplyRequestPriorityLevel ParsePriorityLevel(string? priorityLevel)
         => Enum.TryParse<SupplyRequestPriorityLevel>(priorityLevel, true, out var parsed)
             ? parsed

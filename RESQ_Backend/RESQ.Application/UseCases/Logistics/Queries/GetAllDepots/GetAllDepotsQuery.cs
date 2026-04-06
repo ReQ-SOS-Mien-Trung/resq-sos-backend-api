@@ -10,5 +10,8 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
 
         /// <summary>Lọc theo một hoặc nhiều trạng thái kho. Bỏ trống = lấy tất cả.</summary>
         public List<DepotStatus>? Statuses { get; set; }
+
+        /// <summary>Tìm kiếm theo tên kho hoặc tên người quản kho hiện tại (LastName / FirstName).</summary>
+        public string? Search { get; set; }
     }
 }

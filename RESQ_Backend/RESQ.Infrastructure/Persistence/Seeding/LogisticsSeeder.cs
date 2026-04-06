@@ -628,16 +628,19 @@ public static class LogisticsSeeder
     {
         var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
 
-        // CurrentUtilization = tổng consumable qty (factor × 573600) + 84 reusable phi xe + vehicle units
-        // Depot 1 (×1.0): 573600 + 84 + 40 = 573724   | Depot 2 (×0.8): 458880 + 84 + 29 = 458993
-        // Depot 3 (×0.6): 344160 + 84 + 20 = 344264   | Depot 4 (×0.9): 516240 + 84 + 30 = 516354
-        // Depot 5 (trống — dùng để test tiếp nhận đóng kho): 0 utilization, capacity 900000
+        // CurrentUtilization = Σ consumable Quantity + non-vehicle reusable units + vehicle units
+        // Tính từ đúng per-category factors (không phải uniform factor):
+        // Depot 1 (Huế):      consumable=441760 + nonVehicle=82  + vehicle=40  = 441882  → Capacity 750000 (~59%)
+        // Depot 2 (Đà Nẵng):  consumable=624480 + nonVehicle=103 + vehicle=31  = 624614  → Capacity 800000 (~78%)
+        // Depot 3 (Hà Tĩnh):  consumable=285890 + nonVehicle=65  + vehicle=24  = 285979  → Capacity 450000 (~64%)
+        // Depot 4 (HN/TW):    consumable=817990 + nonVehicle=84  + vehicle=49  = 818123  → Capacity 1000000 (~82%)
+        // Depot 5 (Quảng Nam — trống, dùng test tiếp nhận đóng kho): 0
         modelBuilder.Entity<Depot>().HasData(
-            new Depot { Id = 1, Name = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", Address = "46 Đống Đa, TP. Huế, Thừa Thiên Huế", Location = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 750000, CurrentUtilization = 573724, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg" },
-            new Depot { Id = 2, Name = "Ủy ban MTTQVN TP Đà Nẵng", Address = "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", Location = new Point(108.22283205420794, 16.080298466000496) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 600000, CurrentUtilization = 458993, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
-            new Depot { Id = 3, Name = "Ủy Ban MTTQ Tỉnh Hà Tĩnh", Address = "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", Location = new Point(105.90102499916586, 18.349622333272194) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 450000, CurrentUtilization = 344264, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg" },
-            new Depot { Id = 4, Name = "Ủy ban MTTQVN Việt Nam", Address = "46 Tràng Thi, Hoàn Kiếm, Hà Nội", Location = new Point(106.6973581406628, 10.786765331782663) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 680000, CurrentUtilization = 516354, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
-            new Depot { Id = 5, Name = "Ủy ban MTTQVN Tỉnh Quảng Nam", Address = "72 Hùng Vương, TP. Tam Kỳ, Quảng Nam", Location = new Point(108.47388, 15.57360) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 900000, CurrentUtilization = 0, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" }
+            new Depot { Id = 1, Name = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", Address = "46 Đống Đa, TP. Huế, Thừa Thiên Huế", Location = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 750000,  CurrentUtilization = 441882, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg" },
+            new Depot { Id = 2, Name = "Ủy ban MTTQVN TP Đà Nẵng", Address = "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", Location = new Point(108.22283205420794, 16.080298466000496) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 800000,  CurrentUtilization = 624614, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
+            new Depot { Id = 3, Name = "Ủy Ban MTTQ Tỉnh Hà Tĩnh", Address = "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", Location = new Point(105.90102499916586, 18.349622333272194) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 450000,  CurrentUtilization = 285979, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg" },
+            new Depot { Id = 4, Name = "Ủy ban MTTQVN Việt Nam", Address = "46 Tràng Thi, Hoàn Kiếm, Hà Nội", Location = new Point(106.6973581406628, 10.786765331782663) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1000000, CurrentUtilization = 818123, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
+            new Depot { Id = 5, Name = "Ủy ban MTTQVN Tỉnh Quảng Nam", Address = "72 Hùng Vương, TP. Tam Kỳ, Quảng Nam", Location = new Point(108.47388, 15.57360) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 900000,  CurrentUtilization = 0, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" }
         );
     }
 
@@ -797,16 +800,14 @@ public static class LogisticsSeeder
         }
 
         // ── Transfer reservation overrides — khớp với supply requests đã seed ──
-        // Request #2 (Depot 2 = Đà Nẵng là kho nguồn, trạng thái Accepted):
-        //   DSI 75 = Depot 2, Item #3  (Thuốc Paracetamol 500mg) → đặt trữ 10000
-        //   DSI 80 = Depot 2, Item #9  (Dầu gió)                 → đặt trữ 500
-        // Request #3 (Depot 4 = Hà Nội là kho nguồn, trạng thái Shipping):
-        //   DSI 222 = Depot 4, Item #7  (Sữa bột trẻ em)         → đặt trữ 2000
+        // Request #1 (Depot 1 = Huế là kho nguồn, trạng thái Accepted):
+        //   DSI 1 = Depot 1, Item #1  (Mì tôm)        → đặt trữ 6000
+        //   DSI 2 = Depot 1, Item #2  (Nước tinh khiết) → đặt trữ 4000
+        // (DSI id = depotIndex * 72 + itemIndex + 1; Depot 1 = index 0)
         var transferReservedOverrides = new Dictionary<int, int>
         {
-            [75]  = 10000,
-            [80]  = 500,
-            [222] = 2000,
+            [1] = 6000,
+            [2] = 4000,
         };
         foreach (var entry in list)
         {
@@ -1130,57 +1131,93 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 11, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<DepotSupplyRequest>().HasData(
-            // Req 1: Kho 2 → xâu từ kho 1, đang chờ phê duyệt
+            // Req 1 (IN PROGRESS — Accepted/Approved): Kho 3 (Hà Tĩnh) xin từ Kho 1 (Huế)
+            // Kho nguồn đã chấp nhận, đang chuẩn bị hàng. TransferReserved đã set ở DSI.
             new DepotSupplyRequest
             {
-                Id = 1, RequestingDepotId = 2, SourceDepotId = 1,
-                Note = "Cần bổ sung mì tôm và nước sạch khẩn cấp",
-                SourceStatus      = SourceDepotStatus.Pending.ToString(),
-                RequestingStatus  = RequestingDepotStatus.WaitingForApproval.ToString(),
-                RequestedBy = SeedConstants.Manager2UserId,
-                CreatedAt = now
-            },
-            // Req 2: Kho 3 → xâu từ kho 2, đã được chấp nhận, đang chuẩn bị hàng
-            new DepotSupplyRequest
-            {
-                Id = 2, RequestingDepotId = 3, SourceDepotId = 2,
-                Note = "Thiếu thuốc Paracetamol và dầu gió",
+                Id = 1, RequestingDepotId = 3, SourceDepotId = 1,
+                Note = "Thiếu lương thực và nước uống cứu trợ khẩn cấp",
+                PriorityLevel     = "High",
                 SourceStatus      = SourceDepotStatus.Accepted.ToString(),
                 RequestingStatus  = RequestingDepotStatus.Approved.ToString(),
-                RequestedBy = SeedConstants.Manager3UserId,
-                CreatedAt = now.AddDays(3), RespondedAt = now.AddDays(4)
+                RequestedBy       = SeedConstants.Manager3UserId,
+                CreatedAt         = now,
+                AutoRejectAt      = now.AddHours(2),
+                RespondedAt       = now.AddHours(1)
             },
-            // Req 3: Kho 1 → xâu từ kho 4, đang vận chuyển
+            // Req 2 (COMPLETED — 2 bên đã xác nhận): Kho 2 (Đà Nẵng) xin từ Kho 1 (Huế)
             new DepotSupplyRequest
             {
-                Id = 3, RequestingDepotId = 1, SourceDepotId = 4,
-                Note = "Bổ sung chăn, lều bạt mùa đông",
-                SourceStatus      = SourceDepotStatus.Shipping.ToString(),
-                RequestingStatus  = RequestingDepotStatus.InTransit.ToString(),
-                RequestedBy = SeedConstants.ManagerUserId,
-                CreatedAt = now.AddDays(6), RespondedAt = now.AddDays(7), ShippedAt = now.AddDays(8)
-            },
-            // Req 4: Kho 4 → xâu từ kho 3, đã hoàn thành
-            new DepotSupplyRequest
-            {
-                Id = 4, RequestingDepotId = 4, SourceDepotId = 3,
-                Note = "Tiếp nhận thực phẩm từ kho Hà Tĩnh",
+                Id = 2, RequestingDepotId = 2, SourceDepotId = 1,
+                Note = "Bổ sung thuốc y tế cho kho Đà Nẵng",
+                PriorityLevel     = "Medium",
                 SourceStatus      = SourceDepotStatus.Completed.ToString(),
                 RequestingStatus  = RequestingDepotStatus.Received.ToString(),
-                RequestedBy = SeedConstants.Manager4UserId,
-                CreatedAt = now.AddDays(10), RespondedAt = now.AddDays(11),
-                ShippedAt = now.AddDays(12), CompletedAt = now.AddDays(14)
+                RequestedBy       = SeedConstants.Manager2UserId,
+                CreatedAt         = now.AddDays(-20),
+                AutoRejectAt      = now.AddDays(-20).AddHours(2),
+                RespondedAt       = now.AddDays(-19),
+                ShippedAt         = now.AddDays(-18),
+                CompletedAt       = now.AddDays(-16)
             },
-            // Req 5: Kho 2 → xâu từ kho 3, bị từ chối
+            // Req 3 (COMPLETED — 2 bên đã xác nhận): Kho 4 (HN) xin từ Kho 2 (Đà Nẵng)
             new DepotSupplyRequest
             {
-                Id = 5, RequestingDepotId = 2, SourceDepotId = 3,
-                Note = "Yêu cầu bổ sung áo phào và dây cứu hộ",
+                Id = 3, RequestingDepotId = 4, SourceDepotId = 2,
+                Note = "Bổ sung nước uống cho kho trung ương",
+                PriorityLevel     = "Medium",
+                SourceStatus      = SourceDepotStatus.Completed.ToString(),
+                RequestingStatus  = RequestingDepotStatus.Received.ToString(),
+                RequestedBy       = SeedConstants.Manager4UserId,
+                CreatedAt         = now.AddDays(-14),
+                AutoRejectAt      = now.AddDays(-14).AddHours(2),
+                RespondedAt       = now.AddDays(-13),
+                ShippedAt         = now.AddDays(-12),
+                CompletedAt       = now.AddDays(-10)
+            },
+            // Req 4 (COMPLETED — 2 bên đã xác nhận): Kho 1 (Huế) xin từ Kho 4 (HN)
+            new DepotSupplyRequest
+            {
+                Id = 4, RequestingDepotId = 1, SourceDepotId = 4,
+                Note = "Bổ sung chăn ấm và thiết bị sưởi từ kho trung ương",
+                PriorityLevel     = "Low",
+                SourceStatus      = SourceDepotStatus.Completed.ToString(),
+                RequestingStatus  = RequestingDepotStatus.Received.ToString(),
+                RequestedBy       = SeedConstants.ManagerUserId,
+                CreatedAt         = now.AddDays(-8),
+                AutoRejectAt      = now.AddDays(-8).AddHours(2),
+                RespondedAt       = now.AddDays(-7),
+                ShippedAt         = now.AddDays(-6),
+                CompletedAt       = now.AddDays(-4)
+            },
+            // Req 5 (REJECTED): Kho 1 (Huế) xin từ Kho 3 (Hà Tĩnh) — bị từ chối
+            new DepotSupplyRequest
+            {
+                Id = 5, RequestingDepotId = 1, SourceDepotId = 3,
+                Note = "Cần bổ sung dụng cụ cứu hộ khẩn cấp",
+                PriorityLevel     = "High",
                 SourceStatus      = SourceDepotStatus.Rejected.ToString(),
                 RequestingStatus  = RequestingDepotStatus.Rejected.ToString(),
-                RejectedReason    = "Kho nguồn không còn tồn kho trong tháng này",
-                RequestedBy = SeedConstants.Manager2UserId,
-                CreatedAt = now.AddDays(15), RespondedAt = now.AddDays(16)
+                RejectedReason    = "Kho Hà Tĩnh không đủ tồn kho để đáp ứng",
+                RequestedBy       = SeedConstants.ManagerUserId,
+                CreatedAt         = now.AddDays(-30),
+                AutoRejectAt      = now.AddDays(-30).AddHours(2),
+                RespondedAt       = now.AddDays(-30).AddHours(1)
+            },
+            // Req 6 (COMPLETED — 2 bên đã xác nhận): Kho 1 (Huế) xin từ Kho 2 (Đà Nẵng)
+            new DepotSupplyRequest
+            {
+                Id = 6, RequestingDepotId = 1, SourceDepotId = 2,
+                Note = "Bổ sung thuốc y tế dự phòng cho mùa lũ lụt",
+                PriorityLevel     = "Medium",
+                SourceStatus      = SourceDepotStatus.Completed.ToString(),
+                RequestingStatus  = RequestingDepotStatus.Received.ToString(),
+                RequestedBy       = SeedConstants.ManagerUserId,
+                CreatedAt         = now.AddDays(-25),
+                AutoRejectAt      = now.AddDays(-25).AddHours(2),
+                RespondedAt       = now.AddDays(-24),
+                ShippedAt         = now.AddDays(-23),
+                CompletedAt       = now.AddDays(-21)
             }
         );
     }
@@ -1188,14 +1225,20 @@ public static class LogisticsSeeder
     private static void SeedDepotSupplyRequestItems(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<DepotSupplyRequestItem>().HasData(
-            // Req 1: mì tôm + nước
-            new DepotSupplyRequestItem { Id = 1, DepotSupplyRequestId = 1, ItemModelId = 1, Quantity = 5000 },
-            new DepotSupplyRequestItem { Id = 2, DepotSupplyRequestId = 1, ItemModelId = 2, Quantity = 3000 },
-            // Req 2: thuốc + dầu gió
-            new DepotSupplyRequestItem { Id = 3, DepotSupplyRequestId = 2, ItemModelId = 3, Quantity = 10000 },
-            new DepotSupplyRequestItem { Id = 4, DepotSupplyRequestId = 2, ItemModelId = 9, Quantity = 500 },
-            // Req 3: chăn + lều bạt
-            new DepotSupplyRequestItem { Id = 5, DepotSupplyRequestId = 3, ItemModelId = 7, Quantity = 2000 }
+            // Req 1 (IN PROGRESS): mì tôm + nước — đặt trữ tại Kho 1
+            new DepotSupplyRequestItem { Id = 1, DepotSupplyRequestId = 1, ItemModelId = 1, Quantity = 6000 },
+            new DepotSupplyRequestItem { Id = 2, DepotSupplyRequestId = 1, ItemModelId = 2, Quantity = 4000 },
+            // Req 2 (COMPLETED): thuốc Paracetamol
+            new DepotSupplyRequestItem { Id = 3, DepotSupplyRequestId = 2, ItemModelId = 3, Quantity = 5000 },
+            // Req 3 (COMPLETED): nước tinh khiết
+            new DepotSupplyRequestItem { Id = 4, DepotSupplyRequestId = 3, ItemModelId = 2, Quantity = 8000 },
+            // Req 4 (COMPLETED): chăn ấm giữ nhiệt
+            new DepotSupplyRequestItem { Id = 5, DepotSupplyRequestId = 4, ItemModelId = 6, Quantity = 200 },
+            // Req 5 (REJECTED): dụng cụ cứu hộ
+            new DepotSupplyRequestItem { Id = 6, DepotSupplyRequestId = 5, ItemModelId = 5, Quantity = 50 },
+            new DepotSupplyRequestItem { Id = 7, DepotSupplyRequestId = 5, ItemModelId = 4, Quantity = 100 },
+            // Req 6 (COMPLETED): thuốc bổ sung
+            new DepotSupplyRequestItem { Id = 8, DepotSupplyRequestId = 6, ItemModelId = 3, Quantity = 3000 }
         );
     }
 }

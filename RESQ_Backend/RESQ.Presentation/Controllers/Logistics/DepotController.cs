@@ -40,13 +40,15 @@ namespace RESQ.Presentation.Controllers.Logistics
         public async Task<IActionResult> Get(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
-            [FromQuery] List<DepotStatus>? statuses = null)
+            [FromQuery] List<DepotStatus>? statuses = null,
+            [FromQuery] string? search = null)
         {
             var query = new GetAllDepotsQuery
             {
                 PageNumber = pageNumber,
                 PageSize = pageSize,
-                Statuses = statuses
+                Statuses = statuses,
+                Search = search
             };
 
             var result = await _mediator.Send(query);

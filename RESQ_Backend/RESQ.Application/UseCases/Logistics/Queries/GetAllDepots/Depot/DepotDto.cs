@@ -16,5 +16,8 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots.Depot
         public ManagerDto? Manager { get; set; }
         
         public DateTime? LastUpdatedAt { get; set; }
+
+        /// <summary>Danh sách yêu cầu tiếp tế liên quan đến kho này (cả 2 chiều, bao gồm đã hoàn thành).</summary>
+        public List<DepotRequestDto> Requests { get; set; } = [];
     }
 }
