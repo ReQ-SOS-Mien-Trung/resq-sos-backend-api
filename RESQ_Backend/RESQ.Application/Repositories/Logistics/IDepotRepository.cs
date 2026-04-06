@@ -9,8 +9,8 @@ namespace RESQ.Application.Repositories.Logistics
         Task CreateAsync(DepotModel depotModel, CancellationToken cancellationToken = default);
         Task UpdateAsync(DepotModel depotModel, CancellationToken cancellationToken = default);
         
-        // NEW: Pagination with optional status filter
-        Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, CancellationToken cancellationToken = default);
+        // NEW: Pagination with optional status filter and full-text search
+        Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default);
         
         // Legacy GetAll (optional, can be kept or removed)
         Task<IEnumerable<DepotModel>> GetAllAsync(CancellationToken cancellationToken = default);

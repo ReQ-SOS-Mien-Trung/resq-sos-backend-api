@@ -6,23 +6,45 @@ using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots.Depot;
 namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
 {
     public class GetAllDepotsQueryHandler(
-        IDepotRepository depotRepository, 
+        IDepotRepository depotRepository,
+        ISupplyRequestRepository supplyRequestRepository,
         ILogger<GetAllDepotsQueryHandler> logger) 
         : IRequestHandler<GetAllDepotsQuery, GetAllDepotsResponse>
     {
         private readonly IDepotRepository _depotRepository = depotRepository;
+        private readonly ISupplyRequestRepository _supplyRequestRepository = supplyRequestRepository;
         private readonly ILogger<GetAllDepotsQueryHandler> _logger = logger;
 
         public async Task<GetAllDepotsResponse> Handle(GetAllDepotsQuery request, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Handling {handler} - retrieving all depots page {page}", nameof(GetAllDepotsQueryHandler), request.PageNumber);
 
-            var pagedResult = await _depotRepository.GetAllPagedAsync(request.PageNumber, request.PageSize, request.Statuses, cancellationToken);
+            var pagedResult = await _depotRepository.GetAllPagedAsync(request.PageNumber, request.PageSize, request.Statuses, request.Search, cancellationToken);
+
+            var depotIds = pagedResult.Items.Select(d => d.Id).ToList();
+
+            // Fetch tất cả supply requests (2 chiều) cho tất cả depot trong trang hiện tại
+            var allRequests = depotIds.Count > 0
+                ? await _supplyRequestRepository.GetRequestsByDepotIdsAsync(depotIds, cancellationToken)
+                : [];
+
+            // Group theo từng depotId để lookup nhanh
+            var requestsByDepot = allRequests
+                .SelectMany(r => new[]
+                {
+                    (DepotId: r.RequestingDepotId, Request: r, Role: "Requester"),
+                    (DepotId: r.SourceDepotId,     Request: r, Role: "Source")
+                })
+                .Where(x => depotIds.Contains(x.DepotId))
+                .GroupBy(x => x.DepotId)
+                .ToDictionary(g => g.Key, g => g.ToList());
             
             var dtos = pagedResult.Items.Select(depot => 
             {
                 var manager = depot.CurrentManager;
-                
+
+                requestsByDepot.TryGetValue(depot.Id, out var depotRequests);
+
                 return new DepotDto
                 {
                     Id = depot.Id,
@@ -45,7 +67,26 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
                     } : null,
                     
                     ImageUrl = depot.ImageUrl,
-                    LastUpdatedAt = depot.LastUpdatedAt
+                    LastUpdatedAt = depot.LastUpdatedAt,
+
+                    Requests = depotRequests?
+                        .Select(x => new DepotRequestDto
+                        {
+                            Id                  = x.Request.Id,
+                            RequestingDepotId   = x.Request.RequestingDepotId,
+                            RequestingDepotName = x.Request.RequestingDepotName,
+                            SourceDepotId       = x.Request.SourceDepotId,
+                            SourceDepotName     = x.Request.SourceDepotName,
+                            Role                = x.Role,
+                            PriorityLevel       = x.Request.PriorityLevel,
+                            SourceStatus        = x.Request.SourceStatus,
+                            RequestingStatus    = x.Request.RequestingStatus,
+                            CreatedAt           = x.Request.CreatedAt,
+                            AutoRejectAt        = x.Request.AutoRejectAt,
+                            ShippedAt           = x.Request.ShippedAt,
+                            CompletedAt         = x.Request.CompletedAt
+                        })
+                        .ToList() ?? []
                 };
             }).ToList();
 

@@ -36,21 +36,28 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         }
     }
 
-    public async Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default)
     {
         var repository = _unitOfWork.GetRepository<Depot>();
 
         // Convert enum values to string for DB comparison
         var statusStrings = statuses?.Select(s => s.ToString()).ToList();
+        var searchTerm = search?.Trim().ToLower();
 
         // UPDATED: Pass OrderBy to ensure consistent pagination (Order by LastUpdated DESC)
         // UPDATED: Included "DepotManagers.User" to fetch manager details
         var pagedEntities = await repository.GetPagedAsync(
             pageNumber, 
             pageSize,
-            filter: statusStrings != null && statusStrings.Count > 0
-                ? d => statusStrings.Contains(d.Status)
-                : null,
+            filter: d =>
+                (statusStrings == null || statusStrings.Count == 0 || statusStrings.Contains(d.Status)) &&
+                (searchTerm == null ||
+                    (d.Name != null && d.Name.ToLower().Contains(searchTerm)) ||
+                    d.DepotManagers.Any(dm =>
+                        dm.UnassignedAt == null &&
+                        dm.User != null &&
+                        ((dm.User.LastName != null && dm.User.LastName.ToLower().Contains(searchTerm)) ||
+                         (dm.User.FirstName != null && dm.User.FirstName.ToLower().Contains(searchTerm))))),
             orderBy: q => q.OrderByDescending(d => d.LastUpdatedAt), 
             includeProperties: "DepotManagers.User"
         );

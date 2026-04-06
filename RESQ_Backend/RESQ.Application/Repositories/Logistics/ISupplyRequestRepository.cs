@@ -58,6 +58,22 @@ public class PendingSupplyRequestMonitorItem
     public bool UrgentEscalationNotified { get; set; }
 }
 
+public class DepotRequestItem
+{
+    public int Id { get; set; }
+    public int RequestingDepotId { get; set; }
+    public string? RequestingDepotName { get; set; }
+    public int SourceDepotId { get; set; }
+    public string? SourceDepotName { get; set; }
+    public string PriorityLevel { get; set; } = string.Empty;
+    public string SourceStatus { get; set; } = string.Empty;
+    public string RequestingStatus { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime? AutoRejectAt { get; set; }
+    public DateTime? ShippedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+}
+
 public interface ISupplyRequestRepository
 {
     Task<int> CreateAsync(
@@ -118,4 +134,12 @@ public interface ISupplyRequestRepository
     Task MarkUrgentEscalationNotifiedAsync(int id, CancellationToken cancellationToken = default);
 
     Task<bool> AutoRejectIfPendingAsync(int id, string rejectedReason, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách tất cả yêu cầu tiếp tế liên quan đến một tập depot (cả 2 chiều).
+    /// Bao gồm cả các yêu cầu đã hoàn thành (Completed/Received) và bị từ chối.
+    /// </summary>
+    Task<List<DepotRequestItem>> GetRequestsByDepotIdsAsync(
+        List<int> depotIds,
+        CancellationToken cancellationToken = default);
 }
