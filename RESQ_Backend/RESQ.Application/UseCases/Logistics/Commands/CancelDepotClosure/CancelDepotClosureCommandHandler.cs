@@ -29,12 +29,24 @@ public class CancelDepotClosureCommandHandler(
         if (closure.DepotId != request.DepotId)
             throw new ConflictException("Bản ghi đóng kho không thuộc kho này.");
 
-        if (closure.Status != DepotClosureStatus.InProgress)
+        if (closure.Status != DepotClosureStatus.InProgress && closure.Status != DepotClosureStatus.Processing)
             throw new ConflictException(
                 $"Không thể huỷ — bản ghi đóng kho đang ở trạng thái '{closure.Status}'.");
 
         // 2. Atomic claim để tránh race condition với timeout daemon
-        var claimed = await closureRepository.TryClaimForProcessingAsync(request.ClosureId, cancellationToken);
+        //    Nếu Processing (bị kẹt từ lần trước): dùng force-claim bằng rowVersion
+        //    Nếu InProgress: dùng claim thông thường
+        bool claimed;
+        if (closure.Status == DepotClosureStatus.Processing)
+        {
+            claimed = await closureRepository.TryForceClaimFromProcessingAsync(
+                request.ClosureId, closure.RowVersion, cancellationToken);
+        }
+        else
+        {
+            claimed = await closureRepository.TryClaimForProcessingAsync(request.ClosureId, cancellationToken);
+        }
+
         if (!claimed)
             throw new ConflictException("Bản ghi đóng kho đang được xử lý bởi tiến trình khác. Vui lòng thử lại sau.");
 

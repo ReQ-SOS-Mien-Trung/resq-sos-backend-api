@@ -100,6 +100,38 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
         return affected > 0;
     }
 
+    /// <summary>
+    /// Hoàn tác claim: chuyển Processing → InProgress để cho phép user retry
+    /// sau khi xảy ra lỗi validation (ConflictException / NotFoundException).
+    /// </summary>
+    public async Task ResetProcessingToInProgressAsync(int closureId, CancellationToken cancellationToken = default)
+    {
+        await _dbContext.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE depot_closures
+            SET status = 'InProgress'
+            WHERE id = {0} AND status = 'Processing'
+            """,
+            closureId);
+    }
+
+    /// <summary>
+    /// Tái claim bản ghi bị kẹt tại Processing bằng optimistic concurrency (kiểm tra rowVersion).
+    /// An toàn khi nhiều request cùng cố recover đồng thời: chỉ đúng 1 request thành công.
+    /// </summary>
+    public async Task<bool> TryForceClaimFromProcessingAsync(int closureId, int expectedRowVersion, CancellationToken cancellationToken = default)
+    {
+        var affected = await _dbContext.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE depot_closures
+            SET status = 'Processing', row_version = row_version + 1
+            WHERE id = {0} AND status = 'Processing' AND row_version = {1}
+            """,
+            closureId, expectedRowVersion);
+
+        return affected > 0;
+    }
+
     public async Task UpdateProgressAsync(int closureId, int processedRows, int lastInventoryId,
         CancellationToken cancellationToken = default)
     {
