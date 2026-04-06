@@ -106,41 +106,16 @@ builder.Services.AddSwaggerGen(c =>
 // Health check
 builder.Services.AddHealthChecks();
 
-// Firebase Admin SDK initialization
-// Supports three configuration methods (in priority order):
-//   1. FIREBASE_CREDENTIALS_JSON env var — raw JSON string (best for Docker/CI)
-//   2. FIREBASE_CREDENTIALS_JSON_BASE64 env var — base64-encoded JSON (avoids quoting issues)
-//   3. File on disk at ContentRootPath (legacy / local dev)
+// Firebase Admin SDK initialization — đọc từ appsettings (FIREBASE_CREDENTIALS_JSON_BASE64)
 if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 {
-    Google.Apis.Auth.OAuth2.GoogleCredential firebaseCredential;
-
-    var firebaseJson = builder.Configuration["FIREBASE_CREDENTIALS_JSON"]
-                       ?? Environment.GetEnvironmentVariable("FIREBASE_CREDENTIALS_JSON");
     var firebaseJsonBase64 = builder.Configuration["FIREBASE_CREDENTIALS_JSON_BASE64"]
-                             ?? Environment.GetEnvironmentVariable("FIREBASE_CREDENTIALS_JSON_BASE64");
+        ?? throw new InvalidOperationException(
+            "Firebase credential is not configured. Add 'FIREBASE_CREDENTIALS_JSON_BASE64' to appsettings.");
 
-    if (!string.IsNullOrWhiteSpace(firebaseJson))
-    {
-        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(firebaseJson));
-        firebaseCredential = Google.Apis.Auth.OAuth2.GoogleCredential.FromStream(stream);
-    }
-    else if (!string.IsNullOrWhiteSpace(firebaseJsonBase64))
-    {
-        var jsonBytes = Convert.FromBase64String(firebaseJsonBase64);
-        using var stream = new MemoryStream(jsonBytes);
-        firebaseCredential = Google.Apis.Auth.OAuth2.GoogleCredential.FromStream(stream);
-    }
-    else
-    {
-        var firebaseKeyPath = Path.Combine(builder.Environment.ContentRootPath, "PRM PE 142 Firebase Admin SDK.json");
-        if (!File.Exists(firebaseKeyPath))
-            throw new FileNotFoundException(
-                $"Firebase credential file is missing. Either set the FIREBASE_CREDENTIALS_JSON environment variable, " +
-                $"or mount a valid JSON file to '{firebaseKeyPath}'.",
-                firebaseKeyPath);
-        firebaseCredential = Google.Apis.Auth.OAuth2.GoogleCredential.FromFile(firebaseKeyPath);
-    }
+    var jsonBytes = Convert.FromBase64String(firebaseJsonBase64);
+    using var stream = new MemoryStream(jsonBytes);
+    var firebaseCredential = Google.Apis.Auth.OAuth2.GoogleCredential.FromStream(stream);
 
     FirebaseAdmin.FirebaseApp.Create(new FirebaseAdmin.AppOptions
     {
