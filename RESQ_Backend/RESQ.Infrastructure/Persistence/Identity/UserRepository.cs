@@ -187,8 +187,6 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 })
                 .ToListAsync(cancellationToken);
         }
-    }
-}
 
         public async Task<PagedResult<UserModel>> GetPagedForPermissionAsync(
             int pageNumber, int pageSize,
@@ -201,8 +199,8 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 filter: u =>
                     // Loại trừ user bị ban
                     !u.IsBanned &&
-                    // Loại trừ volunteer chưa kích hoạt (cả 2 cờ đều false)
-                    (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer) &&
+                    // Loại trừ rescuer (RoleId=3) chưa được kích hoạt — các role khác không cần profile
+                    (u.RoleId != 3 || (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer)) &&
                     (roleId == null || u.RoleId == roleId) &&
                     (search == null ||
                      (u.Phone != null && u.Phone.ToLower().Contains(search.ToLower())) ||

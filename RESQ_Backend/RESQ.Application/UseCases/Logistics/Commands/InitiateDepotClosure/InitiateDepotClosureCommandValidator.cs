@@ -13,7 +13,7 @@ public class InitiateDepotClosureCommandValidator : AbstractValidator<InitiateDe
             .NotEmpty().WithMessage("Thông tin người thực hiện không hợp lệ.");
 
         RuleFor(x => x.Reason)
-            .NotEmpty().WithMessage("Lý do đóng kho không được để trống.")
-            .MaximumLength(500).WithMessage("Lý do đóng kho không được vượt quá 500 ký tự.");
+            .MaximumLength(500).When(x => x.Reason != null)
+            .WithMessage("Lý do đóng kho không được vượt quá 500 ký tự.");
     }
 }
