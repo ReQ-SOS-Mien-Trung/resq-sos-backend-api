@@ -111,20 +111,27 @@ if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 {
     var fb = builder.Configuration.GetSection("Firebase");
 
-    var credentialJson = System.Text.Json.JsonSerializer.Serialize(new
+    // Replace literal \n (2 chars) thành newline thật — phòng trường hợp configuration
+    // không unescape JSON escape sequences (xảy ra trên một số cloud platforms)
+    var privateKey = (fb["PrivateKey"] ?? "").Replace("\\n", "\n");
+
+    // Dùng Dictionary để đảm bảo tên key JSON được giữ nguyên, không bị naming policy đổi
+    var credentialDict = new Dictionary<string, string?>
     {
-        type                          = fb["Type"],
-        project_id                    = fb["ProjectId"],
-        private_key_id                = fb["PrivateKeyId"],
-        private_key                   = fb["PrivateKey"],
-        client_email                  = fb["ClientEmail"],
-        client_id                     = fb["ClientId"],
-        auth_uri                      = fb["AuthUri"],
-        token_uri                     = fb["TokenUri"],
-        auth_provider_x509_cert_url   = fb["AuthProviderX509CertUrl"],
-        client_x509_cert_url          = fb["ClientX509CertUrl"],
-        universe_domain               = fb["UniverseDomain"]
-    });
+        ["type"]                        = fb["Type"],
+        ["project_id"]                  = fb["ProjectId"],
+        ["private_key_id"]              = fb["PrivateKeyId"],
+        ["private_key"]                 = privateKey,
+        ["client_email"]                = fb["ClientEmail"],
+        ["client_id"]                   = fb["ClientId"],
+        ["auth_uri"]                    = fb["AuthUri"],
+        ["token_uri"]                   = fb["TokenUri"],
+        ["auth_provider_x509_cert_url"] = fb["AuthProviderX509CertUrl"],
+        ["client_x509_cert_url"]        = fb["ClientX509CertUrl"],
+        ["universe_domain"]             = fb["UniverseDomain"]
+    };
+
+    var credentialJson = System.Text.Json.JsonSerializer.Serialize(credentialDict);
 
     using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(credentialJson));
     var firebaseCredential = Google.Apis.Auth.OAuth2.GoogleCredential.FromStream(stream);
