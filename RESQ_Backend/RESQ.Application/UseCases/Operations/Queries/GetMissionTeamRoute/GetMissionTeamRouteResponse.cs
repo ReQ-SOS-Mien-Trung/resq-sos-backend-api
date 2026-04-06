@@ -4,6 +4,19 @@ namespace RESQ.Application.UseCases.Operations.Queries.GetMissionTeamRoute;
 
 public class GetMissionTeamRouteResponse
 {
+    public int MissionTeamId { get; set; }
+    public int RescueTeamId { get; set; }
+    public string? TeamName { get; set; }
+    public string? TeamCode { get; set; }
+    public string? MissionTeamStatus { get; set; }
+    public string? RescueTeamStatus { get; set; }
+    public double? TeamLatitude { get; set; }
+    public double? TeamLongitude { get; set; }
+    public DateTime? TeamLocationUpdatedAt { get; set; }
+    public string? TeamLocationSource { get; set; }
+    public double OriginLatitude { get; set; }
+    public double OriginLongitude { get; set; }
+    public string OriginSource { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string? ErrorMessage { get; set; }
     public int TotalDistanceMeters { get; set; }
