@@ -29,25 +29,42 @@ public class ResolveDepotClosureCommandHandler(
             request.ClosureId, request.DepotId, request.ResolutionType, request.PerformedBy);
 
         var closure = await closureRepository.GetByIdAsync(request.ClosureId, cancellationToken)
-            ?? throw new NotFoundException("Khong tim thay ban ghi dong kho.");
+            ?? throw new NotFoundException("Không tìm thấy bản ghi đóng kho.");
 
         if (closure.DepotId != request.DepotId)
-            throw new ConflictException("Ban ghi dong kho khong thuoc kho nay.");
+            throw new ConflictException("Bản ghi đóng kho không thuộc kho này.");
 
-        if (closure.Status != DepotClosureStatus.InProgress)
+        // Kiểm tra trạng thái: InProgress = bình thường, Processing = có thể đang bị kẹt từ lần thử trước
+        if (closure.Status == DepotClosureStatus.Processing)
+        {
+            // Thử tái claim bằng optimistic concurrency (dùng rowVersion đảm bảo atomic)
+            // Nếu 2 request cùng cố recover, chỉ đúng 1 cái thành công nhờ row_version check
+            var reclaimed = await closureRepository.TryForceClaimFromProcessingAsync(
+                request.ClosureId, closure.RowVersion, cancellationToken);
+            if (!reclaimed)
+                throw new ConflictException("Yêu cầu đóng kho đang được xử lý bởi tiến trình khác. Vui lòng thử lại sau.");
+
+            logger.LogInformation(
+                "ResolveDepotClosure recovered stuck Processing | ClosureId={ClosureId}", request.ClosureId);
+        }
+        else if (closure.Status != DepotClosureStatus.InProgress)
+        {
             throw new ConflictException(
-                $"Ban ghi dong kho da o trang thai '{closure.Status}' - khong the tiep tuc xu ly. " +
-                "Neu da het han, vui long tao yeu cau dong kho moi.");
-
-        var claimed = await closureRepository.TryClaimForProcessingAsync(request.ClosureId, cancellationToken);
-        if (!claimed)
-            throw new ConflictException("Yeu cau dong kho dang duoc xu ly boi tien trinh khac. Vui long thu lai sau.");
+                $"Bản ghi đóng kho đang ở trạng thái '{closure.Status}' — không thể tiếp tục xử lý. " +
+                "Nếu đã hết hạn, vui lòng tạo yêu cầu đóng kho mới.");
+        }
+        else
+        {
+            var claimed = await closureRepository.TryClaimForProcessingAsync(request.ClosureId, cancellationToken);
+            if (!claimed)
+                throw new ConflictException("Yêu cầu đóng kho đang được xử lý bởi tiến trình khác. Vui lòng thử lại sau.");
+        }
 
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
-            ?? throw new NotFoundException("Khong tim thay kho cuu tro.");
+            ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
         if (depot.Status != DepotStatus.Closing)
-            throw new ConflictException("Kho khong o trang thai Closing - khong the tiep tuc dong kho.");
+            throw new ConflictException("Kho không ở trạng thái Closing — không thể tiếp tục đóng kho.");
 
         try
         {
@@ -56,7 +73,13 @@ public class ResolveDepotClosureCommandHandler(
             else
                 return await HandleExternalResolutionAsync(request, closure, depot, DateTime.UtcNow, cancellationToken);
         }
-        catch (Exception ex) when (ex is not ConflictException and not NotFoundException)
+        catch (Exception ex) when (ex is ConflictException or NotFoundException or BadRequestException)
+        {
+            // Lỗi validation nghiệp vụ — hoàn tác claim để user có thể thử lại
+            await closureRepository.ResetProcessingToInProgressAsync(request.ClosureId, cancellationToken);
+            throw;
+        }
+        catch (Exception ex)
         {
             logger.LogError(ex, "ResolveDepotClosure failed | ClosureId={ClosureId}", request.ClosureId);
             closure.RecordFailure(ex.Message);
@@ -79,17 +102,17 @@ public class ResolveDepotClosureCommandHandler(
         CancellationToken cancellationToken)
     {
         var targetDepot = await depotRepository.GetByIdAsync(request.TargetDepotId!.Value, cancellationToken)
-            ?? throw new NotFoundException("Khong tim thay kho dich.");
+            ?? throw new NotFoundException("Không tìm thấy kho đích.");
 
         if (targetDepot.Status == DepotStatus.Closing || targetDepot.Status == DepotStatus.Closed)
-            throw new ConflictException($"Kho dich '{targetDepot.Name}' dang dong hoac da dong.");
+            throw new ConflictException($"Kho đích '{targetDepot.Name}' đang đóng cửa hoặc đã đóng.");
 
         var consumableVolume = await depotRepository.GetConsumableTransferVolumeAsync(request.DepotId, cancellationToken);
         var availableCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
         if (consumableVolume > availableCapacity)
             throw new ConflictException(
-                $"Kho dich '{targetDepot.Name}' khong du suc chua. " +
-                $"Can: {consumableVolume:N0} - Con trong: {availableCapacity:N0} don vi.");
+                $"Kho đích '{targetDepot.Name}' không đủ sức chứa. " +
+                $"Cần: {consumableVolume:N0} — Còn trống: {availableCapacity:N0} đơn vị.");
 
         var (reusableAvailable, reusableInUse) = await depotRepository.GetReusableItemCountsAsync(request.DepotId, cancellationToken);
         closure.RecordActualInventory(consumableVolume, reusableAvailable + reusableInUse);
@@ -119,8 +142,8 @@ public class ResolveDepotClosureCommandHandler(
             if (targetManagerId.HasValue)
                 await firebaseService.SendNotificationToUserAsync(
                     targetManagerId.Value,
-                    "Kho cua ban sap tiep nhan hang chuyen kho",
-                    $"Admin da chi dinh '{targetDepot.Name}' tiep nhan hang tu kho '{depot.Name}' dang dong cua. Can chuan bi {consumableVolume:N0} don vi tieu hao.",
+                    "Kho của bạn sắp tiếp nhận hàng chuyển kho",
+                    $"Admin đã chỉ định '{targetDepot.Name}' tiếp nhận hàng từ kho '{depot.Name}' đang đóng cửa. Cần chuẩn bị {consumableVolume:N0} đơn vị tiêu hao.",
                     "depot_closure_transfer_assigned",
                     cancellationToken);
         }
@@ -134,7 +157,7 @@ public class ResolveDepotClosureCommandHandler(
             ResolutionType = request.ResolutionType.ToString(),
             TransferPending = true,
             TransferId = transfer.Id,
-            Message = $"Da xac nhan kho dich '{targetDepot.Name}'. Quan ly kho nguon vui long xac nhan xuat hang, sau do quan ly kho dich xac nhan nhan hang.",
+            Message = $"Đã xác nhận kho đích '{targetDepot.Name}'. Quản lý kho nguồn vui lòng xác nhận xuất hàng, sau đó quản lý kho đích xác nhận nhận hàng.",
             TransferSummary = new TransferSummaryDto
             {
                 TransferId = transfer.Id,
@@ -184,7 +207,7 @@ public class ResolveDepotClosureCommandHandler(
             DepotName = depot.Name,
             ResolutionType = request.ResolutionType.ToString(),
             CompletedAt = completedAt,
-            Message = "Dong kho thanh cong. Hang ton da duoc xu ly theo hinh thuc ben ngoai."
+            Message = "Đóng kho thành công. Hàng tồn đã được xử lý theo hình thức bên ngoài."
         };
     }
 }

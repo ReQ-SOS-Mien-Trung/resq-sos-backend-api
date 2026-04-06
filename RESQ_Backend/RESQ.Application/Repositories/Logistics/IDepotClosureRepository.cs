@@ -35,6 +35,19 @@ public interface IDepotClosureRepository
     /// </summary>
     Task<bool> TryClaimForProcessingAsync(int closureId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Hoàn tác claim: chuyển Processing → InProgress để cho phép user retry
+    /// sau khi xảy ra lỗi validation (ConflictException / NotFoundException).
+    /// </summary>
+    Task ResetProcessingToInProgressAsync(int closureId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tái claim bản ghi bị kẹt tại Processing bằng optimistic concurrency (kiểm tra rowVersion).
+    /// An toàn khi nhiều request cùng cố recover đồng thời: chỉ đúng 1 request thành công.
+    /// Trả về true nếu claim thành công.
+    /// </summary>
+    Task<bool> TryForceClaimFromProcessingAsync(int closureId, int expectedRowVersion, CancellationToken cancellationToken = default);
+
     /// <summary>Cập nhật tiến độ batch processing (cursor + count).</summary>
     Task UpdateProgressAsync(int closureId, int processedRows, int lastInventoryId,
         CancellationToken cancellationToken = default);
