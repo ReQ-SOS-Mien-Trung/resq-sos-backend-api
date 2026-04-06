@@ -15,7 +15,6 @@ public record CreateMissionCommand(
 public class CreateActivityItemDto
 {
     public int? Step { get; set; }
-    public string? ActivityCode { get; set; }
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
     public string? Priority { get; set; }

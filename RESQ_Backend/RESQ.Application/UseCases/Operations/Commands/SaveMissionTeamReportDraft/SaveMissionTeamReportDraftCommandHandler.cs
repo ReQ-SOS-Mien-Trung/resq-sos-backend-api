@@ -75,7 +75,6 @@ public class SaveMissionTeamReportDraftCommandHandler(
                 return new MissionActivityReportModel
                 {
                     MissionActivityId = x.MissionActivityId,
-                    ActivityCode = activity.ActivityCode,
                     ActivityType = activity.ActivityType,
                     ExecutionStatus = x.ExecutionStatus,
                     Summary = x.Summary,

@@ -46,7 +46,6 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
         if (entity is null) return;
 
         entity.Step = activity.Step;
-        entity.ActivityCode = activity.ActivityCode;
         entity.ActivityType = activity.ActivityType;
         entity.Description = activity.Description;
         entity.Target = MissionActivityMapper.EnsureValidJson(activity.Target);

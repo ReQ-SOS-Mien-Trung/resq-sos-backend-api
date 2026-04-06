@@ -52,7 +52,6 @@ public static class MissionActivityMapper
         {
             MissionId = model.MissionId,
             Step = model.Step,
-            ActivityCode = model.ActivityCode,
             ActivityType = model.ActivityType,
             Description = model.Description,
             Target = EnsureValidJson(model.Target),
@@ -87,7 +86,6 @@ public static class MissionActivityMapper
             Id = entity.Id,
             MissionId = entity.MissionId,
             Step = entity.Step,
-            ActivityCode = entity.ActivityCode,
             ActivityType = entity.ActivityType,
             Description = entity.Description,
             Target = entity.Target,

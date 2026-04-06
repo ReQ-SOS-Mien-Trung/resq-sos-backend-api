@@ -22,10 +22,6 @@ public partial class MissionActivity
     [Column("step")]
     public int? Step { get; set; }
 
-    [Column("activity_code")]
-    [StringLength(50)]
-    public string? ActivityCode { get; set; }
-
     [Column("activity_type")]
     [StringLength(50)]
     public string? ActivityType { get; set; }

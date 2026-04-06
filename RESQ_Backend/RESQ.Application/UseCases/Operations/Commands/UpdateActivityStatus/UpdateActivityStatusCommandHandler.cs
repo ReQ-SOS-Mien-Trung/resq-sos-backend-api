@@ -228,7 +228,6 @@ public class UpdateActivityStatusCommandHandler(
             {
                 MissionId = missionId,
                 Step = maxStep + 1,
-                ActivityCode = $"RET-{failedActivity.ActivityCode}",
                 ActivityType = "RETURN_SUPPLIES",
                 Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
                 Priority = failedActivity.Priority,

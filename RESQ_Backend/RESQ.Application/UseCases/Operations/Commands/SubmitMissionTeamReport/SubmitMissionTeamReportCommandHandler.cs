@@ -111,7 +111,6 @@ public class SubmitMissionTeamReportCommandHandler(
                     return new MissionActivityReportModel
                     {
                         MissionActivityId = x.MissionActivityId,
-                        ActivityCode = activity.ActivityCode,
                         ActivityType = activity.ActivityType,
                         ExecutionStatus = x.ExecutionStatus,
                         Summary = x.Summary,
@@ -189,7 +188,6 @@ public class SubmitMissionTeamReportCommandHandler(
                     {
                         MissionId = request.MissionId,
                         Step = maxStep + 1,
-                        ActivityCode = $"RET-{failedActivity.ActivityCode}",
                         ActivityType = "RETURN_SUPPLIES",
                         Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
                         Priority = failedActivity.Priority,

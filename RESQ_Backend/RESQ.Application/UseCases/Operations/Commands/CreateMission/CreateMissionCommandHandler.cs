@@ -68,7 +68,6 @@ public class CreateMissionCommandHandler(
             Activities = request.Activities.Select((a, idx) => new MissionActivityModel
             {
                 Step = a.Step ?? (idx + 1),
-                ActivityCode = a.ActivityCode,
                 ActivityType = a.ActivityType,
                 Description = a.Description,
                 Priority = a.Priority,
