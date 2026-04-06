@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Exceptions.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 
@@ -15,6 +16,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 public class ConfirmSupplyRequestCommandHandler(
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IDepotRepository depotRepository,
     IUnitOfWork unitOfWork)
     : IRequestHandler<ConfirmSupplyRequestCommand, ConfirmSupplyRequestResponse>
 {
@@ -31,6 +33,10 @@ public class ConfirmSupplyRequestCommandHandler(
 
         if (managerDepotId != sr.RequestingDepotId)
             throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho yêu cầu tiếp tế.");
+
+        var depotStatus = await depotRepository.GetStatusByIdAsync(managerDepotId, cancellationToken);
+        if (depotStatus is DepotStatus.Closing or DepotStatus.Closed)
+            throw new ConflictException("Kho của bạn đang trong quá trình đóng hoặc đã đóng. Không thể nhận hàng vào kho này.");
 
         // Wrap trong transaction để đảm bảo TransferIn + UpdateStatus đồng bộ
         await unitOfWork.ExecuteInTransactionAsync(async () =>

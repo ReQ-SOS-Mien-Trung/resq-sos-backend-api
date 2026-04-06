@@ -10,6 +10,7 @@ using RESQ.Domain.Entities.Exceptions;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Finance;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 
@@ -17,6 +18,7 @@ public class ImportPurchasedInventoryCommandHandler(
     IItemCategoryRepository categoryRepository,
     IPurchasedInventoryRepository purchasedInventoryRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IDepotRepository depotRepository,
     ICampaignDisbursementRepository campaignDisbursementRepository,
     IDepotFundRepository depotFundRepository,
     IUserRepository userRepository,
@@ -29,6 +31,7 @@ public class ImportPurchasedInventoryCommandHandler(
     private readonly IItemCategoryRepository _categoryRepository = categoryRepository;
     private readonly IPurchasedInventoryRepository _purchasedInventoryRepository = purchasedInventoryRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IDepotRepository _depotRepository = depotRepository;
     private readonly ICampaignDisbursementRepository _disbursementRepo = campaignDisbursementRepository;
     private readonly IDepotFundRepository _depotFundRepo = depotFundRepository;
     private readonly IUserRepository _userRepository = userRepository;
@@ -47,7 +50,9 @@ public class ImportPurchasedInventoryCommandHandler(
         {
             throw new BadRequestException("TÃ i khoáº£n hiá»‡n táº¡i khÃ´ng Ä‘Æ°á»£c chá»‰ Ä‘á»‹nh quáº£n lÃ½ báº¥t ká»³ kho nÃ o Ä‘ang hoáº¡t Ä‘á»™ng. KhÃ´ng thá»ƒ nháº­p hÃ ng.");
         }
-
+        var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId.Value, cancellationToken);
+        if (depotStatus is DepotStatus.Closing or DepotStatus.Closed)
+            throw new ConflictException("Kho đang trong quá trình đóng hoặc đã đóng. Không thể nhập hàng vào kho này.");
         // 2. Táº£i táº¥t cáº£ danh má»¥c Ä‘á»ƒ mapping hiá»‡u quáº£
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
         var categoriesByCode = categories

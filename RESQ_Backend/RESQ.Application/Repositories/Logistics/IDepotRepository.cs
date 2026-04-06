@@ -62,5 +62,12 @@ namespace RESQ.Application.Repositories.Logistics
         /// Đếm số supply_inventory rows có quantity > 0 (dùng cho TotalConsumableRows).
         /// </summary>
         Task<int> GetConsumableInventoryRowCountAsync(int depotId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Lấy trạng thái hiện tại của kho theo ID.
+        /// Dùng để kiểm tra kho có đang Closing/Closed trước khi cho phép import/export/transfer.
+        /// Trả về null nếu không tìm thấy kho.
+        /// </summary>
+        Task<DepotStatus?> GetStatusByIdAsync(int depotId, CancellationToken cancellationToken = default);
     }
 }

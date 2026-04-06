@@ -212,4 +212,15 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         return await _unitOfWork.Set<SupplyInventory>()
             .CountAsync(inv => inv.DepotId == depotId && (inv.Quantity ?? 0) > 0, cancellationToken);
     }
+
+    public async Task<DepotStatus?> GetStatusByIdAsync(int depotId, CancellationToken cancellationToken = default)
+    {
+        var statusStr = await _unitOfWork.Set<Depot>()
+            .Where(d => d.Id == depotId)
+            .Select(d => d.Status)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (statusStr == null) return null;
+        return Enum.TryParse<DepotStatus>(statusStr, out var status) ? status : null;
+    }
 }

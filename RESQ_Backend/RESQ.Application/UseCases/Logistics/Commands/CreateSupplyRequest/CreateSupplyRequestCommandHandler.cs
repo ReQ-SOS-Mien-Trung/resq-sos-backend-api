@@ -13,6 +13,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
 
 public class CreateSupplyRequestCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
+    IDepotRepository depotRepository,
     ISupplyRequestRepository supplyRequestRepository,
     ISupplyRequestPriorityConfigRepository supplyRequestPriorityConfigRepository,
     IFirebaseService firebaseService,
@@ -21,6 +22,7 @@ public class CreateSupplyRequestCommandHandler(
     : IRequestHandler<CreateSupplyRequestCommand, CreateSupplyRequestResponse>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IDepotRepository _depotRepository = depotRepository;
     private readonly ISupplyRequestRepository _supplyRequestRepository = supplyRequestRepository;
     private readonly ISupplyRequestPriorityConfigRepository _supplyRequestPriorityConfigRepository = supplyRequestPriorityConfigRepository;
     private readonly IFirebaseService _firebaseService = firebaseService;
@@ -34,12 +36,24 @@ public class CreateSupplyRequestCommandHandler(
         if (requestingDepotId == null)
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
+        var requestingDepotStatus = await _depotRepository.GetStatusByIdAsync(requestingDepotId.Value, cancellationToken);
+        if (requestingDepotStatus is DepotStatus.Closing or DepotStatus.Closed)
+            throw new ConflictException("Kho của bạn đang trong quá trình đóng hoặc đã đóng. Không thể tạo yêu cầu tiếp tế.");
+
         // 2. Validate không có group nào trỏ về chính kho của manager
         var selfRequest = request.Requests.FirstOrDefault(r => r.SourceDepotId == requestingDepotId.Value);
         if (selfRequest != null)
             throw new InvalidSupplyRequestException("Không thể tạo yêu cầu cung cấp từ chính kho của bạn.");
 
-        // 3. Xử lý từng kho nguồn trong transaction
+        // 3. Kiểm tra các kho nguồn không đang đóng
+        foreach (var group in request.Requests)
+        {
+            var sourceStatus = await _depotRepository.GetStatusByIdAsync(group.SourceDepotId, cancellationToken);
+            if (sourceStatus is DepotStatus.Closing or DepotStatus.Closed)
+                throw new ConflictException($"Kho nguồn #{group.SourceDepotId} đang trong quá trình đóng hoặc đã đóng. Không thể gửi yêu cầu tiếp tế đến kho này.");
+        }
+
+        // 4. Xử lý từng kho nguồn trong transaction
         var config = await _supplyRequestPriorityConfigRepository.GetAsync(cancellationToken);
         var timing = config == null
             ? SupplyRequestPriorityPolicy.DefaultTiming
