@@ -9,4 +9,6 @@ public class CreateDepotRequestDto
     public int Capacity { get; set; }
     /// <summary>Optional: gán manager ngay khi tạo kho. Nếu không có, kho ở trạng thái PendingAssignment.</summary>
     public Guid? ManagerId { get; set; }
+    /// <summary>URL ảnh đại diện kho (tuỳ chọn).</summary>
+    public string? ImageUrl { get; set; }
 }

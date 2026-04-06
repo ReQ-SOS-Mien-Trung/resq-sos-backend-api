@@ -78,7 +78,8 @@ namespace RESQ.Presentation.Controllers.Logistics
                 dto.Latitude,
                 dto.Longitude,
                 dto.Capacity,
-                dto.ManagerId
+                dto.ManagerId,
+                dto.ImageUrl
             );
 
             var result = await _mediator.Send(command);
@@ -97,7 +98,8 @@ namespace RESQ.Presentation.Controllers.Logistics
                 dto.Address,
                 dto.Latitude,
                 dto.Longitude,
-                dto.Capacity
+                dto.Capacity,
+                dto.ImageUrl
             );
 
             await _mediator.Send(command);

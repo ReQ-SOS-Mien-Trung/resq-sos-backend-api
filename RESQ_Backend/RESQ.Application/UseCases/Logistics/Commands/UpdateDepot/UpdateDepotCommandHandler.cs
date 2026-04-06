@@ -45,7 +45,8 @@ public class UpdateDepotCommandHandler(
             request.Name,
             request.Address,
             location,
-            request.Capacity
+            request.Capacity,
+            request.ImageUrl
         );
 
         await _depotRepository.UpdateAsync(depot, cancellationToken);

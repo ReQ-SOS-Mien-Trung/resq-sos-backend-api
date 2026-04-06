@@ -134,7 +134,7 @@ public static class PersonnelSeeder
                 Id = 1,
                 Code = $"AP-HUE-TD-{timestampStr}",
                 Name = "Sân vận động Tự Do (Thừa Thiên Huế)",
-                MaxCapacity = 15,
+                MaxCapacity = 20, // 3 đội × 6 thành viên = 18 rescuers
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(107.59761456770599, 16.46751083681696) { SRID = 4326 },
                 CreatedAt = now,
@@ -173,7 +173,7 @@ public static class PersonnelSeeder
                 Id = 4,
                 Code = $"AP-DNA-CT-{timestampStr}",
                 Name = "Cung Thể thao Tiên Sơn (Đà Nẵng)",
-                MaxCapacity = 10,
+                MaxCapacity = 20, // 3 đội × 6 thành viên = 18 rescuers
                 Status = AssemblyPointStatus.Active.ToString(),
                 Location = new Point(108.222, 16.080) { SRID = 4326 },
                 CreatedAt = now,

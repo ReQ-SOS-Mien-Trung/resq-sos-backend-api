@@ -98,7 +98,8 @@ namespace RESQ.Presentation.Controllers.Personnel
                 dto.Name,
                 dto.Latitude,
                 dto.Longitude,
-                dto.MaxCapacity
+                dto.MaxCapacity,
+                dto.ImageUrl
             );
 
             var result = await _mediator.Send(command);
@@ -115,7 +116,8 @@ namespace RESQ.Presentation.Controllers.Personnel
                 dto.Name,
                 dto.Latitude,
                 dto.Longitude,
-                dto.MaxCapacity
+                dto.MaxCapacity,
+                dto.ImageUrl
             );
 
             await _mediator.Send(command);

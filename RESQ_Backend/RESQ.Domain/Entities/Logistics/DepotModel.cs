@@ -35,7 +35,8 @@ public class DepotModel
         string address,
         GeoLocation location,
         int capacity,
-        Guid? managerId = null)
+        Guid? managerId = null,
+        string? imageUrl = null)
     {
         if (capacity <= 0)
             throw new InvalidDepotCapacityException(capacity);
@@ -48,6 +49,7 @@ public class DepotModel
             Capacity = capacity,
             CurrentUtilization = 0,
             Status = DepotStatus.PendingAssignment,
+            ImageUrl = imageUrl,
             LastUpdatedAt = DateTime.UtcNow
         };
 
@@ -59,7 +61,7 @@ public class DepotModel
         return depot;
     }
 
-    public void UpdateDetails(string name, string address, GeoLocation location, int capacity)
+    public void UpdateDetails(string name, string address, GeoLocation location, int capacity, string? imageUrl = null)
     {
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
@@ -77,6 +79,7 @@ public class DepotModel
         Address = address;
         Location = location;
         Capacity = capacity;
+        if (imageUrl != null) ImageUrl = imageUrl;
         LastUpdatedAt = DateTime.UtcNow;
     }
 

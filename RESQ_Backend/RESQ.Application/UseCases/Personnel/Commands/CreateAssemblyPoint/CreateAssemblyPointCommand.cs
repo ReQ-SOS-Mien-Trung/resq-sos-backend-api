@@ -6,5 +6,6 @@ public record CreateAssemblyPointCommand(
     string Name,
     double Latitude,
     double Longitude,
-    int MaxCapacity
+    int MaxCapacity,
+    string? ImageUrl = null
 ) : IRequest<CreateAssemblyPointResponse>;
