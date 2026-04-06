@@ -80,19 +80,49 @@ public class DepotModel
         LastUpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Transition matrix theo state diagram:
+    ///   Available → Full, UnderMaintenance
+    ///   Full       → Available, UnderMaintenance
+    ///   UnderMaintenance → Available
+    /// PendingAssignment, Closing, Closed không đi qua phương thức này.
+    /// </summary>
     public void ChangeStatus(DepotStatus newStatus)
     {
         if (Status == newStatus) return;
 
-        if (newStatus == DepotStatus.Available && CurrentManagerId == null)
+        // Trạng thái nguồn không thể thay đổi qua endpoint ChangeStatus
+        if (Status == DepotStatus.PendingAssignment)
+            throw new InvalidDepotStatusTransitionException(Status, newStatus,
+                "Kho chưa có quản lý. Hãy chỉ định quản lý trước.");
+
+        if (Status == DepotStatus.Closing)
+            throw new InvalidDepotStatusTransitionException(Status, newStatus,
+                "Kho đang trong quá trình đóng. Hãy hoàn tất hoặc huỷ đóng kho trước.");
+
+        if (Status == DepotStatus.Closed)
+            throw new InvalidDepotStatusTransitionException(Status, newStatus,
+                "Kho đã đóng vĩnh viễn, không thể thay đổi trạng thái.");
+
+        // Transition matrix khớp với state diagram
+        var allowed = new Dictionary<DepotStatus, HashSet<DepotStatus>>
         {
-            throw new InvalidDepotStatusTransitionException(Status, newStatus, "Kho chưa có quản lý được chỉ định.");
-        }
+            [DepotStatus.Available]        = [DepotStatus.Full, DepotStatus.UnderMaintenance],
+            [DepotStatus.Full]             = [DepotStatus.Available, DepotStatus.UnderMaintenance],
+            [DepotStatus.UnderMaintenance] = [DepotStatus.Available],
+        };
+
+        if (!allowed.TryGetValue(Status, out var validTargets) || !validTargets.Contains(newStatus))
+            throw new InvalidDepotStatusTransitionException(Status, newStatus,
+                $"Chuyển trạng thái từ {Status} sang {newStatus} không được phép.");
+
+        if (newStatus == DepotStatus.Available && CurrentManagerId == null)
+            throw new InvalidDepotStatusTransitionException(Status, newStatus,
+                "Kho chưa có quản lý được chỉ định.");
 
         if (newStatus == DepotStatus.Available && CurrentUtilization > Capacity)
-        {
-             throw new InvalidDepotStatusTransitionException(Status, newStatus, "Kho đang vượt quá sức chứa.");
-        }
+            throw new InvalidDepotStatusTransitionException(Status, newStatus,
+                "Kho đang vượt quá sức chứa.");
 
         Status = newStatus;
         LastUpdatedAt = DateTime.UtcNow;

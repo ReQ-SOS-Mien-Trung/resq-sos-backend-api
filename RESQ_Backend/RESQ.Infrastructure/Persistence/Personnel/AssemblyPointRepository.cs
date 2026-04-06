@@ -67,8 +67,8 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
 
     public async Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var apQuery     = _unitOfWork.GetRepository<AssemblyPoint>().AsQueryable();
-        var eventsQuery = _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable();
+        var apQuery     = _unitOfWork.Set<AssemblyPoint>();
+        var eventsQuery = _unitOfWork.Set<AssemblyEvent>();
 
         var totalCount = await apQuery.CountAsync(cancellationToken);
 
@@ -110,7 +110,7 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
     {
         var idList = ids.ToList();
 
-        var teams = await _unitOfWork.GetRepository<RescueTeam>().AsQueryable()
+        var teams = await _unitOfWork.Set<RescueTeam>()
             .Where(t => t.AssemblyPointId.HasValue && idList.Contains(t.AssemblyPointId.Value))
             .Include(t => t.RescueTeamMembers)
                 .ThenInclude(m => m.User)
@@ -147,12 +147,12 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
     public async Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default)
     {
         // 1. Rescuer được gán trực tiếp vào AP qua User.AssemblyPointId
-        var directIds = _unitOfWork.GetRepository<User>().AsQueryable()
+        var directIds = _unitOfWork.Set<User>()
             .Where(u => u.AssemblyPointId == assemblyPointId && u.RoleId == 3)
             .Select(u => u.Id);
 
         // 2. Rescuer thuộc rescue team đang hoạt động tại AP (qua RescueTeamMember)
-        var teamMemberIds = _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+        var teamMemberIds = _unitOfWork.Set<RescueTeamMember>()
             .Where(m => m.Team != null && m.Team.AssemblyPointId == assemblyPointId)
             .Select(m => m.UserId);
 
@@ -167,12 +167,12 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
     public async Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default)
     {
         // Rescuer được gán trực tiếp vào AP
-        var rescuerAtAp = _unitOfWork.GetRepository<User>().AsQueryable()
+        var rescuerAtAp = _unitOfWork.Set<User>()
             .Where(u => u.AssemblyPointId == assemblyPointId && u.RoleId == 3)
             .Select(u => u.Id);
 
         // Rescuer đã thuộc team đang hoạt động (không Disbanded, status Accepted)
-        var rescuerWithTeam = _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+        var rescuerWithTeam = _unitOfWork.Set<RescueTeamMember>()
             .Where(m => m.Status == "Accepted"
                      && m.Team != null
                      && m.Team.Status != _disbandedStatus)
@@ -186,7 +186,7 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
 
     public async Task<bool> HasActiveTeamAsync(Guid rescuerUserId, CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+        return await _unitOfWork.Set<RescueTeamMember>()
             .AnyAsync(m => m.UserId == rescuerUserId
                         && m.Status == "Accepted"
                         && m.Team != null
@@ -196,7 +196,7 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
 
     public async Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default)
     {
-        var user = await _unitOfWork.GetRepository<User>().AsQueryable(tracked: true).FirstOrDefaultAsync(u => u.Id == rescuerUserId, cancellationToken);
+        var user = await _unitOfWork.SetTracked<User>().FirstOrDefaultAsync(u => u.Id == rescuerUserId, cancellationToken);
         if (user != null)
         {
             user.AssemblyPointId = assemblyPointId;
@@ -231,7 +231,7 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
         IReadOnlyList<Guid> userIds,
         CancellationToken cancellationToken = default)
     {
-        var withTeam = _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+        var withTeam = _unitOfWork.Set<RescueTeamMember>()
             .Where(m => userIds.Contains(m.UserId)
                      && m.Status == "Accepted"
                      && m.Team != null

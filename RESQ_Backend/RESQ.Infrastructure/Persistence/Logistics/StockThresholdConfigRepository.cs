@@ -14,7 +14,7 @@ public class StockThresholdConfigRepository(IUnitOfWork unitOfWork) : IStockThre
 
     public async Task<StockThresholdConfigDto?> GetActiveGlobalAsync(CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<InventoryStockThresholdConfig>().AsQueryable()
+        var entity = await _unitOfWork.Set<InventoryStockThresholdConfig>()
             .AsNoTracking()
             .Where(x => x.IsActive && x.ScopeType == "GLOBAL")
             .OrderByDescending(x => x.UpdatedAt)
@@ -27,7 +27,7 @@ public class StockThresholdConfigRepository(IUnitOfWork unitOfWork) : IStockThre
         int depotId,
         CancellationToken cancellationToken = default)
     {
-        var entities = await _unitOfWork.GetRepository<InventoryStockThresholdConfig>().AsQueryable()
+        var entities = await _unitOfWork.Set<InventoryStockThresholdConfig>()
             .AsNoTracking()
             .Where(x => x.IsActive
                      && x.DepotId == depotId
@@ -38,10 +38,10 @@ public class StockThresholdConfigRepository(IUnitOfWork unitOfWork) : IStockThre
     }
 
     public Task<bool> CategoryExistsAsync(int categoryId, CancellationToken cancellationToken = default)
-        => _unitOfWork.GetRepository<Category>().AsQueryable().AnyAsync(x => x.Id == categoryId, cancellationToken);
+        => _unitOfWork.Set<Category>().AnyAsync(x => x.Id == categoryId, cancellationToken);
 
     public Task<bool> ItemModelExistsAsync(int itemModelId, CancellationToken cancellationToken = default)
-        => _unitOfWork.GetRepository<ItemModel>().AsQueryable().AnyAsync(x => x.Id == itemModelId, cancellationToken);
+        => _unitOfWork.Set<ItemModel>().AnyAsync(x => x.Id == itemModelId, cancellationToken);
 
     public async Task<StockThresholdConfigDto> UpsertAsync(
         StockThresholdScopeType scopeType,

@@ -38,4 +38,10 @@ public interface IDepotClosureRepository
     /// <summary>Cập nhật tiến độ batch processing (cursor + count).</summary>
     Task UpdateProgressAsync(int closureId, int processedRows, int lastInventoryId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy toàn bộ lịch sử phiên đóng kho của một kho, sắp xếp theo thời gian khởi tạo giảm dần.
+    /// Kèm thông tin kho đích (nếu TransferToDepot).
+    /// </summary>
+    Task<List<DepotClosureListItem>> GetClosuresByDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
 }

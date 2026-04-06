@@ -21,7 +21,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     {
         // Rule: chỉ 1 active event (Status != Completed) per AP
         var completedStatus = AssemblyEventStatus.Completed.ToString();
-        var hasActive = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
+        var hasActive = await _unitOfWork.Set<AssemblyEvent>()
             .AnyAsync(e => e.AssemblyPointId == assemblyPointId && e.Status != completedStatus, cancellationToken);
 
         if (hasActive)
@@ -45,7 +45,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task AssignParticipantsAsync(int eventId, List<Guid> rescuerIds,
         CancellationToken cancellationToken = default)
     {
-        var existing = await _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
+        var existing = await _unitOfWork.Set<AssemblyParticipant>()
             .Where(p => p.AssemblyEventId == eventId)
             .Select(p => p.RescuerId)
             .ToListAsync(cancellationToken);
@@ -66,7 +66,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task<bool> CheckInAsync(int eventId, Guid rescuerId,
         CancellationToken cancellationToken = default)
     {
-        var participant = await _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable(tracked: true)
+        var participant = await _unitOfWork.SetTracked<AssemblyParticipant>()
             .FirstOrDefaultAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId, cancellationToken);
 
         if (participant == null) return false;
@@ -81,7 +81,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId,
         CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
+        return await _unitOfWork.Set<AssemblyParticipant>()
             .AnyAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId && p.IsCheckedIn, cancellationToken);
     }
 
@@ -94,7 +94,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         CancellationToken cancellationToken = default)
     {
         // Load event to get EventDateTime for IsEarly/IsLate computation
-        var assemblyEvent = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
+        var assemblyEvent = await _unitOfWork.Set<AssemblyEvent>()
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
 
         var eventDateTime = assemblyEvent?.AssemblyDate;
@@ -104,7 +104,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         IQueryable<Guid>? abilityFilteredUserIds = null;
         if (abilitySubgroupCode != null || abilityCategoryCode != null)
         {
-            var abilityQuery = _unitOfWork.GetRepository<UserAbility>().AsQueryable();
+            var abilityQuery = _unitOfWork.Set<UserAbility>();
             if (abilitySubgroupCode != null)
                 abilityQuery = abilityQuery.Where(ua =>
                     ua.Ability.AbilitySubgroup != null &&
@@ -117,10 +117,10 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             abilityFilteredUserIds = abilityQuery.Select(ua => ua.UserId).Distinct();
         }
 
-        var joinedQuery = _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
+        var joinedQuery = _unitOfWork.Set<AssemblyParticipant>()
             .Where(p => p.AssemblyEventId == eventId && p.IsCheckedIn)
             .Join(
-                _unitOfWork.GetRepository<User>().AsQueryable().Include(u => u.RescuerProfile),
+                _unitOfWork.Set<User>().Include(u => u.RescuerProfile),
                 p => p.RescuerId,
                 u => u.Id,
                 (p, u) => new { Participant = p, User = u }
@@ -160,7 +160,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
         var acceptedStatus = TeamMemberStatus.Accepted.ToString();
 
-        var usersInTeam = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+        var usersInTeam = await _unitOfWork.Set<RescueTeamMember>()
             .Where(m => userIds.Contains(m.UserId)
                 && m.Status == acceptedStatus
                 && m.Team!.Status != disbandedStatus)
@@ -169,7 +169,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             .ToListAsync(cancellationToken);
 
         // Lấy top abilities
-        var allAbilities = await _unitOfWork.GetRepository<UserAbility>().AsQueryable()
+        var allAbilities = await _unitOfWork.Set<UserAbility>()
             .Where(ua => userIds.Contains(ua.UserId))
             .Include(ua => ua.Ability)
                 .ThenInclude(a => a.AbilitySubgroup)
@@ -208,7 +208,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(
         int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
+        var query = _unitOfWork.Set<AssemblyEvent>()
             .Where(e => e.AssemblyPointId == assemblyPointId)
             .OrderByDescending(e => e.AssemblyDate)
             .ThenByDescending(e => e.CreatedAt);
@@ -240,7 +240,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     {
         var completedStatus = AssemblyEventStatus.Completed.ToString();
 
-        var evt = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
+        var evt = await _unitOfWork.Set<AssemblyEvent>()
             .Where(e => e.AssemblyPointId == assemblyPointId && e.Status != completedStatus)
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
@@ -252,7 +252,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task UpdateEventStatusAsync(int eventId, string status,
         CancellationToken cancellationToken = default)
     {
-        var evt = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable(tracked: true)
+        var evt = await _unitOfWork.SetTracked<AssemblyEvent>()
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
 
         if (evt != null)
@@ -264,7 +264,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
 
     public async Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default)
     {
-        var evt = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable(tracked: true)
+        var evt = await _unitOfWork.SetTracked<AssemblyEvent>()
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken)
             ?? throw new InvalidOperationException($"Không tìm thấy sự kiện tập trung id = {eventId}");
 
@@ -283,7 +283,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate)?> GetEventByIdAsync(
         int eventId, CancellationToken cancellationToken = default)
     {
-        var evt = await _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable()
+        var evt = await _unitOfWork.Set<AssemblyEvent>()
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
 
         if (evt == null) return null;
@@ -293,41 +293,64 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(
         Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<AssemblyParticipant>().AsQueryable()
+        var baseQuery = _unitOfWork.Set<AssemblyParticipant>()
             .Where(p => p.RescuerId == rescuerId)
-            .Join(
-                _unitOfWork.GetRepository<AssemblyEvent>().AsQueryable(),
+            .Join(_unitOfWork.Set<AssemblyEvent>(),
                 p => p.AssemblyEventId,
                 e => e.Id,
-                (p, e) => new { Participant = p, Event = e })
+                (p, e) => new { Participant = p, Event = e });
+
+        var total = await baseQuery.CountAsync(cancellationToken);
+
+        // Load raw data into memory to avoid EF translation issues with spatial .Y/.X on nullable geometry
+        var rawItems = await baseQuery
             .OrderByDescending(x => x.Event.AssemblyDate)
-            .ThenByDescending(x => x.Event.CreatedAt);
-
-        var total = await query.CountAsync(cancellationToken);
-
-        var items = await query
+            .ThenByDescending(x => x.Event.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new MyAssemblyEventDto
+            .Select(x => new
             {
-                EventId = x.Event.Id,
-                AssemblyPointId = x.Event.AssemblyPointId,
-                AssemblyPointName = x.Event.AssemblyPoint != null ? (x.Event.AssemblyPoint.Name ?? string.Empty) : string.Empty,
-                AssemblyPointCode = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.Code : null,
-                AssemblyPointStatus = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.Status : null,
-                AssemblyPointMaxCapacity = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.MaxCapacity : null,
-                AssemblyPointImageUrl = x.Event.AssemblyPoint != null ? x.Event.AssemblyPoint.ImageUrl : null,
-                AssemblyPointLatitude = x.Event.AssemblyPoint != null && x.Event.AssemblyPoint.Location != null
-                    ? x.Event.AssemblyPoint.Location.Y : null,
-                AssemblyPointLongitude = x.Event.AssemblyPoint != null && x.Event.AssemblyPoint.Location != null
-                    ? x.Event.AssemblyPoint.Location.X : null,
-                AssemblyDate = x.Event.AssemblyDate,
-                EventStatus = x.Event.Status,
-                IsCheckedIn = x.Participant.IsCheckedIn,
-                CheckInTime = x.Participant.CheckInTime,
-                CreatedAt = x.Event.CreatedAt
+                x.Participant.IsCheckedIn,
+                x.Participant.CheckInTime,
+                x.Event.Id,
+                x.Event.AssemblyPointId,
+                x.Event.AssemblyDate,
+                x.Event.Status,
+                x.Event.CreatedAt
             })
             .ToListAsync(cancellationToken);
+
+        if (rawItems.Count == 0)
+            return new PagedResult<MyAssemblyEventDto>([], total, pageNumber, pageSize);
+
+        var apIds = rawItems.Select(x => x.AssemblyPointId).Distinct().ToList();
+        var assemblyPoints = await _unitOfWork.Set<AssemblyPoint>()
+            .Where(ap => apIds.Contains(ap.Id))
+            .ToListAsync(cancellationToken);
+
+        var apDict = assemblyPoints.ToDictionary(ap => ap.Id);
+
+        var items = rawItems.Select(x =>
+        {
+            apDict.TryGetValue(x.AssemblyPointId, out var ap);
+            return new MyAssemblyEventDto
+            {
+                EventId = x.Id,
+                AssemblyPointId = x.AssemblyPointId,
+                AssemblyPointName = ap?.Name ?? string.Empty,
+                AssemblyPointCode = ap?.Code,
+                AssemblyPointStatus = ap?.Status,
+                AssemblyPointMaxCapacity = ap?.MaxCapacity,
+                AssemblyPointImageUrl = ap?.ImageUrl,
+                AssemblyPointLatitude = ap?.Location != null ? ap.Location.Y : null,
+                AssemblyPointLongitude = ap?.Location != null ? ap.Location.X : null,
+                AssemblyDate = x.AssemblyDate,
+                EventStatus = x.Status,
+                IsCheckedIn = x.IsCheckedIn,
+                CheckInTime = x.CheckInTime,
+                CreatedAt = x.CreatedAt
+            };
+        }).ToList();
 
         return new PagedResult<MyAssemblyEventDto>(items, total, pageNumber, pageSize);
     }

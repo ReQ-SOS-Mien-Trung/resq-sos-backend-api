@@ -19,7 +19,7 @@ public class FundingRequestRepository : IFundingRequestRepository
 
     public async Task<FundingRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<FundingRequest>().AsQueryable()
+        var entity = await _unitOfWork.Set<FundingRequest>()
             .Include(x => x.FundingRequestItems)
             .Include(x => x.Depot)
             .Include(x => x.RequestedByUser)
@@ -35,7 +35,7 @@ public class FundingRequestRepository : IFundingRequestRepository
         List<int>? depotIds = null, List<string>? statuses = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<FundingRequest>().AsQueryable()
+        var query = _unitOfWork.Set<FundingRequest>()
             .Include(x => x.Depot)
             .Include(x => x.RequestedByUser)
             .Include(x => x.ReviewedByUser)
@@ -64,7 +64,7 @@ public class FundingRequestRepository : IFundingRequestRepository
         int fundingRequestId, int pageNumber, int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<FundingRequestItem>().AsQueryable()
+        var query = _unitOfWork.Set<FundingRequestItem>()
             .Where(x => x.FundingRequestId == fundingRequestId)
             .OrderBy(x => x.Row);
 
@@ -109,7 +109,7 @@ public class FundingRequestRepository : IFundingRequestRepository
 
     public async Task UpdateAsync(FundingRequestModel model, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<FundingRequest>().AsQueryable(tracked: true)
+        var entity = await _unitOfWork.SetTracked<FundingRequest>()
             .FirstOrDefaultAsync(x => x.Id == model.Id, cancellationToken);
 
         if (entity != null)

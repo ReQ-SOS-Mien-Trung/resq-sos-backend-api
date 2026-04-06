@@ -16,19 +16,19 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     public async Task<RescueTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<RescueTeam>().AsQueryable().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var entity = await _unitOfWork.Set<RescueTeam>().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity == null) return null;
 
-        var members = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable().Where(m => m.TeamId == id).ToListAsync(cancellationToken);
+        var members = await _unitOfWork.Set<RescueTeamMember>().Where(m => m.TeamId == id).ToListAsync(cancellationToken);
         return RescueTeamMapper.ToDomain(entity, members);
     }
 
     public async Task<RescueTeamModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<RescueTeam>().AsQueryable().FirstOrDefaultAsync(x => x.Code == code, cancellationToken);
+        var entity = await _unitOfWork.Set<RescueTeam>().FirstOrDefaultAsync(x => x.Code == code, cancellationToken);
         if (entity == null) return null;
 
-        var members = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+        var members = await _unitOfWork.Set<RescueTeamMember>()
             .Include(m => m.User).ThenInclude(u => u!.RescuerProfile)
             .Where(m => m.TeamId == entity.Id).ToListAsync(cancellationToken);
         return RescueTeamMapper.ToDomain(entity, members);
@@ -36,12 +36,12 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
 
     public async Task<PagedResult<RescueTeamModel>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<RescueTeam>().AsQueryable().OrderByDescending(x => x.CreatedAt);
+        var query = _unitOfWork.Set<RescueTeam>().OrderByDescending(x => x.CreatedAt);
         var total = await query.CountAsync(cancellationToken);
         var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
         
         var teamIds = items.Select(x => x.Id).ToList();
-        var allMembers = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+        var allMembers = await _unitOfWork.Set<RescueTeamMember>()
             .Include(m => m.User).ThenInclude(u => u!.RescuerProfile)
             .Where(m => teamIds.Contains(m.TeamId)).ToListAsync(cancellationToken);
 
@@ -52,7 +52,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
 
     public async Task<bool> IsUserInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+        return await _unitOfWork.Set<RescueTeamMember>()
             .Include(m => m.Team)
             .AnyAsync(m => m.UserId == userId 
                            && m.Status == TeamMemberStatus.Accepted.ToString()
@@ -62,7 +62,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
 
     public async Task<bool> HasRequiredAbilityCategoryAsync(Guid userId, string categoryCode, CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.GetRepository<UserAbility>().AsQueryable()
+        return await _unitOfWork.Set<UserAbility>()
             .Include(ua => ua.Ability)
             .ThenInclude(a => a.AbilitySubgroup)
             .ThenInclude(sg => sg.AbilityCategory)
@@ -71,7 +71,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
 
     public async Task<string?> GetTopAbilityCategoryAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var topAbility = await _unitOfWork.GetRepository<UserAbility>().AsQueryable()
+        var topAbility = await _unitOfWork.Set<UserAbility>()
             .Include(ua => ua.Ability)
             .ThenInclude(a => a.AbilitySubgroup)
             .ThenInclude(sg => sg!.AbilityCategory)
@@ -105,12 +105,12 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
 
     public async Task UpdateAsync(RescueTeamModel team, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<RescueTeam>().AsQueryable(tracked: true).FirstOrDefaultAsync(x => x.Id == team.Id, cancellationToken);
+        var entity = await _unitOfWork.SetTracked<RescueTeam>().FirstOrDefaultAsync(x => x.Id == team.Id, cancellationToken);
         if (entity != null)
         {
             RescueTeamMapper.ToEntity(team, entity);
 
-            var existingMembers = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable(tracked: true).Where(m => m.TeamId == team.Id).ToListAsync(cancellationToken);
+            var existingMembers = await _unitOfWork.SetTracked<RescueTeamMember>().Where(m => m.TeamId == team.Id).ToListAsync(cancellationToken);
             
             foreach (var domainMem in team.Members)
             {
@@ -146,7 +146,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
         var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
         var availableStatuses = new[] { "Available" };
 
-        var query = _unitOfWork.GetRepository<RescueTeam>().AsQueryable()
+        var query = _unitOfWork.Set<RescueTeam>()
             .Include(t => t.AssemblyPoint)
             .Where(t => t.Status != disbandedStatus);
 
@@ -174,7 +174,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
             .ToListAsync(ct);
 
         var teamIds = teams.Select(t => t.Id).ToList();
-        var memberCounts = await _unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+        var memberCounts = await _unitOfWork.Set<RescueTeamMember>()
             .Where(m => teamIds.Contains(m.TeamId) && m.Status == "Accepted")
             .GroupBy(m => m.TeamId)
             .Select(g => new { TeamId = g.Key, Count = g.Count() })
@@ -204,7 +204,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
         var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
         var excludeList = excludeTeamIds.ToList();
 
-        return await _unitOfWork.GetRepository<RescueTeam>().AsQueryable()
+        return await _unitOfWork.Set<RescueTeam>()
             .Where(t => t.AssemblyPointId == assemblyPointId
                         && t.Status != disbandedStatus
                         && !excludeList.Contains(t.Id))

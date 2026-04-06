@@ -17,6 +17,16 @@ namespace RESQ.Infrastructure.Persistence.Base
             return new GenericRepository<T>(_context);
         }
 
+        public IQueryable<T> Set<T>() where T : class
+        {
+            return _context.Set<T>().AsNoTracking();
+        }
+
+        public IQueryable<T> SetTracked<T>() where T : class
+        {
+            return _context.Set<T>();
+        }
+
         public int SaveChangesWithTransaction()
         {
             int result = -1;

@@ -20,7 +20,7 @@ public class DepotFundRepository : IDepotFundRepository
 
     public async Task<DepotFundModel?> GetByDepotIdAsync(int depotId, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<DepotFund>().AsQueryable()
+        var entity = await _unitOfWork.Set<DepotFund>()
             .Include(x => x.Depot)
             .FirstOrDefaultAsync(x => x.DepotId == depotId, cancellationToken);
 
@@ -29,7 +29,7 @@ public class DepotFundRepository : IDepotFundRepository
 
     public async Task<DepotFundModel> GetOrCreateByDepotIdAsync(int depotId, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<DepotFund>().AsQueryable(tracked: true)
+        var entity = await _unitOfWork.SetTracked<DepotFund>()
             .Include(x => x.Depot)
             .FirstOrDefaultAsync(x => x.DepotId == depotId, cancellationToken);
 
@@ -48,7 +48,7 @@ public class DepotFundRepository : IDepotFundRepository
         await _unitOfWork.SaveAsync();
 
         // Reload with Depot include
-        var saved = await _unitOfWork.GetRepository<DepotFund>().AsQueryable(tracked: true)
+        var saved = await _unitOfWork.SetTracked<DepotFund>()
             .Include(x => x.Depot)
             .FirstAsync(x => x.Id == newFund.Id, cancellationToken);
 
@@ -58,7 +58,7 @@ public class DepotFundRepository : IDepotFundRepository
     public async Task<List<DepotFundModel>> GetAllWithDepotInfoAsync(CancellationToken cancellationToken = default)
     {
         // LEFT JOIN: tất cả depot, kể cả chưa có fund record
-        var results = await _unitOfWork.GetRepository<Depot>().AsQueryable()
+        var results = await _unitOfWork.Set<Depot>()
             .OrderBy(d => d.Id)
             .Select(d => new
             {
@@ -80,7 +80,7 @@ public class DepotFundRepository : IDepotFundRepository
 
     public async Task UpdateAsync(DepotFundModel model, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<DepotFund>().AsQueryable(tracked: true)
+        var entity = await _unitOfWork.SetTracked<DepotFund>()
             .FirstOrDefaultAsync(x => x.Id == model.Id, cancellationToken);
 
         if (entity != null)
@@ -100,7 +100,7 @@ public class DepotFundRepository : IDepotFundRepository
         var ids = depotIds.ToList();
         if (ids.Count == 0) return new Dictionary<int, decimal>();
 
-        return await _unitOfWork.GetRepository<DepotFund>().AsQueryable()
+        return await _unitOfWork.Set<DepotFund>()
             .Where(x => ids.Contains(x.DepotId))
             .ToDictionaryAsync(x => x.DepotId, x => x.Balance, cancellationToken);
     }
@@ -111,7 +111,7 @@ public class DepotFundRepository : IDepotFundRepository
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<DepotFundTransaction>().AsQueryable()
+        var query = _unitOfWork.Set<DepotFundTransaction>()
             .Where(x => x.DepotFund.DepotId == depotId)
             .OrderByDescending(x => x.CreatedAt);
 

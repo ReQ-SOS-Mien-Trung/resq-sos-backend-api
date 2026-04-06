@@ -20,7 +20,7 @@ public class CampaignDisbursementRepository : ICampaignDisbursementRepository
 
     public async Task<CampaignDisbursementModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<CampaignDisbursement>().AsQueryable()
+        var entity = await _unitOfWork.Set<CampaignDisbursement>()
             .Include(x => x.DisbursementItems)
             .Include(x => x.FundCampaign)
             .Include(x => x.Depot)
@@ -35,7 +35,7 @@ public class CampaignDisbursementRepository : ICampaignDisbursementRepository
         int? campaignId = null, int? depotId = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<CampaignDisbursement>().AsQueryable()
+        var query = _unitOfWork.Set<CampaignDisbursement>()
             .Include(x => x.DisbursementItems)
             .Include(x => x.FundCampaign)
             .Include(x => x.Depot)
@@ -64,7 +64,7 @@ public class CampaignDisbursementRepository : ICampaignDisbursementRepository
         int campaignId, int pageNumber, int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.GetRepository<CampaignDisbursement>().AsQueryable()
+        var query = _unitOfWork.Set<CampaignDisbursement>()
             .Include(x => x.DisbursementItems)
             .Include(x => x.Depot)
             .Where(x => x.FundCampaignId == campaignId)
@@ -82,7 +82,7 @@ public class CampaignDisbursementRepository : ICampaignDisbursementRepository
 
     public async Task<decimal> GetTotalDisbursedByCampaignAsync(int campaignId, CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.GetRepository<CampaignDisbursement>().AsQueryable()
+        return await _unitOfWork.Set<CampaignDisbursement>()
             .Where(x => x.FundCampaignId == campaignId)
             .SumAsync(x => x.Amount, cancellationToken);
     }

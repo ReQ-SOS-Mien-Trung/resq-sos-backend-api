@@ -3,6 +3,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
+using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Persistence.Context;
 
@@ -111,6 +112,59 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
             WHERE id = {2}
             """,
             processedRows, lastInventoryId, closureId);
+    }
+
+    public async Task<List<DepotClosureListItem>> GetClosuresByDepotIdAsync(int depotId, CancellationToken cancellationToken = default)
+    {
+        var query =
+            from closure in _dbContext.DepotClosures.AsNoTracking()
+            where closure.DepotId == depotId
+            join initiator in _dbContext.Set<User>().AsNoTracking()
+                on closure.InitiatedBy equals initiator.Id into initGroup
+            from initiator in initGroup.DefaultIfEmpty()
+            join canceller in _dbContext.Set<User>().AsNoTracking()
+                on closure.CancelledBy equals canceller.Id into cancelGroup
+            from canceller in cancelGroup.DefaultIfEmpty()
+            join targetDepot in _dbContext.Depots.AsNoTracking()
+                on closure.TargetDepotId equals targetDepot.Id into targetGroup
+            from targetDepot in targetGroup.DefaultIfEmpty()
+            join transfer in _dbContext.DepotClosureTransfers.AsNoTracking()
+                on closure.Id equals transfer.ClosureId into transferGroup
+            from transfer in transferGroup.DefaultIfEmpty()
+            orderby closure.InitiatedAt descending
+            select new DepotClosureListItem
+            {
+                Id                   = closure.Id,
+                DepotId              = closure.DepotId,
+                Status               = Enum.Parse<DepotClosureStatus>(closure.Status),
+                PreviousStatus       = Enum.Parse<DepotStatus>(closure.PreviousStatus),
+                CloseReason          = closure.CloseReason,
+                ResolutionType       = closure.ResolutionType != null
+                                        ? Enum.Parse<CloseResolutionType>(closure.ResolutionType!)
+                                        : (CloseResolutionType?)null,
+                TargetDepotId        = closure.TargetDepotId,
+                TargetDepotName      = targetDepot != null ? targetDepot.Name : null,
+                ExternalNote         = closure.ExternalNote,
+                InitiatedBy          = closure.InitiatedBy,
+                InitiatedByFullName  = initiator != null
+                                        ? (initiator.FirstName + " " + initiator.LastName).Trim()
+                                        : null,
+                CancelledBy          = closure.CancelledBy,
+                CancelledByFullName  = canceller != null
+                                        ? (canceller.FirstName + " " + canceller.LastName).Trim()
+                                        : null,
+                CancellationReason   = closure.CancellationReason,
+                SnapshotConsumableUnits = closure.SnapshotConsumableUnits,
+                SnapshotReusableUnits   = closure.SnapshotReusableUnits,
+                InitiatedAt          = closure.InitiatedAt,
+                ClosingTimeoutAt     = closure.ClosingTimeoutAt,
+                CompletedAt          = closure.CompletedAt,
+                CancelledAt          = closure.CancelledAt,
+                TransferId           = transfer != null ? transfer.Id : (int?)null,
+                TransferStatus       = transfer != null ? transfer.Status : null,
+            };
+
+        return await query.ToListAsync(cancellationToken);
     }
 
     // ── Mappers ──────────────────────────────────────────────────────────────
