@@ -143,7 +143,7 @@ public class DepotClosureRecord
     public static DepotClosureRecord Create(
         int depotId,
         Guid initiatedBy,
-        string closeReason,
+        string? closeReason,
         DepotStatus previousStatus,
         int snapshotConsumableUnits,
         int snapshotReusableUnits,
@@ -158,7 +158,7 @@ public class DepotClosureRecord
             InitiatedAt = DateTime.UtcNow,
             ClosingTimeoutAt = timeoutAt ?? DateTime.UtcNow.AddMinutes(30),
             PreviousStatus = previousStatus,
-            CloseReason = closeReason,
+            CloseReason = closeReason ?? string.Empty,
             Status = DepotClosureStatus.InProgress,
             SnapshotConsumableUnits = snapshotConsumableUnits,
             SnapshotReusableUnits = snapshotReusableUnits,

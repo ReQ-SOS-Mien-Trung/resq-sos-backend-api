@@ -3,11 +3,12 @@ using MediatR;
 namespace RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 
 /// <summary>
-/// Phase 1 đóng kho: Admin nhấn "Đóng kho" — hệ thống kiểm tra điều kiện,
-/// đặt soft-lock Closing và trả về thông tin tồn kho cần xử lý.
+/// Admin nhấn "Đóng kho" — hệ thống kiểm tra điều kiện:
+/// - Kho trống → đóng ngay (RequiresResolution = false).
+/// - Còn hàng → đặt Closing, trả về ClosureId + InventorySummary (RequiresResolution = true).
 /// </summary>
 public record InitiateDepotClosureCommand(
     int DepotId,
     Guid InitiatedBy,
-    string Reason
+    string? Reason
 ) : IRequest<InitiateDepotClosureResponse>;

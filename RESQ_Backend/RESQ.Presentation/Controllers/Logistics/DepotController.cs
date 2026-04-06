@@ -204,16 +204,17 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] Bắt đầu quy trình đóng kho.
-        /// Nếu kho trống → đóng ngay.
-        /// Nếu còn hàng → trả về InventorySummary + timeout 30 phút, chờ admin resolve.
+        /// [Admin] Đóng kho.
+        /// - Kho trống → đóng ngay (RequiresResolution = false).
+        /// - Còn hàng → chuyển sang Closing, trả về ClosureId + InventorySummary (RequiresResolution = true).
+        ///   Admin tiếp tục gọi POST /{id}/close/{closureId}/resolve để chọn cách xử lý.
         /// </summary>
-        [HttpPost("{id}/close/initiate")]
+        [HttpPost("{id}/close")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         [ProducesResponseType(typeof(InitiateDepotClosureResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
-        public async Task<IActionResult> InitiateClosure(int id, [FromBody] InitiateDepotClosureRequestDto dto)
+        public async Task<IActionResult> CloseDepot(int id, [FromBody] InitiateDepotClosureRequestDto dto)
         {
             var userId = GetUserId();
             var command = new InitiateDepotClosureCommand(id, userId, dto.Reason);
@@ -250,7 +251,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// [Admin] Huỷ quy trình đóng kho đang chờ xử lý.
         /// Trả kho về trạng thái ban đầu (Available / Full).
         /// </summary>
-        [HttpPost("{id}/close/{closureId}/cancel")]
+        [HttpDelete("{id}/close/{closureId}")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         [ProducesResponseType(typeof(CancelDepotClosureResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
