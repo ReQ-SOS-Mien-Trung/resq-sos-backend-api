@@ -8,7 +8,6 @@ public class ClosureTransferResponse
     public int TargetDepotId { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
-    public DateTime TransferDeadlineAt { get; set; }
 
     public int SnapshotConsumableUnits { get; set; }
     public int SnapshotReusableUnits { get; set; }

@@ -164,7 +164,6 @@ public class ResolveDepotClosureCommandHandler(
                 TargetDepotId = targetDepot.Id,
                 TargetDepotName = targetDepot.Name,
                 TransferStatus = transfer.Status,
-                TransferDeadlineAt = transfer.TransferDeadlineAt,
                 SnapshotConsumableUnits = consumableVolume,
                 SnapshotReusableUnits = reusableAvailable,
                 ReusableItemsSkipped = reusableInUse

@@ -18,9 +18,6 @@ public class DepotClosureTransferRecord
 
     public DateTime CreatedAt { get; private set; }
 
-    /// <summary>Thời hạn hoàn thành chuyển hàng — mặc định 48 giờ kể từ lúc tạo.</summary>
-    public DateTime TransferDeadlineAt { get; private set; }
-
     // ── Source side ──
     public DateTime? ShippedAt { get; private set; }
     public Guid? ShippedBy { get; private set; }
@@ -51,8 +48,7 @@ public class DepotClosureTransferRecord
         int sourceDepotId,
         int targetDepotId,
         int snapshotConsumableUnits,
-        int snapshotReusableUnits,
-        DateTime? deadlineOverride = null)
+        int snapshotReusableUnits)
     {
         return new DepotClosureTransferRecord
         {
@@ -61,7 +57,6 @@ public class DepotClosureTransferRecord
             TargetDepotId = targetDepotId,
             Status = "AwaitingPreparation",
             CreatedAt = DateTime.UtcNow,
-            TransferDeadlineAt = deadlineOverride ?? DateTime.UtcNow.AddHours(48),
             SnapshotConsumableUnits = snapshotConsumableUnits,
             SnapshotReusableUnits = snapshotReusableUnits
         };
@@ -70,7 +65,7 @@ public class DepotClosureTransferRecord
     /// <summary>Reconstruct từ EF entity (dùng trong Repository.FromEntity).</summary>
     public static DepotClosureTransferRecord FromPersistence(
         int id, int closureId, int sourceDepotId, int targetDepotId,
-        string status, DateTime createdAt, DateTime transferDeadlineAt,
+        string status, DateTime createdAt,
         DateTime? shippedAt, Guid? shippedBy, string? shipNote,
         DateTime? receivedAt, Guid? receivedBy, string? receiveNote,
         int snapshotConsumableUnits, int snapshotReusableUnits,
@@ -84,7 +79,6 @@ public class DepotClosureTransferRecord
             TargetDepotId = targetDepotId,
             Status = status,
             CreatedAt = createdAt,
-            TransferDeadlineAt = transferDeadlineAt,
             ShippedAt = shippedAt,
             ShippedBy = shippedBy,
             ShipNote = shipNote,
@@ -128,12 +122,12 @@ public class DepotClosureTransferRecord
         ShipNote = note;
     }
 
-    /// <summary>Kho nguồn xác nhận đã xuất toàn bộ hàng → Completed.</summary>
+    /// <summary>Kho nguồn xác nhận đã giao toàn bộ hàng → Completed.</summary>
     public void MarkCompleted(Guid completedBy, string? note = null)
     {
         if (Status != "Shipping")
             throw new DepotClosingException(
-                $"Không thể xác nhận hoàn tất xuất hàng — trạng thái hiện tại: {Status}.");
+                $"Không thể xác nhận hoàn tất giao hàng — trạng thái hiện tại: {Status}.");
 
         Status = "Completed";
         ShipNote = string.IsNullOrWhiteSpace(note) ? ShipNote : note;
@@ -145,7 +139,7 @@ public class DepotClosureTransferRecord
     {
         if (Status != "Completed")
             throw new DepotClosingException(
-                $"Không thể xác nhận nhận hàng — trạng thái hiện tại: {Status}. Kho nguồn phải xác nhận hoàn tất xuất hàng trước.");
+                $"Không thể xác nhận nhận hàng — trạng thái hiện tại: {Status}. Kho nguồn phải xác nhận hoàn tất giao hàng trước.");
 
         Status = "Received";
         ReceivedAt = DateTime.UtcNow;

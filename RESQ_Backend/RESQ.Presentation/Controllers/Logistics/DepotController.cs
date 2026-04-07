@@ -305,7 +305,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Manager kho nguồn] Xác nhận đã xuất toàn bộ hàng — chuyển transfer sang Completed.
+        /// [Manager kho nguồn] Xác nhận đã giao toàn bộ hàng — chuyển transfer sang Completed.
         /// </summary>
         [HttpPost("{id}/close/{closureId}/transfer/{transferId}/complete")]
         [Authorize]

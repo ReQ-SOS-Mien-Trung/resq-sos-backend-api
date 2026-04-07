@@ -8,8 +8,8 @@ using RESQ.Application.Services;
 namespace RESQ.Application.UseCases.Logistics.Commands.CompleteClosureTransfer;
 
 /// <summary>
-/// Quản lý kho nguồn xác nhận đã xuất toàn bộ hàng → chuyển transfer sang Completed.
-/// Đây là bước phía kho nguồn hoàn tất, kho đích sẽ xác nhận nhận hàng ở bước tiếp theo.
+/// Quản lý kho nguồn xác nhận đã giao toàn bộ hàng → Completed.
+/// Kho đích sẽ xác nhận nhận hàng ở bước tiếp theo (/receive).
 /// </summary>
 public class CompleteClosureTransferCommandHandler(
     IDepotClosureTransferRepository transferRepository,
@@ -58,8 +58,8 @@ public class CompleteClosureTransferCommandHandler(
             if (targetManagerId.HasValue)
                 await firebaseService.SendNotificationToUserAsync(
                     targetManagerId.Value,
-                    "Kho nguồn đã xuất hàng hoàn tất",
-                    $"Toàn bộ {transfer.SnapshotConsumableUnits:N0} đơn vị hàng đã được xuất. Vui lòng xác nhận nhận hàng.",
+                    "Kho nguồn đã giao hàng xong",
+                    $"Toàn bộ {transfer.SnapshotConsumableUnits:N0} đơn vị hàng đã được giao. Vui lòng xác nhận nhận hàng.",
                     "closure_transfer_completed",
                     cancellationToken);
         }
@@ -72,7 +72,7 @@ public class CompleteClosureTransferCommandHandler(
         {
             TransferId = transfer.Id,
             TransferStatus = transfer.Status,
-            Message = "Đã xác nhận xuất hàng hoàn tất. Kho đích vui lòng xác nhận nhận hàng để hoàn tất quá trình."
+            Message = "Đã xác nhận giao hàng hoàn tất. Kho đích vui lòng xác nhận nhận hàng để hoàn tất quá trình."
         };
     }
 }
