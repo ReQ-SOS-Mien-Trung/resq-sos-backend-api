@@ -28,10 +28,11 @@ public class GetMySosRequestsQueryHandler(
             .Concat(companionRequests.Select(x => x.Id))
             .Distinct()
             .ToList();
+        var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(requestIds, cancellationToken);
         var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(requestIds, cancellationToken);
 
-        var ownDtos = ownRequests.Select(x => MapToDto(x, isCompanion: false, incidentLookup));
-        var companionDtos = companionRequests.Select(x => MapToDto(x, isCompanion: true, incidentLookup));
+        var ownDtos = ownRequests.Select(x => MapToDto(x, isCompanion: false, incidentLookup, victimUpdateLookup));
+        var companionDtos = companionRequests.Select(x => MapToDto(x, isCompanion: true, incidentLookup, victimUpdateLookup));
 
         // Merge own + companion, deduplicate by Id, order by CreatedAt desc
         var merged = ownDtos.Concat(companionDtos)
@@ -49,38 +50,42 @@ public class GetMySosRequestsQueryHandler(
     private static SosRequestDto MapToDto(
         RESQ.Domain.Entities.Emergency.SosRequestModel x,
         bool isCompanion,
-        IReadOnlyDictionary<int, IReadOnlyList<RESQ.Domain.Entities.Emergency.SosRequestIncidentUpdateModel>> incidentLookup)
+        IReadOnlyDictionary<int, IReadOnlyList<RESQ.Domain.Entities.Emergency.SosRequestIncidentUpdateModel>> incidentLookup,
+        IReadOnlyDictionary<int, RESQ.Domain.Entities.Emergency.SosRequestVictimUpdateModel> victimUpdateLookup)
     {
+        victimUpdateLookup.TryGetValue(x.Id, out var latestVictimUpdate);
+        var effectiveSosRequest = SosRequestVictimUpdateOverlay.Apply(x, latestVictimUpdate);
+
         incidentLookup.TryGetValue(x.Id, out var incidents);
         var latestIncident = incidents?.FirstOrDefault();
 
         return new SosRequestDto
         {
-            Id = x.Id,
-            PacketId = x.PacketId,
-            ClusterId = x.ClusterId,
-            UserId = x.UserId,
-            SosType = x.SosType,
-            RawMessage = x.RawMessage,
-            StructuredData = SosStructuredDataParser.Parse(x.StructuredData),
-            NetworkMetadata = ParseJson<SosNetworkMetadataDto>(x.NetworkMetadata),
-            SenderInfo = ParseJson<SosSenderInfoDto>(x.SenderInfo),
-            ReporterInfo = SosStructuredDataParser.ParseReporterInfo(x.ReporterInfo, x.SenderInfo),
-            VictimInfo = ParseJson<SosVictimInfoDto>(x.VictimInfo),
-            IsSentOnBehalf = x.IsSentOnBehalf,
-            OriginId = x.OriginId,
-            Status = x.Status.ToString(),
-            PriorityLevel = x.PriorityLevel?.ToString(),
-            Latitude = x.Location?.Latitude,
-            Longitude = x.Location?.Longitude,
-            LocationAccuracy = x.LocationAccuracy,
-            Timestamp = x.Timestamp,
-            CreatedAt = x.CreatedAt,
-            ReceivedAt = x.ReceivedAt,
-            LastUpdatedAt = x.LastUpdatedAt,
-            ReviewedAt = x.ReviewedAt,
-            ReviewedById = x.ReviewedById,
-            CreatedByCoordinatorId = x.CreatedByCoordinatorId,
+            Id = effectiveSosRequest.Id,
+            PacketId = effectiveSosRequest.PacketId,
+            ClusterId = effectiveSosRequest.ClusterId,
+            UserId = effectiveSosRequest.UserId,
+            SosType = effectiveSosRequest.SosType,
+            RawMessage = effectiveSosRequest.RawMessage,
+            StructuredData = SosStructuredDataParser.Parse(effectiveSosRequest.StructuredData),
+            NetworkMetadata = ParseJson<SosNetworkMetadataDto>(effectiveSosRequest.NetworkMetadata),
+            SenderInfo = ParseJson<SosSenderInfoDto>(effectiveSosRequest.SenderInfo),
+            ReporterInfo = SosStructuredDataParser.ParseReporterInfo(effectiveSosRequest.ReporterInfo, effectiveSosRequest.SenderInfo),
+            VictimInfo = ParseJson<SosVictimInfoDto>(effectiveSosRequest.VictimInfo),
+            IsSentOnBehalf = effectiveSosRequest.IsSentOnBehalf,
+            OriginId = effectiveSosRequest.OriginId,
+            Status = effectiveSosRequest.Status.ToString(),
+            PriorityLevel = effectiveSosRequest.PriorityLevel?.ToString(),
+            Latitude = effectiveSosRequest.Location?.Latitude,
+            Longitude = effectiveSosRequest.Location?.Longitude,
+            LocationAccuracy = effectiveSosRequest.LocationAccuracy,
+            Timestamp = effectiveSosRequest.Timestamp,
+            CreatedAt = effectiveSosRequest.CreatedAt,
+            ReceivedAt = effectiveSosRequest.ReceivedAt,
+            LastUpdatedAt = effectiveSosRequest.LastUpdatedAt,
+            ReviewedAt = effectiveSosRequest.ReviewedAt,
+            ReviewedById = effectiveSosRequest.ReviewedById,
+            CreatedByCoordinatorId = effectiveSosRequest.CreatedByCoordinatorId,
             LatestIncidentNote = latestIncident?.Note,
             LatestIncidentAt = latestIncident?.CreatedAt,
             IsCompanion = isCompanion

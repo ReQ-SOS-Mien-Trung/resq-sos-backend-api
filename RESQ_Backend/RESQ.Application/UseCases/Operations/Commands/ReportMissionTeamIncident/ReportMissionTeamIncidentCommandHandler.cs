@@ -97,6 +97,8 @@ public class ReportMissionTeamIncidentCommandHandler(
                 missionActivityRepository,
                 missionTeamRepository,
                 sosRequestRepository,
+                sosRequestUpdateRepository,
+                teamIncidentRepository,
                 depotInventoryRepository,
                 unitOfWork,
                 logger,
@@ -132,6 +134,33 @@ public class ReportMissionTeamIncidentCommandHandler(
                 mediator,
                 logger,
                 cancellationToken);
+
+            if (assistanceSos is not null)
+            {
+                await sosRequestUpdateRepository.AddIncidentRangeAsync(
+                [
+                    new RESQ.Domain.Entities.Emergency.SosRequestIncidentUpdateModel
+                    {
+                        SosRequestId = assistanceSos.Id,
+                        TeamIncidentId = incidentId,
+                        MissionId = request.MissionId,
+                        MissionTeamId = missionTeam.Id,
+                        MissionActivityId = null,
+                        IncidentScope = TeamIncidentScope.Mission.ToString(),
+                        Note = request.Description.Trim(),
+                        ReportedById = request.ReportedBy,
+                        CreatedAt = now,
+                        TeamName = missionTeam.TeamName,
+                        ActivityType = null
+                    }
+                ],
+                cancellationToken);
+
+                impactedSosRequestIds = impactedSosRequestIds
+                    .Concat([assistanceSos.Id])
+                    .Distinct()
+                    .ToList();
+            }
 
             await missionTeamRepository.UpdateStatusAsync(
                 missionTeam.Id,

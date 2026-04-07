@@ -90,6 +90,8 @@ public class TeamIncidentRepository(IUnitOfWork unitOfWork) : ITeamIncidentRepos
         Description      = entity.Description,
         Status           = string.Equals(entity.Status, "Acknowledged", StringComparison.OrdinalIgnoreCase)
             ? TeamIncidentStatus.InProgress
+            : string.Equals(entity.Status, "Closed", StringComparison.OrdinalIgnoreCase)
+                ? TeamIncidentStatus.Resolved
             : Enum.TryParse<TeamIncidentStatus>(entity.Status, out var s) ? s : TeamIncidentStatus.Reported,
         ReportedBy       = entity.ReportedBy,
         ReportedAt       = entity.ReportedAt

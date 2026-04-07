@@ -22,6 +22,8 @@ public class UpdateActivityStatusCommandHandler(
     IPersonnelQueryRepository personnelQueryRepository,
     IDepotInventoryRepository depotInventoryRepository,
     ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
+    ITeamIncidentRepository teamIncidentRepository,
     IUnitOfWork unitOfWork,
     ILogger<UpdateActivityStatusCommandHandler> logger
 ) : IRequestHandler<UpdateActivityStatusCommand, UpdateActivityStatusResponse>
@@ -31,6 +33,8 @@ public class UpdateActivityStatusCommandHandler(
     private readonly IPersonnelQueryRepository _personnelQueryRepository = personnelQueryRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
+    private readonly ITeamIncidentRepository _teamIncidentRepository = teamIncidentRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<UpdateActivityStatusCommandHandler> _logger = logger;
 
@@ -195,6 +199,9 @@ public class UpdateActivityStatusCommandHandler(
                 [activity.SosRequestId],
                 missionActivities,
                 _sosRequestRepository,
+                _sosRequestUpdateRepository,
+                _activityRepository,
+                _teamIncidentRepository,
                 _logger,
                 cancellationToken);
         }

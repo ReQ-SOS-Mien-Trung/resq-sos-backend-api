@@ -27,7 +27,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Cập nhật trạng thái sự cố (Reported → InProgress/Closed → Resolved → Closed).</summary>
+    /// <summary>Cập nhật trạng thái sự cố thủ công (Reported → InProgress → Resolved).</summary>
     [HttpPatch("{incidentId:int}/status")]
     [Authorize(Roles = "1,2,3")]
     public async Task<IActionResult> UpdateIncidentStatus([FromRoute] int incidentId, [FromBody] UpdateTeamIncidentStatusRequestDto dto)
@@ -39,7 +39,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
         if (!Enum.TryParse<TeamIncidentStatus>(dto.Status, ignoreCase: true, out var newStatus))
             throw new BadRequestException($"Trạng thái không hợp lệ: {dto.Status}");
 
-        var command = new UpdateTeamIncidentStatusCommand(incidentId, newStatus, dto.NeedsAssistance, dto.HasInjuredMember, userId);
+        var command = new UpdateTeamIncidentStatusCommand(incidentId, newStatus, dto.HasInjuredMember, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
@@ -11,6 +13,9 @@ namespace RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 public class AssignTeamToActivityCommandHandler(
     IMissionActivityRepository activityRepository,
     IMissionTeamRepository missionTeamRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
+    ITeamIncidentRepository teamIncidentRepository,
     IMediator mediator,
     IUnitOfWork unitOfWork,
     ILogger<AssignTeamToActivityCommandHandler> logger
@@ -45,6 +50,18 @@ public class AssignTeamToActivityCommandHandler(
 
         await activityRepository.AssignTeamAsync(request.ActivityId, missionTeamId, cancellationToken);
         await unitOfWork.SaveAsync();
+
+        if (activity.SosRequestId.HasValue)
+        {
+            await TeamIncidentStatusSyncHelper.SyncBySosRequestIdsAsync(
+                [activity.SosRequestId],
+                sosRequestUpdateRepository,
+                sosRequestRepository,
+                activityRepository,
+                teamIncidentRepository,
+                logger,
+                cancellationToken);
+        }
 
         return new AssignTeamToActivityResponse
         {

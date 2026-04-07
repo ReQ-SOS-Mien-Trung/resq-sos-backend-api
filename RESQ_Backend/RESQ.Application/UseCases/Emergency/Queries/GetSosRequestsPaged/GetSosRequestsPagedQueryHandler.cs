@@ -21,42 +21,48 @@ public class GetSosRequestsPagedQueryHandler(
         _logger.LogInformation("Handling {handler} - retrieving SOS requests page {page}", nameof(GetSosRequestsPagedQueryHandler), request.PageNumber);
 
         var pagedResult = await _sosRequestRepository.GetAllPagedAsync(request.PageNumber, request.PageSize, cancellationToken);
+        var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
+            pagedResult.Items.Select(x => x.Id),
+            cancellationToken);
         var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(
             pagedResult.Items.Select(x => x.Id),
             cancellationToken);
 
         var dtos = pagedResult.Items.Select(x =>
         {
+            victimUpdateLookup.TryGetValue(x.Id, out var latestVictimUpdate);
+            var effectiveSosRequest = SosRequestVictimUpdateOverlay.Apply(x, latestVictimUpdate);
+
             incidentLookup.TryGetValue(x.Id, out var incidents);
             var latestIncident = incidents?.FirstOrDefault();
 
             return new SosRequestDto
             {
-                Id = x.Id,
-                PacketId = x.PacketId,
-                ClusterId = x.ClusterId,
-                UserId = x.UserId,
-                SosType = x.SosType,
-                RawMessage = x.RawMessage,
-                StructuredData = SosStructuredDataParser.Parse(x.StructuredData),
-                NetworkMetadata = ParseJson<SosNetworkMetadataDto>(x.NetworkMetadata),
-                SenderInfo = ParseJson<SosSenderInfoDto>(x.SenderInfo),
-                ReporterInfo = SosStructuredDataParser.ParseReporterInfo(x.ReporterInfo, x.SenderInfo),
-                VictimInfo = ParseJson<SosVictimInfoDto>(x.VictimInfo),
-                IsSentOnBehalf = x.IsSentOnBehalf,
-                OriginId = x.OriginId,
-                Status = x.Status.ToString(),
-                PriorityLevel = x.PriorityLevel?.ToString(),
-                Latitude = x.Location?.Latitude,
-                Longitude = x.Location?.Longitude,
-                LocationAccuracy = x.LocationAccuracy,
-                Timestamp = x.Timestamp,
-                CreatedAt = x.CreatedAt,
-                ReceivedAt = x.ReceivedAt,
-                LastUpdatedAt = x.LastUpdatedAt,
-                ReviewedAt = x.ReviewedAt,
-                ReviewedById = x.ReviewedById,
-                CreatedByCoordinatorId = x.CreatedByCoordinatorId,
+                Id = effectiveSosRequest.Id,
+                PacketId = effectiveSosRequest.PacketId,
+                ClusterId = effectiveSosRequest.ClusterId,
+                UserId = effectiveSosRequest.UserId,
+                SosType = effectiveSosRequest.SosType,
+                RawMessage = effectiveSosRequest.RawMessage,
+                StructuredData = SosStructuredDataParser.Parse(effectiveSosRequest.StructuredData),
+                NetworkMetadata = ParseJson<SosNetworkMetadataDto>(effectiveSosRequest.NetworkMetadata),
+                SenderInfo = ParseJson<SosSenderInfoDto>(effectiveSosRequest.SenderInfo),
+                ReporterInfo = SosStructuredDataParser.ParseReporterInfo(effectiveSosRequest.ReporterInfo, effectiveSosRequest.SenderInfo),
+                VictimInfo = ParseJson<SosVictimInfoDto>(effectiveSosRequest.VictimInfo),
+                IsSentOnBehalf = effectiveSosRequest.IsSentOnBehalf,
+                OriginId = effectiveSosRequest.OriginId,
+                Status = effectiveSosRequest.Status.ToString(),
+                PriorityLevel = effectiveSosRequest.PriorityLevel?.ToString(),
+                Latitude = effectiveSosRequest.Location?.Latitude,
+                Longitude = effectiveSosRequest.Location?.Longitude,
+                LocationAccuracy = effectiveSosRequest.LocationAccuracy,
+                Timestamp = effectiveSosRequest.Timestamp,
+                CreatedAt = effectiveSosRequest.CreatedAt,
+                ReceivedAt = effectiveSosRequest.ReceivedAt,
+                LastUpdatedAt = effectiveSosRequest.LastUpdatedAt,
+                ReviewedAt = effectiveSosRequest.ReviewedAt,
+                ReviewedById = effectiveSosRequest.ReviewedById,
+                CreatedByCoordinatorId = effectiveSosRequest.CreatedByCoordinatorId,
                 LatestIncidentNote = latestIncident?.Note,
                 LatestIncidentAt = latestIncident?.CreatedAt
             };

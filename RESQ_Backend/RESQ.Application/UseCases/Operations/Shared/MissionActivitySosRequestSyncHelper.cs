@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
@@ -19,6 +20,9 @@ internal static class MissionActivitySosRequestSyncHelper
         IEnumerable<int?> sosRequestIds,
         IEnumerable<MissionActivityModel> missionActivities,
         ISosRequestRepository sosRequestRepository,
+        ISosRequestUpdateRepository sosRequestUpdateRepository,
+        IMissionActivityRepository missionActivityRepository,
+        ITeamIncidentRepository teamIncidentRepository,
         ILogger logger,
         CancellationToken cancellationToken)
     {
@@ -107,6 +111,15 @@ internal static class MissionActivitySosRequestSyncHelper
                 sosRequestId,
                 escalatedPriority);
         }
+
+        await TeamIncidentStatusSyncHelper.SyncBySosRequestIdsAsync(
+            touchedSosIds.Select(id => (int?)id),
+            sosRequestUpdateRepository,
+            sosRequestRepository,
+            missionActivityRepository,
+            teamIncidentRepository,
+            logger,
+            cancellationToken);
     }
 
     private static bool IsLifecycleActivity(MissionActivityModel activity) =>

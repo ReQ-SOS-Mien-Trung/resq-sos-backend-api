@@ -96,6 +96,8 @@ public class ReportMissionActivityIncidentCommandHandler(
                 missionActivityRepository,
                 missionTeamRepository,
                 sosRequestRepository,
+                sosRequestUpdateRepository,
+                teamIncidentRepository,
                 depotInventoryRepository,
                 unitOfWork,
                 logger,

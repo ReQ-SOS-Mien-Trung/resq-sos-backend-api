@@ -20,6 +20,8 @@ public class SubmitMissionTeamReportCommandHandler(
     IMissionTeamReportRepository missionTeamReportRepository,
     IRescuerScoreRepository rescuerScoreRepository,
     ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
+    ITeamIncidentRepository teamIncidentRepository,
     IUnitOfWork unitOfWork,
     ILogger<SubmitMissionTeamReportCommandHandler> logger)
     : IRequestHandler<SubmitMissionTeamReportCommand, MissionTeamReportResponse>
@@ -228,6 +230,9 @@ public class SubmitMissionTeamReportCommandHandler(
                 activityStatusUpdates.Select(statusUpdate => assignedActivities[statusUpdate.ActivityId].SosRequestId),
                 mission.Activities,
                 sosRequestRepository,
+                sosRequestUpdateRepository,
+                missionActivityRepository,
+                teamIncidentRepository,
                 logger,
                 cancellationToken);
 
@@ -258,6 +263,16 @@ public class SubmitMissionTeamReportCommandHandler(
                 if (mission.ClusterId.HasValue)
                 {
                     await sosRequestRepository.UpdateStatusByClusterIdAsync(mission.ClusterId.Value, SosRequestStatus.Resolved, cancellationToken);
+
+                    var clusterSosRequests = await sosRequestRepository.GetByClusterIdAsync(mission.ClusterId.Value, cancellationToken);
+                    await TeamIncidentStatusSyncHelper.SyncBySosRequestIdsAsync(
+                        clusterSosRequests.Select(sos => (int?)sos.Id),
+                        sosRequestUpdateRepository,
+                        sosRequestRepository,
+                        missionActivityRepository,
+                        teamIncidentRepository,
+                        logger,
+                        cancellationToken);
                 }
             }
         });
