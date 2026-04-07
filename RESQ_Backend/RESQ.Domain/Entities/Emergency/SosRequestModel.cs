@@ -22,6 +22,7 @@ public class SosRequestModel
     public bool IsSentOnBehalf { get; set; }
     public string? OriginId { get; set; }
     public SosPriorityLevel? PriorityLevel { get; set; }
+    public double? PriorityScore { get; set; }
     public SosRequestStatus Status { get; set; } = SosRequestStatus.Pending;
     /// <summary>Thời điểm server nhận được request (khác CreatedAt khi thiết bị gửi qua mesh/offline).</summary>
     public DateTime? ReceivedAt { get; set; }
@@ -93,6 +94,11 @@ public class SosRequestModel
     public void SetPriorityLevel(SosPriorityLevel level)
     {
         PriorityLevel = level;
+    }
+
+    public void SetPriorityScore(double? score)
+    {
+        PriorityScore = score;
     }
 
     public void SetStatus(SosRequestStatus status)

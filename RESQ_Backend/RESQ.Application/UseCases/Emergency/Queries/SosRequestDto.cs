@@ -30,5 +30,7 @@ public class SosRequestDto
     public DateTime? ReviewedAt { get; set; }
     public Guid? ReviewedById { get; set; }
     public Guid? CreatedByCoordinatorId { get; set; }
+    public string? LatestIncidentNote { get; set; }
+    public DateTime? LatestIncidentAt { get; set; }
     public bool IsCompanion { get; set; }
 }

@@ -1,6 +1,4 @@
 using MediatR;
-using RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
-
 namespace RESQ.Application.UseCases.Operations.Commands.ReportMissionActivityIncident;
 
 public record ReportMissionActivityIncidentCommand(
@@ -10,4 +8,4 @@ public record ReportMissionActivityIncidentCommand(
     double? Latitude,
     double? Longitude,
     Guid ReportedBy
-) : IRequest<ReportTeamIncidentResponse>;
+) : IRequest<RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident.ReportTeamIncidentResponse>;

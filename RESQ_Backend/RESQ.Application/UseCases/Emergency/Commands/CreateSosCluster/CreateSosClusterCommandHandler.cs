@@ -57,13 +57,13 @@ public class CreateSosClusterCommandHandler(
             ? clusterGroupingConfig.MaximumDistanceKm
             : DefaultMaxClusterSpreadKm;
 
-        // Validate: all SOS requests must be Pending
+        // Validate: all SOS requests must be Pending or Incident
         var nonPendingRequests = resolvedRequests
-            .Where(r => r.Status != SosRequestStatus.Pending)
+            .Where(r => r.Status is not SosRequestStatus.Pending and not SosRequestStatus.Incident)
             .ToList();
         if (nonPendingRequests.Count > 0)
             throw new BadRequestException(
-                $"Chỉ được tạo cluster từ các SOS request ở trạng thái Pending. " +
+                $"Chỉ được tạo cluster từ các SOS request ở trạng thái Pending hoặc Incident. " +
                 $"Các request không hợp lệ: {string.Join(", ", nonPendingRequests.Select(r => $"#{r.Id} ({r.Status})"))}");
 
         // Validate: SOS requests must not already belong to another cluster

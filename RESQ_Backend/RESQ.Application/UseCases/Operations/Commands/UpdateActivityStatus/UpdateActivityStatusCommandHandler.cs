@@ -5,6 +5,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
@@ -20,6 +21,7 @@ public class UpdateActivityStatusCommandHandler(
     IMissionTeamRepository missionTeamRepository,
     IPersonnelQueryRepository personnelQueryRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    ISosRequestRepository sosRequestRepository,
     IUnitOfWork unitOfWork,
     ILogger<UpdateActivityStatusCommandHandler> logger
 ) : IRequestHandler<UpdateActivityStatusCommand, UpdateActivityStatusResponse>
@@ -28,6 +30,7 @@ public class UpdateActivityStatusCommandHandler(
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IPersonnelQueryRepository _personnelQueryRepository = personnelQueryRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<UpdateActivityStatusCommandHandler> _logger = logger;
 
@@ -172,6 +175,28 @@ public class UpdateActivityStatusCommandHandler(
             _logger.LogInformation(
                 "Updated MissionTeamId={missionTeamId} location from ActivityId={activityId} ({locationSource}) to {latitude},{longitude}",
                 assignedMissionTeam.Id, activity.Id, locationSource, latitude, longitude);
+        }
+
+        if (activity.MissionId.HasValue && activity.SosRequestId.HasValue)
+        {
+            var missionActivities = (await _activityRepository.GetByMissionIdAsync(activity.MissionId.Value, cancellationToken)).ToList();
+            var updatedActivity = missionActivities.FirstOrDefault(x => x.Id == activity.Id);
+
+            if (updatedActivity is not null)
+            {
+                updatedActivity.Status = activity.Status;
+            }
+            else
+            {
+                missionActivities.Add(activity);
+            }
+
+            await MissionActivitySosRequestSyncHelper.SyncTouchedSosRequestsAsync(
+                [activity.SosRequestId],
+                missionActivities,
+                _sosRequestRepository,
+                _logger,
+                cancellationToken);
         }
 
         await _unitOfWork.SaveAsync();

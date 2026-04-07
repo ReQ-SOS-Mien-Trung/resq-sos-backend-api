@@ -174,6 +174,8 @@ public class MissionController(IMediator mediator) : ControllerBase
             dto.Description,
             dto.Latitude,
             dto.Longitude,
+            dto.NeedsRescueAssistance,
+            dto.AssistanceSos,
             userId);
 
         var result = await _mediator.Send(command);

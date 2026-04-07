@@ -14,6 +14,7 @@ namespace RESQ.Infrastructure.Services;
 public class MissionContextService(
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IDepotRepository depotRepository,
     IPersonnelQueryRepository personnelQueryRepository,
     IRescueTeamRadiusConfigRepository rescueTeamRadiusConfigRepository,
@@ -39,21 +40,31 @@ public class MissionContextService(
 
         var clusterSosRequests = await sosRequestRepository.GetByClusterIdAsync(clusterId, cancellationToken);
         var sosRequestList = clusterSosRequests.ToList();
+        var incidentLookup = await sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(
+            sosRequestList.Select(x => x.Id),
+            cancellationToken);
 
         if (sosRequestList.Count == 0)
             throw new BadRequestException($"Cluster {clusterId} không có SOS request nào");
 
-        var sosRequestSummaries = sosRequestList.Select(sos => new SosRequestSummary
+        var sosRequestSummaries = sosRequestList.Select(sos =>
         {
-            Id = sos.Id,
-            SosType = sos.SosType,
-            RawMessage = sos.RawMessage,
-            StructuredData = sos.StructuredData,
-            PriorityLevel = sos.PriorityLevel?.ToString(),
-            Status = sos.Status.ToString(),
-            Latitude = sos.Location?.Latitude,
-            Longitude = sos.Location?.Longitude,
-            CreatedAt = sos.CreatedAt
+            incidentLookup.TryGetValue(sos.Id, out var incidentHistory);
+
+            return new SosRequestSummary
+            {
+                Id = sos.Id,
+                SosType = sos.SosType,
+                RawMessage = sos.RawMessage,
+                StructuredData = sos.StructuredData,
+                PriorityLevel = sos.PriorityLevel?.ToString(),
+                Status = sos.Status.ToString(),
+                LatestIncidentNote = incidentHistory?.FirstOrDefault()?.Note,
+                IncidentNotes = incidentHistory?.Select(x => x.Note).ToList() ?? [],
+                Latitude = sos.Location?.Latitude,
+                Longitude = sos.Location?.Longitude,
+                CreatedAt = sos.CreatedAt
+            };
         }).ToList();
 
         var neededSupplies = ExtractNeededSupplies(sosRequestSummaries);

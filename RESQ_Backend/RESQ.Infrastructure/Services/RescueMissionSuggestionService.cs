@@ -124,6 +124,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             du_lieu_chi_tiet = sos.StructuredData ?? "Không có",
             muc_uu_tien = sos.PriorityLevel ?? "Chưa đánh giá",
             trang_thai = sos.Status ?? "Không rõ",
+            ghi_chu_su_co_moi_nhat = sos.LatestIncidentNote,
+            lich_su_su_co = sos.IncidentNotes,
             vi_tri = sos.Latitude.HasValue && sos.Longitude.HasValue
                 ? $"{sos.Latitude}, {sos.Longitude}"
                 : "Không xác định",

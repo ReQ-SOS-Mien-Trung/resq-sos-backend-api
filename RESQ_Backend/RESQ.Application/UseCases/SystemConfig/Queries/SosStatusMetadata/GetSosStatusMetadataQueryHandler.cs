@@ -16,6 +16,7 @@ public class GetSosStatusMetadataQueryHandler
             new() { Key = SosRequestStatus.Pending.ToString(), Value = "Đang chờ xử lý" },
             new() { Key = SosRequestStatus.Assigned.ToString(), Value = "Đã phân công" },
             new() { Key = SosRequestStatus.InProgress.ToString(), Value = "Đang xử lý" },
+            new() { Key = SosRequestStatus.Incident.ToString(), Value = "Đang gặp sự cố" },
             new() { Key = SosRequestStatus.Resolved.ToString(), Value = "Đã giải quyết" },
             new() { Key = SosRequestStatus.Cancelled.ToString(), Value = "Đã hủy" }
         };

@@ -5,6 +5,7 @@ public enum SosRequestStatus
     Pending,
     Assigned,
     InProgress,
+    Incident,
     Resolved,
     Cancelled
 }

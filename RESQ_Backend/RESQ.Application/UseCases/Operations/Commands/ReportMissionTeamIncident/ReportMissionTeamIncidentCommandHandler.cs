@@ -2,9 +2,12 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Repositories.System;
+using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 using RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
@@ -18,7 +21,11 @@ public class ReportMissionTeamIncidentCommandHandler(
     ITeamIncidentRepository teamIncidentRepository,
     IMissionActivityRepository missionActivityRepository,
     IRescueTeamRepository rescueTeamRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosPriorityRuleConfigRepository sosPriorityRuleConfigRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IMediator mediator,
     IUnitOfWork unitOfWork,
     ILogger<ReportMissionTeamIncidentCommandHandler> logger
 ) : IRequestHandler<ReportMissionTeamIncidentCommand, ReportTeamIncidentResponse>
@@ -77,6 +84,8 @@ public class ReportMissionTeamIncidentCommandHandler(
         rescueTeam.ReportIncident();
 
         var incidentId = 0;
+        CreateSosRequestResponse? assistanceSos = null;
+        IReadOnlyCollection<int> impactedSosRequestIds = [];
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             incidentId = await teamIncidentRepository.CreateAsync(incident, cancellationToken);
@@ -87,11 +96,41 @@ public class ReportMissionTeamIncidentCommandHandler(
                 request.ReportedBy,
                 missionActivityRepository,
                 missionTeamRepository,
+                sosRequestRepository,
                 depotInventoryRepository,
                 unitOfWork,
                 logger,
                 allowAutoChain: false,
                 allowReturnSuppliesCreation: false,
+                allowSosLifecycleSync: false,
+                cancellationToken);
+
+            impactedSosRequestIds = (await SosRequestIncidentHelper.MarkSosRequestsAsIncidentAsync(
+                SosRequestIncidentHelper.ResolveLifecycleSosRequestIds(unfinishedActivities),
+                incidentId,
+                request.MissionId,
+                missionTeam,
+                activity: null,
+                request.Description,
+                request.ReportedBy,
+                sosRequestRepository,
+                sosPriorityRuleConfigRepository,
+                sosRequestUpdateRepository,
+                logger,
+                cancellationToken)).ToList();
+
+            assistanceSos = await TeamIncidentAssistanceSosHelper.CreateAssistanceSosAsync(
+                request.MissionId,
+                missionTeam,
+                activity: null,
+                request.ReportedBy,
+                request.Description,
+                request.Latitude,
+                request.Longitude,
+                request.NeedsRescueAssistance,
+                request.AssistanceSos,
+                mediator,
+                logger,
                 cancellationToken);
 
             await missionTeamRepository.UpdateStatusAsync(
@@ -110,6 +149,10 @@ public class ReportMissionTeamIncidentCommandHandler(
             MissionTeamId = request.MissionTeamId,
             IncidentScope = TeamIncidentScope.Mission.ToString(),
             Status = TeamIncidentStatus.Reported.ToString(),
+            IncidentSosRequestIds = impactedSosRequestIds.ToList(),
+            AssistanceSosRequestId = assistanceSos?.Id,
+            AssistanceSosStatus = assistanceSos?.Status,
+            AssistanceSosPriorityLevel = assistanceSos?.PriorityLevel,
             ReportedAt = now
         };
     }

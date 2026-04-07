@@ -8,10 +8,12 @@ namespace RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
 
 public class GetAllSosRequestsQueryHandler(
     ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     ILogger<GetAllSosRequestsQueryHandler> logger
 ) : IRequestHandler<GetAllSosRequestsQuery, GetAllSosRequestsResponse>
 {
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly ILogger<GetAllSosRequestsQueryHandler> _logger = logger;
 
     public async Task<GetAllSosRequestsResponse> Handle(GetAllSosRequestsQuery request, CancellationToken cancellationToken)
@@ -19,34 +21,46 @@ public class GetAllSosRequestsQueryHandler(
         _logger.LogInformation("Handling GetAllSosRequestsQuery");
 
         var requests = await _sosRequestRepository.GetAllAsync(cancellationToken);
+        var requestList = requests.ToList();
+        var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(
+            requestList.Select(x => x.Id),
+            cancellationToken);
 
         return new GetAllSosRequestsResponse
         {
-            SosRequests = requests.Select(x => new SosRequestDto
+            SosRequests = requestList.Select(x =>
             {
-                Id = x.Id,
-                PacketId = x.PacketId,
-                ClusterId = x.ClusterId,
-                UserId = x.UserId,
-                SosType = x.SosType,
-                RawMessage = x.RawMessage,
-                StructuredData = SosStructuredDataParser.Parse(x.StructuredData),
-                NetworkMetadata = ParseJson<SosNetworkMetadataDto>(x.NetworkMetadata),
-                SenderInfo = ParseJson<SosSenderInfoDto>(x.SenderInfo),
-                ReporterInfo = SosStructuredDataParser.ParseReporterInfo(x.ReporterInfo, x.SenderInfo),
-                OriginId = x.OriginId,
-                Status = x.Status.ToString(),
-                PriorityLevel = x.PriorityLevel?.ToString(),
-                Latitude = x.Location?.Latitude,
-                Longitude = x.Location?.Longitude,
-                LocationAccuracy = x.LocationAccuracy,
-                Timestamp = x.Timestamp,
-                CreatedAt = x.CreatedAt,
-                ReceivedAt = x.ReceivedAt,
-                LastUpdatedAt = x.LastUpdatedAt,
-                ReviewedAt = x.ReviewedAt,
-                ReviewedById = x.ReviewedById,
-                CreatedByCoordinatorId = x.CreatedByCoordinatorId
+                incidentLookup.TryGetValue(x.Id, out var incidents);
+                var latestIncident = incidents?.FirstOrDefault();
+
+                return new SosRequestDto
+                {
+                    Id = x.Id,
+                    PacketId = x.PacketId,
+                    ClusterId = x.ClusterId,
+                    UserId = x.UserId,
+                    SosType = x.SosType,
+                    RawMessage = x.RawMessage,
+                    StructuredData = SosStructuredDataParser.Parse(x.StructuredData),
+                    NetworkMetadata = ParseJson<SosNetworkMetadataDto>(x.NetworkMetadata),
+                    SenderInfo = ParseJson<SosSenderInfoDto>(x.SenderInfo),
+                    ReporterInfo = SosStructuredDataParser.ParseReporterInfo(x.ReporterInfo, x.SenderInfo),
+                    OriginId = x.OriginId,
+                    Status = x.Status.ToString(),
+                    PriorityLevel = x.PriorityLevel?.ToString(),
+                    Latitude = x.Location?.Latitude,
+                    Longitude = x.Location?.Longitude,
+                    LocationAccuracy = x.LocationAccuracy,
+                    Timestamp = x.Timestamp,
+                    CreatedAt = x.CreatedAt,
+                    ReceivedAt = x.ReceivedAt,
+                    LastUpdatedAt = x.LastUpdatedAt,
+                    ReviewedAt = x.ReviewedAt,
+                    ReviewedById = x.ReviewedById,
+                    CreatedByCoordinatorId = x.CreatedByCoordinatorId,
+                    LatestIncidentNote = latestIncident?.Note,
+                    LatestIncidentAt = latestIncident?.CreatedAt
+                };
             }).ToList()
         };
     }

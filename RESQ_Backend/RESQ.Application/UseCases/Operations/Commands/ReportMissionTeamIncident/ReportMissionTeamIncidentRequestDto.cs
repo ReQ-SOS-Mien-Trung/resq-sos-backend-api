@@ -1,3 +1,5 @@
+using RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
+
 namespace RESQ.Application.UseCases.Operations.Commands.ReportMissionTeamIncident;
 
 public class ReportMissionTeamIncidentRequestDto
@@ -5,4 +7,6 @@ public class ReportMissionTeamIncidentRequestDto
     public string Description { get; set; } = string.Empty;
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
+    public bool NeedsRescueAssistance { get; set; }
+    public IncidentAssistanceSosRequestData? AssistanceSos { get; set; }
 }

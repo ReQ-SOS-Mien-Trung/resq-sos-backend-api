@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
@@ -23,11 +24,13 @@ internal static class MissionActivityIncidentFailureHelper
         Guid decisionBy,
         IMissionActivityRepository activityRepository,
         IMissionTeamRepository missionTeamRepository,
+        ISosRequestRepository sosRequestRepository,
         IDepotInventoryRepository depotInventoryRepository,
         IUnitOfWork unitOfWork,
         ILogger logger,
         bool allowAutoChain,
         bool allowReturnSuppliesCreation,
+        bool allowSosLifecycleSync,
         CancellationToken cancellationToken)
     {
         var orderedActivities = activities
@@ -44,11 +47,13 @@ internal static class MissionActivityIncidentFailureHelper
                 decisionBy,
                 activityRepository,
                 missionTeamRepository,
+                sosRequestRepository,
                 depotInventoryRepository,
                 unitOfWork,
                 logger,
                 allowAutoChain,
                 allowReturnSuppliesCreation,
+                allowSosLifecycleSync,
                 cancellationToken);
 
             if (autoStartedActivityId.HasValue)
@@ -65,11 +70,13 @@ internal static class MissionActivityIncidentFailureHelper
         Guid decisionBy,
         IMissionActivityRepository activityRepository,
         IMissionTeamRepository missionTeamRepository,
+        ISosRequestRepository sosRequestRepository,
         IDepotInventoryRepository depotInventoryRepository,
         IUnitOfWork unitOfWork,
         ILogger logger,
         bool allowAutoChain,
         bool allowReturnSuppliesCreation,
+        bool allowSosLifecycleSync,
         CancellationToken cancellationToken)
     {
         if (!CanFailFromIncident(activity.Status))
@@ -86,6 +93,28 @@ internal static class MissionActivityIncidentFailureHelper
         if (allowReturnSuppliesCreation)
         {
             await CreateReturnSuppliesActivityAsync(activity, activityRepository, unitOfWork, logger, cancellationToken);
+        }
+
+        if (allowSosLifecycleSync && activity.MissionId.HasValue && activity.SosRequestId.HasValue)
+        {
+            var missionActivities = (await activityRepository.GetByMissionIdAsync(activity.MissionId.Value, cancellationToken)).ToList();
+            var updatedActivity = missionActivities.FirstOrDefault(x => x.Id == activity.Id);
+
+            if (updatedActivity is not null)
+            {
+                updatedActivity.Status = activity.Status;
+            }
+            else
+            {
+                missionActivities.Add(activity);
+            }
+
+            await MissionActivitySosRequestSyncHelper.SyncTouchedSosRequestsAsync(
+                [activity.SosRequestId],
+                missionActivities,
+                sosRequestRepository,
+                logger,
+                cancellationToken);
         }
 
         if (!allowAutoChain)
