@@ -34,8 +34,6 @@ public class ZaloPayService : IPaymentGatewayService
         var appIdStr = config["AppId"];
         var key1 = config["Key1"];
         var endpoint = config["Endpoint"];
-        var callbackUrl = config["CallbackUrl"]; 
-        var redirectUrl = config["RedirectUrl"]; 
 
         if (string.IsNullOrEmpty(appIdStr) || !int.TryParse(appIdStr, out var appId))
             throw new InvalidOperationException("Cấu hình ZaloPay thiếu AppId hợp lệ.");
@@ -60,8 +58,10 @@ public class ZaloPayService : IPaymentGatewayService
         
         // Redirect through backend so it can verify the payment before sending the user to the frontend.
         // ZaloPay will append ?appid=&apptransid=&pmcid=&bankcode=&amount=&discountamount=&status= to this URL.
-        var serverBaseUrl = _configuration["AppSettings:BaseUrl"]?.TrimEnd('/');
-        var serverReturnUrl = $"{serverBaseUrl}/finance/donations/zalopay-return";
+        // Use ZaloPay:CallbackUrl directly (set via env var ZaloPay__CallbackUrl) to avoid AppSettings:BaseUrl dependency.
+        var serverReturnUrl = config["CallbackUrl"]?.TrimEnd('/');
+        if (string.IsNullOrEmpty(serverReturnUrl))
+            throw new InvalidOperationException("Cấu hình ZaloPay thiếu CallbackUrl (zalopay-return endpoint).");
         var embedDataObj = new { redirecturl = serverReturnUrl };
         var embedData = JsonSerializer.Serialize(embedDataObj);
 
@@ -81,7 +81,7 @@ public class ZaloPayService : IPaymentGatewayService
             embed_data = embedData,
             bank_code = "",
             mac = mac,
-            callback_url = callbackUrl ?? ""
+            callback_url = ""  // IPN not needed — zalopay-return redirect handles verification
         };
 
         var client = _httpClientFactory.CreateClient();
