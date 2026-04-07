@@ -4,6 +4,5 @@ public enum TeamIncidentStatus
 {
     Reported,
     InProgress,
-    Resolved,
-    Closed
+    Resolved
 }

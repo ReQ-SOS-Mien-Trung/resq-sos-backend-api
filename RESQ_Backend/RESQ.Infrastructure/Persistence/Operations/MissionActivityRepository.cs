@@ -29,6 +29,22 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
             .Select(MissionActivityMapper.ToDomain);
     }
 
+    public async Task<IEnumerable<MissionActivityModel>> GetBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
+    {
+        var ids = sosRequestIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var entities = await _unitOfWork.GetRepository<MissionActivity>()
+            .GetAllByPropertyAsync(x => x.SosRequestId.HasValue && ids.Contains(x.SosRequestId.Value), includeProperties: "AssemblyPoint");
+
+        return entities
+            .OrderBy(x => x.Step)
+            .Select(MissionActivityMapper.ToDomain);
+    }
+
     public async Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
     {
         var entity = MissionActivityMapper.ToEntity(activity);

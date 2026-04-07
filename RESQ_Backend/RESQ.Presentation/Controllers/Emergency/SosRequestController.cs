@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Emergency.Commands.CancelSosRequest;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
+using RESQ.Application.UseCases.Emergency.Commands.UpdateSosRequestVictim;
 using RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
@@ -148,6 +149,58 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             return Unauthorized();
 
         var result = await _mediator.Send(new CancelSosRequestCommand(id, userId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Victim hoặc companion cập nhật nội dung SOS request; dữ liệu được lưu vào lịch sử update thay vì ghi đè row gốc.
+    /// </summary>
+    [HttpPatch("{id:int}/victim-update")]
+    [Authorize(Policy = PermissionConstants.PolicySosRequestAccess)]
+    public async Task<IActionResult> UpdateVictimSosRequest([FromRoute] int id, [FromBody] UpdateSosRequestVictimRequestDto dto)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        string? structuredDataJson = dto.StructuredData != null
+            ? JsonSerializer.Serialize(dto.StructuredData)
+            : null;
+
+        string? networkMetadataJson = dto.NetworkMetadata != null
+            ? JsonSerializer.Serialize(dto.NetworkMetadata)
+            : null;
+
+        string? senderInfoJson = dto.SenderInfo != null
+            ? JsonSerializer.Serialize(dto.SenderInfo)
+            : null;
+
+        string? reporterInfoJson = dto.ReporterInfo != null
+            ? JsonSerializer.Serialize(dto.ReporterInfo)
+            : null;
+
+        string? victimInfoJson = dto.VictimInfo != null
+            ? JsonSerializer.Serialize(dto.VictimInfo)
+            : null;
+
+        var command = new UpdateSosRequestVictimCommand(
+            id,
+            userId,
+            new GeoLocation(dto.Location.Latitude, dto.Location.Longitude),
+            dto.RawMessage,
+            dto.PacketId,
+            dto.OriginId,
+            dto.Location.Accuracy,
+            dto.SosType,
+            structuredDataJson,
+            networkMetadataJson,
+            senderInfoJson,
+            dto.Timestamp,
+            dto.CreatedAt,
+            victimInfoJson,
+            dto.IsSentOnBehalf,
+            reporterInfoJson);
+
+        var result = await _mediator.Send(command);
         return Ok(result);
     }
 

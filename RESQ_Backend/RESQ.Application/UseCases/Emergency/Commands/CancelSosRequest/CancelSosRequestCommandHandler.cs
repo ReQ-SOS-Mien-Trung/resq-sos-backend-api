@@ -1,7 +1,10 @@
+using Microsoft.Extensions.Logging;
 using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Repositories.Operations;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Commands.CancelSosRequest;
@@ -9,7 +12,11 @@ namespace RESQ.Application.UseCases.Emergency.Commands.CancelSosRequest;
 public class CancelSosRequestCommandHandler(
     ISosRequestRepository sosRequestRepository,
     ISosRequestCompanionRepository companionRepository,
-    IUnitOfWork unitOfWork
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
+    IMissionActivityRepository missionActivityRepository,
+    ITeamIncidentRepository teamIncidentRepository,
+    IUnitOfWork unitOfWork,
+    ILogger<CancelSosRequestCommandHandler> logger
 ) : IRequestHandler<CancelSosRequestCommand, CancelSosRequestResponse>
 {
     public async Task<CancelSosRequestResponse> Handle(CancelSosRequestCommand request, CancellationToken cancellationToken)
@@ -30,6 +37,15 @@ public class CancelSosRequestCommandHandler(
 
         await sosRequestRepository.UpdateStatusAsync(request.SosRequestId, SosRequestStatus.Cancelled, cancellationToken);
         await unitOfWork.SaveAsync();
+
+        await TeamIncidentStatusSyncHelper.SyncBySosRequestIdsAsync(
+            [request.SosRequestId],
+            sosRequestUpdateRepository,
+            sosRequestRepository,
+            missionActivityRepository,
+            teamIncidentRepository,
+            logger,
+            cancellationToken);
 
         return new CancelSosRequestResponse
         {

@@ -22,24 +22,22 @@ public class UpdateTeamIncidentStatusCommandHandler(
 
         var finalStatus = request.NewStatus;
 
-        // Reported + NeedsAssistance decision
-        if (incident.Status == TeamIncidentStatus.Reported)
-        {
-            if (request.NeedsAssistance.HasValue)
-                finalStatus = request.NeedsAssistance.Value ? TeamIncidentStatus.InProgress : TeamIncidentStatus.Closed;
-        }
-
         TeamIncidentStateMachine.EnsureValidTransition(incident.Status, finalStatus);
+
+        if (finalStatus == TeamIncidentStatus.Resolved && !request.HasInjuredMember.HasValue)
+        {
+            throw new BadRequestException("Cần cung cấp HasInjuredMember khi chuyển incident sang Resolved thủ công.");
+        }
 
         await teamIncidentRepository.UpdateStatusAsync(request.IncidentId, finalStatus, cancellationToken);
 
-        // Side-effects on rescue team when incident is resolved/closed
-        if (finalStatus == TeamIncidentStatus.Resolved || finalStatus == TeamIncidentStatus.Closed)
+        // Manual resolve still controls the final rescue team state when coordinator explicitly resolves the incident.
+        if (finalStatus == TeamIncidentStatus.Resolved)
         {
             var missionTeam = await missionTeamRepository.GetByIdAsync(incident.MissionTeamId, cancellationToken);
             if (missionTeam != null)
             {
-                bool hasInjured = request.HasInjuredMember ?? false;
+                bool hasInjured = request.HasInjuredMember!.Value;
                 try
                 {
                     // Team is in Stuck state after reporting incident; ResolveIncident transitions Stuck → Available/Unavailable
