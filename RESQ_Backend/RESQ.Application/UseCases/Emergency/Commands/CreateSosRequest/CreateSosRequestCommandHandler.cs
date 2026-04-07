@@ -98,6 +98,7 @@ public class CreateSosRequestCommandHandler(
 
         // Update SOS request with priority level
         created.PriorityLevel = evaluation.PriorityLevel;
+        created.PriorityScore = evaluation.TotalScore;
         await _sosRequestRepository.UpdateAsync(created, cancellationToken);
 
         var updateCount = await _unitOfWork.SaveAsync();

@@ -63,6 +63,9 @@ public partial class SosRequest
     [StringLength(10)]
     public string? PriorityLevel { get; set; }
 
+    [Column("priority_score")]
+    public double? PriorityScore { get; set; }
+
     [Column("status")]
     [StringLength(50)]
     public string? Status { get; set; }

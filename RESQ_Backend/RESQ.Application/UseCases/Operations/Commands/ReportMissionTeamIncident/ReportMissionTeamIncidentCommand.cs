@@ -9,5 +9,7 @@ public record ReportMissionTeamIncidentCommand(
     string Description,
     double? Latitude,
     double? Longitude,
+    bool NeedsRescueAssistance,
+    IncidentAssistanceSosRequestData? AssistanceSos,
     Guid ReportedBy
 ) : IRequest<ReportTeamIncidentResponse>;

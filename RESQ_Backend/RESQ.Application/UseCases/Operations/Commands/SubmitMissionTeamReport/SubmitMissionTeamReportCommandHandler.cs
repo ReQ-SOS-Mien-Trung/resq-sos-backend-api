@@ -224,6 +224,13 @@ public class SubmitMissionTeamReportCommandHandler(
                 }
             }
 
+            await MissionActivitySosRequestSyncHelper.SyncTouchedSosRequestsAsync(
+                activityStatusUpdates.Select(statusUpdate => assignedActivities[statusUpdate.ActivityId].SosRequestId),
+                mission.Activities,
+                sosRequestRepository,
+                logger,
+                cancellationToken);
+
             await missionTeamReportRepository.SubmitAsync(request.MissionTeamId, request.SubmittedBy, cancellationToken);
             await rescuerScoreRepository.RefreshAsync(memberEvaluations, cancellationToken);
             await missionTeamRepository.UpdateStatusAsync(request.MissionTeamId, MissionTeamExecutionStatus.Reported.ToString(), cancellationToken);

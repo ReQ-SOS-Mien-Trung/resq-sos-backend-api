@@ -26,6 +26,7 @@ public static class SosRequestMapper
             IsSentOnBehalf = model.IsSentOnBehalf,
             OriginId = model.OriginId,
             PriorityLevel = model.PriorityLevel?.ToString(),
+            PriorityScore = model.PriorityScore,
             Status = model.Status.ToString(),
             Timestamp = model.Timestamp,
             ReceivedAt = model.ReceivedAt,
@@ -75,6 +76,7 @@ public static class SosRequestMapper
             IsSentOnBehalf = entity.IsSentOnBehalf,
             OriginId = entity.OriginId,
             PriorityLevel = Enum.TryParse<SosPriorityLevel>(entity.PriorityLevel, out var priority) ? priority : null,
+            PriorityScore = entity.PriorityScore,
             Status = Enum.TryParse<SosRequestStatus>(entity.Status, out var status) ? status : SosRequestStatus.Pending,
             Timestamp = entity.Timestamp,
             ReceivedAt = entity.ReceivedAt,
@@ -101,6 +103,7 @@ public static class SosRequestMapper
         entity.IsSentOnBehalf = model.IsSentOnBehalf;
         entity.OriginId = model.OriginId;
         entity.PriorityLevel = model.PriorityLevel?.ToString();
+        entity.PriorityScore = model.PriorityScore;
         entity.Status = model.Status.ToString();
         entity.Timestamp = model.Timestamp;
         entity.LastUpdatedAt = DateTime.UtcNow;

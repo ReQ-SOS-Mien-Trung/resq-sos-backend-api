@@ -11,6 +11,7 @@ namespace RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 public class GetSosRequestQueryHandler(
     ISosRequestRepository sosRequestRepository,
     ISosRequestCompanionRepository companionRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IUserRepository userRepository,
     ILogger<GetSosRequestQueryHandler> logger
 ) : IRequestHandler<GetSosRequestQuery, GetSosRequestResponse>
@@ -20,6 +21,7 @@ public class GetSosRequestQueryHandler(
 
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly ISosRequestCompanionRepository _companionRepository = companionRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly IUserRepository _userRepository = userRepository;
     private readonly ILogger<GetSosRequestQueryHandler> _logger = logger;
 
@@ -41,6 +43,10 @@ public class GetSosRequestQueryHandler(
 
         if (request.RequestingRoleId != COORDINATOR_ROLE_ID && request.RequestingRoleId != VICTIM_ROLE_ID)
             throw new ForbiddenException("Bạn không có quyền truy cập");
+
+        var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync([sosRequest.Id], cancellationToken);
+        incidentLookup.TryGetValue(sosRequest.Id, out var incidents);
+        var latestIncident = incidents?.FirstOrDefault();
 
         // Load companion list
         var companionRecords = await _companionRepository.GetBySosRequestIdAsync(request.Id, cancellationToken);
@@ -93,6 +99,22 @@ public class GetSosRequestQueryHandler(
                 ReviewedAt = sosRequest.ReviewedAt,
                 ReviewedById = sosRequest.ReviewedById,
                 CreatedByCoordinatorId = sosRequest.CreatedByCoordinatorId,
+                LatestIncidentNote = latestIncident?.Note,
+                LatestIncidentAt = latestIncident?.CreatedAt,
+                IncidentHistory = incidents?.Select(x => new SosIncidentNoteDto
+                {
+                    Id = x.Id,
+                    TeamIncidentId = x.TeamIncidentId,
+                    MissionId = x.MissionId,
+                    MissionTeamId = x.MissionTeamId,
+                    MissionActivityId = x.MissionActivityId,
+                    IncidentScope = x.IncidentScope,
+                    Note = x.Note,
+                    ReportedById = x.ReportedById,
+                    CreatedAt = x.CreatedAt,
+                    TeamName = x.TeamName,
+                    ActivityType = x.ActivityType
+                }).ToList(),
                 Companions = companions
             }
         };

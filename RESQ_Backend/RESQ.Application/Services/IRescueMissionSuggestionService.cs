@@ -71,6 +71,8 @@ public class SosRequestSummary
     public string? StructuredData { get; set; }
     public string? PriorityLevel { get; set; }
     public string? Status { get; set; }
+    public string? LatestIncidentNote { get; set; }
+    public List<string> IncidentNotes { get; set; } = [];
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public DateTime? CreatedAt { get; set; }

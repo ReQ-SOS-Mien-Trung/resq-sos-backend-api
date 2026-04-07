@@ -98,6 +98,7 @@ public class ChatSupportAiService(ILogger<ChatSupportAiService> logger) : IChatS
                 SosRequestStatus.Pending    => "⏳ Đang chờ",
                 SosRequestStatus.Assigned   => "✅ Đã phân công",
                 SosRequestStatus.InProgress => "🔄 Đang xử lý",
+                SosRequestStatus.Incident   => "⚠️ Đang gặp sự cố",
                 SosRequestStatus.Resolved   => "✔️ Đã giải quyết",
                 SosRequestStatus.Cancelled  => "❌ Đã hủy",
                 _                           => req.Status.ToString()
