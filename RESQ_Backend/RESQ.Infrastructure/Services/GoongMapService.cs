@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -40,63 +41,19 @@ public class GoongMapService : IGoongMapService
         string vehicle = "car",
         CancellationToken cancellationToken = default)
     {
-        // Build URL - coordinates formatted as "lat,lng"
-        var origin = $"{originLat.ToString(CultureInfo.InvariantCulture)},{originLng.ToString(CultureInfo.InvariantCulture)}";
-        var destination = $"{destLat.ToString(CultureInfo.InvariantCulture)},{destLng.ToString(CultureInfo.InvariantCulture)}";
-        var url = $"{_baseUrl}/Direction?origin={origin}&destination={destination}&vehicle={vehicle}&api_key={_apiKey}";
-
-        _logger.LogInformation(
-            "Calling Goong Direction API: origin={Origin} dest={Destination} vehicle={Vehicle}",
-            origin, destination, vehicle);
-
-        HttpResponseMessage response;
-        try
-        {
-            response = await _httpClient.GetAsync(url, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Goong Direction API call failed");
-            return new GoongRouteResult { Status = "ERROR", ErrorMessage = ex.Message };
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("Goong API returned HTTP {StatusCode}: {Body}", response.StatusCode, body);
-            return new GoongRouteResult
-            {
-                Status = "ERROR",
-                ErrorMessage = $"HTTP {(int)response.StatusCode}: {body}"
-            };
-        }
-
-        GoongDirectionResponse? goongResp;
-        string rawBody;
-        try
-        {
-            rawBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogDebug("Goong raw response: {Body}", rawBody);
-            goongResp = JsonSerializer.Deserialize<GoongDirectionResponse>(rawBody, JsonOptions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize Goong Direction response");
-            return new GoongRouteResult { Status = "ERROR", ErrorMessage = "Không thể đọc kết quả từ Goong API." };
-        }
-
-        if (goongResp?.Routes is null || goongResp.Routes.Count == 0)
+        var routeResponse = await GetDirectionRouteAsync(originLat, originLng, destLat, destLng, vehicle, cancellationToken);
+        if (routeResponse.Status != "OK" || routeResponse.Route is null || routeResponse.PrimaryLeg is null)
         {
             return new GoongRouteResult
             {
-                Status = "NO_ROUTES",
-                ErrorMessage = "Goong API không trả về tuyến đường."
+                Status = routeResponse.Status,
+                ErrorMessage = routeResponse.ErrorMessage
             };
         }
 
-        // Pick the first (best) route
-        var bestRoute = goongResp.Routes[0];
-        var leg = bestRoute.Legs?.FirstOrDefault();
+        var bestRoute = routeResponse.Route;
+        var leg = routeResponse.PrimaryLeg;
+        var overviewPolyline = BuildSegmentPolyline(bestRoute, leg, (originLat, originLng), (destLat, destLng));
 
         var steps = leg?.Steps?.Select(s => new GoongRouteStep
         {
@@ -122,7 +79,7 @@ public class GoongMapService : IGoongMapService
                 TotalDistanceText = leg?.Distance?.Text ?? string.Empty,
                 TotalDurationSeconds = leg?.Duration?.Value ?? 0,
                 TotalDurationText = leg?.Duration?.Text ?? string.Empty,
-                OverviewPolyline = bestRoute.OverviewPolyline?.Points ?? string.Empty,
+                OverviewPolyline = overviewPolyline,
                 Summary = bestRoute.Summary ?? string.Empty,
                 Steps = steps
             }
@@ -140,71 +97,87 @@ public class GoongMapService : IGoongMapService
         if (points.Count == 0)
             return new MissionRouteResult { Status = "NO_WAYPOINTS", ErrorMessage = "Không có điểm dừng nào có tọa độ." };
 
-        var fmt = CultureInfo.InvariantCulture;
-        var origin      = $"{originLat.ToString(fmt)},{originLng.ToString(fmt)}";
-        var destination = $"{points[^1].Lat.ToString(fmt)},{points[^1].Lng.ToString(fmt)}";
-        var url = $"{_baseUrl}/Direction?origin={origin}&destination={destination}&vehicle={vehicle}&api_key={_apiKey}";
-
-        if (points.Count > 1)
+        var routePoints = new List<(double Lat, double Lng)>(points.Count + 1)
         {
-            var waypointStr = string.Join("|",
-                points[..^1].Select(p => $"{p.Lat.ToString(fmt)},{p.Lng.ToString(fmt)}"));
-            url += $"&waypoints={waypointStr}";
-        }
+            (originLat, originLng)
+        };
+        routePoints.AddRange(points);
 
-        _logger.LogInformation("Calling Goong Mission Route: origin={Origin} dest={Destination} waypoints={Count} vehicle={Vehicle}",
-            origin, destination, points.Count - 1, vehicle);
+        var aggregatedPath = new List<(double Lat, double Lng)>();
+        var legs = new List<GoongLegSummary>(points.Count);
 
-        HttpResponseMessage response;
-        try
+        for (var index = 1; index < routePoints.Count; index++)
         {
-            response = await _httpClient.GetAsync(url, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Goong Mission Route API call failed");
-            return new MissionRouteResult { Status = "ERROR", ErrorMessage = ex.Message };
-        }
+            var from = routePoints[index - 1];
+            var to = routePoints[index];
 
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("Goong Mission Route API returned HTTP {StatusCode}: {Body}", response.StatusCode, body);
-            return new MissionRouteResult { Status = "ERROR", ErrorMessage = $"HTTP {(int)response.StatusCode}: {body}" };
-        }
+            if (AreSameCoordinates(from, to))
+            {
+                var stationaryPath = new List<(double Lat, double Lng)> { from, to };
+                AppendRoutePoints(aggregatedPath, stationaryPath);
 
-        GoongDirectionResponse? goongResp;
-        try
-        {
-            var rawBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogDebug("Goong Mission Route raw response: {Body}", rawBody);
-            goongResp = JsonSerializer.Deserialize<GoongDirectionResponse>(rawBody, JsonOptions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize Goong Mission Route response");
-            return new MissionRouteResult { Status = "ERROR", ErrorMessage = "Không thể đọc kết quả từ Goong API." };
-        }
+                legs.Add(new GoongLegSummary
+                {
+                    SegmentIndex = index - 1,
+                    FromLatitude = from.Lat,
+                    FromLongitude = from.Lng,
+                    ToLatitude = to.Lat,
+                    ToLongitude = to.Lng,
+                    OverviewPolyline = EncodePolyline(stationaryPath)
+                });
 
-        if (goongResp?.Routes is null || goongResp.Routes.Count == 0)
-            return new MissionRouteResult { Status = "NO_ROUTES", ErrorMessage = "Goong API không trả về tuyến đường." };
+                continue;
+            }
 
-        var bestRoute = goongResp.Routes[0];
-        var legs = bestRoute.Legs ?? [];
+            var segmentResponse = await GetDirectionRouteAsync(from.Lat, from.Lng, to.Lat, to.Lng, vehicle, cancellationToken);
+            if (segmentResponse.Status != "OK" || segmentResponse.Route is null || segmentResponse.PrimaryLeg is null)
+            {
+                _logger.LogWarning(
+                    "Failed to calculate mission route segment {SegmentIndex} from ({FromLat}, {FromLng}) to ({ToLat}, {ToLng}). Status={Status}, Error={Error}",
+                    index - 1,
+                    from.Lat,
+                    from.Lng,
+                    to.Lat,
+                    to.Lng,
+                    segmentResponse.Status,
+                    segmentResponse.ErrorMessage);
+
+                return new MissionRouteResult
+                {
+                    Status = segmentResponse.Status,
+                    ErrorMessage = segmentResponse.ErrorMessage
+                };
+            }
+
+            var segmentPolyline = BuildSegmentPolyline(segmentResponse.Route, segmentResponse.PrimaryLeg, from, to);
+            var segmentPath = DecodePolyline(segmentPolyline);
+            if (segmentPath.Count == 0)
+                segmentPath.AddRange([from, to]);
+
+            AppendRoutePoints(aggregatedPath, segmentPath);
+
+            legs.Add(new GoongLegSummary
+            {
+                SegmentIndex = index - 1,
+                FromLatitude = from.Lat,
+                FromLongitude = from.Lng,
+                ToLatitude = to.Lat,
+                ToLongitude = to.Lng,
+                OverviewPolyline = segmentPolyline,
+                DistanceMeters = segmentResponse.PrimaryLeg.Distance?.Value ?? 0,
+                DistanceText = segmentResponse.PrimaryLeg.Distance?.Text ?? string.Empty,
+                DurationSeconds = segmentResponse.PrimaryLeg.Duration?.Value ?? 0,
+                DurationText = segmentResponse.PrimaryLeg.Duration?.Text ?? string.Empty
+            });
+        }
 
         return new MissionRouteResult
         {
             Status               = "OK",
-            TotalDistanceMeters  = legs.Sum(l => l.Distance?.Value ?? 0),
-            TotalDurationSeconds = legs.Sum(l => l.Duration?.Value ?? 0),
-            OverviewPolyline     = bestRoute.OverviewPolyline?.Points ?? string.Empty,
-            Legs = legs.Select(l => new GoongLegSummary
-            {
-                DistanceMeters  = l.Distance?.Value ?? 0,
-                DistanceText    = l.Distance?.Text ?? string.Empty,
-                DurationSeconds = l.Duration?.Value ?? 0,
-                DurationText    = l.Duration?.Text ?? string.Empty
-            }).ToList()
+            TotalDistanceMeters  = legs.Sum(l => l.DistanceMeters),
+            TotalDurationSeconds = legs.Sum(l => l.DurationSeconds),
+            OverviewPolyline     = EncodePolyline(aggregatedPath),
+            Legs                 = legs
         };
     }
 
@@ -214,7 +187,217 @@ public class GoongMapService : IGoongMapService
         return System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", string.Empty);
     }
 
+    private async Task<DirectionRouteResponse> GetDirectionRouteAsync(
+        double originLat,
+        double originLng,
+        double destLat,
+        double destLng,
+        string vehicle,
+        CancellationToken cancellationToken)
+    {
+        var origin = FormatCoordinate(originLat, originLng);
+        var destination = FormatCoordinate(destLat, destLng);
+        var url = $"{_baseUrl}/Direction?origin={origin}&destination={destination}&vehicle={vehicle}&api_key={_apiKey}";
+
+        _logger.LogInformation(
+            "Calling Goong Direction API: origin={Origin} dest={Destination} vehicle={Vehicle}",
+            origin,
+            destination,
+            vehicle);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.GetAsync(url, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Goong Direction API call failed");
+            return new DirectionRouteResponse { Status = "ERROR", ErrorMessage = ex.Message };
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Goong API returned HTTP {StatusCode}: {Body}", response.StatusCode, body);
+            return new DirectionRouteResponse
+            {
+                Status = "ERROR",
+                ErrorMessage = $"HTTP {(int)response.StatusCode}: {body}"
+            };
+        }
+
+        GoongDirectionResponse? goongResp;
+        string rawBody;
+        try
+        {
+            rawBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogDebug("Goong raw response: {Body}", rawBody);
+            goongResp = JsonSerializer.Deserialize<GoongDirectionResponse>(rawBody, JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize Goong Direction response");
+            return new DirectionRouteResponse { Status = "ERROR", ErrorMessage = "Không thể đọc kết quả từ Goong API." };
+        }
+
+        if (goongResp?.Routes is null || goongResp.Routes.Count == 0)
+        {
+            return new DirectionRouteResponse
+            {
+                Status = "NO_ROUTES",
+                ErrorMessage = "Goong API không trả về tuyến đường."
+            };
+        }
+
+        var bestRoute = goongResp.Routes[0];
+        var primaryLeg = bestRoute.Legs?.FirstOrDefault();
+        if (primaryLeg is null)
+        {
+            return new DirectionRouteResponse
+            {
+                Status = "NO_ROUTES",
+                ErrorMessage = "Goong API không trả về chặng đường hợp lệ."
+            };
+        }
+
+        return new DirectionRouteResponse
+        {
+            Status = "OK",
+            Route = bestRoute,
+            PrimaryLeg = primaryLeg
+        };
+    }
+
+    private static string FormatCoordinate(double latitude, double longitude)
+    {
+        var fmt = CultureInfo.InvariantCulture;
+        return $"{latitude.ToString(fmt)},{longitude.ToString(fmt)}";
+    }
+
+    private static string BuildSegmentPolyline(
+        GoongRoute route,
+        GoongLeg leg,
+        (double Lat, double Lng) from,
+        (double Lat, double Lng) to)
+    {
+        var routePoints = DecodePolyline(route.OverviewPolyline?.Points ?? string.Empty);
+        if (routePoints.Count > 0)
+            return EncodePolyline(routePoints);
+
+        var stepPoints = new List<(double Lat, double Lng)>();
+        foreach (var step in leg.Steps ?? [])
+        {
+            var decodedStep = DecodePolyline(step.Polyline?.Points ?? string.Empty);
+            AppendRoutePoints(stepPoints, decodedStep);
+        }
+
+        if (stepPoints.Count > 0)
+            return EncodePolyline(stepPoints);
+
+        return EncodePolyline([from, to]);
+    }
+
+    private static bool AreSameCoordinates((double Lat, double Lng) from, (double Lat, double Lng) to) =>
+        Math.Abs(from.Lat - to.Lat) < 0.000001d
+        && Math.Abs(from.Lng - to.Lng) < 0.000001d;
+
+    private static void AppendRoutePoints(
+        List<(double Lat, double Lng)> destination,
+        IEnumerable<(double Lat, double Lng)> segment)
+    {
+        foreach (var point in segment)
+        {
+            if (destination.Count > 0 && AreSameCoordinates(destination[^1], point))
+                continue;
+
+            destination.Add(point);
+        }
+    }
+
+    private static string EncodePolyline(IEnumerable<(double Lat, double Lng)> points)
+    {
+        var builder = new StringBuilder();
+        var previousLat = 0;
+        var previousLng = 0;
+
+        foreach (var (lat, lng) in points)
+        {
+            var currentLat = (int)Math.Round(lat * 1e5);
+            var currentLng = (int)Math.Round(lng * 1e5);
+
+            EncodePolylineValue(currentLat - previousLat, builder);
+            EncodePolylineValue(currentLng - previousLng, builder);
+
+            previousLat = currentLat;
+            previousLng = currentLng;
+        }
+
+        return builder.ToString();
+    }
+
+    private static void EncodePolylineValue(int value, StringBuilder builder)
+    {
+        value <<= 1;
+        if (value < 0)
+            value = ~value;
+
+        while (value >= 0x20)
+        {
+            builder.Append((char)((0x20 | (value & 0x1f)) + 63));
+            value >>= 5;
+        }
+
+        builder.Append((char)(value + 63));
+    }
+
+    private static List<(double Lat, double Lng)> DecodePolyline(string encodedPolyline)
+    {
+        var points = new List<(double Lat, double Lng)>();
+        if (string.IsNullOrWhiteSpace(encodedPolyline))
+            return points;
+
+        var index = 0;
+        var latitude = 0;
+        var longitude = 0;
+
+        while (index < encodedPolyline.Length)
+        {
+            latitude += DecodePolylineValue(encodedPolyline, ref index);
+            longitude += DecodePolylineValue(encodedPolyline, ref index);
+            points.Add((latitude / 1e5, longitude / 1e5));
+        }
+
+        return points;
+    }
+
+    private static int DecodePolylineValue(string encodedPolyline, ref int index)
+    {
+        var shift = 0;
+        var result = 0;
+
+        while (index < encodedPolyline.Length)
+        {
+            var chunk = encodedPolyline[index++] - 63;
+            result |= (chunk & 0x1f) << shift;
+            shift += 5;
+
+            if (chunk < 0x20)
+                break;
+        }
+
+        return (result & 1) != 0 ? ~(result >> 1) : result >> 1;
+    }
+
     // ---- Internal DTOs for Goong API response deserialization ----
+
+    private sealed class DirectionRouteResponse
+    {
+        public string Status { get; set; } = string.Empty;
+        public string? ErrorMessage { get; set; }
+        public GoongRoute? Route { get; set; }
+        public GoongLeg? PrimaryLeg { get; set; }
+    }
 
     private sealed class GoongDirectionResponse
     {

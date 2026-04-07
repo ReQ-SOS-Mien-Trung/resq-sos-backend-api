@@ -13,9 +13,12 @@ internal static class MissionRouteCoordinateResolver
     public static bool HasUsableTargetCoordinates(MissionActivityModel activity) =>
         HasUsableCoordinates(activity.TargetLatitude, activity.TargetLongitude);
 
-    public static bool RequiresDepotFallback(MissionActivityModel activity) =>
+    public static bool UsesDepotCoordinates(MissionActivityModel activity) =>
         string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
-        && activity.DepotId.HasValue
+        && activity.DepotId.HasValue;
+
+    public static bool RequiresDepotFallback(MissionActivityModel activity) =>
+        UsesDepotCoordinates(activity)
         && !HasUsableTargetCoordinates(activity);
 
     public static async Task<(double Latitude, double Longitude)?> ResolveAsync(
@@ -23,10 +26,25 @@ internal static class MissionRouteCoordinateResolver
         IDepotRepository depotRepository,
         CancellationToken cancellationToken)
     {
+        if (UsesDepotCoordinates(activity))
+        {
+            var depotCoordinates = await ResolveDepotCoordinatesAsync(activity, depotRepository, cancellationToken);
+            if (depotCoordinates is not null)
+                return depotCoordinates;
+        }
+
         if (HasUsableTargetCoordinates(activity))
             return (activity.TargetLatitude!.Value, activity.TargetLongitude!.Value);
 
-        if (!RequiresDepotFallback(activity))
+        return null;
+    }
+
+    private static async Task<(double Latitude, double Longitude)?> ResolveDepotCoordinatesAsync(
+        MissionActivityModel activity,
+        IDepotRepository depotRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!activity.DepotId.HasValue)
             return null;
 
         var depot = await depotRepository.GetByIdAsync(activity.DepotId!.Value, cancellationToken);
