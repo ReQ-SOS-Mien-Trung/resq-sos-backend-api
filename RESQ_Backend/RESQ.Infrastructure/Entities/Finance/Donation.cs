@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Infrastructure.Entities.Finance;
 
@@ -39,9 +40,9 @@ public partial class Donation
     [StringLength(50)]
     public string? Status { get; set; }
 
-    // Changed: Foreign Key to PaymentMethod
-    [Column("payment_method_id")]
-    public int? PaymentMethodId { get; set; }
+    [Column("payment_method_code")]
+    [StringLength(50)]
+    public PaymentMethodCode? PaymentMethodCode { get; set; }
 
     [Column("paid_at", TypeName = "timestamp with time zone")]
     public DateTime? PaidAt { get; set; }
@@ -61,9 +62,5 @@ public partial class Donation
     [ForeignKey("FundCampaignId")]
     [InverseProperty("Donations")]
     public virtual FundCampaign? FundCampaign { get; set; }
-
-    [ForeignKey("PaymentMethodId")]
-    [InverseProperty("Donations")]
-    public virtual PaymentMethod? PaymentMethod { get; set; }
 }
 

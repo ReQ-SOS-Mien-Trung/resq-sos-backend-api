@@ -8,5 +8,6 @@ public class CreateDonationRequestDto
     public decimal Amount { get; set; }
     public string? Note { get; set; }
     public bool IsPrivate { get; set; } = false;
-    public int PaymentMethodId { get; set; }
+    /// <summary>Mã phương thức thanh toán ("PAYOS", "ZALOPAY").</summary>
+    public string PaymentMethodCode { get; set; } = string.Empty;
 }

@@ -10,15 +10,6 @@ public static class FinanceSeed
     {
         var fundSeedTime = new DateTime(2026, 3, 25, 0, 0, 0, DateTimeKind.Utc);
 
-        // 0. Payment Methods
-        var paymentMethods = new List<PaymentMethod>
-        {
-            new PaymentMethod { Id = 1, Code = "PAYOS", Name = "Chuyển khoản Ngân hàng (QR Code)", IsActive = true },
-            new PaymentMethod { Id = 2, Code = "MOMO", Name = "Ví điện tử MoMo", IsActive = true },
-            new PaymentMethod { Id = 3, Code = "ZALOPAY", Name = "Ví điện tử ZaloPay", IsActive = true }
-        };
-        modelBuilder.Entity<PaymentMethod>().HasData(paymentMethods);
-
         // 0.1 Depot Funds (ví kho) — seed sẵn hạn mức tự ứng cho từng kho
         var depotFunds = new List<DepotFund>
         {
@@ -182,7 +173,7 @@ public static class FinanceSeed
                 OrderId = "2607150001",
                 TransactionId = "TRX-001",
                 Status = Status.Succeed.ToString(),
-                PaymentMethodId = 1, // PayOS
+                PaymentMethodCode = PaymentMethodCode.PAYOS,
                 PaidAt = new DateTime(2026, 1, 15, 10, 30, 0, DateTimeKind.Utc),
                 Note = "Mong bà con sớm vượt qua khó khăn.",
                 PaymentAuditInfo = "[Bank:MBBANK-1234567890]", 
@@ -199,7 +190,7 @@ public static class FinanceSeed
                 OrderId = "2607160002",
                 TransactionId = "TRX-002",
                 Status = Status.Succeed.ToString(),
-                PaymentMethodId = 1, // PayOS
+                PaymentMethodCode = PaymentMethodCode.PAYOS,
                 PaidAt = new DateTime(2026, 1, 16, 14, 15, 0, DateTimeKind.Utc),
                 Note = "Ủng hộ miền Trung ruột thịt.",
                 PaymentAuditInfo = "[Bank:VIETCOMBANK-0987654321]", 
@@ -216,7 +207,7 @@ public static class FinanceSeed
                 OrderId = "2608010003",
                 TransactionId = "TRX-003",
                 Status = Status.Succeed.ToString(),
-                PaymentMethodId = 2, // MoMo
+                PaymentMethodCode = PaymentMethodCode.MOMO,
                 PaidAt = new DateTime(2026, 2, 1, 09, 00, 0, DateTimeKind.Utc),
                 Note = "Góp một phần nhỏ bé.",
                 PaymentAuditInfo = "[MoMo:TransId=99887766,Type=captureWallet]", 
@@ -235,7 +226,7 @@ public static class FinanceSeed
                 OrderId = "2502100004",
                 TransactionId = "TRX-004",
                 Status = Status.Succeed.ToString(),
-                PaymentMethodId = 1, // PayOS
+                PaymentMethodCode = PaymentMethodCode.PAYOS,
                 PaidAt = new DateTime(2025, 2, 10, 11, 20, 0, DateTimeKind.Utc),
                 Note = "Hỗ trợ thiết bị y tế cho bệnh viện.",
                 PaymentAuditInfo = "[Bank:BIDV-555666777]", 
@@ -252,7 +243,7 @@ public static class FinanceSeed
                 OrderId = "2502150005",
                 TransactionId = "TRX-005",
                 Status = Status.Succeed.ToString(),
-                PaymentMethodId = 2, // MoMo
+                PaymentMethodCode = PaymentMethodCode.MOMO,
                 PaidAt = new DateTime(2025, 2, 15, 16, 45, 0, DateTimeKind.Utc),
                 Note = "Chúc các bác sĩ nhiều sức khỏe.",
                 PaymentAuditInfo = "[MoMo:TransId=55443322,Type=qr]",

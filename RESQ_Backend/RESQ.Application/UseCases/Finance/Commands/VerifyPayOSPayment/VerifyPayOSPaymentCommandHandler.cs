@@ -6,14 +6,15 @@ using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 
-namespace RESQ.Application.UseCases.Finance.Commands.VerifyZaloPayPayment;
+namespace RESQ.Application.UseCases.Finance.Commands.VerifyPayOSPayment;
 
 /// <summary>
-/// Fallback handler: when ZaloPay does not fire the callback (e.g. sandbox or network issues),
-/// the frontend calls this after the redirect so the backend can query ZaloPay directly
-/// and update the donation/campaign entities.
+/// Fallback handler: when the PayOS webhook does not reliably update the DB
+/// (e.g. webhook URL configured in PayOS dashboard points to a different server),
+/// the frontend calls <c>GET /finance/donations/payos-verify?orderId={orderCode}</c>
+/// immediately after PayOS redirects back to the success page.
 /// </summary>
-public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayPaymentCommand, bool>
+public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPaymentCommand, bool>
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDonationRepository _donationRepository;
@@ -21,16 +22,16 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
     private readonly IFundTransactionRepository _transactionRepository;
     private readonly IPaymentGatewayFactory _paymentGatewayFactory;
     private readonly IEmailService _emailService;
-    private readonly ILogger<VerifyZaloPayPaymentCommandHandler> _logger;
+    private readonly ILogger<VerifyPayOSPaymentCommandHandler> _logger;
 
-    public VerifyZaloPayPaymentCommandHandler(
+    public VerifyPayOSPaymentCommandHandler(
         IUnitOfWork unitOfWork,
         IDonationRepository donationRepository,
         IFundCampaignRepository campaignRepository,
         IFundTransactionRepository transactionRepository,
         IPaymentGatewayFactory paymentGatewayFactory,
         IEmailService emailService,
-        ILogger<VerifyZaloPayPaymentCommandHandler> logger)
+        ILogger<VerifyPayOSPaymentCommandHandler> logger)
     {
         _unitOfWork = unitOfWork;
         _donationRepository = donationRepository;
@@ -41,61 +42,64 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
         _logger = logger;
     }
 
-    public async Task<bool> Handle(VerifyZaloPayPaymentCommand request, CancellationToken cancellationToken)
+    public async Task<bool> Handle(VerifyPayOSPaymentCommand request, CancellationToken cancellationToken)
     {
-        var appTransId = request.AppTransId;
-        if (string.IsNullOrWhiteSpace(appTransId))
-        {
-            _logger.LogWarning("VerifyZaloPay: empty AppTransId.");
-            return false;
-        }
+        var orderId = request.OrderId;
 
-        // 1. Look up the donation first — if already succeeded, nothing to do
-        var donation = await _donationRepository.GetByOrderIdAsync(appTransId, cancellationToken);
+        // 1. Look up the donation — if already succeeded, nothing to do
+        var donation = await _donationRepository.GetByOrderIdAsync(orderId, cancellationToken);
         if (donation == null)
         {
-            _logger.LogWarning("VerifyZaloPay: donation not found for AppTransId {AppTransId}.", appTransId);
+            _logger.LogWarning("VerifyPayOS: donation not found for OrderId {OrderId}.", orderId);
             return false;
         }
 
         if (donation.Status == Status.Succeed)
         {
-            _logger.LogInformation("VerifyZaloPay: donation {Id} already succeeded, skipping.", donation.Id);
+            _logger.LogInformation("VerifyPayOS: donation {Id} already succeeded, skipping.", donation.Id);
             return true;
         }
 
-        // 2. Query ZaloPay Order Query API
-        var gatewayService = _paymentGatewayFactory.GetService(PaymentMethodCode.ZALOPAY);
-        var queryResult = await gatewayService.QueryOrderAsync(appTransId, cancellationToken);
+        // 2. Require a stored TransactionId (= PayOS paymentLinkId set during CreateDonation)
+        if (string.IsNullOrEmpty(donation.TransactionId))
+        {
+            _logger.LogWarning("VerifyPayOS: donation {Id} has no TransactionId (paymentLinkId) stored — cannot query PayOS.", donation.Id);
+            return false;
+        }
+
+        // 3. Query PayOS order status via the payment link API
+        var gatewayService = _paymentGatewayFactory.GetService(PaymentMethodCode.PAYOS);
+        var queryResult = await gatewayService.QueryPaymentLinkAsync(donation.TransactionId, cancellationToken);
 
         if (queryResult == null)
         {
-            _logger.LogError("VerifyZaloPay: null response from ZaloPay query for {AppTransId}.", appTransId);
+            _logger.LogError("VerifyPayOS: null response from PayOS query for donation {Id} / paymentLinkId {LinkId}.",
+                donation.Id, donation.TransactionId);
             return false;
         }
 
-        _logger.LogInformation("VerifyZaloPay: ZaloPay query return_code={Code} for {AppTransId}.",
-            queryResult.ReturnCode, appTransId);
+        _logger.LogInformation("VerifyPayOS: PayOS status={Status} (ReturnCode={Code}) for donation {Id}.",
+            queryResult.ReturnMessage, queryResult.ReturnCode, donation.Id);
 
-        // return_code: 1 = paid, 2 = rejected/failed, 3 = processing/pending
+        // ReturnCode: 1 = PAID, 2 = failed/cancelled, 3 = processing/pending
         if (queryResult.ReturnCode != 1)
         {
-            _logger.LogWarning("VerifyZaloPay: payment not confirmed (return_code={Code}) for {AppTransId}.",
-                queryResult.ReturnCode, appTransId);
+            _logger.LogWarning("VerifyPayOS: payment not confirmed (ReturnCode={Code}) for donation {Id}.",
+                queryResult.ReturnCode, donation.Id);
             return false;
         }
 
-        // 3. Update donation
+        // 4. Update donation — deliberately keep existing TransactionId (paymentLinkId)
         try
         {
             donation.UpdatePaymentStatus(Status.Succeed);
-            donation.TransactionId = queryResult.ZpTransId.ToString();
-            donation.PaymentAuditInfo = $"[ZaloPay:ZpTransId={queryResult.ZpTransId}][Source=QueryAPI]";
-            donation.PaidAt = DateTimeOffset.FromUnixTimeMilliseconds(queryResult.ServerTime).UtcDateTime;
+            // TransactionId already holds paymentLinkId set during CreateDonation — do not overwrite.
+            donation.PaymentAuditInfo = $"[PayOS:status=PAID][Source=QueryAPI][LinkId={donation.TransactionId}]";
+            donation.PaidAt = DateTime.UtcNow;
 
             await _donationRepository.UpdateAsync(donation, cancellationToken);
 
-            // 4. Update fund campaign
+            // 5. Update fund campaign
             if (donation.FundCampaignId.HasValue)
             {
                 var campaign = await _campaignRepository.GetByIdAsync(donation.FundCampaignId.Value, cancellationToken);
@@ -120,22 +124,22 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
 
             await _unitOfWork.SaveAsync();
 
-            // 5. Send confirmation email (fire-and-forget)
+            // 6. Send confirmation email (fire-and-forget)
             if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
                 _ = _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
-                    donation.FundCampaignName ?? "Campaign", donation.FundCampaignCode ?? "RESQ",
+                    donation.FundCampaignName ?? "Chiến dịch", donation.FundCampaignCode ?? "RESQ",
                     donation.Id, cancellationToken
                 );
             }
 
-            _logger.LogInformation("VerifyZaloPay: donation {Id} successfully updated via query API.", donation.Id);
+            _logger.LogInformation("VerifyPayOS: donation {Id} successfully updated via PayOS Query API.", donation.Id);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "VerifyZaloPay: error updating entities for AppTransId {AppTransId}.", appTransId);
+            _logger.LogError(ex, "VerifyPayOS: error updating entities for donation {Id}.", donation.Id);
             return false;
         }
     }

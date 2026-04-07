@@ -103,7 +103,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFundCampaignRepository, FundCampaignRepository>();
         services.AddScoped<IDonationRepository, DonationRepository>();
         services.AddScoped<IFundTransactionRepository, FundTransactionRepository>();
-        services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
         services.AddScoped<ICampaignDisbursementRepository, CampaignDisbursementRepository>();
         services.AddScoped<IFundingRequestRepository, FundingRequestRepository>();
         services.AddScoped<IDepotFundRepository, DepotFundRepository>();

@@ -65,6 +65,13 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
             return true;
         }
 
+        // Idempotency guard — webhook may fire more than once
+        if (donation.Status == Status.Succeed)
+        {
+            _logger.LogInformation("Donation {Id} already succeeded, ignoring duplicate webhook for OrderCode {OrderCode}.", donation.Id, orderCodeStr);
+            return true;
+        }
+
         try 
         {
             // Business Rule: Update Status Check (Enforces Idempotency and State rules)

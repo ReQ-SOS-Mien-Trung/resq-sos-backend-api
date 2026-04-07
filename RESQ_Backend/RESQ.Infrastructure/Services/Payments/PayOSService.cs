@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Net.Http.Headers;
 
 namespace RESQ.Infrastructure.Services.Payments;
 
@@ -178,5 +179,76 @@ public class PayOSService : IPaymentGatewayService
 
     public Task<ZaloPayQueryResponse?> QueryOrderAsync(string appTransId, CancellationToken cancellationToken = default)
         => Task.FromResult<ZaloPayQueryResponse?>(null); // Not supported by PayOS
+
+    /// <summary>
+    /// Queries PayOS for a payment link's current status via
+    /// GET /v2/payment-requests/{paymentLinkId}.
+    /// Returns a normalised <see cref="ZaloPayQueryResponse"/> so callers can
+    /// share the same logic as ZaloPay verify:
+    ///   ReturnCode 1 = PAID, 2 = failed/cancelled/expired, 3 = processing
+    /// </summary>
+    public async Task<ZaloPayQueryResponse?> QueryPaymentLinkAsync(string paymentLinkId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payOsConfig = _configuration.GetSection("PayOS");
+            var clientId = payOsConfig["ClientId"];
+            var apiKey = payOsConfig["ApiKey"];
+            var baseUrl = (payOsConfig["BaseUrl"]?.TrimEnd('/')) ?? "https://api-merchant.payos.vn";
+
+            if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(apiKey))
+            {
+                _logger.LogError("PayOS QueryPaymentLink: missing ClientId or ApiKey configuration.");
+                return null;
+            }
+
+            var client = _httpClientFactory.CreateClient();
+            client.BaseAddress = new Uri(baseUrl);
+            client.DefaultRequestHeaders.Add("x-client-id", clientId);
+            client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+
+            var response = await client.GetAsync($"/v2/payment-requests/{paymentLinkId}", cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            _logger.LogInformation("PayOS QueryPaymentLink response for {PaymentLinkId}: {Response}", paymentLinkId, responseContent);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("PayOS QueryPaymentLink HTTP error: {Status} - {Body}", response.StatusCode, responseContent);
+                return null;
+            }
+
+            var result = JsonSerializer.Deserialize<PayOSOrderStatusResponse>(responseContent,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (result?.Data == null || result.Code != "00")
+            {
+                _logger.LogWarning("PayOS QueryPaymentLink business error: {Code} - {Desc}", result?.Code, result?.Desc);
+                return null;
+            }
+
+            var status = result.Data.Status?.ToUpperInvariant();
+            int returnCode = status switch
+            {
+                "PAID"       => 1,
+                "PROCESSING" => 3,
+                _            => 2   // CANCELLED, EXPIRED, or unknown
+            };
+
+            return new ZaloPayQueryResponse
+            {
+                ReturnCode    = returnCode,
+                ReturnMessage = result.Data.Status ?? string.Empty,
+                Amount        = result.Data.Amount,
+                ZpTransId     = 0,   // not applicable for PayOS; caller must not overwrite TransactionId
+                ServerTime    = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "PayOS QueryPaymentLink exception for PaymentLinkId: {PaymentLinkId}", paymentLinkId);
+            return null;
+        }
+    }
 }
 

@@ -1,4 +1,5 @@
 using FluentValidation;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateDonation;
 
@@ -26,5 +27,10 @@ public class CreateDonationValidator : AbstractValidator<CreateDonationCommand>
 
         RuleFor(v => v.Note)
             .MaximumLength(500).WithMessage("Lời nhắn không được vượt quá 500 ký tự.");
+
+        RuleFor(v => v.PaymentMethodCode)
+            .NotEmpty().WithMessage("Phương thức thanh toán không được để trống.")
+            .Must(code => Enum.TryParse<PaymentMethodCode>(code, ignoreCase: true, out _))
+            .WithMessage("Phương thức thanh toán không hợp lệ.");
     }
 }

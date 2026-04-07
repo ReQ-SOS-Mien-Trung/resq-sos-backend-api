@@ -27,10 +27,8 @@ public static class DonationMapper
             OrderId = entity.OrderId,
             TransactionId = entity.TransactionId,
             
-            // Map Entity Reference
-            PaymentMethodId = entity.PaymentMethodId,
-            PaymentMethodCode = entity.PaymentMethod?.Code,
-            PaymentMethodName = entity.PaymentMethod?.Name,
+            // PaymentMethodCode lấy trực tiếp từ enum (đã lưu dưới dạng string)
+            PaymentMethodCode = entity.PaymentMethodCode,
 
             PaidAt = entity.PaidAt,
             Note = entity.Note,
@@ -57,7 +55,7 @@ public static class DonationMapper
             OrderId = model.OrderId,
             TransactionId = model.TransactionId,
             Status = model.Status.ToString(),
-            PaymentMethodId = model.PaymentMethodId,
+            PaymentMethodCode = model.PaymentMethodCode,
             PaidAt = model.PaidAt,
             Note = model.Note,
             PaymentAuditInfo = model.PaymentAuditInfo, 
@@ -78,7 +76,7 @@ public static class DonationMapper
         entity.OrderId = model.OrderId;
         entity.TransactionId = model.TransactionId;
         entity.Status = model.Status.ToString();
-        entity.PaymentMethodId = model.PaymentMethodId;
+        entity.PaymentMethodCode = model.PaymentMethodCode;
         entity.PaidAt = model.PaidAt;
         
         entity.Note = model.Note;
@@ -86,4 +84,5 @@ public static class DonationMapper
         entity.IsPrivate = model.IsPrivate; 
     }
 }
+
 
