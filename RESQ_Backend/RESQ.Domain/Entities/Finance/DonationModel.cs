@@ -19,10 +19,8 @@ public class DonationModel
     public string? TransactionId { get; set; }
     public Status Status { get; private set; } // Private set to enforce logic
     
-    // Entity References
-    public int? PaymentMethodId { get; set; }
-    public string? PaymentMethodCode { get; set; } // e.g. "PAYOS", "MOMO"
-    public string? PaymentMethodName { get; set; } 
+    // Payment Method — stored as enum, persisted as VARCHAR(50)
+    public PaymentMethodCode? PaymentMethodCode { get; set; }
 
     public DateTime? PaidAt { get; set; }
     public string? Note { get; set; }

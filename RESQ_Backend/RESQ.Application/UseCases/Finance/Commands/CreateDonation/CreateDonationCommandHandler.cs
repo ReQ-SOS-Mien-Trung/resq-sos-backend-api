@@ -15,26 +15,31 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDonationRepository _donationRepository;
     private readonly IFundCampaignRepository _fundCampaignRepository;
-    private readonly IPaymentMethodRepository _paymentMethodRepository;
     private readonly IPaymentGatewayFactory _paymentGatewayFactory;
 
     public CreateDonationCommandHandler(
         IUnitOfWork unitOfWork,
         IDonationRepository donationRepository, 
         IFundCampaignRepository fundCampaignRepository,
-        IPaymentMethodRepository paymentMethodRepository,
         IPaymentGatewayFactory paymentGatewayFactory)
     {
         _unitOfWork = unitOfWork;
         _donationRepository = donationRepository;
         _fundCampaignRepository = fundCampaignRepository;
-        _paymentMethodRepository = paymentMethodRepository;
         _paymentGatewayFactory = paymentGatewayFactory;
     }
 
     public async Task<CreateDonationResponse> Handle(CreateDonationCommand request, CancellationToken cancellationToken)
     {
-        // 1. Validate Campaign
+        // 1. Parse và validate PaymentMethodCode (FluentValidation đã chặn chuỗi không hợp lệ,
+        //    nhưng parse lại ở đây để có typed enum cho toàn bộ handler)
+        if (!Enum.TryParse<PaymentMethodCode>(request.PaymentMethodCode, ignoreCase: true, out var paymentCode))
+            throw new BadRequestException($"Phương thức thanh toán '{request.PaymentMethodCode}' không hợp lệ.");
+
+        if (paymentCode.IsHidden())
+            throw new BadRequestException($"Phương thức thanh toán '{paymentCode.GetDescription()}' hiện chưa được hỗ trợ. Vui lòng chọn PayOS hoặc ZaloPay.");
+
+        // 2. Validate Campaign
         var campaign = await _fundCampaignRepository.GetByIdAsync(request.FundCampaignId, cancellationToken);
         if (campaign == null)
             throw new NotFoundException($"Không tìm thấy chiến dịch với ID {request.FundCampaignId}");
@@ -42,12 +47,7 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
         if (campaign.Status != FundCampaignStatus.Active)
             throw new InvalidCampaignStatusException(campaign.Id, campaign.Status.ToString(), "Nhận ủng hộ");
 
-        // 2. Validate Payment Method from DB
-        var paymentMethodEntity = await _paymentMethodRepository.GetByIdAsync(request.PaymentMethodId, cancellationToken);
-        if (paymentMethodEntity == null || !paymentMethodEntity.IsActive)
-            throw new BadRequestException("Phương thức thanh toán không hợp lệ hoặc đã ngừng hoạt động.");
-
-        // 3. Create Donation
+        // 3. Create Donation (dùng enum paymentCode — không quay lại dùng string)
         long orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         var donationModel = new DonationModel
@@ -58,7 +58,7 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
             Note = request.Note,
             IsPrivate = request.IsPrivate,
             OrderId = orderCode.ToString(),
-            PaymentMethodId = request.PaymentMethodId,
+            PaymentMethodCode = paymentCode,
             CreatedAt = DateTime.UtcNow,
             FundCampaignCode = campaign.Code,
             FundCampaignName = campaign.Name
@@ -73,10 +73,10 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
         var addedDonation = await _donationRepository.GetByOrderIdAsync(orderCode.ToString(), cancellationToken);
         if (addedDonation == null) throw new Exception("Lỗi khi truy xuất đơn ủng hộ.");
 
-        // 4. Resolve Gateway Service using the Code from DB Entity
+        // 4. Resolve Gateway Service bằng enum (type-safe)
         addedDonation.FundCampaignCode = campaign.Code;
         
-        var paymentService = _paymentGatewayFactory.GetService(paymentMethodEntity.Code);
+        var paymentService = _paymentGatewayFactory.GetService(paymentCode);
         var paymentResult = await paymentService.CreatePaymentLinkAsync(addedDonation, cancellationToken);
 
         // 5. Update Transaction Info
@@ -89,8 +89,8 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
             DonationId = addedDonation.Id,
             CheckoutUrl = paymentResult.CheckoutUrl,
             QrCode = paymentResult.QrCode,
-            PaymentMethod = paymentMethodEntity.Name
+            PaymentMethod = paymentCode.GetDescription(),
+            OrderId = addedDonation.OrderId ?? string.Empty
         };
     }
 }
-

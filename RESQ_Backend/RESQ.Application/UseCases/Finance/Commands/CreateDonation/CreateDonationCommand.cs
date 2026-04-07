@@ -10,5 +10,6 @@ public record CreateDonationCommand : IRequest<CreateDonationResponse>
     public decimal Amount { get; init; }
     public string? Note { get; init; }
     public bool IsPrivate { get; init; }
-    public int PaymentMethodId { get; init; }
+    /// <summary>Mã phương thức thanh toán ("PAYOS", "ZALOPAY"). MoMo hiện chưa được hỗ trợ.</summary>
+    public string PaymentMethodCode { get; init; } = string.Empty;
 }

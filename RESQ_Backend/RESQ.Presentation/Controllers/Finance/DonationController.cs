@@ -8,10 +8,12 @@ using RESQ.Application.UseCases.Finance.Commands.CreateDonation;
 using RESQ.Application.UseCases.Finance.Commands.ProcessMomoPayment;
 using RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
 using RESQ.Application.UseCases.Finance.Commands.ProcessZaloPayPayment;
+using RESQ.Application.UseCases.Finance.Commands.VerifyPayOSPayment;
 using RESQ.Application.UseCases.Finance.Commands.VerifyZaloPayPayment;
 using RESQ.Application.UseCases.Finance.Queries.GetDonations;
-using RESQ.Application.UseCases.Finance.Queries.GetPaymentMethods;
+using RESQ.Application.UseCases.Finance.Queries.GetPaymentMethodsMetadata;
 using RESQ.Application.UseCases.Finance.Queries.GetPublicDonations;
+using RESQ.Domain.Enum.Finance;
 using System.Text.Json;
 
 namespace RESQ.Presentation.Controllers.Finance;
@@ -37,7 +39,7 @@ public class DonationController : ControllerBase
     [HttpGet("payment-methods")]
     public async Task<IActionResult> GetPaymentMethods()
     {
-        var result = await _mediator.Send(new GetPaymentMethodsQuery());
+        var result = await _mediator.Send(new GetPaymentMethodsMetadataQuery());
         return Ok(result);
     }
 
@@ -71,7 +73,7 @@ public class DonationController : ControllerBase
             Amount = dto.Amount,
             Note = dto.Note,
             IsPrivate = dto.IsPrivate,
-            PaymentMethodId = dto.PaymentMethodId
+            PaymentMethodCode = dto.PaymentMethodCode
         };
 
         var result = await _mediator.Send(command);
@@ -100,7 +102,7 @@ public class DonationController : ControllerBase
             }
 
             // Retrieve PayOS service dynamically via Factory
-            var gatewayService = _paymentGatewayFactory.GetService("PAYOS");
+            var gatewayService = _paymentGatewayFactory.GetService(PaymentMethodCode.PAYOS);
             var isValidSignature = gatewayService.VerifyWebhookSignature(jsonBody);
 
             if (!isValidSignature)
@@ -184,6 +186,48 @@ public class DonationController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Redirect endpoint: ZaloPay redirects the user here after payment (via embed_data.redirecturl).
+    /// Backend verifies the payment via Query API, then redirects the user to the frontend success/fail page.
+    /// This ensures the DB is updated even when ZaloPay's server-to-server callback does not fire.
+    /// </summary>
+    [HttpGet("zalopay-return")]
+    [AllowAnonymous]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> ZaloPayReturn([FromQuery] string? apptransid, [FromQuery] int? status)
+    {
+        var zaloPayConfig = _configuration.GetSection("ZaloPay");
+        var successUrl = zaloPayConfig["RedirectUrl"] ?? "https://resq-sos-mientrung.vercel.app/success";
+        var failUrl = zaloPayConfig["CancelUrl"] ?? "https://resq-sos-mientrung.vercel.app/fail";
+
+        // ZaloPay sends status=1 for success in the redirect query string
+        if (status.HasValue && status.Value != 1)
+        {
+            _logger.LogInformation("ZaloPay return: user cancelled or failed (status={Status}, apptransid={AppTransId}).", status, apptransid);
+            return Redirect(failUrl);
+        }
+
+        if (string.IsNullOrWhiteSpace(apptransid))
+        {
+            _logger.LogWarning("ZaloPay return: missing apptransid.");
+            return Redirect(failUrl);
+        }
+
+        try
+        {
+            var command = new VerifyZaloPayPaymentCommand { AppTransId = apptransid };
+            var verified = await _mediator.Send(command);
+
+            _logger.LogInformation("ZaloPay return: verify result={Result} for apptransid={AppTransId}.", verified, apptransid);
+            return Redirect(verified ? successUrl : failUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ZaloPay return: error verifying apptransid={AppTransId}.", apptransid);
+            return Redirect(failUrl);
+        }
+    }
+
     /// <summary>Webhook nhận kết quả thanh toán từ ZaloPay (IPN callback).</summary>
     [HttpPost("zalopay-callback")]
     [AllowAnonymous]
@@ -204,7 +248,7 @@ public class DonationController : ControllerBase
                 return Ok(new { return_code = 2, return_message = "invalid payload" });
             }
 
-            var gatewayService = _paymentGatewayFactory.GetService("ZALOPAY");
+            var gatewayService = _paymentGatewayFactory.GetService(PaymentMethodCode.ZALOPAY);
 
             var isValidSignature = gatewayService.VerifyWebhookSignature(jsonBody);
 
@@ -261,6 +305,37 @@ public class DonationController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error verifying ZaloPay payment for apptransid={AppTransId}", apptransid);
+            return Ok(new { success = false, message = "Đã xảy ra lỗi trong quá trình xác minh." });
+        }
+    }
+
+    /// <summary>
+    /// Xác minh kết quả thanh toán PayOS trực tiếp (fallback khi webhook không cập nhật DB).
+    /// Frontend gọi sau khi PayOS redirect về trang success với query param <c>orderCode</c>.
+    /// </summary>
+    [HttpGet("payos-verify")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> VerifyPayOSPayment([FromQuery] string orderId)
+    {
+        if (string.IsNullOrWhiteSpace(orderId))
+            return BadRequest(new { success = false, message = "Vui lòng cung cấp mã đơn hàng orderId." });
+
+        try
+        {
+            var command = new VerifyPayOSPaymentCommand { OrderId = orderId };
+            var success = await _mediator.Send(command);
+            return Ok(new
+            {
+                success,
+                message = success
+                    ? "Xác minh và ghi nhận thanh toán PayOS thành công."
+                    : "Thanh toán chưa được xác nhận hoặc đã được xử lý trước đó."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying PayOS payment for orderId={OrderId}", orderId);
             return Ok(new { success = false, message = "Đã xảy ra lỗi trong quá trình xác minh." });
         }
     }}

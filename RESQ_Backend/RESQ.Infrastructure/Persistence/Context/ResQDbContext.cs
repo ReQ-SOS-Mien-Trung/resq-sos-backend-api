@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Text.Json;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Entities.Identity;
@@ -47,7 +48,6 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Donation> Donations { get; set; }
     public virtual DbSet<FundCampaign> FundCampaigns { get; set; }
     public virtual DbSet<FundTransaction> FundTransactions { get; set; }
-    public virtual DbSet<PaymentMethod> PaymentMethods { get; set; }
     public virtual DbSet<InventoryLog> InventoryLogs { get; set; }
     public virtual DbSet<Category> Categories { get; set; }
     public virtual DbSet<Message> Messages { get; set; }
@@ -118,12 +118,13 @@ public partial class ResQDbContext : DbContext
                 .HasConstraintName("FK_abilities_ability_subgroups_ability_subgroup_id");
         });
 
-        modelBuilder.Entity<PaymentMethod>(entity =>
+        modelBuilder.Entity<Donation>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("payment_methods_pkey");
-            entity.HasIndex(e => e.Code).IsUnique();
+            entity.Property(e => e.PaymentMethodCode)
+                .HasConversion<string>()
+                .HasMaxLength(50);
         });
-        
+
         modelBuilder.Entity<UserPermission>(entity =>
         {
             entity.HasKey(e => new { e.UserId, e.ClaimId }).HasName("user_permissions_pkey");
