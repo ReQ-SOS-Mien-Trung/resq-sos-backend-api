@@ -58,8 +58,11 @@ public class ZaloPayService : IPaymentGatewayService
         var item = "[]"; 
         var description = $"RESQ - Ung ho chien dich {donation.FundCampaignCode}";
         
-        // embed_data includes the URL where ZaloPay redirects the user back to the application UI
-        var embedDataObj = new { redirecturl = redirectUrl };
+        // Redirect through backend so it can verify the payment before sending the user to the frontend.
+        // ZaloPay will append ?appid=&apptransid=&pmcid=&bankcode=&amount=&discountamount=&status= to this URL.
+        var serverBaseUrl = _configuration["AppSettings:BaseUrl"]?.TrimEnd('/');
+        var serverReturnUrl = $"{serverBaseUrl}/finance/donations/zalopay-return";
+        var embedDataObj = new { redirecturl = serverReturnUrl };
         var embedData = JsonSerializer.Serialize(embedDataObj);
 
         // MAC formula for Order creation: app_id|app_trans_id|app_user|amount|app_time|embed_data|item

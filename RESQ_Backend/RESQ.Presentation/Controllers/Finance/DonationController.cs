@@ -186,6 +186,48 @@ public class DonationController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Redirect endpoint: ZaloPay redirects the user here after payment (via embed_data.redirecturl).
+    /// Backend verifies the payment via Query API, then redirects the user to the frontend success/fail page.
+    /// This ensures the DB is updated even when ZaloPay's server-to-server callback does not fire.
+    /// </summary>
+    [HttpGet("zalopay-return")]
+    [AllowAnonymous]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> ZaloPayReturn([FromQuery] string? apptransid, [FromQuery] int? status)
+    {
+        var zaloPayConfig = _configuration.GetSection("ZaloPay");
+        var successUrl = zaloPayConfig["RedirectUrl"] ?? "https://resq-sos-mientrung.vercel.app/success";
+        var failUrl = zaloPayConfig["CancelUrl"] ?? "https://resq-sos-mientrung.vercel.app/fail";
+
+        // ZaloPay sends status=1 for success in the redirect query string
+        if (status.HasValue && status.Value != 1)
+        {
+            _logger.LogInformation("ZaloPay return: user cancelled or failed (status={Status}, apptransid={AppTransId}).", status, apptransid);
+            return Redirect(failUrl);
+        }
+
+        if (string.IsNullOrWhiteSpace(apptransid))
+        {
+            _logger.LogWarning("ZaloPay return: missing apptransid.");
+            return Redirect(failUrl);
+        }
+
+        try
+        {
+            var command = new VerifyZaloPayPaymentCommand { AppTransId = apptransid };
+            var verified = await _mediator.Send(command);
+
+            _logger.LogInformation("ZaloPay return: verify result={Result} for apptransid={AppTransId}.", verified, apptransid);
+            return Redirect(verified ? successUrl : failUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ZaloPay return: error verifying apptransid={AppTransId}.", apptransid);
+            return Redirect(failUrl);
+        }
+    }
+
     /// <summary>Webhook nhận kết quả thanh toán từ ZaloPay (IPN callback).</summary>
     [HttpPost("zalopay-callback")]
     [AllowAnonymous]
