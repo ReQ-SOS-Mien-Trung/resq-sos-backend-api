@@ -63,12 +63,14 @@ public class GetMissionTeamRouteQueryHandler(
             .Where(a => a.MissionTeamId == request.MissionTeamId
                      && !excludedStatuses.Contains(a.Status))
             .OrderBy(a => a.Step ?? int.MaxValue)
+            .ThenBy(a => a.Id)
             .ToList();
 
         var resolvedActivities = new List<(int ActivityId, int? Step, string? ActivityType, string? Description, double Latitude, double Longitude)>();
 
         foreach (var activity in teamActivities)
         {
+            var usesDepotCoordinates = MissionRouteCoordinateResolver.UsesDepotCoordinates(activity);
             var requiresDepotFallback = MissionRouteCoordinateResolver.RequiresDepotFallback(activity);
             var coordinates = await MissionRouteCoordinateResolver.ResolveAsync(activity, depotRepository, cancellationToken);
 
@@ -82,10 +84,12 @@ public class GetMissionTeamRouteQueryHandler(
                 continue;
             }
 
-            if (requiresDepotFallback)
+            if (usesDepotCoordinates)
             {
                 logger.LogInformation(
-                    "Using depot coordinates for COLLECT_SUPPLIES activity {ActivityId} in MissionId={MissionId}, MissionTeamId={MissionTeamId}.",
+                    requiresDepotFallback
+                        ? "Using depot coordinates for COLLECT_SUPPLIES activity {ActivityId} in MissionId={MissionId}, MissionTeamId={MissionTeamId} because target coordinates are missing or zero."
+                        : "Normalizing COLLECT_SUPPLIES activity {ActivityId} in MissionId={MissionId}, MissionTeamId={MissionTeamId} to use the current depot coordinates.",
                     activity.Id,
                     request.MissionId,
                     request.MissionTeamId);
@@ -122,6 +126,30 @@ public class GetMissionTeamRouteQueryHandler(
                 request.MissionTeamId,
                 routeResult.ErrorMessage);
 
+        var responseLegs = routeResult.Legs
+            .Select((leg, index) =>
+            {
+                var fromActivity = index > 0 ? resolvedActivities[index - 1] : default;
+                var toActivity = index < resolvedActivities.Count ? resolvedActivities[index] : default;
+
+                return new GoongLegSummary
+                {
+                    SegmentIndex = index,
+                    FromStep = index == 0 ? null : fromActivity.Step,
+                    ToStep = index < resolvedActivities.Count ? toActivity.Step : null,
+                    FromLatitude = leg.FromLatitude,
+                    FromLongitude = leg.FromLongitude,
+                    ToLatitude = leg.ToLatitude,
+                    ToLongitude = leg.ToLongitude,
+                    OverviewPolyline = leg.OverviewPolyline,
+                    DistanceMeters = leg.DistanceMeters,
+                    DistanceText = leg.DistanceText,
+                    DurationSeconds = leg.DurationSeconds,
+                    DurationText = leg.DurationText
+                };
+            })
+            .ToList();
+
         return new GetMissionTeamRouteResponse
         {
             MissionTeamId        = missionTeam.Id,
@@ -142,7 +170,7 @@ public class GetMissionTeamRouteQueryHandler(
             TotalDistanceMeters  = routeResult.TotalDistanceMeters,
             TotalDurationSeconds = routeResult.TotalDurationSeconds,
             OverviewPolyline     = routeResult.OverviewPolyline,
-            Legs                 = routeResult.Legs,
+            Legs                 = responseLegs,
             Waypoints            = resolvedActivities.Select(a => new MissionRouteWaypoint
             {
                 ActivityId   = a.ActivityId,

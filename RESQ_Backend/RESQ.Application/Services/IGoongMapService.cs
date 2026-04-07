@@ -88,6 +88,14 @@ public class MissionRouteResult
 
 public class GoongLegSummary
 {
+    public int SegmentIndex { get; set; }
+    public int? FromStep { get; set; }
+    public int? ToStep { get; set; }
+    public double FromLatitude { get; set; }
+    public double FromLongitude { get; set; }
+    public double ToLatitude { get; set; }
+    public double ToLongitude { get; set; }
+    public string OverviewPolyline { get; set; } = string.Empty;
     public int DistanceMeters { get; set; }
     public string DistanceText { get; set; } = string.Empty;
     public int DurationSeconds { get; set; }
