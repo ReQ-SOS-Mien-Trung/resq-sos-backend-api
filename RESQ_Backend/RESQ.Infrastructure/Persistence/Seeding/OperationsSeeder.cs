@@ -429,7 +429,7 @@ public static class OperationsSeeder
                 IncidentScope = TeamIncidentScope.Mission.ToString(),
                 Location = new Point(106.7860, 17.2138) { SRID = 4326 },
                 Description = "Một thành viên đội cứu hộ bị trượt chân và bị thương nhẹ ở chân khi di chuyển qua khu vực bùn lầy.",
-                Status = TeamIncidentStatus.Acknowledged.ToString(),
+                Status = TeamIncidentStatus.InProgress.ToString(),
                 ReportedBy = SeedConstants.RescuerUserId,
                 ReportedAt = now.AddMinutes(30)
             },

@@ -5,15 +5,14 @@ namespace RESQ.Application.Common.StateMachines;
 
 /// <summary>
 /// Enforces valid TeamIncident status transitions per the state diagram:
-/// Reported → Acknowledged → InProgress → Resolved → Closed
-///                         → Closed
+/// Reported → InProgress → Resolved → Closed
+///          → Closed
 /// </summary>
 public static class TeamIncidentStateMachine
 {
     private static readonly Dictionary<TeamIncidentStatus, HashSet<TeamIncidentStatus>> _allowed = new()
     {
-        [TeamIncidentStatus.Reported]     = [TeamIncidentStatus.Acknowledged],
-        [TeamIncidentStatus.Acknowledged] = [TeamIncidentStatus.InProgress, TeamIncidentStatus.Closed],
+        [TeamIncidentStatus.Reported]     = [TeamIncidentStatus.InProgress, TeamIncidentStatus.Closed],
         [TeamIncidentStatus.InProgress]   = [TeamIncidentStatus.Resolved],
         [TeamIncidentStatus.Resolved]     = [TeamIncidentStatus.Closed],
         [TeamIncidentStatus.Closed]       = [],
