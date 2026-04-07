@@ -20,16 +20,16 @@ public class UpdateTeamIncidentStatusCommandHandler(
         var incident = await teamIncidentRepository.GetByIdAsync(request.IncidentId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy sự cố với ID: {request.IncidentId}");
 
-        TeamIncidentStateMachine.EnsureValidTransition(incident.Status, request.NewStatus);
-
         var finalStatus = request.NewStatus;
 
-        // Acknowledged + NeedsAssistance decision
-        if (incident.Status == TeamIncidentStatus.Acknowledged)
+        // Reported + NeedsAssistance decision
+        if (incident.Status == TeamIncidentStatus.Reported)
         {
             if (request.NeedsAssistance.HasValue)
                 finalStatus = request.NeedsAssistance.Value ? TeamIncidentStatus.InProgress : TeamIncidentStatus.Closed;
         }
+
+        TeamIncidentStateMachine.EnsureValidTransition(incident.Status, finalStatus);
 
         await teamIncidentRepository.UpdateStatusAsync(request.IncidentId, finalStatus, cancellationToken);
 

@@ -88,7 +88,9 @@ public class TeamIncidentRepository(IUnitOfWork unitOfWork) : ITeamIncidentRepos
         Latitude         = entity.Location?.Y,
         Longitude        = entity.Location?.X,
         Description      = entity.Description,
-        Status           = Enum.TryParse<TeamIncidentStatus>(entity.Status, out var s) ? s : TeamIncidentStatus.Reported,
+        Status           = string.Equals(entity.Status, "Acknowledged", StringComparison.OrdinalIgnoreCase)
+            ? TeamIncidentStatus.InProgress
+            : Enum.TryParse<TeamIncidentStatus>(entity.Status, out var s) ? s : TeamIncidentStatus.Reported,
         ReportedBy       = entity.ReportedBy,
         ReportedAt       = entity.ReportedAt
     };

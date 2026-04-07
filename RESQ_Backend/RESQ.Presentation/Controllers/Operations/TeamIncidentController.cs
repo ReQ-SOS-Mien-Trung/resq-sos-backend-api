@@ -27,7 +27,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Cập nhật trạng thái sự cố (Reported → Acknowledged → InProgress → Resolved → Closed).</summary>
+    /// <summary>Cập nhật trạng thái sự cố (Reported → InProgress/Closed → Resolved → Closed).</summary>
     [HttpPatch("{incidentId:int}/status")]
     [Authorize(Roles = "1,2,3")]
     public async Task<IActionResult> UpdateIncidentStatus([FromRoute] int incidentId, [FromBody] UpdateTeamIncidentStatusRequestDto dto)
