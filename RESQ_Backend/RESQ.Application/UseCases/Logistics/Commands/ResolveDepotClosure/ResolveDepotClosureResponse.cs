@@ -25,7 +25,6 @@ public class TransferSummaryDto
     public int TargetDepotId { get; set; }
     public string TargetDepotName { get; set; } = string.Empty;
     public string TransferStatus { get; set; } = string.Empty;
-    public DateTime TransferDeadlineAt { get; set; }
     public int SnapshotConsumableUnits { get; set; }
     public int SnapshotReusableUnits { get; set; }
     public int ReusableItemsSkipped { get; set; }

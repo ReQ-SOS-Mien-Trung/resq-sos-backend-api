@@ -30,7 +30,7 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork)
         var entity = await _unitOfWork.GetRepository<DepotClosureTransfer>()
             .GetByPropertyAsync(
                 x => x.ClosureId == closureId &&
-                     x.Status != "Completed" &&
+                     x.Status != "Received" &&
                      x.Status != "Cancelled",
                 tracked: false);
         return entity == null ? null : ToDomain(entity);
@@ -67,7 +67,7 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork)
             TargetDepotId = record.TargetDepotId,
             Status = record.Status,
             CreatedAt = record.CreatedAt,
-            TransferDeadlineAt = record.TransferDeadlineAt,
+            TransferDeadlineAt = record.CreatedAt,
             SnapshotConsumableUnits = record.SnapshotConsumableUnits,
             SnapshotReusableUnits = record.SnapshotReusableUnits
         };
@@ -82,7 +82,6 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork)
             targetDepotId: entity.TargetDepotId,
             status: entity.Status,
             createdAt: entity.CreatedAt,
-            transferDeadlineAt: entity.TransferDeadlineAt,
             shippedAt: entity.ShippedAt,
             shippedBy: entity.ShippedBy,
             shipNote: entity.ShipNote,
