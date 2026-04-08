@@ -90,6 +90,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<SosRequestUpdate> SosRequestUpdates { get; set; }
     public virtual DbSet<SosRuleEvaluation> SosRuleEvaluations { get; set; }
     public virtual DbSet<TeamIncident> TeamIncidents { get; set; }
+    public virtual DbSet<TeamIncidentActivity> TeamIncidentActivities { get; set; }
     public virtual DbSet<User> Users { get; set; }
     public virtual DbSet<UserAbility> UserAbilities { get; set; }
     public virtual DbSet<UserNotification> UserNotifications { get; set; }
@@ -299,6 +300,27 @@ public partial class ResQDbContext : DbContext
             entity.HasCheckConstraint(
                 "ck_supply_request_priority_configs_order",
                 "urgent_minutes > 0 AND urgent_minutes < high_minutes AND high_minutes < medium_minutes");
+        });
+
+        modelBuilder.Entity<TeamIncidentActivity>(entity =>
+        {
+            entity.HasKey(e => new { e.TeamIncidentId, e.MissionActivityId })
+                .HasName("team_incident_activities_pkey");
+
+            entity.HasIndex(e => e.MissionActivityId)
+                .HasDatabaseName("ix_team_incident_activities_mission_activity_id");
+
+            entity.HasOne(e => e.TeamIncident)
+                .WithMany(e => e.TeamIncidentActivities)
+                .HasForeignKey(e => e.TeamIncidentId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_team_incident_activities_team_incident_id");
+
+            entity.HasOne(e => e.MissionActivity)
+                .WithMany(e => e.TeamIncidentActivities)
+                .HasForeignKey(e => e.MissionActivityId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_team_incident_activities_mission_activity_id");
         });
 
         modelBuilder.Entity<InventoryStockThresholdConfig>(entity =>

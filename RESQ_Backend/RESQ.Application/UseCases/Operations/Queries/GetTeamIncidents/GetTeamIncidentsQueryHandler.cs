@@ -2,6 +2,7 @@ using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.UseCases.Operations.Queries.Shared;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetTeamIncidents;
 
@@ -46,19 +47,7 @@ public class GetTeamIncidentsQueryHandler(
                     };
                 }
 
-                return new TeamIncidentDto
-                {
-                    IncidentId       = i.Id,
-                    MissionTeamId    = i.MissionTeamId,
-                    MissionActivityId = i.MissionActivityId,
-                    IncidentScope    = i.IncidentScope.ToString(),
-                    Latitude         = i.Latitude,
-                    Longitude        = i.Longitude,
-                    Description      = i.Description,
-                    Status           = i.Status.ToString(),
-                    ReportedBy       = reportedBy,
-                    ReportedAt       = i.ReportedAt
-                };
+                return TeamIncidentQueryDtoMapper.ToDto(i, reportedBy);
             }).ToList()
         };
     }

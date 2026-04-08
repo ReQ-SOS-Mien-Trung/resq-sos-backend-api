@@ -11,4 +11,5 @@ public interface ITeamIncidentRepository
     Task<IEnumerable<TeamIncidentModel>> GetByMissionTeamIdAsync(int missionTeamId, CancellationToken cancellationToken = default);
     Task<int> CreateAsync(TeamIncidentModel model, CancellationToken cancellationToken = default);
     Task UpdateStatusAsync(int id, TeamIncidentStatus status, CancellationToken cancellationToken = default);
+    Task UpdateSupportSosRequestIdAsync(int id, int? supportSosRequestId, CancellationToken cancellationToken = default);
 }
