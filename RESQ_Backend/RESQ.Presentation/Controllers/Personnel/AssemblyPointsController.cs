@@ -3,9 +3,11 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
-using RESQ.Application.UseCases.Personnel.Commands.ChangeAssemblyPointStatus;
+using RESQ.Application.UseCases.Personnel.Commands.ActivateAssemblyPoint;
+using RESQ.Application.UseCases.Personnel.Commands.StartAssemblyPointMaintenance;
+using RESQ.Application.UseCases.Personnel.Commands.CompleteAssemblyPointMaintenance;
+using RESQ.Application.UseCases.Personnel.Commands.CloseAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.CreateAssemblyPoint;
-using RESQ.Application.UseCases.Personnel.Commands.DeleteAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.UpdateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.AssignRescuerToAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.ScheduleGathering;
@@ -124,29 +126,55 @@ namespace RESQ.Presentation.Controllers.Personnel
             return NoContent();
         }
 
-        /// <summary>Thay đổi trạng thái điểm tập kết.</summary>
-        [HttpPatch("{id}/status")]
+        /// <summary>
+        /// Kích hoạt điểm tập kết: <c>Created → Active</c>.
+        /// </summary>
+        [HttpPatch("{id}/activate")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
-        public async Task<IActionResult> ChangeStatus(int id, [FromBody] ChangeAssemblyPointStatusRequestDto dto)
+        public async Task<IActionResult> Activate(int id)
         {
-            var command = new ChangeAssemblyPointStatusCommand(id, dto.Status);
-            var result = await _mediator.Send(command);
+            var result = await _mediator.Send(new ActivateAssemblyPointCommand(id));
             return Ok(result);
         }
 
-        /// <summary>Xóa điểm tập kết.</summary>
-        [HttpDelete("{id}")]
+        /// <summary>
+        /// Đưa điểm tập kết vào trạng thái bảo trì: <c>Active → UnderMaintenance</c> hoặc <c>Overloaded → UnderMaintenance</c>.
+        /// </summary>
+        [HttpPatch("{id}/start-maintenance")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> StartMaintenance(int id)
         {
-            var command = new DeleteAssemblyPointCommand(id);
-            await _mediator.Send(command);
-            return NoContent();
+            var result = await _mediator.Send(new StartAssemblyPointMaintenanceCommand(id));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Hoàn tất bảo trì, đưa điểm tập kết về hoạt động: <c>UnderMaintenance → Active</c>.
+        /// </summary>
+        [HttpPatch("{id}/complete-maintenance")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> CompleteMaintenance(int id)
+        {
+            var result = await _mediator.Send(new CompleteAssemblyPointMaintenanceCommand(id));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Đóng vĩnh viễn điểm tập kết: <c>Active → Closed</c>.
+        /// Yêu cầu không còn rescuer hoặc đội cứu hộ nào thuộc điểm tập kết này.
+        /// Sau khi đóng, không thể thực hiện bất kỳ thao tác nào với điểm tập kết này.
+        /// </summary>
+        [HttpPatch("{id}/close")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> Close(int id)
+        {
+            var result = await _mediator.Send(new CloseAssemblyPointCommand(id));
+            return Ok(result);
         }
 
         /// <summary>Gán rescuer vào điểm tập kết (hoặc gỡ nếu assemblyPointId = null).</summary>
         [HttpPut("rescuers/{userId}/assignment")]
-        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
         public async Task<IActionResult> AssignRescuer(Guid userId, [FromBody] AssignRescuerToAssemblyPointRequestDto dto)
         {
             var command = new AssignRescuerToAssemblyPointCommand(userId, dto.AssemblyPointId);
@@ -159,7 +187,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         /// AssemblyPointId = null → gỡ tất cả khỏi điểm tập kết hiện tại.
         /// </summary>
         [HttpPost("rescuers/assignment")]
-        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
         public async Task<IActionResult> BulkAssignRescuers([FromBody] BulkAssignRescuersToAssemblyPointRequestDto dto)
         {
             var command = new BulkAssignRescuersToAssemblyPointCommand(dto.UserIds, dto.AssemblyPointId);
@@ -169,7 +197,7 @@ namespace RESQ.Presentation.Controllers.Personnel
 
         /// <summary>Lên lịch tập trung tại điểm tập kết → tạo AssemblyEvent + gán participant + gửi Firebase.</summary>
         [HttpPost("{id}/schedule-gathering")]
-        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
         public async Task<IActionResult> ScheduleGathering(int id, [FromBody] ScheduleGatheringRequestDto dto)
         {
             var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -209,7 +237,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         /// <summary>Lấy danh sách rescuer đã check-in tại sự kiện tập trung (để coordinator chia team).</summary>
         /// <summary><paramref name="search"/>: tìm kiếm theo firstName, lastName, phone hoặc email (OR).</summary>
         [HttpGet("events/{eventId}/checked-in-rescuers")]
-        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
         public async Task<IActionResult> GetCheckedInRescuers(
             int eventId,
             [FromQuery] int pageNumber = 1,
