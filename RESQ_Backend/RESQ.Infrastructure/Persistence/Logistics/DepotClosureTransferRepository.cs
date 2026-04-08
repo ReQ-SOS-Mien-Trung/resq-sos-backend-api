@@ -36,6 +36,17 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork)
         return entity == null ? null : ToDomain(entity);
     }
 
+    public async Task<DepotClosureTransferRecord?> GetActiveIncomingByTargetDepotIdAsync(int targetDepotId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<DepotClosureTransfer>()
+            .GetByPropertyAsync(
+                x => x.TargetDepotId == targetDepotId &&
+                     x.Status != "Received" &&
+                     x.Status != "Cancelled",
+                tracked: false);
+        return entity == null ? null : ToDomain(entity);
+    }
+
     public async Task UpdateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<DepotClosureTransfer>();

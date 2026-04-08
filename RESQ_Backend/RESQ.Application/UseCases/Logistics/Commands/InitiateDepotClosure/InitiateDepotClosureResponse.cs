@@ -14,6 +14,18 @@ public class InitiateDepotClosureResponse
     /// </summary>
     public bool RequiresResolution { get; set; }
 
+    /// <summary>
+    /// Trạng thái hiện tại của bản ghi đóng kho.
+    /// Frontend dùng field này để quyết định UI:
+    ///   "InProgress"      → Đang chờ admin chọn option → hiển thị countdown + form lựa chọn.
+    ///   "Processing"      → Server đang xử lý lựa chọn → hiển thị loading.
+    ///   "TransferPending" → Đã chọn chuyển kho, đang chờ transfer hoàn tất → KHÔNG hiển thị countdown.
+    ///   "Completed"       → Đóng kho thành công.
+    ///   "Cancelled"       → Đã huỷ.
+    ///   "TimedOut"        → Hết thời gian — kho đã khôi phục.
+    /// </summary>
+    public string ClosureStatus { get; set; } = string.Empty;
+
     /// <summary>Tổng quan tồn kho tại thời điểm initiate.</summary>
     public InventorySummaryDto InventorySummary { get; set; } = new();
 

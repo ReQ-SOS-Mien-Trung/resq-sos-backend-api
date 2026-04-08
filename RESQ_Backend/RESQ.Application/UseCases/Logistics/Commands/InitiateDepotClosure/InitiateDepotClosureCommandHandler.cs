@@ -33,8 +33,17 @@ public class InitiateDepotClosureCommandHandler(
             var existingClosure = await closureRepository.GetActiveClosureByDepotIdAsync(request.DepotId, cancellationToken);
             if (existingClosure != null)
             {
-                logger.LogInformation("InitiateDepotClosure idempotent — ClosureId={ClosureId}", existingClosure.Id);
-                return BuildResponse(existingClosure, depot.Name, requiresResolution: true);
+                logger.LogInformation("InitiateDepotClosure idempotent — ClosureId={ClosureId} Status={Status}",
+                    existingClosure.Id, existingClosure.Status);
+
+                // TransferPending = admin đã chọn option chuyển kho rồi, không cần resolve thêm
+                // nên trả requiresResolution: false để frontend KHÔNG hiển thị countdown / form.
+                var stillNeedsResolution = existingClosure.Status
+                    is DepotClosureStatus.InProgress
+                    or DepotClosureStatus.Processing;
+
+                return BuildResponse(existingClosure, depot.Name,
+                    requiresResolution: stillNeedsResolution);
             }
         }
 
@@ -135,16 +144,26 @@ public class InitiateDepotClosureCommandHandler(
     private static InitiateDepotClosureResponse BuildResponse(
         DepotClosureRecord closure, string depotName, bool requiresResolution)
     {
+        var message = closure.Status switch
+        {
+            DepotClosureStatus.TransferPending =>
+                "Admin đã chọn phương án chuyển kho. Đang chờ hai bên quản lý hoàn tất chuyển hàng.",
+            _ when requiresResolution =>
+                "Kho đã được đặt sang trạng thái Closing. Vui lòng chọn cách xử lý hàng tồn kho.",
+            _ =>
+                "Kho không có hàng tồn — đã đóng thành công."
+        };
+
         return new InitiateDepotClosureResponse
         {
             ClosureId = closure.Id,
             DepotId = closure.DepotId,
             DepotName = depotName,
+            ClosureStatus = closure.Status.ToString(),
             RequiresResolution = requiresResolution,
+            // Chỉ trả TimeoutAt khi thực sự đang chờ admin chọn option (InProgress/Processing)
             TimeoutAt = requiresResolution ? closure.ClosingTimeoutAt : null,
-            Message = requiresResolution
-                ? "Kho đã được đặt sang trạng thái Closing. Vui lòng chọn cách xử lý hàng tồn kho."
-                : "Kho không có hàng tồn — đã đóng thành công.",
+            Message = message,
             InventorySummary = new InventorySummaryDto
             {
                 ConsumableUnitTotal = closure.SnapshotConsumableUnits,

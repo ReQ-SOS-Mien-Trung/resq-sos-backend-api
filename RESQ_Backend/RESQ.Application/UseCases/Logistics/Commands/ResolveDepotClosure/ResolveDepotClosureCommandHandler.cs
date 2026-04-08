@@ -145,6 +145,14 @@ public class ResolveDepotClosureCommandHandler(
                     "Kho của bạn sắp tiếp nhận hàng chuyển kho",
                     $"Admin đã chỉ định '{targetDepot.Name}' tiếp nhận hàng từ kho '{depot.Name}' đang đóng cửa. Cần chuẩn bị {consumableVolume:N0} đơn vị tiêu hao.",
                     "depot_closure_transfer_assigned",
+                    // Deep-link params — mobile app dùng để navigate thẳng đến màn hình xác nhận nhận hàng.
+                    // sourceDepotId = {id} trong route /logistics/depot/{id}/close/{closureId}/transfer/{transferId}/receive
+                    new Dictionary<string, string>
+                    {
+                        ["sourceDepotId"] = request.DepotId.ToString(),
+                        ["closureId"]     = closure.Id.ToString(),
+                        ["transferId"]    = transfer.Id.ToString()
+                    },
                     cancellationToken);
         }
         catch (Exception notifyEx) { logger.LogWarning(notifyEx, "Failed to notify target manager, TransferId={Id}", transfer.Id); }
