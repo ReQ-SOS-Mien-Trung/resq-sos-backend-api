@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 
@@ -44,7 +45,11 @@ public class GetDepotClosuresQueryHandler(
             SnapshotConsumableUnits = item.SnapshotConsumableUnits,
             SnapshotReusableUnits   = item.SnapshotReusableUnits,
             InitiatedAt             = item.InitiatedAt,
-            ClosingTimeoutAt        = item.ClosingTimeoutAt,
+            // Chỉ trả về timeout khi closure đang thực sự chờ admin chọn option.
+            // Với TransferPending/Completed/Cancelled/TimedOut → null để frontend không hiển thị countdown nhầm.
+            ClosingTimeoutAt        = item.Status is DepotClosureStatus.InProgress or DepotClosureStatus.Processing
+                                        ? item.ClosingTimeoutAt
+                                        : null,
             CompletedAt             = item.CompletedAt,
             CancelledAt             = item.CancelledAt,
             Transfer                = item.TransferId.HasValue

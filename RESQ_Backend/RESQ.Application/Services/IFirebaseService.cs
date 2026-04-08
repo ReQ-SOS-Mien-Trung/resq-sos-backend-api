@@ -35,6 +35,12 @@ public interface IFirebaseService
     Task SendNotificationToUserAsync(Guid userId, string title, string body, string type = "general", CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Overload gửi notification kèm data dictionary — dùng cho các thông báo cần deep-link (VD: closureId, transferId).
+    /// Dữ liệu trong <paramref name="data"/> được đính kèm vào FCM data payload để mobile app tự navigate.
+    /// </summary>
+    Task SendNotificationToUserAsync(Guid userId, string title, string body, string type, Dictionary<string, string> data, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gửi Push Notification đến toàn bộ user subscribe topic (dùng cho broadcast).
     /// Không lưu DB và không đẩy SignalR — chỉ FCM topic send.
     /// </summary>

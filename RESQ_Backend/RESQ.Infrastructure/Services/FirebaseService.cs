@@ -166,6 +166,9 @@ public class FirebaseService(
     }
 
     public async Task SendNotificationToUserAsync(Guid userId, string title, string body, string type = "general", CancellationToken cancellationToken = default)
+        => await SendNotificationToUserAsync(userId, title, body, type, data: null, cancellationToken);
+
+    public async Task SendNotificationToUserAsync(Guid userId, string title, string body, string type, Dictionary<string, string>? data, CancellationToken cancellationToken = default)
     {
         // 1. Persist to DB
         int userNotificationId = 0;
@@ -201,6 +204,12 @@ public class FirebaseService(
         {
             var topic = $"resq.user.{userId}";
 
+            // Merge data: luôn đính kèm type, thêm các field tùy biến nếu có
+            var fcmData = new Dictionary<string, string> { ["type"] = type };
+            if (data != null)
+                foreach (var kv in data)
+                    fcmData[kv.Key] = kv.Value;
+
             var message = new FirebaseAdmin.Messaging.Message()
             {
                 Notification = new FirebaseAdmin.Messaging.Notification
@@ -208,6 +217,7 @@ public class FirebaseService(
                     Title = title,
                     Body = body
                 },
+                Data = fcmData,
                 Topic = topic,
                 Apns = new ApnsConfig
                 {
