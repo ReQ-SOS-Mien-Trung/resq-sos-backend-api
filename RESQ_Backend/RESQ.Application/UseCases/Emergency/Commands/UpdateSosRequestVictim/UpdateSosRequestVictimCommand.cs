@@ -5,7 +5,7 @@ namespace RESQ.Application.UseCases.Emergency.Commands.UpdateSosRequestVictim;
 
 public record UpdateSosRequestVictimCommand(
     int SosRequestId,
-    Guid RequestedByUserId,
+    Guid ReporterUserId,
     GeoLocation Location,
     string RawMessage,
     Guid? PacketId = null,

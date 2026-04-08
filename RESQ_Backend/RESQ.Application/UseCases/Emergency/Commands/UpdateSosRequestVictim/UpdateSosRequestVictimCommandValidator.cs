@@ -11,7 +11,7 @@ public class UpdateSosRequestVictimCommandValidator : AbstractValidator<UpdateSo
         ISosPriorityRuleConfigRepository sosPriorityRuleConfigRepository)
     {
         RuleFor(x => x.SosRequestId).GreaterThan(0);
-        RuleFor(x => x.RequestedByUserId).NotEmpty();
+        RuleFor(x => x.ReporterUserId).NotEmpty();
         RuleFor(x => x.RawMessage).NotEmpty().MaximumLength(1000);
         RuleFor(x => x.Location.Latitude).InclusiveBetween(-90, 90);
         RuleFor(x => x.Location.Longitude).InclusiveBetween(-180, 180);

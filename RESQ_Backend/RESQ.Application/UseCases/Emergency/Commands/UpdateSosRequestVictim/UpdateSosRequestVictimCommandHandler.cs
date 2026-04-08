@@ -25,10 +25,10 @@ public class UpdateSosRequestVictimCommandHandler(
         var sos = await sosRequestRepository.GetByIdAsync(request.SosRequestId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy SOS request với ID: {request.SosRequestId}");
 
-        var isOwner = sos.UserId == request.RequestedByUserId;
+        var isOwner = sos.UserId == request.ReporterUserId;
         if (!isOwner)
         {
-            var isCompanion = await companionRepository.IsCompanionAsync(request.SosRequestId, request.RequestedByUserId, cancellationToken);
+            var isCompanion = await companionRepository.IsCompanionAsync(request.SosRequestId, request.ReporterUserId, cancellationToken);
             if (!isCompanion)
             {
                 throw new ForbiddenException("Bạn không có quyền cập nhật SOS request này.");
@@ -74,7 +74,7 @@ public class UpdateSosRequestVictimCommandHandler(
             OriginId = request.OriginId ?? currentView.OriginId,
             Timestamp = request.Timestamp ?? currentView.Timestamp,
             ClientCreatedAt = request.ClientCreatedAt ?? currentView.CreatedAt,
-            UpdatedByUserId = request.RequestedByUserId,
+            UpdatedByUserId = request.ReporterUserId,
             UpdatedAt = updatedAt,
             UpdatedByMode = isOwner ? "Owner" : "Companion"
         };
