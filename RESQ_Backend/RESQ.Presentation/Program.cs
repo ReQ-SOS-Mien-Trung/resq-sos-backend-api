@@ -204,44 +204,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-
-    // Ensure PostGIS types are available before creating/upgrading schema.
-    await dbContext.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS postgis;");
-
-    var hasMigrations = dbContext.Database.GetMigrations().Any();
-    if (hasMigrations)
-    {
-        dbContext.Database.Migrate();
-    }
-    else
-    {
-        await dbContext.Database.OpenConnectionAsync();
-        try
-        {
-            await using var existsCommand = dbContext.Database.GetDbConnection().CreateCommand();
-            existsCommand.CommandText = "SELECT to_regclass('public.users') IS NOT NULL";
-            var usersTableExists = (bool?)await existsCommand.ExecuteScalarAsync() == true;
-
-            if (!usersTableExists)
-            {
-                var createScript = dbContext.Database.GenerateCreateScript();
-                await using var createCommand = dbContext.Database.GetDbConnection().CreateCommand();
-                createCommand.CommandText = createScript;
-                await createCommand.ExecuteNonQueryAsync();
-            }
-        }
-        finally
-        {
-            if (dbContext.Database.GetDbConnection().State == System.Data.ConnectionState.Open)
-            {
-                await dbContext.Database.CloseConnectionAsync();
-            }
-        }
-    }
-
-    await dbContext.Database.ExecuteSqlRawAsync(
-        "ALTER TABLE IF EXISTS prompts ADD COLUMN IF NOT EXISTS provider character varying(50) NOT NULL DEFAULT 'Gemini';");
-    await SosPriorityRuleConfigSchemaUpdater.ApplyAsync(dbContext);
+    dbContext.Database.Migrate();
 }
 
 // Middleware pipeline
