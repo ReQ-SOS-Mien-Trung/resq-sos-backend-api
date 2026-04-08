@@ -2,7 +2,8 @@
 {
     public enum DepotStatus
     {
-        PendingAssignment,
+        Created,           // Vừa tạo, chưa từng có quản lý
+        PendingAssignment, // Đã từng có quản lý, hiện đang chờ gán lại
         Available,
         Full,
         UnderMaintenance, // Tạm ngưng hoạt động để bảo trì; có thể trở lại Available

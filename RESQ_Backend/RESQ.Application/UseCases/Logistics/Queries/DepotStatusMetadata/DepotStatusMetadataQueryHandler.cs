@@ -13,7 +13,8 @@ public class GetDepotStatusMetadataQueryHandler
     {
         var result = new List<MetadataDto>
         {
-            new() { Key = DepotStatus.PendingAssignment.ToString(),  Value = "Chưa có quản lý" },
+            new() { Key = DepotStatus.Created.ToString(),             Value = "Vừa tạo, chưa có quản lý" },
+            new() { Key = DepotStatus.PendingAssignment.ToString(),   Value = "Chờ gán lại quản lý" },
             new() { Key = DepotStatus.Available.ToString(),           Value = "Đang hoạt động" },
             new() { Key = DepotStatus.Full.ToString(),                Value = "Đã đầy" },
             new() { Key = DepotStatus.UnderMaintenance.ToString(),    Value = "Đang bảo trì" },

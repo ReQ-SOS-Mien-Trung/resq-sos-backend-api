@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.UseCases.Logistics.Commands.DeleteDepotManager;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotManagerHistory;
 
 namespace RESQ.Presentation.Controllers.Logistics
@@ -24,6 +25,20 @@ namespace RESQ.Presentation.Controllers.Logistics
             };
 
             var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Xoá hẳn (hard-delete) manager đang active khỏi bảng depot_managers.
+        /// Kho phải ở trạng thái Available, Full hoặc UnderMaintenance.
+        /// Sau khi xoá, kho chuyển về PendingAssignment.
+        /// </summary>
+        [HttpDelete("{depotId:int}")]
+        [Authorize(Policy = PermissionConstants.PersonnelDepotBranchManage)]
+        public async Task<IActionResult> Delete(int depotId)
+        {
+            var command = new DeleteDepotManagerCommand(depotId);
+            var result = await _mediator.Send(command);
             return Ok(result);
         }
     }
