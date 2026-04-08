@@ -185,7 +185,14 @@ public class AgentInventoryItem
     public string CategoryName { get; set; } = string.Empty;
     public string? ItemType { get; set; }
     public string? Unit { get; set; }
+    /// <summary>Số lượng khả dụng thực tế: quantity cho Consumable, số đơn vị sẵn sàng cho Reusable.</summary>
     public int AvailableQuantity { get; set; }
+    /// <summary>Chỉ có với Reusable: số đơn vị condition Good đang Available.</summary>
+    public int? GoodAvailableCount { get; set; }
+    /// <summary>Chỉ có với Reusable: số đơn vị condition Fair đang Available.</summary>
+    public int? FairAvailableCount { get; set; }
+    /// <summary>Chỉ có với Reusable: số đơn vị condition Poor đang Available.</summary>
+    public int? PoorAvailableCount { get; set; }
     public int DepotId { get; set; }
     public string DepotName { get; set; } = string.Empty;
     public string? DepotAddress { get; set; }

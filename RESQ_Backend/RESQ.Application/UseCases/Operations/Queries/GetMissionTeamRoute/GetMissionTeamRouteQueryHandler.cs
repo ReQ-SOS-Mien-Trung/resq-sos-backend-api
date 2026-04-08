@@ -88,9 +88,10 @@ public class GetMissionTeamRouteQueryHandler(
             {
                 logger.LogInformation(
                     requiresDepotFallback
-                        ? "Using depot coordinates for COLLECT_SUPPLIES activity {ActivityId} in MissionId={MissionId}, MissionTeamId={MissionTeamId} because target coordinates are missing or zero."
-                        : "Normalizing COLLECT_SUPPLIES activity {ActivityId} in MissionId={MissionId}, MissionTeamId={MissionTeamId} to use the current depot coordinates.",
+                        ? "Using depot coordinates for depot-linked activity {ActivityId} ({ActivityType}) in MissionId={MissionId}, MissionTeamId={MissionTeamId} because target coordinates are missing or zero."
+                        : "Normalizing depot-linked activity {ActivityId} ({ActivityType}) in MissionId={MissionId}, MissionTeamId={MissionTeamId} to use the current depot coordinates.",
                     activity.Id,
+                    activity.ActivityType,
                     request.MissionId,
                     request.MissionTeamId);
             }

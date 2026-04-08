@@ -22,6 +22,7 @@ public class CreateMissionCommandHandler(
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     IRescueTeamRepository rescueTeamRepository,
     IUnitOfWork unitOfWork,
     IMediator mediator,
@@ -33,11 +34,16 @@ public class CreateMissionCommandHandler(
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IMediator _mediator = mediator;
     private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ILogger<CreateMissionCommandHandler> _logger = logger;
+
+    private const string CollectSuppliesActivityType = "COLLECT_SUPPLIES";
+    private const string ReturnSuppliesActivityType = "RETURN_SUPPLIES";
+    private const string ReusableItemType = "Reusable";
 
     public async Task<CreateMissionResponse> Handle(CreateMissionCommand request, CancellationToken cancellationToken)
     {
@@ -52,6 +58,7 @@ public class CreateMissionCommandHandler(
 
         // Validate depot inventory for each activity that specifies supplies
         await ValidateSuppliesAsync(request.Activities, cancellationToken);
+        await ValidateReusableReturnActivitiesAsync(request.Activities, cancellationToken);
 
         // Build domain model
         var mission = new MissionModel
@@ -163,7 +170,9 @@ public class CreateMissionCommandHandler(
     {
         // Group activities by depotId — only validate those that specify both a depot and supplies
         var activitiesWithSupplies = activities
-            .Where(a => a.DepotId.HasValue && a.SuppliesToCollect is { Count: > 0 })
+            .Where(a => !IsReturnSuppliesActivity(a)
+                && a.DepotId.HasValue
+                && a.SuppliesToCollect is { Count: > 0 })
             .ToList();
 
         // Aggregate items per depot (sum quantities if same item appears in multiple activities of same depot)
@@ -202,6 +211,187 @@ public class CreateMissionCommandHandler(
 
         if (allErrors.Count > 0)
             throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", allErrors)}");
+    }
+
+    private async Task ValidateReusableReturnActivitiesAsync(
+        List<CreateActivityItemDto> activities,
+        CancellationToken cancellationToken)
+    {
+        var orderedActivities = activities
+            .OrderBy(activity => activity.Step ?? int.MaxValue)
+            .ToList();
+        var returnActivities = activities
+            .Where(IsReturnSuppliesActivity)
+            .ToList();
+
+        var seenReturnActivity = false;
+        var orderingErrors = new List<string>();
+        foreach (var activity in orderedActivities)
+        {
+            if (IsReturnSuppliesActivity(activity))
+            {
+                seenReturnActivity = true;
+                continue;
+            }
+
+            if (seenReturnActivity)
+            {
+                orderingErrors.Add(
+                    $"RETURN_SUPPLIES phải nằm ở cuối kế hoạch, nhưng phát hiện activity '{activity.ActivityType}' sau bước trả kho (step {activity.Step ?? 0}).");
+            }
+        }
+
+        var allSupplies = activities
+            .SelectMany(activity => activity.SuppliesToCollect ?? [])
+            .Where(supply => supply.Id.HasValue)
+            .Select(supply => supply.Id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (allSupplies.Count == 0)
+        {
+            foreach (var returnActivity in returnActivities)
+            {
+                orderingErrors.Add(
+                    $"RETURN_SUPPLIES step {returnActivity.Step ?? 0} phải có item_id hợp lệ cho vật tư reusable cần trả.");
+            }
+
+            if (orderingErrors.Count > 0)
+                throw new BadRequestException($"Kế hoạch mission chưa hợp lệ:\n{string.Join("\n", orderingErrors)}");
+
+            return;
+        }
+
+        var itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(allSupplies, cancellationToken);
+        var missingItemIds = allSupplies
+            .Where(itemId => !itemLookup.ContainsKey(itemId))
+            .ToList();
+
+        if (missingItemIds.Count > 0)
+        {
+            throw new BadRequestException(
+                $"Không tìm thấy metadata cho các item_id: {string.Join(", ", missingItemIds)}.");
+        }
+
+        var errors = new List<string>(orderingErrors);
+        var requiredReturnItems = new Dictionary<(int DepotId, int TeamId), Dictionary<int, int>>();
+        var actualReturnItems = new Dictionary<(int DepotId, int TeamId), Dictionary<int, int>>();
+
+        foreach (var activity in activities)
+        {
+            if (!IsCollectSuppliesActivity(activity)
+                || !activity.DepotId.HasValue
+                || !activity.RescueTeamId.HasValue
+                || activity.SuppliesToCollect is not { Count: > 0 })
+            {
+                continue;
+            }
+
+            var key = (activity.DepotId.Value, activity.RescueTeamId.Value);
+            foreach (var supply in activity.SuppliesToCollect)
+            {
+                if (!supply.Id.HasValue || (supply.Quantity ?? 0) <= 0)
+                    continue;
+
+                if (!IsReusableItem(supply.Id.Value, itemLookup))
+                    continue;
+
+                var expectedItems = GetOrCreateItemBucket(requiredReturnItems, key);
+                expectedItems[supply.Id.Value] = expectedItems.GetValueOrDefault(supply.Id.Value) + supply.Quantity!.Value;
+            }
+        }
+
+        foreach (var activity in returnActivities)
+        {
+            var stepLabel = activity.Step?.ToString() ?? "?";
+            if (!activity.DepotId.HasValue)
+            {
+                errors.Add($"RETURN_SUPPLIES step {stepLabel} thiếu DepotId.");
+                continue;
+            }
+
+            if (!activity.RescueTeamId.HasValue)
+            {
+                errors.Add($"RETURN_SUPPLIES step {stepLabel} thiếu RescueTeamId.");
+                continue;
+            }
+
+            if (activity.SuppliesToCollect is not { Count: > 0 })
+            {
+                errors.Add($"RETURN_SUPPLIES step {stepLabel} phải có danh sách vật tư reusable cần trả.");
+                continue;
+            }
+
+            var key = (activity.DepotId.Value, activity.RescueTeamId.Value);
+            var actualItems = GetOrCreateItemBucket(actualReturnItems, key);
+            foreach (var supply in activity.SuppliesToCollect)
+            {
+                if (!supply.Id.HasValue || (supply.Quantity ?? 0) <= 0)
+                {
+                    errors.Add($"RETURN_SUPPLIES step {stepLabel} có vật tư thiếu item_id hoặc quantity không hợp lệ.");
+                    continue;
+                }
+
+                if (!IsReusableItem(supply.Id.Value, itemLookup))
+                {
+                    errors.Add(
+                        $"RETURN_SUPPLIES step {stepLabel} chỉ được chứa vật tư reusable, nhưng item '{ResolveItemName(supply.Id.Value, itemLookup, supply.Name)}' không phải reusable.");
+                    continue;
+                }
+
+                actualItems[supply.Id.Value] = actualItems.GetValueOrDefault(supply.Id.Value) + supply.Quantity!.Value;
+            }
+        }
+
+        foreach (var actualGroup in actualReturnItems)
+        {
+            if (!requiredReturnItems.TryGetValue(actualGroup.Key, out var expectedItems))
+            {
+                errors.Add(
+                    $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, đội {actualGroup.Key.TeamId} không tương ứng với bất kỳ COLLECT_SUPPLIES nào có vật tư reusable.");
+                continue;
+            }
+
+            foreach (var actualItem in actualGroup.Value)
+            {
+                if (!expectedItems.TryGetValue(actualItem.Key, out var expectedQuantity))
+                {
+                    errors.Add(
+                        $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, đội {actualGroup.Key.TeamId} đang trả thêm item '{ResolveItemName(actualItem.Key, itemLookup)}' không xuất hiện trong COLLECT_SUPPLIES reusable tương ứng.");
+                    continue;
+                }
+
+                if (actualItem.Value != expectedQuantity)
+                {
+                    errors.Add(
+                        $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, đội {actualGroup.Key.TeamId} phải trả đúng {expectedQuantity} đơn vị item '{ResolveItemName(actualItem.Key, itemLookup)}', nhưng payload hiện có {actualItem.Value}.");
+                }
+            }
+        }
+
+        foreach (var expectedGroup in requiredReturnItems)
+        {
+            if (!actualReturnItems.TryGetValue(expectedGroup.Key, out var actualItems))
+            {
+                errors.Add(
+                    $"Thiếu RETURN_SUPPLIES cuối kế hoạch cho kho {expectedGroup.Key.DepotId}, đội {expectedGroup.Key.TeamId} dù đã COLLECT_SUPPLIES vật tư reusable.");
+                continue;
+            }
+
+            foreach (var expectedItem in expectedGroup.Value)
+            {
+                if (!actualItems.ContainsKey(expectedItem.Key))
+                {
+                    errors.Add(
+                        $"RETURN_SUPPLIES cho kho {expectedGroup.Key.DepotId}, đội {expectedGroup.Key.TeamId} chưa trả item '{ResolveItemName(expectedItem.Key, itemLookup)}'.");
+                }
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new BadRequestException($"Kế hoạch mission chưa hợp lệ với vật tư reusable:\n{string.Join("\n", errors)}");
+        }
     }
 
     private async Task NotifyTeamMembersAsync(List<CreateActivityItemDto> activities, int missionId, CancellationToken cancellationToken)
@@ -250,7 +440,9 @@ public class CreateMissionCommandHandler(
     private async Task ReserveSuppliesAsync(List<CreateActivityItemDto> activities, CancellationToken cancellationToken)
     {
         var activitiesWithSupplies = activities
-            .Where(a => a.DepotId.HasValue && a.SuppliesToCollect is { Count: > 0 })
+            .Where(a => !IsReturnSuppliesActivity(a)
+                && a.DepotId.HasValue
+                && a.SuppliesToCollect is { Count: > 0 })
             .ToList();
 
         var byDepot = activitiesWithSupplies
@@ -278,5 +470,43 @@ public class CreateMissionCommandHandler(
                     "Không thể đặt trước vật tư tại kho {DepotId} khi tạo mission", depot.DepotId);
             }
         }
+    }
+
+    private static bool IsCollectSuppliesActivity(CreateActivityItemDto activity) =>
+        string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsReturnSuppliesActivity(CreateActivityItemDto activity) =>
+        string.Equals(activity.ActivityType, ReturnSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsReusableItem(
+        int itemId,
+        IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup) =>
+        itemLookup.TryGetValue(itemId, out var item)
+        && string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase);
+
+    private static Dictionary<int, int> GetOrCreateItemBucket(
+        IDictionary<(int DepotId, int TeamId), Dictionary<int, int>> buckets,
+        (int DepotId, int TeamId) key)
+    {
+        if (!buckets.TryGetValue(key, out var bucket))
+        {
+            bucket = [];
+            buckets[key] = bucket;
+        }
+
+        return bucket;
+    }
+
+    private static string ResolveItemName(
+        int itemId,
+        IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup,
+        string? fallbackName = null)
+    {
+        if (!string.IsNullOrWhiteSpace(fallbackName))
+            return fallbackName;
+
+        return itemLookup.TryGetValue(itemId, out var item)
+            ? item.Name
+            : $"Item#{itemId}";
     }
 }
