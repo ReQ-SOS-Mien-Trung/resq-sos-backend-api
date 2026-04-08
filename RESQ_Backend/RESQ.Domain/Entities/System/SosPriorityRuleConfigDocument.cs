@@ -5,10 +5,28 @@ namespace RESQ.Domain.Entities.System;
 public class SosPriorityRuleConfigDocument
 {
     [JsonPropertyName("config_version")]
-    public string ConfigVersion { get; set; } = "SOS_PRIORITY_V1";
+    public string ConfigVersion { get; set; } = "SOS_PRIORITY_V2";
 
     [JsonPropertyName("is_active")]
     public bool IsActive { get; set; } = true;
+
+    [JsonPropertyName("medical_severe_issues")]
+    public List<string> MedicalSevereIssues { get; set; } =
+    [
+        "UNCONSCIOUS",
+        "BREATHING_DIFFICULTY",
+        "CHEST_PAIN_STROKE",
+        "DROWNING",
+        "SEVERELY_BLEEDING"
+    ];
+
+    [JsonPropertyName("request_type_scores")]
+    public Dictionary<string, double> RequestTypeScores { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["RESCUE"] = 30,
+        ["RELIEF"] = 20,
+        ["OTHER"] = 10
+    };
 
     [JsonPropertyName("priority_score")]
     public SosPriorityScoreConfig PriorityScore { get; set; } = new();
@@ -48,6 +66,17 @@ public class SosPriorityScoreConfig
 
     [JsonPropertyName("use_request_type_score")]
     public bool UseRequestTypeScore { get; set; } = false;
+
+    [JsonPropertyName("expression")]
+    public SosExpressionNode Expression { get; set; } = SosExpressionNode.Unary(
+        "ROUND",
+        SosExpressionNode.Binary(
+            "MUL",
+            SosExpressionNode.Binary(
+                "ADD",
+                SosExpressionNode.VarRef("medical_score"),
+                SosExpressionNode.VarRef("relief_score")),
+            SosExpressionNode.VarRef("situation_multiplier")));
 }
 
 public class SosMedicalScoreConfig
@@ -91,6 +120,12 @@ public class SosReliefScoreConfig
 {
     [JsonPropertyName("formula")]
     public string Formula { get; set; } = "supply_urgency_score + vulnerability_score";
+
+    [JsonPropertyName("expression")]
+    public SosExpressionNode Expression { get; set; } = SosExpressionNode.Binary(
+        "ADD",
+        SosExpressionNode.VarRef("supply_urgency_score"),
+        SosExpressionNode.VarRef("vulnerability_score"));
 
     [JsonPropertyName("supply_urgency_score")]
     public SosSupplyUrgencyScoreConfig SupplyUrgencyScore { get; set; } = new();
@@ -182,6 +217,15 @@ public class SosVulnerabilityScoreConfig
 {
     [JsonPropertyName("formula")]
     public string Formula { get; set; } = "MIN(vulnerability_raw, supply_urgency_score * cap_ratio)";
+
+    [JsonPropertyName("expression")]
+    public SosExpressionNode Expression { get; set; } = SosExpressionNode.Binary(
+        "MIN",
+        SosExpressionNode.VarRef("vulnerability_raw"),
+        SosExpressionNode.Binary(
+            "MUL",
+            SosExpressionNode.VarRef("supply_urgency_score"),
+            SosExpressionNode.VarRef("cap_ratio")));
 
     [JsonPropertyName("vulnerability_raw")]
     public SosVulnerabilityRawConfig VulnerabilityRaw { get; set; } = new();

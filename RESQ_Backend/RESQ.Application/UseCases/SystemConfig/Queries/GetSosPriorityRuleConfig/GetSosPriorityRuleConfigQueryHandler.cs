@@ -7,7 +7,8 @@ namespace RESQ.Application.UseCases.SystemConfig.Queries.GetSosPriorityRuleConfi
 
 public class GetSosPriorityRuleConfigQueryHandler(ISosPriorityRuleConfigRepository repository)
     : IRequestHandler<GetSosPriorityRuleConfigQuery, SosPriorityRuleConfigResponse>,
-      IRequestHandler<GetSosPriorityRuleConfigByIdQuery, SosPriorityRuleConfigResponse>
+      IRequestHandler<GetSosPriorityRuleConfigByIdQuery, SosPriorityRuleConfigResponse>,
+      IRequestHandler<GetSosPriorityRuleConfigVersionsQuery, List<SosPriorityRuleConfigVersionSummaryResponse>>
 {
     private readonly ISosPriorityRuleConfigRepository _repository = repository;
 
@@ -25,6 +26,12 @@ public class GetSosPriorityRuleConfigQueryHandler(ISosPriorityRuleConfigReposito
         return ToResponse(config);
     }
 
+    public async Task<List<SosPriorityRuleConfigVersionSummaryResponse>> Handle(GetSosPriorityRuleConfigVersionsQuery request, CancellationToken cancellationToken)
+    {
+        var configs = await _repository.GetAllAsync(cancellationToken);
+        return configs.Select(ToVersionSummary).ToList();
+    }
+
     private static SosPriorityRuleConfigResponse ToResponse(RESQ.Domain.Entities.System.SosPriorityRuleConfigModel config) =>
         CreateResponse(config);
 
@@ -34,9 +41,16 @@ public class GetSosPriorityRuleConfigQueryHandler(ISosPriorityRuleConfigReposito
         return new SosPriorityRuleConfigResponse
         {
             Id = config.Id,
+            Status = DetermineStatus(config),
+            CreatedAt = config.CreatedAt,
+            CreatedBy = config.CreatedBy,
+            ActivatedAt = config.ActivatedAt,
+            ActivatedBy = config.ActivatedBy,
             UpdatedAt = config.UpdatedAt,
             ConfigVersion = document.ConfigVersion,
             IsActive = document.IsActive,
+            MedicalSevereIssues = document.MedicalSevereIssues,
+            RequestTypeScores = document.RequestTypeScores,
             PriorityScore = document.PriorityScore,
             MedicalScore = document.MedicalScore,
             ReliefScore = document.ReliefScore,
@@ -45,5 +59,31 @@ public class GetSosPriorityRuleConfigQueryHandler(ISosPriorityRuleConfigReposito
             UiConstraints = document.UiConstraints,
             UiOptions = document.UiOptions
         };
+    }
+
+    private static SosPriorityRuleConfigVersionSummaryResponse ToVersionSummary(RESQ.Domain.Entities.System.SosPriorityRuleConfigModel config)
+    {
+        return new SosPriorityRuleConfigVersionSummaryResponse
+        {
+            Id = config.Id,
+            ConfigVersion = string.IsNullOrWhiteSpace(config.ConfigVersion) ? $"CONFIG_{config.Id}" : config.ConfigVersion,
+            IsActive = config.IsActive,
+            Status = DetermineStatus(config),
+            CreatedAt = config.CreatedAt,
+            CreatedBy = config.CreatedBy,
+            ActivatedAt = config.ActivatedAt,
+            ActivatedBy = config.ActivatedBy,
+            UpdatedAt = config.UpdatedAt
+        };
+    }
+
+    private static string DetermineStatus(RESQ.Domain.Entities.System.SosPriorityRuleConfigModel config)
+    {
+        if (config.IsActive)
+        {
+            return "Active";
+        }
+
+        return config.ActivatedAt.HasValue ? "Archived" : "Draft";
     }
 }

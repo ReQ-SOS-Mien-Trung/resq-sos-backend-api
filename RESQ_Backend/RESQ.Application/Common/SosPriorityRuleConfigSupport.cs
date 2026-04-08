@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.Emergency;
 
@@ -12,7 +13,7 @@ public static class SosPriorityRuleConfigSupport
         PropertyNameCaseInsensitive = true
     };
 
-    private static readonly HashSet<string> SevereMedicalIssues = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> DefaultSevereMedicalIssues = new(StringComparer.OrdinalIgnoreCase)
     {
         "UNCONSCIOUS",
         "BREATHING_DIFFICULTY",
@@ -27,16 +28,48 @@ public static class SosPriorityRuleConfigSupport
         "COLLAPSED"
     };
 
+    private static readonly HashSet<string> VulnerabilityExpressionVariables = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "VULNERABILITY_RAW",
+        "SUPPLY_URGENCY_SCORE",
+        "CAP_RATIO"
+    };
+
+    private static readonly HashSet<string> ReliefExpressionVariables = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SUPPLY_URGENCY_SCORE",
+        "VULNERABILITY_SCORE"
+    };
+
+    private static readonly HashSet<string> PriorityExpressionVariables = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "MEDICAL_SCORE",
+        "RELIEF_SCORE",
+        "SITUATION_MULTIPLIER",
+        "REQUEST_TYPE_SCORE"
+    };
+
     public static SosPriorityRuleConfigDocument DefaultConfig { get; } = new();
 
     public static SosPriorityRuleConfigDocument FromModel(SosPriorityRuleConfigModel? model)
     {
-        if (!string.IsNullOrWhiteSpace(model?.ConfigJson))
+        var config = !string.IsNullOrWhiteSpace(model?.ConfigJson)
+            ? Deserialize(model.ConfigJson)
+            : model is null
+                ? new SosPriorityRuleConfigDocument()
+                : BuildLegacyCompatibleConfig(model);
+
+        if (model is not null)
         {
-            return Deserialize(model.ConfigJson);
+            if (!string.IsNullOrWhiteSpace(model.ConfigVersion))
+            {
+                config.ConfigVersion = model.ConfigVersion;
+            }
+
+            config.IsActive = model.IsActive;
         }
 
-        return model is null ? new SosPriorityRuleConfigDocument() : BuildLegacyCompatibleConfig(model);
+        return config;
     }
 
     public static SosPriorityRuleConfigDocument Deserialize(string? json)
@@ -64,6 +97,10 @@ public static class SosPriorityRuleConfigSupport
 
     public static void SyncLegacyFields(SosPriorityRuleConfigModel model, SosPriorityRuleConfigDocument config)
     {
+        model.ConfigVersion = string.IsNullOrWhiteSpace(config.ConfigVersion)
+            ? "SOS_PRIORITY_V2"
+            : config.ConfigVersion;
+        model.IsActive = config.IsActive;
         model.ConfigJson = Serialize(config);
 
         model.IssueWeightsJson = JsonSerializer.Serialize(
@@ -72,21 +109,22 @@ public static class SosPriorityRuleConfigSupport
                 pair => pair.Value));
 
         model.MedicalSevereIssuesJson = JsonSerializer.Serialize(
-            SevereMedicalIssues.Select(issue => issue.ToLowerInvariant()).ToList());
+            config.MedicalSevereIssues
+                .Select(NormalizeKey)
+                .Where(issue => !string.IsNullOrWhiteSpace(issue))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(issue => issue.ToLowerInvariant())
+                .ToList());
 
         model.AgeWeightsJson = JsonSerializer.Serialize(
             config.MedicalScore.AgeWeights.ToDictionary(
                 pair => NormalizeKey(pair.Key).ToLowerInvariant(),
                 pair => pair.Value));
 
-        model.RequestTypeScoresJson = config.PriorityScore.UseRequestTypeScore
-            ? JsonSerializer.Serialize(new Dictionary<string, int>
-            {
-                ["rescue"] = 30,
-                ["relief"] = 20,
-                ["other"] = 10
-            })
-            : "{}";
+        model.RequestTypeScoresJson = JsonSerializer.Serialize(
+            config.RequestTypeScores.ToDictionary(
+                pair => NormalizeKey(pair.Key).ToLowerInvariant(),
+                pair => pair.Value));
 
         model.SituationMultipliersJson = JsonSerializer.Serialize(
             config.SituationMultiplier
@@ -105,6 +143,19 @@ public static class SosPriorityRuleConfigSupport
             high = new { minScore = (double)config.PriorityLevel.P2Threshold, requireSevere = true },
             medium = new { minScore = (double)config.PriorityLevel.P3Threshold, requireSevere = false }
         });
+
+        model.WaterUrgencyScoresJson = JsonSerializer.Serialize(config.ReliefScore.SupplyUrgencyScore.WaterUrgencyScore);
+        model.FoodUrgencyScoresJson = JsonSerializer.Serialize(config.ReliefScore.SupplyUrgencyScore.FoodUrgencyScore);
+        model.BlanketUrgencyRulesJson = JsonSerializer.Serialize(config.ReliefScore.SupplyUrgencyScore.BlanketUrgencyScore);
+        model.ClothingUrgencyRulesJson = JsonSerializer.Serialize(config.ReliefScore.SupplyUrgencyScore.ClothingUrgencyScore);
+        model.VulnerabilityRulesJson = JsonSerializer.Serialize(new
+        {
+            vulnerability_raw = config.ReliefScore.VulnerabilityScore.VulnerabilityRaw,
+            cap_ratio = config.ReliefScore.VulnerabilityScore.CapRatio
+        });
+        model.VulnerabilityScoreExpressionJson = JsonSerializer.Serialize(config.ReliefScore.VulnerabilityScore.Expression, JsonOptions);
+        model.ReliefScoreExpressionJson = JsonSerializer.Serialize(config.ReliefScore.Expression, JsonOptions);
+        model.PriorityScoreExpressionJson = JsonSerializer.Serialize(config.PriorityScore.Expression, JsonOptions);
     }
 
     public static SosPriorityLevel DeterminePriorityLevel(
@@ -184,9 +235,15 @@ public static class SosPriorityRuleConfigSupport
 
         ValidateNonNegativeDictionary(config.MedicalScore.AgeWeights, "medical_score.age_weights", errors);
         ValidateNonNegativeDictionary(config.MedicalScore.MedicalIssueSeverity, "medical_score.medical_issue_severity", errors);
+        ValidateNonNegativeDictionary(config.RequestTypeScores, "request_type_scores", errors);
         ValidateNonNegativeDictionary(config.SituationMultiplier, "situation_multiplier", errors, requirePositive: true);
         ValidateNonNegativeDictionary(config.ReliefScore.SupplyUrgencyScore.WaterUrgencyScore, "relief_score.supply_urgency_score.water_urgency_score", errors);
         ValidateNonNegativeDictionary(config.ReliefScore.SupplyUrgencyScore.FoodUrgencyScore, "relief_score.supply_urgency_score.food_urgency_score", errors);
+
+        if (!config.RequestTypeScores.Keys.Any(key => string.Equals(NormalizeKey(key), "OTHER", StringComparison.OrdinalIgnoreCase)))
+        {
+            errors.Add("request_type_scores phải có khóa OTHER.");
+        }
 
         if (!config.SituationMultiplier.Keys.Any(key => string.Equals(NormalizeKey(key), "DEFAULT_WHEN_NULL", StringComparison.OrdinalIgnoreCase)))
         {
@@ -195,13 +252,48 @@ public static class SosPriorityRuleConfigSupport
 
         ValidateUniqueOptions(config.UiOptions.WaterDuration, "ui_options.WATER_DURATION", errors);
         ValidateUniqueOptions(config.UiOptions.FoodDuration, "ui_options.FOOD_DURATION", errors);
+        ValidateUniqueOptions(config.MedicalSevereIssues, "medical_severe_issues", errors);
+
+        errors.AddRange(SosExpressionEngine.Validate(
+            config.ReliefScore.VulnerabilityScore.Expression,
+            "relief_score.vulnerability_score.expression",
+            VulnerabilityExpressionVariables));
+
+        errors.AddRange(SosExpressionEngine.Validate(
+            config.ReliefScore.Expression,
+            "relief_score.expression",
+            ReliefExpressionVariables));
+
+        errors.AddRange(SosExpressionEngine.Validate(
+            config.PriorityScore.Expression,
+            "priority_score.expression",
+            PriorityExpressionVariables));
+
+        var priorityVariables = SosExpressionEngine.CollectNormalizedVariables(config.PriorityScore.Expression);
+        if (!config.PriorityScore.UseRequestTypeScore && priorityVariables.Contains("REQUEST_TYPE_SCORE"))
+        {
+            errors.Add("priority_score.expression không được dùng request_type_score khi priority_score.use_request_type_score = false.");
+        }
 
         return errors;
     }
 
-    public static bool IsSevereMedicalIssue(string? issue)
+    public static bool IsSevereMedicalIssue(string? issue, SosPriorityRuleConfigDocument? config = null)
     {
-        return SevereMedicalIssues.Contains(NormalizeKey(issue));
+        var normalizedIssue = NormalizeKey(issue);
+        if (string.IsNullOrWhiteSpace(normalizedIssue))
+        {
+            return false;
+        }
+
+        if (config?.MedicalSevereIssues is { Count: > 0 })
+        {
+            return config.MedicalSevereIssues
+                .Select(NormalizeKey)
+                .Contains(normalizedIssue, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return DefaultSevereMedicalIssues.Contains(normalizedIssue);
     }
 
     public static bool IsSevereSituation(string? situation)
@@ -252,35 +344,51 @@ public static class SosPriorityRuleConfigSupport
 
     private static SosPriorityRuleConfigDocument BuildLegacyCompatibleConfig(SosPriorityRuleConfigModel model)
     {
-        var config = new SosPriorityRuleConfigDocument();
+        var config = new SosPriorityRuleConfigDocument
+        {
+            ConfigVersion = string.IsNullOrWhiteSpace(model.ConfigVersion) ? "SOS_PRIORITY_V2" : model.ConfigVersion,
+            IsActive = model.IsActive
+        };
+
+        TryApplyDictionary(model.AgeWeightsJson, config.MedicalScore.AgeWeights);
+        TryApplyDictionary(model.IssueWeightsJson, config.MedicalScore.MedicalIssueSeverity);
+        TryApplyDictionary(model.RequestTypeScoresJson, config.RequestTypeScores);
+        TryApplyDictionary(model.WaterUrgencyScoresJson, config.ReliefScore.SupplyUrgencyScore.WaterUrgencyScore);
+        TryApplyDictionary(model.FoodUrgencyScoresJson, config.ReliefScore.SupplyUrgencyScore.FoodUrgencyScore);
+
+        TryApplyList(model.MedicalSevereIssuesJson, config.MedicalSevereIssues);
+
+        TryApplyObject(
+            model.BlanketUrgencyRulesJson,
+            config.ReliefScore.SupplyUrgencyScore.BlanketUrgencyScore,
+            value => config.ReliefScore.SupplyUrgencyScore.BlanketUrgencyScore = value);
+        TryApplyObject(
+            model.ClothingUrgencyRulesJson,
+            config.ReliefScore.SupplyUrgencyScore.ClothingUrgencyScore,
+            value => config.ReliefScore.SupplyUrgencyScore.ClothingUrgencyScore = value);
+        TryApplyObject(model.VulnerabilityScoreExpressionJson, config.ReliefScore.VulnerabilityScore.Expression, value => config.ReliefScore.VulnerabilityScore.Expression = value);
+        TryApplyObject(model.ReliefScoreExpressionJson, config.ReliefScore.Expression, value => config.ReliefScore.Expression = value);
+        TryApplyObject(model.PriorityScoreExpressionJson, config.PriorityScore.Expression, value => config.PriorityScore.Expression = value);
 
         try
         {
-            var ageWeights = JsonSerializer.Deserialize<Dictionary<string, double>>(model.AgeWeightsJson, JsonOptions);
-            if (ageWeights is { Count: > 0 })
+            var vulnerabilityRules = JsonSerializer.Deserialize<LegacyVulnerabilityRules>(model.VulnerabilityRulesJson, JsonOptions);
+            if (vulnerabilityRules is not null)
             {
-                config.MedicalScore.AgeWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-                foreach (var pair in ageWeights)
+                if (vulnerabilityRules.VulnerabilityRaw is not null)
                 {
-                    config.MedicalScore.AgeWeights[NormalizeKey(pair.Key)] = pair.Value;
+                    config.ReliefScore.VulnerabilityScore.VulnerabilityRaw = vulnerabilityRules.VulnerabilityRaw;
                 }
-            }
-        }
-        catch { }
 
-        try
-        {
-            var medicalIssueSeverity = JsonSerializer.Deserialize<Dictionary<string, double>>(model.IssueWeightsJson, JsonOptions);
-            if (medicalIssueSeverity is { Count: > 0 })
-            {
-                config.MedicalScore.MedicalIssueSeverity = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-                foreach (var pair in medicalIssueSeverity)
+                if (vulnerabilityRules.CapRatio.HasValue)
                 {
-                    config.MedicalScore.MedicalIssueSeverity[NormalizeKey(pair.Key)] = pair.Value;
+                    config.ReliefScore.VulnerabilityScore.CapRatio = vulnerabilityRules.CapRatio.Value;
                 }
             }
         }
-        catch { }
+        catch
+        {
+        }
 
         try
         {
@@ -292,7 +400,9 @@ public static class SosPriorityRuleConfigSupport
                 config.PriorityLevel.P3Threshold = (int)Math.Round(legacyThresholds.Medium?.MinScore ?? config.PriorityLevel.P3Threshold);
             }
         }
-        catch { }
+        catch
+        {
+        }
 
         try
         {
@@ -314,12 +424,73 @@ public static class SosPriorityRuleConfigSupport
                 }
             }
         }
-        catch { }
-
-        config.PriorityScore.UseRequestTypeScore = !string.IsNullOrWhiteSpace(model.RequestTypeScoresJson)
-            && !string.Equals(model.RequestTypeScoresJson, "{}", StringComparison.Ordinal);
+        catch
+        {
+        }
 
         return config;
+    }
+
+    private static void TryApplyDictionary<TValue>(string? json, IDictionary<string, TValue> target)
+    {
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, TValue>>(json ?? "{}", JsonOptions);
+            if (parsed is not { Count: > 0 })
+            {
+                return;
+            }
+
+            target.Clear();
+            foreach (var pair in parsed)
+            {
+                target[NormalizeKey(pair.Key)] = pair.Value;
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryApplyList(string? json, List<string> target)
+    {
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<List<string>>(json ?? "[]", JsonOptions);
+            if (parsed is not { Count: > 0 })
+            {
+                return;
+            }
+
+            target.Clear();
+            foreach (var value in parsed.Select(NormalizeKey).Where(value => !string.IsNullOrWhiteSpace(value)))
+            {
+                target.Add(value);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryApplyObject<T>(string? json, T _, Action<T> setter)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(json) || string.Equals(json, "{}", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var parsed = JsonSerializer.Deserialize<T>(json, JsonOptions);
+            if (parsed is not null)
+            {
+                setter(parsed);
+            }
+        }
+        catch
+        {
+        }
     }
 
     private static void ValidateNonNegativeDictionary<TValue>(
@@ -386,5 +557,14 @@ public static class SosPriorityRuleConfigSupport
     private sealed class LegacyThresholdEntry
     {
         public double MinScore { get; set; }
+    }
+
+    private sealed class LegacyVulnerabilityRules
+    {
+        [JsonPropertyName("vulnerability_raw")]
+        public SosVulnerabilityRawConfig? VulnerabilityRaw { get; set; }
+
+        [JsonPropertyName("cap_ratio")]
+        public double? CapRatio { get; set; }
     }
 }

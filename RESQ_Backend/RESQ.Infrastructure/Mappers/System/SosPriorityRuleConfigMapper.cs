@@ -9,6 +9,12 @@ public static class SosPriorityRuleConfigMapper
     {
         var entity = new SosPriorityRuleConfig
         {
+            ConfigVersion = model.ConfigVersion,
+            IsActive = model.IsActive,
+            CreatedAt = model.CreatedAt,
+            CreatedBy = model.CreatedBy,
+            ActivatedAt = model.ActivatedAt,
+            ActivatedBy = model.ActivatedBy,
             ConfigJson = model.ConfigJson,
             IssueWeightsJson = model.IssueWeightsJson,
             MedicalSevereIssuesJson = model.MedicalSevereIssuesJson,
@@ -16,6 +22,14 @@ public static class SosPriorityRuleConfigMapper
             RequestTypeScoresJson = model.RequestTypeScoresJson,
             SituationMultipliersJson = model.SituationMultipliersJson,
             PriorityThresholdsJson = model.PriorityThresholdsJson,
+            WaterUrgencyScoresJson = model.WaterUrgencyScoresJson,
+            FoodUrgencyScoresJson = model.FoodUrgencyScoresJson,
+            BlanketUrgencyRulesJson = model.BlanketUrgencyRulesJson,
+            ClothingUrgencyRulesJson = model.ClothingUrgencyRulesJson,
+            VulnerabilityRulesJson = model.VulnerabilityRulesJson,
+            VulnerabilityScoreExpressionJson = model.VulnerabilityScoreExpressionJson,
+            ReliefScoreExpressionJson = model.ReliefScoreExpressionJson,
+            PriorityScoreExpressionJson = model.PriorityScoreExpressionJson,
             UpdatedAt = model.UpdatedAt
         };
 
@@ -30,6 +44,12 @@ public static class SosPriorityRuleConfigMapper
         return new SosPriorityRuleConfigModel
         {
             Id = entity.Id,
+            ConfigVersion = entity.ConfigVersion,
+            IsActive = entity.IsActive,
+            CreatedAt = entity.CreatedAt,
+            CreatedBy = entity.CreatedBy,
+            ActivatedAt = entity.ActivatedAt,
+            ActivatedBy = entity.ActivatedBy,
             ConfigJson = entity.ConfigJson,
             IssueWeightsJson = entity.IssueWeightsJson,
             MedicalSevereIssuesJson = entity.MedicalSevereIssuesJson,
@@ -37,6 +57,14 @@ public static class SosPriorityRuleConfigMapper
             RequestTypeScoresJson = entity.RequestTypeScoresJson,
             SituationMultipliersJson = entity.SituationMultipliersJson,
             PriorityThresholdsJson = entity.PriorityThresholdsJson,
+            WaterUrgencyScoresJson = entity.WaterUrgencyScoresJson,
+            FoodUrgencyScoresJson = entity.FoodUrgencyScoresJson,
+            BlanketUrgencyRulesJson = entity.BlanketUrgencyRulesJson,
+            ClothingUrgencyRulesJson = entity.ClothingUrgencyRulesJson,
+            VulnerabilityRulesJson = entity.VulnerabilityRulesJson,
+            VulnerabilityScoreExpressionJson = entity.VulnerabilityScoreExpressionJson,
+            ReliefScoreExpressionJson = entity.ReliefScoreExpressionJson,
+            PriorityScoreExpressionJson = entity.PriorityScoreExpressionJson,
             UpdatedAt = entity.UpdatedAt
         };
     }

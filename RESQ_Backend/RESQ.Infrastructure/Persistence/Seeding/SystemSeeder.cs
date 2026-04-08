@@ -323,6 +323,12 @@ Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này
       var configModel = new SosPriorityRuleConfigModel
       {
         Id = 1,
+        ConfigVersion = "SOS_PRIORITY_V2",
+        IsActive = true,
+        CreatedAt = now,
+        CreatedBy = null,
+        ActivatedAt = now,
+        ActivatedBy = null,
         UpdatedAt = now
       };
       SosPriorityRuleConfigSupport.SyncLegacyFields(configModel, new SosPriorityRuleConfigDocument());
@@ -331,6 +337,12 @@ Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này
             new SosPriorityRuleConfig
             {
                 Id = 1,
+          ConfigVersion = configModel.ConfigVersion,
+          IsActive = configModel.IsActive,
+          CreatedAt = configModel.CreatedAt,
+          CreatedBy = configModel.CreatedBy,
+          ActivatedAt = configModel.ActivatedAt,
+          ActivatedBy = configModel.ActivatedBy,
           ConfigJson = configModel.ConfigJson,
           IssueWeightsJson = configModel.IssueWeightsJson,
           MedicalSevereIssuesJson = configModel.MedicalSevereIssuesJson,
@@ -338,9 +350,16 @@ Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này
           RequestTypeScoresJson = configModel.RequestTypeScoresJson,
           SituationMultipliersJson = configModel.SituationMultipliersJson,
           PriorityThresholdsJson = configModel.PriorityThresholdsJson,
+          WaterUrgencyScoresJson = configModel.WaterUrgencyScoresJson,
+          FoodUrgencyScoresJson = configModel.FoodUrgencyScoresJson,
+          BlanketUrgencyRulesJson = configModel.BlanketUrgencyRulesJson,
+          ClothingUrgencyRulesJson = configModel.ClothingUrgencyRulesJson,
+          VulnerabilityRulesJson = configModel.VulnerabilityRulesJson,
+          VulnerabilityScoreExpressionJson = configModel.VulnerabilityScoreExpressionJson,
+          ReliefScoreExpressionJson = configModel.ReliefScoreExpressionJson,
+          PriorityScoreExpressionJson = configModel.PriorityScoreExpressionJson,
                 UpdatedAt = now
             }
         );
     }
 }
-

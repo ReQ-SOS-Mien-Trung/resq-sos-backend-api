@@ -11,6 +11,8 @@ public static class SosRuleEvaluationMapper
         return new SosRuleEvaluation
         {
             SosRequestId = model.SosRequestId,
+            ConfigId = model.ConfigId,
+            ConfigVersion = model.ConfigVersion,
             MedicalScore = model.MedicalScore,
             FoodScore = model.FoodScore,
             InjuryScore = model.InjuryScore,
@@ -20,6 +22,7 @@ public static class SosRuleEvaluationMapper
             PriorityLevel = model.PriorityLevel.ToString(),
             RuleVersion = model.RuleVersion,
             ItemsNeeded = model.ItemsNeeded,
+            BreakdownJson = model.BreakdownJson,
             DetailsJson = model.DetailsJson,
             CreatedAt = model.CreatedAt
         };
@@ -31,6 +34,8 @@ public static class SosRuleEvaluationMapper
         {
             Id = entity.Id,
             SosRequestId = entity.SosRequestId ?? 0,
+            ConfigId = entity.ConfigId,
+            ConfigVersion = entity.ConfigVersion,
             MedicalScore = entity.MedicalScore ?? 0,
             FoodScore = entity.FoodScore ?? 0,
             InjuryScore = entity.InjuryScore ?? 0,
@@ -40,6 +45,7 @@ public static class SosRuleEvaluationMapper
             PriorityLevel = Enum.TryParse<SosPriorityLevel>(entity.PriorityLevel, out var priority) ? priority : SosPriorityLevel.Low,
             RuleVersion = entity.RuleVersion ?? "1.0",
             ItemsNeeded = entity.ItemsNeeded,
+            BreakdownJson = entity.BreakdownJson,
             DetailsJson = entity.DetailsJson,
             CreatedAt = entity.CreatedAt ?? DateTime.UtcNow
         };

@@ -205,6 +205,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
     dbContext.Database.Migrate();
+    await SosPriorityRuleConfigSchemaUpdater.ApplyAsync(dbContext);
 }
 
 // Middleware pipeline
