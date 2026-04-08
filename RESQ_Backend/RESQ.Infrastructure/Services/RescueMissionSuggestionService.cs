@@ -19,6 +19,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IPromptRepository _promptRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository;
     private readonly IAssemblyPointRepository _assemblyPointRepository;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
 
@@ -31,6 +32,10 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     // Agent loop constants
     private const int MaxAgentTurns = 20;
     private const int AgentPageSize = 10;
+    private const string CollectSuppliesActivityType = "COLLECT_SUPPLIES";
+    private const string ReturnSuppliesActivityType = "RETURN_SUPPLIES";
+    private const string ReusableItemType = "Reusable";
+    private const string SingleTeamExecutionMode = "SingleTeam";
     private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
     private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex CoordinateRegex = new(@"(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", RegexOptions.Compiled);
@@ -46,12 +51,14 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         IHttpClientFactory httpClientFactory,
         IPromptRepository promptRepository,
         IDepotInventoryRepository depotInventoryRepository,
+        IItemModelMetadataRepository itemModelMetadataRepository,
         IAssemblyPointRepository assemblyPointRepository,
         ILogger<RescueMissionSuggestionService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _promptRepository = promptRepository;
         _depotInventoryRepository = depotInventoryRepository;
+        _itemModelMetadataRepository = itemModelMetadataRepository;
         _assemblyPointRepository = assemblyPointRepository;
         _logger = logger;
     }
@@ -185,7 +192,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
             Bạn có thể gọi ba công cụ để tìm kiếm dữ liệu thực từ hệ thống trước khi lập kế hoạch:
 
-            - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế", "Cứu hộ"). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, **available_quantity** (số lượng thực tế có thể lấy), depot_id, tên kho, địa chỉ kho, depot_latitude, depot_longitude. Mỗi hàng trong kết quả là một (vật tư, kho) riêng biệt — cùng một vật tư có thể xuất hiện ở nhiều hàng nếu có ở nhiều kho khác nhau.
+            - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế", "Cứu hộ"). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, item_type, **available_quantity** (số lượng tiêu hao khả dụng hoặc số đơn vị reusable đang Available), depot_id, tên kho, địa chỉ kho, depot_latitude, depot_longitude. Với vật tư reusable còn có thêm `good_available_count`, `fair_available_count`, `poor_available_count`. Mỗi hàng trong kết quả là một (vật tư, kho) riêng biệt — cùng một vật tư có thể xuất hiện ở nhiều hàng nếu có ở nhiều kho khác nhau.
             - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ trong pool nearby teams của cluster hiện tại. Có thể lọc theo khả năng (team_type). Trả về team_id, tên, loại, trạng thái, số thành viên, vị trí điểm tập kết (assembly_point_name, latitude, longitude) và distance_km.
             - **getAssemblyPoints(page)**: Lấy danh sách điểm tập kết đang hoạt động. Trả về assembly_point_id, tên, sức chứa tối đa và vị trí (latitude, longitude).
 
@@ -239,6 +246,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             - KHÔNG được tạo COLLECT_SUPPLIES sau khi đã DELIVER/RESCUE cho SOS đó xong (không được quay lại kho để bổ sung cho SOS đã hoàn tất).
             - Nếu cần nhiều kho, sắp xếp thứ tự kho theo địa lý (đi lần lượt, không vòng vèo).
             - Ghi rõ lý do địa lý trong `description` khi có bước xen kẽ giữa COLLECT và SOS.
+            - Nếu bất kỳ bước `COLLECT_SUPPLIES` nào lấy vật tư có `item_type = Reusable`, bạn **phải** tạo bước `RETURN_SUPPLIES` ở cuối kế hoạch để đưa đúng số vật tư reusable đó về lại đúng kho nguồn.
+            - Mỗi cặp (`depot_id`, `suggested_team.team_id`) phải có `RETURN_SUPPLIES` riêng. Không gộp nhiều kho hoặc nhiều đội vào cùng một bước trả.
 
             ## QUY TẮC MỖI SOS CHỈ XỬ LÝ TẠI HIỆN TRƯỜNG MỘT ĐỢT
             - Khi một SOS cần vật tư từ nhiều kho, bạn phải lập kế hoạch **lấy đủ toàn bộ vật tư cần thiết từ tất cả các kho trước**, rồi mới tới hiện trường SOS đó.
@@ -261,6 +270,12 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             ### DELIVER_SUPPLIES
             - Tạo sau mỗi COLLECT_SUPPLIES để giao hàng đến điểm sự cố.
             - `supplies_to_collect` liệt kê đúng những gì đã lấy từ bước COLLECT tương ứng.
+
+            ### RETURN_SUPPLIES
+            - Chỉ dùng để trả vật tư tái sử dụng (`item_type = Reusable`) về kho nguồn sau khi hoàn tất các bước hiện trường.
+            - `RETURN_SUPPLIES` phải nằm ở cuối kế hoạch cho đúng cặp đội + kho đã lấy vật tư reusable.
+            - `depot_id`, `depot_name`, `depot_address` phải khớp kho gốc; `supplies_to_collect` chỉ chứa các vật tư reusable thực sự cần trả.
+            - Không đưa vật tư consumable vào `RETURN_SUPPLIES`.
 
             ### RESCUE
             - **LUÔN tạo bước RESCUE** ngay cả khi thiếu thiết bị cứu hộ.
@@ -613,7 +628,10 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     }
 
     private static bool IsCollectActivity(SuggestedActivityDto activity) =>
-        string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+        string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsReturnActivity(SuggestedActivityDto activity) =>
+        string.Equals(activity.ActivityType, ReturnSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsOnSiteActivity(SuggestedActivityDto activity) =>
         OnSiteActivityTypes.Contains(activity.ActivityType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
@@ -869,6 +887,279 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             activities[index].Step = index + 1;
     }
 
+    private async Task EnsureReusableReturnActivitiesAsync(
+        List<SuggestedActivityDto> activities,
+        CancellationToken cancellationToken)
+    {
+        if (activities.Count == 0)
+            return;
+
+        var itemIds = activities
+            .SelectMany(activity => activity.SuppliesToCollect ?? [])
+            .Where(supply => supply.ItemId.HasValue)
+            .Select(supply => supply.ItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (itemIds.Count == 0)
+            return;
+
+        var itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(itemIds, cancellationToken);
+
+        var requiredReturnGroups = BuildRequiredReturnGroups(activities, itemLookup);
+        var nonReturnActivities = activities
+            .Where(activity => !IsReturnActivity(activity))
+            .ToList();
+
+        if (requiredReturnGroups.Count == 0)
+        {
+            if (nonReturnActivities.Count != activities.Count)
+            {
+                activities.Clear();
+                activities.AddRange(nonReturnActivities);
+
+                for (var index = 0; index < activities.Count; index++)
+                    activities[index].Step = index + 1;
+            }
+
+            return;
+        }
+
+        var existingReturnActivities = activities
+            .Where(activity => IsReturnActivity(activity) && activity.DepotId.HasValue)
+            .GroupBy(activity => (activity.DepotId!.Value, NormalizeTeamId(activity.SuggestedTeam?.TeamId)))
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+                    .First());
+
+        var normalizedReturnActivities = requiredReturnGroups
+            .OrderBy(group => group.Value.FirstCollectStep)
+            .ThenBy(group => group.Key.DepotId)
+            .ThenBy(group => group.Key.TeamId ?? int.MaxValue)
+            .Select(group =>
+            {
+                existingReturnActivities.TryGetValue(group.Key, out var existingReturnActivity);
+                var returnActivity = existingReturnActivity ?? new SuggestedActivityDto();
+                ApplyRequiredReturnActivity(returnActivity, group.Value);
+                return returnActivity;
+            })
+            .ToList();
+
+        activities.Clear();
+        activities.AddRange(nonReturnActivities);
+        activities.AddRange(normalizedReturnActivities);
+
+        for (var index = 0; index < activities.Count; index++)
+            activities[index].Step = index + 1;
+
+        _logger.LogInformation(
+            "Normalized reusable return activities for AI mission suggestion: RequiredReturnGroups={groupCount}, FinalActivityCount={activityCount}",
+            normalizedReturnActivities.Count,
+            activities.Count);
+    }
+
+    private static Dictionary<(int DepotId, int? TeamId), RequiredReturnGroup> BuildRequiredReturnGroups(
+        IEnumerable<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup)
+    {
+        var requiredGroups = new Dictionary<(int DepotId, int? TeamId), RequiredReturnGroup>();
+
+        foreach (var activity in activities.OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue))
+        {
+            if (!IsCollectActivity(activity)
+                || !activity.DepotId.HasValue
+                || activity.SuppliesToCollect is not { Count: > 0 })
+            {
+                continue;
+            }
+
+            var reusableSupplies = activity.SuppliesToCollect
+                .Where(supply => supply.ItemId.HasValue
+                    && supply.Quantity > 0
+                    && itemLookup.TryGetValue(supply.ItemId.Value, out var item)
+                    && string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (reusableSupplies.Count == 0)
+                continue;
+
+            var key = (activity.DepotId.Value, NormalizeTeamId(activity.SuggestedTeam?.TeamId));
+            if (!requiredGroups.TryGetValue(key, out var requiredGroup))
+            {
+                requiredGroup = new RequiredReturnGroup
+                {
+                    DepotId = activity.DepotId.Value,
+                    TeamId = key.Item2,
+                    FirstCollectStep = activity.Step > 0 ? activity.Step : int.MaxValue,
+                    Priority = activity.Priority,
+                    EstimatedTime = activity.EstimatedTime,
+                    DepotName = activity.DepotName,
+                    DepotAddress = activity.DepotAddress,
+                    SuggestedTeam = CloneSuggestedTeam(activity.SuggestedTeam)
+                };
+
+                requiredGroups[key] = requiredGroup;
+            }
+            else
+            {
+                requiredGroup.FirstCollectStep = Math.Min(
+                    requiredGroup.FirstCollectStep,
+                    activity.Step > 0 ? activity.Step : int.MaxValue);
+                requiredGroup.Priority = SelectHigherPriority(requiredGroup.Priority, activity.Priority);
+                requiredGroup.EstimatedTime ??= activity.EstimatedTime;
+                requiredGroup.DepotName ??= activity.DepotName;
+                requiredGroup.DepotAddress ??= activity.DepotAddress;
+                requiredGroup.SuggestedTeam ??= CloneSuggestedTeam(activity.SuggestedTeam);
+            }
+
+            foreach (var supply in reusableSupplies)
+            {
+                var itemId = supply.ItemId!.Value;
+                if (requiredGroup.Supplies.TryGetValue(itemId, out var existingSupply))
+                {
+                    existingSupply.Quantity += supply.Quantity;
+                    existingSupply.ItemName = string.IsNullOrWhiteSpace(existingSupply.ItemName)
+                        ? supply.ItemName ?? itemLookup[itemId].Name
+                        : existingSupply.ItemName;
+                    existingSupply.Unit ??= supply.Unit ?? itemLookup[itemId].Unit;
+                    continue;
+                }
+
+                requiredGroup.Supplies[itemId] = new SupplyToCollectDto
+                {
+                    ItemId = itemId,
+                    ItemName = string.IsNullOrWhiteSpace(supply.ItemName)
+                        ? itemLookup[itemId].Name
+                        : supply.ItemName,
+                    Quantity = supply.Quantity,
+                    Unit = supply.Unit ?? itemLookup[itemId].Unit
+                };
+            }
+        }
+
+        return requiredGroups;
+    }
+
+    private static void ApplyRequiredReturnActivity(
+        SuggestedActivityDto activity,
+        RequiredReturnGroup requiredGroup)
+    {
+        activity.Step = 0;
+        activity.ActivityType = ReturnSuppliesActivityType;
+        activity.Description = BuildReturnDescription(requiredGroup);
+        activity.Priority = requiredGroup.Priority;
+        activity.EstimatedTime = requiredGroup.EstimatedTime;
+        activity.ExecutionMode = SingleTeamExecutionMode;
+        activity.RequiredTeamCount = 1;
+        activity.CoordinationGroupKey = null;
+        activity.CoordinationNotes = "Một đội trả vật tư tái sử dụng đã lấy trước đó về lại kho nguồn.";
+        activity.SosRequestId = null;
+        activity.DepotId = requiredGroup.DepotId;
+        activity.DepotName = requiredGroup.DepotName;
+        activity.DepotAddress = requiredGroup.DepotAddress;
+        activity.AssemblyPointId = null;
+        activity.AssemblyPointName = null;
+        activity.AssemblyPointLatitude = null;
+        activity.AssemblyPointLongitude = null;
+        activity.SuppliesToCollect = requiredGroup.Supplies.Values
+            .OrderBy(supply => supply.ItemName)
+            .Select(CloneSupply)
+            .ToList();
+        activity.SuggestedTeam = CloneSuggestedTeam(requiredGroup.SuggestedTeam);
+    }
+
+    private static string BuildReturnDescription(RequiredReturnGroup requiredGroup)
+    {
+        var depotLabel = string.IsNullOrWhiteSpace(requiredGroup.DepotName)
+            ? $"kho #{requiredGroup.DepotId}"
+            : requiredGroup.DepotName;
+
+        var itemSummary = string.Join(
+            ", ",
+            requiredGroup.Supplies.Values
+                .OrderBy(supply => supply.ItemName)
+                .Select(supply =>
+                {
+                    var unitSuffix = string.IsNullOrWhiteSpace(supply.Unit)
+                        ? string.Empty
+                        : $" {supply.Unit}";
+                    return $"{supply.ItemName} x{supply.Quantity}{unitSuffix}";
+                }));
+
+        return string.IsNullOrWhiteSpace(itemSummary)
+            ? $"Hoàn tất nhiệm vụ, đưa vật tư tái sử dụng về lại {depotLabel}."
+            : $"Hoàn tất nhiệm vụ, đưa vật tư tái sử dụng về lại {depotLabel}. Trả: {itemSummary}.";
+    }
+
+    private static SupplyToCollectDto CloneSupply(SupplyToCollectDto supply)
+    {
+        return new SupplyToCollectDto
+        {
+            ItemId = supply.ItemId,
+            ItemName = supply.ItemName,
+            Quantity = supply.Quantity,
+            Unit = supply.Unit
+        };
+    }
+
+    private static SuggestedTeamDto? CloneSuggestedTeam(SuggestedTeamDto? team)
+    {
+        return team == null
+            ? null
+            : new SuggestedTeamDto
+            {
+                TeamId = team.TeamId,
+                TeamName = team.TeamName,
+                TeamType = team.TeamType,
+                Reason = team.Reason,
+                AssemblyPointName = team.AssemblyPointName,
+                Latitude = team.Latitude,
+                Longitude = team.Longitude,
+                DistanceKm = team.DistanceKm
+            };
+    }
+
+    private static int? NormalizeTeamId(int? teamId) =>
+        teamId.HasValue && teamId.Value > 0 ? teamId.Value : null;
+
+    private static string? SelectHigherPriority(string? currentPriority, string? candidatePriority)
+    {
+        if (string.IsNullOrWhiteSpace(currentPriority))
+            return candidatePriority;
+
+        if (string.IsNullOrWhiteSpace(candidatePriority))
+            return currentPriority;
+
+        return GetPriorityRank(candidatePriority) > GetPriorityRank(currentPriority)
+            ? candidatePriority
+            : currentPriority;
+    }
+
+    private static int GetPriorityRank(string? priority) =>
+        (priority ?? string.Empty).Trim() switch
+        {
+            var value when value.Equals("Critical", StringComparison.OrdinalIgnoreCase) => 4,
+            var value when value.Equals("High", StringComparison.OrdinalIgnoreCase) => 3,
+            var value when value.Equals("Medium", StringComparison.OrdinalIgnoreCase) => 2,
+            var value when value.Equals("Low", StringComparison.OrdinalIgnoreCase) => 1,
+            _ => 0
+        };
+
+    private sealed class RequiredReturnGroup
+    {
+        public int DepotId { get; init; }
+        public int? TeamId { get; init; }
+        public int FirstCollectStep { get; set; } = int.MaxValue;
+        public string? Priority { get; set; }
+        public string? EstimatedTime { get; set; }
+        public string? DepotName { get; set; }
+        public string? DepotAddress { get; set; }
+        public SuggestedTeamDto? SuggestedTeam { get; set; }
+        public Dictionary<int, SupplyToCollectDto> Supplies { get; } = [];
+    }
+
     private async Task EnrichActivitiesWithAssemblyPointsAsync(
         RescueMissionSuggestionResult result,
         IReadOnlyDictionary<int, SosRequestSummary> sosLookup,
@@ -919,6 +1210,109 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             activity.AssemblyPointLongitude = assemblyPoint.Location?.Longitude;
         }
     }
+
+    private static void BackfillItemIds(List<SuggestedActivityDto> activities, List<DepotSummary> depots)
+    {
+        var itemLookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var depot in depots)
+        {
+            foreach (var inventory in depot.Inventories)
+            {
+                if (inventory.ItemId.HasValue && !string.IsNullOrWhiteSpace(inventory.ItemName))
+                    itemLookup.TryAdd(NormalizeItemName(inventory.ItemName), inventory.ItemId.Value);
+            }
+        }
+
+        if (itemLookup.Count == 0)
+            return;
+
+        foreach (var activity in activities)
+        {
+            if (activity.SuppliesToCollect is null)
+                continue;
+
+            foreach (var supply in activity.SuppliesToCollect)
+            {
+                if (supply.ItemId.HasValue || string.IsNullOrWhiteSpace(supply.ItemName))
+                    continue;
+
+                var normalized = NormalizeItemName(supply.ItemName);
+                if (itemLookup.TryGetValue(normalized, out var exactId))
+                {
+                    supply.ItemId = exactId;
+                    continue;
+                }
+
+                foreach (var (key, id) in itemLookup)
+                {
+                    if (normalized.Contains(key, StringComparison.OrdinalIgnoreCase)
+                        || key.Contains(normalized, StringComparison.OrdinalIgnoreCase))
+                    {
+                        supply.ItemId = id;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private static void BackfillSosRequestIds(List<SuggestedActivityDto> activities, List<SosRequestSummary> sosRequests)
+    {
+        if (sosRequests.Count == 0)
+            return;
+
+        if (sosRequests.Count == 1)
+        {
+            var sosId = sosRequests[0].Id;
+            foreach (var activity in activities)
+                activity.SosRequestId ??= sosId;
+            return;
+        }
+
+        var sosWithCoordinates = sosRequests
+            .Where(sos => sos.Latitude.HasValue && sos.Longitude.HasValue)
+            .ToList();
+
+        var fallbackSos = sosRequests
+            .OrderByDescending(sos => GetPriorityRank(sos.PriorityLevel))
+            .First();
+
+        foreach (var activity in activities)
+        {
+            if (activity.SosRequestId.HasValue)
+                continue;
+
+            if (sosWithCoordinates.Count > 0 && !string.IsNullOrWhiteSpace(activity.Description))
+            {
+                var match = CoordinateRegex.Match(activity.Description);
+                if (match.Success
+                    && double.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var latitude)
+                    && double.TryParse(match.Groups[2].Value, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var longitude))
+                {
+                    var nearestSos = sosWithCoordinates
+                        .OrderBy(sos => HaversineKm(latitude, longitude, sos.Latitude!.Value, sos.Longitude!.Value))
+                        .First();
+                    activity.SosRequestId = nearestSos.Id;
+                    continue;
+                }
+            }
+
+            activity.SosRequestId = fallbackSos.Id;
+        }
+    }
+
+    private static string NormalizeItemName(string name) =>
+        name.ToLowerInvariant()
+            .Replace("&", " ")
+            .Replace("(", " ")
+            .Replace(")", " ")
+            .Replace(",", " ")
+            .Replace("-", " ")
+            .Replace("/", " ")
+            .Replace("  ", " ")
+            .Trim();
 
     // ─── SSE helpers ───────────────────────────────────────────────────────────
 
@@ -1164,7 +1558,10 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         var result       = ParseMissionSuggestion(finalText);
         var sosLookup = sosRequests.ToDictionary(x => x.Id);
         NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
+        BackfillItemIds(result.SuggestedActivities, nearbyDepots ?? []);
+        BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
         await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
+        await EnsureReusableReturnActivitiesAsync(result.SuggestedActivities, cancellationToken);
         result.IsSuccess     = true;
         result.ModelName     = modelName;
         result.RawAiResponse = finalText;
@@ -1283,14 +1680,14 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             new()
             {
                 Name        = "searchInventory",
-                Description = "Tìm kiếm vật tư đang khả dụng trong kho theo danh mục và loại. Trả về danh sách vật tư kèm item_id, tên, số lượng, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude).",
+                Description = "Tìm kiếm vật tư đang khả dụng trong kho theo danh mục và loại. Trả về cả consumable lẫn reusable với item_id, tên, item_type, available_quantity, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude). Reusable còn có good_available_count, fair_available_count, poor_available_count.",
                 Parameters  = new GeminiFunctionParameters
                 {
                     Type       = "object",
                     Properties = new Dictionary<string, GeminiFunctionProperty>
                     {
                         ["category"] = new() { Type = "string",  Description = "Tên danh mục vật tư, ví dụ: 'Nước', 'Thực phẩm', 'Y tế', 'Quần áo'" },
-                        ["type"]     = new() { Type = "string",  Description = "Loại cụ thể trong danh mục (tuỳ chọn)" },
+                        ["type"]     = new() { Type = "string",  Description = "Tên loại hoặc tên vật tư cụ thể trong danh mục (tuỳ chọn)" },
                         ["page"]     = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
                     },
                     Required = ["category"]
