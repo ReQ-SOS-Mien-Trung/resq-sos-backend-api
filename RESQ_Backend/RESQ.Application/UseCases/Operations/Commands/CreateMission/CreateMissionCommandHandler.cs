@@ -10,6 +10,7 @@ using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
@@ -19,6 +20,7 @@ namespace RESQ.Application.UseCases.Operations.Commands.CreateMission;
 
 public class CreateMissionCommandHandler(
     IMissionRepository missionRepository,
+    IMissionActivityRepository missionActivityRepository,
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
@@ -31,6 +33,7 @@ public class CreateMissionCommandHandler(
 ) : IRequestHandler<CreateMissionCommand, CreateMissionResponse>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
+    private readonly IMissionActivityRepository _missionActivityRepository = missionActivityRepository;
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
@@ -111,9 +114,6 @@ public class CreateMissionCommandHandler(
 
         await _unitOfWork.SaveAsync();
 
-        // Reserve supplies in inventory for all activities that specify depot + items
-        await ReserveSuppliesAsync(request.Activities, cancellationToken);
-
         // Assign rescue teams per activity (using suggestedTeam.id / RescueTeamId)
         var savedActivities = await _missionRepository.GetByIdAsync(missionId, cancellationToken);
         if (savedActivities?.Activities is not null)
@@ -148,6 +148,20 @@ public class CreateMissionCommandHandler(
                         act.RescueTeamId.Value, activityList[i].Id, missionId);
                 }
             }
+        }
+
+        savedActivities = await _missionRepository.GetByIdAsync(missionId, cancellationToken);
+        if (savedActivities?.Activities is not null)
+        {
+            var persistedActivities = savedActivities.Activities
+                .OrderBy(a => a.Step ?? int.MaxValue)
+                .ThenBy(a => a.Id)
+                .ToList();
+            var requestActivities = request.Activities
+                .OrderBy(a => a.Step ?? int.MaxValue)
+                .ToList();
+
+            await ReserveSuppliesAsync(requestActivities, persistedActivities, cancellationToken);
         }
 
         _logger.LogInformation("Mission created: MissionId={missionId}", missionId);
@@ -437,37 +451,52 @@ public class CreateMissionCommandHandler(
         }
     }
 
-    private async Task ReserveSuppliesAsync(List<CreateActivityItemDto> activities, CancellationToken cancellationToken)
+    private async Task ReserveSuppliesAsync(
+        List<CreateActivityItemDto> requestActivities,
+        List<MissionActivityModel> persistedActivities,
+        CancellationToken cancellationToken)
     {
-        var activitiesWithSupplies = activities
-            .Where(a => !IsReturnSuppliesActivity(a)
-                && a.DepotId.HasValue
-                && a.SuppliesToCollect is { Count: > 0 })
-            .ToList();
-
-        var byDepot = activitiesWithSupplies
-            .GroupBy(a => a.DepotId!.Value)
-            .Select(g => new
-            {
-                DepotId = g.Key,
-                Items = g.SelectMany(a => a.SuppliesToCollect!)
-                         .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
-                         .GroupBy(s => s.Id!.Value)
-                         .Select(sg => (ItemModelId: sg.Key, Quantity: sg.Sum(s => s.Quantity ?? 0)))
-                         .ToList()
-            });
-
-        foreach (var depot in byDepot)
+        for (var index = 0; index < Math.Min(requestActivities.Count, persistedActivities.Count); index++)
         {
-            if (depot.Items.Count == 0) continue;
+            var requestActivity = requestActivities[index];
+            var persistedActivity = persistedActivities[index];
+
+            if (IsReturnSuppliesActivity(requestActivity)
+                || !requestActivity.DepotId.HasValue
+                || requestActivity.SuppliesToCollect is not { Count: > 0 })
+            {
+                continue;
+            }
+
+            var itemsToReserve = requestActivity.SuppliesToCollect
+                .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
+                .Select(s => (ItemModelId: s.Id!.Value, Quantity: s.Quantity ?? 0))
+                .ToList();
+
+            if (itemsToReserve.Count == 0)
+                continue;
+
             try
             {
-                await _depotInventoryRepository.ReserveSuppliesAsync(depot.DepotId, depot.Items, cancellationToken);
+                var reservationResult = await _depotInventoryRepository.ReserveSuppliesAsync(
+                    requestActivity.DepotId.Value,
+                    itemsToReserve,
+                    cancellationToken);
+
+                await MissionSupplyExecutionSnapshotHelper.SyncReservationSnapshotAsync(
+                    persistedActivity,
+                    reservationResult,
+                    _missionActivityRepository,
+                    _logger,
+                    cancellationToken);
+                await _unitOfWork.SaveAsync();
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
-                    "Không thể đặt trước vật tư tại kho {DepotId} khi tạo mission", depot.DepotId);
+                    "Không thể đặt trước vật tư tại kho {DepotId} cho activity #{ActivityId} khi tạo mission",
+                    requestActivity.DepotId.Value,
+                    persistedActivity.Id);
             }
         }
     }

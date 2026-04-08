@@ -1,3 +1,5 @@
+using RESQ.Application.Common.Models;
+
 namespace RESQ.Application.Services;
 
 public interface IRescueMissionSuggestionService
@@ -116,6 +118,20 @@ public class SupplyToCollectDto
     public string ItemName { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public string? Unit { get; set; }
+    /// <summary>Chỉ có trước khi pickup succeed: danh sách các lô FEFO mà activity này phải lấy.</summary>
+    public List<SupplyExecutionLotDto>? PlannedPickupLotAllocations { get; set; }
+    /// <summary>Chỉ có trước khi pickup succeed: danh sách reusable units hoặc serial phải lấy cho activity này.</summary>
+    public List<SupplyExecutionReusableUnitDto>? PlannedPickupReusableUnits { get; set; }
+    /// <summary>Chỉ có sau khi pickup succeed: consumable thực tế đã lấy từ các lô nào theo FEFO.</summary>
+    public List<SupplyExecutionLotDto>? PickupLotAllocations { get; set; }
+    /// <summary>Chỉ có sau khi pickup succeed: reusable units thực tế đã lấy khỏi kho.</summary>
+    public List<SupplyExecutionReusableUnitDto>? PickedReusableUnits { get; set; }
+    /// <summary>Chỉ có với RETURN_SUPPLIES: tập reusable units dự kiến phải trả lại kho.</summary>
+    public List<SupplyExecutionReusableUnitDto>? ExpectedReturnUnits { get; set; }
+    /// <summary>Chỉ có sau khi depot manager confirm return: reusable units thực tế đã nhận lại.</summary>
+    public List<SupplyExecutionReusableUnitDto>? ReturnedReusableUnits { get; set; }
+    /// <summary>Chỉ có sau khi depot manager confirm return: số lượng thực tế được nhập lại cho item này.</summary>
+    public int? ActualReturnedQuantity { get; set; }
 }
 
 public class SuggestedActivityDto

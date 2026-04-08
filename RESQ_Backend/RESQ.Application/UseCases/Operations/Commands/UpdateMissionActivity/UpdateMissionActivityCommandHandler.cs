@@ -7,6 +7,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateMissionActivity;
@@ -113,13 +114,29 @@ public class UpdateMissionActivityCommandHandler(
             {
                 try
                 {
-                    await _depotInventoryRepository.ReserveSuppliesAsync(newDepotId.Value, itemsToReserve, cancellationToken);
+                    var reservationResult = await _depotInventoryRepository.ReserveSuppliesAsync(newDepotId.Value, itemsToReserve, cancellationToken);
+                    await MissionSupplyExecutionSnapshotHelper.SyncReservationSnapshotAsync(
+                        activity,
+                        reservationResult,
+                        _activityRepository,
+                        _logger,
+                        cancellationToken);
+                    await _unitOfWork.SaveAsync();
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Không thể đặt trước vật tư mới cho activity #{ActivityId}", activity.Id);
                 }
             }
+        }
+        else
+        {
+            await MissionSupplyExecutionSnapshotHelper.RebuildExpectedReturnUnitsAsync(
+                activity,
+                _activityRepository,
+                _logger,
+                cancellationToken);
+            await _unitOfWork.SaveAsync();
         }
 
         return new UpdateMissionActivityResponse
@@ -129,7 +146,10 @@ public class UpdateMissionActivityCommandHandler(
             Step = activity.Step,
             ActivityType = activity.ActivityType,
             Description = activity.Description,
-            Status = activity.Status.ToString()
+            Status = activity.Status.ToString(),
+            SuppliesToCollect = string.IsNullOrWhiteSpace(activity.Items)
+                ? null
+                : JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts)
         };
     }
 }

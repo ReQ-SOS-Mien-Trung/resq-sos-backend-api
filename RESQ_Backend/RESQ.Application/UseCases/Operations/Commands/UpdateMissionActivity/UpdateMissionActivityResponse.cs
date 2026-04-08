@@ -1,3 +1,5 @@
+using RESQ.Application.Services;
+
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateMissionActivity;
 
 public class UpdateMissionActivityResponse
@@ -8,4 +10,5 @@ public class UpdateMissionActivityResponse
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
     public string? Status { get; set; }
+    public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
 }

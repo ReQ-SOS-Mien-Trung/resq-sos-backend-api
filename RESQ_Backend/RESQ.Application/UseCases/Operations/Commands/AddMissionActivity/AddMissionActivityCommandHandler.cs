@@ -8,6 +8,7 @@ using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 using System.Text.Json;
@@ -99,27 +100,6 @@ public class AddMissionActivityCommandHandler(
         var activityId = await _activityRepository.AddAsync(activity, cancellationToken);
         await _unitOfWork.SaveAsync();
 
-        // Reserve supplies in inventory if specified
-        if (request.DepotId.HasValue && request.SuppliesToCollect is { Count: > 0 })
-        {
-            var itemsToReserve = request.SuppliesToCollect
-                .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
-                .Select(s => (ItemModelId: s.Id!.Value, Quantity: s.Quantity ?? 0))
-                .ToList();
-
-            if (itemsToReserve.Count > 0)
-            {
-                try
-                {
-                    await _depotInventoryRepository.ReserveSuppliesAsync(request.DepotId.Value, itemsToReserve, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Không thể đặt trước vật tư tại kho {DepotId} khi thêm lẻ activity", request.DepotId.Value);
-                }
-            }
-        }
-
         var response = new AddMissionActivityResponse
         {
             ActivityId = activityId,
@@ -141,6 +121,47 @@ public class AddMissionActivityCommandHandler(
             response.MissionTeamId = assignResult.MissionTeamId;
             response.AssignedRescueTeamId = assignResult.RescueTeamId;
         }
+
+        var savedActivity = await _activityRepository.GetByIdAsync(activityId, cancellationToken)
+            ?? activity;
+
+        if (request.DepotId.HasValue && request.SuppliesToCollect is { Count: > 0 })
+        {
+            var itemsToReserve = request.SuppliesToCollect
+                .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
+                .Select(s => (ItemModelId: s.Id!.Value, Quantity: s.Quantity ?? 0))
+                .ToList();
+
+            if (itemsToReserve.Count > 0)
+            {
+                try
+                {
+                    var reservationResult = await _depotInventoryRepository.ReserveSuppliesAsync(
+                        request.DepotId.Value,
+                        itemsToReserve,
+                        cancellationToken);
+
+                    await MissionSupplyExecutionSnapshotHelper.SyncReservationSnapshotAsync(
+                        savedActivity,
+                        reservationResult,
+                        _activityRepository,
+                        _logger,
+                        cancellationToken);
+                    await _unitOfWork.SaveAsync();
+
+                    savedActivity = await _activityRepository.GetByIdAsync(activityId, cancellationToken)
+                        ?? savedActivity;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Không thể đặt trước vật tư tại kho {DepotId} khi thêm lẻ activity", request.DepotId.Value);
+                }
+            }
+        }
+
+        response.SuppliesToCollect = string.IsNullOrWhiteSpace(savedActivity.Items)
+            ? null
+            : JsonSerializer.Deserialize<List<SupplyToCollectDto>>(savedActivity.Items, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         return response;
     }
