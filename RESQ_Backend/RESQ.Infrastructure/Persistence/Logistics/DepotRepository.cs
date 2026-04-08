@@ -60,10 +60,10 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
             .AsQueryable();
 
         // Filter by statuses
-        var statusStrings = statuses?.Select(s => s.ToString()).ToList();
+        var statusStrings = statuses?.Select(s => s.ToString().ToLower()).ToList();
         if (statusStrings != null && statusStrings.Count > 0)
         {
-            query = query.Where(d => statusStrings.Contains(d.Status));
+            query = query.Where(d => statusStrings.Contains(d.Status.ToLower()));
         }
 
         // Filter by search term (depot name or manager name)

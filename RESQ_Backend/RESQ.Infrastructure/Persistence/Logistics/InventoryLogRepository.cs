@@ -79,13 +79,15 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         // Filter by action types
         if (actionTypes != null && actionTypes.Count > 0)
         {
-            query = query.Where(x => actionTypes.Contains(x.ActionType!));
+            var actionTypesLower = actionTypes.Select(a => a.ToLower()).ToList();
+            query = query.Where(x => actionTypesLower.Contains(x.ActionType!.ToLower()));
         }
 
         // Filter by source types
         if (sourceTypes != null && sourceTypes.Count > 0)
         {
-            query = query.Where(x => sourceTypes.Contains(x.SourceType!));
+            var sourceTypesLower = sourceTypes.Select(s => s.ToLower()).ToList();
+            query = query.Where(x => sourceTypesLower.Contains(x.SourceType!.ToLower()));
         }
 
         // Filter by date range
@@ -203,12 +205,14 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
         if (actionTypes != null && actionTypes.Count > 0)
         {
-            query = query.Where(x => actionTypes.Contains(x.ActionType!));
+            var actionTypesLower = actionTypes.Select(a => a.ToLower()).ToList();
+            query = query.Where(x => actionTypesLower.Contains(x.ActionType!.ToLower()));
         }
 
         if (sourceTypes != null && sourceTypes.Count > 0)
         {
-            query = query.Where(x => sourceTypes.Contains(x.SourceType!));
+            var sourceTypesLower = sourceTypes.Select(s => s.ToLower()).ToList();
+            query = query.Where(x => sourceTypesLower.Contains(x.SourceType!.ToLower()));
         }
 
         if (fromDate.HasValue)

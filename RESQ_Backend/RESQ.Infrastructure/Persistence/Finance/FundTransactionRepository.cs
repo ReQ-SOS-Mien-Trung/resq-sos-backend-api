@@ -22,9 +22,10 @@ public class FundTransactionRepository(IUnitOfWork unitOfWork) : IFundTransactio
         List<TransactionReferenceType>? referenceTypes = null,
         CancellationToken cancellationToken = default)
     {
-        var typeStrings          = types?.Select(t => t.ToString()).ToList();
-        var directionStrings     = directions?.Select(d => d.ToString()).ToList();
-        var referenceTypeStrings = referenceTypes?.Select(r => r.ToString()).ToList();
+        // Lowercase cả filter lẫn cột DB để so sánh case-insensitive (PostgreSQL phân biệt hoa/thường)
+        var typeStrings          = types?.Select(t => t.ToString().ToLower()).ToList();
+        var directionStrings     = directions?.Select(d => d.ToString().ToLower()).ToList();
+        var referenceTypeStrings = referenceTypes?.Select(r => r.ToString().ToLower()).ToList();
 
         var query = _unitOfWork.Set<FundTransaction>()
             .Include(x => x.FundCampaign)
@@ -33,13 +34,13 @@ public class FundTransactionRepository(IUnitOfWork unitOfWork) : IFundTransactio
             .AsQueryable();
 
         if (typeStrings != null && typeStrings.Count > 0)
-            query = query.Where(x => typeStrings.Contains(x.Type));
+            query = query.Where(x => x.Type != null && typeStrings.Contains(x.Type.ToLower()));
 
         if (directionStrings != null && directionStrings.Count > 0)
-            query = query.Where(x => directionStrings.Contains(x.Direction));
+            query = query.Where(x => x.Direction != null && directionStrings.Contains(x.Direction.ToLower()));
 
         if (referenceTypeStrings != null && referenceTypeStrings.Count > 0)
-            query = query.Where(x => referenceTypeStrings.Contains(x.ReferenceType));
+            query = query.Where(x => x.ReferenceType != null && referenceTypeStrings.Contains(x.ReferenceType.ToLower()));
 
         var totalCount = await query.CountAsync(cancellationToken);
 
