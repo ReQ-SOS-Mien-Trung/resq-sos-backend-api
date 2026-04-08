@@ -31,46 +31,71 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
 
         if (existingEntity != null)
         {
+            // Khi kho chuyển sang Closed → unassign tất cả manager đang active (UnassignedAt == null)
+            // Xử lý tập trung ở đây để cover tất cả các path đóng kho:
+            //   - Kho trống → đóng ngay (InitiateDepotClosure)
+            //   - Xử lý hàng bên ngoài (ResolveDepotClosure - External)
+            //   - Kho đích xác nhận nhận hàng (ReceiveClosureTransfer)
+            bool transitioningToClosed = existingEntity.Status != DepotStatus.Closed.ToString()
+                                         && depotModel.Status == DepotStatus.Closed;
+
             DepotMapper.UpdateEntity(existingEntity, depotModel);
+
+            if (transitioningToClosed)
+            {
+                var now = DateTime.UtcNow;
+                foreach (var dm in existingEntity.DepotManagers.Where(dm => dm.UnassignedAt == null))
+                    dm.UnassignedAt = now;
+            }
+
             await repository.UpdateAsync(existingEntity);
         }
     }
 
     public async Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default)
     {
-        var repository = _unitOfWork.GetRepository<Depot>();
+        var query = _unitOfWork.Set<Depot>()
+            .Include(d => d.DepotManagers)
+                .ThenInclude(dm => dm.User)
+            .AsQueryable();
 
-        // Convert enum values to string for DB comparison
+        // Filter by statuses
         var statusStrings = statuses?.Select(s => s.ToString()).ToList();
+        if (statusStrings != null && statusStrings.Count > 0)
+        {
+            query = query.Where(d => statusStrings.Contains(d.Status));
+        }
+
+        // Filter by search term (depot name or manager name)
         var searchTerm = search?.Trim().ToLower();
+        if (searchTerm != null)
+        {
+            query = query.Where(d =>
+                (d.Name != null && d.Name.ToLower().Contains(searchTerm)) ||
+                d.DepotManagers.Any(dm =>
+                    dm.UnassignedAt == null &&
+                    dm.User != null &&
+                    ((dm.User.LastName != null && dm.User.LastName.ToLower().Contains(searchTerm)) ||
+                     (dm.User.FirstName != null && dm.User.FirstName.ToLower().Contains(searchTerm)))));
+        }
 
-        // UPDATED: Pass OrderBy to ensure consistent pagination (Order by LastUpdated DESC)
-        // UPDATED: Included "DepotManagers.User" to fetch manager details
-        var pagedEntities = await repository.GetPagedAsync(
-            pageNumber, 
-            pageSize,
-            filter: d =>
-                (statusStrings == null || statusStrings.Count == 0 || statusStrings.Contains(d.Status)) &&
-                (searchTerm == null ||
-                    (d.Name != null && d.Name.ToLower().Contains(searchTerm)) ||
-                    d.DepotManagers.Any(dm =>
-                        dm.UnassignedAt == null &&
-                        dm.User != null &&
-                        ((dm.User.LastName != null && dm.User.LastName.ToLower().Contains(searchTerm)) ||
-                         (dm.User.FirstName != null && dm.User.FirstName.ToLower().Contains(searchTerm))))),
-            orderBy: q => q.OrderByDescending(d => d.LastUpdatedAt), 
-            includeProperties: "DepotManagers.User"
-        );
+        var totalCount = await query.CountAsync(cancellationToken);
 
-        var domainItems = pagedEntities.Items
+        var entities = await query
+            .OrderByDescending(d => d.LastUpdatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var domainItems = entities
             .Select(DepotMapper.ToDomain)
             .ToList();
 
         return new PagedResult<DepotModel>(
             domainItems, 
-            pagedEntities.TotalCount, 
-            pagedEntities.PageNumber, 
-            pagedEntities.PageSize
+            totalCount, 
+            pageNumber, 
+            pageSize
         );
     }
 

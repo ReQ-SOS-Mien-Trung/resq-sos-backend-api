@@ -578,15 +578,28 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var paged = await _unitOfWork.GetRepository<DepotSupplyRequest>()
-            .GetPagedAsync(
-                pageNumber,
-                pageSize,
-                filter: r => (depotIds.Contains(r.RequestingDepotId) || depotIds.Contains(r.SourceDepotId))
-                             && (sourceStatus      == null || r.SourceStatus      == sourceStatus)
-                             && (requestingStatus  == null || r.RequestingStatus  == requestingStatus),
-                orderBy: q => q.OrderByDescending(r => r.CreatedAt),
-                includeProperties: "RequestingDepot,SourceDepot,Items.ItemModel");
+        var query = _unitOfWork.Set<DepotSupplyRequest>()
+            .Include(r => r.RequestingDepot)
+            .Include(r => r.SourceDepot)
+            .Include(r => r.Items)
+                .ThenInclude(i => i.ItemModel)
+            .Where(r => depotIds.Contains(r.RequestingDepotId) || depotIds.Contains(r.SourceDepotId));
+
+        if (sourceStatus != null)
+            query = query.Where(r => r.SourceStatus == sourceStatus);
+
+        if (requestingStatus != null)
+            query = query.Where(r => r.RequestingStatus == requestingStatus);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var pagedEntities = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var paged = new PagedResult<DepotSupplyRequest>(pagedEntities, totalCount, pageNumber, pageSize);
 
         var items = paged.Items.Select(entity => new SupplyRequestListItem
         {

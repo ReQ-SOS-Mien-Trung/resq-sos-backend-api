@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -23,25 +22,35 @@ public class FundTransactionRepository(IUnitOfWork unitOfWork) : IFundTransactio
         List<TransactionReferenceType>? referenceTypes = null,
         CancellationToken cancellationToken = default)
     {
-        var repo = _unitOfWork.GetRepository<FundTransaction>();
-
         var typeStrings          = types?.Select(t => t.ToString()).ToList();
         var directionStrings     = directions?.Select(d => d.ToString()).ToList();
         var referenceTypeStrings = referenceTypes?.Select(r => r.ToString()).ToList();
 
-        var pagedEntities = await repo.GetPagedAsync(
-            pageNumber,
-            pageSize,
-            x => x.FundCampaignId == campaignId
-              && (typeStrings          == null || typeStrings.Count == 0 || typeStrings.Contains(x.Type))
-              && (directionStrings     == null || directionStrings.Count == 0 || directionStrings.Contains(x.Direction))
-              && (referenceTypeStrings == null || referenceTypeStrings.Count == 0 || referenceTypeStrings.Contains(x.ReferenceType)),
-            q => q.OrderByDescending(x => x.CreatedAt),
-            "CreatedByUser"
-        );
+        var query = _unitOfWork.Set<FundTransaction>()
+            .Include(x => x.FundCampaign)
+            .Include(x => x.CreatedByUser)
+            .Where(x => x.FundCampaignId == campaignId)
+            .AsQueryable();
 
-        var models = pagedEntities.Items.Select(FundTransactionMapper.ToModel).ToList();
-        return new PagedResult<FundTransactionModel>(models, pagedEntities.TotalCount, pageNumber, pageSize);
+        if (typeStrings != null && typeStrings.Count > 0)
+            query = query.Where(x => typeStrings.Contains(x.Type));
+
+        if (directionStrings != null && directionStrings.Count > 0)
+            query = query.Where(x => directionStrings.Contains(x.Direction));
+
+        if (referenceTypeStrings != null && referenceTypeStrings.Count > 0)
+            query = query.Where(x => referenceTypeStrings.Contains(x.ReferenceType));
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var entities = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var models = entities.Select(FundTransactionMapper.ToModel).ToList();
+        return new PagedResult<FundTransactionModel>(models, totalCount, pageNumber, pageSize);
     }
 
     public async Task CreateAsync(FundTransactionModel model, CancellationToken cancellationToken = default)

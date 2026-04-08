@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -31,31 +30,26 @@ public class FundCampaignRepository(IUnitOfWork unitOfWork) : IFundCampaignRepos
 
     public async Task<PagedResult<FundCampaignModel>> GetPagedAsync(int pageNumber, int pageSize, List<FundCampaignStatus>? statuses = null, CancellationToken cancellationToken = default)
     {
-        var repo = _unitOfWork.GetRepository<FundCampaign>();
-
-        Expression<Func<FundCampaign, bool>> filter;
+        var query = _unitOfWork.Set<FundCampaign>()
+            .Where(x => !x.IsDeleted)
+            .AsQueryable();
 
         if (statuses != null && statuses.Count > 0)
         {
-            // Convert enum list to string list for comparison with the stored string column
             var statusStrings = statuses.Select(s => s.ToString()).ToList();
-
-            filter = x => !x.IsDeleted && statusStrings.Contains(x.Status!);
-        }
-        else
-        {
-            filter = x => !x.IsDeleted;
+            query = query.Where(x => statusStrings.Contains(x.Status!));
         }
 
-        var pagedEntities = await repo.GetPagedAsync(
-            pageNumber,
-            pageSize,
-            filter,
-            q => q.OrderByDescending(x => x.CreatedAt)
-        );
+        var totalCount = await query.CountAsync(cancellationToken);
 
-        var models = pagedEntities.Items.Select(FundCampaignMapper.ToModel).ToList();
-        return new PagedResult<FundCampaignModel>(models, pagedEntities.TotalCount, pageNumber, pageSize);
+        var entities = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var models = entities.Select(FundCampaignMapper.ToModel).ToList();
+        return new PagedResult<FundCampaignModel>(models, totalCount, pageNumber, pageSize);
     }
 
     public async Task CreateAsync(FundCampaignModel model, CancellationToken cancellationToken = default)
