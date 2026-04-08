@@ -78,6 +78,35 @@ public class UpdateActivityStatusCommandHandler(
                 request.ActivityId);
         }
 
+        if (effectiveStatus == MissionActivityStatus.OnGoing
+            && activity.MissionId.HasValue
+            && activity.MissionTeamId.HasValue)
+        {
+            var missionActivities = (await _activityRepository
+                .GetByMissionIdAsync(activity.MissionId.Value, cancellationToken))
+                .ToList();
+
+            if (MissionActivitySequenceHelper.HasActiveActivityForTeam(
+                missionActivities,
+                activity.MissionTeamId.Value,
+                activity.Id))
+            {
+                throw new BadRequestException(
+                    "Đội cứu hộ đang có activity khác ở trạng thái đang thực hiện hoặc chờ xác nhận. " +
+                    "Vui lòng hoàn thành activity hiện tại trước khi bắt đầu activity tiếp theo.");
+            }
+
+            var earliestUnfinishedActivity = MissionActivitySequenceHelper
+                .GetEarliestUnfinishedActivityForSameTeam(missionActivities, activity);
+
+            if (earliestUnfinishedActivity is not null && earliestUnfinishedActivity.Id != activity.Id)
+            {
+                throw new BadRequestException(
+                    $"Không thể bắt đầu activity #{activity.Id}. " +
+                    $"Đội cứu hộ phải hoàn thành activity #{earliestUnfinishedActivity.Id} trước khi thao tác activity tiếp theo.");
+            }
+        }
+
         MissionActivityStateMachine.EnsureValidTransition(activity.Status, effectiveStatus);
 
         await _activityRepository.UpdateStatusAsync(request.ActivityId, effectiveStatus, request.DecisionBy, cancellationToken);
