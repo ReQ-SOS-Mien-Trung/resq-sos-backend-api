@@ -28,9 +28,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     [Authorize(Policy = PermissionConstants.SosRequestCreate)]
     public async Task<IActionResult> Create([FromBody] CreateSosRequestRequestDto dto)
     {
-        // reporter_info.user_id is the primary auth source; fall back to legacy sender_info.user_id
-        var reporterUserIdStr = dto.ReporterInfo?.UserId ?? dto.SenderInfo?.UserId;
-        if (reporterUserIdStr == null || !Guid.TryParse(reporterUserIdStr, out var reporterUserId))
+        if (!TryGetPayloadReporterUserId(dto, out var reporterUserId))
             return BadRequest(new { message = "reporter_info.user_id (or sender_info.user_id) is required and must be a valid GUID." });
 
         string? structuredDataJson = dto.StructuredData != null
@@ -159,8 +157,8 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     [Authorize(Policy = PermissionConstants.PolicySosRequestAccess)]
     public async Task<IActionResult> UpdateVictimSosRequest([FromRoute] int id, [FromBody] UpdateSosRequestVictimRequestDto dto)
     {
-        if (!TryGetUserId(out var userId))
-            return Unauthorized();
+        if (!TryGetPayloadReporterUserId(dto, out var reporterUserId))
+            return BadRequest(new { message = "reporter_info.user_id (or sender_info.user_id) is required and must be a valid GUID." });
 
         string? structuredDataJson = dto.StructuredData != null
             ? JsonSerializer.Serialize(dto.StructuredData)
@@ -184,7 +182,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
 
         var command = new UpdateSosRequestVictimCommand(
             id,
-            userId,
+            reporterUserId,
             new GeoLocation(dto.Location.Latitude, dto.Location.Longitude),
             dto.RawMessage,
             dto.PacketId,
@@ -202,6 +200,14 @@ public class SosRequestController(IMediator mediator) : ControllerBase
 
         var result = await _mediator.Send(command);
         return Ok(result);
+    }
+
+    private static bool TryGetPayloadReporterUserId(CreateSosRequestRequestDto dto, out Guid reporterUserId)
+    {
+        reporterUserId = Guid.Empty;
+        var reporterUserIdClaim = dto.ReporterInfo?.UserId ?? dto.SenderInfo?.UserId;
+        return !string.IsNullOrWhiteSpace(reporterUserIdClaim)
+            && Guid.TryParse(reporterUserIdClaim, out reporterUserId);
     }
 
     private bool TryGetUserId(out Guid userId)
