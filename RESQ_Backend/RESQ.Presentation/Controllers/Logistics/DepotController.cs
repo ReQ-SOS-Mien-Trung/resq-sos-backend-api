@@ -7,6 +7,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 using RESQ.Application.UseCases.Logistics.Commands.AssignDepotManager;
+using RESQ.Application.UseCases.Logistics.Commands.UnassignDepotManager;
 using RESQ.Application.UseCases.Logistics.Commands.CancelDepotClosure;
 using RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
 using RESQ.Application.UseCases.Logistics.Commands.CompleteClosureTransfer;
@@ -118,6 +119,22 @@ namespace RESQ.Presentation.Controllers.Logistics
         public async Task<IActionResult> AssignManager(int id, [FromBody] AssignDepotManagerRequestDto dto)
         {
             var command = new AssignDepotManagerCommand(id, dto.ManagerId);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Gỡ manager khỏi kho. Manager cũ bị unassign (UnassignedAt được set) nhưng lịch sử vẫn được giữ lại.
+        /// Kho chuyển sang trạng thái PendingAssignment sau khi gỡ.
+        /// </summary>
+        [HttpDelete("{id}/manager")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ProducesResponseType(typeof(UnassignDepotManagerResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UnassignManager(int id)
+        {
+            var command = new UnassignDepotManagerCommand(id);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
