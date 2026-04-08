@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
@@ -11,9 +12,12 @@ public class GetMyTeamActivitiesQueryHandler(
     IPersonnelQueryRepository personnelQueryRepository,
     IMissionTeamRepository missionTeamRepository,
     IMissionActivityRepository activityRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     ILogger<GetMyTeamActivitiesQueryHandler> logger
 ) : IRequestHandler<GetMyTeamActivitiesQuery, List<MissionActivityDto>>
 {
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
+
     public async Task<List<MissionActivityDto>> Handle(GetMyTeamActivitiesQuery request, CancellationToken cancellationToken)
     {
         var team = await personnelQueryRepository.GetActiveRescueTeamByUserIdAsync(request.UserId, cancellationToken)
@@ -28,7 +32,7 @@ public class GetMyTeamActivitiesQueryHandler(
             "User {UserId} (Team {TeamId}, MissionTeam {MissionTeamId}) fetching their activities for Mission {MissionId}",
             request.UserId, team.Id, missionTeam.Id, request.MissionId);
 
-        return activities
+        var result = activities
             .Where(a => a.MissionTeamId == missionTeam.Id)
             .Select(a => new MissionActivityDto
             {
@@ -55,5 +59,9 @@ public class GetMyTeamActivitiesQueryHandler(
                 CompletedAt = a.CompletedAt,
                 CompletedBy = a.CompletedBy
             }).ToList();
+
+        await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(result, _itemModelMetadataRepository, cancellationToken);
+
+        return result;
     }
 }

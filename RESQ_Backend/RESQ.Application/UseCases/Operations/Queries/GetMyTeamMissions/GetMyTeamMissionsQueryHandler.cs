@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
@@ -9,12 +10,14 @@ namespace RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
 public class GetMyTeamMissionsQueryHandler(
     IPersonnelQueryRepository personnelQueryRepository,
     IMissionRepository missionRepository,
-    IMissionTeamRepository missionTeamRepository)
+    IMissionTeamRepository missionTeamRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository)
     : IRequestHandler<GetMyTeamMissionsQuery, GetMissionsResponse>
 {
     private readonly IPersonnelQueryRepository _personnelQueryRepository = personnelQueryRepository;
     private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
 
     public async Task<GetMissionsResponse> Handle(GetMyTeamMissionsQuery request, CancellationToken cancellationToken)
     {
@@ -38,10 +41,17 @@ public class GetMyTeamMissionsQueryHandler(
             .GroupBy(a => a.MissionId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        return new GetMissionsResponse
+        var response = new GetMissionsResponse
         {
             Missions = missions.Select(m => ToMissionDto(m, assignedByMission.TryGetValue(m.Id, out var teams) ? teams : [])).ToList()
         };
+
+        await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(
+            response.Missions.SelectMany(mission => mission.Activities),
+            _itemModelMetadataRepository,
+            cancellationToken);
+
+        return response;
     }
 
     private static MissionDto ToMissionDto(MissionModel m, List<MissionTeamModel> assignedTeams)

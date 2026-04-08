@@ -32,6 +32,7 @@ public class PickupHistoryItemDto
 {
     public int? ItemId { get; set; }
     public string? ItemName { get; set; }
+    public string? ImageUrl { get; set; }
     public int Quantity { get; set; }
     public string? Unit { get; set; }
 }

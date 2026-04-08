@@ -1,4 +1,6 @@
 using System.Text.Json;
+using RESQ.Application.Common.Logistics;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMissions;
@@ -136,6 +138,19 @@ internal static class MissionActivityDtoHelper
         if (string.IsNullOrWhiteSpace(itemsJson)) return null;
         try { return JsonSerializer.Deserialize<List<SupplyToCollectDto>>(itemsJson, JsonOpts); }
         catch { return null; }
+    }
+
+    internal static Task EnrichSupplyImageUrlsAsync(
+        IEnumerable<MissionActivityDto> activities,
+        IItemModelMetadataRepository itemModelMetadataRepository,
+        CancellationToken cancellationToken)
+    {
+        return ItemImageUrlEnricher.EnrichAsync(
+            activities.SelectMany(activity => activity.SuppliesToCollect ?? []),
+            supply => supply.ItemId,
+            (supply, imageUrl) => supply.ImageUrl = imageUrl ?? supply.ImageUrl,
+            itemModelMetadataRepository,
+            cancellationToken);
     }
 }
 

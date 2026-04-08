@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 
@@ -10,12 +11,14 @@ public class GetMissionByIdQueryHandler(
     IMissionRepository missionRepository,
     IMissionTeamRepository missionTeamRepository,
     IMissionAiSuggestionRepository aiSuggestionRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     ILogger<GetMissionByIdQueryHandler> logger
 ) : IRequestHandler<GetMissionByIdQuery, MissionDto?>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IMissionAiSuggestionRepository _aiSuggestionRepository = aiSuggestionRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly ILogger<GetMissionByIdQueryHandler> _logger = logger;
 
     public async Task<MissionDto?> Handle(GetMissionByIdQuery request, CancellationToken cancellationToken)
@@ -36,7 +39,7 @@ public class GetMissionByIdQueryHandler(
                 aiSection = MissionAiSuggestionSection.From(latest);
         }
 
-        return new MissionDto
+        var result = new MissionDto
         {
             Id = mission.Id,
             ClusterId = mission.ClusterId,
@@ -109,5 +112,9 @@ public class GetMissionByIdQueryHandler(
             SuggestedPriorityScore = aiSection?.SuggestedPriorityScore,
             SuggestedSeverityLevel = aiSection?.SuggestedSeverityLevel
         };
+
+        await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(result.Activities, _itemModelMetadataRepository, cancellationToken);
+
+        return result;
     }
 }

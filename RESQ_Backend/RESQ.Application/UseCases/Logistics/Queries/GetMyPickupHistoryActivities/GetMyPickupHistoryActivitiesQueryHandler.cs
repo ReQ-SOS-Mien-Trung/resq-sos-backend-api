@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.Logistics;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -7,10 +8,12 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetMyPickupHistoryActiviti
 
 public class GetMyPickupHistoryActivitiesQueryHandler(
     IDepotInventoryRepository depotInventoryRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     IUpcomingPickupActivityRepository upcomingPickupActivityRepository)
     : IRequestHandler<GetMyPickupHistoryActivitiesQuery, PagedResult<PickupHistoryActivityDto>>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IUpcomingPickupActivityRepository _upcomingPickupActivityRepository = upcomingPickupActivityRepository;
 
     public async Task<PagedResult<PickupHistoryActivityDto>> Handle(
@@ -64,6 +67,13 @@ public class GetMyPickupHistoryActivitiesQueryHandler(
                 Unit = i.Unit
             }).ToList()
         }).ToList();
+
+        await ItemImageUrlEnricher.EnrichAsync(
+            items.SelectMany(activity => activity.Items),
+            item => item.ItemId,
+            (item, imageUrl) => item.ImageUrl = imageUrl ?? item.ImageUrl,
+            _itemModelMetadataRepository,
+            cancellationToken);
 
         return new PagedResult<PickupHistoryActivityDto>(items, paged.TotalCount, paged.PageNumber, paged.PageSize);
     }
