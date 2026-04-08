@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.SetRolePermissions;
+using RESQ.Application.UseCases.Identity.Queries.GetRoleMetadata;
 using RESQ.Application.UseCases.Identity.Queries.GetRolePermissions;
 
 namespace RESQ.Presentation.Controllers.Identity;
@@ -13,6 +14,14 @@ namespace RESQ.Presentation.Controllers.Identity;
 public class RolesController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
+
+    /// <summary>[Metadata] Danh sách role dùng cho dropdown (key = id, value = tên).</summary>
+    [HttpGet("metadata")]
+    public async Task<IActionResult> GetMetadata()
+    {
+        var result = await _mediator.Send(new GetRoleMetadataQuery());
+        return Ok(result);
+    }
 
     ///// <summary>Lấy danh sách tất cả role</summary>
     //[HttpGet]
