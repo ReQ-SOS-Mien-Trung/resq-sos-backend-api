@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
@@ -103,7 +104,31 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
         if (entity is null) return;
 
         entity.MissionTeamId = missionTeamId;
+        entity.AssignedAt = DateTime.UtcNow;
         await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);
+    }
+
+    public async Task ResetAssignmentsToPlannedAsync(IEnumerable<int> activityIds, Guid decisionBy, CancellationToken cancellationToken = default)
+    {
+        var ids = activityIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        var entities = await _unitOfWork.SetTracked<MissionActivity>()
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        foreach (var entity in entities)
+        {
+            entity.MissionTeamId = null;
+            entity.AssignedAt = null;
+            entity.Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Planned);
+            entity.LastDecisionBy = decisionBy;
+            entity.CompletedAt = null;
+            entity.CompletedBy = null;
+        }
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)

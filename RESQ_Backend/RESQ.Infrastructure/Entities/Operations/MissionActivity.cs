@@ -99,4 +99,7 @@ public partial class MissionActivity
 
     [InverseProperty("MissionActivity")]
     public virtual ICollection<MissionActivityReport> MissionActivityReports { get; set; } = new List<MissionActivityReport>();
+
+    [InverseProperty(nameof(Operations.TeamIncidentActivity.MissionActivity))]
+    public virtual ICollection<TeamIncidentActivity> TeamIncidentActivities { get; set; } = new List<TeamIncidentActivity>();
 }

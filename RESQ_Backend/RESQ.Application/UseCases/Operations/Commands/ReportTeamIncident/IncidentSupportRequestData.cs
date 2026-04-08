@@ -1,11 +1,11 @@
 namespace RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 
-public class IncidentAssistanceSosRequestData
+public class IncidentSupportRequestData
 {
     public string? RawMessage { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
-    public string? SosType { get; set; }
+    public List<string> SupportTypes { get; set; } = [];
     public string? Situation { get; set; }
     public bool? HasInjured { get; set; }
     public int? AdultCount { get; set; }

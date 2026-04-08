@@ -1,15 +1,17 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
-using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 using RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 using RESQ.Application.UseCases.Operations.Shared;
+using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 
@@ -24,7 +26,6 @@ public class ReportMissionTeamIncidentCommandHandler(
     ISosRequestRepository sosRequestRepository,
     ISosPriorityRuleConfigRepository sosPriorityRuleConfigRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
-    IDepotInventoryRepository depotInventoryRepository,
     IMediator mediator,
     IUnitOfWork unitOfWork,
     ILogger<ReportMissionTeamIncidentCommandHandler> logger
@@ -32,7 +33,7 @@ public class ReportMissionTeamIncidentCommandHandler(
 {
     public async Task<ReportTeamIncidentResponse> Handle(ReportMissionTeamIncidentCommand request, CancellationToken cancellationToken)
     {
-        ValidateRequest(request.Description, request.Latitude, request.Longitude);
+        var normalized = IncidentV2NormalizationHelper.NormalizeMissionRequest(request.Payload);
 
         var mission = await missionRepository.GetByIdAsync(request.MissionId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy mission #{request.MissionId}.");
@@ -52,122 +53,141 @@ public class ReportMissionTeamIncidentCommandHandler(
 
         EnsureReporterBelongsToTeam(missionTeam, request.ReportedBy);
 
-        var unfinishedActivities = (await missionActivityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken))
-            .Where(activity => activity.MissionTeamId == request.MissionTeamId
-                && MissionActivityIncidentFailureHelper.CanFailFromIncident(activity.Status))
+        var missionActivities = (await missionActivityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken))
+            .Where(activity => activity.MissionTeamId == request.MissionTeamId)
             .OrderBy(activity => activity.Step ?? int.MaxValue)
             .ThenBy(activity => activity.Id)
             .ToList();
 
-        if (unfinishedActivities.Count == 0)
+        var unfinishedActivities = missionActivities
+            .Where(activity => activity.MissionTeamId == request.MissionTeamId
+                && MissionActivityIncidentFailureHelper.CanFailFromIncident(activity.Status))
+            .ToList();
+
+        if (normalized.MissionDecision != IncidentV2Constants.MissionDecisionCodes.ContinueMission
+            && unfinishedActivities.Count == 0)
         {
             throw new BadRequestException(
                 $"MissionTeamId={request.MissionTeamId} không còn activity chưa hoàn tất để xử lý mission incident.");
         }
 
+        var impactedActivities = normalized.MissionDecision == IncidentV2Constants.MissionDecisionCodes.ContinueMission
+            ? []
+            : unfinishedActivities;
+        var primaryActivityId = impactedActivities.FirstOrDefault()?.Id;
+
         var now = DateTime.UtcNow;
         var incident = new TeamIncidentModel
         {
             MissionTeamId = request.MissionTeamId,
+            MissionActivityId = primaryActivityId,
             IncidentScope = TeamIncidentScope.Mission,
-            Description = request.Description.Trim(),
-            Latitude = request.Latitude,
-            Longitude = request.Longitude,
+            IncidentType = IncidentV2Constants.MissionIncidentType,
+            DecisionCode = normalized.MissionDecision,
+            Description = normalized.Summary,
+            Latitude = normalized.Latitude,
+            Longitude = normalized.Longitude,
+            DetailJson = normalized.DetailJson,
+            PayloadVersion = IncidentV2Constants.PayloadVersion,
+            NeedSupportSos = normalized.NeedSupportSos,
+            NeedReassignActivity = false,
             Status = TeamIncidentStatus.Reported,
             ReportedBy = request.ReportedBy,
-            ReportedAt = now
+            ReportedAt = now,
+            AffectedActivities = BuildAffectedActivities(impactedActivities, primaryActivityId)
         };
 
-        var rescueTeam = await rescueTeamRepository.GetByIdAsync(missionTeam.RescuerTeamId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy đội cứu hộ với ID: {missionTeam.RescuerTeamId}");
-
-        rescueTeam.ReportIncident();
+        var requiresRescueTeamStateChange = normalized.MissionDecision == IncidentV2Constants.MissionDecisionCodes.RescueWholeTeamImmediately;
+        var rescueTeam = requiresRescueTeamStateChange
+            ? await rescueTeamRepository.GetByIdAsync(missionTeam.RescuerTeamId, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy đội cứu hộ với ID: {missionTeam.RescuerTeamId}")
+            : null;
 
         var incidentId = 0;
-        CreateSosRequestResponse? assistanceSos = null;
+        CreateSosRequestResponse? supportSos = null;
         IReadOnlyCollection<int> impactedSosRequestIds = [];
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             incidentId = await teamIncidentRepository.CreateAsync(incident, cancellationToken);
-            await rescueTeamRepository.UpdateAsync(rescueTeam, cancellationToken);
 
-            await MissionActivityIncidentFailureHelper.FailActivitiesAsync(
-                unfinishedActivities,
-                request.ReportedBy,
-                missionActivityRepository,
-                missionTeamRepository,
-                sosRequestRepository,
-                sosRequestUpdateRepository,
-                teamIncidentRepository,
-                depotInventoryRepository,
-                unitOfWork,
-                logger,
-                allowAutoChain: false,
-                allowReturnSuppliesCreation: false,
-                allowSosLifecycleSync: false,
-                cancellationToken);
+            if (normalized.MissionDecision != IncidentV2Constants.MissionDecisionCodes.ContinueMission)
+            {
+                impactedSosRequestIds = (await SosRequestIncidentHelper.MarkSosRequestsAsIncidentAsync(
+                    SosRequestIncidentHelper.ResolveLifecycleSosRequestIds(impactedActivities),
+                    incidentId,
+                    request.MissionId,
+                    missionTeam,
+                    activity: null,
+                    normalized.Summary,
+                    request.ReportedBy,
+                    sosRequestRepository,
+                    sosPriorityRuleConfigRepository,
+                    sosRequestUpdateRepository,
+                    logger,
+                    cancellationToken)).ToList();
 
-            impactedSosRequestIds = (await SosRequestIncidentHelper.MarkSosRequestsAsIncidentAsync(
-                SosRequestIncidentHelper.ResolveLifecycleSosRequestIds(unfinishedActivities),
-                incidentId,
+                await missionTeamRepository.UpdateStatusAsync(
+                    missionTeam.Id,
+                    MissionTeamExecutionStatus.Reported.ToString(),
+                    cancellationToken);
+            }
+
+            if (normalized.MissionDecision == IncidentV2Constants.MissionDecisionCodes.HandoverMission && impactedActivities.Count > 0)
+            {
+                await missionActivityRepository.ResetAssignmentsToPlannedAsync(
+                    impactedActivities.Select(activity => activity.Id),
+                    request.ReportedBy,
+                    cancellationToken);
+
+                foreach (var affectedActivity in incident.AffectedActivities)
+                {
+                    affectedActivity.Status = MissionActivityStatus.Planned;
+                }
+            }
+
+            supportSos = await TeamIncidentAssistanceSosHelper.CreateSupportSosAsync(
                 request.MissionId,
                 missionTeam,
-                activity: null,
-                request.Description,
+                activity: impactedActivities.FirstOrDefault(),
                 request.ReportedBy,
-                sosRequestRepository,
-                sosPriorityRuleConfigRepository,
-                sosRequestUpdateRepository,
-                logger,
-                cancellationToken)).ToList();
-
-            assistanceSos = await TeamIncidentAssistanceSosHelper.CreateAssistanceSosAsync(
-                request.MissionId,
-                missionTeam,
-                activity: null,
-                request.ReportedBy,
-                request.Description,
-                request.Latitude,
-                request.Longitude,
-                request.NeedsRescueAssistance,
-                request.AssistanceSos,
+                IncidentV2Constants.MissionIncidentType,
+                normalized.MissionDecision,
+                normalized.Summary,
+                normalized.Latitude,
+                normalized.Longitude,
+                normalized.NeedSupportSos,
+                needReassignActivity: false,
+                normalized.SupportRequest,
                 mediator,
                 logger,
                 cancellationToken);
 
-            if (assistanceSos is not null)
+            if (supportSos is not null)
             {
-                await sosRequestUpdateRepository.AddIncidentRangeAsync(
-                [
-                    new RESQ.Domain.Entities.Emergency.SosRequestIncidentUpdateModel
-                    {
-                        SosRequestId = assistanceSos.Id,
-                        TeamIncidentId = incidentId,
-                        MissionId = request.MissionId,
-                        MissionTeamId = missionTeam.Id,
-                        MissionActivityId = null,
-                        IncidentScope = TeamIncidentScope.Mission.ToString(),
-                        Note = request.Description.Trim(),
-                        ReportedById = request.ReportedBy,
-                        CreatedAt = now,
-                        TeamName = missionTeam.TeamName,
-                        ActivityType = null
-                    }
-                ],
-                cancellationToken);
+                await LinkSupportSosAsync(
+                    incidentId,
+                    supportSos.Id,
+                    request.MissionId,
+                    missionTeam,
+                    primaryActivityId,
+                    normalized.Summary,
+                    request.ReportedBy,
+                    sosRequestUpdateRepository,
+                    teamIncidentRepository,
+                    cancellationToken);
 
                 impactedSosRequestIds = impactedSosRequestIds
-                    .Concat([assistanceSos.Id])
+                    .Concat([supportSos.Id])
                     .Distinct()
                     .ToList();
             }
 
-            await missionTeamRepository.UpdateStatusAsync(
-                missionTeam.Id,
-                MissionTeamExecutionStatus.CompletedWaitingReport.ToString(),
-                cancellationToken);
+            if (rescueTeam is not null)
+            {
+                rescueTeam.ReportIncident();
+                await rescueTeamRepository.UpdateAsync(rescueTeam, cancellationToken);
+            }
 
-            await missionRepository.UpdateStatusAsync(request.MissionId, MissionStatus.Incompleted, isCompleted: true, cancellationToken);
             await unitOfWork.SaveAsync();
         });
 
@@ -176,12 +196,19 @@ public class ReportMissionTeamIncidentCommandHandler(
             IncidentId = incidentId,
             MissionId = request.MissionId,
             MissionTeamId = request.MissionTeamId,
+            MissionActivityId = primaryActivityId,
             IncidentScope = TeamIncidentScope.Mission.ToString(),
+            IncidentType = IncidentV2Constants.MissionIncidentType,
+            DecisionCode = normalized.MissionDecision,
             Status = TeamIncidentStatus.Reported.ToString(),
             IncidentSosRequestIds = impactedSosRequestIds.ToList(),
-            AssistanceSosRequestId = assistanceSos?.Id,
-            AssistanceSosStatus = assistanceSos?.Status,
-            AssistanceSosPriorityLevel = assistanceSos?.PriorityLevel,
+            HasSupportRequest = normalized.NeedSupportSos || supportSos is not null,
+            SupportSosRequestId = supportSos?.Id,
+            AssistanceSosRequestId = supportSos?.Id,
+            AssistanceSosStatus = supportSos?.Status,
+            AssistanceSosPriorityLevel = supportSos?.PriorityLevel,
+            AffectedActivities = incident.AffectedActivities.Select(MapAffectedActivity).ToList(),
+            Detail = ParseDetail(normalized.DetailJson),
             ReportedAt = now
         };
     }
@@ -194,16 +221,71 @@ public class ReportMissionTeamIncidentCommandHandler(
         }
     }
 
-    private static void ValidateRequest(string description, double? latitude, double? longitude)
+    private static List<TeamIncidentAffectedActivityModel> BuildAffectedActivities(
+        IEnumerable<MissionActivityModel> activities,
+        int? primaryActivityId)
     {
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            throw new BadRequestException("Nội dung incident không được để trống.");
-        }
+        return activities
+            .OrderBy(activity => activity.Step ?? int.MaxValue)
+            .ThenBy(activity => activity.Id)
+            .Select((activity, index) => new TeamIncidentAffectedActivityModel
+            {
+                MissionActivityId = activity.Id,
+                OrderIndex = index,
+                IsPrimary = primaryActivityId.HasValue && activity.Id == primaryActivityId.Value,
+                Step = activity.Step,
+                ActivityType = activity.ActivityType,
+                Status = activity.Status
+            })
+            .ToList();
+    }
 
-        if (latitude.HasValue != longitude.HasValue)
-        {
-            throw new BadRequestException("Latitude và Longitude phải cùng có giá trị hoặc cùng để trống.");
-        }
+    private static IncidentAffectedActivityDto MapAffectedActivity(TeamIncidentAffectedActivityModel activity) => new()
+    {
+        MissionActivityId = activity.MissionActivityId,
+        OrderIndex = activity.OrderIndex,
+        IsPrimary = activity.IsPrimary,
+        Step = activity.Step,
+        ActivityType = activity.ActivityType,
+        Status = activity.Status?.ToString()
+    };
+
+    private static JsonElement? ParseDetail(string detailJson)
+    {
+        using var document = JsonDocument.Parse(detailJson);
+        return document.RootElement.Clone();
+    }
+
+    private static async Task LinkSupportSosAsync(
+        int incidentId,
+        int supportSosRequestId,
+        int missionId,
+        MissionTeamModel missionTeam,
+        int? missionActivityId,
+        string note,
+        Guid reportedBy,
+        ISosRequestUpdateRepository sosRequestUpdateRepository,
+        ITeamIncidentRepository teamIncidentRepository,
+        CancellationToken cancellationToken)
+    {
+        await teamIncidentRepository.UpdateSupportSosRequestIdAsync(incidentId, supportSosRequestId, cancellationToken);
+        await sosRequestUpdateRepository.AddIncidentRangeAsync(
+        [
+            new SosRequestIncidentUpdateModel
+            {
+                SosRequestId = supportSosRequestId,
+                TeamIncidentId = incidentId,
+                MissionId = missionId,
+                MissionTeamId = missionTeam.Id,
+                MissionActivityId = missionActivityId,
+                IncidentScope = TeamIncidentScope.Mission.ToString(),
+                Note = note,
+                ReportedById = reportedBy,
+                CreatedAt = DateTime.UtcNow,
+                TeamName = missionTeam.TeamName,
+                ActivityType = null
+            }
+        ],
+        cancellationToken);
     }
 }
