@@ -11,6 +11,9 @@ public enum DepotClosureStatus
     /// <summary>Đang được xử lý (đã được claim bởi một request — tránh race condition).</summary>
     Processing,
 
+    /// <summary>Admin đã chọn phương án chuyển kho — đang chờ hai bên quản lý hoàn tất chuyển hàng. Không bị timeout.</summary>
+    TransferPending,
+
     /// <summary>Đóng kho thành công.</summary>
     Completed,
 

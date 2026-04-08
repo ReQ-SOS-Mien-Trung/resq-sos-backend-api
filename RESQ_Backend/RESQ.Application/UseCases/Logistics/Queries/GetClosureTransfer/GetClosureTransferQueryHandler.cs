@@ -50,16 +50,7 @@ public class GetClosureTransferQueryHandler(
             ClosureId = transfer.ClosureId,
             SourceDepotId = transfer.SourceDepotId,
             TargetDepotId = transfer.TargetDepotId,
-            Status = transfer.Status switch
-            {
-                "AwaitingPreparation" => "Chờ chuẩn bị",
-                "Preparing"          => "Đang chuẩn bị hàng",
-                "Shipping"           => "Đang vận chuyển",
-                "Completed"          => "Kho nguồn đã giao xong, chờ kho đích xác nhận",
-                "Received"           => "Kho đích đã nhận hàng",
-                "Cancelled"          => "Đã huỷ",
-                _                    => transfer.Status
-            },
+            Status = transfer.Status,
             CreatedAt = transfer.CreatedAt,
             SnapshotConsumableUnits = transfer.SnapshotConsumableUnits,
             SnapshotReusableUnits = transfer.SnapshotReusableUnits,

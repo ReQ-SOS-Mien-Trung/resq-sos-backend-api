@@ -278,12 +278,13 @@ public class DepotClosureRecord
     }
 
     /// <summary>
-    /// Sau khi admin chọn kho đích và tạo transfer record, đưa trạng thái về InProgress
+    /// Sau khi admin chọn kho đích và tạo transfer record, chuyển sang TransferPending
     /// để cả 2 quản lý kho có thể tương tác (xác nhận xuất/nhận hàng).
+    /// Trạng thái này KHÔNG bị timeout daemon xử lý — count down chỉ áp dụng lúc chờ admin chọn option.
     /// </summary>
-    public void ResetToInProgress()
+    public void MarkTransferPending()
     {
-        Status = DepotClosureStatus.InProgress;
+        Status = DepotClosureStatus.TransferPending;
         RowVersion++;
     }
 }

@@ -129,7 +129,7 @@ public class ResolveDepotClosureCommandHandler(
                 snapshotReusableUnits: reusableAvailable);
 
             await transferRepository.CreateAsync(transfer, cancellationToken);
-            closure.ResetToInProgress();
+            closure.MarkTransferPending();
             await closureRepository.UpdateAsync(closure, cancellationToken);
             await unitOfWork.SaveAsync();
         });
