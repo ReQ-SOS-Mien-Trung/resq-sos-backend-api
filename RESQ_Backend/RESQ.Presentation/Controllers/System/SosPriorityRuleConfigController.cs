@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.SystemConfig.Commands.UpdateSosPriorityRuleConfig;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosPriorityRuleConfig;
 
@@ -8,7 +9,7 @@ namespace RESQ.Presentation.Controllers.System;
 
 [Route("system/sos-priority-rule-config")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = PermissionConstants.SystemConfigManage)]
 public class SosPriorityRuleConfigController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;

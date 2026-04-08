@@ -32,8 +32,7 @@ public class AddDisbursementItemsHandler : IRequestHandler<AddDisbursementItemsC
         var disbursement = await _disbursementRepo.GetByIdAsync(request.DisbursementId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy giải ngân #{request.DisbursementId}.");
 
-        // DepotManager chỉ được thêm items nếu là manager hiện tại của depot được giải ngân
-        if (request.CallerRole == "4") // DepotManager
+        if (!request.CanManageAnyDisbursement)
         {
             var depot = await _depotRepo.GetByIdAsync(disbursement.DepotId, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy depot #{disbursement.DepotId}.");

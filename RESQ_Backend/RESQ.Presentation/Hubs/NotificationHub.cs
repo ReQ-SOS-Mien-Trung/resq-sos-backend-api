@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 
 namespace RESQ.Presentation.Hubs;
@@ -11,7 +12,7 @@ namespace RESQ.Presentation.Hubs;
 /// Server push event "ReceiveNotification" khi có notification mới.
 /// Client kết nối với JWT Bearer token qua query string ?access_token=...
 /// </summary>
-[Authorize]
+[Authorize(Policy = PermissionConstants.NotificationSelfView)]
 public class NotificationHub : Hub
 {
     public override async Task OnConnectedAsync()

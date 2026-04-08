@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.CreateDocumentFileTypeCategory;
 using RESQ.Application.UseCases.Identity.Commands.DeleteDocumentFileTypeCategory;
 using RESQ.Application.UseCases.Identity.Commands.UpdateDocumentFileTypeCategory;
@@ -25,7 +26,7 @@ public class DocumentFileTypeCategoriesController(IMediator mediator) : Controll
 
     /// <summary>Tạo danh mục loại tài liệu mới.</summary>
     [HttpPost]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     public async Task<IActionResult> Create([FromBody] CreateDocumentFileTypeCategoryCommand command)
     {
         var result = await _mediator.Send(command);
@@ -34,7 +35,7 @@ public class DocumentFileTypeCategoriesController(IMediator mediator) : Controll
 
     /// <summary>Cập nhật danh mục loại tài liệu.</summary>
     [HttpPut("{id:int}")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateDocumentFileTypeCategoryRequest request)
     {
         var command = new UpdateDocumentFileTypeCategoryCommand(id, request.Code, request.Description);
@@ -44,7 +45,7 @@ public class DocumentFileTypeCategoriesController(IMediator mediator) : Controll
 
     /// <summary>Xóa danh mục loại tài liệu.</summary>
     [HttpDelete("{id:int}")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     public async Task<IActionResult> Delete(int id)
     {
         var command = new DeleteDocumentFileTypeCategoryCommand(id);

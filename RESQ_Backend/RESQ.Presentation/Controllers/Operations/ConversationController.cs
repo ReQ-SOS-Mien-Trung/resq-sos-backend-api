@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Operations.Commands.CoordinatorJoinConversation;
 using RESQ.Application.UseCases.Operations.Commands.CoordinatorLeaveConversation;
@@ -18,7 +19,6 @@ namespace RESQ.Presentation.Controllers.Operations;
 /// <summary>Quản lý chat hỗ trợ giữa Victim, AI và Coordinator. Real-time qua SignalR tại /hubs/chat.</summary>
 [Route("operations/conversations")]
 [ApiController]
-[Authorize]
 public class ConversationController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
@@ -30,6 +30,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     /// Trả về thông tin conversation và gợi ý chủ đề từ AI.
     /// </summary>
     [HttpGet("my-conversation")]
+    [Authorize(Policy = PermissionConstants.ConversationSelfManage)]
     public async Task<IActionResult> GetOrCreateMyConversation()
     {
         var userId = GetUserId();
@@ -42,6 +43,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     /// Mỗi lần chọn chủ đề mới sẽ tạo một conversation riêng biệt.
     /// </summary>
     [HttpGet("my-conversations")]
+    [Authorize(Policy = PermissionConstants.ConversationSelfView)]
     public async Task<IActionResult> GetMyConversations()
     {
         var userId = GetUserId();
@@ -56,6 +58,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     /// gọi lại /my-conversation sẽ tạo một conversation MỚI cho chủ đề tiếp theo.
     /// </summary>
     [HttpPost("{conversationId:int}/select-topic")]
+    [Authorize(Policy = PermissionConstants.ConversationSelfManage)]
     public async Task<IActionResult> SelectTopic(
         [FromRoute] int conversationId,
         [FromBody] SelectTopicRequest dto)
@@ -72,6 +75,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     /// Coordinator có thể thấy trong danh sách chờ và join.
     /// </summary>
     [HttpPost("{conversationId:int}/link-sos-request")]
+    [Authorize(Policy = PermissionConstants.ConversationSelfManage)]
     public async Task<IActionResult> LinkSosRequest(
         [FromRoute] int conversationId,
         [FromBody] LinkSosRequestDto dto)
@@ -88,6 +92,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     /// Coordinator xem danh sách phòng chat đang chờ hỗ trợ.
     /// </summary>
     [HttpGet("waiting")]
+    [Authorize(Policy = PermissionConstants.ConversationCoordinatorManage)]
     public async Task<IActionResult> GetWaitingConversations()
     {
         var result = await _mediator.Send(new GetConversationsWaitingQuery());
@@ -99,6 +104,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     /// Sau khi gọi, Coordinator trở thành participant và có thể join SignalR group.
     /// </summary>
     [HttpPost("{conversationId:int}/join")]
+    [Authorize(Policy = PermissionConstants.ConversationCoordinatorManage)]
     public async Task<IActionResult> CoordinatorJoin([FromRoute] int conversationId)
     {
         var userId = GetUserId();
@@ -112,6 +118,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     /// Conversation chuyển về WaitingCoordinator để coordinator khác có thể tiếp nhận.
     /// </summary>
     [HttpPost("{conversationId:int}/leave")]
+    [Authorize(Policy = PermissionConstants.ConversationCoordinatorManage)]
     public async Task<IActionResult> CoordinatorLeave([FromRoute] int conversationId)
     {
         var userId = GetUserId();
@@ -126,6 +133,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     /// Lấy lịch sử tin nhắn của một conversation (phân trang, cũ nhất trước).
     /// </summary>
     [HttpGet("{conversationId:int}/messages")]
+    [Authorize(Policy = PermissionConstants.ConversationSelfView)]
     public async Task<IActionResult> GetMessages(
         [FromRoute] int conversationId,
         [FromQuery] int page = 1,
@@ -141,6 +149,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
     /// Legacy: lấy conversations theo missionId (cho màn hình quản lý mission).
     /// </summary>
     [HttpGet("mission/{missionId:int}")]
+    [Authorize(Policy = PermissionConstants.ConversationCoordinatorManage)]
     public async Task<IActionResult> GetConversationByMission([FromRoute] int missionId)
     {
         var userId = GetUserId();

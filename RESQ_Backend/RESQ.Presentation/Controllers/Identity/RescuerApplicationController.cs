@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.AddRescuerDocuments;
 using RESQ.Application.UseCases.Identity.Commands.ReplaceRescuerDocuments;
 using RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication;
@@ -11,13 +12,13 @@ namespace RESQ.Presentation.Controllers.Identity
 {
     [Route("identity/user/rescuer")]
     [ApiController]
-    [Authorize]
     public class RescuerApplicationController(IMediator mediator) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;
 
         /// <summary>Nộp đơn đăng ký làm rescuer kèm thông tin và tài liệu (URLs đã upload).</summary>
         [HttpPost("apply")]
+        [Authorize(Policy = PermissionConstants.IdentityProfileUpdate)]
         public async Task<IActionResult> SubmitRescuerApplication([FromBody] SubmitRescuerApplicationRequestDto dto)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -45,7 +46,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Xem đơn đăng ký rescuer của mình (đơn mới nhất).</summary>
         [HttpGet("application")]
-        [Authorize(Roles = "3")] // Rescuer only
+        [Authorize(Policy = PermissionConstants.IdentitySelfView)]
         public async Task<IActionResult> GetMyRescuerApplication()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -67,6 +68,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Thêm tài liệu vào đơn đăng ký rescuer (bổ sung vào danh sách hiện tại).</summary>
         [HttpPost("documents")]
+    [Authorize(Policy = PermissionConstants.IdentityProfileUpdate)]
         public async Task<IActionResult> AddRescuerDocuments([FromBody] AddRescuerDocumentsRequestDto dto)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -82,6 +84,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Thay thế toàn bộ tài liệu của đơn đăng ký rescuer (xoá cũ, thêm mới).</summary>
         [HttpPut("documents")]
+    [Authorize(Policy = PermissionConstants.IdentityProfileUpdate)]
         public async Task<IActionResult> ReplaceRescuerDocuments([FromBody] ReplaceRescuerDocumentsRequestDto dto)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

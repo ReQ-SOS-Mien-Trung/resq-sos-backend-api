@@ -16,29 +16,63 @@ public static class ServiceCollectionExtensions
             void AddSingle(string code) =>
                 options.AddPolicy(code, p => p.Requirements.Add(new PermissionRequirement(code)));
 
-            AddSingle(PermissionConstants.SystemConfigManage);
-            AddSingle(PermissionConstants.SystemUserManage);
-            AddSingle(PermissionConstants.SystemUserView);
-            AddSingle(PermissionConstants.InventoryGlobalManage);
-            AddSingle(PermissionConstants.InventoryGlobalView);
-            AddSingle(PermissionConstants.InventoryDepotManage);
-            AddSingle(PermissionConstants.InventoryDepotPointView);
-            AddSingle(PermissionConstants.InventorySupplyRequestCreate);
-            AddSingle(PermissionConstants.PersonnelDepotBranchManage);
-            AddSingle(PermissionConstants.PersonnelGlobalManage);
-            AddSingle(PermissionConstants.PersonnelPointManage);
-            AddSingle(PermissionConstants.PersonnelTeamView);
-            AddSingle(PermissionConstants.PersonnelStatusReport);
-            AddSingle(PermissionConstants.MissionGlobalManage);
-            AddSingle(PermissionConstants.MissionPointManage);
-            AddSingle(PermissionConstants.MissionTeamUpdate);
-            AddSingle(PermissionConstants.MissionView);
-            AddSingle(PermissionConstants.ActivityGlobalView);
-            AddSingle(PermissionConstants.ActivityPointView);
-            AddSingle(PermissionConstants.ActivityTeamManage);
-            AddSingle(PermissionConstants.ActivityOwnManage);
-            AddSingle(PermissionConstants.SosRequestCreate);
-            AddSingle(PermissionConstants.SosRequestView);
+            var singlePermissionPolicies = new[]
+            {
+                PermissionConstants.SystemConfigManage,
+                PermissionConstants.SystemUserManage,
+                PermissionConstants.SystemUserView,
+                PermissionConstants.IdentitySelfView,
+                PermissionConstants.IdentityProfileUpdate,
+                PermissionConstants.IdentityNotificationDeviceManage,
+                PermissionConstants.IdentityRelativeProfileView,
+                PermissionConstants.IdentityRelativeProfileManage,
+                PermissionConstants.IdentitySessionManage,
+                PermissionConstants.NotificationSelfView,
+                PermissionConstants.NotificationSelfManage,
+                PermissionConstants.ConversationSelfView,
+                PermissionConstants.ConversationSelfManage,
+                PermissionConstants.ConversationCoordinatorManage,
+                PermissionConstants.InventoryGlobalManage,
+                PermissionConstants.InventoryGlobalView,
+                PermissionConstants.InventoryDepotManage,
+                PermissionConstants.InventoryDepotPointView,
+                PermissionConstants.InventorySupplyRequestCreate,
+                PermissionConstants.PersonnelDepotBranchManage,
+                PermissionConstants.PersonnelGlobalManage,
+                PermissionConstants.PersonnelPointManage,
+                PermissionConstants.PersonnelTeamView,
+                PermissionConstants.PersonnelStatusReport,
+                PermissionConstants.PersonnelTeamSelfView,
+                PermissionConstants.PersonnelTeamAvailabilityManage,
+                PermissionConstants.PersonnelAssemblyPointView,
+                PermissionConstants.PersonnelAssemblyEventSelfView,
+                PermissionConstants.PersonnelAssemblyEventCheckIn,
+                PermissionConstants.MissionGlobalManage,
+                PermissionConstants.MissionPointManage,
+                PermissionConstants.MissionTeamUpdate,
+                PermissionConstants.MissionView,
+                PermissionConstants.MissionSelfView,
+                PermissionConstants.ActivityGlobalView,
+                PermissionConstants.ActivityPointView,
+                PermissionConstants.ActivityTeamManage,
+                PermissionConstants.ActivityOwnManage,
+                PermissionConstants.ActivitySelfView,
+                PermissionConstants.MissionExecutionComplete,
+                PermissionConstants.MissionReportView,
+                PermissionConstants.MissionReportEdit,
+                PermissionConstants.MissionReportSubmit,
+                PermissionConstants.MissionIncidentReport,
+                PermissionConstants.MissionIncidentView,
+                PermissionConstants.MissionIncidentManage,
+                PermissionConstants.SosRequestCreate,
+                PermissionConstants.SosRequestView,
+                PermissionConstants.SosRequestCancelOwn
+            };
+
+            foreach (var code in singlePermissionPolicies)
+            {
+                AddSingle(code);
+            }
 
             // ── Composite / OR-logic policies ──────────────────────────────────
             options.AddPolicy(PermissionConstants.PolicyMissionManage, p => p.Requirements.Add(

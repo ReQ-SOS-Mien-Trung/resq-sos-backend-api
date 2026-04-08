@@ -16,6 +16,41 @@ public static class PermissionConstants
     /// <summary>Admin + Coordinator_Global: Chỉ xem danh sách Role/User</summary>
     public const string SystemUserView = "system.user.view";
 
+    // ── Identity / Self-service ──────────────────────────────────────
+    /// <summary>Người dùng đã đăng nhập: Xem hồ sơ và thông tin hiện tại của chính mình</summary>
+    public const string IdentitySelfView = "identity.self.view";
+
+    /// <summary>Người dùng đã đăng nhập: Cập nhật hồ sơ cá nhân của chính mình</summary>
+    public const string IdentityProfileUpdate = "identity.profile.update";
+
+    /// <summary>Người dùng đã đăng nhập: Đăng ký và gỡ token nhận notification của chính mình</summary>
+    public const string IdentityNotificationDeviceManage = "identity.notification.device.manage";
+
+    /// <summary>Người dùng đã đăng nhập: Xem hồ sơ người thân của chính mình</summary>
+    public const string IdentityRelativeProfileView = "identity.relative_profile.view";
+
+    /// <summary>Người dùng đã đăng nhập: Quản lý hồ sơ người thân của chính mình</summary>
+    public const string IdentityRelativeProfileManage = "identity.relative_profile.manage";
+
+    /// <summary>Người dùng đã đăng nhập: Quản lý phiên đăng nhập của chính mình</summary>
+    public const string IdentitySessionManage = "identity.session.manage";
+
+    // ── Notification / Chat self-service ─────────────────────────────
+    /// <summary>Người dùng đã đăng nhập: Xem notification của chính mình</summary>
+    public const string NotificationSelfView = "notification.self.view";
+
+    /// <summary>Người dùng đã đăng nhập: Đánh dấu và quản lý notification của chính mình</summary>
+    public const string NotificationSelfManage = "notification.self.manage";
+
+    /// <summary>Participant hợp lệ: Xem conversation và lịch sử chat của chính mình</summary>
+    public const string ConversationSelfView = "conversation.self.view";
+
+    /// <summary>Participant hợp lệ: Gửi tin nhắn và thao tác trong conversation của chính mình</summary>
+    public const string ConversationSelfManage = "conversation.self.manage";
+
+    /// <summary>Coordinator/Admin: Nhận phòng chờ và điều phối conversation hỗ trợ</summary>
+    public const string ConversationCoordinatorManage = "conversation.coordinator.manage";
+
     // ── Quản lý Kho & Vật tư (Inventory / Logistics) ─────────────────
     /// <summary>Admin + DepotManager_Global: Toàn quyền xuất/nhập/tồn, điều chuyển giữa các kho</summary>
     public const string InventoryGlobalManage = "inventory.global.manage";
@@ -48,6 +83,21 @@ public static class PermissionConstants
     /// <summary>Admin + Rescuer_Volunteer: Báo cáo trạng thái sẵn sàng của cá nhân</summary>
     public const string PersonnelStatusReport = "personnel.status.report";
 
+    /// <summary>Admin + Coordinator + Rescuer: Xem đội hiện tại của chính mình</summary>
+    public const string PersonnelTeamSelfView = "personnel.team.self.view";
+
+    /// <summary>Admin + Coordinator + Rescuer: Quản lý trạng thái sẵn sàng của đội</summary>
+    public const string PersonnelTeamAvailabilityManage = "personnel.team.availability.manage";
+
+    /// <summary>Admin + Coordinator + Rescuer: Xem điểm tập kết phục vụ mobile rescuer</summary>
+    public const string PersonnelAssemblyPointView = "personnel.assembly_point.view";
+
+    /// <summary>Admin + Coordinator + Rescuer: Xem sự kiện tập trung của chính mình</summary>
+    public const string PersonnelAssemblyEventSelfView = "personnel.assembly_event.self.view";
+
+    /// <summary>Admin + Coordinator + Rescuer: Check-in vào sự kiện tập trung của chính mình</summary>
+    public const string PersonnelAssemblyEventCheckIn = "personnel.assembly_event.checkin";
+
     // ── Điều phối Chiến dịch (Missions / Operations) ─────────────────
     /// <summary>Admin + Coordinator_Global: Nhận yêu cầu cứu hộ, tạo và duyệt Mission tổng</summary>
     public const string MissionGlobalManage = "mission.global.manage";
@@ -60,6 +110,9 @@ public static class PermissionConstants
 
     /// <summary>Admin + Rescuer_Core + Rescuer_Volunteer: Xem thông tin, bối cảnh Mission của đội</summary>
     public const string MissionView = "mission.view";
+
+    /// <summary>Admin + Coordinator + Rescuer: Xem mission của đội hiện tại</summary>
+    public const string MissionSelfView = "mission.self.view";
 
     // ── Thực thi Thực địa (Activities) ───────────────────────────────
     /// <summary>Admin + Coordinator_Global: Theo dõi tiến độ chung toàn hệ thống</summary>
@@ -74,12 +127,39 @@ public static class PermissionConstants
     /// <summary>Admin + Rescuer_Volunteer: Nhận Activity được assign, báo cáo, cập nhật trạng thái</summary>
     public const string ActivityOwnManage = "activity.own.manage";
 
+    /// <summary>Admin + Coordinator + Rescuer: Xem activity của đội hiện tại</summary>
+    public const string ActivitySelfView = "activity.self.view";
+
+    /// <summary>Admin + Coordinator + Rescuer: Xác nhận hoàn tất thực thi của mission team</summary>
+    public const string MissionExecutionComplete = "mission.execution.complete";
+
+    /// <summary>Admin + Coordinator + Rescuer: Xem báo cáo mission team</summary>
+    public const string MissionReportView = "mission.report.view";
+
+    /// <summary>Admin + Coordinator + Rescuer: Lưu/chỉnh sửa draft báo cáo mission team</summary>
+    public const string MissionReportEdit = "mission.report.edit";
+
+    /// <summary>Admin + Coordinator + Rescuer: Nộp báo cáo mission team</summary>
+    public const string MissionReportSubmit = "mission.report.submit";
+
+    /// <summary>Admin + Coordinator + Rescuer: Báo incident trong mission/activity</summary>
+    public const string MissionIncidentReport = "mission.incident.report";
+
+    /// <summary>Admin + Coordinator + Rescuer: Xem incident của mission/team</summary>
+    public const string MissionIncidentView = "mission.incident.view";
+
+    /// <summary>Admin + Coordinator + Rescuer: Quản lý trạng thái incident</summary>
+    public const string MissionIncidentManage = "mission.incident.manage";
+
     // ── SOS ───────────────────────────────────────────────────────────
     /// <summary>Admin + Coordinator_Global + Victim: Gửi yêu cầu cứu hộ khẩn cấp</summary>
     public const string SosRequestCreate = "sos.request.create";
 
     /// <summary>Admin + Coordinator_Global: Xem danh sách và chi tiết yêu cầu cứu hộ</summary>
     public const string SosRequestView = "sos.request.view";
+
+    /// <summary>Victim: Truy cập endpoint huỷ SOS của mình; domain vẫn kiểm tra owner/companion cụ thể</summary>
+    public const string SosRequestCancelOwn = "sos.request.cancel.own";
 
     // ── Combined / Composite policy names (OR logic) ─────────────────
     // Dùng khi một endpoint cần cho phép nhiều role khác nhau.

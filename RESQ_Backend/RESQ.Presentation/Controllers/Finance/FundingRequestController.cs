@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Finance.Commands.ApproveFundingRequest;
 using RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
@@ -22,7 +23,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
 
     /// <summary>[Cách 2] Manager kho gửi yêu cầu cấp thêm quỹ kèm danh sách vật tư. DepotId được tự động lấy từ token.</summary>
     [HttpPost]
-    [Authorize(Roles = "4")]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -52,7 +53,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
 
     /// <summary>Admin duyệt yêu cầu — chọn campaign để rút tiền.</summary>
     [HttpPatch("{id}/approve")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -65,7 +66,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
 
     /// <summary>Admin từ chối yêu cầu cấp quỹ.</summary>
     [HttpPatch("{id}/reject")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -88,7 +89,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
 
     /// <summary>Tải file Excel mẫu yêu cầu cấp tiền — 9 cột (không có Ngày hết hạn và Ngày nhận).</summary>
     [HttpGet("template")]
-    [Authorize(Roles = "1,4")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> DownloadTemplate()
     {
@@ -98,7 +99,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
 
     /// <summary>Lấy danh sách yêu cầu cấp quỹ (filter theo nhiều depot, nhiều status).</summary>
     [HttpGet]
-    [Authorize(Roles = "1,4")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     [ProducesResponseType(typeof(PagedResult<FundingRequestListDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
@@ -113,7 +114,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
 
     /// <summary>Lấy danh sách dòng vật tư trong một yêu cầu cấp quỹ (phân trang).</summary>
     [HttpGet("{id}/items")]
-    [Authorize(Roles = "1,4")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     [ProducesResponseType(typeof(PagedResult<FundingRequestItemListDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetItems(
         int id,

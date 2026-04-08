@@ -13,13 +13,13 @@ namespace RESQ.Presentation.Controllers.Notifications;
 
 [Route("notifications")]
 [ApiController]
-[Authorize]
 public class NotificationController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
     /// <summary>Lấy danh sách notifications của user đang đăng nhập (phân trang, mới nhất trước).</summary>
     [HttpGet]
+    [Authorize(Policy = PermissionConstants.NotificationSelfView)]
     public async Task<IActionResult> GetMyNotifications([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         var userId = GetUserId();
@@ -29,6 +29,7 @@ public class NotificationController(IMediator mediator) : ControllerBase
 
     /// <summary>Đánh dấu một notification đã đọc.</summary>
     [HttpPatch("{userNotificationId:int}/read")]
+    [Authorize(Policy = PermissionConstants.NotificationSelfManage)]
     public async Task<IActionResult> MarkAsRead([FromRoute] int userNotificationId)
     {
         var userId = GetUserId();
@@ -38,6 +39,7 @@ public class NotificationController(IMediator mediator) : ControllerBase
 
     /// <summary>Đánh dấu tất cả notifications của user là đã đọc.</summary>
     [HttpPatch("read-all")]
+    [Authorize(Policy = PermissionConstants.NotificationSelfManage)]
     public async Task<IActionResult> MarkAllAsRead()
     {
         var userId = GetUserId();

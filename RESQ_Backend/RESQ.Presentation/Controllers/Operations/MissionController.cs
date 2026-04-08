@@ -99,7 +99,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Lấy danh sách missions mà đội của user hiện tại đang được giao.
     /// </summary>
     [HttpGet("my-team")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.MissionSelfView)]
     public async Task<IActionResult> GetMyTeamMissions()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -158,7 +158,7 @@ public class MissionController(IMediator mediator) : ControllerBase
 
     /// <summary>Đội cứu hộ báo sự cố cho toàn bộ phần mission của chính missionTeam này.</summary>
     [HttpPost("{missionId:int}/teams/{missionTeamId:int}/incident")]
-    [Authorize(Roles = "1,2,3")]
+    [Authorize(Policy = PermissionConstants.MissionIncidentReport)]
     public async Task<IActionResult> ReportMissionTeamIncident(
         [FromRoute] int missionId,
         [FromRoute] int missionTeamId,
@@ -201,7 +201,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Lấy danh sách activities được giao cho đội của user hiện tại trong một mission.
     /// </summary>
     [HttpGet("{missionId:int}/activities/my-team")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.ActivitySelfView)]
     public async Task<IActionResult> GetMyTeamActivities([FromRoute] int missionId)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -284,7 +284,7 @@ public class MissionController(IMediator mediator) : ControllerBase
 
     /// <summary>Đội cứu hộ báo sự cố cho một activity cụ thể; activity đó sẽ fail và activity kế tiếp của cùng team có thể auto-start.</summary>
     [HttpPost("{missionId:int}/activities/{activityId:int}/incident")]
-    [Authorize(Roles = "1,2,3")]
+    [Authorize(Policy = PermissionConstants.MissionIncidentReport)]
     public async Task<IActionResult> ReportMissionActivityIncident(
         [FromRoute] int missionId,
         [FromRoute] int activityId,
@@ -443,7 +443,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Đánh dấu đội đã hoàn tất phần thực thi ngoài hiện trường và chuyển sang chờ nộp báo cáo.
     /// </summary>
     [HttpPost("{missionId:int}/teams/{missionTeamId:int}/complete-execution")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.MissionExecutionComplete)]
     public async Task<IActionResult> CompleteMissionTeamExecution([FromRoute] int missionId, [FromRoute] int missionTeamId, [FromBody] CompleteMissionTeamExecutionRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -459,7 +459,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Lấy báo cáo hiện tại của một mission team, bao gồm draft nếu có.
     /// </summary>
     [HttpGet("{missionId:int}/teams/{missionTeamId:int}/report")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.MissionReportView)]
     public async Task<IActionResult> GetMissionTeamReport([FromRoute] int missionId, [FromRoute] int missionTeamId)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -474,7 +474,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Lưu nháp báo cáo cho một mission team.
     /// </summary>
     [HttpPut("{missionId:int}/teams/{missionTeamId:int}/report-draft")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.MissionReportEdit)]
     public async Task<IActionResult> SaveMissionTeamReportDraft([FromRoute] int missionId, [FromRoute] int missionTeamId, [FromBody] SaveMissionTeamReportDraftRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -501,7 +501,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Nộp báo cáo cuối cùng cho một mission team. Chỉ đội trưởng được phép thực hiện.
     /// </summary>
     [HttpPost("{missionId:int}/teams/{missionTeamId:int}/report-submit")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.MissionReportSubmit)]
     public async Task<IActionResult> SubmitMissionTeamReport([FromRoute] int missionId, [FromRoute] int missionTeamId, [FromBody] SubmitMissionTeamReportRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

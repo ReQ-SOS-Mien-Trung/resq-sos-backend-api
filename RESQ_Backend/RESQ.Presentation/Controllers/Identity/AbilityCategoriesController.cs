@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.CreateAbilityCategory;
 using RESQ.Application.UseCases.Identity.Commands.DeleteAbilityCategory;
 using RESQ.Application.UseCases.Identity.Commands.UpdateAbilityCategory;
@@ -34,7 +35,7 @@ public class AbilityCategoriesController(IMediator mediator) : ControllerBase
 
     /// <summary>Tạo danh mục ability mới.</summary>
     [HttpPost]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     public async Task<IActionResult> Create([FromBody] CreateAbilityCategoryCommand command)
     {
         var result = await _mediator.Send(command);
@@ -43,7 +44,7 @@ public class AbilityCategoriesController(IMediator mediator) : ControllerBase
 
     /// <summary>Cập nhật danh mục ability.</summary>
     [HttpPut("{id:int}")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateAbilityCategoryRequest request)
     {
         var command = new UpdateAbilityCategoryCommand(id, request.Code, request.Description);
@@ -53,7 +54,7 @@ public class AbilityCategoriesController(IMediator mediator) : ControllerBase
 
     /// <summary>Xóa danh mục ability.</summary>
     [HttpDelete("{id:int}")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     public async Task<IActionResult> Delete(int id)
     {
         var command = new DeleteAbilityCategoryCommand(id);

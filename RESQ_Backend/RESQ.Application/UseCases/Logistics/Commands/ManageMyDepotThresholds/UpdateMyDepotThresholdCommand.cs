@@ -6,7 +6,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ManageMyDepotThresholds;
 public class UpdateMyDepotThresholdCommand : IRequest<StockThresholdCommandResponse>
 {
     public Guid UserId { get; set; }
-    public int RoleId { get; set; }
+    public bool CanManageGlobalThresholds { get; set; }
     public StockThresholdScopeType ScopeType { get; set; }
     public int? CategoryId { get; set; }
     public int? ItemModelId { get; set; }

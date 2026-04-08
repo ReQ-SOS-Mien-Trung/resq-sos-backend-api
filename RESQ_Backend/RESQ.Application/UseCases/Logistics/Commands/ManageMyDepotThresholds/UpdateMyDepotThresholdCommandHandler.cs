@@ -20,14 +20,14 @@ public class UpdateMyDepotThresholdCommandHandler(
     {
         int depotId;
 
-        if (request.RoleId == 1)
+        if (request.CanManageGlobalThresholds)
         {
-            // Admin chỉ được cấu hình Global — depotId bị bỏ qua bởi UpsertAsync khi scope=Global
+            // Caller có quyền toàn cục chỉ được cấu hình Global — depotId bị bỏ qua bởi UpsertAsync khi scope=Global
             depotId = 0;
         }
         else
         {
-            // Manager: tìm kho đang quản lý
+            // Caller quản lý kho: tìm kho đang quản lý
             depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
                 ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
         }

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.UseCases.Operations.Commands.CoordinatorJoinConversation;
 using RESQ.Application.UseCases.Operations.Commands.CoordinatorLeaveConversation;
@@ -15,7 +16,7 @@ namespace RESQ.Presentation.Hubs;
 /// - AI gợi ý chủ đề → Victim chọn SOS Request → Coordinator join và hỗ trợ.
 /// Client kết nối với JWT Bearer token (qua query string ?access_token=...).
 /// </summary>
-[Authorize]
+[Authorize(Policy = PermissionConstants.ConversationSelfView)]
 public class ChatHub(IMediator mediator, IConversationRepository conversationRepository) : Hub
 {
     private readonly IMediator _mediator = mediator;
@@ -29,6 +30,7 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
     /// Client (Victim hoặc Coordinator) join vào group SignalR của conversation.
     /// Coordinator chỉ được join sau khi đã gọi API CoordinatorJoinConversation.
     /// </summary>
+    [Authorize(Policy = PermissionConstants.ConversationSelfView)]
     public async Task JoinConversation(int conversationId)
     {
         var userId = GetUserId();
@@ -52,6 +54,7 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
     }
 
     /// <summary>Client rời phòng chat.</summary>
+    [Authorize(Policy = PermissionConstants.ConversationSelfManage)]
     public async Task LeaveConversation(int conversationId)
     {
         var groupName = GetGroupName(conversationId);
@@ -67,6 +70,7 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
     /// Gửi tin nhắn text trong conversation.
     /// Chỉ participant hợp lệ mới gửi được.
     /// </summary>
+    [Authorize(Policy = PermissionConstants.ConversationSelfManage)]
     public async Task SendMessage(int conversationId, string content)
     {
         var userId = GetUserId();
@@ -108,6 +112,7 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
     /// Phải đã được xác thực qua REST API CoordinatorJoinConversation trước,
     /// nhưng method này có thể kết hợp cả hai bước để tiện hơn.
     /// </summary>
+    [Authorize(Policy = PermissionConstants.ConversationCoordinatorManage)]
     public async Task CoordinatorJoin(int conversationId)
     {
         var userId = GetUserId();
@@ -144,6 +149,7 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
     /// <summary>
     /// Coordinator gọi để rời phòng chat, chuyển conversation về WaitingCoordinator.
     /// </summary>
+    [Authorize(Policy = PermissionConstants.ConversationCoordinatorManage)]
     public async Task CoordinatorLeave(int conversationId)
     {
         var userId = GetUserId();

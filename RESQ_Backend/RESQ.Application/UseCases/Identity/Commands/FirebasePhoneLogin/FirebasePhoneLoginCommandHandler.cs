@@ -11,6 +11,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.FirebasePhoneLogin;
 
 public class FirebasePhoneLoginCommandHandler(
     IUserRepository userRepository,
+    IPermissionRepository permissionRepository,
     IFirebaseService firebaseService,
     ITokenService tokenService,
     IUnitOfWork unitOfWork,
@@ -19,6 +20,7 @@ public class FirebasePhoneLoginCommandHandler(
 ) : IRequestHandler<FirebasePhoneLoginCommand, FirebasePhoneLoginResponse>
 {
     private readonly IUserRepository _userRepository = userRepository;
+    private readonly IPermissionRepository _permissionRepository = permissionRepository;
     private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ITokenService _tokenService = tokenService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
@@ -86,6 +88,8 @@ public class FirebasePhoneLoginCommandHandler(
 
         await _unitOfWork.SaveAsync();
 
+        var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
+
         return new FirebasePhoneLoginResponse
         {
             AccessToken = accessToken,
@@ -97,6 +101,7 @@ public class FirebasePhoneLoginCommandHandler(
             FirstName = user.FirstName,
             LastName = user.LastName,
             RoleId = user.RoleId,
+            Permissions = permissions,
             IsNewUser = isNewUser
         };
     }

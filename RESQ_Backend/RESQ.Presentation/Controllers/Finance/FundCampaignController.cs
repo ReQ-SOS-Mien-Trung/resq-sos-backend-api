@@ -113,7 +113,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 
     /// <summary>Tạo chiến dịch gây quỹ mới.</summary>
     [HttpPost]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -134,7 +134,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 
     /// <summary>Cập nhật thông tin cơ bản (tên, khu vực) của chiến dịch.</summary>
     [HttpPut("{id}/info")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -153,7 +153,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 
     /// <summary>Gia hạn ngày kết thúc chiến dịch.</summary>
     [HttpPut("{id}/extension")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -171,7 +171,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 
     /// <summary>Tăng mục tiêu số tiền cần gây quỹ.</summary>
     [HttpPut("{id}/target")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -189,7 +189,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 
     /// <summary>Thay đổi trạng thái chiến dịch (Active / Closed / ...).</summary>
     [HttpPatch("{id}/status")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -208,7 +208,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 
     /// <summary>Xóa mềm chiến dịch.</summary>
     [HttpDelete("{id}")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -221,7 +221,7 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
 
     /// <summary>Lấy lịch sử giao dịch tài chính của chiến dịch (bắt buộc theo campaign ID, có phân trang). Filter tùy chọn: types, directions, referenceTypes.</summary>
     [HttpGet("{id}/transactions")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(PagedResult<FundTransactionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTransactions(

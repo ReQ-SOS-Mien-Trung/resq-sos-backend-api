@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Finance.Commands.AllocateFundToDepot;
 using RESQ.Application.UseCases.Finance.Commands.AddDisbursementItems;
@@ -13,13 +14,13 @@ namespace RESQ.Presentation.Controllers.Finance;
 
 [Route("finance/disbursements")]
 [ApiController]
-public class CampaignDisbursementController(IMediator mediator) : ControllerBase
+public class CampaignDisbursementController(IMediator mediator, IAuthorizationService authorizationService) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
     /// <summary>[Cách 1] Admin chủ động cấp tiền từ Campaign → Depot.</summary>
     [HttpPost("allocate")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -42,14 +43,16 @@ public class CampaignDisbursementController(IMediator mediator) : ControllerBase
     /// Admin cũng có thể thêm để hỗ trợ.
     /// </summary>
     [HttpPost("{id}/items")]
-    [Authorize(Roles = "1,4")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AddItems(int id, [FromBody] AddDisbursementItemsRequest request)
     {
-        var callerRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+        var canManageAnyDisbursement = (await authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.SystemConfigManage))
+            .Succeeded;
 
         var command = new AddDisbursementItemsCommand(
             id,
@@ -63,7 +66,7 @@ public class CampaignDisbursementController(IMediator mediator) : ControllerBase
                 Note = i.Note
             }).ToList(),
             GetUserId(),
-            callerRole
+            canManageAnyDisbursement
         );
 
         await _mediator.Send(command);
@@ -72,7 +75,7 @@ public class CampaignDisbursementController(IMediator mediator) : ControllerBase
 
     /// <summary>Lấy danh sách giải ngân (có phân trang, filter theo campaign/depot).</summary>
     [HttpGet]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(PagedResult<CampaignDisbursementListDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDisbursements(
         [FromQuery] int pageNumber = 1,

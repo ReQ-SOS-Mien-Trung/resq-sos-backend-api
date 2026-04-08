@@ -16,9 +16,6 @@ public class GetSosRequestQueryHandler(
     ILogger<GetSosRequestQueryHandler> logger
 ) : IRequestHandler<GetSosRequestQuery, GetSosRequestResponse>
 {
-    private const int COORDINATOR_ROLE_ID = 2;
-    private const int VICTIM_ROLE_ID = 5;
-
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly ISosRequestCompanionRepository _companionRepository = companionRepository;
     private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
@@ -27,22 +24,18 @@ public class GetSosRequestQueryHandler(
 
     public async Task<GetSosRequestResponse> Handle(GetSosRequestQuery request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Handling GetSosRequestQuery Id={id} RoleId={roleId}", request.Id, request.RequestingRoleId);
+        _logger.LogInformation("Handling GetSosRequestQuery Id={id} HasPrivilegedAccess={hasPrivilegedAccess}", request.Id, request.HasPrivilegedAccess);
 
         var sosRequest = await _sosRequestRepository.GetByIdAsync(request.Id, cancellationToken);
         if (sosRequest is null)
             throw new NotFoundException("Không tìm thấy yêu cầu SOS");
 
-        // Victim access: must be owner OR companion
-        if (request.RequestingRoleId == VICTIM_ROLE_ID && sosRequest.UserId != request.RequestingUserId)
+        if (!request.HasPrivilegedAccess && sosRequest.UserId != request.RequestingUserId)
         {
             var isCompanion = await _companionRepository.IsCompanionAsync(request.Id, request.RequestingUserId, cancellationToken);
             if (!isCompanion)
                 throw new ForbiddenException("Bạn không có quyền xem SOS request này");
         }
-
-        if (request.RequestingRoleId != COORDINATOR_ROLE_ID && request.RequestingRoleId != VICTIM_ROLE_ID)
-            throw new ForbiddenException("Bạn không có quyền truy cập");
 
         var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync([sosRequest.Id], cancellationToken);
         victimUpdateLookup.TryGetValue(sosRequest.Id, out var latestVictimUpdate);

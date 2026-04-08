@@ -180,7 +180,7 @@ namespace RESQ.Presentation.Controllers.Logistics
 
         /// <summary>[Manager] Xem quỹ kho của mình.</summary>
         [HttpGet("my-fund")]
-        [Authorize(Roles = "4")]
+        [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
         [ProducesResponseType(typeof(DepotFundDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetMyFund()
@@ -192,7 +192,7 @@ namespace RESQ.Presentation.Controllers.Logistics
 
         /// <summary>[Admin] Xem quỹ tất cả kho.</summary>
         [HttpGet("funds")]
-        [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
         [ProducesResponseType(typeof(List<DepotFundListItemDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAllFunds()
         {
@@ -287,7 +287,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// [Manager kho nguồn] Xác nhận đang chuẩn bị hàng — chuyển transfer sang Preparing.
         /// </summary>
         [HttpPost("{id}/close/{closureId}/transfer/{transferId}/prepare")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(PrepareClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -306,7 +306,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// [Manager kho nguồn] Xác nhận đã xuất hàng — chuyển transfer sang Shipping.
         /// </summary>
         [HttpPost("{id}/close/{closureId}/transfer/{transferId}/ship")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ShipClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -325,7 +325,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// [Manager kho nguồn] Xác nhận đã giao toàn bộ hàng — chuyển transfer sang Completed.
         /// </summary>
         [HttpPost("{id}/close/{closureId}/transfer/{transferId}/complete")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(CompleteClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -344,7 +344,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// [Manager kho đích] Xác nhận đã nhận hàng — kích hoạt bulk transfer và hoàn tất đóng kho.
         /// </summary>
         [HttpPost("{id}/close/{closureId}/transfer/{transferId}/receive")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ReceiveClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -364,7 +364,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// Admin truyền depotId (kho nguồn) từ route. Manager kho nguồn / kho đích được tự động xác định depot từ token.
         /// </summary>
         [HttpGet("{id}/close/{closureId}/transfer/{transferId}")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetClosureTransfer(int id, int closureId, int transferId)

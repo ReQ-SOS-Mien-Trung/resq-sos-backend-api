@@ -11,7 +11,6 @@ namespace RESQ.Presentation.Controllers.Identity
 {
     [Route("identity/admin/rescuer-applications")]
     [ApiController]
-    [Authorize]
     public class RescuerApplicationAdminController(IMediator mediator) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;

@@ -7,17 +7,17 @@ public class UpdateMyDepotThresholdCommandValidator : AbstractValidator<UpdateMy
 {
     public UpdateMyDepotThresholdCommandValidator()
     {
-        // Admin (role=1): chỉ được cấu hình scope Global
+        // Caller có quyền toàn cục: chỉ được cấu hình scope Global
         RuleFor(x => x.ScopeType)
             .Must(x => x == StockThresholdScopeType.Global)
-            .When(x => x.RoleId == 1)
-            .WithMessage("Admin chỉ được cấu hình scope Global.");
+            .When(x => x.CanManageGlobalThresholds)
+            .WithMessage("Caller có quyền toàn cục chỉ được cấu hình scope Global.");
 
-        // Manager (role=4): chỉ được cấu hình Depot/DepotCategory/DepotItem
+        // Caller quản lý kho: chỉ được cấu hình Depot/DepotCategory/DepotItem
         RuleFor(x => x.ScopeType)
             .Must(x => x is StockThresholdScopeType.Depot or StockThresholdScopeType.DepotCategory or StockThresholdScopeType.DepotItem)
-            .When(x => x.RoleId == 4)
-            .WithMessage("Manager chỉ được cấu hình scope Depot, DepotCategory hoặc DepotItem.");
+            .When(x => !x.CanManageGlobalThresholds)
+            .WithMessage("Caller quản lý kho chỉ được cấu hình scope Depot, DepotCategory hoặc DepotItem.");
 
         // MinimumThreshold: null = xóa config, otherwise must be > 0
         RuleFor(x => x.MinimumThreshold)
@@ -25,10 +25,10 @@ public class UpdateMyDepotThresholdCommandValidator : AbstractValidator<UpdateMy
             .When(x => x.MinimumThreshold.HasValue)
             .WithMessage("minimumThreshold phải > 0.");
 
-        // Admin + Global không nhận categoryId/itemModelId
+        // Scope Global không nhận categoryId/itemModelId
         RuleFor(x => x)
             .Must(x => x.CategoryId == null && x.ItemModelId == null)
-            .When(x => x.RoleId == 1)
+            .When(x => x.CanManageGlobalThresholds)
             .WithMessage("Scope Global không nhận categoryId hoặc itemModelId.");
 
         RuleFor(x => x.CategoryId)

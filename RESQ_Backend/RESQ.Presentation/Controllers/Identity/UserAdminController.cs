@@ -20,7 +20,6 @@ namespace RESQ.Presentation.Controllers.Identity
 {
     [Route("identity/admin/users")]
     [ApiController]
-    [Authorize]
     public class UserAdminController(IMediator mediator) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;

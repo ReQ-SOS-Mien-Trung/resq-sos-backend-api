@@ -3,6 +3,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Identity.Commands.CreateRelativeProfile;
 using RESQ.Application.UseCases.Identity.Commands.DeleteRelativeProfile;
@@ -25,7 +26,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Lấy thông tin người dùng hiện tại từ token.</summary>
         [HttpGet("me")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentitySelfView)]
         public async Task<IActionResult> GetCurrentUser()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -50,7 +51,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Rescuer xác nhận đồng ý các điều khoản tham gia.</summary>
         [HttpPost("rescuer/consent")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentityProfileUpdate)]
         public async Task<IActionResult> RescuerConsent([FromBody] RescuerConsentRequestDto dto)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -72,7 +73,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Cập nhật thông tin hồ sơ.</summary>
         [HttpPut("profile")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentityProfileUpdate)]
         public async Task<IActionResult> UpdateRescuerProfile([FromBody] UpdateRescuerProfileRequestDto dto)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -101,7 +102,7 @@ namespace RESQ.Presentation.Controllers.Identity
         /// Gọi sau khi login thành công trên Next.js.
         /// </summary>
         [HttpPost("me/fcm-token")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentityNotificationDeviceManage)]
         public async Task<IActionResult> RegisterFcmToken([FromBody] FcmTokenRequest request)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -117,7 +118,7 @@ namespace RESQ.Presentation.Controllers.Identity
         /// Gọi khi logout trên Next.js.
         /// </summary>
         [HttpDelete("me/fcm-token")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentityNotificationDeviceManage)]
         public async Task<IActionResult> UnregisterFcmToken([FromBody] FcmTokenRequest request)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -134,7 +135,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Lấy danh sách hồ sơ người thân của user hiện tại.</summary>
         [HttpGet("me/relative-profiles")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentityRelativeProfileView)]
         public async Task<IActionResult> GetRelativeProfiles()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -147,7 +148,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Tạo một hồ sơ người thân mới.</summary>
         [HttpPost("me/relative-profiles")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentityRelativeProfileManage)]
         public async Task<IActionResult> CreateRelativeProfile([FromBody] CreateRelativeProfileRequestDto dto)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -179,7 +180,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Cập nhật toàn bộ hồ sơ người thân.</summary>
         [HttpPut("me/relative-profiles/{profileId:guid}")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentityRelativeProfileManage)]
         public async Task<IActionResult> UpdateRelativeProfile(
             Guid profileId,
             [FromBody] UpdateRelativeProfileRequestDto dto)
@@ -216,7 +217,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Xóa hồ sơ người thân.</summary>
         [HttpDelete("me/relative-profiles/{profileId:guid}")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentityRelativeProfileManage)]
         public async Task<IActionResult> DeleteRelativeProfile(Guid profileId)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -229,7 +230,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Đồng bộ toàn bộ snapshot hồ sơ người thân từ thiết bị lên server (client-wins).</summary>
         [HttpPut("me/relative-profiles/sync")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentityRelativeProfileManage)]
         public async Task<IActionResult> SyncRelativeProfiles([FromBody] SyncRelativeProfilesRequestDto dto)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

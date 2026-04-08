@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.SaveRescuerAbilities;
 using RESQ.Application.UseCases.Identity.Queries.GetAllAbilities;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerAbilities;
@@ -25,7 +26,7 @@ public class AbilitiesController(IMediator mediator) : ControllerBase
 
     /// <summary>Lưu danh sách ability đã chọn của rescuer hiện tại.</summary>
     [HttpPost("rescuer")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.IdentityProfileUpdate)]
     public async Task<IActionResult> SaveRescuerAbilities([FromBody] SaveRescuerAbilitiesRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -47,7 +48,7 @@ public class AbilitiesController(IMediator mediator) : ControllerBase
 
     /// <summary>Xem danh sách ability của rescuer hiện tại.</summary>
     [HttpGet("rescuer/me")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.IdentitySelfView)]
     public async Task<IActionResult> GetMyAbilities()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
