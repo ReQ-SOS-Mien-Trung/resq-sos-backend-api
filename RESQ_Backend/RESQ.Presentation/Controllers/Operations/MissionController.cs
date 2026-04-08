@@ -310,7 +310,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// Depot manager xác nhận đã nhận lại vật tư từ đội cứu hộ (RETURN_SUPPLIES: PendingConfirmation → Succeed + restock kho).
     /// </summary>
     [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-return")]
-    [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> ConfirmReturnSupplies(
         [FromRoute] int missionId,
         [FromRoute] int activityId,

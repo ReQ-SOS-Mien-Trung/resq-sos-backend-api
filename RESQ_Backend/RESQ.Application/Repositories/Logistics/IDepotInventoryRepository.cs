@@ -101,6 +101,7 @@ public interface IDepotInventoryRepository
     /// Depot manager xác nhận nhận lại vật tư từ mission và nhập kho theo dữ liệu thực tế.
     /// Consumable được nhập lại theo quantity; Reusable được nhận lại theo từng unit id,
     /// hoặc quantity fallback cho legacy mission chưa có unit snapshot.
+    /// Condition và Note của từng reusable unit sẽ được cập nhật nếu được cung cấp.
     /// </summary>
     Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(
         int depotId,
@@ -108,7 +109,7 @@ public interface IDepotInventoryRepository
         int activityId,
         Guid performedBy,
         List<(int ItemModelId, int Quantity)> consumableItems,
-        List<int> reusableItemIds,
+        List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
         List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
         string? discrepancyNote,
         CancellationToken cancellationToken = default);

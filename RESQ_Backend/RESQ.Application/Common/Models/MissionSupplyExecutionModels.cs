@@ -16,6 +16,7 @@ public class SupplyExecutionReusableUnitDto
     public string ItemName { get; set; } = string.Empty;
     public string? SerialNumber { get; set; }
     public string? Condition { get; set; }
+    public string? Note { get; set; }
 }
 
 public class SupplyExecutionItemDto

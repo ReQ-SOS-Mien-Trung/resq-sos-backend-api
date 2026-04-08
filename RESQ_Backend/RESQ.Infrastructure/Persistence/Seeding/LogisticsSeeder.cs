@@ -912,6 +912,13 @@ public static class LogisticsSeeder
             }
         }
 
+        // ── Test seed: 2 áo phao cứu sinh tại Depot 1 (Huế) được nhọn chọn là InUse ──────────────────────
+        // Phục vụ test endpoint: POST /operations/missions/5/activities/8/confirm-return
+        // Login bằng: manager@resq.vn / Manager@123
+        var inUse = ReusableItemStatus.InUse.ToString();
+        list.Single(x => x.Id == 1).Status = inUse; // D1-R004-001, Áo phao cứu sinh, Good
+        list.Single(x => x.Id == 2).Status = inUse; // D1-R004-002, Áo phao cứu sinh, Good
+
         modelBuilder.Entity<DepotReusableItem>().HasData(list.ToArray());
     }
 

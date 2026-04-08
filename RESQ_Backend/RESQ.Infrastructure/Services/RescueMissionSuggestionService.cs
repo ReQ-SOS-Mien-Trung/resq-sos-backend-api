@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -9,6 +8,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
+using RESQ.Application.Services.Ai;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Domain.Enum.System;
 
@@ -16,7 +16,8 @@ namespace RESQ.Infrastructure.Services;
 
 public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 {
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IAiProviderClientFactory _aiProviderClientFactory;
+    private readonly IAiPromptExecutionSettingsResolver _settingsResolver;
     private readonly IPromptRepository _promptRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository;
@@ -48,14 +49,16 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     };
 
     public RescueMissionSuggestionService(
-        IHttpClientFactory httpClientFactory,
+        IAiProviderClientFactory aiProviderClientFactory,
+        IAiPromptExecutionSettingsResolver settingsResolver,
         IPromptRepository promptRepository,
         IDepotInventoryRepository depotInventoryRepository,
         IItemModelMetadataRepository itemModelMetadataRepository,
         IAssemblyPointRepository assemblyPointRepository,
         ILogger<RescueMissionSuggestionService> logger)
     {
-        _httpClientFactory = httpClientFactory;
+        _aiProviderClientFactory = aiProviderClientFactory;
+        _settingsResolver = settingsResolver;
         _promptRepository = promptRepository;
         _depotInventoryRepository = depotInventoryRepository;
         _itemModelMetadataRepository = itemModelMetadataRepository;
@@ -1342,14 +1345,16 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             yield break;
         }
 
-        var modelName   = prompt.Model       ?? FallbackModel;
-        var apiUrlTpl   = prompt.ApiUrl      ?? FallbackApiUrl;
-        var apiKey      = prompt.ApiKey      ?? string.Empty;
-        var temperature = prompt.Temperature ?? FallbackTemperature;
-        // Enforce minimum 32K tokens — mission plans with tool calls can be very long
-        var maxTokens   = Math.Max(prompt.MaxTokens ?? FallbackMaxTokens, 32768);
+        var settings = _settingsResolver.Resolve(
+            prompt,
+            new AiPromptExecutionFallback(
+                FallbackModel,
+                FallbackApiUrl,
+                FallbackTemperature,
+                FallbackMaxTokens));
 
-        var baseUrl = string.Format(apiUrlTpl, modelName, apiKey);
+        // Enforce minimum 32K tokens — mission plans with tool calls can be very long
+        var maxTokens = Math.Max(settings.MaxTokens, 32768);
 
         // Build the initial user message (no pre-loaded depot data; agent fetches via tools)
         var sosDataJson = BuildSosRequestsData(sosRequests);
@@ -1368,15 +1373,15 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         var systemPrompt = (prompt.SystemPrompt ?? string.Empty).TrimEnd()
             + "\n\n" + BuildAgentInstructions(isMultiDepotRecommended);
 
-        yield return Status($"AI agent ({modelName}) đang phân tích {sosRequests.Count} SOS request...");
+        yield return Status($"AI agent ({settings.Provider}/{settings.Model}) đang phân tích {sosRequests.Count} SOS request...");
 
-        var contents = new List<GeminiMultiTurnContent>
+        var messages = new List<AiChatMessage>
         {
-            new() { Role = "user", Parts = [new GeminiMultiTurnPart { Text = userMessage }] }
+            AiChatMessage.User(userMessage)
         };
 
-        var client = _httpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(120);
+        var tools = BuildToolDefinitions();
+        var providerClient = _aiProviderClientFactory.GetClient(settings.Provider);
 
         string? finalText = null;
 
@@ -1384,54 +1389,42 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         {
             if (cancellationToken.IsCancellationRequested) yield break;
 
-            var requestBody = new GeminiRequestWithTools
-            {
-                SystemInstruction = new GeminiSystemInstruction
-                {
-                    Parts = [new GeminiMultiTurnPart { Text = systemPrompt }]
-                },
-                Contents = contents,
-                Tools = [BuildToolDeclarations()],
-                GenerationConfig = new GeminiGenerationConfig
-                {
-                    Temperature = temperature,
-                    MaxOutputTokens = maxTokens
-                }
-            };
-
-            var bodyJson = JsonSerializer.Serialize(requestBody, _jsonOpts);
-
-            HttpResponseMessage response = null!;
+            AiCompletionResponse? response = null;
             string? sendError = null;
             const int maxSendRetries = 3;
             for (int attempt = 0; attempt < maxSendRetries; attempt++)
             {
-                // HttpRequestMessage is single-use — rebuild each attempt
-                var httpReq = new HttpRequestMessage(HttpMethod.Post, baseUrl)
-                {
-                    Content = new StringContent(bodyJson, Encoding.UTF8, "application/json")
-                };
                 try
                 {
-                    sendError = null;
-                    response  = await client.SendAsync(httpReq, cancellationToken);
+                    response = await providerClient.CompleteAsync(new AiCompletionRequest
+                    {
+                        Provider = settings.Provider,
+                        Model = settings.Model,
+                        ApiUrl = settings.ApiUrl,
+                        ApiKey = settings.ApiKey,
+                        SystemPrompt = systemPrompt,
+                        Temperature = settings.Temperature,
+                        MaxTokens = maxTokens,
+                        Timeout = TimeSpan.FromSeconds(120),
+                        Messages = messages,
+                        Tools = tools
+                    }, cancellationToken);
                 }
                 catch (Exception ex)
                 {
                     sendError = ex.Message;
-                    response  = null!;
-                    break; // Network errors are not retryable here
+                    break;
                 }
 
-                if (response.IsSuccessStatusCode || (int)response.StatusCode != 503)
+                if (response.HttpStatusCode != 503)
                     break;
 
                 if (attempt < maxSendRetries - 1)
                 {
                     var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt + 2)); // 4s, 8s, 16s
                     _logger.LogWarning(
-                        "Gemini 503 (turn={turn}, attempt={attempt}), retrying in {delay}s…",
-                        turn, attempt + 1, (int)delay.TotalSeconds);
+                        "Provider {provider} returned 503 (turn={turn}, attempt={attempt}), retrying in {delay}s...",
+                        settings.Provider, turn, attempt + 1, (int)delay.TotalSeconds);
                     await Task.Delay(delay, cancellationToken);
                 }
             }
@@ -1442,54 +1435,57 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 yield break;
             }
 
-            if (!response.IsSuccessStatusCode)
+            if (response == null)
             {
-                var err = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogError("Gemini API error turn={turn}: {status} – {error}", turn, response.StatusCode, err);
-                yield return Error($"AI trả về lỗi ({response.StatusCode}). Vui lòng thử lại sau.");
+                yield return Error("AI không phản hồi. Vui lòng thử lại sau.");
                 yield break;
             }
 
-            GeminiMultiTurnResponse? geminiResp;
-            string? responseJson = null;
-            string? parseError = null;
-            try
+            _logger.LogInformation(
+                "Mission AI turn completed: Provider={provider}, Model={model}, Turn={turn}, LatencyMs={latency}, ToolCalls={toolCalls}, FinishReason={finishReason}, StatusCode={statusCode}",
+                settings.Provider,
+                settings.Model,
+                turn + 1,
+                response.LatencyMs,
+                response.ToolCalls.Count,
+                response.FinishReason,
+                response.HttpStatusCode);
+
+            if (response.HttpStatusCode is >= 400)
             {
-                responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-                geminiResp = JsonSerializer.Deserialize<GeminiMultiTurnResponse>(responseJson, _jsonOpts);
-            }
-            catch (Exception ex)
-            {
-                parseError = ex.Message;
-                geminiResp = null;
-            }
-            if (parseError != null)
-            {
-                yield return Error($"Không thể phân tích phản hồi AI: {parseError}");
+                _logger.LogError(
+                    "AI API error turn={turn}: Provider={provider}, Status={status}, Error={error}",
+                    turn,
+                    settings.Provider,
+                    response.HttpStatusCode,
+                    response.ErrorBody);
+                yield return Error($"AI trả về lỗi ({response.HttpStatusCode}). Vui lòng thử lại sau.");
                 yield break;
             }
 
-            // Check for prompt-level block before looking at candidates
-            if (geminiResp?.PromptFeedback?.BlockReason is string blockReason && blockReason != "BLOCK_REASON_UNSPECIFIED")
+            if (!string.IsNullOrWhiteSpace(response.BlockReason)
+                && !string.Equals(response.BlockReason, "BLOCK_REASON_UNSPECIFIED", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning("Gemini prompt blocked (turn={turn}): BlockReason={reason}", turn, blockReason);
-                yield return Error($"Yêu cầu bị chặn bởi bộ lọc AI ({blockReason}). Vui lòng thử lại hoặc điều chỉnh nội dung SOS.");
-                yield break;
-            }
-
-            var candidate  = geminiResp?.Candidates?.FirstOrDefault();
-            var modelParts = candidate?.Content?.Parts;
-
-            if (modelParts == null || modelParts.Count == 0)
-            {
-                var finishReason = candidate?.FinishReason ?? "(no candidate)";
                 _logger.LogWarning(
-                    "Gemini returned empty content (turn={turn}), finishReason={reason}. Raw snippet: {raw}",
+                    "Provider blocked mission prompt (turn={turn}): Provider={provider}, BlockReason={reason}",
+                    turn,
+                    settings.Provider,
+                    response.BlockReason);
+                yield return Error($"Yêu cầu bị chặn bởi bộ lọc AI ({response.BlockReason}). Vui lòng thử lại hoặc điều chỉnh nội dung SOS.");
+                yield break;
+            }
+
+            if (string.IsNullOrWhiteSpace(response.Text) && response.ToolCalls.Count == 0)
+            {
+                var finishReason = response.FinishReason ?? "(no content)";
+                _logger.LogWarning(
+                    "Provider returned empty content (turn={turn}), provider={provider}, finishReason={reason}. Raw snippet: {raw}",
                     turn, finishReason,
-                    responseJson?.Length > 500 ? responseJson[..500] : responseJson);
+                    settings.Provider,
+                    response.RawResponse?.Length > 500 ? response.RawResponse[..500] : response.RawResponse);
 
                 // Retry once on transient failures, otherwise surface the error
-                if (finishReason is "SAFETY" or "RECITATION" or "OTHER" or "BLOCKLIST" or "PROHIBITED_CONTENT")
+                if (finishReason is "SAFETY" or "RECITATION" or "OTHER" or "BLOCKLIST" or "PROHIBITED_CONTENT" or "content_filter")
                 {
                     yield return Error($"Nội dung bị lọc bởi AI ({finishReason}). Vui lòng thử lại sau.");
                     yield break;
@@ -1504,45 +1500,34 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 yield break;
             }
 
-            // Append model response to conversation
-            contents.Add(new GeminiMultiTurnContent { Role = "model", Parts = modelParts });
+            messages.Add(AiChatMessage.Assistant(response.Text, response.ToolCalls));
 
-            var functionCallParts = modelParts.Where(p => p.FunctionCall != null).ToList();
-
-            if (functionCallParts.Count == 0)
+            if (response.ToolCalls.Count == 0)
             {
                 // No function calls → final answer
-                finalText = string.Concat(modelParts.Where(p => p.Text != null).Select(p => p.Text));
+                finalText = response.Text;
                 break;
             }
 
             // Execute each function call
-            var responseParts = new List<GeminiMultiTurnPart>();
-            foreach (var part in functionCallParts)
+            foreach (var toolCall in response.ToolCalls)
             {
-                var fc = part.FunctionCall!;
-                yield return Status($"Agent đang gọi công cụ: {fc.Name}(...)");
+                yield return Status($"Agent đang gọi công cụ: {toolCall.Name}(...)");
 
                 JsonElement toolResult;
                 try
                 {
-                    toolResult = await ExecuteToolAsync(fc.Name, fc.Args, availableNearbyTeams, cancellationToken);
+                    toolResult = await ExecuteToolAsync(toolCall.Name, toolCall.Arguments, availableNearbyTeams, cancellationToken);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Tool {name} threw an exception", fc.Name);
+                    _logger.LogWarning(ex, "Tool {name} threw an exception", toolCall.Name);
                     toolResult = JsonSerializer.SerializeToElement(new { error = ex.Message });
                 }
 
-                yield return Status($"Công cụ {fc.Name}() đã trả về kết quả.");
-
-                responseParts.Add(new GeminiMultiTurnPart
-                {
-                    FunctionResponse = new GeminiFunctionResponse { Name = fc.Name, Response = toolResult }
-                });
+                yield return Status($"Công cụ {toolCall.Name}() đã trả về kết quả.");
+                messages.Add(AiChatMessage.Tool(toolCall.Id, toolCall.Name, toolResult));
             }
-
-            contents.Add(new GeminiMultiTurnContent { Role = "user", Parts = responseParts });
         }
 
         if (string.IsNullOrWhiteSpace(finalText))
@@ -1563,11 +1548,12 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
         await EnsureReusableReturnActivitiesAsync(result.SuggestedActivities, cancellationToken);
         result.IsSuccess     = true;
-        result.ModelName     = modelName;
+        result.ModelName     = settings.Model;
         result.RawAiResponse = finalText;
 
         _logger.LogInformation(
-            "Agent mission suggestion: Title={title}, Type={type}, Activities={count}, Team={team}, Confidence={conf}",
+            "Agent mission suggestion: Provider={provider}, Model={model}, Title={title}, Type={type}, Activities={count}, Team={team}, Confidence={conf}",
+            settings.Provider, settings.Model,
             result.SuggestedMissionTitle, result.SuggestedMissionType,
             result.SuggestedActivities.Count,
             result.SuggestedTeam?.TeamName ?? "none",
@@ -1671,197 +1657,64 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         }
     }
 
-    #region Gemini API Models
-
-    private static GeminiTool BuildToolDeclarations() => new()
-    {
-        FunctionDeclarations =
-        [
-            new()
-            {
-                Name        = "searchInventory",
-                Description = "Tìm kiếm vật tư đang khả dụng trong kho theo danh mục và loại. Trả về cả consumable lẫn reusable với item_id, tên, item_type, available_quantity, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude). Reusable còn có good_available_count, fair_available_count, poor_available_count.",
-                Parameters  = new GeminiFunctionParameters
+    private static List<AiToolDefinition> BuildToolDefinitions() =>
+    [
+        new()
+        {
+            Name = "searchInventory",
+            Description = "Tìm kiếm vật tư đang khả dụng trong kho theo danh mục và loại. Trả về cả consumable lẫn reusable với item_id, tên, item_type, available_quantity, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude). Reusable còn có good_available_count, fair_available_count, poor_available_count.",
+            Parameters = ParseJson(
+                """
                 {
-                    Type       = "object",
-                    Properties = new Dictionary<string, GeminiFunctionProperty>
-                    {
-                        ["category"] = new() { Type = "string",  Description = "Tên danh mục vật tư, ví dụ: 'Nước', 'Thực phẩm', 'Y tế', 'Quần áo'" },
-                        ["type"]     = new() { Type = "string",  Description = "Tên loại hoặc tên vật tư cụ thể trong danh mục (tuỳ chọn)" },
-                        ["page"]     = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
-                    },
-                    Required = ["category"]
+                  "type": "object",
+                  "properties": {
+                    "category": { "type": "string", "description": "Tên danh mục vật tư, ví dụ: 'Nước', 'Thực phẩm', 'Y tế', 'Quần áo'" },
+                    "type": { "type": "string", "description": "Tên loại hoặc tên vật tư cụ thể trong danh mục (tuỳ chọn)" },
+                    "page": { "type": "integer", "description": "Số trang (bắt đầu từ 1)" }
+                  },
+                  "required": ["category"]
                 }
-            },
-            new()
-            {
-                Name        = "getTeams",
-                Description = "Tìm kiếm đội cứu hộ trong pool nearby teams của cluster hiện tại. Có thể lọc theo loại kỹ năng/team_type. Trả về team_id, tên, loại, trạng thái, số thành viên, vị trí điểm tập kết (assembly_point_name, latitude, longitude) và distance_km.",
-                Parameters  = new GeminiFunctionParameters
+                """)
+        },
+        new()
+        {
+            Name = "getTeams",
+            Description = "Tìm kiếm đội cứu hộ trong pool nearby teams của cluster hiện tại. Có thể lọc theo loại kỹ năng/team_type. Trả về team_id, tên, loại, trạng thái, số thành viên, vị trí điểm tập kết (assembly_point_name, latitude, longitude) và distance_km.",
+            Parameters = ParseJson(
+                """
                 {
-                    Type       = "object",
-                    Properties = new Dictionary<string, GeminiFunctionProperty>
-                    {
-                        ["ability"]   = new() { Type = "string",  Description = "Lọc theo loại kỹ năng/team_type (tuỳ chọn)" },
-                        ["available"] = new() { Type = "boolean", Description = "Chỉ mang tính tương thích. Công cụ này luôn chỉ trả về nearby teams đang Available; truyền false cũng không mở rộng phạm vi." },
-                        ["page"]      = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
-                    },
-                    Required = []
+                  "type": "object",
+                  "properties": {
+                    "ability": { "type": "string", "description": "Lọc theo loại kỹ năng/team_type (tuỳ chọn)" },
+                    "available": { "type": "boolean", "description": "Chỉ mang tính tương thích. Công cụ này luôn chỉ trả về nearby teams đang Available; truyền false cũng không mở rộng phạm vi." },
+                    "page": { "type": "integer", "description": "Số trang (bắt đầu từ 1)" }
+                  },
+                  "required": []
                 }
-            },
-            new()
-            {
-                Name        = "getAssemblyPoints",
-                Description = "Lấy danh sách điểm tập kết đang hoạt động để chọn nơi tập kết gần nhất cho activity RESCUE hoặc EVACUATE. Trả về assembly_point_id, tên, sức chứa tối đa và tọa độ.",
-                Parameters  = new GeminiFunctionParameters
+                """)
+        },
+        new()
+        {
+            Name = "getAssemblyPoints",
+            Description = "Lấy danh sách điểm tập kết đang hoạt động để chọn nơi tập kết gần nhất cho activity RESCUE hoặc EVACUATE. Trả về assembly_point_id, tên, sức chứa tối đa và tọa độ.",
+            Parameters = ParseJson(
+                """
                 {
-                    Type       = "object",
-                    Properties = new Dictionary<string, GeminiFunctionProperty>
-                    {
-                        ["page"] = new() { Type = "integer", Description = "Số trang (bắt đầu từ 1)" }
-                    },
-                    Required = []
+                  "type": "object",
+                  "properties": {
+                    "page": { "type": "integer", "description": "Số trang (bắt đầu từ 1)" }
+                  },
+                  "required": []
                 }
-            }
-        ]
-    };
+                """)
+        }
+    ];
 
-    private class GeminiRequestWithTools
+    private static JsonElement ParseJson(string json)
     {
-        [JsonPropertyName("system_instruction")]
-        public GeminiSystemInstruction? SystemInstruction { get; set; }
-
-        [JsonPropertyName("contents")]
-        public List<GeminiMultiTurnContent> Contents { get; set; } = [];
-
-        [JsonPropertyName("tools")]
-        public List<GeminiTool> Tools { get; set; } = [];
-
-        [JsonPropertyName("generationConfig")]
-        public GeminiGenerationConfig? GenerationConfig { get; set; }
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
     }
-
-    private class GeminiSystemInstruction
-    {
-        [JsonPropertyName("parts")]
-        public List<GeminiMultiTurnPart> Parts { get; set; } = [];
-    }
-
-    private class GeminiMultiTurnContent
-    {
-        [JsonPropertyName("role")]
-        public string Role { get; set; } = string.Empty;
-
-        [JsonPropertyName("parts")]
-        public List<GeminiMultiTurnPart> Parts { get; set; } = [];
-    }
-
-    private class GeminiMultiTurnPart
-    {
-        [JsonPropertyName("text")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? Text { get; set; }
-
-        [JsonPropertyName("functionCall")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public GeminiFunctionCall? FunctionCall { get; set; }
-
-        [JsonPropertyName("functionResponse")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public GeminiFunctionResponse? FunctionResponse { get; set; }
-    }
-
-    private class GeminiFunctionCall
-    {
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
-
-        [JsonPropertyName("args")]
-        public JsonElement Args { get; set; }
-    }
-
-    private class GeminiFunctionResponse
-    {
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
-
-        [JsonPropertyName("response")]
-        public JsonElement Response { get; set; }
-    }
-
-    private class GeminiTool
-    {
-        [JsonPropertyName("functionDeclarations")]
-        public List<GeminiFunctionDeclaration> FunctionDeclarations { get; set; } = [];
-    }
-
-    private class GeminiFunctionDeclaration
-    {
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
-
-        [JsonPropertyName("description")]
-        public string Description { get; set; } = string.Empty;
-
-        [JsonPropertyName("parameters")]
-        public GeminiFunctionParameters? Parameters { get; set; }
-    }
-
-    private class GeminiFunctionParameters
-    {
-        [JsonPropertyName("type")]
-        public string Type { get; set; } = "object";
-
-        [JsonPropertyName("properties")]
-        public Dictionary<string, GeminiFunctionProperty> Properties { get; set; } = [];
-
-        [JsonPropertyName("required")]
-        public List<string> Required { get; set; } = [];
-    }
-
-    private class GeminiFunctionProperty
-    {
-        [JsonPropertyName("type")]
-        public string Type { get; set; } = "string";
-
-        [JsonPropertyName("description")]
-        public string? Description { get; set; }
-    }
-
-    private class GeminiGenerationConfig
-    {
-        [JsonPropertyName("temperature")]
-        public double Temperature { get; set; }
-
-        [JsonPropertyName("maxOutputTokens")]
-        public int MaxOutputTokens { get; set; }
-    }
-
-    private class GeminiMultiTurnResponse
-    {
-        [JsonPropertyName("candidates")]
-        public List<GeminiMultiTurnCandidate>? Candidates { get; set; }
-
-        [JsonPropertyName("promptFeedback")]
-        public GeminiPromptFeedback? PromptFeedback { get; set; }
-    }
-
-    private class GeminiPromptFeedback
-    {
-        [JsonPropertyName("blockReason")]
-        public string? BlockReason { get; set; }
-    }
-
-    private class GeminiMultiTurnCandidate
-    {
-        [JsonPropertyName("content")]
-        public GeminiMultiTurnContent? Content { get; set; }
-
-        [JsonPropertyName("finishReason")]
-        public string? FinishReason { get; set; }
-    }
-
-    #endregion
 
     #region AI Response Models
 

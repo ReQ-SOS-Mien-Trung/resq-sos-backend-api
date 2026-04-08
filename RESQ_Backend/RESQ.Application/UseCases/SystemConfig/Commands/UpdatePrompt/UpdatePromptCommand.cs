@@ -7,6 +7,7 @@ public record UpdatePromptCommand(
     int Id,
     string? Name,
     PromptType? PromptType,
+    AiProvider? Provider,
     string? Purpose,
     string? SystemPrompt,
     string? UserPromptTemplate,
