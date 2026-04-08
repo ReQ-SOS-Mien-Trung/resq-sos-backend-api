@@ -1,19 +1,24 @@
 using System.Text.Json;
 using MediatR;
+using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Operations.Shared;
 
 namespace RESQ.Application.UseCases.Operations.Commands.ConfirmMissionSupplyPickup;
 
 public class ConfirmMissionSupplyPickupCommandHandler(
     IMissionActivityRepository activityRepository,
-    IDepotInventoryRepository depotInventoryRepository)
+    IDepotInventoryRepository depotInventoryRepository,
+    IUnitOfWork unitOfWork)
     : IRequestHandler<ConfirmMissionSupplyPickupCommand, ConfirmMissionSupplyPickupResponse>
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
@@ -42,8 +47,16 @@ public class ConfirmMissionSupplyPickupCommandHandler(
         var depotId = activity.DepotId.Value;
         var missionId = activity.MissionId ?? request.MissionId;
 
-        await _depotInventoryRepository.ConsumeReservedSuppliesAsync(
+        var pickupExecution = await _depotInventoryRepository.ConsumeReservedSuppliesAsync(
             depotId, items, request.UserId, request.ActivityId, missionId, cancellationToken);
+
+        await MissionSupplyExecutionSnapshotHelper.SyncPickupExecutionAsync(
+            activity,
+            pickupExecution,
+            _activityRepository,
+            NullLogger.Instance,
+            cancellationToken);
+        await _unitOfWork.SaveAsync();
 
         return new ConfirmMissionSupplyPickupResponse
         {
@@ -51,15 +64,7 @@ public class ConfirmMissionSupplyPickupCommandHandler(
             MissionId = missionId,
             DepotId = depotId,
             Message = "Xác nhận lấy hàng thành công. Số lượng trong kho đã được cập nhật.",
-            ConsumedItems = supplies
-                .Where(s => s.ItemId.HasValue && s.Quantity > 0)
-                .Select(s => new ConsumedSupplyItemDto
-                {
-                    ItemModelId = s.ItemId!.Value,
-                    ItemName = s.ItemName ?? string.Empty,
-                    Quantity = s.Quantity
-                })
-                .ToList()
+            ConsumedItems = pickupExecution.Items
         };
     }
 }

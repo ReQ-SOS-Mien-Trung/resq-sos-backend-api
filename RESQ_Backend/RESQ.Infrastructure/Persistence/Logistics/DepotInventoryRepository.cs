@@ -751,21 +751,31 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         return shortages;
     }
 
-    public async Task ReserveSuppliesAsync(
+    public async Task<MissionSupplyReservationResult> ReserveSuppliesAsync(
         int depotId,
         List<(int ItemModelId, int Quantity)> items,
         CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
         var itemIds = items.Select(x => x.ItemModelId).Distinct().ToList();
-        var itemTypeDict = await _unitOfWork.Set<ItemModel>()
+        var itemLookup = await _unitOfWork.Set<ItemModel>()
             .Where(i => itemIds.Contains(i.Id))
-            .ToDictionaryAsync(i => i.Id, i => i.ItemType ?? string.Empty, cancellationToken);
+            .ToDictionaryAsync(i => i.Id, cancellationToken);
+        var reservationItems = new List<SupplyExecutionItemDto>(items.Count);
 
         foreach (var (itemModelId, quantity) in items)
         {
-            var isReusable = itemTypeDict.TryGetValue(itemModelId, out var itemType)
-                && string.Equals(itemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+            if (!itemLookup.TryGetValue(itemModelId, out var itemModel))
+                throw new InvalidOperationException($"Không tìm thấy metadata vật tư #{itemModelId}.");
+
+            var isReusable = string.Equals(itemModel.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+            var reservationItem = new SupplyExecutionItemDto
+            {
+                ItemModelId = itemModelId,
+                ItemName = itemModel.Name ?? string.Empty,
+                Unit = itemModel.Unit,
+                Quantity = quantity
+            };
 
             if (!isReusable)
             {
@@ -775,26 +785,58 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                         cancellationToken);
 
                 if (inventory != null)
+                {
+                    var plannedLots = await BuildReservedLotPlanAsync(
+                        inventory.Id,
+                        inventory.MissionReservedQuantity,
+                        quantity,
+                        now,
+                        cancellationToken);
+
                     inventory.MissionReservedQuantity += quantity;
+
+                    reservationItem.LotAllocations.AddRange(plannedLots);
+                }
             }
 
             // Reusable items: Available → Reserved (mission — no SupplyRequestId)
             var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
                 .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == nameof(ReusableItemStatus.Available))
+                .OrderBy(r => r.Id)
                 .Take(quantity)
                 .ToListAsync(cancellationToken);
+
+            if (isReusable && reusableUnits.Count < quantity)
+                throw new InvalidOperationException(
+                    $"Vật tư reusable #{itemModelId}: chỉ còn {reusableUnits.Count} đơn vị Available trong khi cần reserve {quantity}.");
 
             foreach (var unit in reusableUnits)
             {
                 unit.Status    = nameof(ReusableItemStatus.Reserved);
                 unit.UpdatedAt = now;
+
+                reservationItem.ReusableUnits.Add(new SupplyExecutionReusableUnitDto
+                {
+                    ReusableItemId = unit.Id,
+                    ItemModelId = itemModelId,
+                    ItemName = itemModel.Name ?? string.Empty,
+                    SerialNumber = unit.SerialNumber,
+                    Condition = unit.Condition
+                });
             }
+
+            reservationItems.Add(reservationItem);
         }
 
         await _unitOfWork.SaveAsync();
+
+        return new MissionSupplyReservationResult
+        {
+            Items = reservationItems
+        };
     }
 
-    public async Task ConsumeReservedSuppliesAsync(
+    public async Task<MissionSupplyPickupExecutionResult> ConsumeReservedSuppliesAsync(
         int depotId,
         List<(int ItemModelId, int Quantity)> items,
         Guid performedBy,
@@ -804,14 +846,24 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     {
         var now = DateTime.UtcNow;
         var itemIds = items.Select(x => x.ItemModelId).Distinct().ToList();
-        var itemTypeDict = await _unitOfWork.Set<ItemModel>()
+        var itemLookup = await _unitOfWork.Set<ItemModel>()
             .Where(i => itemIds.Contains(i.Id))
-            .ToDictionaryAsync(i => i.Id, i => i.ItemType ?? string.Empty, cancellationToken);
+            .ToDictionaryAsync(i => i.Id, cancellationToken);
+        var executionItems = new List<SupplyExecutionItemDto>(items.Count);
 
         foreach (var (itemModelId, quantity) in items)
         {
-            var isReusable = itemTypeDict.TryGetValue(itemModelId, out var itemType)
-                && string.Equals(itemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+            if (!itemLookup.TryGetValue(itemModelId, out var itemModel))
+                throw new InvalidOperationException($"Không tìm thấy metadata vật tư #{itemModelId}.");
+
+            var isReusable = string.Equals(itemModel.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+            var executionItem = new SupplyExecutionItemDto
+            {
+                ItemModelId = itemModelId,
+                ItemName = itemModel.Name ?? string.Empty,
+                Unit = itemModel.Unit,
+                Quantity = quantity
+            };
 
             if (!isReusable)
             {
@@ -870,6 +922,15 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                             Note                   = $"Xuất FEFO lô #{lot.Id} vật tư #{itemModelId} SL {deduct} cho activity #{activityId} (mission #{missionId})",
                             CreatedAt              = now
                         });
+
+                        executionItem.LotAllocations.Add(new SupplyExecutionLotDto
+                        {
+                            LotId = lot.Id,
+                            QuantityTaken = deduct,
+                            ReceivedDate = lot.ReceivedDate,
+                            ExpiredDate = lot.ExpiredDate,
+                            RemainingQuantityAfterExecution = lot.RemainingQuantity
+                        });
                     }
 
                     if (remaining > 0)
@@ -897,17 +958,51 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             // Reusable items: Reserved → InUse
             var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
                 .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == nameof(ReusableItemStatus.Reserved) && r.SupplyRequestId == null)
+                .OrderBy(r => r.Id)
                 .Take(quantity)
                 .ToListAsync(cancellationToken);
+
+            if (reusableUnits.Count < quantity)
+                throw new InvalidOperationException(
+                    $"Vật tư reusable #{itemModelId}: chỉ tìm thấy {reusableUnits.Count} đơn vị Reserved trong khi cần {quantity}.");
 
             foreach (var unit in reusableUnits)
             {
                 unit.Status    = nameof(ReusableItemStatus.InUse);
                 unit.UpdatedAt = now;
+
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    ReusableItemId = unit.Id,
+                    ActionType     = "MissionPickup",
+                    QuantityChange = 1,
+                    SourceType     = "MissionActivity",
+                    SourceId       = activityId,
+                    MissionId      = missionId,
+                    PerformedBy    = performedBy,
+                    Note           = $"Team xác nhận lấy {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) cho activity #{activityId} (mission #{missionId})",
+                    CreatedAt      = now
+                });
+
+                executionItem.ReusableUnits.Add(new SupplyExecutionReusableUnitDto
+                {
+                    ReusableItemId = unit.Id,
+                    ItemModelId = itemModelId,
+                    ItemName = itemModel.Name ?? string.Empty,
+                    SerialNumber = unit.SerialNumber,
+                    Condition = unit.Condition
+                });
             }
+
+            executionItems.Add(executionItem);
         }
 
         await _unitOfWork.SaveAsync();
+
+        return new MissionSupplyPickupExecutionResult
+        {
+            Items = executionItems
+        };
     }
 
     public async Task ReleaseReservedSuppliesAsync(
@@ -1214,6 +1309,298 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         }
 
         await _unitOfWork.SaveAsync();
+    }
+
+    public async Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(
+        int depotId,
+        int missionId,
+        int activityId,
+        Guid performedBy,
+        List<(int ItemModelId, int Quantity)> consumableItems,
+        List<int> reusableItemIds,
+        List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+        string? discrepancyNote,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var normalizedConsumables = consumableItems
+            .Where(x => x.Quantity > 0)
+            .GroupBy(x => x.ItemModelId)
+            .Select(group => (ItemModelId: group.Key, Quantity: group.Sum(x => x.Quantity)))
+            .ToList();
+        var normalizedLegacyReusable = legacyReusableQuantities
+            .Where(x => x.Quantity > 0)
+            .GroupBy(x => x.ItemModelId)
+            .Select(group => (ItemModelId: group.Key, Quantity: group.Sum(x => x.Quantity)))
+            .ToList();
+        var normalizedReusableIds = reusableItemIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+
+        var itemIds = normalizedConsumables.Select(x => x.ItemModelId)
+            .Concat(normalizedLegacyReusable.Select(x => x.ItemModelId))
+            .Distinct()
+            .ToList();
+        var itemLookup = itemIds.Count == 0
+            ? new Dictionary<int, ItemModel>()
+            : await _unitOfWork.Set<ItemModel>()
+                .Where(i => itemIds.Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id, cancellationToken);
+
+        var result = new MissionSupplyReturnExecutionResult
+        {
+            UsedLegacyFallback = normalizedLegacyReusable.Count > 0,
+            DiscrepancyRecorded = !string.IsNullOrWhiteSpace(discrepancyNote)
+        };
+        var resultLookup = new Dictionary<int, MissionSupplyReturnExecutionItemDto>();
+
+        foreach (var (itemModelId, quantity) in normalizedConsumables)
+        {
+            if (!itemLookup.TryGetValue(itemModelId, out var itemModel))
+                throw new InvalidOperationException($"Không tìm thấy metadata vật tư #{itemModelId}.");
+
+            var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
+                .FirstOrDefaultAsync(x => x.DepotId == depotId && x.ItemModelId == itemModelId, cancellationToken)
+                ?? throw new InvalidOperationException(
+                    $"Không tìm thấy tồn kho vật tư #{itemModelId} tại kho #{depotId} để nhập lại từ mission.");
+
+            var lot = new SupplyInventoryLot
+            {
+                SupplyInventoryId = inventory.Id,
+                Quantity = quantity,
+                RemainingQuantity = quantity,
+                ReceivedDate = now,
+                ExpiredDate = null,
+                SourceType = InventorySourceType.Mission.ToString(),
+                SourceId = activityId,
+                CreatedAt = now
+            };
+            await _unitOfWork.GetRepository<SupplyInventoryLot>().AddAsync(lot);
+            await _unitOfWork.SaveAsync();
+
+            inventory.Quantity = (inventory.Quantity ?? 0) + quantity;
+            inventory.LastStockedAt = now;
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                DepotSupplyInventoryId = inventory.Id,
+                SupplyInventoryLotId = lot.Id,
+                ActionType = InventoryActionType.Return.ToString(),
+                QuantityChange = quantity,
+                SourceType = InventorySourceType.Mission.ToString(),
+                SourceId = activityId,
+                MissionId = missionId,
+                PerformedBy = performedBy,
+                Note = BuildMissionReturnNote(
+                    $"Nhập lại {itemModel.Name} từ activity #{activityId}, mission #{missionId}",
+                    discrepancyNote),
+                CreatedAt = now
+            });
+
+            var resultItem = GetOrCreateReturnResultItem(resultLookup, itemModel);
+            resultItem.ActualQuantity += quantity;
+        }
+
+        var explicitReusableUnits = normalizedReusableIds.Count == 0
+            ? []
+            : await _unitOfWork.SetTracked<ReusableItem>()
+                .Where(r => normalizedReusableIds.Contains(r.Id))
+                .Include(r => r.ItemModel)
+                .ToListAsync(cancellationToken);
+
+        if (explicitReusableUnits.Count != normalizedReusableIds.Count)
+        {
+            var foundIds = explicitReusableUnits.Select(x => x.Id).ToHashSet();
+            var missingIds = normalizedReusableIds.Where(id => !foundIds.Contains(id));
+            throw new InvalidOperationException($"Không tìm thấy reusable units: {string.Join(", ", missingIds)}.");
+        }
+
+        foreach (var unit in explicitReusableUnits)
+        {
+            if (!string.Equals(unit.Status, nameof(ReusableItemStatus.InUse), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Reusable unit #{unit.Id} không ở trạng thái InUse.");
+
+            if (unit.DepotId != depotId)
+                throw new InvalidOperationException($"Reusable unit #{unit.Id} không thuộc kho #{depotId}.");
+
+            var itemModel = unit.ItemModel
+                ?? throw new InvalidOperationException($"Reusable unit #{unit.Id} không có metadata vật tư.");
+
+            unit.DepotId = depotId;
+            unit.Status = nameof(ReusableItemStatus.Available);
+            unit.SupplyRequestId = null;
+            unit.UpdatedAt = now;
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                ReusableItemId = unit.Id,
+                ActionType = InventoryActionType.Return.ToString(),
+                QuantityChange = 1,
+                SourceType = InventorySourceType.Mission.ToString(),
+                SourceId = activityId,
+                MissionId = missionId,
+                PerformedBy = performedBy,
+                Note = BuildMissionReturnNote(
+                    $"Nhận lại {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) từ activity #{activityId}, mission #{missionId}",
+                    discrepancyNote),
+                CreatedAt = now
+            });
+
+            var resultItem = GetOrCreateReturnResultItem(resultLookup, itemModel);
+            resultItem.ActualQuantity += 1;
+            resultItem.ReturnedReusableUnits.Add(new SupplyExecutionReusableUnitDto
+            {
+                ReusableItemId = unit.Id,
+                ItemModelId = itemModel.Id,
+                ItemName = itemModel.Name ?? string.Empty,
+                SerialNumber = unit.SerialNumber,
+                Condition = unit.Condition
+            });
+        }
+
+        foreach (var (itemModelId, quantity) in normalizedLegacyReusable)
+        {
+            if (!itemLookup.TryGetValue(itemModelId, out var itemModel))
+                throw new InvalidOperationException($"Không tìm thấy metadata vật tư reusable #{itemModelId}.");
+
+            var legacyUnits = await _unitOfWork.SetTracked<ReusableItem>()
+                .Where(r => r.DepotId == depotId
+                    && r.ItemModelId == itemModelId
+                    && r.Status == nameof(ReusableItemStatus.InUse)
+                    && r.SupplyRequestId == null
+                    && !normalizedReusableIds.Contains(r.Id))
+                .OrderBy(r => r.Id)
+                .Take(quantity)
+                .Include(r => r.ItemModel)
+                .ToListAsync(cancellationToken);
+
+            if (legacyUnits.Count != quantity)
+                throw new InvalidOperationException(
+                    $"Vật tư reusable #{itemModelId}: chỉ tìm thấy {legacyUnits.Count} đơn vị InUse để nhập lại theo legacy fallback, yêu cầu {quantity}.");
+
+            foreach (var unit in legacyUnits)
+            {
+                unit.DepotId = depotId;
+                unit.Status = nameof(ReusableItemStatus.Available);
+                unit.SupplyRequestId = null;
+                unit.UpdatedAt = now;
+
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    ReusableItemId = unit.Id,
+                    ActionType = InventoryActionType.Return.ToString(),
+                    QuantityChange = 1,
+                    SourceType = InventorySourceType.Mission.ToString(),
+                    SourceId = activityId,
+                    MissionId = missionId,
+                    PerformedBy = performedBy,
+                    Note = BuildMissionReturnNote(
+                        $"Nhận lại {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) theo legacy fallback từ activity #{activityId}, mission #{missionId}",
+                        discrepancyNote),
+                    CreatedAt = now
+                });
+
+                var resultItem = GetOrCreateReturnResultItem(resultLookup, itemModel);
+                resultItem.ActualQuantity += 1;
+                resultItem.ReturnedReusableUnits.Add(new SupplyExecutionReusableUnitDto
+                {
+                    ReusableItemId = unit.Id,
+                    ItemModelId = itemModel.Id,
+                    ItemName = itemModel.Name ?? string.Empty,
+                    SerialNumber = unit.SerialNumber,
+                    Condition = unit.Condition
+                });
+            }
+        }
+
+        await _unitOfWork.SaveAsync();
+
+        result.Items = resultLookup.Values
+            .OrderBy(x => x.ItemModelId)
+            .ToList();
+        return result;
+    }
+
+    private static string BuildMissionReturnNote(string baseNote, string? discrepancyNote)
+    {
+        if (string.IsNullOrWhiteSpace(discrepancyNote))
+            return baseNote;
+
+        return $"{baseNote}. Ghi chú chênh lệch: {discrepancyNote}";
+    }
+
+    private static MissionSupplyReturnExecutionItemDto GetOrCreateReturnResultItem(
+        IDictionary<int, MissionSupplyReturnExecutionItemDto> lookup,
+        ItemModel itemModel)
+    {
+        if (!lookup.TryGetValue(itemModel.Id, out var item))
+        {
+            item = new MissionSupplyReturnExecutionItemDto
+            {
+                ItemModelId = itemModel.Id,
+                ItemName = itemModel.Name ?? string.Empty,
+                Unit = itemModel.Unit
+            };
+            lookup[itemModel.Id] = item;
+        }
+
+        return item;
+    }
+
+    private async Task<List<SupplyExecutionLotDto>> BuildReservedLotPlanAsync(
+        int supplyInventoryId,
+        int alreadyReservedQuantity,
+        int requestedQuantity,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var lots = await _unitOfWork.Set<SupplyInventoryLot>()
+            .Where(l => l.SupplyInventoryId == supplyInventoryId
+                && l.RemainingQuantity > 0
+                && (!l.ExpiredDate.HasValue || l.ExpiredDate.Value >= now))
+            .OrderBy(l => l.ExpiredDate == null ? 1 : 0)
+            .ThenBy(l => l.ExpiredDate)
+            .ThenBy(l => l.ReceivedDate)
+            .ToListAsync(cancellationToken);
+
+        if (lots.Count == 0)
+            return [];
+
+        var remainingReserved = Math.Max(0, alreadyReservedQuantity);
+        var remainingRequest = requestedQuantity;
+        var plannedLots = new List<SupplyExecutionLotDto>();
+
+        foreach (var lot in lots)
+        {
+            if (remainingRequest <= 0)
+                break;
+
+            var lotAvailableForPlanning = lot.RemainingQuantity;
+            if (remainingReserved > 0)
+            {
+                var reservedFromLot = Math.Min(lotAvailableForPlanning, remainingReserved);
+                remainingReserved -= reservedFromLot;
+                lotAvailableForPlanning -= reservedFromLot;
+            }
+
+            if (lotAvailableForPlanning <= 0)
+                continue;
+
+            var allocate = Math.Min(lotAvailableForPlanning, remainingRequest);
+            remainingRequest -= allocate;
+
+            plannedLots.Add(new SupplyExecutionLotDto
+            {
+                LotId = lot.Id,
+                QuantityTaken = allocate,
+                ReceivedDate = lot.ReceivedDate,
+                ExpiredDate = lot.ExpiredDate,
+                RemainingQuantityAfterExecution = lot.RemainingQuantity - allocate
+            });
+        }
+
+        return plannedLots;
     }
 
     // ─── Depot Closure bulk operations ───────────────────────────────────────

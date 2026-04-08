@@ -77,23 +77,40 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Đặt trước vật tư cho mission: tăng ReservedQuantity.
-    /// Gọi ngay sau khi mission được tạo thành công.
+    /// Đặt trước vật tư cho mission: tăng ReservedQuantity và trả về snapshot
+    /// các lô FEFO hoặc reusable units activity cần lấy.
     /// </summary>
-    Task ReserveSuppliesAsync(
+    Task<MissionSupplyReservationResult> ReserveSuppliesAsync(
         int depotId,
         List<(int ItemModelId, int Quantity)> items,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Team xác nhận đã lấy hàng: giảm cả Quantity và ReservedQuantity, ghi InventoryLog.
+    /// Team xác nhận đã lấy hàng: giảm cả Quantity và ReservedQuantity, ghi InventoryLog,
+    /// đồng thời trả về chi tiết thực tế đã lấy theo lot FEFO hoặc reusable unit.
     /// </summary>
-    Task ConsumeReservedSuppliesAsync(
+    Task<MissionSupplyPickupExecutionResult> ConsumeReservedSuppliesAsync(
         int depotId,
         List<(int ItemModelId, int Quantity)> items,
         Guid performedBy,
         int activityId,
         int missionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Depot manager xác nhận nhận lại vật tư từ mission và nhập kho theo dữ liệu thực tế.
+    /// Consumable được nhập lại theo quantity; Reusable được nhận lại theo từng unit id,
+    /// hoặc quantity fallback cho legacy mission chưa có unit snapshot.
+    /// </summary>
+    Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(
+        int depotId,
+        int missionId,
+        int activityId,
+        Guid performedBy,
+        List<(int ItemModelId, int Quantity)> consumableItems,
+        List<int> reusableItemIds,
+        List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+        string? discrepancyNote,
         CancellationToken cancellationToken = default);
 
     /// <summary>

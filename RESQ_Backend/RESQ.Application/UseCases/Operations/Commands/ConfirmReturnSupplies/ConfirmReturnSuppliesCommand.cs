@@ -9,5 +9,8 @@ namespace RESQ.Application.UseCases.Operations.Commands.ConfirmReturnSupplies;
 public record ConfirmReturnSuppliesCommand(
     int ActivityId,
     int MissionId,
-    Guid ConfirmedBy
+    Guid ConfirmedBy,
+    List<ActualReturnedConsumableItemDto> ConsumableItems,
+    List<ActualReturnedReusableItemDto> ReusableItems,
+    string? DiscrepancyNote
 ) : IRequest<ConfirmReturnSuppliesResponse>;

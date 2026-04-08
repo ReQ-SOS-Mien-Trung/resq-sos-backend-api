@@ -311,13 +311,22 @@ public class MissionController(IMediator mediator) : ControllerBase
     /// </summary>
     [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-return")]
     [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
-    public async Task<IActionResult> ConfirmReturnSupplies([FromRoute] int missionId, [FromRoute] int activityId)
+    public async Task<IActionResult> ConfirmReturnSupplies(
+        [FromRoute] int missionId,
+        [FromRoute] int activityId,
+        [FromBody] ConfirmReturnSuppliesRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
-        var command = new ConfirmReturnSuppliesCommand(activityId, missionId, userId);
+        var command = new ConfirmReturnSuppliesCommand(
+            activityId,
+            missionId,
+            userId,
+            dto.ConsumableItems,
+            dto.ReusableItems,
+            dto.DiscrepancyNote);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

@@ -96,6 +96,7 @@ public class UpdateActivityStatusCommandHandler(
         // Only COLLECT_SUPPLIES activities affect depot inventory.
         // DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, EVACUATE do not consume stock directly.
         var isCollectActivity = string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+        var pickupExecution = new MissionSupplyPickupExecutionResult();
 
         // Side-effect: consume inventory when a COLLECT_SUPPLIES activity succeeds
         // (team physically arrived at depot and picked up the supplies)
@@ -116,9 +117,16 @@ public class UpdateActivityStatusCommandHandler(
                 {
                     // Do NOT catch here — if inventory deduction fails the whole transaction
                     // should roll back so the activity is NOT marked Succeed with stale stock.
-                    await _depotInventoryRepository.ConsumeReservedSuppliesAsync(
+                    pickupExecution = await _depotInventoryRepository.ConsumeReservedSuppliesAsync(
                         activity.DepotId.Value, itemsToConsume, request.DecisionBy,
                         request.ActivityId, activity.MissionId ?? 0, cancellationToken);
+
+                    await MissionSupplyExecutionSnapshotHelper.SyncPickupExecutionAsync(
+                        activity,
+                        pickupExecution,
+                        _activityRepository,
+                        _logger,
+                        cancellationToken);
 
                     _logger.LogInformation(
                         "Inventory consumed for ActivityId={activityId} DepotId={depotId}: {count} item type(s)",
@@ -238,7 +246,8 @@ public class UpdateActivityStatusCommandHandler(
         {
             ActivityId = request.ActivityId,
             Status = effectiveStatus.ToString(),
-            DecisionBy = request.DecisionBy
+            DecisionBy = request.DecisionBy,
+            ConsumedItems = pickupExecution.Items
         };
     }
 
