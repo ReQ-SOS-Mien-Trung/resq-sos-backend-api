@@ -36,7 +36,7 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
         var entity = await _unitOfWork.GetRepository<DepotClosure>()
             .GetByPropertyAsync(
                 x => x.DepotId == depotId &&
-                     (x.Status == "InProgress" || x.Status == "Processing"),
+                     (x.Status == "InProgress" || x.Status == "Processing" || x.Status == "TransferPending"),
                 tracked: false);
         return entity == null ? null : ToDomain(entity);
     }
