@@ -5,12 +5,13 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
+using RESQ.Domain.Enum.Operations;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Operations;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
-public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomingPickupActivityRepository
+public class ReturnSupplyActivityRepository(IUnitOfWork unitOfWork) : IReturnSupplyActivityRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
@@ -19,8 +20,9 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
         PropertyNameCaseInsensitive = true
     };
 
-    public async Task<PagedResult<UpcomingPickupActivityListItem>> GetPagedByDepotIdAsync(
+    public async Task<PagedResult<UpcomingReturnActivityListItem>> GetPagedByDepotIdAsync(
         int depotId,
+        MissionActivityStatus status,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -30,6 +32,7 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
 
         var activities = _unitOfWork.GetRepository<MissionActivity>().AsQueryable(false);
         var depots = _unitOfWork.GetRepository<Depot>().AsQueryable(false);
+        var statusPredicates = GetStatusPredicates(status);
 
         var query =
             from activity in activities
@@ -39,21 +42,14 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
                   && activity.MissionId.HasValue
                   && activity.Mission != null
                   && activity.ActivityType != null
-                  && EF.Functions.ILike(activity.ActivityType, "COLLECT_SUPPLIES")
+                  && EF.Functions.ILike(activity.ActivityType, "RETURN_SUPPLIES")
                   && activity.Status != null
-                  && (EF.Functions.ILike(activity.Status, "Planned")
-                      || EF.Functions.ILike(activity.Status, "OnGoing")
-                      || EF.Functions.ILike(activity.Status, "on_going"))
-                  && activity.Mission.IsCompleted != true
-                  && (activity.Mission.Status == null
-                      || (!EF.Functions.ILike(activity.Mission.Status, "Completed")
-                          && !EF.Functions.ILike(activity.Mission.Status, "Incompleted")))
-            orderby (EF.Functions.ILike(activity.Status!, "OnGoing")
-                     || EF.Functions.ILike(activity.Status!, "on_going")) ? 0 : 1,
-                activity.Mission!.StartTime ?? DateTime.MaxValue,
+                  && (EF.Functions.ILike(activity.Status, statusPredicates.Current)
+                      || EF.Functions.ILike(activity.Status, statusPredicates.Legacy))
+            orderby activity.AssignedAt ?? activity.Mission!.StartTime ?? DateTime.MaxValue,
                 activity.Step ?? int.MaxValue,
                 activity.Id
-            select new UpcomingPickupActivityProjection
+            select new UpcomingReturnActivityProjection
             {
                 DepotId = activity.DepotId ?? depotId,
                 DepotName = activity.DepotName ?? (depot != null ? depot.Name : null),
@@ -90,7 +86,7 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
             .Take(normalizedPageSize)
             .ToListAsync(cancellationToken);
 
-        var items = pagedItems.Select(x => new UpcomingPickupActivityListItem
+        var items = pagedItems.Select(x => new UpcomingReturnActivityListItem
         {
             DepotId = x.DepotId,
             DepotName = x.DepotName,
@@ -114,14 +110,21 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
             Items = ParseItems(x.ItemsJson)
         }).ToList();
 
-        return new PagedResult<UpcomingPickupActivityListItem>(
+        return new PagedResult<UpcomingReturnActivityListItem>(
             items,
             totalCount,
             normalizedPageNumber,
             normalizedPageSize);
     }
 
-    public async Task<PagedResult<PickupHistoryActivityListItem>> GetHistoryPagedByDepotIdAsync(
+    private static (string Current, string Legacy) GetStatusPredicates(MissionActivityStatus status) => status switch
+    {
+        MissionActivityStatus.OnGoing => ("OnGoing", "on_going"),
+        MissionActivityStatus.PendingConfirmation => ("PendingConfirmation", "pending_confirmation"),
+        _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unsupported upcoming return status filter.")
+    };
+
+    public async Task<PagedResult<ReturnHistoryActivityListItem>> GetHistoryPagedByDepotIdAsync(
         int depotId,
         DateOnly? fromDate,
         DateOnly? toDate,
@@ -145,7 +148,7 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
                 && activity.MissionId.HasValue
                 && activity.Mission != null
                 && activity.ActivityType != null
-                && EF.Functions.ILike(activity.ActivityType, "COLLECT_SUPPLIES")
+                && EF.Functions.ILike(activity.ActivityType, "RETURN_SUPPLIES")
                 && activity.Status != null
                 && EF.Functions.ILike(activity.Status, "Succeed")
                 && activity.CompletedAt.HasValue);
@@ -167,7 +170,7 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
             join depot in depots on activity.DepotId equals (int?)depot.Id into depotJoin
             from depot in depotJoin.DefaultIfEmpty()
             orderby activity.CompletedAt descending, activity.Step, activity.Id descending
-            select new PickupHistoryActivityProjection
+            select new ReturnHistoryActivityProjection
             {
                 DepotId = activity.DepotId ?? depotId,
                 DepotName = activity.DepotName ?? (depot != null ? depot.Name : null),
@@ -209,7 +212,7 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
             .Take(normalizedPageSize)
             .ToListAsync(cancellationToken);
 
-        var items = pagedItems.Select(x => new PickupHistoryActivityListItem
+        var items = pagedItems.Select(x => new ReturnHistoryActivityListItem
         {
             DepotId = x.DepotId,
             DepotName = x.DepotName,
@@ -237,14 +240,14 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
             Items = ParseItems(x.ItemsJson)
         }).ToList();
 
-        return new PagedResult<PickupHistoryActivityListItem>(
+        return new PagedResult<ReturnHistoryActivityListItem>(
             items,
             totalCount,
             normalizedPageNumber,
             normalizedPageSize);
     }
 
-    private static List<UpcomingPickupItemDetail> ParseItems(string? itemsJson)
+    private static List<ReturnSupplyActivityItemDetail> ParseItems(string? itemsJson)
     {
         if (string.IsNullOrWhiteSpace(itemsJson))
             return [];
@@ -253,12 +256,15 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
         {
             var items = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(itemsJson, JsonOptions) ?? [];
 
-            return items.Select(x => new UpcomingPickupItemDetail
+            return items.Select(x => new ReturnSupplyActivityItemDetail
             {
                 ItemId = x.ItemId,
                 ItemName = x.ItemName,
                 Quantity = x.Quantity,
-                Unit = x.Unit
+                Unit = x.Unit,
+                ActualReturnedQuantity = x.ActualReturnedQuantity,
+                ExpectedReturnUnits = x.ExpectedReturnUnits?.Select(CloneReusableUnit).ToList() ?? [],
+                ReturnedReusableUnits = x.ReturnedReusableUnits?.Select(CloneReusableUnit).ToList() ?? []
             }).ToList();
         }
         catch (JsonException)
@@ -267,13 +273,23 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
         }
     }
 
+    private static SupplyExecutionReusableUnitDto CloneReusableUnit(SupplyExecutionReusableUnitDto unit) => new()
+    {
+        ReusableItemId = unit.ReusableItemId,
+        ItemModelId = unit.ItemModelId,
+        ItemName = unit.ItemName,
+        SerialNumber = unit.SerialNumber,
+        Condition = unit.Condition,
+        Note = unit.Note
+    };
+
     private static string? FormatFullName(string? lastName, string? firstName)
     {
         var fullName = string.Join(" ", new[] { lastName, firstName }.Where(x => !string.IsNullOrWhiteSpace(x)));
         return string.IsNullOrWhiteSpace(fullName) ? null : fullName;
     }
 
-    private sealed class UpcomingPickupActivityProjection
+    private sealed class UpcomingReturnActivityProjection
     {
         public int DepotId { get; set; }
         public string? DepotName { get; set; }
@@ -297,7 +313,7 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
         public string? ItemsJson { get; set; }
     }
 
-    private sealed class PickupHistoryActivityProjection
+    private sealed class ReturnHistoryActivityProjection
     {
         public int DepotId { get; set; }
         public string? DepotName { get; set; }
