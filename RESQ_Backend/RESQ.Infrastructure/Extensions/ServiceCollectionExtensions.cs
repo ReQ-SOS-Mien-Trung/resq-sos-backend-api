@@ -50,7 +50,14 @@ public static class ServiceCollectionExtensions
         services.AddDbContext<ResQDbContext>(options =>
             options.UseNpgsql(
                 configuration.GetConnectionString("ResQDb"),
-                x => x.UseNetTopologySuite()
+                x =>
+                {
+                    x.UseNetTopologySuite();
+                    x.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorCodesToAdd: null);
+                }
             )
         );
 
