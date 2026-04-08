@@ -22,6 +22,9 @@ public class SupplyRequestDeadlineBackgroundService(
     {
         _logger.LogInformation("Supply request deadline background service started.");
 
+        // Stagger startup to avoid connection pool exhaustion when all services start simultaneously
+        await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try

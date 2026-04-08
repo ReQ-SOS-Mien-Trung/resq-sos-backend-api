@@ -30,6 +30,9 @@ public class DonationExpirationBackgroundService : BackgroundService
     {
         _logger.LogInformation("Donation Expiration Service started.");
 
+        // Stagger startup to avoid connection pool exhaustion when all services start simultaneously
+        await Task.Delay(TimeSpan.FromSeconds(25), stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
