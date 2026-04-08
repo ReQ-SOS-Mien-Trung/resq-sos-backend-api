@@ -152,6 +152,17 @@ internal static class MissionActivitySequenceHelper
             .FirstOrDefault(a => a.Status == MissionActivityStatus.Planned);
     }
 
+    public static MissionActivityModel? GetEarliestUnfinishedActivityForSameTeam(
+        IEnumerable<MissionActivityModel> activities,
+        MissionActivityModel currentActivity)
+    {
+        if (!currentActivity.MissionTeamId.HasValue)
+            return null;
+
+        return OrderActivities(activities.Where(a => a.MissionTeamId == currentActivity.MissionTeamId))
+            .FirstOrDefault(a => !IsTerminalStatus(a.Status));
+    }
+
     public static bool HasActiveActivityForTeam(
         IEnumerable<MissionActivityModel> activities,
         int missionTeamId,
@@ -159,6 +170,9 @@ internal static class MissionActivitySequenceHelper
         activities.Any(a => a.MissionTeamId == missionTeamId
             && a.Id != excludeActivityId
             && a.Status is MissionActivityStatus.OnGoing or MissionActivityStatus.PendingConfirmation);
+
+    public static bool IsTerminalStatus(MissionActivityStatus status) =>
+        status is MissionActivityStatus.Succeed or MissionActivityStatus.Failed or MissionActivityStatus.Cancelled;
 
     private static IOrderedEnumerable<MissionActivityModel> OrderActivities(IEnumerable<MissionActivityModel> activities) =>
         activities.OrderBy(a => a.Step ?? int.MaxValue)
