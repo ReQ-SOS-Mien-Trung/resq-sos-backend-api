@@ -21,3 +21,5 @@ RESQ_Backend/RESQ.Presentation/appsettings.Development.json
 RESQ_Backend/RESQ.Presentation/appsettings.json
 RESQ_Backend/RESQ.Presentation/appsettings.Production.json
 RESQ_Backend/RESQ.Presentation/appsettings.Production.json
+RESQ_Backend/RESQ.Tests/bin
+RESQ_Backend/RESQ.Tests/obj

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services.Ai;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.System;
 using RESQ.Infrastructure.Entities.System;
@@ -9,9 +10,12 @@ using RESQ.Infrastructure.Mappers.System;
 
 namespace RESQ.Infrastructure.Persistence.System;
 
-public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
+public class PromptRepository(
+    IUnitOfWork unitOfWork,
+    IPromptSecretProtector promptSecretProtector) : IPromptRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IPromptSecretProtector _promptSecretProtector = promptSecretProtector;
 
     public async Task<PromptModel?> GetActiveByTypeAsync(PromptType promptType, CancellationToken cancellationToken = default)
     {
@@ -19,7 +23,7 @@ public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
         var entity = await _unitOfWork.GetRepository<Prompt>()
             .GetByPropertyAsync(x => x.PromptType.ToLower() == typeStr && x.IsActive, tracked: false);
 
-        return entity == null ? null : PromptMapper.ToDomain(entity);
+        return entity == null ? null : ToDomain(entity);
     }
 
     public async Task<PromptModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -27,12 +31,12 @@ public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
         var entity = await _unitOfWork.GetRepository<Prompt>()
             .GetByPropertyAsync(x => x.Id == id, tracked: false);
 
-        return entity == null ? null : PromptMapper.ToDomain(entity);
+        return entity == null ? null : ToDomain(entity);
     }
 
     public async Task CreateAsync(PromptModel prompt, CancellationToken cancellationToken = default)
     {
-        var entity = PromptMapper.ToEntity(prompt);
+        var entity = ToEntity(prompt);
         await _unitOfWork.GetRepository<Prompt>().AddAsync(entity);
         await _unitOfWork.SaveAsync();
         prompt.Id = entity.Id;
@@ -40,7 +44,7 @@ public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
 
     public async Task UpdateAsync(PromptModel prompt, CancellationToken cancellationToken = default)
     {
-        var entity = PromptMapper.ToEntity(prompt);
+        var entity = ToEntity(prompt);
         await _unitOfWork.GetRepository<Prompt>().UpdateAsync(entity);
     }
 
@@ -75,8 +79,22 @@ public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
         var pagedResult = await _unitOfWork.GetRepository<Prompt>()
             .GetPagedAsync(pageNumber, pageSize, orderBy: q => q.OrderByDescending(p => p.CreatedAt));
 
-        var domainItems = pagedResult.Items.Select(PromptMapper.ToDomain).ToList();
+        var domainItems = pagedResult.Items.Select(ToDomain).ToList();
 
         return new PagedResult<PromptModel>(domainItems, pagedResult.TotalCount, pagedResult.PageNumber, pagedResult.PageSize);
+    }
+
+    private Prompt ToEntity(PromptModel model)
+    {
+        var entity = PromptMapper.ToEntity(model);
+        entity.ApiKey = _promptSecretProtector.Protect(entity.ApiKey);
+        return entity;
+    }
+
+    private PromptModel ToDomain(Prompt entity)
+    {
+        var model = PromptMapper.ToDomain(entity);
+        model.ApiKey = _promptSecretProtector.Unprotect(entity.ApiKey);
+        return model;
     }
 }

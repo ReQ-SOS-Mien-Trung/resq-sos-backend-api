@@ -11,6 +11,9 @@ public class UpdatePromptRequestDto
     [JsonPropertyName("prompt_type")]
     public PromptType? PromptType { get; set; }
 
+    [JsonPropertyName("provider")]
+    public AiProvider? Provider { get; set; }
+
     [JsonPropertyName("purpose")]
     public string? Purpose { get; set; }
 

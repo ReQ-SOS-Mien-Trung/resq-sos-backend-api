@@ -1,3 +1,5 @@
+using RESQ.Domain.Entities.System;
+
 namespace RESQ.Application.Services;
 
 /// <summary>
@@ -9,11 +11,7 @@ public interface IAiModelTestService
     /// Gửi một tin nhắn test đến AI API để xác nhận model hoạt động đúng.
     /// </summary>
     Task<AiModelTestResult> TestModelAsync(
-        string model,
-        string apiUrlTemplate,
-        string apiKey,
-        double temperature,
-        int maxTokens,
+        PromptModel prompt,
         CancellationToken cancellationToken = default);
 }
 

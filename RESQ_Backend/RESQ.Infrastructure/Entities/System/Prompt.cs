@@ -21,6 +21,10 @@ public partial class Prompt
     [StringLength(100)]
     public string PromptType { get; set; } = string.Empty;
 
+    [Column("provider")]
+    [StringLength(50)]
+    public string Provider { get; set; } = "Gemini";
+
     [Column("purpose")]
     public string? Purpose { get; set; }
 

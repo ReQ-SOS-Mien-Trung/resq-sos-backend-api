@@ -15,8 +15,6 @@ public class TestPromptCommandHandler(
     private readonly IAiModelTestService _aiModelTestService = aiModelTestService;
     private readonly ILogger<TestPromptCommandHandler> _logger = logger;
 
-    private const string FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
-
     public async Task<TestPromptResponse> Handle(TestPromptCommand request, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Testing AI model for prompt Id={Id}", request.Id);
@@ -27,13 +25,7 @@ public class TestPromptCommandHandler(
             throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
         }
 
-        var model = prompt.Model ?? "gemini-2.5-flash";
-        var apiUrl = prompt.ApiUrl ?? FALLBACK_API_URL;
-        var apiKey = prompt.ApiKey ?? string.Empty;
-        var temperature = prompt.Temperature ?? 0.3;
-        var maxTokens = prompt.MaxTokens ?? 256; // Dùng ít token cho test
-
-        var result = await _aiModelTestService.TestModelAsync(model, apiUrl, apiKey, temperature, maxTokens, cancellationToken);
+        var result = await _aiModelTestService.TestModelAsync(prompt, cancellationToken);
 
         return new TestPromptResponse
         {

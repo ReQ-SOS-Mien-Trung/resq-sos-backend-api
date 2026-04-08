@@ -11,8 +11,10 @@ using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
+using RESQ.Application.Services.Ai;
 using RESQ.Domain.Entities.Finance.Services;
 using RESQ.Domain.Entities.Logistics.Services;
+using RESQ.Infrastructure.Options;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Emergency;
@@ -28,6 +30,7 @@ using RESQ.Infrastructure.Services.Finance;
 using RESQ.Infrastructure.Services.Identity;
 using RESQ.Infrastructure.Services.Logistics;
 using RESQ.Infrastructure.Services.Payments;
+using RESQ.Infrastructure.Services.Ai;
 //using RESQ.Infrastructure.Services.Personnel;
 
 namespace RESQ.Infrastructure.Extensions;
@@ -37,6 +40,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddHttpClient();
+        services.Configure<AiProvidersOptions>(configuration.GetSection("AiProviders"));
+        services.Configure<PromptSecretsOptions>(configuration.GetSection("PromptSecrets"));
         services.AddHttpClient("Goong", client =>
         {
             client.DefaultRequestHeaders.Add("Accept", "application/json");
@@ -119,6 +124,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDashboardRepository, DashboardRepository>();
 
         // Services
+        services.AddSingleton<IPromptSecretProtector, PromptSecretProtector>();
+        services.AddScoped<IAiPromptExecutionSettingsResolver, AiPromptExecutionSettingsResolver>();
+        services.AddScoped<IAiProviderClient, GeminiAiProviderClient>();
+        services.AddScoped<IAiProviderClient, OpenRouterAiProviderClient>();
+        services.AddScoped<IAiProviderClientFactory, AiProviderClientFactory>();
         services.AddScoped<IFirebaseService, FirebaseService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IEmailService, EmailService>();
@@ -153,6 +163,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISosAiAnalysisQueue>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddSingleton<ISosAiAnalysisQueueInternal>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddHostedService<SosAiAnalysisBackgroundService>();
+        services.AddHostedService<PromptSecretBackfillHostedService>();
         services.AddHostedService<DonationExpirationBackgroundService>();
         //services.AddHostedService<TeamInvitationExpirationBackgroundService>();
         services.AddHostedService<UnverifiedUserCleanupBackgroundService>();

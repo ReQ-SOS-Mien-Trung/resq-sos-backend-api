@@ -38,6 +38,7 @@ public class UpdatePromptCommandHandler(
         prompt.Update(
             name: request.Name,
             promptType: request.PromptType,
+            provider: request.Provider,
             purpose: request.Purpose,
             systemPrompt: request.SystemPrompt,
             userPromptTemplate: request.UserPromptTemplate,

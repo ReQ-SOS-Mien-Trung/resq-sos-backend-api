@@ -1,94 +1,114 @@
 using System.Diagnostics;
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Services;
+using RESQ.Application.Services.Ai;
+using RESQ.Domain.Entities.System;
 
 namespace RESQ.Infrastructure.Services;
 
 public class AiModelTestService : IAiModelTestService
 {
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IAiProviderClientFactory _aiProviderClientFactory;
+    private readonly IAiPromptExecutionSettingsResolver _settingsResolver;
     private readonly ILogger<AiModelTestService> _logger;
 
     private const string TEST_PROMPT = "Respond with exactly: {\"status\": \"ok\", \"message\": \"Model is working\"}";
+    private const string FALLBACK_GEMINI_MODEL = "gemini-2.5-flash";
+    private const string FALLBACK_GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
+    private const double FALLBACK_TEMPERATURE = 0.3;
+    private const int FALLBACK_MAX_TOKENS = 256;
 
     public AiModelTestService(
-        IHttpClientFactory httpClientFactory,
+        IAiProviderClientFactory aiProviderClientFactory,
+        IAiPromptExecutionSettingsResolver settingsResolver,
         ILogger<AiModelTestService> logger)
     {
-        _httpClientFactory = httpClientFactory;
+        _aiProviderClientFactory = aiProviderClientFactory;
+        _settingsResolver = settingsResolver;
         _logger = logger;
     }
 
     public async Task<AiModelTestResult> TestModelAsync(
-        string model,
-        string apiUrlTemplate,
-        string apiKey,
-        double temperature,
-        int maxTokens,
+        PromptModel prompt,
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
+        var settings = _settingsResolver.Resolve(
+            prompt,
+            new AiPromptExecutionFallback(
+                FALLBACK_GEMINI_MODEL,
+                FALLBACK_GEMINI_API_URL,
+                FALLBACK_TEMPERATURE,
+                FALLBACK_MAX_TOKENS));
 
         try
         {
-            var client = _httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(30);
+            _logger.LogInformation(
+                "Testing AI model: Provider={provider}, Model={model}, ApiUrl={apiUrl}",
+                settings.Provider,
+                settings.Model,
+                settings.ApiUrl);
 
-            var url = string.Format(apiUrlTemplate, model, apiKey);
-
-            var requestBody = new TestGeminiRequest
+            var request = new AiCompletionRequest
             {
-                Contents = new List<TestGeminiContent>
-                {
-                    new()
-                    {
-                        Parts = new List<TestGeminiPart>
-                        {
-                            new() { Text = TEST_PROMPT }
-                        }
-                    }
-                },
-                GenerationConfig = new TestGeminiGenerationConfig
-                {
-                    Temperature = temperature,
-                    MaxOutputTokens = maxTokens
-                }
+                Provider = settings.Provider,
+                Model = settings.Model,
+                ApiUrl = settings.ApiUrl,
+                ApiKey = settings.ApiKey,
+                Temperature = settings.Temperature,
+                MaxTokens = settings.MaxTokens,
+                Timeout = TimeSpan.FromSeconds(30),
+                Messages = [AiChatMessage.User(TEST_PROMPT)]
             };
 
-            _logger.LogInformation("Testing AI model: {model}, URL template: {url}", model, apiUrlTemplate);
+            var response = await _aiProviderClientFactory
+                .GetClient(settings.Provider)
+                .CompleteAsync(request, cancellationToken);
 
-            var response = await client.PostAsJsonAsync(url, requestBody, cancellationToken);
             stopwatch.Stop();
 
-            if (!response.IsSuccessStatusCode)
+            if (response.HttpStatusCode is >= 400)
             {
-                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogWarning("AI model test failed: {statusCode} - {error}", response.StatusCode, errorBody);
+                _logger.LogWarning(
+                    "AI model test failed: Provider={provider}, Model={model}, StatusCode={statusCode}",
+                    settings.Provider,
+                    settings.Model,
+                    response.HttpStatusCode);
 
                 return new AiModelTestResult
                 {
                     IsSuccess = false,
-                    Model = model,
-                    ErrorMessage = $"API trả về lỗi: {(int)response.StatusCode} {response.ReasonPhrase}. Chi tiết: {Truncate(errorBody, 500)}",
-                    HttpStatusCode = (int)response.StatusCode,
+                    Model = settings.Model,
+                    ErrorMessage = $"API trả về lỗi: {response.HttpStatusCode}. Chi tiết: {Truncate(response.ErrorBody, 500)}",
+                    HttpStatusCode = response.HttpStatusCode,
                     ResponseTimeMs = stopwatch.ElapsedMilliseconds
                 };
             }
 
-            var result = await response.Content.ReadFromJsonAsync<TestGeminiResponse>(cancellationToken: cancellationToken);
-            var aiText = result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+            if (!string.IsNullOrWhiteSpace(response.BlockReason))
+            {
+                return new AiModelTestResult
+                {
+                    IsSuccess = false,
+                    Model = settings.Model,
+                    ErrorMessage = $"Yêu cầu test bị chặn bởi provider: {response.BlockReason}",
+                    HttpStatusCode = response.HttpStatusCode,
+                    ResponseTimeMs = stopwatch.ElapsedMilliseconds
+                };
+            }
 
-            _logger.LogInformation("AI model test succeeded: {model}, ResponseTime={ms}ms", model, stopwatch.ElapsedMilliseconds);
+            _logger.LogInformation(
+                "AI model test succeeded: Provider={provider}, Model={model}, ResponseTime={ms}ms",
+                settings.Provider,
+                settings.Model,
+                stopwatch.ElapsedMilliseconds);
 
             return new AiModelTestResult
             {
                 IsSuccess = true,
-                Model = model,
-                AiResponse = Truncate(aiText, 500),
-                HttpStatusCode = (int)response.StatusCode,
+                Model = settings.Model,
+                AiResponse = Truncate(response.Text, 500),
+                HttpStatusCode = response.HttpStatusCode,
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds
             };
         }
@@ -98,7 +118,7 @@ public class AiModelTestService : IAiModelTestService
             return new AiModelTestResult
             {
                 IsSuccess = false,
-                Model = model,
+                Model = settings.Model,
                 ErrorMessage = "Request timeout - AI API không phản hồi trong 30 giây.",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds
             };
@@ -109,7 +129,7 @@ public class AiModelTestService : IAiModelTestService
             return new AiModelTestResult
             {
                 IsSuccess = false,
-                Model = model,
+                Model = settings.Model,
                 ErrorMessage = $"Không thể kết nối đến AI API: {ex.Message}",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds
             };
@@ -117,11 +137,11 @@ public class AiModelTestService : IAiModelTestService
         catch (Exception ex)
         {
             stopwatch.Stop();
-            _logger.LogError(ex, "Unexpected error testing AI model {model}", model);
+            _logger.LogError(ex, "Unexpected error testing AI model {model}", settings.Model);
             return new AiModelTestResult
             {
                 IsSuccess = false,
-                Model = model,
+                Model = settings.Model,
                 ErrorMessage = $"Lỗi không xác định: {ex.Message}",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds
             };
@@ -133,50 +153,4 @@ public class AiModelTestService : IAiModelTestService
         if (text == null) return null;
         return text.Length <= maxLength ? text : text[..maxLength] + "...";
     }
-
-    #region Gemini API Models (for test)
-
-    private class TestGeminiRequest
-    {
-        [JsonPropertyName("contents")]
-        public List<TestGeminiContent> Contents { get; set; } = [];
-
-        [JsonPropertyName("generationConfig")]
-        public TestGeminiGenerationConfig? GenerationConfig { get; set; }
-    }
-
-    private class TestGeminiContent
-    {
-        [JsonPropertyName("parts")]
-        public List<TestGeminiPart> Parts { get; set; } = [];
-    }
-
-    private class TestGeminiPart
-    {
-        [JsonPropertyName("text")]
-        public string? Text { get; set; }
-    }
-
-    private class TestGeminiGenerationConfig
-    {
-        [JsonPropertyName("temperature")]
-        public double Temperature { get; set; }
-
-        [JsonPropertyName("maxOutputTokens")]
-        public int MaxOutputTokens { get; set; }
-    }
-
-    private class TestGeminiResponse
-    {
-        [JsonPropertyName("candidates")]
-        public List<TestGeminiCandidate>? Candidates { get; set; }
-    }
-
-    private class TestGeminiCandidate
-    {
-        [JsonPropertyName("content")]
-        public TestGeminiContent? Content { get; set; }
-    }
-
-    #endregion
 }

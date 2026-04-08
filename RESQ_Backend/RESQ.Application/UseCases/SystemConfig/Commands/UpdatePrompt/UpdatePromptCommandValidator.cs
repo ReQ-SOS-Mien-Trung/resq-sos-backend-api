@@ -1,9 +1,12 @@
 using FluentValidation;
+using RESQ.Domain.Enum.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.UpdatePrompt;
 
 public class UpdatePromptCommandValidator : AbstractValidator<UpdatePromptCommand>
 {
+    private const string ProviderValidationMessage = "Provider không hợp lệ. Giá trị hợp lệ: \"Gemini\" hoặc \"OpenRouter\".";
+
     public UpdatePromptCommandValidator()
     {
         RuleFor(x => x.Id)
@@ -12,6 +15,10 @@ public class UpdatePromptCommandValidator : AbstractValidator<UpdatePromptComman
         RuleFor(x => x.Name)
             .MaximumLength(255).WithMessage("Tên prompt không được vượt quá 255 ký tự.")
             .When(x => x.Name != null);
+
+        RuleFor(x => x.Provider)
+            .Must(x => !x.HasValue || Enum.IsDefined(typeof(AiProvider), x.Value))
+            .WithMessage(ProviderValidationMessage);
 
         RuleFor(x => x.Model)
             .MaximumLength(100).WithMessage("Tên model không được vượt quá 100 ký tự.")

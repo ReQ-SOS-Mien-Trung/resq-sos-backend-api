@@ -5,6 +5,8 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.CreatePrompt;
 
 public class CreatePromptCommandValidator : AbstractValidator<CreatePromptCommand>
 {
+    private const string ProviderValidationMessage = "Provider không hợp lệ. Giá trị hợp lệ: \"Gemini\" hoặc \"OpenRouter\".";
+
     public CreatePromptCommandValidator()
     {
         RuleFor(x => x.Name)
@@ -13,6 +15,10 @@ public class CreatePromptCommandValidator : AbstractValidator<CreatePromptComman
 
         RuleFor(x => x.PromptType)
             .IsInEnum().WithMessage("Loại prompt (PromptType) không hợp lệ.");
+
+        RuleFor(x => x.Provider)
+            .Must(provider => Enum.IsDefined(typeof(AiProvider), provider))
+            .WithMessage(ProviderValidationMessage);
 
         RuleFor(x => x.Purpose)
             .NotEmpty().WithMessage("Mục đích không được để trống.");
