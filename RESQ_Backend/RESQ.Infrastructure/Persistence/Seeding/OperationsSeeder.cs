@@ -105,6 +105,25 @@ public static class OperationsSeeder
             new { ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 160, Unit = "chai" },
             new { ItemId = 8, ItemName = "Lương khô", Quantity = 120, Unit = "thanh" }
         });
+        // Activity 8: RETURN_SUPPLIES — trả 2 áo phao cứu sinh về kho Huế sau khi kết thúc nhiệm vụ
+        // ► Test endpoint: POST /operations/missions/5/activities/8/confirm-return
+        // ► Đăng nhập: manager@resq.vn / Manager@123 (quản lý kho Huế - DepotId=1)
+        // ► reusable_item IDs: 1 (D1-R004-001, Good) và 2 (D1-R004-002, Good)
+        var returnSuppliesItems = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                ItemId = 4,
+                ItemName = "Áo phao cứu sinh",
+                Quantity = 2,
+                Unit = "chiếc",
+                ExpectedReturnUnits = new[]
+                {
+                    new { ReusableItemId = 1, ItemModelId = 4, ItemName = "Áo phao cứu sinh", SerialNumber = "D1-R004-001", Condition = "Good" },
+                    new { ReusableItemId = 2, ItemModelId = 4, ItemName = "Áo phao cứu sinh", SerialNumber = "D1-R004-002", Condition = "Good" }
+                }
+            }
+        });
 
         modelBuilder.Entity<MissionActivity>().HasData(
             new MissionActivity
@@ -208,6 +227,29 @@ public static class OperationsSeeder
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.OnGoing),
                 AssignedAt = new DateTime(2026, 3, 20, 9, 15, 0, DateTimeKind.Utc),
+                LastDecisionBy = SeedConstants.CoordinatorUserId,
+                MissionTeamId = 4,
+                Priority = "Medium",
+                EstimatedTime = 30,
+                DepotId = 1,
+                DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
+            },
+            // Activity 8: RETURN_SUPPLIES cho Mission 5 tại kho Huế (PendingConfirmation)
+            // → Dùng để test: POST /operations/missions/5/activities/8/confirm-return
+            // → Login: manager@resq.vn / Manager@123
+            new MissionActivity
+            {
+                Id = 8,
+                MissionId = 5,
+                Step = 2,
+                ActivityType = "RETURN_SUPPLIES",
+                Description = "Hoàn tất nhiệm vụ, trả 2 áo phao cứu sinh về lại kho Huế. Trả: Áo phao cứu sinh x2 chiếc.",
+                Target = "{\"location\":\"Kho Huế\",\"purpose\":\"return_supplies\"}",
+                Items = returnSuppliesItems,
+                TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
+                Status = MissionActivityMapper.ToDbString(MissionActivityStatus.PendingConfirmation),
+                AssignedAt = new DateTime(2026, 3, 20, 14, 0, 0, DateTimeKind.Utc),
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
                 MissionTeamId = 4,
                 Priority = "Medium",

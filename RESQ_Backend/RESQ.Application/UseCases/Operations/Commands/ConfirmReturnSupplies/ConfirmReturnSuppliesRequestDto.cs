@@ -24,4 +24,8 @@ public class ActualReturnedReusableUnitDto
 {
     public int ReusableItemId { get; set; }
     public string? SerialNumber { get; set; }
+    /// <summary>Tình trạng thiết bị khi trả về (ví dụ: Good, Damaged, NeedsRepair). Nếu null thì giữ nguyên.</summary>
+    public string? Condition { get; set; }
+    /// <summary>Ghi chú về tình trạng / sự cố của thiết bị này khi trả về. Nếu null thì giữ nguyên.</summary>
+    public string? Note { get; set; }
 }
