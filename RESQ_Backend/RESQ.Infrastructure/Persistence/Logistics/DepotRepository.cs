@@ -207,6 +207,31 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         }
     }
 
+    public async Task UnassignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        // Set UnassignedAt cho tất cả bản ghi manager đang active (không có UnassignedAt)
+        // Lịch sử vẫn được giữ lại, chỉ cập nhật UnassignedAt
+        var activeManagers = await _unitOfWork.Set<DepotManager>()
+            .Where(dm => dm.DepotId == depot.Id && dm.UnassignedAt == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var active in activeManagers)
+            active.UnassignedAt = now;
+
+        // Cập nhật status kho → PendingAssignment + LastUpdatedAt
+        var depotEntity = await _unitOfWork.GetRepository<Depot>()
+            .GetByPropertyAsync(x => x.Id == depot.Id, tracked: true);
+
+        if (depotEntity != null)
+        {
+            depotEntity.Status        = depot.Status.ToString();
+            depotEntity.LastUpdatedAt = depot.LastUpdatedAt;
+            await _unitOfWork.GetRepository<Depot>().UpdateAsync(depotEntity);
+        }
+    }
+
     public async Task<int> GetConsumableInventoryRowCountAsync(int depotId, CancellationToken cancellationToken = default)
     {
         return await _unitOfWork.Set<SupplyInventory>()
@@ -222,5 +247,16 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
 
         if (statusStr == null) return null;
         return Enum.TryParse<DepotStatus>(statusStr, out var status) ? status : null;
+    }
+
+    public async Task<bool> IsManagerActiveElsewhereAsync(
+        Guid managerId, int excludeDepotId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<DepotManager>()
+            .AnyAsync(
+                dm => dm.UserId == managerId
+                   && dm.UnassignedAt == null
+                   && dm.DepotId != excludeDepotId,
+                cancellationToken);
     }
 }

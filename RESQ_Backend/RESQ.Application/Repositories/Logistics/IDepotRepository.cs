@@ -14,6 +14,12 @@ namespace RESQ.Application.Repositories.Logistics
         /// cập nhật status kho → Available.
         /// </summary>
         Task AssignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gỡ manager hiện tại khỏi kho: set UnassignedAt cho bản ghi manager đang active,
+        /// cập nhật status kho → PendingAssignment. Lịch sử vẫn được giữ lại.
+        /// </summary>
+        Task UnassignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
         
         // NEW: Pagination with optional status filter and full-text search
         Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default);
@@ -69,5 +75,11 @@ namespace RESQ.Application.Repositories.Logistics
         /// Trả về null nếu không tìm thấy kho.
         /// </summary>
         Task<DepotStatus?> GetStatusByIdAsync(int depotId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Kiểm tra manager có đang active (UnassignedAt == null) ở một kho khác không.
+        /// Dùng để ngăn gán một manager đang quản lý kho khác vào kho mới.
+        /// </summary>
+        Task<bool> IsManagerActiveElsewhereAsync(Guid managerId, int excludeDepotId, CancellationToken cancellationToken = default);
     }
 }

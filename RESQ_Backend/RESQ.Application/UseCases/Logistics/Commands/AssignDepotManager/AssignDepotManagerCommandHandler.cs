@@ -33,10 +33,17 @@ public class AssignDepotManagerCommandHandler(
             throw new BadRequestException(
                 $"Người dùng {user.LastName} {user.FirstName} không có vai trò Quản lý kho (Manager).");
 
-        // 3. Gọi domain method — unassign manager cũ + assign mới + status → Available
+        // 3. Kiểm tra manager không đang quản lý kho khác
+        var isBusy = await depotRepository.IsManagerActiveElsewhereAsync(
+            request.ManagerId, request.DepotId, cancellationToken);
+        if (isBusy)
+            throw new BadRequestException(
+                $"Người dùng {user.LastName} {user.FirstName} đang quản lý một kho khác. Vui lòng gỡ họ khỏi kho hiện tại trước khi gán vào kho này.");
+
+        // 4. Gọi domain method — unassign manager cũ + assign mới + status → Available
         depot.AssignManager(request.ManagerId);
 
-        // 4. Persist qua repository method chuyên biệt
+        // 5. Persist qua repository method chuyên biệt
         await depotRepository.AssignManagerAsync(depot, cancellationToken);
         await unitOfWork.SaveAsync();
 
