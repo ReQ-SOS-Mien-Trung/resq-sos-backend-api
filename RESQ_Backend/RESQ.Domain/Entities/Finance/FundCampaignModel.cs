@@ -197,6 +197,9 @@ public class FundCampaignModel
     {
         CheckModificationRules();
 
+        if (Status == FundCampaignStatus.Closed)
+            throw new CampaignClosedOrArchivedException(Status.ToString(), "cập nhật thông tin");
+
         if (string.IsNullOrWhiteSpace(name)) throw new InvalidCampaignDataException("Tên chiến dịch");
         if (string.IsNullOrWhiteSpace(region)) throw new InvalidCampaignDataException("Khu vực");
 
