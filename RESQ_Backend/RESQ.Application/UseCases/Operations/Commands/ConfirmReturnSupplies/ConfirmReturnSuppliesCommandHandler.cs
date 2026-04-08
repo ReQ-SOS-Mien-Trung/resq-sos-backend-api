@@ -125,7 +125,7 @@ public class ConfirmReturnSuppliesCommandHandler(
                 throw new BadRequestException($"Item consumable #{actualConsumable.ItemModelId} không thuộc kế hoạch RETURN_SUPPLIES này.");
         }
 
-        var explicitReusableIds = new List<int>();
+        var explicitReusableItems = new List<(int ReusableItemId, string? Condition, string? Note)>();
         var explicitReusableIdsSet = new HashSet<int>();
         var legacyReusableQuantities = new List<(int ItemModelId, int Quantity)>();
         var actualReusableQuantities = new Dictionary<int, int>();
@@ -166,7 +166,7 @@ public class ConfirmReturnSuppliesCommandHandler(
                             $"Reusable unit #{unit.ReusableItemId} không khớp item model #{reusableItem.ItemModelId}.");
                 }
 
-                explicitReusableIds.Add(unit.ReusableItemId);
+                explicitReusableItems.Add((unit.ReusableItemId, unit.Condition, unit.Note));
             }
 
             if (!hasExpectedReusableSnapshot && explicitUnits.Count == 0 && (reusableItem.Quantity ?? 0) > 0)
@@ -216,7 +216,7 @@ public class ConfirmReturnSuppliesCommandHandler(
             request.ActivityId,
             request.ConfirmedBy,
             actualConsumables.Select(item => (item.ItemModelId, item.Quantity)).ToList(),
-            explicitReusableIds,
+            explicitReusableItems,
             legacyReusableQuantities,
             request.DiscrepancyNote,
             cancellationToken);

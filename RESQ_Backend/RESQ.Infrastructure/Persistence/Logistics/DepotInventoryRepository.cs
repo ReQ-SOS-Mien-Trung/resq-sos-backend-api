@@ -1317,7 +1317,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int activityId,
         Guid performedBy,
         List<(int ItemModelId, int Quantity)> consumableItems,
-        List<int> reusableItemIds,
+        List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
         List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
         string? discrepancyNote,
         CancellationToken cancellationToken = default)
@@ -1333,10 +1333,16 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             .GroupBy(x => x.ItemModelId)
             .Select(group => (ItemModelId: group.Key, Quantity: group.Sum(x => x.Quantity)))
             .ToList();
-        var normalizedReusableIds = reusableItemIds
-            .Where(id => id > 0)
-            .Distinct()
+        var normalizedReusableItems = reusableItems
+            .Where(x => x.ReusableItemId > 0)
+            .GroupBy(x => x.ReusableItemId)
+            .Select(g => g.First())
             .ToList();
+        var normalizedReusableIds = normalizedReusableItems
+            .Select(x => x.ReusableItemId)
+            .ToList();
+        var reusableUpdateLookup = normalizedReusableItems
+            .ToDictionary(x => x.ReusableItemId);
 
         var itemIds = normalizedConsumables.Select(x => x.ItemModelId)
             .Concat(normalizedLegacyReusable.Select(x => x.ItemModelId))
@@ -1432,6 +1438,14 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             unit.SupplyRequestId = null;
             unit.UpdatedAt = now;
 
+            if (reusableUpdateLookup.TryGetValue(unit.Id, out var updateInfo))
+            {
+                if (!string.IsNullOrWhiteSpace(updateInfo.Condition))
+                    unit.Condition = updateInfo.Condition;
+                if (updateInfo.Note != null)
+                    unit.Note = updateInfo.Note;
+            }
+
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
             {
                 ReusableItemId = unit.Id,
@@ -1455,7 +1469,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 ItemModelId = itemModel.Id,
                 ItemName = itemModel.Name ?? string.Empty,
                 SerialNumber = unit.SerialNumber,
-                Condition = unit.Condition
+                Condition = unit.Condition,
+                Note = unit.Note
             });
         }
 
@@ -1509,7 +1524,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     ItemModelId = itemModel.Id,
                     ItemName = itemModel.Name ?? string.Empty,
                     SerialNumber = unit.SerialNumber,
-                    Condition = unit.Condition
+                    Condition = unit.Condition,
+                    Note = unit.Note
                 });
             }
         }
