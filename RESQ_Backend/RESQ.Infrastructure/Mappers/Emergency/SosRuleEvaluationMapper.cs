@@ -20,6 +20,7 @@ public static class SosRuleEvaluationMapper
             PriorityLevel = model.PriorityLevel.ToString(),
             RuleVersion = model.RuleVersion,
             ItemsNeeded = model.ItemsNeeded,
+            DetailsJson = model.DetailsJson,
             CreatedAt = model.CreatedAt
         };
     }
@@ -39,6 +40,7 @@ public static class SosRuleEvaluationMapper
             PriorityLevel = Enum.TryParse<SosPriorityLevel>(entity.PriorityLevel, out var priority) ? priority : SosPriorityLevel.Low,
             RuleVersion = entity.RuleVersion ?? "1.0",
             ItemsNeeded = entity.ItemsNeeded,
+            DetailsJson = entity.DetailsJson,
             CreatedAt = entity.CreatedAt ?? DateTime.UtcNow
         };
     }

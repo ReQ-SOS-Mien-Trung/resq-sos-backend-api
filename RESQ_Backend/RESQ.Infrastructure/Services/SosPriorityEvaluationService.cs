@@ -1,50 +1,21 @@
 using System.Text.Json;
+using RESQ.Application.Common;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Emergency;
-using RESQ.Domain.Enum.Emergency;
+using RESQ.Domain.Entities.System;
 
 namespace RESQ.Infrastructure.Services;
 
 public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleConfigRepository) : ISosPriorityEvaluationService
 {
-    private readonly ISosPriorityRuleConfigRepository _ruleConfigRepository = ruleConfigRepository;
-
-    // ── Default fallback values (used when DB config is unavailable) ──
-
-    private static readonly Dictionary<string, double> DefaultIssueWeight = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["unconscious"] = 5, ["drowning"] = 5,
-        ["breathingDifficulty"] = 5, ["breathing_difficulty"] = 5,
-        ["chestPainStroke"] = 5, ["chest_pain_stroke"] = 5,
-        ["severelyBleeding"] = 4, ["severely_bleeding"] = 4,
-        ["bleeding"] = 4, ["burns"] = 4,
-        ["headInjury"] = 4, ["head_injury"] = 4,
-        ["cannotMove"] = 4, ["cannot_move"] = 4,
-        ["highFever"] = 3, ["high_fever"] = 3,
-        ["dehydration"] = 3, ["fracture"] = 3,
-        ["infantNeedsMilk"] = 3, ["infant_needs_milk"] = 3,
-        ["lostParent"] = 3, ["lost_parent"] = 3,
-        ["chronicDisease"] = 2, ["chronic_disease"] = 2,
-        ["confusion"] = 2,
-        ["needsMedicalDevice"] = 2, ["needs_medical_device"] = 2,
-        ["other"] = 1,
-    };
-
-    private static readonly HashSet<string> DefaultMedicalSevereIssues = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "unconscious", "drowning",
-        "breathingDifficulty", "breathing_difficulty",
-        "chestPainStroke", "chest_pain_stroke",
-        "severelyBleeding", "severely_bleeding"
-    };
-
-    // ── JSON options ──
-    private static readonly JsonSerializerOptions _jsonOptions = new()
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
+
+    private readonly ISosPriorityRuleConfigRepository _ruleConfigRepository = ruleConfigRepository;
 
     public async Task<SosRuleEvaluationModel> EvaluateAsync(
         int sosRequestId,
@@ -52,334 +23,606 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
         string? sosType,
         CancellationToken cancellationToken = default)
     {
-        // Load config from DB; fall back to embedded defaults if none found
-        var dbConfig = await _ruleConfigRepository.GetAsync(cancellationToken);
+        var configModel = await _ruleConfigRepository.GetAsync(cancellationToken);
+        var config = SosPriorityRuleConfigSupport.FromModel(configModel);
 
-        var issueWeight = ParseIssueWeights(dbConfig?.IssueWeightsJson);
-        var medicalSevereIssues = ParseMedicalSevereIssues(dbConfig?.MedicalSevereIssuesJson);
-        var ageWeights = ParseAgeWeights(dbConfig?.AgeWeightsJson);
-        var requestTypeScores = ParseRequestTypeScores(dbConfig?.RequestTypeScoresJson);
-        var situationMultipliers = ParseSituationMultipliers(dbConfig?.SituationMultipliersJson);
-        var priorityThresholds = ParsePriorityThresholds(dbConfig?.PriorityThresholdsJson);
+        var structuredData = DeserializeStructuredData(structuredDataJson);
+        var situationKey = NormalizeSituation(structuredData?.Incident?.Situation ?? structuredData?.Situation);
+        var situationMultiplier = ResolveSituationMultiplier(situationKey, config);
+        var situationSevere = SosPriorityRuleConfigSupport.IsSevereSituation(situationKey);
 
-        var evaluation = new SosRuleEvaluationModel
+        var peopleSummary = ResolvePeopleSummary(structuredData);
+        var injuredPeople = BuildInjuredPeople(structuredData);
+
+        var medicalIssueBreakdown = new List<SosMedicalIssueBreakdownItem>();
+        var medicalScore = 0d;
+        var medicalSevere = false;
+
+        foreach (var injuredPerson in injuredPeople)
+        {
+            var issueScores = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            foreach (var issue in injuredPerson.MedicalIssues)
+            {
+                var issueKey = SosPriorityRuleConfigSupport.NormalizeKey(issue);
+                var weight = ResolveMedicalIssueWeight(config, issueKey);
+                issueScores[issueKey] = weight;
+                if (!medicalSevere && SosPriorityRuleConfigSupport.IsSevereMedicalIssue(issueKey))
+                {
+                    medicalSevere = true;
+                }
+            }
+
+            var issueWeightSum = issueScores.Values.Sum();
+            var ageWeight = ResolveAgeWeight(config, injuredPerson.PersonType);
+            var total = issueWeightSum * ageWeight;
+            medicalScore += total;
+            medicalIssueBreakdown.Add(new SosMedicalIssueBreakdownItem
+            {
+                PersonType = NormalizePersonType(injuredPerson.PersonType),
+                IssueScores = issueScores,
+                IssueWeightSum = issueWeightSum,
+                AgeWeight = ageWeight,
+                Total = total
+            });
+        }
+
+        var waterDuration = NormalizeWaterDuration(structuredData?.GroupNeeds?.Water?.Duration, config);
+        var foodDuration = NormalizeFoodDuration(structuredData?.GroupNeeds?.Food?.Duration, config);
+
+        var waterUrgencyScore = ResolveMappedScore(config.ReliefScore.SupplyUrgencyScore.WaterUrgencyScore, waterDuration);
+        var foodUrgencyScore = ResolveMappedScore(config.ReliefScore.SupplyUrgencyScore.FoodUrgencyScore, foodDuration);
+
+        var blanketsSelected = IsBlanketSelected(structuredData);
+        var areBlanketsEnough = structuredData?.GroupNeeds?.Blanket?.AreBlanketsEnough;
+        var blanketRequestCount = ResolveBlanketRequestCount(structuredData, config, peopleSummary.TotalPeople, blanketsSelected);
+        var blanketUrgencyScore = ResolveBlanketUrgencyScore(
+            config,
+            blanketsSelected,
+            areBlanketsEnough,
+            blanketRequestCount,
+            peopleSummary.TotalPeople);
+
+        var clothingSelected = IsClothingSelected(structuredData);
+        var clothingNeededPeopleCount = ResolveClothingNeededPeopleCount(structuredData);
+        var clothingUrgencyScore = ResolveClothingUrgencyScore(
+            config,
+            clothingSelected,
+            clothingNeededPeopleCount,
+            peopleSummary.TotalPeople);
+
+        var supplyUrgencyScore = waterUrgencyScore + foodUrgencyScore + blanketUrgencyScore + clothingUrgencyScore;
+        var vulnerabilityRaw = (peopleSummary.ChildCount * config.ReliefScore.VulnerabilityScore.VulnerabilityRaw.ChildPerPerson)
+            + (peopleSummary.ElderlyCount * config.ReliefScore.VulnerabilityScore.VulnerabilityRaw.ElderlyPerPerson)
+            + (peopleSummary.HasPregnantAny ? config.ReliefScore.VulnerabilityScore.VulnerabilityRaw.HasPregnantAny : 0d);
+        var vulnerabilityScore = Math.Min(vulnerabilityRaw, supplyUrgencyScore * config.ReliefScore.VulnerabilityScore.CapRatio);
+        var reliefScore = supplyUrgencyScore + vulnerabilityScore;
+        var totalScore = Math.Round((medicalScore + reliefScore) * situationMultiplier, 0, MidpointRounding.AwayFromZero);
+        var hasSevereFlag = medicalSevere || situationSevere;
+        var priorityLevel = SosPriorityRuleConfigSupport.DeterminePriorityLevel(totalScore, hasSevereFlag, config);
+
+        var details = new SosPriorityEvaluationDetails
+        {
+            NormalizedSituation = situationKey,
+            TotalPeople = peopleSummary.TotalPeople,
+            InjuredPeopleCount = injuredPeople.Count,
+            MedicalScore = medicalScore,
+            ReliefScore = reliefScore,
+            SupplyUrgencyScore = supplyUrgencyScore,
+            WaterUrgencyScore = waterUrgencyScore,
+            FoodUrgencyScore = foodUrgencyScore,
+            BlanketUrgencyScore = blanketUrgencyScore,
+            ClothingUrgencyScore = clothingUrgencyScore,
+            VulnerabilityRaw = vulnerabilityRaw,
+            VulnerabilityScore = vulnerabilityScore,
+            SituationMultiplier = situationMultiplier,
+            MedicalSevereFlag = medicalSevere,
+            SituationSevereFlag = situationSevere,
+            HasSevereFlag = hasSevereFlag,
+            WaterDuration = waterDuration,
+            FoodDuration = foodDuration,
+            BlanketsSelected = blanketsSelected,
+            AreBlanketsEnough = areBlanketsEnough,
+            BlanketRequestCount = blanketRequestCount,
+            ClothingSelected = clothingSelected,
+            ClothingNeededPeopleCount = clothingNeededPeopleCount,
+            ChildrenCount = peopleSummary.ChildCount,
+            ElderlyCount = peopleSummary.ElderlyCount,
+            HasPregnantAny = peopleSummary.HasPregnantAny,
+            MedicalIssueBreakdown = medicalIssueBreakdown
+        };
+
+        return new SosRuleEvaluationModel
         {
             SosRequestId = sosRequestId,
-            RuleVersion = "3.0",
+            MedicalScore = medicalScore,
+            InjuryScore = supplyUrgencyScore,
+            MobilityScore = vulnerabilityScore,
+            EnvironmentScore = situationMultiplier,
+            FoodScore = reliefScore,
+            TotalScore = totalScore,
+            PriorityLevel = priorityLevel,
+            RuleVersion = string.IsNullOrWhiteSpace(config.ConfigVersion) ? "SOS_PRIORITY_V1" : config.ConfigVersion,
+            ItemsNeeded = DetermineItemsNeeded(structuredData, sosType, blanketsSelected, clothingSelected),
+            DetailsJson = JsonSerializer.Serialize(details),
             CreatedAt = DateTime.UtcNow
         };
+    }
 
-        StructuredData? data = null;
-        if (!string.IsNullOrWhiteSpace(structuredDataJson))
+    private static StructuredData? DeserializeStructuredData(string? structuredDataJson)
+    {
+        if (string.IsNullOrWhiteSpace(structuredDataJson))
         {
-            try { data = JsonSerializer.Deserialize<StructuredData>(structuredDataJson, _jsonOptions); }
-            catch { }
+            return null;
         }
 
-        // ── 1. requestTypeScore ──
-        int requestTypeScore = GetRequestTypeScore(sosType, requestTypeScores);
-
-        // ── 2. situationMultiplier + situationSevere flag ──
-        // Dual-read: prefer new nested format, fallback to old flat
-        var situation = data?.Incident?.Situation ?? data?.Situation;
-        var (situationMultiplier, situationSevere) = GetSituationMultiplier(situation, situationMultipliers);
-
-        // ── 3. medicalScore ──
-        // Dual-read: build injured persons from new victims or old injured_persons
-        double medicalScore = 0;
-        bool medicalSevere = false;
-        var injuredPersons = BuildInjuredPersons(data);
-        if (injuredPersons is { Count: > 0 })
+        try
         {
-            foreach (var person in injuredPersons)
+            return JsonSerializer.Deserialize<StructuredData>(structuredDataJson, JsonOptions);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static double ResolveMedicalIssueWeight(SosPriorityRuleConfigDocument config, string issueKey)
+    {
+        return config.MedicalScore.MedicalIssueSeverity.TryGetValue(issueKey, out var configuredWeight)
+            ? configuredWeight
+            : config.MedicalScore.MedicalIssueSeverity.GetValueOrDefault("OTHER", 1d);
+    }
+
+    private static double ResolveAgeWeight(SosPriorityRuleConfigDocument config, string? personType)
+    {
+        var normalizedPersonType = NormalizePersonType(personType);
+        return config.MedicalScore.AgeWeights.TryGetValue(normalizedPersonType, out var ageWeight)
+            ? ageWeight
+            : config.MedicalScore.AgeWeights.GetValueOrDefault("ADULT", 1d);
+    }
+
+    private static int ResolveMappedScore(IReadOnlyDictionary<string, int> mapping, string normalizedKey)
+    {
+        return mapping.TryGetValue(normalizedKey, out var score)
+            ? score
+            : mapping.GetValueOrDefault("NOT_SELECTED", 0);
+    }
+
+    private static double ResolveSituationMultiplier(string normalizedSituation, SosPriorityRuleConfigDocument config)
+    {
+        if (!string.IsNullOrWhiteSpace(normalizedSituation)
+            && config.SituationMultiplier.TryGetValue(normalizedSituation, out var configured))
+        {
+            return configured;
+        }
+
+        if (config.SituationMultiplier.TryGetValue("OTHER", out var other))
+        {
+            return other;
+        }
+
+        return config.SituationMultiplier.GetValueOrDefault("DEFAULT_WHEN_NULL", 1d);
+    }
+
+    private static PeopleSummary ResolvePeopleSummary(StructuredData? data)
+    {
+        var adult = Math.Max(0, data?.Incident?.PeopleCount?.Adult ?? data?.PeopleCount?.Adult ?? 0);
+        var child = Math.Max(0, data?.Incident?.PeopleCount?.Child ?? data?.PeopleCount?.Child ?? 0);
+        var elderly = Math.Max(0, data?.Incident?.PeopleCount?.Elderly ?? data?.PeopleCount?.Elderly ?? 0);
+        var hasPregnantAny = data?.Incident?.HasPregnantAny ?? false;
+
+        if (adult + child + elderly == 0 && data?.Victims is { Count: > 0 })
+        {
+            adult = data.Victims.Count(v => NormalizePersonType(v.PersonType) == "ADULT");
+            child = data.Victims.Count(v => NormalizePersonType(v.PersonType) == "CHILD");
+            elderly = data.Victims.Count(v => NormalizePersonType(v.PersonType) == "ELDERLY");
+        }
+
+        return new PeopleSummary(adult, child, elderly, hasPregnantAny);
+    }
+
+    private static List<InjuredPerson> BuildInjuredPeople(StructuredData? data)
+    {
+        if (data?.Victims is { Count: > 0 })
+        {
+            return data.Victims
+                .Where(v => v.IncidentStatus?.IsInjured == true
+                    || v.IncidentStatus?.MedicalIssues is { Count: > 0 })
+                .Select(v => new InjuredPerson
+                {
+                    PersonType = v.PersonType,
+                    MedicalIssues = (v.IncidentStatus?.MedicalIssues ?? [])
+                        .Select(SosPriorityRuleConfigSupport.NormalizeKey)
+                        .Where(issue => !string.IsNullOrWhiteSpace(issue))
+                        .ToList()
+                })
+                .ToList();
+        }
+
+        return data?.InjuredPersons?
+            .Select(person => new InjuredPerson
             {
-                var issues = person.MedicalIssues ?? [];
-                double issueScore = issues.Sum(k => issueWeight.GetValueOrDefault(k, 1));
-                double ageMultiplier = GetAgeWeight(person.PersonType, ageWeights);
-                medicalScore += issueScore * ageMultiplier;
-                if (!medicalSevere && issues.Any(k => medicalSevereIssues.Contains(k)))
-                    medicalSevere = true;
-            }
+                PersonType = person.PersonType,
+                MedicalIssues = (person.MedicalIssues ?? [])
+                    .Select(SosPriorityRuleConfigSupport.NormalizeKey)
+                    .Where(issue => !string.IsNullOrWhiteSpace(issue))
+                    .ToList()
+            })
+            .ToList() ?? [];
+    }
+
+    private static int? ResolveBlanketRequestCount(
+        StructuredData? data,
+        SosPriorityRuleConfigDocument config,
+        int totalPeople,
+        bool blanketsSelected)
+    {
+        var requestCount = data?.GroupNeeds?.Blanket?.RequestCount;
+        if (requestCount.HasValue)
+        {
+            return requestCount.Value;
         }
 
-        // ── 4. Assemble scores ──
-        evaluation.EnvironmentScore = requestTypeScore;
-        evaluation.MedicalScore = medicalScore;
-        evaluation.InjuryScore = 0;
-        evaluation.FoodScore = 0;
-        evaluation.MobilityScore = 0;
-        evaluation.TotalScore = (requestTypeScore + medicalScore) * situationMultiplier;
-
-        // ── 5. Triage ──
-        bool isSevere = medicalSevere || situationSevere;
-        evaluation.PriorityLevel = DeterminePriorityLevel(evaluation.TotalScore, isSevere, priorityThresholds);
-        evaluation.ItemsNeeded = DetermineItemsNeeded(data, sosType);
-
-        return evaluation;
-    }
-
-    // ── Config parsers (return defaults on any parse failure) ──
-
-    private static Dictionary<string, double> ParseIssueWeights(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return DefaultIssueWeight;
-        try
+        if (!blanketsSelected || data?.GroupNeeds?.Blanket?.AreBlanketsEnough != false)
         {
-            var raw = JsonSerializer.Deserialize<Dictionary<string, double>>(json);
-            if (raw is { Count: > 0 })
-                return new Dictionary<string, double>(raw, StringComparer.OrdinalIgnoreCase);
+            return null;
         }
-        catch { }
-        return DefaultIssueWeight;
+
+        return totalPeople <= 0 ? config.UiConstraints.BlanketRequestCountDefault : config.UiConstraints.BlanketRequestCountDefault;
     }
 
-    private static HashSet<string> ParseMedicalSevereIssues(string? json)
+    private static int ResolveBlanketUrgencyScore(
+        SosPriorityRuleConfigDocument config,
+        bool blanketsSelected,
+        bool? areBlanketsEnough,
+        int? blanketRequestCount,
+        int totalPeople)
     {
-        if (string.IsNullOrWhiteSpace(json)) return DefaultMedicalSevereIssues;
-        try
+        var rule = config.ReliefScore.SupplyUrgencyScore.BlanketUrgencyScore;
+        if (rule.ApplyOnlyWhenSupplySelected && !blanketsSelected)
         {
-            var raw = JsonSerializer.Deserialize<List<string>>(json);
-            if (raw is { Count: > 0 })
-                return new HashSet<string>(raw, StringComparer.OrdinalIgnoreCase);
+            return rule.NoneOrNotSelectedScore;
         }
-        catch { }
-        return DefaultMedicalSevereIssues;
-    }
 
-    private static Dictionary<string, double> ParseAgeWeights(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return new();
-        try { return JsonSerializer.Deserialize<Dictionary<string, double>>(json) ?? new(); }
-        catch { return new(); }
-    }
-
-    private static Dictionary<string, int> ParseRequestTypeScores(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return new();
-        try { return JsonSerializer.Deserialize<Dictionary<string, int>>(json) ?? new(); }
-        catch { return new(); }
-    }
-
-    private static List<SituationRule> ParseSituationMultipliers(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return [];
-        try { return JsonSerializer.Deserialize<List<SituationRule>>(json) ?? []; }
-        catch { return []; }
-    }
-
-    private static PriorityThresholdConfig ParsePriorityThresholds(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return new();
-        try { return JsonSerializer.Deserialize<PriorityThresholdConfig>(json) ?? new(); }
-        catch { return new(); }
-    }
-
-    // ── Scoring helpers ──
-
-    private static double GetAgeWeight(string? personType, Dictionary<string, double> ageWeights)
-    {
-        if (ageWeights.Count > 0 && personType is not null && ageWeights.TryGetValue(personType, out var w))
-            return w;
-        // fallback
-        return personType?.ToLowerInvariant() switch
+        if (rule.ApplyOnlyWhenAreBlanketsEnoughIsFalse && areBlanketsEnough != false)
         {
-            "child" or "trẻ em" => 1.4,
-            "elderly" or "elder" or "người già" => 1.3,
-            _ => 1.0
+            return rule.NoneOrNotSelectedScore;
+        }
+
+        if (!blanketRequestCount.HasValue || blanketRequestCount.Value <= 0 || totalPeople <= 0)
+        {
+            return rule.NoneOrNotSelectedScore;
+        }
+
+        var requestedCount = blanketRequestCount.Value;
+        if (requestedCount == 1)
+        {
+            return rule.RequestedCountEquals1Score;
+        }
+
+        if (IsMoreThanHalf(requestedCount, totalPeople, rule.HalfPeopleOperator))
+        {
+            return rule.RequestedCountMoreThanHalfPeopleScore;
+        }
+
+        if (requestedCount >= 2)
+        {
+            return rule.RequestedCountBetween2AndHalfPeopleScore;
+        }
+
+        return rule.NoneOrNotSelectedScore;
+    }
+
+    private static int? ResolveClothingNeededPeopleCount(StructuredData? data)
+    {
+        var explicitCount = data?.GroupNeeds?.Clothing?.NeededPeopleCount;
+        if (explicitCount.HasValue)
+        {
+            return explicitCount.Value;
+        }
+
+        if (data?.Victims is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var inferredCount = data.Victims.Count(v => v.PersonalNeeds?.Clothing?.Needed == true);
+        return inferredCount > 0 ? inferredCount : null;
+    }
+
+    private static int ResolveClothingUrgencyScore(
+        SosPriorityRuleConfigDocument config,
+        bool clothingSelected,
+        int? clothingNeededPeopleCount,
+        int totalPeople)
+    {
+        var rule = config.ReliefScore.SupplyUrgencyScore.ClothingUrgencyScore;
+        if (rule.ApplyOnlyWhenSupplySelected && !clothingSelected)
+        {
+            return rule.NoneOrNotSelectedScore;
+        }
+
+        if (!clothingNeededPeopleCount.HasValue || clothingNeededPeopleCount.Value <= 0 || totalPeople <= 0)
+        {
+            return rule.NoneOrNotSelectedScore;
+        }
+
+        if (clothingNeededPeopleCount.Value == 1)
+        {
+            return rule.NeededPeopleEquals1Score;
+        }
+
+        if (IsMoreThanHalf(clothingNeededPeopleCount.Value, totalPeople, rule.HalfPeopleOperator))
+        {
+            return rule.NeededPeopleMoreThanHalfPeopleScore;
+        }
+
+        if (clothingNeededPeopleCount.Value >= 2)
+        {
+            return rule.NeededPeopleBetween2AndHalfPeopleScore;
+        }
+
+        return rule.NoneOrNotSelectedScore;
+    }
+
+    private static bool IsMoreThanHalf(int value, int totalPeople, string? halfOperator)
+    {
+        var half = totalPeople / 2d;
+        return string.Equals((halfOperator ?? ">=").Trim(), ">=", StringComparison.Ordinal)
+            ? value >= half
+            : value > half;
+    }
+
+    private static bool IsBlanketSelected(StructuredData? data)
+    {
+        return HasSupply(data?.GroupNeeds?.Supplies, "BLANKET")
+            || data?.GroupNeeds?.Blanket is not null;
+    }
+
+    private static bool IsClothingSelected(StructuredData? data)
+    {
+        return HasSupply(data?.GroupNeeds?.Supplies, "CLOTHING")
+            || data?.GroupNeeds?.Clothing is not null
+            || data?.Victims?.Any(v => v.PersonalNeeds?.Clothing?.Needed == true) == true;
+    }
+
+    private static bool HasSupply(List<string>? supplies, string expectedSupply)
+    {
+        if (supplies is not { Count: > 0 })
+        {
+            return false;
+        }
+
+        var normalizedExpectedSupply = SosPriorityRuleConfigSupport.NormalizeKey(expectedSupply);
+        return supplies
+            .Select(SosPriorityRuleConfigSupport.NormalizeKey)
+            .Any(supply => supply == normalizedExpectedSupply || supply == normalizedExpectedSupply + "S");
+    }
+
+    private static string NormalizeSituation(string? situation)
+    {
+        var normalized = SosPriorityRuleConfigSupport.NormalizeKey(situation);
+        return normalized switch
+        {
+            "BUILDING_COLLAPSE" or "COLLAPSED" or "COLLAPSE" => "COLLAPSED",
+            "FLOOD" => "FLOODING",
+            "DANGEROUS_AREA" or "DANGEROUS" => "DANGER_ZONE",
+            "CANNOTMOVE" => "CANNOT_MOVE",
+            _ when string.IsNullOrWhiteSpace(normalized) => "DEFAULT_WHEN_NULL",
+            _ => normalized
         };
     }
 
-    private static int GetRequestTypeScore(string? sosType, Dictionary<string, int> scores)
+    private static string NormalizePersonType(string? personType)
     {
-        if (scores.Count > 0 && sosType is not null && scores.TryGetValue(sosType, out var s))
-            return s;
-        // fallback
-        return sosType?.ToLowerInvariant() switch { "rescue" => 30, "relief" => 20, _ => 10 };
-    }
-
-    private static (double multiplier, bool severe) GetSituationMultiplier(string? situation, List<SituationRule> rules)
-    {
-        if (rules.Count > 0 && situation is not null)
+        return SosPriorityRuleConfigSupport.NormalizeKey(personType) switch
         {
-            var rule = rules.FirstOrDefault(r =>
-                r.Keys.Any(k => k.Equals(situation, StringComparison.OrdinalIgnoreCase)));
-            if (rule is not null)
-                return (rule.Multiplier, rule.Severe);
-        }
-        // fallback
-        return situation?.ToLowerInvariant() switch
-        {
-            "flooding" or "flood" => (1.5, true),
-            "building_collapse" or "collapsed" or "collapse" => (1.5, true),
-            "trapped" => (1.3, false),
-            "danger_zone" or "dangerous_area" or "dangerous" => (1.3, false),
-            "cannot_move" or "cannotmove" => (1.2, false),
-            _ => (1.0, false)
+            "TRE_EM" or "CHILDREN" => "CHILD",
+            "ELDER" or "NGUOI_GIA" => "ELDERLY",
+            var normalized when string.IsNullOrWhiteSpace(normalized) => "ADULT",
+            var normalized => normalized
         };
     }
 
-    private static SosPriorityLevel DeterminePriorityLevel(double totalScore, bool isSevere, PriorityThresholdConfig thresholds)
+    private static string NormalizeWaterDuration(string? duration, SosPriorityRuleConfigDocument config)
     {
-        double criticalMin = thresholds.Critical?.MinScore ?? 70;
-        bool criticalNeedsSevere = thresholds.Critical?.RequireSevere ?? true;
-        double highMin = thresholds.High?.MinScore ?? 45;
-        bool highNeedsSevere = thresholds.High?.RequireSevere ?? true;
-        double mediumMin = thresholds.Medium?.MinScore ?? 25;
+        var normalized = SosPriorityRuleConfigSupport.NormalizeKey(duration);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return "NOT_SELECTED";
+        }
 
-        if (totalScore >= criticalMin && (!criticalNeedsSevere || isSevere)) return SosPriorityLevel.Critical;
-        if (totalScore >= highMin && (!highNeedsSevere || isSevere)) return SosPriorityLevel.High;
-        if (totalScore >= mediumMin) return SosPriorityLevel.Medium;
-        return SosPriorityLevel.Low;
+        if (ContainsConfiguredOption(config.UiOptions.WaterDuration, normalized))
+        {
+            return normalized;
+        }
+
+        return normalized switch
+        {
+            var value when value.Contains("UNDER_6") || value.Contains("LESS_THAN_6") => "UNDER_6H",
+            var value when value.Contains("6_TO_12") => "6_TO_12H",
+            var value when value.Contains("12_TO_24") => "12_TO_24H",
+            var value when value.Contains("1_TO_2_DAYS") => "1_TO_2_DAYS",
+            var value when value.Contains("OVER_2_DAYS") || value.Contains("3_DAYS") || value.Contains("MORE_THAN_2_DAYS") => "OVER_2_DAYS",
+            _ => "NOT_SELECTED"
+        };
     }
 
-    private static string? DetermineItemsNeeded(StructuredData? data, string? sosType)
+    private static string NormalizeFoodDuration(string? duration, SosPriorityRuleConfigDocument config)
     {
-        var items = new List<string>();
+        var normalized = SosPriorityRuleConfigSupport.NormalizeKey(duration);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return "NOT_SELECTED";
+        }
 
-        // Dual-read: build injured persons from new victims or old injured_persons
-        var injuredPersons = BuildInjuredPersons(data);
-        var hasInjured = data?.Incident?.HasInjured ?? data?.HasInjured;
-        var peopleCount = data?.Incident?.PeopleCount ?? data?.PeopleCount;
-        var situation = data?.Incident?.Situation ?? data?.Situation;
+        if (ContainsConfiguredOption(config.UiOptions.FoodDuration, normalized))
+        {
+            return normalized;
+        }
 
-        var allIssues = injuredPersons?
-            .SelectMany(p => p.MedicalIssues ?? [])
-            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+        return normalized switch
+        {
+            var value when value.Contains("UNDER_12") || value.Contains("LESS_THAN_12") => "UNDER_12H",
+            var value when value.Contains("12_TO_24") => "12_TO_24H",
+            var value when value.Contains("1_TO_2_DAYS") => "1_TO_2_DAYS",
+            var value when value.Contains("2_TO_3_DAYS") || value.Contains("3_DAYS") => "2_TO_3_DAYS",
+            var value when value.Contains("OVER_3_DAYS") || value.Contains("MORE_THAN_3_DAYS") => "OVER_3_DAYS",
+            _ => "NOT_SELECTED"
+        };
+    }
 
-        if (injuredPersons?.Count > 0 || hasInjured == true)
+    private static bool ContainsConfiguredOption(IEnumerable<string> configuredOptions, string normalizedValue)
+    {
+        return configuredOptions
+            .Select(SosPriorityRuleConfigSupport.NormalizeKey)
+            .Contains(normalizedValue, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string? DetermineItemsNeeded(StructuredData? data, string? sosType, bool blanketsSelected, bool clothingSelected)
+    {
+        var items = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var peopleSummary = ResolvePeopleSummary(data);
+        var situation = NormalizeSituation(data?.Incident?.Situation ?? data?.Situation);
+        var injuredPeople = BuildInjuredPeople(data);
+
+        if (injuredPeople.Count > 0 || data?.Incident?.HasInjured == true || data?.HasInjured == true)
         {
             items.Add("FIRST_AID_KIT");
             items.Add("MEDICAL_SUPPLIES");
         }
 
-        if (allIssues.Contains("bleeding") || allIssues.Contains("severelyBleeding") || allIssues.Contains("severely_bleeding"))
+        if (injuredPeople.SelectMany(person => person.MedicalIssues).Any(issue => issue is "BLEEDING" or "SEVERELY_BLEEDING"))
         {
             items.Add("BANDAGES");
             items.Add("BLOOD_CLOTTING_AGENTS");
         }
 
-        if (situation?.ToLowerInvariant() is "flooding")
+        if (situation == "FLOODING")
         {
             items.Add("LIFE_JACKET");
             items.Add("RESCUE_BOAT");
             items.Add("ROPE");
         }
 
-        if (situation?.ToLowerInvariant() is "trapped" or "building_collapse")
+        if (situation is "TRAPPED" or "COLLAPSED")
         {
             items.Add("ROPE");
             items.Add("RESCUE_EQUIPMENT");
         }
 
-        if (situation?.ToLowerInvariant() is "fire")
+        if (peopleSummary.TotalPeople > 0)
         {
-            items.Add("FIRE_EXTINGUISHER");
-            items.Add("PROTECTIVE_GEAR");
+            items.Add("WATER");
+            items.Add("FOOD_RATIONS");
         }
 
-        if (peopleCount is { } pc)
+        if (blanketsSelected)
         {
-            var total = (pc.Adult ?? 0) + (pc.Child ?? 0) + (pc.Elderly ?? 0);
-            if (total > 0)
-            {
-                items.Add("FOOD_RATIONS");
-                items.Add("WATER");
-                items.Add("BLANKETS");
-            }
+            items.Add("BLANKETS");
         }
 
-        if (sosType?.ToLowerInvariant() is "evacuation")
+        if (clothingSelected)
+        {
+            items.Add("CLOTHING");
+        }
+
+        if (string.Equals(SosPriorityRuleConfigSupport.NormalizeKey(sosType), "EVACUATION", StringComparison.OrdinalIgnoreCase))
         {
             items.Add("TRANSPORT_VEHICLE");
             items.Add("STRETCHER");
         }
 
-        return items.Count > 0 ? JsonSerializer.Serialize(items) : null;
+        return items.Count > 0 ? JsonSerializer.Serialize(items.OrderBy(item => item)) : null;
     }
 
-    // ── Dual-read helper ──
-
-    private static List<InjuredPerson>? BuildInjuredPersons(StructuredData? data)
+    private sealed class StructuredData
     {
-        if (data?.Victims is { Count: > 0 } victims)
-        {
-            return victims.Select(v => new InjuredPerson
-            {
-                PersonType = v.PersonType,
-                MedicalIssues = v.IncidentStatus?.MedicalIssues,
-                Severity = v.IncidentStatus?.Severity
-            }).ToList();
-        }
-        return data?.InjuredPersons;
-    }
-
-    // ── Config model classes ──
-
-    private class SituationRule
-    {
-        public List<string> Keys { get; set; } = [];
-        public double Multiplier { get; set; } = 1.0;
-        public bool Severe { get; set; } = false;
-    }
-
-    private class PriorityThresholdConfig
-    {
-        public ThresholdEntry? Critical { get; set; }
-        public ThresholdEntry? High { get; set; }
-        public ThresholdEntry? Medium { get; set; }
-    }
-
-    private class ThresholdEntry
-    {
-        public double MinScore { get; set; }
-        public bool RequireSevere { get; set; }
-    }
-
-    // ── Structured data models (supports both old flat and new nested) ──
-
-    private class StructuredData
-    {
-        // Old flat format fields
         public string? Situation { get; set; }
         public bool? HasInjured { get; set; }
         public PeopleCount? PeopleCount { get; set; }
         public List<InjuredPerson>? InjuredPersons { get; set; }
-        // New nested format fields
         public Incident? Incident { get; set; }
+        public GroupNeeds? GroupNeeds { get; set; }
         public List<Victim>? Victims { get; set; }
     }
 
-    private class Incident
+    private sealed class Incident
     {
         public string? Situation { get; set; }
         public bool? HasInjured { get; set; }
+        public bool? HasPregnantAny { get; set; }
         public PeopleCount? PeopleCount { get; set; }
     }
 
-    private class Victim
+    private sealed class GroupNeeds
+    {
+        public List<string>? Supplies { get; set; }
+        public WaterNeed? Water { get; set; }
+        public FoodNeed? Food { get; set; }
+        public BlanketNeed? Blanket { get; set; }
+        public ClothingNeed? Clothing { get; set; }
+    }
+
+    private sealed class WaterNeed
+    {
+        public string? Duration { get; set; }
+    }
+
+    private sealed class FoodNeed
+    {
+        public string? Duration { get; set; }
+    }
+
+    private sealed class BlanketNeed
+    {
+        public bool? AreBlanketsEnough { get; set; }
+        public int? RequestCount { get; set; }
+    }
+
+    private sealed class ClothingNeed
+    {
+        public string? Status { get; set; }
+        public int? NeededPeopleCount { get; set; }
+    }
+
+    private sealed class Victim
     {
         public string? PersonType { get; set; }
         public VictimIncidentStatus? IncidentStatus { get; set; }
+        public VictimPersonalNeeds? PersonalNeeds { get; set; }
     }
 
-    private class VictimIncidentStatus
+    private sealed class VictimIncidentStatus
     {
         public bool? IsInjured { get; set; }
-        public string? Severity { get; set; }
         public List<string>? MedicalIssues { get; set; }
     }
 
-    private class PeopleCount
+    private sealed class VictimPersonalNeeds
+    {
+        public VictimClothingNeed? Clothing { get; set; }
+    }
+
+    private sealed class VictimClothingNeed
+    {
+        public bool? Needed { get; set; }
+    }
+
+    private sealed class PeopleCount
     {
         public int? Adult { get; set; }
         public int? Child { get; set; }
         public int? Elderly { get; set; }
     }
 
-    private class InjuredPerson
+    private sealed class InjuredPerson
     {
         public string? PersonType { get; set; }
-        public List<string>? MedicalIssues { get; set; }
-        public string? Severity { get; set; }
+        public List<string> MedicalIssues { get; set; } = [];
+    }
+
+    private readonly record struct PeopleSummary(int AdultCount, int ChildCount, int ElderlyCount, bool HasPregnantAny)
+    {
+        public int TotalPeople => AdultCount + ChildCount + ElderlyCount;
     }
 }

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Domain.Entities.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 
@@ -55,6 +56,7 @@ public class GetSosEvaluationQueryHandler(
         if (ruleEvaluation is not null)
         {
             var itemsNeeded = DeserializeItems(ruleEvaluation.ItemsNeeded);
+            var breakdown = ParseJson<SosPriorityEvaluationDetails>(ruleEvaluation.DetailsJson);
             ruleDto = new SosRuleEvaluationDto
             {
                 Id = ruleEvaluation.Id,
@@ -67,6 +69,7 @@ public class GetSosEvaluationQueryHandler(
                 PriorityLevel = ruleEvaluation.PriorityLevel.ToString(),
                 RuleVersion = ruleEvaluation.RuleVersion,
                 ItemsNeeded = itemsNeeded,
+                Breakdown = breakdown,
                 CreatedAt = ruleEvaluation.CreatedAt
             };
         }
@@ -111,5 +114,12 @@ public class GetSosEvaluationQueryHandler(
         if (string.IsNullOrWhiteSpace(json)) return null;
         try { return JsonSerializer.Deserialize<JsonElement>(json); }
         catch { return null; }
+    }
+
+    private static T? ParseJson<T>(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        try { return JsonSerializer.Deserialize<T>(json); }
+        catch { return default; }
     }
 }

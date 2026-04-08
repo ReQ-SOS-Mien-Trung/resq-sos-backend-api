@@ -1,13 +1,12 @@
+using System.Text.Json.Serialization;
+using RESQ.Domain.Entities.System;
+
 namespace RESQ.Application.UseCases.SystemConfig.Queries.GetSosPriorityRuleConfig;
 
-public class SosPriorityRuleConfigResponse
+public class SosPriorityRuleConfigResponse : SosPriorityRuleConfigDocument
 {
     public int Id { get; set; }
-    public string IssueWeightsJson { get; set; } = "{}";
-    public string MedicalSevereIssuesJson { get; set; } = "[]";
-    public string AgeWeightsJson { get; set; } = "{}";
-    public string RequestTypeScoresJson { get; set; } = "{}";
-    public string SituationMultipliersJson { get; set; } = "[]";
-    public string PriorityThresholdsJson { get; set; } = "{}";
+
+    [JsonPropertyName("updated_at")]
     public DateTime UpdatedAt { get; set; }
 }

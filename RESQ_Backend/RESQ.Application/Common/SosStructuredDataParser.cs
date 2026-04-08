@@ -83,6 +83,7 @@ public static class SosStructuredDataParser
             OthersAreStable = flat.OthersAreStable,
             CanMove = flat.CanMove,
             NeedMedical = flat.NeedMedical,
+            HasPregnantAny = flat.HasPregnantAny,
             OtherMedicalDescription = flat.OtherMedicalDescription
         };
 
@@ -101,12 +102,17 @@ public static class SosStructuredDataParser
             } : null,
             Blanket = flat.SupplyDetails != null ? new SosBlanketNeedDto
             {
+                AreBlanketsEnough = flat.SupplyDetails.AreBlanketsEnough,
                 RequestCount = flat.SupplyDetails.BlanketRequestCount
             } : null,
             Medicine = flat.SupplyDetails != null ? new SosMedicineNeedDto
             {
                 MedicalNeeds = flat.SupplyDetails.MedicalNeeds,
                 MedicalDescription = flat.SupplyDetails.MedicalDescription
+            } : null,
+            Clothing = flat.SupplyDetails != null ? new SosClothingNeedDto
+            {
+                NeededPeopleCount = flat.SupplyDetails.ClothingNeededPeopleCount
             } : null
         };
 
@@ -146,6 +152,7 @@ public static class SosStructuredDataParser
         public FlatPeopleCount? PeopleCount { get; set; }
         public bool? CanMove { get; set; }
         public bool? NeedMedical { get; set; }
+        public bool? HasPregnantAny { get; set; }
         public List<string>? Supplies { get; set; }
         public string? OtherSupplyDescription { get; set; }
         public string? AdditionalDescription { get; set; }
@@ -174,6 +181,7 @@ public static class SosStructuredDataParser
     {
         public bool? AreBlanketsEnough { get; set; }
         public int? BlanketRequestCount { get; set; }
+        public int? ClothingNeededPeopleCount { get; set; }
         public string? FoodDuration { get; set; }
         public string? MedicalDescription { get; set; }
         public List<string>? MedicalNeeds { get; set; }

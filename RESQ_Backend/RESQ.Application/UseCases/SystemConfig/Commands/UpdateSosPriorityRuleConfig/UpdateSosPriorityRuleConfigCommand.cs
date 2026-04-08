@@ -1,14 +1,10 @@
 using MediatR;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosPriorityRuleConfig;
+using RESQ.Domain.Entities.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.UpdateSosPriorityRuleConfig;
 
 public record UpdateSosPriorityRuleConfigCommand(
     int Id,
-    string IssueWeightsJson,
-    string MedicalSevereIssuesJson,
-    string AgeWeightsJson,
-    string RequestTypeScoresJson,
-    string SituationMultipliersJson,
-    string PriorityThresholdsJson
+    SosPriorityRuleConfigDocument Config
 ) : IRequest<SosPriorityRuleConfigResponse>;

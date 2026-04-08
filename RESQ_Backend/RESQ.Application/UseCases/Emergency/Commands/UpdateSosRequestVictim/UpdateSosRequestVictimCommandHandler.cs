@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Enum.Operations;
 
@@ -13,7 +14,9 @@ public class UpdateSosRequestVictimCommandHandler(
     ISosRequestRepository sosRequestRepository,
     ISosRequestCompanionRepository companionRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
+    ISosRuleEvaluationRepository sosRuleEvaluationRepository,
     IMissionRepository missionRepository,
+    ISosPriorityEvaluationService priorityEvaluationService,
     IUnitOfWork unitOfWork
 ) : IRequestHandler<UpdateSosRequestVictimCommand, UpdateSosRequestVictimResponse>
 {
@@ -52,15 +55,17 @@ public class UpdateSosRequestVictimCommandHandler(
 
         var currentView = SosRequestVictimUpdateOverlay.Apply(sos, latestVictimUpdate);
         var updatedAt = DateTime.UtcNow;
+        var effectiveStructuredData = request.StructuredData ?? currentView.StructuredData;
+        var effectiveSosType = request.SosType ?? currentView.SosType;
         var victimUpdate = new SosRequestVictimUpdateModel
         {
             SosRequestId = sos.Id,
             PacketId = request.PacketId ?? currentView.PacketId,
             Location = request.Location,
             LocationAccuracy = request.LocationAccuracy ?? currentView.LocationAccuracy,
-            SosType = request.SosType ?? currentView.SosType,
+            SosType = effectiveSosType,
             RawMessage = request.RawMessage.Trim(),
-            StructuredData = request.StructuredData ?? currentView.StructuredData,
+            StructuredData = effectiveStructuredData,
             NetworkMetadata = request.NetworkMetadata ?? currentView.NetworkMetadata,
             SenderInfo = request.SenderInfo ?? currentView.SenderInfo,
             VictimInfo = request.VictimInfo ?? currentView.VictimInfo,
@@ -74,7 +79,18 @@ public class UpdateSosRequestVictimCommandHandler(
             UpdatedByMode = isOwner ? "Owner" : "Companion"
         };
 
+        var evaluation = await priorityEvaluationService.EvaluateAsync(
+            sos.Id,
+            effectiveStructuredData,
+            effectiveSosType,
+            cancellationToken);
+
         await sosRequestUpdateRepository.AddVictimUpdateAsync(victimUpdate, cancellationToken);
+        await sosRuleEvaluationRepository.CreateAsync(evaluation, cancellationToken);
+        sos.SetPriorityLevel(evaluation.PriorityLevel);
+        sos.SetPriorityScore(evaluation.TotalScore);
+        sos.LastUpdatedAt = updatedAt;
+        await sosRequestRepository.UpdateAsync(sos, cancellationToken);
         await unitOfWork.SaveAsync();
 
         return new UpdateSosRequestVictimResponse

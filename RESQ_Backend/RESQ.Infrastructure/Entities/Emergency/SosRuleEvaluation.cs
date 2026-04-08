@@ -45,6 +45,9 @@ public partial class SosRuleEvaluation
     [Column("items_needed", TypeName = "jsonb")]
     public string? ItemsNeeded { get; set; }
 
+    [Column("details_json", TypeName = "jsonb")]
+    public string? DetailsJson { get; set; }
+
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 

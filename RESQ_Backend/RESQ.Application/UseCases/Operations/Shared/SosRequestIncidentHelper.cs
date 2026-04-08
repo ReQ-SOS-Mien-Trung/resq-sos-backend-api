@@ -1,5 +1,5 @@
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.System;
 using RESQ.Domain.Entities.Emergency;
@@ -37,7 +37,8 @@ internal static class SosRequestIncidentHelper
 
         var impactedSosIds = new List<int>();
         var incidentUpdates = new List<SosRequestIncidentUpdateModel>();
-        var priorityThresholds = await LoadPriorityThresholdsAsync(sosPriorityRuleConfigRepository, cancellationToken);
+        var configModel = await sosPriorityRuleConfigRepository.GetAsync(cancellationToken);
+        var config = SosPriorityRuleConfigSupport.FromModel(configModel);
 
         foreach (var sosRequestId in resolvedSosIds)
         {
@@ -64,7 +65,7 @@ internal static class SosRequestIncidentHelper
             sosRequest.SetPriorityScore(EscalatePriorityScore(
                 sosRequest.PriorityScore,
                 escalatedPriority,
-                priorityThresholds));
+                config));
             await sosRequestRepository.UpdateAsync(sosRequest, cancellationToken);
 
             incidentUpdates.Add(new SosRequestIncidentUpdateModel
@@ -114,55 +115,14 @@ internal static class SosRequestIncidentHelper
     private static double EscalatePriorityScore(
         double? currentScore,
         SosPriorityLevel escalatedPriority,
-        PriorityThresholdConfig priorityThresholds)
+        Domain.Entities.System.SosPriorityRuleConfigDocument config)
     {
-        var minimumTargetScore = GetMinimumScoreForPriority(escalatedPriority, priorityThresholds);
+        var minimumTargetScore = SosPriorityRuleConfigSupport.GetMinimumScoreForPriority(escalatedPriority, config);
         if (!currentScore.HasValue)
         {
             return minimumTargetScore > 0 ? minimumTargetScore : 1d;
         }
 
         return Math.Max(currentScore.Value + 1d, minimumTargetScore);
-    }
-
-    private static async Task<PriorityThresholdConfig> LoadPriorityThresholdsAsync(
-        ISosPriorityRuleConfigRepository sosPriorityRuleConfigRepository,
-        CancellationToken cancellationToken)
-    {
-        var config = await sosPriorityRuleConfigRepository.GetAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(config?.PriorityThresholdsJson))
-        {
-            return new PriorityThresholdConfig();
-        }
-
-        try
-        {
-            return JsonSerializer.Deserialize<PriorityThresholdConfig>(config.PriorityThresholdsJson) ?? new PriorityThresholdConfig();
-        }
-        catch
-        {
-            return new PriorityThresholdConfig();
-        }
-    }
-
-    private static double GetMinimumScoreForPriority(SosPriorityLevel priorityLevel, PriorityThresholdConfig thresholds) =>
-        priorityLevel switch
-        {
-            SosPriorityLevel.Critical => thresholds.Critical?.MinScore ?? 70d,
-            SosPriorityLevel.High => thresholds.High?.MinScore ?? 45d,
-            SosPriorityLevel.Medium => thresholds.Medium?.MinScore ?? 25d,
-            _ => 0d
-        };
-
-    private class PriorityThresholdConfig
-    {
-        public ThresholdEntry? Critical { get; set; }
-        public ThresholdEntry? High { get; set; }
-        public ThresholdEntry? Medium { get; set; }
-    }
-
-    private class ThresholdEntry
-    {
-        public double MinScore { get; set; }
     }
 }

@@ -10,6 +10,9 @@ public class SosPriorityRuleConfig
     [Column("id")]
     public int Id { get; set; }
 
+    [Column("config_json", TypeName = "jsonb")]
+    public string ConfigJson { get; set; } = "{}";
+
     [Column("issue_weights_json", TypeName = "jsonb")]
     public string IssueWeightsJson { get; set; } = "{}";
 

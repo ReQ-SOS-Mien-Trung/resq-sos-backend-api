@@ -33,15 +33,7 @@ public class SosPriorityRuleConfigController(IMediator mediator) : ControllerBas
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateSosPriorityRuleConfigRequestDto dto)
     {
-        var command = new UpdateSosPriorityRuleConfigCommand(
-            Id: id,
-            IssueWeightsJson: dto.IssueWeightsJson,
-            MedicalSevereIssuesJson: dto.MedicalSevereIssuesJson,
-            AgeWeightsJson: dto.AgeWeightsJson,
-            RequestTypeScoresJson: dto.RequestTypeScoresJson,
-            SituationMultipliersJson: dto.SituationMultipliersJson,
-            PriorityThresholdsJson: dto.PriorityThresholdsJson
-        );
+        var command = new UpdateSosPriorityRuleConfigCommand(id, dto);
 
         var result = await _mediator.Send(command);
         return Ok(result);

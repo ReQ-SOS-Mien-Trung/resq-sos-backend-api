@@ -8,6 +8,11 @@ public class SosPriorityRuleConfigModel
     public int Id { get; set; }
 
     /// <summary>
+    /// JSON config đầy đủ cho rulebase SOS_PRIORITY_V1.
+    /// </summary>
+    public string ConfigJson { get; set; } = "{}";
+
+    /// <summary>
     /// JSON: {"unconscious":5,"drowning":5,"breathingDifficulty":5,...}
     /// Trọng số cho từng loại vấn đề y tế.
     /// </summary>

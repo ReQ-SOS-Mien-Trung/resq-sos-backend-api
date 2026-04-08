@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.System;
 
@@ -25,15 +26,24 @@ public class GetSosPriorityRuleConfigQueryHandler(ISosPriorityRuleConfigReposito
     }
 
     private static SosPriorityRuleConfigResponse ToResponse(RESQ.Domain.Entities.System.SosPriorityRuleConfigModel config) =>
-        new()
+        CreateResponse(config);
+
+    private static SosPriorityRuleConfigResponse CreateResponse(RESQ.Domain.Entities.System.SosPriorityRuleConfigModel config)
+    {
+        var document = SosPriorityRuleConfigSupport.FromModel(config);
+        return new SosPriorityRuleConfigResponse
         {
             Id = config.Id,
-            IssueWeightsJson = config.IssueWeightsJson,
-            MedicalSevereIssuesJson = config.MedicalSevereIssuesJson,
-            AgeWeightsJson = config.AgeWeightsJson,
-            RequestTypeScoresJson = config.RequestTypeScoresJson,
-            SituationMultipliersJson = config.SituationMultipliersJson,
-            PriorityThresholdsJson = config.PriorityThresholdsJson,
-            UpdatedAt = config.UpdatedAt
+            UpdatedAt = config.UpdatedAt,
+            ConfigVersion = document.ConfigVersion,
+            IsActive = document.IsActive,
+            PriorityScore = document.PriorityScore,
+            MedicalScore = document.MedicalScore,
+            ReliefScore = document.ReliefScore,
+            SituationMultiplier = document.SituationMultiplier,
+            PriorityLevel = document.PriorityLevel,
+            UiConstraints = document.UiConstraints,
+            UiOptions = document.UiOptions
         };
+    }
 }
