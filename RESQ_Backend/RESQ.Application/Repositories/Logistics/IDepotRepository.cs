@@ -16,16 +16,10 @@ namespace RESQ.Application.Repositories.Logistics
         Task AssignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Gỡ manager hiện tại khỏi kho: set UnassignedAt cho bản ghi manager đang active,
+        /// Gỡ manager hiện tại khỏi kho (soft-unassign): set UnassignedAt cho bản ghi manager đang active,
         /// cập nhật status kho → PendingAssignment. Lịch sử vẫn được giữ lại.
         /// </summary>
         Task UnassignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Xoá hẳn bản ghi manager đang active khỏi bảng depot_managers (hard-delete).
-        /// Cập nhật status kho → PendingAssignment.
-        /// </summary>
-        Task DeleteManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
         
         // NEW: Pagination with optional status filter and full-text search
         Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default);
