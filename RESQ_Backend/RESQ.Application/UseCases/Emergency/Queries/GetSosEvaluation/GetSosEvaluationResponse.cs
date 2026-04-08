@@ -1,4 +1,5 @@
 using System.Text.Json;
+using RESQ.Domain.Entities.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 
@@ -10,52 +11,31 @@ public class SosRuleEvaluationDto
     /// <summary>ID bản ghi đánh giá trong DB</summary>
     public int Id { get; set; }
 
-    // --- Điểm thành phần ---
-    /// <summary>Điểm y tế (0–100): dựa trên NeedMedical, MedicalIssues</summary>
+    // --- Giá trị tương thích legacy ---
+    /// <summary>Điểm y tế theo rule V1.</summary>
     public double MedicalScore { get; set; }
-    /// <summary>Điểm chấn thương (0–100): dựa trên HasInjured, OthersAreStable</summary>
+    /// <summary>Mirror legacy: hiện phản ánh supply_urgency_score để giữ tương thích dữ liệu cũ.</summary>
     public double InjuryScore { get; set; }
-    /// <summary>Điểm di chuyển (0–100): dựa trên CanMove</summary>
+    /// <summary>Mirror legacy: hiện phản ánh vulnerability_score để giữ tương thích dữ liệu cũ.</summary>
     public double MobilityScore { get; set; }
-    /// <summary>Điểm môi trường (0–100): dựa trên SosType và Situation</summary>
+    /// <summary>Mirror legacy: hiện phản ánh situation_multiplier để giữ tương thích dữ liệu cũ.</summary>
     public double EnvironmentScore { get; set; }
-    /// <summary>Điểm lương thực / nhu yếu phẩm (0–100): dựa trên PeopleCount</summary>
+    /// <summary>Mirror legacy: hiện phản ánh relief_score để giữ tương thích dữ liệu cũ.</summary>
     public double FoodScore { get; set; }
 
     // --- Tổng hợp ---
-    /// <summary>Điểm tổng (weighted average): Medical×30% + Injury×25% + Mobility×15% + Environment×20% + Food×10%</summary>
+    /// <summary>Điểm tổng theo công thức V1: ROUND((medical_score + relief_score) * situation_multiplier).</summary>
     public double TotalScore { get; set; }
-    /// <summary>Mức ưu tiên: Low / Medium / High / Critical</summary>
+    /// <summary>Mức ưu tiên nội bộ: Low / Medium / High / Critical, tương ứng P4 / P3 / P2 / P1.</summary>
     public string PriorityLevel { get; set; } = string.Empty;
     /// <summary>Phiên bản bộ quy tắc được áp dụng</summary>
     public string RuleVersion { get; set; } = string.Empty;
     /// <summary>Danh sách vật tư/thiết bị được đề xuất cần mang đến</summary>
     public List<string> ItemsNeeded { get; set; } = [];
+    /// <summary>Breakdown đầy đủ theo rulebase V1.</summary>
+    public SosPriorityEvaluationDetails? Breakdown { get; set; }
     /// <summary>Thời điểm đánh giá</summary>
     public DateTime CreatedAt { get; set; }
-
-    // --- Ngưỡng tham chiếu ---
-    /// <summary>Ngưỡng điểm tương ứng từng mức ưu tiên (thông tin tham khảo)</summary>
-    public PriorityThresholdsDto PriorityThresholds { get; } = new();
-    /// <summary>Trọng số từng thành phần (thông tin tham khảo)</summary>
-    public ScoreWeightsDto ScoreWeights { get; } = new();
-}
-
-public class PriorityThresholdsDto
-{
-    public string Critical { get; init; } = "≥ 70";
-    public string High { get; init; } = "50 – 69";
-    public string Medium { get; init; } = "30 – 49";
-    public string Low { get; init; } = "< 30";
-}
-
-public class ScoreWeightsDto
-{
-    public string Medical { get; init; } = "30%";
-    public string Injury { get; init; } = "25%";
-    public string Mobility { get; init; } = "15%";
-    public string Environment { get; init; } = "20%";
-    public string Food { get; init; } = "10%";
 }
 
 /// <summary>

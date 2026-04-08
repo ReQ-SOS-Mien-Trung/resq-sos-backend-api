@@ -3,6 +3,7 @@ using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Mappers.Emergency;
+using Microsoft.EntityFrameworkCore;
 
 namespace RESQ.Infrastructure.Persistence.Emergency;
 
@@ -19,7 +20,11 @@ public class SosRuleEvaluationRepository(IUnitOfWork unitOfWork) : ISosRuleEvalu
     public async Task<SosRuleEvaluationModel?> GetBySosRequestIdAsync(int sosRequestId, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<SosRuleEvaluation>()
-            .GetByPropertyAsync(x => x.SosRequestId == sosRequestId, tracked: false);
+            .AsQueryable()
+            .Where(x => x.SosRequestId == sosRequestId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
 
         return entity == null ? null : SosRuleEvaluationMapper.ToDomain(entity);
     }

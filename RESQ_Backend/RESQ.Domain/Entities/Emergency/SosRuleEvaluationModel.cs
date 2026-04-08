@@ -15,6 +15,7 @@ public class SosRuleEvaluationModel
     public SosPriorityLevel PriorityLevel { get; set; }
     public string RuleVersion { get; set; } = "1.0";
     public string? ItemsNeeded { get; set; }
+    public string? DetailsJson { get; set; }
     public DateTime CreatedAt { get; set; }
 
     public SosRuleEvaluationModel() { }

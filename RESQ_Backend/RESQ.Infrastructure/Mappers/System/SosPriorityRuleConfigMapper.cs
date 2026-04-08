@@ -9,6 +9,7 @@ public static class SosPriorityRuleConfigMapper
     {
         var entity = new SosPriorityRuleConfig
         {
+            ConfigJson = model.ConfigJson,
             IssueWeightsJson = model.IssueWeightsJson,
             MedicalSevereIssuesJson = model.MedicalSevereIssuesJson,
             AgeWeightsJson = model.AgeWeightsJson,
@@ -29,6 +30,7 @@ public static class SosPriorityRuleConfigMapper
         return new SosPriorityRuleConfigModel
         {
             Id = entity.Id,
+            ConfigJson = entity.ConfigJson,
             IssueWeightsJson = entity.IssueWeightsJson,
             MedicalSevereIssuesJson = entity.MedicalSevereIssuesJson,
             AgeWeightsJson = entity.AgeWeightsJson,

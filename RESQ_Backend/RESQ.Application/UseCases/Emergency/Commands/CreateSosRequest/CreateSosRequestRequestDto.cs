@@ -104,6 +104,9 @@ public class IncidentDto
     [JsonPropertyName("need_medical")]
     public bool? NeedMedical { get; set; }
 
+    [JsonPropertyName("has_pregnant_any")]
+    public bool? HasPregnantAny { get; set; }
+
     [JsonPropertyName("other_medical_description")]
     public string? OtherMedicalDescription { get; set; }
 }
@@ -152,6 +155,9 @@ public class BlanketNeedDto
     [JsonPropertyName("is_cold_or_wet")]
     public bool? IsColdOrWet { get; set; }
 
+    [JsonPropertyName("are_blankets_enough")]
+    public bool? AreBlanketsEnough { get; set; }
+
     [JsonPropertyName("availability")]
     public string? Availability { get; set; }
 
@@ -181,6 +187,9 @@ public class ClothingNeedDto
 {
     [JsonPropertyName("status")]
     public string? Status { get; set; }
+
+    [JsonPropertyName("needed_people_count")]
+    public int? NeededPeopleCount { get; set; }
 }
 
 public class VictimItemDto
