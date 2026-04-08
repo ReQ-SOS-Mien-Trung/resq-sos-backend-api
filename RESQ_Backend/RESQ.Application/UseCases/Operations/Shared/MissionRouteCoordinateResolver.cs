@@ -14,7 +14,8 @@ internal static class MissionRouteCoordinateResolver
         HasUsableCoordinates(activity.TargetLatitude, activity.TargetLongitude);
 
     public static bool UsesDepotCoordinates(MissionActivityModel activity) =>
-        string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+        (string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase))
         && activity.DepotId.HasValue;
 
     public static bool RequiresDepotFallback(MissionActivityModel activity) =>

@@ -37,8 +37,9 @@ public class GetRescuerRouteQueryHandler(
         if (requiresDepotFallback)
         {
             logger.LogInformation(
-                "Using depot coordinates for COLLECT_SUPPLIES activity {ActivityId} in MissionId={MissionId}.",
+                "Using depot coordinates for depot-linked activity {ActivityId} ({ActivityType}) in MissionId={MissionId}.",
                 request.ActivityId,
+                activity.ActivityType,
                 request.MissionId);
         }
 

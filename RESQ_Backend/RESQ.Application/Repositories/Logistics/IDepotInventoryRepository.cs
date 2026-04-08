@@ -38,6 +38,7 @@ public interface IDepotInventoryRepository
 
     /// <summary>
     /// Tìm kiếm vật tư theo từ khoá danh mục/loại để agent AI dùng trong quá trình lập kế hoạch.
+    /// Trả về cả Consumable lẫn Reusable; với Reusable, AvailableQuantity là số đơn vị Available.
     /// </summary>
     Task<(List<AgentInventoryItem> Items, int TotalCount)> SearchForAgentAsync(
         string categoryKeyword,

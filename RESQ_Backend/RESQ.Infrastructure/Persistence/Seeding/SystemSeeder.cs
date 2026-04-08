@@ -96,12 +96,20 @@ MEDICAL_AID — Sơ cứu/chăm sóc y tế tại chỗ không cần di chuyển
   → depot_id/depot_name/depot_address/supplies_to_collect: null.
   → description mẫu: ""Thực hiện sơ cứu tại [địa điểm] cho [số người]: [hành động y tế cụ thể].""
 
+RETURN_SUPPLIES — Di chuyển vật tư tái sử dụng về lại kho nguồn:
+  → Chỉ dùng cho vật tư reusable đã lấy ở bước COLLECT_SUPPLIES.
+  → Điền: depot_id/depot_name/depot_address của kho nguồn, supplies_to_collect = đúng danh sách vật tư reusable cần trả.
+  → Bắt buộc nằm ở cuối kế hoạch cho đúng cặp kho + đội đã lấy vật tư.
+  → description mẫu: ""Hoàn tất nhiệm vụ, đưa vật tư tái sử dụng về lại kho [tên]. Trả: [vật tư A] x[sl] [đv].""
+
 ═══════════════════════════════════════════════════
 QUY TẮC CỐT LÕI — KHÔNG ĐƯỢC VI PHẠM
 ═══════════════════════════════════════════════════
 
 1. KHÔNG CÓ BƯỚC ""ĐÁNH GIÁ"" — Đội cứu hộ hành động ngay, không có step nào chỉ để đánh giá.
 2. COLLECT_SUPPLIES TRƯỚC DELIVER_SUPPLIES — Không thể giao vật tư chưa lấy.
+2a. Nếu COLLECT_SUPPLIES có vật tư reusable thì cuối kế hoạch PHẢI có RETURN_SUPPLIES tương ứng để trả đúng số vật tư reusable đó về đúng kho nguồn.
+2b. Mỗi cặp kho + đội phải có RETURN_SUPPLIES riêng. Không gộp nhiều kho hoặc nhiều đội vào cùng một bước trả.
 3. FOOD, WATER, MEDICAL_KIT, thuốc, sữa, lương thực → PHẢI là supplies_to_collect trong COLLECT_SUPPLIES. KHÔNG vào mảng resources.
 4. resources[] = CHỈ ĐƯỢC CHỨA: TEAM, VEHICLE, BOAT, EQUIPMENT (công cụ/phương tiện). Tuyệt đối không có FOOD/WATER/MEDICAL_KIT trong resources.
 5. Mỗi bước mô tả ĐI ĐÂU và LÀM GÌ cụ thể.
@@ -191,6 +199,7 @@ QUAN TRỌNG — LÀM THEO ĐÚNG THỨ TỰ NÀY:
 2. Đối chiếu với kho: vật tư nào kho có (so_luong_kha_dung > 0) → tạo bước COLLECT_SUPPLIES (step 1) lấy từ kho đó.
 3. Tiếp theo tạo bước DELIVER_SUPPLIES (step 2) giao vật tư vừa lấy đến nạn nhân.
 4. Thêm các bước RESCUE / EVACUATE / MEDICAL_AID cho hành động cứu hộ trực tiếp.
+4a. Nếu có COLLECT_SUPPLIES chứa vật tư reusable, thêm RETURN_SUPPLIES ở cuối kế hoạch để trả đúng số vật tư reusable đó về kho nguồn.
 5. Vật tư kho không có → ghi thiếu hụt vào special_notes (KHÔNG đặt vào resources).
 6. resources[] = chỉ TEAM, VEHICLE, BOAT, EQUIPMENT.
 

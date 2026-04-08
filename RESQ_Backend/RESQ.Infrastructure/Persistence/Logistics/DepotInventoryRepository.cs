@@ -275,56 +275,192 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int pageSize,
         CancellationToken ct = default)
     {
-        var query = from dsi in _unitOfWork.Set<SupplyInventory>()
-                    join ri in _unitOfWork.Set<ItemModel>() on dsi.ItemModelId equals ri.Id
-                    join cat in _unitOfWork.Set<Category>() on ri.CategoryId equals cat.Id
-                    join depot in _unitOfWork.Set<Depot>() on dsi.DepotId equals depot.Id
-                    where (depot.Status == "Available" || depot.Status == "Full")
-                              && ri.ItemType == "Consumable"
-                       && (dsi.Quantity ?? 0) - (dsi.MissionReservedQuantity + dsi.TransferReservedQuantity) > 0
-                       && EF.Functions.ILike(cat.Name ?? string.Empty, "%" + categoryKeyword + "%")
-                    select new { dsi, ri, cat, depot };
+        var safePage = Math.Max(page, 1);
+        var safePageSize = Math.Max(pageSize, 1);
+        var takeFromEachSource = safePage * safePageSize;
+        var categoryPattern = $"%{categoryKeyword.Trim()}%";
+        var typePattern = string.IsNullOrWhiteSpace(typeKeyword)
+            ? null
+            : $"%{typeKeyword.Trim()}%";
 
-        if (!string.IsNullOrWhiteSpace(typeKeyword))
-            query = query.Where(x => EF.Functions.ILike(x.ri.ItemType ?? string.Empty, "%" + typeKeyword + "%"));
+        var consumableQuery = from dsi in _unitOfWork.Set<SupplyInventory>()
+                              join ri in _unitOfWork.Set<ItemModel>() on dsi.ItemModelId equals ri.Id
+                              join cat in _unitOfWork.Set<Category>() on ri.CategoryId equals cat.Id
+                              join depot in _unitOfWork.Set<Depot>() on dsi.DepotId equals depot.Id
+                              where (depot.Status == "Available" || depot.Status == "Full")
+                                    && ri.ItemType == nameof(ItemType.Consumable)
+                                    && (dsi.Quantity ?? 0) - (dsi.MissionReservedQuantity + dsi.TransferReservedQuantity) > 0
+                                    && EF.Functions.ILike(cat.Name ?? string.Empty, categoryPattern)
+                              select new AgentInventorySearchRow
+                              {
+                                  ItemId = ri.Id,
+                                  ItemName = ri.Name ?? string.Empty,
+                                  CategoryName = cat.Name ?? string.Empty,
+                                  ItemType = ri.ItemType,
+                                  Unit = ri.Unit,
+                                  AvailableQuantity = (dsi.Quantity ?? 0) - (dsi.MissionReservedQuantity + dsi.TransferReservedQuantity),
+                                  DepotId = depot.Id,
+                                  DepotName = depot.Name ?? string.Empty,
+                                  DepotAddress = depot.Address,
+                                  GoodAvailableCount = null,
+                                  FairAvailableCount = null,
+                                  PoorAvailableCount = null
+                              };
 
-        var total = await query.CountAsync(ct);
+        if (typePattern is not null)
+        {
+            consumableQuery = consumableQuery.Where(x =>
+                EF.Functions.ILike(x.ItemName, typePattern)
+                || EF.Functions.ILike(x.ItemType ?? string.Empty, typePattern));
+        }
 
-        var rawItems = await query
-            .OrderByDescending(x => (x.dsi.Quantity ?? 0) - (x.dsi.MissionReservedQuantity + x.dsi.TransferReservedQuantity))
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new
+        var reusableBaseQuery = from reusable in _unitOfWork.Set<ReusableItem>()
+                                join ri in _unitOfWork.Set<ItemModel>() on reusable.ItemModelId equals ri.Id
+                                join cat in _unitOfWork.Set<Category>() on ri.CategoryId equals cat.Id
+                                join depot in _unitOfWork.Set<Depot>() on reusable.DepotId equals depot.Id
+                                where reusable.DepotId.HasValue
+                                      && reusable.ItemModelId.HasValue
+                                      && (depot.Status == "Available" || depot.Status == "Full")
+                                      && ri.ItemType == nameof(ItemType.Reusable)
+                                      && reusable.Status == nameof(ReusableItemStatus.Available)
+                                      && EF.Functions.ILike(cat.Name ?? string.Empty, categoryPattern)
+                                select new { reusable, ri, cat, depot };
+
+        if (typePattern is not null)
+        {
+            reusableBaseQuery = reusableBaseQuery.Where(x =>
+                EF.Functions.ILike(x.ri.Name ?? string.Empty, typePattern)
+                || EF.Functions.ILike(x.ri.ItemType ?? string.Empty, typePattern));
+        }
+
+        var reusableQuery = reusableBaseQuery
+            .GroupBy(x => new
             {
-                ItemId           = x.ri.Id,
-                ItemName         = x.ri.Name ?? string.Empty,
-                CategoryName     = x.cat.Name ?? string.Empty,
-                x.ri.ItemType,
-                x.ri.Unit,
-                AvailableQuantity = (x.dsi.Quantity ?? 0) - (x.dsi.MissionReservedQuantity + x.dsi.TransferReservedQuantity),
-                DepotId          = x.depot.Id,
-                DepotName        = x.depot.Name ?? string.Empty,
-                DepotAddress     = x.depot.Address,
-                DepotLocation    = x.depot.Location
+                ItemId = x.ri.Id,
+                ItemName = x.ri.Name ?? string.Empty,
+                CategoryName = x.cat.Name ?? string.Empty,
+                ItemType = x.ri.ItemType,
+                Unit = x.ri.Unit,
+                DepotId = x.depot.Id,
+                DepotName = x.depot.Name ?? string.Empty,
+                DepotAddress = x.depot.Address
             })
+            .Select(group => new AgentInventorySearchRow
+            {
+                ItemId = group.Key.ItemId,
+                ItemName = group.Key.ItemName,
+                CategoryName = group.Key.CategoryName,
+                ItemType = group.Key.ItemType,
+                Unit = group.Key.Unit,
+                AvailableQuantity = group.Count(),
+                DepotId = group.Key.DepotId,
+                DepotName = group.Key.DepotName,
+                DepotAddress = group.Key.DepotAddress,
+                GoodAvailableCount = group.Count(x => x.reusable.Condition == nameof(ReusableItemCondition.Good)),
+                FairAvailableCount = group.Count(x => x.reusable.Condition == nameof(ReusableItemCondition.Fair)),
+                PoorAvailableCount = group.Count(x => x.reusable.Condition == nameof(ReusableItemCondition.Poor))
+            });
+
+        var consumableTotal = await consumableQuery.CountAsync(ct);
+        var reusableTotal = await reusableQuery.CountAsync(ct);
+
+        var consumableRows = await consumableQuery
+            .OrderByDescending(x => x.AvailableQuantity)
+            .ThenBy(x => x.ItemName)
+            .ThenBy(x => x.DepotName)
+            .ThenBy(x => x.ItemId)
+            .ThenBy(x => x.DepotId)
+            .Take(takeFromEachSource)
             .ToListAsync(ct);
 
-        var items = rawItems.Select(x => new AgentInventoryItem
+        var reusableRows = await reusableQuery
+            .OrderByDescending(x => x.AvailableQuantity)
+            .ThenByDescending(x => x.GoodAvailableCount ?? 0)
+            .ThenByDescending(x => x.FairAvailableCount ?? 0)
+            .ThenBy(x => x.ItemName)
+            .ThenBy(x => x.DepotName)
+            .ThenBy(x => x.ItemId)
+            .ThenBy(x => x.DepotId)
+            .Take(takeFromEachSource)
+            .ToListAsync(ct);
+
+        var mergedRows = consumableRows
+            .Concat(reusableRows)
+            .OrderByDescending(x => x.AvailableQuantity)
+            .ThenByDescending(x => x.GoodAvailableCount ?? 0)
+            .ThenByDescending(x => x.FairAvailableCount ?? 0)
+            .ThenBy(x => x.ItemName)
+            .ThenBy(x => x.DepotName)
+            .ThenBy(x => x.ItemId)
+            .ThenBy(x => x.DepotId)
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToList();
+
+        var depotLocationLookup = await LoadDepotLocationLookupAsync(
+            mergedRows.Select(x => x.DepotId).Distinct().ToList(),
+            ct);
+
+        var items = mergedRows.Select(x =>
         {
-            ItemId            = x.ItemId,
-            ItemName          = x.ItemName,
-            CategoryName      = x.CategoryName,
-            ItemType          = x.ItemType,
-            Unit              = x.Unit,
-            AvailableQuantity = x.AvailableQuantity,
-            DepotId           = x.DepotId,
-            DepotName         = x.DepotName,
-            DepotAddress      = x.DepotAddress,
-            DepotLatitude     = x.DepotLocation?.Y,
-            DepotLongitude    = x.DepotLocation?.X
+            depotLocationLookup.TryGetValue(x.DepotId, out var depotCoordinates);
+            return new AgentInventoryItem
+            {
+                ItemId = x.ItemId,
+                ItemName = x.ItemName,
+                CategoryName = x.CategoryName,
+                ItemType = x.ItemType,
+                Unit = x.Unit,
+                AvailableQuantity = x.AvailableQuantity,
+                GoodAvailableCount = x.GoodAvailableCount,
+                FairAvailableCount = x.FairAvailableCount,
+                PoorAvailableCount = x.PoorAvailableCount,
+                DepotId = x.DepotId,
+                DepotName = x.DepotName,
+                DepotAddress = x.DepotAddress,
+                DepotLatitude = depotCoordinates.Latitude,
+                DepotLongitude = depotCoordinates.Longitude
+            };
         }).ToList();
 
-        return (items, total);
+        return (items, consumableTotal + reusableTotal);
+    }
+
+    private async Task<Dictionary<int, (double? Latitude, double? Longitude)>> LoadDepotLocationLookupAsync(
+        IReadOnlyCollection<int> depotIds,
+        CancellationToken cancellationToken)
+    {
+        if (depotIds.Count == 0)
+            return [];
+
+        var depots = await _unitOfWork.Set<Depot>()
+            .Where(depot => depotIds.Contains(depot.Id))
+            .Select(depot => new
+            {
+                depot.Id,
+                depot.Location
+            })
+            .ToListAsync(cancellationToken);
+
+        return depots.ToDictionary(
+            depot => depot.Id,
+            depot => ((double?)depot.Location?.Y, (double?)depot.Location?.X));
+    }
+
+    private sealed class AgentInventorySearchRow
+    {
+        public int ItemId { get; init; }
+        public string ItemName { get; init; } = string.Empty;
+        public string CategoryName { get; init; } = string.Empty;
+        public string? ItemType { get; init; }
+        public string? Unit { get; init; }
+        public int AvailableQuantity { get; init; }
+        public int DepotId { get; init; }
+        public string DepotName { get; init; } = string.Empty;
+        public string? DepotAddress { get; init; }
+        public int? GoodAvailableCount { get; init; }
+        public int? FairAvailableCount { get; init; }
+        public int? PoorAvailableCount { get; init; }
     }
 
     public async Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default)
