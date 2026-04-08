@@ -103,6 +103,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<StockWarningBandConfig> StockWarningBandConfigs { get; set; }
     public virtual DbSet<SystemMigrationAudit> SystemMigrationAudits { get; set; }
     public virtual DbSet<UserRelativeProfile> UserRelativeProfiles { get; set; }
+    public virtual DbSet<CheckInRadiusConfig> CheckInRadiusConfigs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -206,6 +207,18 @@ public partial class ResQDbContext : DbContext
                 t.HasCheckConstraint(
                     "CK_rescue_team_radius_configs_max_radius_km_positive",
                     "\"max_radius_km\" > 0");
+            });
+        });
+
+        modelBuilder.Entity<CheckInRadiusConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("check_in_radius_configs_pkey");
+
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_check_in_radius_configs_max_radius_meters_positive",
+                    "\"max_radius_meters\" > 0");
             });
         });
 

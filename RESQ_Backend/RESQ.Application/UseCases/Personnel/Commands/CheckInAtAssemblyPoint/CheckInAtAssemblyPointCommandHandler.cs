@@ -2,6 +2,7 @@ using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Repositories.System;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
@@ -9,11 +10,12 @@ namespace RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
 public class CheckInAtAssemblyPointCommandHandler(
     IAssemblyEventRepository assemblyEventRepository,
     IAssemblyPointRepository assemblyPointRepository,
+    ICheckInRadiusConfigRepository checkInRadiusConfigRepository,
     IUnitOfWork unitOfWork)
     : IRequestHandler<CheckInAtAssemblyPointCommand>
 {
-    /// <summary>Sai số cho phép khi validate GPS (200m).</summary>
-    private const double MaxDistanceMeters = 200;
+    /// <summary>Bán kính check-in mặc định khi chưa có cấu hình (200m).</summary>
+    private const double DefaultMaxDistanceMeters = 200;
 
     /// <summary>Số giờ trước EventDateTime cho phép check-in.</summary>
     private const int CheckInOpenHoursBefore = 24;
@@ -56,14 +58,17 @@ public class CheckInAtAssemblyPointCommandHandler(
         if (assemblyPoint.Location == null)
             throw new BadRequestException("Điểm tập kết chưa có tọa độ GPS. Vui lòng liên hệ quản trị viên.");
 
+        var radiusConfig = await checkInRadiusConfigRepository.GetAsync(cancellationToken);
+        var maxDistanceMeters = radiusConfig?.MaxRadiusMeters ?? DefaultMaxDistanceMeters;
+
         var distanceMeters = HaversineMeters(
             request.Latitude, request.Longitude,
             assemblyPoint.Location.Latitude, assemblyPoint.Location.Longitude);
 
-        if (distanceMeters > MaxDistanceMeters)
+        if (distanceMeters > maxDistanceMeters)
             throw new BadRequestException(
                 $"Bạn hiện cách điểm tập kết \"{assemblyPoint.Name}\" khoảng {distanceMeters:F0}m. " +
-                $"Vui lòng di chuyển đến trong phạm vi {MaxDistanceMeters}m để thực hiện check-in.");
+                $"Vui lòng di chuyển đến trong phạm vi {maxDistanceMeters:F0}m để thực hiện check-in.");
 
         // 5. Check-in (validate participant tồn tại + idempotent)
         var success = await assemblyEventRepository.CheckInAsync(
