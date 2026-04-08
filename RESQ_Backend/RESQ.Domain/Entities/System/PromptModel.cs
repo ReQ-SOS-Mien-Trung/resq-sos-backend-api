@@ -7,6 +7,7 @@ public class PromptModel
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public PromptType PromptType { get; set; }
+    public AiProvider Provider { get; set; } = AiProvider.Gemini;
     public string? Purpose { get; set; }
     public string? SystemPrompt { get; set; }
     public string? UserPromptTemplate { get; set; }
@@ -25,6 +26,7 @@ public class PromptModel
     public static PromptModel Create(
         string name,
         PromptType promptType,
+        AiProvider provider,
         string purpose,
         string systemPrompt,
         string userPromptTemplate,
@@ -39,6 +41,7 @@ public class PromptModel
         {
             Name = name,
             PromptType = promptType,
+            Provider = provider,
             Purpose = purpose,
             SystemPrompt = systemPrompt,
             UserPromptTemplate = userPromptTemplate,
@@ -56,6 +59,7 @@ public class PromptModel
     public void Update(
         string? name = null,
         PromptType? promptType = null,
+        AiProvider? provider = null,
         string? purpose = null,
         string? systemPrompt = null,
         string? userPromptTemplate = null,
@@ -69,6 +73,7 @@ public class PromptModel
     {
         if (name != null) Name = name;
         if (promptType.HasValue) PromptType = promptType.Value;
+        if (provider.HasValue) Provider = provider.Value;
         if (purpose != null) Purpose = purpose;
         if (systemPrompt != null) SystemPrompt = systemPrompt;
         if (userPromptTemplate != null) UserPromptTemplate = userPromptTemplate;

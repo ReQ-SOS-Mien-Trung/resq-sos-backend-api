@@ -6,6 +6,7 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.CreatePrompt;
 public record CreatePromptCommand(
     string Name,
     PromptType PromptType,
+    AiProvider Provider,
     string Purpose,
     string SystemPrompt,
     string UserPromptTemplate,

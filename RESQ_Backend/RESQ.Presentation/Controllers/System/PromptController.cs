@@ -44,6 +44,7 @@ namespace RESQ.Presentation.Controllers.System
             var command = new CreatePromptCommand(
                 dto.Name,
                 dto.PromptType,
+                dto.Provider,
                 dto.Purpose,
                 dto.SystemPrompt,
                 dto.UserPromptTemplate,
@@ -68,6 +69,7 @@ namespace RESQ.Presentation.Controllers.System
                 id,
                 dto.Name,
                 dto.PromptType,
+                dto.Provider,
                 dto.Purpose,
                 dto.SystemPrompt,
                 dto.UserPromptTemplate,

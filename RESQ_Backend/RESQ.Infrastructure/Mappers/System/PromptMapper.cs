@@ -12,6 +12,7 @@ public static class PromptMapper
         {
             Name = model.Name,
             PromptType = model.PromptType.ToString(),
+            Provider = model.Provider.ToString(),
             Purpose = model.Purpose,
             SystemPrompt = model.SystemPrompt,
             UserPromptTemplate = model.UserPromptTemplate,
@@ -41,6 +42,9 @@ public static class PromptMapper
             Id = entity.Id,
             Name = entity.Name ?? string.Empty,
             PromptType = Enum.TryParse<PromptType>(entity.PromptType, out var pt) ? pt : default,
+            Provider = Enum.TryParse<AiProvider>(entity.Provider, true, out var provider)
+                ? provider
+                : AiProvider.Gemini,
             Purpose = entity.Purpose,
             SystemPrompt = entity.SystemPrompt,
             UserPromptTemplate = entity.UserPromptTemplate,

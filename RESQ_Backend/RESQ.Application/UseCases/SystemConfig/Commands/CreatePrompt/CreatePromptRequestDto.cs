@@ -11,6 +11,9 @@ public class CreatePromptRequestDto
     [JsonPropertyName("prompt_type")]
     public PromptType PromptType { get; set; }
 
+    [JsonPropertyName("provider")]
+    public AiProvider Provider { get; set; } = AiProvider.Gemini;
+
     [JsonPropertyName("purpose")]
     public string Purpose { get; set; } = null!;
 

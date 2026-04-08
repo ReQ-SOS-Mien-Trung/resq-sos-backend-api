@@ -49,13 +49,14 @@ public static class SystemSeeder
                 Id = 1,
                 Name = "SOS Analysis Prompt",
                 PromptType = "SosPriorityAnalysis",
+              Provider = "Gemini",
                 Purpose = "Phân tích tin nhắn SOS để trích xuất thông tin",
                 SystemPrompt = "Bạn là một AI chuyên phân tích các tin nhắn cầu cứu trong thiên tai...",
                 Temperature = 0.3,
                 MaxTokens = 1000,
                 Version = "v1.0",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-                ApiKey = "AIzaSyBc5pvH7EpouC886yAEJUkKmH5bXev3gMM",
+              ApiKey = null,
                 Model = "gemini-2.5-flash",
                 IsActive = false, // Đã được thay thế bởi prompt Id=3
                 CreatedAt = now
@@ -65,6 +66,7 @@ public static class SystemSeeder
                 Id = 2,
                 Name = "Mission Planning Prompt",
                 PromptType = "MissionPlanning",
+              Provider = "Gemini",
                 Purpose = "Lập kế hoạch nhiệm vụ cứu trợ",
                 SystemPrompt = @"Bạn là một điều phối viên cứu hộ thực địa. Nhiệm vụ của bạn là lập kế hoạch các BƯỚC DI CHUYỂN VÀ HÀNH ĐỘNG CỤ THỂ cho đội cứu hộ ngoài thực địa — giống như lệnh điều phối từng bước một.
 
@@ -208,7 +210,7 @@ Trả về JSON (không giải thích, không markdown).",
                 MaxTokens = 4096,
                 Version = "v1.0",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-                ApiKey = "AIzaSyDc4rHO4Vlfwp4BP3WP8BLc7x90q5j-ddk",
+                ApiKey = null,
                 Model = "gemini-2.5-flash",
                 IsActive = true,
                 CreatedAt = now
@@ -218,6 +220,7 @@ Trả về JSON (không giải thích, không markdown).",
                 Id = 3,
                 Name = "SOS_PRIORITY_ANALYSIS",
                 PromptType = "SosPriorityAnalysis",
+              Provider = "Gemini",
                 Purpose = "Phân tích yêu cầu SOS để xác định mức độ ưu tiên và nghiêm trọng",
                 SystemPrompt = @"Bạn là một chuyên gia phân tích tình huống khẩn cấp. Nhiệm vụ của bạn là phân tích các yêu cầu SOS và đánh giá mức độ ưu tiên.
 
@@ -249,7 +252,7 @@ Dữ liệu chi tiết: {{structured_data}}
 Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này.",
                 Model = "gemini-2.5-flash",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-                ApiKey = "AIzaSyDc4rHO4Vlfwp4BP3WP8BLc7x90q5j-ddk",
+                ApiKey = null,
                 Temperature = 0.3,
                 MaxTokens = 1024,
                 Version = "1.0",
