@@ -12,7 +12,8 @@ public class ChangeDepotStatusCommandValidator : AbstractValidator<ChangeDepotSt
 
         RuleFor(x => x.Status)
             .IsInEnum().WithMessage("Trạng thái kho không hợp lệ.")
-            .Must(s => s != DepotStatus.PendingAssignment
+            .Must(s => s != DepotStatus.Created
+                    && s != DepotStatus.PendingAssignment
                     && s != DepotStatus.Closing
                     && s != DepotStatus.Closed)
             .WithMessage("Trạng thái đưa vào không hợp lệ. " +

@@ -48,7 +48,7 @@ public class DepotModel
             Location = location,
             Capacity = capacity,
             CurrentUtilization = 0,
-            Status = DepotStatus.PendingAssignment,
+            Status = DepotStatus.Created,
             ImageUrl = imageUrl,
             LastUpdatedAt = DateTime.UtcNow
         };
@@ -56,6 +56,8 @@ public class DepotModel
         if (managerId.HasValue && managerId.Value != Guid.Empty)
         {
             depot.AssignManager(managerId.Value);
+            // Gán manager ngay lúc tạo → PendingAssignment (chưa hoạt động chính thức)
+            depot.Status = DepotStatus.PendingAssignment;
         }
 
         return depot;
@@ -88,13 +90,17 @@ public class DepotModel
     ///   Available → Full, UnderMaintenance
     ///   Full       → Available, UnderMaintenance
     ///   UnderMaintenance → Available
-    /// PendingAssignment, Closing, Closed không đi qua phương thức này.
+    /// Created, PendingAssignment, Closing, Closed không đi qua phương thức này.
     /// </summary>
     public void ChangeStatus(DepotStatus newStatus)
     {
         if (Status == newStatus) return;
 
         // Trạng thái nguồn không thể thay đổi qua endpoint ChangeStatus
+        if (Status == DepotStatus.Created)
+            throw new InvalidDepotStatusTransitionException(Status, newStatus,
+                "Kho vừa được tạo, chưa có quản lý. Hãy chỉ định quản lý trước.");
+
         if (Status == DepotStatus.PendingAssignment)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
                 "Kho chưa có quản lý. Hãy chỉ định quản lý trước.");
