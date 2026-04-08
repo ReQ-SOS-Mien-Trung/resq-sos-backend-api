@@ -116,6 +116,7 @@ public class SupplyToCollectDto
     /// <summary>ID của relief item tương ứng trong kho (khớp với DepotInventoryItemDto.ItemId).</summary>
     public int? ItemId { get; set; }
     public string ItemName { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
     public int Quantity { get; set; }
     public string? Unit { get; set; }
     /// <summary>Chỉ có trước khi pickup succeed: danh sách các lô FEFO mà activity này phải lấy.</summary>

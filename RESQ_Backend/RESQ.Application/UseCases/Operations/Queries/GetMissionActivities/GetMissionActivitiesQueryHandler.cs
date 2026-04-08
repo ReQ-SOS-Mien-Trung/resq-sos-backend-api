@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 
@@ -7,10 +8,12 @@ namespace RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 
 public class GetMissionActivitiesQueryHandler(
     IMissionActivityRepository activityRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     ILogger<GetMissionActivitiesQueryHandler> logger
 ) : IRequestHandler<GetMissionActivitiesQuery, List<MissionActivityDto>>
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly ILogger<GetMissionActivitiesQueryHandler> _logger = logger;
 
     public async Task<List<MissionActivityDto>> Handle(GetMissionActivitiesQuery request, CancellationToken cancellationToken)
@@ -19,7 +22,7 @@ public class GetMissionActivitiesQueryHandler(
 
         var activities = await _activityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken);
 
-        return activities.Select(a => new MissionActivityDto
+        var result = activities.Select(a => new MissionActivityDto
         {
             Id = a.Id,
             Step = a.Step,
@@ -44,5 +47,9 @@ public class GetMissionActivitiesQueryHandler(
             CompletedAt = a.CompletedAt,
             CompletedBy = a.CompletedBy
         }).ToList();
+
+        await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(result, _itemModelMetadataRepository, cancellationToken);
+
+        return result;
     }
 }

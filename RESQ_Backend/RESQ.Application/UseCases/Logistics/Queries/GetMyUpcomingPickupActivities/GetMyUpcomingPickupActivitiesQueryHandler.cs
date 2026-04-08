@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.Logistics;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -7,10 +8,12 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingPickupActivit
 
 public class GetMyUpcomingPickupActivitiesQueryHandler(
     IDepotInventoryRepository depotInventoryRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     IUpcomingPickupActivityRepository upcomingPickupActivityRepository)
     : IRequestHandler<GetMyUpcomingPickupActivitiesQuery, PagedResult<UpcomingPickupActivityDto>>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IUpcomingPickupActivityRepository _upcomingPickupActivityRepository = upcomingPickupActivityRepository;
 
     public async Task<PagedResult<UpcomingPickupActivityDto>> Handle(
@@ -58,6 +61,13 @@ public class GetMyUpcomingPickupActivitiesQueryHandler(
                 Unit = i.Unit
             }).ToList()
         }).ToList();
+
+        await ItemImageUrlEnricher.EnrichAsync(
+            items.SelectMany(activity => activity.Items),
+            item => item.ItemId,
+            (item, imageUrl) => item.ImageUrl = imageUrl ?? item.ImageUrl,
+            _itemModelMetadataRepository,
+            cancellationToken);
 
         return new PagedResult<UpcomingPickupActivityDto>(items, paged.TotalCount, paged.PageNumber, paged.PageSize);
     }

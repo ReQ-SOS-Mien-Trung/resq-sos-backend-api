@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
 
@@ -10,12 +11,14 @@ public class GetMissionsQueryHandler(
     IMissionRepository missionRepository,
     IMissionTeamRepository missionTeamRepository,
     IMissionAiSuggestionRepository aiSuggestionRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     ILogger<GetMissionsQueryHandler> logger
 ) : IRequestHandler<GetMissionsQuery, GetMissionsResponse>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IMissionAiSuggestionRepository _aiSuggestionRepository = aiSuggestionRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly ILogger<GetMissionsQueryHandler> _logger = logger;
 
     public async Task<GetMissionsResponse> Handle(GetMissionsQuery request, CancellationToken cancellationToken)
@@ -50,7 +53,7 @@ public class GetMissionsQueryHandler(
             .GroupBy(s => s.ClusterId!.Value)
             .ToDictionary(g => (int?)g.Key, g => g.OrderByDescending(s => s.CreatedAt).First());
 
-        return new GetMissionsResponse
+        var response = new GetMissionsResponse
         {
             Missions = missionList.Select(m =>
             {
@@ -132,5 +135,12 @@ public class GetMissionsQueryHandler(
                 };
             }).ToList()
         };
+
+        await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(
+            response.Missions.SelectMany(mission => mission.Activities),
+            _itemModelMetadataRepository,
+            cancellationToken);
+
+        return response;
     }
 }
