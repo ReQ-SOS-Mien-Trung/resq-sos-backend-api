@@ -79,9 +79,9 @@ public class AssemblyPointModel
     /// <list type="bullet">
     ///   <item>Created → Active</item>
     ///   <item>Active → Overloaded | UnderMaintenance | Closed</item>
-    ///   <item>Overloaded → Active | UnderMaintenance | Closed</item>
-    ///   <item>UnderMaintenance → Active | Closed</item>
-    ///   <item>Closed → (không có chuyển đổi nào)</item>
+    ///   <item>Overloaded → Active | UnderMaintenance (không thể Closed trực tiếp)</item>
+    ///   <item>UnderMaintenance → Active (Complete maintenance)</item>
+    ///   <item>Closed → (không có chuyển đổi nào — viĩnh viễn)</item>
     /// </list>
     /// </summary>
     public void ChangeStatus(AssemblyPointStatus newStatus)
@@ -96,7 +96,7 @@ public class AssemblyPointModel
         {
             AssemblyPointStatus.Created          => new[] { AssemblyPointStatus.Active },
             AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Overloaded, AssemblyPointStatus.UnderMaintenance, AssemblyPointStatus.Closed },
-            AssemblyPointStatus.Overloaded       => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.UnderMaintenance, AssemblyPointStatus.Closed },
+            AssemblyPointStatus.Overloaded       => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.UnderMaintenance },
             // Theo state diagram: UnderMaintenance chỉ có thể chuyển về Active (Complete maintenance)
             AssemblyPointStatus.UnderMaintenance => new[] { AssemblyPointStatus.Active },
             _                                    => Array.Empty<AssemblyPointStatus>()
