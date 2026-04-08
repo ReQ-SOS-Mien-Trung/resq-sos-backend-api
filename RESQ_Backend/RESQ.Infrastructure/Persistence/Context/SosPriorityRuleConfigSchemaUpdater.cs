@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace RESQ.Infrastructure.Persistence.Context;
 
@@ -29,7 +30,7 @@ public static class SosPriorityRuleConfigSchemaUpdater
                 ADD COLUMN IF NOT EXISTS breakdown_json jsonb;
 
             UPDATE sos_priority_rule_configs
-            SET config_version = COALESCE(NULLIF(config_version, ''), COALESCE(config_json ->> 'config_version', 'SOS_PRIORITY_V2')),
+            SET config_version = COALESCE(NULLIF(config_version, ''), 'SOS_PRIORITY_V2'),
                 is_active = COALESCE(is_active, TRUE),
                 created_at = COALESCE(created_at, updated_at, NOW()),
                 updated_at = COALESCE(updated_at, NOW()),
@@ -47,8 +48,8 @@ public static class SosPriorityRuleConfigSchemaUpdater
             WHERE is_active = TRUE AND activated_at IS NULL;
 
             UPDATE sos_rule_evaluations
-            SET config_version = COALESCE(config_version, rule_version, 'SOS_PRIORITY_V2'),
-                breakdown_json = COALESCE(breakdown_json, details_json)
+            SET config_version = COALESCE(config_version, 'SOS_PRIORITY_V2'),
+                breakdown_json = COALESCE(breakdown_json, '{}'::jsonb)
             WHERE config_version IS NULL OR breakdown_json IS NULL;
 
             UPDATE sos_rule_evaluations
@@ -70,6 +71,27 @@ public static class SosPriorityRuleConfigSchemaUpdater
                 ON sos_priority_rule_configs (LOWER(config_version));
             """;
 
-        await dbContext.Database.ExecuteSqlRawAsync(sql, cancellationToken);
+        var connection = dbContext.Database.GetDbConnection();
+        var shouldCloseConnection = connection.State != ConnectionState.Open;
+
+        if (shouldCloseConnection)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandType = CommandType.Text;
+            command.CommandText = sql;
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        finally
+        {
+            if (shouldCloseConnection && connection.State == ConnectionState.Open)
+            {
+                await connection.CloseAsync();
+            }
+        }
     }
 }
