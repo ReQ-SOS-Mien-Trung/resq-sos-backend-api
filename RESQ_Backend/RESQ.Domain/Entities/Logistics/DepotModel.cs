@@ -232,6 +232,30 @@ public class DepotModel
         LastUpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Xoá manager đang active: set UnassignedAt (giữ lịch sử trong depot_managers).
+    /// Chỉ cho phép khi kho ở trạng thái Available, Full hoặc UnderMaintenance.
+    /// Sau khi xoá, status chuyển về PendingAssignment.
+    /// </summary>
+    public void DeleteManager()
+    {
+        if (Status == DepotStatus.Closed)
+            throw new DepotClosedException();
+
+        if (Status == DepotStatus.Closing)
+            throw new DepotClosingException(
+                "Kho đang trong quá trình đóng, không thể xoá quản lý. Vui lòng huỷ đóng kho trước.");
+
+        var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
+        if (activeAssignment == null)
+            return; // Không có manager active — caller tự xử lý
+
+        activeAssignment.Unassign(DateTime.UtcNow);
+
+        Status = DepotStatus.PendingAssignment;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
     // ── Inventory lines (item-level stock, loaded from DepotSupplyInventory) ──
     private readonly List<DepotInventoryLine> _inventoryLines = [];
     public IReadOnlyList<DepotInventoryLine> InventoryLines => _inventoryLines.AsReadOnly();
