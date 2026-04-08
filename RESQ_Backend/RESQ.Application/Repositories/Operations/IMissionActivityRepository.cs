@@ -12,5 +12,6 @@ public interface IMissionActivityRepository
     Task UpdateAsync(MissionActivityModel activity, CancellationToken cancellationToken = default);
     Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default);
     Task AssignTeamAsync(int activityId, int missionTeamId, CancellationToken cancellationToken = default);
+    Task ResetAssignmentsToPlannedAsync(IEnumerable<int> activityIds, Guid decisionBy, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 }

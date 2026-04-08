@@ -1,8 +1,7 @@
+using RESQ.Application.UseCases.Operations.Shared;
+
 namespace RESQ.Application.UseCases.Operations.Commands.ReportMissionActivityIncident;
 
-public class ReportMissionActivityIncidentRequestDto
+public class ReportMissionActivityIncidentRequestDto : ActivityIncidentReportRequest
 {
-    public string Description { get; set; } = string.Empty;
-    public double? Latitude { get; set; }
-    public double? Longitude { get; set; }
 }

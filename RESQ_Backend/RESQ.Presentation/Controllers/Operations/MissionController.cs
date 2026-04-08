@@ -171,11 +171,7 @@ public class MissionController(IMediator mediator) : ControllerBase
         var command = new ReportMissionTeamIncidentCommand(
             missionId,
             missionTeamId,
-            dto.Description,
-            dto.Latitude,
-            dto.Longitude,
-            dto.NeedsRescueAssistance,
-            dto.AssistanceSos,
+            dto,
             userId);
 
         var result = await _mediator.Send(command);
@@ -282,12 +278,12 @@ public class MissionController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Đội cứu hộ báo sự cố cho một activity cụ thể; activity đó sẽ fail và activity kế tiếp của cùng team có thể auto-start.</summary>
-    [HttpPost("{missionId:int}/activities/{activityId:int}/incident")]
+    /// <summary>Đội cứu hộ báo activity incident theo contract V2 cho một hoặc nhiều activity thuộc cùng mission team.</summary>
+    [HttpPost("{missionId:int}/teams/{missionTeamId:int}/activity-incident")]
     [Authorize(Policy = PermissionConstants.MissionIncidentReport)]
     public async Task<IActionResult> ReportMissionActivityIncident(
         [FromRoute] int missionId,
-        [FromRoute] int activityId,
+        [FromRoute] int missionTeamId,
         [FromBody] ReportMissionActivityIncidentRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -296,10 +292,8 @@ public class MissionController(IMediator mediator) : ControllerBase
 
         var command = new ReportMissionActivityIncidentCommand(
             missionId,
-            activityId,
-            dto.Description,
-            dto.Latitude,
-            dto.Longitude,
+            missionTeamId,
+            dto,
             userId);
 
         var result = await _mediator.Send(command);
