@@ -29,6 +29,9 @@ public class DepotClosureTimeoutBackgroundService(
     {
         _logger.LogInformation("DepotClosureTimeoutBackgroundService started.");
 
+        // Stagger startup to avoid connection pool exhaustion when all services start simultaneously
+        await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try

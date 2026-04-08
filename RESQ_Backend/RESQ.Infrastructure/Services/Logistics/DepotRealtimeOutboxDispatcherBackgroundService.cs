@@ -29,6 +29,9 @@ public class DepotRealtimeOutboxDispatcherBackgroundService(
     {
         _logger.LogInformation("Depot realtime outbox dispatcher started");
 
+        // Stagger startup to avoid connection pool exhaustion when all services start simultaneously
+        await Task.Delay(TimeSpan.FromSeconds(8), stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -40,9 +43,9 @@ public class DepotRealtimeOutboxDispatcherBackgroundService(
                     .Where(x => (x.Status == "Pending" || x.Status == "Failed")
                                 && x.NextAttemptAt <= DateTime.UtcNow
                                 && (x.LockExpiresAt == null || x.LockExpiresAt < DateTime.UtcNow))
-                    .OrderBy(x => x.DepotId)
                     .Select(x => x.DepotId)
                     .Distinct()
+                    .OrderBy(x => x)
                     .Take(20)
                     .ToListAsync(stoppingToken);
 
@@ -56,6 +59,8 @@ public class DepotRealtimeOutboxDispatcherBackgroundService(
                 {
                     await ProcessPartitionAsync(scope.ServiceProvider, depotId, stoppingToken);
                 }
+
+                await Task.Delay(PollIntervalMs, stoppingToken);
             }
             catch (OperationCanceledException)
             {

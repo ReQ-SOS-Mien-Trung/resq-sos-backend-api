@@ -28,6 +28,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotById;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotsByCluster;
 using System.Security.Claims;
 
 namespace RESQ.Presentation.Controllers.Logistics
@@ -65,6 +66,19 @@ namespace RESQ.Presentation.Controllers.Logistics
         public async Task<IActionResult> GetById(int id)
         {
             var result = await _mediator.Send(new GetDepotByIdQuery(id));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Lấy danh sách kho sắp xếp theo khoảng cách gần nhất so với cluster SOS.
+        /// Chỉ trả về kho đang Available và còn hàng, trong bán kính cấu hình
+        /// dùng chung với endpoint lấy đội cứu hộ gần cluster.
+        /// </summary>
+        [HttpGet("by-cluster/{clusterId}")]
+        [Authorize(Policy = PermissionConstants.PolicyDepotView)]
+        public async Task<IActionResult> GetByCluster(int clusterId)
+        {
+            var result = await _mediator.Send(new GetDepotsByClusterQuery(clusterId));
             return Ok(result);
         }
 

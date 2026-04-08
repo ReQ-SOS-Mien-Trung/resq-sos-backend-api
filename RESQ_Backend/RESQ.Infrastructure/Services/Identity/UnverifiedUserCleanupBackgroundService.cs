@@ -23,6 +23,9 @@ public class UnverifiedUserCleanupBackgroundService : BackgroundService
     {
         _logger.LogInformation("Unverified User Cleanup Background Service is starting.");
 
+        // Stagger startup to avoid connection pool exhaustion when all services start simultaneously
+        await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try

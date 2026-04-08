@@ -20,6 +20,9 @@ public class DepotRealtimeDeadLetterRetryBackgroundService(
     {
         _logger.LogInformation("Depot dead-letter retry service started");
 
+        // Stagger startup to avoid connection pool exhaustion when all services start simultaneously
+        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
