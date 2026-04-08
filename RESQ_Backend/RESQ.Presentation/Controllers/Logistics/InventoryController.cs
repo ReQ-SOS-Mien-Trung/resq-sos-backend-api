@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
-using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 using RESQ.Application.UseCases.Logistics.Commands.AcceptSupplyRequest;
@@ -53,15 +52,15 @@ namespace RESQ.Presentation.Controllers.Logistics;
 
 [Route("logistics/inventory")]
 [ApiController]
-public class InventoryController(IMediator mediator, ITokenService tokenService, IItemCategoryRepository itemCategoryRepository) : ControllerBase
+public class InventoryController(IMediator mediator, IItemCategoryRepository itemCategoryRepository, IAuthorizationService authorizationService) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
-    private readonly ITokenService _tokenService = tokenService;
     private readonly IItemCategoryRepository _itemCategoryRepository = itemCategoryRepository;
+    private readonly IAuthorizationService _authorizationService = authorizationService;
 
     /// <summary>Xem tồn kho (phân trang) của một kho theo ID.</summary>
     [HttpGet("depot/{depotId:int}")]
-    //[Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetDepotInventory(
         int depotId,
         [FromQuery(Name = "categoryCode")] List<ItemCategoryCode>? categoryCodes,
@@ -88,7 +87,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Xem tồn kho (phân trang) của kho do người dùng hiện tại quản lý.</summary>
     [HttpGet("my-depot")]
-    //[Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetMyDepotInventory(
         [FromQuery(Name = "categoryCode")] List<ItemCategoryCode>? categoryCodes,
         [FromQuery] List<ItemType>? itemTypes,
@@ -115,7 +114,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>[Manager] Xem danh sách activity lấy hàng sắp tới của kho mình quản lý.</summary>
     [HttpGet("my-depot/upcoming-pickups")]
-    [Authorize(Roles = "1,4")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     [ProducesResponseType(typeof(PagedResult<UpcomingPickupActivityDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyUpcomingPickups(
@@ -134,7 +133,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>[Manager] Xem lịch sử các activity đã đến kho mình quản lý để lấy vật tư thành công.</summary>
     [HttpGet("my-depot/pickup-history")]
-    [Authorize(Roles = "1,4")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     [ProducesResponseType(typeof(PagedResult<PickupHistoryActivityDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyPickupHistory(
@@ -159,7 +158,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     /// severityRatio = max(0, available / minimumThreshold). Ngưỡng được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("low-stock")]
-    [Authorize(Roles = "1,4")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     [ProducesResponseType(typeof(LowStockChartResponseDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetLowStockItems(
         [FromQuery] int? depotId = null,
@@ -174,7 +173,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     /// severityRatio = max(0, available / minimumThreshold). Ngưỡng được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("my-depot/low-stock")]
-    [Authorize(Roles = "4")]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     [ProducesResponseType(typeof(LowStockChartResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyDepotLowStockItems(
@@ -188,7 +187,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>[Manager] Xem cấu hình threshold hiện tại của kho mình quản lý (global + override theo scope).</summary>
     [HttpGet("my-depot/thresholds")]
-    [Authorize(Roles = "4")]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     [ProducesResponseType(typeof(GetMyDepotThresholdsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyDepotThresholds()
@@ -202,9 +201,9 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     // [HttpGet("my-depot/thresholds/history")]
     // public async Task<IActionResult> GetMyDepotThresholdHistory(...) { ... }
 
-    /// <summary>[Admin/Manager] Cập nhật ngưỡng tồn kho. Admin (role=1) chỉ được cấu hình scope Global; Manager (role=4) được cấu hình Depot/DepotCategory/DepotItem của kho mình quản lý.</summary>
+    /// <summary>[Admin/Manager] Cập nhật ngưỡng tồn kho. Caller có quyền toàn cục chỉ được cấu hình scope Global; caller quản lý kho chỉ được cấu hình Depot/DepotCategory/DepotItem của kho mình quản lý.</summary>
     [HttpPut("my-depot/thresholds")]
-    [Authorize(Roles = "1,4")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     [ProducesResponseType(typeof(StockThresholdCommandResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -213,11 +212,14 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     public async Task<IActionResult> UpdateMyDepotThreshold([FromBody] UpdateMyDepotThresholdRequest request)
     {
         var userId = GetCurrentUserId();
-        var roleId = GetCurrentRoleId();
+        var canManageGlobalThresholds = (await _authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.SystemConfigManage))
+            .Succeeded;
+
         var result = await _mediator.Send(new UpdateMyDepotThresholdCommand
         {
             UserId = userId,
-            RoleId = roleId,
+            CanManageGlobalThresholds = canManageGlobalThresholds,
             ScopeType = request.ScopeType,
             CategoryId = request.CategoryId,
             ItemModelId = request.ItemModelId,
@@ -231,7 +233,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>[Manager] Reset cấu hình ngưỡng tồn kho về scope thấp hơn (soft reset: is_active=false).</summary>
     [HttpDelete("my-depot/thresholds")]
-    [Authorize(Roles = "4")]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     [ProducesResponseType(typeof(StockThresholdCommandResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -257,7 +259,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>[Admin] Xem cấu hình ngưỡng tồn kho hiện tại (global + override theo scope). Truyền thêm depotId để xem cấu hình override của một kho cụ thể.</summary>
     [HttpGet("thresholds")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(GetAdminThresholdsResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAdminThresholds([FromQuery] int? depotId = null)
     {
@@ -271,7 +273,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>[Admin] Xem cấu hình warning bands hiện tại (N-band, lưu trong DB). Dùng để frontend hiển thị/chỉnh sửa.</summary>
     [HttpGet("warning-band-config")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(WarningBandConfigResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetWarningBandConfig()
@@ -284,7 +286,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>[Admin] Cập nhật cấu hình 4 bậc ngưỡng tồn kho. Chỉ nhập giới hạn trên (%) cho 3 bậc đầu; backend tự tính From từ bậc trước.</summary>
     [HttpPut("warning-band-config")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(WarningBandConfigResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpsertWarningBandConfig([FromBody] UpsertWarningBandRequest request)
@@ -300,7 +302,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>[Admin] Xem cấu hình thời gian phản hồi cho 3 mức độ yêu cầu tiếp tế.</summary>
     [HttpGet("supply-request-priority-config")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(GetSupplyRequestPriorityConfigResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSupplyRequestPriorityConfig()
     {
@@ -310,7 +312,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>[Admin] Cập nhật cấu hình thời gian phản hồi cho 3 mức độ yêu cầu tiếp tế.</summary>
     [HttpPut("supply-request-priority-config")]
-    [Authorize(Roles = "1")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(UpsertSupplyRequestPriorityConfigResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpsertSupplyRequestPriorityConfig([FromBody] UpsertSupplyRequestPriorityConfigRequest request)
@@ -329,7 +331,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Xem danh sách lô hàng (lots) của một item model trong kho (FEFO).</summary>
     [HttpGet("{itemModelId:int}/lots")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetInventoryLots(
         int itemModelId,
         [FromQuery] int? depotId,
@@ -353,7 +355,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Xem tổng số lượng tồn kho theo danh mục của một kho theo ID.</summary>
     [HttpGet("depot/{depotId:int}/quantity-by-category")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetDepotInventoryByCategory(int depotId)
     {
         var result = await _mediator.Send(new GetDepotInventoryByCategoryQuery(depotId));
@@ -362,7 +364,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Xem tổng số lượng tồn kho theo danh mục của kho do người dùng hiện tại quản lý.</summary>
     [HttpGet("my-depot/quantity-by-category")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     public async Task<IActionResult> GetMyDepotInventoryByCategory()
     {
         var userId = GetCurrentUserId();
@@ -509,7 +511,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Xem lịch sử biến động tồn kho (phân trang) của kho do người dùng hiện tại quản lý.</summary>
     [HttpGet("stock-movements/my-depot")]
-    //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> GetTransactionHistory(
         [FromQuery] List<InventoryActionType>? actionTypes,
         [FromQuery] List<InventorySourceType>? sourceTypes,
@@ -537,7 +539,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Xem nhật ký xuất/nhập kho (phân trang) toàn hệ thống. Thủ kho chỉ xem được kho của mình.</summary>
     [HttpGet("stock-movements")]
-    //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> GetInventoryLogs(
         [FromQuery] int? depotId,
         [FromQuery] int? itemModelId,
@@ -550,7 +552,11 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     {
         var userId = GetCurrentUserId();
 
-        var isManager = User.HasClaim("RoleId", "4") || User.HasClaim(ClaimTypes.Role, "4");
+        var canManageAnyInventory = (await _authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.SystemConfigManage))
+            .Succeeded;
+
+        var isManager = !canManageAnyInventory;
 
         var query = new GetInventoryLogsQuery
         {
@@ -599,7 +605,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     /// File có dropdown chọn danh mục -> dependent dropdown chọn vật phẩm,
     /// và auto-fill VLOOKUP cho Đối tượng / Loại vật phẩm / Đơn vị.</summary>
     [HttpGet("template/donation-import")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> DownloadDonationImportTemplate()
     {
@@ -611,7 +617,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     /// File có cột thông tin hóa đơn VAT, dropdown danh mục -> vật phẩm,
     /// auto-fill VLOOKUP và cột đơn giá.</summary>
     [HttpGet("template/purchase-import")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> DownloadPurchaseImportTemplate()
     {
@@ -621,7 +627,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Tìm kiếm kho có chứa vật tư theo danh sách ID, ưu tiên kho gần và đủ số lượng.</summary>
     [HttpGet("search-depots")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     public async Task<IActionResult> SearchDepotsByItems(
         [FromQuery] List<int> itemModelIds,
         [FromQuery] List<int>? quantities,
@@ -659,7 +665,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     /// <summary>[Manager] Xuất kho thủ công (Export): giảm tồn kho theo FEFO và ghi nhật ký.
     /// Chỉ xuất được số lượng khả dụng (Quantity - ReservedQuantity).</summary>
     [HttpPost("my-depot/export")]
-    [Authorize(Roles = "4")]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     [ProducesResponseType(typeof(ExportInventoryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -677,7 +683,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     /// <summary>[Manager] Điều chỉnh tồn kho (Adjust): quantityChange dương → tạo lô mới + tăng số lượng;
     /// quantityChange âm → FEFO deduction trên các lô + giảm số lượng. Bắt buộc ghi lý do.</summary>
     [HttpPost("my-depot/adjust")]
-    [Authorize(Roles = "4")]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     [ProducesResponseType(typeof(AdjustInventoryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -696,7 +702,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Nhập kho vật tư từ nguồn quyên góp của tổ chức.</summary>
     [HttpPost("import")]
-    //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> Import([FromBody] ImportReliefItemsRequest request)
     {
         var userId = GetCurrentUserId();
@@ -716,7 +722,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Nhập kho vật tư từ nguồn mua sắm theo hóa đơn.</summary>
     [HttpPost("import-purchase")]
-    //[Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> ImportPurchase([FromBody] ImportPurchasedInventoryRequest request)
     {
         var userId = GetCurrentUserId();
@@ -734,7 +740,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Tạo yêu cầu cung cấp vật tư từ một hoặc nhiều kho nguồn. Mỗi kho nguồn tạo một request riêng.</summary>
     [HttpPost("supply-requests")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     public async Task<IActionResult> CreateSupplyRequest([FromBody] CreateSupplyRequestRequest request)
     {
         var userId = GetCurrentUserId();
@@ -754,7 +760,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
     /// Trả về field <c>role</c>: "Requester" - kho này đã gửi yêu cầu | "Source" - kho này nhận yêu cầu.
     /// </summary>
     [HttpGet("supply-requests")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     [ProducesResponseType(typeof(GetSupplyRequestsResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSupplyRequests(
         [FromQuery] SourceDepotStatus? sourceStatus,
@@ -779,7 +785,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Manager kho nguồn bắt đầu đóng gói / picking (Accepted -> Preparing).</summary>
     [HttpPut("supply-requests/{id:int}/prepare")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     public async Task<IActionResult> PrepareSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();
@@ -790,7 +796,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Manager kho nguồn chấp nhận yêu cầu tiếp tế.</summary>
     [HttpPut("supply-requests/{id:int}/accept")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     public async Task<IActionResult> AcceptSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();
@@ -801,7 +807,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Manager kho nguồn từ chối yêu cầu tiếp tế (bắt buộc ghi lý do).</summary>
     [HttpPut("supply-requests/{id:int}/reject")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     public async Task<IActionResult> RejectSupplyRequest(int id, [FromBody] RejectSupplyRequestRequest request)
     {
         var userId = GetCurrentUserId();
@@ -819,7 +825,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Manager kho nguồn xuất hàng và vận chuyển đến kho yêu cầu.</summary>
     [HttpPut("supply-requests/{id:int}/ship")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     public async Task<IActionResult> ShipSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();
@@ -830,7 +836,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Manager kho nguồn xác nhận đã hoàn tất giao hàng (Shipping -> Completed).</summary>
     [HttpPut("supply-requests/{id:int}/complete")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     public async Task<IActionResult> CompleteSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();
@@ -841,7 +847,7 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
 
     /// <summary>Manager kho yêu cầu xác nhận đã nhận hàng tiếp tế.</summary>
     [HttpPut("supply-requests/{id:int}/confirm")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     public async Task<IActionResult> ConfirmSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();
@@ -856,13 +862,6 @@ public class InventoryController(IMediator mediator, ITokenService tokenService,
         if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
         return userId;
-    }
-
-    private int GetCurrentRoleId()
-    {
-        var roleStr = User.FindFirst(ClaimTypes.Role)?.Value
-                      ?? User.FindFirst("RoleId")?.Value;
-        return int.TryParse(roleStr, out var roleId) ? roleId : 0;
     }
 
     private async Task<List<int>?> ResolveCategoryIdsAsync(

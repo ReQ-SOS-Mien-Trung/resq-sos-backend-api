@@ -12,6 +12,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RefreshToken
 {
     public class RefreshTokenCommandHandler(
         IUserRepository userRepository,
+        IPermissionRepository permissionRepository,
         ITokenService tokenService,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
@@ -19,6 +20,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RefreshToken
     ) : IRequestHandler<RefreshTokenCommand, RefreshTokenResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
+        private readonly IPermissionRepository _permissionRepository = permissionRepository;
         private readonly ITokenService _tokenService = tokenService;
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly IConfiguration _configuration = configuration;
@@ -74,6 +76,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.RefreshToken
             await _userRepository.UpdateAsync(user, cancellationToken);
             await _unitOfWork.SaveAsync();
 
+            var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
+
             _logger.LogInformation("Token refreshed successfully for UserId={userId}", userId);
 
             return new RefreshTokenResponse
@@ -81,7 +85,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.RefreshToken
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
                 ExpiresIn = int.Parse(_configuration["JwtSettings:AccessTokenExpirationMinutes"] ?? "60") * 60,
-                TokenType = "Bearer"
+                TokenType = "Bearer",
+                Permissions = permissions
             };
         }
 

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Operations.Commands.UpdateTeamIncidentStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetAllTeamIncidents;
@@ -20,7 +21,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
     /// Lấy danh sách tất cả sự cố.
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = "1,2,3")]
+    [Authorize(Policy = PermissionConstants.MissionIncidentView)]
     public async Task<IActionResult> GetAllIncidents()
     {
         var result = await _mediator.Send(new GetAllTeamIncidentsQuery());
@@ -29,7 +30,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
 
     /// <summary>Cập nhật trạng thái sự cố thủ công (Reported → InProgress → Resolved).</summary>
     [HttpPatch("{incidentId:int}/status")]
-    [Authorize(Roles = "1,2,3")]
+    [Authorize(Policy = PermissionConstants.MissionIncidentManage)]
     public async Task<IActionResult> UpdateIncidentStatus([FromRoute] int incidentId, [FromBody] UpdateTeamIncidentStatusRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -48,7 +49,7 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
     /// Lấy danh sách sự cố của một mission.
     /// </summary>
     [HttpGet("by-mission/{missionId:int}")]
-    [Authorize(Roles = "1,2,3")]
+    [Authorize(Policy = PermissionConstants.MissionIncidentView)]
     public async Task<IActionResult> GetIncidentsByMission([FromRoute] int missionId)
     {
         var result = await _mediator.Send(new GetTeamIncidentsQuery(missionId));

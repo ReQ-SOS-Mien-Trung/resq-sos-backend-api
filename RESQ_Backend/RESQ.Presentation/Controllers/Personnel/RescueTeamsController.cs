@@ -18,7 +18,7 @@ namespace RESQ.Presentation.Controllers.Personnel;
 
 [Route("personnel/rescue-teams")]
 [ApiController]
-public class RescueTeamsController(IMediator mediator) : ControllerBase
+public class RescueTeamsController(IMediator mediator, IAuthorizationService authorizationService) : ControllerBase
 {
     private Guid GetCurrentUserId()
     {
@@ -60,7 +60,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
 
     /// <summary>Lấy đội cứu hộ hiện tại của user đang đăng nhập.</summary>
     [HttpGet("my")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.PersonnelTeamSelfView)]
     public async Task<IActionResult> GetMyTeam()
     {
         var userId = GetCurrentUserId();
@@ -120,7 +120,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
 
     /// <summary>Giao nhiệm vụ cho đội (chuyển sang trạng thái Assigned).</summary>
     [HttpPost("{id}/assign-mission")]
-    [Authorize(Roles = "2")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> AssignMission(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "Assign"));
@@ -129,7 +129,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
 
     /// <summary>Huỷ nhiệm vụ của đội.</summary>
     [HttpPost("{id}/cancel-mission")]
-    [Authorize(Roles = "2")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> CancelMission(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "Cancel"));
@@ -138,7 +138,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
 
     /// <summary>Bắt đầu thực hiện nhiệm vụ.</summary>
     [HttpPost("{id}/start-mission")]
-    [Authorize(Roles = "2")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> StartMission(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "Start"));
@@ -147,7 +147,7 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
 
     /// <summary>Hoàn thành nhiệm vụ.</summary>
     [HttpPost("{id}/finish-mission")]
-    [Authorize(Roles = "2")]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> FinishMission(int id)
     {
         await mediator.Send(new ChangeTeamMissionStateCommand(id, "Finish"));
@@ -156,32 +156,34 @@ public class RescueTeamsController(IMediator mediator) : ControllerBase
 
     /// <summary>Đánh dấu đội không sẵn sàng nhận nhiệm vụ. Dành cho đội trưởng hoặc coordinator.</summary>
     [HttpPost("{id}/set-unavailable")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.PersonnelTeamAvailabilityManage)]
     public async Task<IActionResult> SetUnavailable(int id)
     {
         var userId = GetCurrentUserId();
-        var roleIdStr = User.FindFirst(ClaimTypes.Role)?.Value;
-        if (!int.TryParse(roleIdStr, out var roleId))
-            return Forbid();
-        await mediator.Send(new SetTeamUnavailableCommand(id, userId, roleId));
+        var canOverrideTeamAvailability = (await authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.PolicyPersonnelManage))
+            .Succeeded;
+
+        await mediator.Send(new SetTeamUnavailableCommand(id, userId, canOverrideTeamAvailability));
         return NoContent();
     }
 
     /// <summary>Giải tán đội cứu hộ. Chỉ coordinator, đội phải ở trạng thái Unavailable.</summary>
     [HttpPost("{id}/disband")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
     public async Task<IActionResult> DisbandTeam(int id)
     {
-        var roleIdStr = User.FindFirst(ClaimTypes.Role)?.Value;
-        if (!int.TryParse(roleIdStr, out var roleId))
-            return Forbid();
-        await mediator.Send(new DisbandTeamCommand(id, roleId));
+        var canDisbandTeam = (await authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.PolicyPersonnelManage))
+            .Succeeded;
+
+        await mediator.Send(new DisbandTeamCommand(id, canDisbandTeam));
         return NoContent();
     }
 
     /// <summary>Leader xác nhận đội sẵn sàng nhận nhiệm vụ (Gathering → Available).</summary>
     [HttpPost("{id}/set-available")]
-    [Authorize]
+    [Authorize(Policy = PermissionConstants.PersonnelTeamAvailabilityManage)]
     public async Task<IActionResult> SetAvailable(int id)
     {
         var userId = GetCurrentUserId();

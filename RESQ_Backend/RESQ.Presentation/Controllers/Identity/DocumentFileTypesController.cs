@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.CreateDocumentFileType;
 using RESQ.Application.UseCases.Identity.Commands.UpdateDocumentFileType;
 using RESQ.Application.UseCases.Identity.Queries.GetAllDocumentFileTypes;
@@ -24,7 +25,7 @@ public class DocumentFileTypesController(IMediator mediator) : ControllerBase
 
     /// <summary>Tạo loại tài liệu mới.</summary>
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     public async Task<IActionResult> Create([FromBody] CreateDocumentFileTypeRequestDto dto)
     {
         var command = new CreateDocumentFileTypeCommand(
@@ -39,7 +40,7 @@ public class DocumentFileTypesController(IMediator mediator) : ControllerBase
 
     /// <summary>Cập nhật loại tài liệu.</summary>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateDocumentFileTypeRequestDto dto)
     {
         var command = new UpdateDocumentFileTypeCommand(

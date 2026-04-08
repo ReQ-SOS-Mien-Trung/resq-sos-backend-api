@@ -10,7 +10,7 @@ public record AddDisbursementItemsCommand(
     int DisbursementId,
     List<DisbursementItemDto> Items,
     Guid CallerId,
-    string CallerRole
+    bool CanManageAnyDisbursement
 ) : IRequest<Unit>;
 
 public class DisbursementItemDto

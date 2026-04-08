@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.SystemConfig.Commands.CreateServiceZone;
 using RESQ.Application.UseCases.SystemConfig.Commands.UpdateServiceZone;
@@ -11,7 +12,7 @@ namespace RESQ.Presentation.Controllers.System;
 
 [Route("system/service-zone")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = PermissionConstants.SystemConfigManage)]
 public class ServiceZoneController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;

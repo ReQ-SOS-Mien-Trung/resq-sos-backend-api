@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.GoogleLogin;
 using RESQ.Application.UseCases.Identity.Commands.Login;
 using RESQ.Application.UseCases.Identity.Commands.Logout;
@@ -152,7 +153,7 @@ namespace RESQ.Presentation.Controllers.Identity
 
         /// <summary>Đăng xuất và thu hồi refresh token.</summary>
         [HttpPost("logout")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.IdentitySessionManage)]
         public async Task<IActionResult> Logout()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

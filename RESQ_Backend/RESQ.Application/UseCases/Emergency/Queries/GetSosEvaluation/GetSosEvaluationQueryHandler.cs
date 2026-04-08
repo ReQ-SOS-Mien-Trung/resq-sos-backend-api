@@ -9,16 +9,14 @@ namespace RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 
 public class GetSosEvaluationQueryHandler(
     ISosRequestRepository sosRequestRepository,
+    ISosRequestCompanionRepository companionRepository,
     ISosRuleEvaluationRepository sosRuleEvaluationRepository,
     ISosAiAnalysisRepository sosAiAnalysisRepository,
     ILogger<GetSosEvaluationQueryHandler> logger
 ) : IRequestHandler<GetSosEvaluationQuery, GetSosEvaluationResponse>
 {
-    private const int ADMIN_ROLE_ID = 1;
-    private const int COORDINATOR_ROLE_ID = 2;
-    private const int VICTIM_ROLE_ID = 5;
-
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestCompanionRepository _companionRepository = companionRepository;
     private readonly ISosRuleEvaluationRepository _ruleEvaluationRepository = sosRuleEvaluationRepository;
     private readonly ISosAiAnalysisRepository _aiAnalysisRepository = sosAiAnalysisRepository;
     private readonly ILogger<GetSosEvaluationQueryHandler> _logger = logger;
@@ -26,22 +24,20 @@ public class GetSosEvaluationQueryHandler(
     public async Task<GetSosEvaluationResponse> Handle(GetSosEvaluationQuery request, CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Handling GetSosEvaluationQuery SosRequestId={id} RoleId={roleId}",
-            request.SosRequestId, request.RequestingRoleId);
+            "Handling GetSosEvaluationQuery SosRequestId={id} HasPrivilegedAccess={hasPrivilegedAccess}",
+            request.SosRequestId, request.HasPrivilegedAccess);
 
         // 1. Kiểm tra SOS request tồn tại
         var sosRequest = await _sosRequestRepository.GetByIdAsync(request.SosRequestId, cancellationToken);
         if (sosRequest is null)
             throw new NotFoundException("Không tìm thấy yêu cầu SOS");
 
-        // 2. Kiểm tra quyền truy cập
-        if (request.RequestingRoleId == VICTIM_ROLE_ID && sosRequest.UserId != request.RequestingUserId)
-            throw new ForbiddenException("Bạn không có quyền xem đánh giá SOS request này.");
-
-        if (request.RequestingRoleId != ADMIN_ROLE_ID
-            && request.RequestingRoleId != COORDINATOR_ROLE_ID
-            && request.RequestingRoleId != VICTIM_ROLE_ID)
-            throw new ForbiddenException("Bạn không có quyền truy cập.");
+        if (!request.HasPrivilegedAccess && sosRequest.UserId != request.RequestingUserId)
+        {
+            var isCompanion = await _companionRepository.IsCompanionAsync(request.SosRequestId, request.RequestingUserId, cancellationToken);
+            if (!isCompanion)
+                throw new ForbiddenException("Bạn không có quyền xem đánh giá SOS request này.");
+        }
 
         // 3. Lấy đánh giá rule-based và AI tuần tự (cùng DbContext instance, không thể song song)
         var ruleEvaluation = await _ruleEvaluationRepository.GetBySosRequestIdAsync(request.SosRequestId, cancellationToken);

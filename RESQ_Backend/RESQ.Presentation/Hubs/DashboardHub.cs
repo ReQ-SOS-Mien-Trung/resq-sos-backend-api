@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetVictimsByPeriod;
 
 namespace RESQ.Presentation.Hubs;
@@ -13,7 +14,7 @@ namespace RESQ.Presentation.Hubs;
 /// 
 /// Kết nối: /hubs/dashboard?access_token={jwt}
 /// </summary>
-[Authorize]
+[Authorize(Policy = PermissionConstants.SystemConfigManage)]
 public class DashboardHub(IMediator mediator) : Hub
 {
     private const string GroupName = "admin_dashboard";

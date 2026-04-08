@@ -33,6 +33,7 @@ namespace RESQ.Presentation.Controllers.Personnel
 
         /// <summary>Lấy danh sách điểm tập kết có phân trang.</summary>
         [HttpGet]
+        [Authorize(Policy = PermissionConstants.PersonnelAssemblyPointView)]
         public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             var query = new GetAllAssemblyPointsQuery { PageNumber = pageNumber, PageSize = pageSize };
@@ -51,6 +52,7 @@ namespace RESQ.Presentation.Controllers.Personnel
 
         /// <summary>Xem chi tiết điểm tập kết theo ID.</summary>
         [HttpGet("{id}")]
+        [Authorize(Policy = PermissionConstants.PersonnelAssemblyPointView)]
         public async Task<IActionResult> GetById(int id)
         {
             var query = new GetAssemblyPointByIdQuery(id);
@@ -81,6 +83,7 @@ namespace RESQ.Presentation.Controllers.Personnel
 
         /// <summary>Lấy danh sách sự kiện tập trung theo điểm tập kết (phân trang).</summary>
         [HttpGet("{id}/events")]
+        [Authorize(Policy = PermissionConstants.PersonnelAssemblyPointView)]
         public async Task<IActionResult> GetAssemblyEvents(
             int id,
             [FromQuery] int pageNumber = 1,
@@ -222,7 +225,7 @@ namespace RESQ.Presentation.Controllers.Personnel
 
         /// <summary>Rescuer check-in tại sự kiện tập trung (kèm GPS validation trong bán kính 200m).</summary>
         [HttpPost("events/{eventId}/check-in")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.PersonnelAssemblyEventCheckIn)]
         public async Task<IActionResult> CheckIn(int eventId, [FromBody] CheckInRequestDto dto)
         {
             var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -254,7 +257,7 @@ namespace RESQ.Presentation.Controllers.Personnel
 
         /// <summary>Rescuer xem danh sách lịch triệu tập của chính mình (sự kiện đã/đang được gán).</summary>
         [HttpGet("events/my")]
-        [Authorize]
+        [Authorize(Policy = PermissionConstants.PersonnelAssemblyEventSelfView)]
         public async Task<IActionResult> GetMyAssemblyEvents(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)

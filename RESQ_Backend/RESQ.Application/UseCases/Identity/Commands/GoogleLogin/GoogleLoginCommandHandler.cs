@@ -11,6 +11,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
 {
     public class GoogleLoginCommandHandler(
         IUserRepository userRepository,
+        IPermissionRepository permissionRepository,
         ITokenService tokenService,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
@@ -19,6 +20,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
     ) : IRequestHandler<GoogleLoginCommand, GoogleLoginResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
+        private readonly IPermissionRepository _permissionRepository = permissionRepository;
         private readonly ITokenService _tokenService = tokenService;
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly IConfiguration _configuration = configuration;
@@ -87,6 +89,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
 
             await _unitOfWork.SaveAsync();
 
+            var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
+
             return new GoogleLoginResponse
             {
                 AccessToken = accessToken,
@@ -98,6 +102,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 RoleId = user.RoleId,
+                Permissions = permissions,
                 IsNewUser = isNewUser,
                 RescuerStep = user.RescuerStep
             };

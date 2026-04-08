@@ -19,9 +19,10 @@ namespace RESQ.Presentation.Controllers.Emergency;
 
 [Route("emergency/sos-requests")]
 [ApiController]
-public class SosRequestController(IMediator mediator) : ControllerBase
+public class SosRequestController(IMediator mediator, IAuthorizationService authorizationService) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
+    private readonly IAuthorizationService _authorizationService = authorizationService;
 
     /// <summary>Tạo SOS request mới (có thể do Victim tự gửi hoặc Coordinator tạo thay).</summary>
     [HttpPost]
@@ -63,9 +64,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
             networkMetadataJson,
             senderInfoJson,
             dto.Timestamp,
-            CreatedByCoordinatorId: TryGetRoleId(out var callerRoleId) && callerRoleId == 2 && TryGetUserId(out var callerUserId)
-                ? callerUserId
-                : null,
+            CreatedByCoordinatorId: await TryGetPrivilegedCallerIdAsync(),
             ClientCreatedAt: dto.CreatedAt,
             VictimInfo: victimInfoJson,
             IsSentOnBehalf: dto.IsSentOnBehalf ?? false,
@@ -107,10 +106,14 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     [Authorize(Policy = PermissionConstants.PolicySosRequestAccess)]
     public async Task<IActionResult> GetSosRequestDetail([FromRoute] int id)
     {
-        if (!TryGetUserId(out var userId) || !TryGetRoleId(out var roleId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
-        var result = await _mediator.Send(new GetSosRequestQuery(id, userId, roleId));
+        var hasPrivilegedAccess = (await _authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.SosRequestView))
+            .Succeeded;
+
+        var result = await _mediator.Send(new GetSosRequestQuery(id, userId, hasPrivilegedAccess));
         return Ok(result);
     }
 
@@ -119,10 +122,14 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     [Authorize(Policy = PermissionConstants.PolicySosRequestAccess)]
     public async Task<IActionResult> GetSosEvaluation([FromRoute] int id)
     {
-        if (!TryGetUserId(out var userId) || !TryGetRoleId(out var roleId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
-        var result = await _mediator.Send(new GetSosEvaluationQuery(id, userId, roleId));
+        var hasPrivilegedAccess = (await _authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.SosRequestView))
+            .Succeeded;
+
+        var result = await _mediator.Send(new GetSosEvaluationQuery(id, userId, hasPrivilegedAccess));
         return Ok(result);
     }
 
@@ -140,7 +147,7 @@ public class SosRequestController(IMediator mediator) : ControllerBase
     /// Victim huỷ SOS request của mình (chỉ cho phép khi Pending hoặc Assigned).
     /// </summary>
     [HttpPatch("{id:int}/cancel")]
-    [Authorize(Roles = "5")]
+    [Authorize(Policy = PermissionConstants.SosRequestCancelOwn)]
     public async Task<IActionResult> CancelSosRequest([FromRoute] int id)
     {
         if (!TryGetUserId(out var userId))
@@ -217,10 +224,15 @@ public class SosRequestController(IMediator mediator) : ControllerBase
         return !string.IsNullOrWhiteSpace(userIdClaim) && Guid.TryParse(userIdClaim, out userId);
     }
 
-    private bool TryGetRoleId(out int roleId)
+    private async Task<Guid?> TryGetPrivilegedCallerIdAsync()
     {
-        roleId = 0;
-        var roleClaim = User.FindFirst(ClaimTypes.Role)?.Value;
-        return !string.IsNullOrWhiteSpace(roleClaim) && int.TryParse(roleClaim, out roleId);
+        if (!TryGetUserId(out var userId))
+            return null;
+
+        var hasPrivilegedAccess = (await _authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.SosRequestView))
+            .Succeeded;
+
+        return hasPrivilegedAccess ? userId : null;
     }
 }

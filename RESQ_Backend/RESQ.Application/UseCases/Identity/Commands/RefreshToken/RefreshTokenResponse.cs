@@ -6,5 +6,6 @@ namespace RESQ.Application.UseCases.Identity.Commands.RefreshToken
         public string RefreshToken { get; set; } = null!;
         public int ExpiresIn { get; set; }
         public string TokenType { get; set; } = "Bearer";
+        public List<string> Permissions { get; set; } = [];
     }
 }
