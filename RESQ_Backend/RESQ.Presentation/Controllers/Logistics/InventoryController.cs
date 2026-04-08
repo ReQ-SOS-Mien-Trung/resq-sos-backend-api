@@ -34,8 +34,10 @@ using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyPickupHistoryActivities;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyReturnHistoryActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingPickupActivities;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingReturnActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetReliefItemsByCategoryCode;
 using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequestPriorityConfig;
@@ -43,6 +45,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
 using RESQ.Application.UseCases.Logistics.Queries.GetWarningBandConfig;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Application.UseCases.Logistics.Thresholds;
+using RESQ.Domain.Enum.Operations;
 using RESQ.Domain.Enum.Logistics;
 using System.Security.Claims;
 
@@ -144,6 +147,51 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     {
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new GetMyPickupHistoryActivitiesQuery(userId)
+        {
+            FromDate = fromDate,
+            ToDate = toDate,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xem danh sách activity trả đồ đang trên đường về kho hoặc đang chờ kho xác nhận.</summary>
+    [HttpGet("my-depot/upcoming-returns")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    [ProducesResponseType(typeof(PagedResult<UpcomingReturnActivityDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyUpcomingReturns(
+        [FromQuery] MissionActivityStatus status,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyUpcomingReturnActivitiesQuery(userId)
+        {
+            Status = status,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xem lịch sử các activity trả đồ đã được kho mình quản lý xác nhận thành công.</summary>
+    [HttpGet("my-depot/return-history")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    [ProducesResponseType(typeof(PagedResult<ReturnHistoryActivityDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyReturnHistory(
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyReturnHistoryActivitiesQuery(userId)
         {
             FromDate = fromDate,
             ToDate = toDate,
