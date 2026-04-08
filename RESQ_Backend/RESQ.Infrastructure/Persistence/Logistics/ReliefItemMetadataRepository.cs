@@ -41,12 +41,12 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
         ItemCategoryCode categoryCode,
         CancellationToken cancellationToken = default)
     {
-        var categoryCodeString = categoryCode.ToString();
+        var categoryCodeString = categoryCode.ToString().ToLower();
 
         var items = await (
             from ri in _unitOfWork.Set<ItemModel>()
             join cat in _unitOfWork.Set<Category>() on ri.CategoryId equals cat.Id
-            where cat.Code == categoryCodeString
+            where cat.Code.ToLower() == categoryCodeString
             orderby ri.Id
             select new MetadataDto
             {

@@ -36,8 +36,8 @@ public class FundCampaignRepository(IUnitOfWork unitOfWork) : IFundCampaignRepos
 
         if (statuses != null && statuses.Count > 0)
         {
-            var statusStrings = statuses.Select(s => s.ToString()).ToList();
-            query = query.Where(x => statusStrings.Contains(x.Status!));
+            var statusStrings = statuses.Select(s => s.ToString().ToLower()).ToList();
+            query = query.Where(x => statusStrings.Contains(x.Status!.ToLower()));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);

@@ -46,9 +46,9 @@ public class ItemCategoryRepository(IUnitOfWork unitOfWork) : IItemCategoryRepos
 
     public async Task<ItemCategoryModel?> GetByCodeAsync(ItemCategoryCode code, CancellationToken cancellationToken = default)
     {
-        var codeString = code.ToString();
+        var codeString = code.ToString().ToLower();
         var entity = await _unitOfWork.GetRepository<Category>()
-            .GetByPropertyAsync(x => x.Code == codeString, tracked: false);
+            .GetByPropertyAsync(x => x.Code.ToLower() == codeString, tracked: false);
 
         return entity == null ? null : ItemCategoryMapper.ToDomain(entity);
     }
@@ -58,11 +58,11 @@ public class ItemCategoryRepository(IUnitOfWork unitOfWork) : IItemCategoryRepos
         if (codes == null || codes.Count == 0)
             return [];
 
-        var codeStrings = codes.Select(c => c.ToString()).Distinct().ToList();
+        var codeStrings = codes.Select(c => c.ToString().ToLower()).Distinct().ToList();
 
         return await _unitOfWork.Set<Category>()
             .AsNoTracking()
-            .Where(c => codeStrings.Contains(c.Code))
+            .Where(c => codeStrings.Contains(c.Code.ToLower()))
             .Select(c => c.Id)
             .ToListAsync(cancellationToken);
     }

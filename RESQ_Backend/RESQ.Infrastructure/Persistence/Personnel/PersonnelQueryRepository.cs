@@ -19,13 +19,13 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
         CancellationToken cancellationToken = default)
     {
-        var activeTeamStatus = TeamMemberStatus.Accepted.ToString();
-        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
-        var rescuerTypeStr = rescuerType?.ToString();
+        var activeTeamStatus = TeamMemberStatus.Accepted.ToString().ToLower();
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString().ToLower();
+        var rescuerTypeStr = rescuerType?.ToString().ToLower();
 
         // 1. Get User IDs of users who are currently in active teams
         var teamMembers = await unitOfWork.GetRepository<RescueTeamMember>().GetAllByPropertyAsync(
-            filter: m => m.Status == activeTeamStatus && m.Team != null && m.Team.Status != disbandedStatus,
+            filter: m => m.Status.ToLower() == activeTeamStatus && m.Team != null && m.Team.Status!.ToLower() != disbandedStatus,
             includeProperties: "Team"
         );
         
@@ -40,7 +40,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
                 && (lastName == null || (u.LastName != null && u.LastName.Contains(lastName)))
                 && (phone == null || (u.Phone != null && u.Phone.Contains(phone)))
                 && (email == null || (u.Email != null && u.Email.Contains(email)))
-                && (rescuerTypeStr == null || (u.RescuerProfile != null && u.RescuerProfile.RescuerType == rescuerTypeStr)),
+                && (rescuerTypeStr == null || (u.RescuerProfile != null && u.RescuerProfile.RescuerType!.ToLower() == rescuerTypeStr)),
             orderBy: q => q.OrderByDescending(u => u.CreatedAt),
             includeProperties: "RescuerProfile"
         );
@@ -110,13 +110,13 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
 
     public async Task<RescueTeamModel?> GetActiveRescueTeamByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var accepted = TeamMemberStatus.Accepted.ToString();
-        var disbanded = RescueTeamStatus.Disbanded.ToString();
+        var accepted = TeamMemberStatus.Accepted.ToString().ToLower();
+        var disbanded = RescueTeamStatus.Disbanded.ToString().ToLower();
 
         // Query from RescueTeam side to avoid a cycle: RescueTeamMember → Team → RescueTeamMembers (same root type)
         var team = await unitOfWork.GetRepository<RescueTeam>().GetByPropertyAsync(
-            filter: t => t.Status != disbanded
-                         && t.RescueTeamMembers.Any(m => m.UserId == userId && m.Status == accepted),
+            filter: t => t.Status!.ToLower() != disbanded
+                         && t.RescueTeamMembers.Any(m => m.UserId == userId && m.Status.ToLower() == accepted),
             tracked: false,
             includeProperties: "AssemblyPoint,RescueTeamMembers,RescueTeamMembers.User"
         );
@@ -131,12 +131,12 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         int pageNumber, int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
-        var acceptedStatus = TeamMemberStatus.Accepted.ToString();
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString().ToLower();
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString().ToLower();
 
         // 1. Lấy tất cả đội (chưa Disbanded) thuộc điểm tập kết
         var teams = await unitOfWork.GetRepository<RescueTeam>().GetAllByPropertyAsync(
-            filter: t => t.AssemblyPointId == assemblyPointId && t.Status != disbandedStatus
+            filter: t => t.AssemblyPointId == assemblyPointId && t.Status!.ToLower() != disbandedStatus
         );
 
         var teamIds = teams.Select(t => t.Id).ToList();
@@ -146,7 +146,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
 
         // 2. Lấy các member đã Accepted trong những đội đó, kèm thông tin User
         var members = await unitOfWork.GetRepository<RescueTeamMember>().GetAllByPropertyAsync(
-            filter: m => teamIds.Contains(m.TeamId) && m.Status == acceptedStatus,
+            filter: m => teamIds.Contains(m.TeamId) && m.Status.ToLower() == acceptedStatus,
             includeProperties: "User,User.RescuerProfile"
         );
 
@@ -180,18 +180,18 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         List<string>? assemblyPointCodes = null,
         CancellationToken cancellationToken = default)
     {
-        var acceptedStatus = TeamMemberStatus.Accepted.ToString();
-        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
-        var rescuerTypeStr = rescuerType?.ToString();
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString().ToLower();
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString().ToLower();
+        var rescuerTypeStr = rescuerType?.ToString().ToLower();
 
         // Subquery: user IDs đang trong đội active
         var inTeamUserIds = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
-            .Where(m => m.Status == acceptedStatus && m.Team!.Status != disbandedStatus)
+            .Where(m => m.Status.ToLower() == acceptedStatus && m.Team!.Status!.ToLower() != disbandedStatus)
             .Select(m => m.UserId);
 
         // Subquery: user IDs đang trong đội active có assembly point
         var inApUserIds = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
-            .Where(m => m.Status == acceptedStatus && m.Team!.Status != disbandedStatus && m.Team.AssemblyPointId != null)
+            .Where(m => m.Status.ToLower() == acceptedStatus && m.Team!.Status!.ToLower() != disbandedStatus && m.Team.AssemblyPointId != null)
             .Select(m => m.UserId);
 
         // Base: eligible rescuers (roleId = 3)
@@ -201,7 +201,7 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
 
         // Filter: rescuerType
         if (rescuerTypeStr != null)
-            query = query.Where(u => u.RescuerProfile != null && u.RescuerProfile.RescuerType == rescuerTypeStr);
+            query = query.Where(u => u.RescuerProfile != null && u.RescuerProfile.RescuerType!.ToLower() == rescuerTypeStr);
 
         // Filter: search (OR across firstName, lastName, phone, email)
         if (!string.IsNullOrWhiteSpace(search))
@@ -253,8 +253,8 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
                 .Select(ap => ap.Id);
 
             var inApCodeUserIds = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
-                .Where(m => m.Status == acceptedStatus &&
-                            m.Team!.Status != disbandedStatus &&
+                .Where(m => m.Status.ToLower() == acceptedStatus &&
+                            m.Team!.Status!.ToLower() != disbandedStatus &&
                             m.Team.AssemblyPointId != null &&
                             apIdsFromCodes.Contains(m.Team.AssemblyPointId!.Value))
                 .Select(m => m.UserId);
@@ -279,8 +279,8 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         // Load team + assembly point info for the fetched users
         var teamMemberData = await unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
             .Where(m => userIds.Contains(m.UserId) &&
-                        m.Status == acceptedStatus &&
-                        m.Team!.Status != disbandedStatus)
+                        m.Status.ToLower() == acceptedStatus &&
+                        m.Team!.Status!.ToLower() != disbandedStatus)
             .Include(m => m.Team)
             .ToListAsync(cancellationToken);
 
@@ -319,10 +319,10 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
 
     public async Task<List<RescueTeamModel>> GetAllAvailableTeamsAsync(CancellationToken cancellationToken = default)
     {
-        var availableStatus = RescueTeamStatus.Available.ToString();
+        var availableStatus = RescueTeamStatus.Available.ToString().ToLower();
 
         var teams = await unitOfWork.GetRepository<RescueTeam>().GetAllByPropertyAsync(
-            filter: t => t.Status == availableStatus,
+            filter: t => t.Status!.ToLower() == availableStatus,
             includeProperties: "AssemblyPoint,RescueTeamMembers"
         );
 

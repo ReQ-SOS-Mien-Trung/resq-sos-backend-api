@@ -15,9 +15,9 @@ public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
 
     public async Task<PromptModel?> GetActiveByTypeAsync(PromptType promptType, CancellationToken cancellationToken = default)
     {
-        var typeStr = promptType.ToString();
+        var typeStr = promptType.ToString().ToLower();
         var entity = await _unitOfWork.GetRepository<Prompt>()
-            .GetByPropertyAsync(x => x.PromptType == typeStr && x.IsActive, tracked: false);
+            .GetByPropertyAsync(x => x.PromptType.ToLower() == typeStr && x.IsActive, tracked: false);
 
         return entity == null ? null : PromptMapper.ToDomain(entity);
     }
@@ -59,9 +59,9 @@ public class PromptRepository(IUnitOfWork unitOfWork) : IPromptRepository
 
     public async Task DeactivateOthersByTypeAsync(int currentPromptId, PromptType promptType, CancellationToken cancellationToken = default)
     {
-        var typeStr = promptType.ToString();
+        var typeStr = promptType.ToString().ToLower();
         var others = await _unitOfWork.GetRepository<Prompt>()
-            .GetAllByPropertyAsync(x => x.PromptType == typeStr && x.IsActive && x.Id != currentPromptId);
+            .GetAllByPropertyAsync(x => x.PromptType.ToLower() == typeStr && x.IsActive && x.Id != currentPromptId);
 
         foreach (var other in others)
         {

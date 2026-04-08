@@ -46,7 +46,10 @@ public class FundingRequestRepository : IFundingRequestRepository
             query = query.Where(x => depotIds.Contains(x.DepotId));
 
         if (statuses != null && statuses.Count > 0)
-            query = query.Where(x => statuses.Contains(x.Status));
+        {
+            var statusesLower = statuses.Select(s => s.ToLower()).ToList();
+            query = query.Where(x => statusesLower.Contains(x.Status.ToLower()));
+        }
 
         query = query.OrderByDescending(x => x.CreatedAt);
 
