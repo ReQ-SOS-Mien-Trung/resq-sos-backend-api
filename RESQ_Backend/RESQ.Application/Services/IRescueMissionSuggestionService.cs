@@ -133,6 +133,16 @@ public class SupplyToCollectDto
     public List<SupplyExecutionReusableUnitDto>? ReturnedReusableUnits { get; set; }
     /// <summary>Chỉ có sau khi depot manager confirm return: số lượng thực tế được nhập lại cho item này.</summary>
     public int? ActualReturnedQuantity { get; set; }
+    /// <summary>Tỉ lệ dự trù buffer so với số lượng cần thiết (ví dụ: 0.10 = 10%). Được tính khi tạo mission.</summary>
+    public double? BufferRatio { get; set; }
+    /// <summary>Số lượng dự trù buffer được tính toán: CEIL(Quantity × BufferRatio). Được reserve upfront trong kho.</summary>
+    public int? BufferQuantity { get; set; }
+    /// <summary>Số lượng buffer thực tế đã sử dụng khi lấy hàng. Chỉ set khi gọi confirm-pickup với buffer usage.</summary>
+    public int? BufferUsedQuantity { get; set; }
+    /// <summary>Lý do sử dụng buffer — bắt buộc khi BufferUsedQuantity > 0.</summary>
+    public string? BufferUsedReason { get; set; }
+    /// <summary>Chỉ có sau khi team confirm delivery: số lượng thực tế đã giao tới điểm đích cho item này.</summary>
+    public int? ActualDeliveredQuantity { get; set; }
 }
 
 public class SuggestedActivityDto
@@ -163,6 +173,12 @@ public class SuggestedActivityDto
     public string? AssemblyPointName { get; set; }
     public double? AssemblyPointLatitude { get; set; }
     public double? AssemblyPointLongitude { get; set; }
+    /// <summary>Tên điểm đến (kho hoặc điểm tập kết) — ưu tiên hiển thị thay cho tọa độ thô.</summary>
+    public string? DestinationName { get; set; }
+    /// <summary>Vĩ độ điểm đến của activity (kho, vị trí SOS, hoặc điểm tập kết). Frontend dùng để hiển thị bản đồ.</summary>
+    public double? DestinationLatitude { get; set; }
+    /// <summary>Kinh độ điểm đến của activity. Frontend dùng để hiển thị bản đồ.</summary>
+    public double? DestinationLongitude { get; set; }
     /// <summary>Danh sách vật tư cần lấy/giao</summary>
     public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
     /// <summary>Đội cứu hộ được AI giao thực hiện activity này.</summary>

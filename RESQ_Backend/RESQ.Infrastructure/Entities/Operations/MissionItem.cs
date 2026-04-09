@@ -26,6 +26,9 @@ public partial class MissionItem
     [Column("source_depot_id")]
     public int? SourceDepotId { get; set; }
 
+    [Column("buffer_ratio")]
+    public double? BufferRatio { get; set; }
+
     [ForeignKey("MissionId")]
     [InverseProperty("MissionItems")]
     public virtual Mission? Mission { get; set; }

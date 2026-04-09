@@ -86,13 +86,16 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
     /// <summary>
     /// Atomic claim: dùng conditional UPDATE để chuyển InProgress → Processing.
     /// Trả về true nếu thành công, false nếu đã bị claim bởi tiến trình khác.
+    /// row_version được tăng lên cùng lúc để CancelDepotClosure không thể dùng
+    /// TryForceClaimFromProcessingAsync (vốn kiểm tra row_version) để steal lock
+    /// trong khoảng hở khi Resolve đang mid-flight.
     /// </summary>
     public async Task<bool> TryClaimForProcessingAsync(int closureId, CancellationToken cancellationToken = default)
     {
         var affected = await _dbContext.Database.ExecuteSqlRawAsync(
             """
             UPDATE depot_closures
-            SET status = 'Processing'
+            SET status = 'Processing', row_version = row_version + 1
             WHERE id = {0} AND status = 'InProgress'
             """,
             closureId);

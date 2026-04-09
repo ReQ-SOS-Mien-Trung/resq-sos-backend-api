@@ -38,7 +38,12 @@ public class DepotClosureDto
     public int SnapshotReusableUnits { get; set; }
 
     public DateTime InitiatedAt { get; set; }
-    public DateTime ClosingTimeoutAt { get; set; }
+
+    /// <summary>
+    /// Chỉ có giá trị khi Status = InProgress hoặc Processing.
+    /// Null với tất cả các trạng thái còn lại (TransferPending, Completed, Cancelled, TimedOut).
+    /// </summary>
+    public DateTime? ClosingTimeoutAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 

@@ -38,4 +38,6 @@ public class SuggestedSupplyItemDto
     public string? Name { get; set; }
     public int? Quantity { get; set; }
     public string? Unit { get; set; }
+    /// <summary>Tỉ lệ dự trù buffer (0.0–1.0). Nếu không truyền, hệ thống dùng giá trị mặc định 10%.</summary>
+    public double? BufferRatio { get; set; }
 }

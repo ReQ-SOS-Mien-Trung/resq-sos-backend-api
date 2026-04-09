@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
-using RESQ.Application.UseCases.Logistics.Commands.DeleteDepotManager;
+using RESQ.Application.UseCases.Logistics.Commands.UnassignDepotManager;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotManagerHistory;
 
 namespace RESQ.Presentation.Controllers.Logistics
@@ -29,15 +29,15 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// Xoá hẳn (hard-delete) manager đang active khỏi bảng depot_managers.
-        /// Kho phải ở trạng thái Available, Full hoặc UnderMaintenance.
-        /// Sau khi xoá, kho chuyển về PendingAssignment.
+        /// Gỡ manager đang active khỏi kho (soft-unassign): set UnassignedAt cho bản ghi depot_managers,
+        /// lịch sử vẫn được giữ lại. Kho phải ở trạng thái Available, Full hoặc UnderMaintenance.
+        /// Sau khi gỡ, kho chuyển về PendingAssignment (chờ gán quản lý mới).
         /// </summary>
         [HttpDelete("{depotId:int}")]
         [Authorize(Policy = PermissionConstants.PersonnelDepotBranchManage)]
         public async Task<IActionResult> Delete(int depotId)
         {
-            var command = new DeleteDepotManagerCommand(depotId);
+            var command = new UnassignDepotManagerCommand(depotId);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

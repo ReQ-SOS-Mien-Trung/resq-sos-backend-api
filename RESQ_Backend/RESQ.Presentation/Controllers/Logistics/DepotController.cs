@@ -29,6 +29,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotsByCluster;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 using System.Security.Claims;
 
 namespace RESQ.Presentation.Controllers.Logistics
@@ -215,6 +216,24 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         // ─── Depot Closure endpoints ──────────────────────────────────────────
+
+        /// <summary>
+        /// [Manager kho đích] Tự khám phá phiên nhận hàng từ kho nguồn đang đóng cửa.
+        /// Không cần truyền bất kỳ ID nào — hệ thống tự xác định kho từ token.
+        /// Trả về đủ SourceDepotId + ClosureId + TransferId để gọi các action tiếp theo.
+        /// Trả 204 nếu hiện không có phiên chuyển hàng nào đang chờ.
+        /// </summary>
+        [HttpGet("my-incoming-closure-transfer")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(MyIncomingClosureTransferResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetMyIncomingClosureTransfer()
+        {
+            var userId = GetUserId();
+            var result = await _mediator.Send(new GetMyIncomingClosureTransferQuery(userId));
+            return result is null ? NoContent() : Ok(result);
+        }
 
         /// <summary>[Admin] Lấy toàn bộ lịch sử phiên đóng kho của một kho.</summary>
         [HttpGet("{id}/closures")]

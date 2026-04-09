@@ -229,34 +229,22 @@ public class DepotModel
         LastUpdatedAt = DateTime.UtcNow;
     }
 
-    public void UnassignManager()
-    {
-        var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
-        activeAssignment?.Unassign(DateTime.UtcNow);
-
-        Status = DepotStatus.PendingAssignment;
-        LastUpdatedAt = DateTime.UtcNow;
-    }
-
     /// <summary>
-    /// Xoá manager đang active: set UnassignedAt (giữ lịch sử trong depot_managers).
+    /// Gỡ manager đang active (soft-unassign): set UnassignedAt, giữ lịch sử.
     /// Chỉ cho phép khi kho ở trạng thái Available, Full hoặc UnderMaintenance.
-    /// Sau khi xoá, status chuyển về PendingAssignment.
+    /// Sau khi gỡ, status chuyển về PendingAssignment.
     /// </summary>
-    public void DeleteManager()
+    public void UnassignManager()
     {
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
         if (Status == DepotStatus.Closing)
             throw new DepotClosingException(
-                "Kho đang trong quá trình đóng, không thể xoá quản lý. Vui lòng huỷ đóng kho trước.");
+                "Kho đang trong quá trình đóng, không thể gỡ quản lý. Vui lòng huỷ đóng kho trước.");
 
         var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
-        if (activeAssignment == null)
-            return; // Không có manager active — caller tự xử lý
-
-        activeAssignment.Unassign(DateTime.UtcNow);
+        activeAssignment?.Unassign(DateTime.UtcNow);
 
         Status = DepotStatus.PendingAssignment;
         LastUpdatedAt = DateTime.UtcNow;

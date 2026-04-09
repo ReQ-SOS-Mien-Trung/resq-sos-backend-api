@@ -35,11 +35,7 @@ internal static class TeamIncidentQueryDtoMapper
         MissionTeamId = incident.MissionTeamId,
         MissionActivityId = incident.MissionActivityId,
         IncidentScope = incident.IncidentScope.ToString(),
-        IncidentType = string.IsNullOrWhiteSpace(incident.IncidentType)
-            ? incident.IncidentScope == TeamIncidentScope.Activity
-                ? IncidentV2Constants.ActivityIncidentType
-                : IncidentV2Constants.MissionIncidentType
-            : incident.IncidentType,
+        IncidentType = ResolveIncidentType(incident),
         DecisionCode = incident.DecisionCode,
         Latitude = incident.Latitude,
         Longitude = incident.Longitude,
@@ -48,7 +44,8 @@ internal static class TeamIncidentQueryDtoMapper
         ReportedBy = reportedBy,
         ReportedAt = incident.ReportedAt,
         HasInjuredMember = HasInjuredMember(incident.DetailJson),
-        HasSupportRequest = incident.NeedSupportSos || incident.SupportSosRequestId.HasValue,
+        HasSupportRequest = incident.NeedSupportSos || incident.SupportSosRequestId.HasValue
+            || HasSupportRequestInDetail(incident.DetailJson),
         SupportSosRequestId = incident.SupportSosRequestId,
         AffectedActivities = incident.AffectedActivities
             .OrderBy(activity => activity.OrderIndex)
@@ -83,6 +80,50 @@ internal static class TeamIncidentQueryDtoMapper
         }
     }
 
+    private static string ResolveIncidentType(TeamIncidentModel incident)
+    {
+        var stored = incident.IncidentType;
+
+        // If stored value is a real subtype (not the generic fallback strings), use it directly
+        if (!string.IsNullOrWhiteSpace(stored)
+            && stored != IncidentV2Constants.MissionIncidentType
+            && stored != IncidentV2Constants.ActivityIncidentType)
+        {
+            return stored;
+        }
+
+        // Attempt to read subtype from detail_json.incidentType
+        var detail = ParseDetail(incident.DetailJson);
+        if (detail.HasValue && detail.Value.ValueKind == System.Text.Json.JsonValueKind.Object
+            && detail.Value.TryGetProperty("incidentType", out var prop)
+            && prop.ValueKind == System.Text.Json.JsonValueKind.String)
+        {
+            var fromJson = prop.GetString();
+            if (!string.IsNullOrWhiteSpace(fromJson))
+                return fromJson;
+        }
+
+        // Final fallback to generic type
+        if (!string.IsNullOrWhiteSpace(stored))
+            return stored;
+
+        return incident.IncidentScope == TeamIncidentScope.Activity
+            ? IncidentV2Constants.ActivityIncidentType
+            : IncidentV2Constants.MissionIncidentType;
+    }
+
+    private static bool HasSupportRequestInDetail(string? detailJson)
+    {
+        var detail = ParseDetail(detailJson);
+        if (!detail.HasValue || detail.Value.ValueKind != System.Text.Json.JsonValueKind.Object)
+            return false;
+
+        return (detail.Value.TryGetProperty("rescueRequest", out var rr)
+                    && rr.ValueKind != System.Text.Json.JsonValueKind.Null)
+            || (detail.Value.TryGetProperty("supportRequest", out var sr)
+                    && sr.ValueKind != System.Text.Json.JsonValueKind.Null);
+    }
+
     private static bool HasInjuredMember(string? detailJson)
     {
         var detail = ParseDetail(detailJson);
@@ -93,7 +134,11 @@ internal static class TeamIncidentQueryDtoMapper
 
         return ContainsTrue(detail.Value, "hasInjuredMember")
             || ContainsTrue(detail.Value, "hasInjured")
-            || ContainsNonEmptyArray(detail.Value, "medicalIssues");
+            || ContainsTrue(detail.Value, "needsImmediateEmergencyCare")
+            || ContainsNonEmptyArray(detail.Value, "medicalIssues")
+            || ContainsPositiveCount(detail.Value, "lightlyInjuredMembers")
+            || ContainsPositiveCount(detail.Value, "severelyInjuredMembers")
+            || ContainsPositiveCount(detail.Value, "immobileMembers");
     }
 
     private static bool ContainsTrue(JsonElement element, string propertyName)
@@ -123,6 +168,36 @@ internal static class TeamIncidentQueryDtoMapper
                 {
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsPositiveCount(JsonElement element, string propertyName)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase)
+                    && property.Value.ValueKind == JsonValueKind.Number
+                    && property.Value.TryGetInt32(out var count) && count > 0)
+                {
+                    return true;
+                }
+
+                if (ContainsPositiveCount(property.Value, propertyName))
+                    return true;
+            }
+        }
+
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                if (ContainsPositiveCount(item, propertyName))
+                    return true;
             }
         }
 

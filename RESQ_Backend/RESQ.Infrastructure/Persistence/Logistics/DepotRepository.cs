@@ -204,7 +204,8 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         var now = DateTime.UtcNow;
 
         // Unassign manager cũ (nếu có) — set UnassignedAt trực tiếp trên entity
-        var existingManagers = await _unitOfWork.Set<DepotManager>()
+        // Phải dùng SetTracked để EF Core theo dõi thay đổi và lưu khi SaveChangesAsync được gọi
+        var existingManagers = await _unitOfWork.SetTracked<DepotManager>()
             .Where(dm => dm.DepotId == depot.Id && dm.UnassignedAt == null)
             .ToListAsync(cancellationToken);
 
@@ -238,31 +239,8 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
 
         // Set UnassignedAt cho tất cả bản ghi manager đang active (không có UnassignedAt)
         // Lịch sử vẫn được giữ lại, chỉ cập nhật UnassignedAt
-        var activeManagers = await _unitOfWork.Set<DepotManager>()
-            .Where(dm => dm.DepotId == depot.Id && dm.UnassignedAt == null)
-            .ToListAsync(cancellationToken);
-
-        foreach (var active in activeManagers)
-            active.UnassignedAt = now;
-
-        // Cập nhật status kho → PendingAssignment + LastUpdatedAt
-        var depotEntity = await _unitOfWork.GetRepository<Depot>()
-            .GetByPropertyAsync(x => x.Id == depot.Id, tracked: true);
-
-        if (depotEntity != null)
-        {
-            depotEntity.Status        = depot.Status.ToString();
-            depotEntity.LastUpdatedAt = depot.LastUpdatedAt;
-            await _unitOfWork.GetRepository<Depot>().UpdateAsync(depotEntity);
-        }
-    }
-
-    public async Task DeleteManagerAsync(DepotModel depot, CancellationToken cancellationToken = default)
-    {
-        var now = DateTime.UtcNow;
-
-        // Set UnassignedAt cho bản ghi manager đang active — giữ lịch sử, không xoá dòng
-        var activeManagers = await _unitOfWork.Set<DepotManager>()
+        // Phải dùng SetTracked để EF Core theo dõi thay đổi và lưu khi SaveChangesAsync được gọi
+        var activeManagers = await _unitOfWork.SetTracked<DepotManager>()
             .Where(dm => dm.DepotId == depot.Id && dm.UnassignedAt == null)
             .ToListAsync(cancellationToken);
 

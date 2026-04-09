@@ -139,7 +139,7 @@ public class UpdateActivityStatusCommandHandler(
             {
                 var itemsToConsume = items
                     .Where(i => i.ItemId.HasValue && i.Quantity > 0)
-                    .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity))
+                    .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity + (i.BufferUsedQuantity ?? 0)))
                     .ToList();
 
                 if (itemsToConsume.Count > 0)
@@ -150,6 +150,25 @@ public class UpdateActivityStatusCommandHandler(
                         activity.DepotId.Value, itemsToConsume, request.DecisionBy,
                         request.ActivityId, activity.MissionId ?? 0, cancellationToken);
 
+                    // Release the unused buffer portion that was reserved upfront but not consumed
+                    var unusedBufferItems = items
+                        .Where(i => i.ItemId.HasValue && (i.BufferQuantity ?? 0) > (i.BufferUsedQuantity ?? 0))
+                        .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: (i.BufferQuantity ?? 0) - (i.BufferUsedQuantity ?? 0)))
+                        .ToList();
+                    if (unusedBufferItems.Count > 0)
+                    {
+                        try
+                        {
+                            await _depotInventoryRepository.ReleaseReservedSuppliesAsync(activity.DepotId.Value, unusedBufferItems, cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex,
+                                "Failed to release unused buffer for ActivityId={activityId}. Reserved stock may be slightly over-locked.",
+                                activity.Id);
+                        }
+                    }
+
                     await MissionSupplyExecutionSnapshotHelper.SyncPickupExecutionAsync(
                         activity,
                         pickupExecution,
@@ -158,8 +177,9 @@ public class UpdateActivityStatusCommandHandler(
                         cancellationToken);
 
                     _logger.LogInformation(
-                        "Inventory consumed for ActivityId={activityId} DepotId={depotId}: {count} item type(s)",
-                        activity.Id, activity.DepotId.Value, itemsToConsume.Count);
+                        "Inventory consumed for ActivityId={activityId} DepotId={depotId}: {count} item type(s), bufferUsed={bufferUsed}",
+                        activity.Id, activity.DepotId.Value, itemsToConsume.Count,
+                        items.Sum(i => i.BufferUsedQuantity ?? 0));
                 }
             }
         }
@@ -179,14 +199,14 @@ public class UpdateActivityStatusCommandHandler(
                 {
                     var itemsToRelease = items
                         .Where(i => i.ItemId.HasValue && i.Quantity > 0)
-                        .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity))
+                        .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity + (i.BufferQuantity ?? 0)))
                         .ToList();
 
                     if (itemsToRelease.Count > 0)
                     {
                         await _depotInventoryRepository.ReleaseReservedSuppliesAsync(activity.DepotId.Value, itemsToRelease, cancellationToken);
                         _logger.LogInformation(
-                            "Reservation released for ActivityId={activityId} DepotId={depotId} due to status={status}: {count} item type(s)",
+                            "Reservation released for ActivityId={activityId} DepotId={depotId} due to status={status}: {count} item type(s) (incl. buffer)",
                             activity.Id, activity.DepotId.Value, effectiveStatus, itemsToRelease.Count);
                     }
                 }

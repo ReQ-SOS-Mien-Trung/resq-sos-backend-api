@@ -71,6 +71,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepotClosureRepository, DepotClosureRepository>();
         services.AddScoped<IDepotClosureTransferRepository, DepotClosureTransferRepository>();
         services.AddScoped<IUpcomingPickupActivityRepository, UpcomingPickupActivityRepository>();
+        services.AddScoped<IReturnSupplyActivityRepository, ReturnSupplyActivityRepository>();
         services.AddScoped<IStockThresholdConfigRepository, StockThresholdConfigRepository>();
         services.AddScoped<IStockWarningBandConfigRepository, StockWarningBandConfigRepository>();
         services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();

@@ -44,7 +44,7 @@ public class UpdateMissionActivityCommandHandler(
                 {
                     var itemsToRelease = oldItems
                         .Where(i => i.ItemId.HasValue && i.Quantity > 0)
-                        .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity))
+                        .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity + (i.BufferQuantity ?? 0)))
                         .ToList();
 
                     if (itemsToRelease.Count > 0)
@@ -107,7 +107,7 @@ public class UpdateMissionActivityCommandHandler(
         {
             var itemsToReserve = nextItems
                 .Where(i => i.ItemId.HasValue && i.Quantity > 0)
-                .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity))
+                .Select(i => (ItemModelId: i.ItemId!.Value, Quantity: i.Quantity + (i.BufferQuantity ?? 0)))
                 .ToList();
 
             if (itemsToReserve.Count > 0)

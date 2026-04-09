@@ -162,7 +162,7 @@ internal static class MissionActivityIncidentFailureHelper
 
             var itemsToRelease = items
                 .Where(item => item.ItemId.HasValue && item.Quantity > 0)
-                .Select(item => (ItemModelId: item.ItemId!.Value, Quantity: item.Quantity))
+                .Select(item => (ItemModelId: item.ItemId!.Value, Quantity: item.Quantity + (item.BufferQuantity ?? 0)))
                 .ToList();
 
             if (itemsToRelease.Count == 0)

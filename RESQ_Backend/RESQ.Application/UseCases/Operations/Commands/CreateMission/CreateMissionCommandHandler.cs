@@ -47,6 +47,7 @@ public class CreateMissionCommandHandler(
     private const string CollectSuppliesActivityType = "COLLECT_SUPPLIES";
     private const string ReturnSuppliesActivityType = "RETURN_SUPPLIES";
     private const string ReusableItemType = "Reusable";
+    private const double DefaultBufferRatio = 0.10;
 
     public async Task<CreateMissionResponse> Handle(CreateMissionCommand request, CancellationToken cancellationToken)
     {
@@ -88,12 +89,19 @@ public class CreateMissionCommandHandler(
                 DepotAddress = a.DepotAddress,
                 AssemblyPointId = a.AssemblyPointId,
                 Items = a.SuppliesToCollect is { Count: > 0 }
-                    ? JsonSerializer.Serialize(a.SuppliesToCollect.Select(s => new SupplyToCollectDto
+                    ? JsonSerializer.Serialize(a.SuppliesToCollect.Select(s =>
                     {
-                        ItemId = s.Id,
-                        ItemName = s.Name ?? string.Empty,
-                        Quantity = s.Quantity ?? 0,
-                        Unit = s.Unit
+                        var bufferRatio = Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
+                        var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling((s.Quantity ?? 0) * bufferRatio) : 0;
+                        return new SupplyToCollectDto
+                        {
+                            ItemId = s.Id,
+                            ItemName = s.Name ?? string.Empty,
+                            Quantity = s.Quantity ?? 0,
+                            Unit = s.Unit,
+                            BufferRatio = bufferRatio > 0 ? bufferRatio : (double?)null,
+                            BufferQuantity = bufferQty > 0 ? bufferQty : (int?)null
+                        };
                     }))
                     : null,
                 Target = a.Target,
@@ -182,9 +190,11 @@ public class CreateMissionCommandHandler(
 
     private async Task ValidateSuppliesAsync(List<CreateActivityItemDto> activities, CancellationToken cancellationToken)
     {
-        // Group activities by depotId — only validate those that specify both a depot and supplies
+        // Only COLLECT_SUPPLIES steps actually draw from depot inventory.
+        // DELIVER_SUPPLIES (and others) may carry suppliesToCollect metadata but do NOT
+        // represent a separate depot withdrawal — including them would double-count quantities.
         var activitiesWithSupplies = activities
-            .Where(a => !IsReturnSuppliesActivity(a)
+            .Where(a => IsCollectSuppliesActivity(a)
                 && a.DepotId.HasValue
                 && a.SuppliesToCollect is { Count: > 0 })
             .ToList();
@@ -198,11 +208,18 @@ public class CreateMissionCommandHandler(
                 Items = g.SelectMany(a => a.SuppliesToCollect!)
                          .Where(s => s.Id.HasValue)
                          .GroupBy(s => s.Id!.Value)
-                         .Select(sg => (
-                             ItemModelId: sg.Key,
-                             ItemName: sg.First().Name ?? $"Item#{sg.Key}",
-                             RequestedQuantity: sg.Sum(s => s.Quantity ?? 0)
-                         ))
+                         .Select(sg =>
+                         {
+                             var first = sg.First();
+                             var totalRequired = sg.Sum(s => s.Quantity ?? 0);
+                             var bufferRatio = Math.Max(0.0, first.BufferRatio ?? DefaultBufferRatio);
+                             var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling(totalRequired * bufferRatio) : 0;
+                             return (
+                                 ItemModelId: sg.Key,
+                                 ItemName: first.Name ?? $"Item#{sg.Key}",
+                                 RequestedQuantity: totalRequired + bufferQty
+                             );
+                         })
                          .ToList()
             });
 
@@ -470,7 +487,12 @@ public class CreateMissionCommandHandler(
 
             var itemsToReserve = requestActivity.SuppliesToCollect
                 .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
-                .Select(s => (ItemModelId: s.Id!.Value, Quantity: s.Quantity ?? 0))
+                .Select(s =>
+                {
+                    var bufferRatio = Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
+                    var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling((s.Quantity ?? 0) * bufferRatio) : 0;
+                    return (ItemModelId: s.Id!.Value, Quantity: (s.Quantity ?? 0) + bufferQty);
+                })
                 .ToList();
 
             if (itemsToReserve.Count == 0)
