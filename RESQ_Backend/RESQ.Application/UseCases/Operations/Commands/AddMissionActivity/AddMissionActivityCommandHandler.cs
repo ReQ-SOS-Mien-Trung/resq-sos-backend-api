@@ -35,6 +35,8 @@ public class AddMissionActivityCommandHandler(
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<AddMissionActivityCommandHandler> _logger = logger;
 
+    private const double DefaultBufferRatio = 0.10;
+
     public async Task<AddMissionActivityResponse> Handle(AddMissionActivityCommand request, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Adding activity to MissionId={missionId}", request.MissionId);
@@ -48,11 +50,16 @@ public class AddMissionActivityCommandHandler(
         {
             var itemsToCheck = request.SuppliesToCollect
                 .Where(s => s.Id.HasValue)
-                .Select(s => (
-                    ItemModelId: s.Id!.Value,
-                    ItemName: s.Name ?? $"Item#{s.Id}",
-                    RequestedQuantity: s.Quantity ?? 0
-                ))
+                .Select(s =>
+                {
+                    var bufferRatio = Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
+                    var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling((s.Quantity ?? 0) * bufferRatio) : 0;
+                    return (
+                        ItemModelId: s.Id!.Value,
+                        ItemName: s.Name ?? $"Item#{s.Id}",
+                        RequestedQuantity: (s.Quantity ?? 0) + bufferQty
+                    );
+                })
                 .ToList();
 
             if (itemsToCheck.Count > 0)
@@ -83,12 +90,19 @@ public class AddMissionActivityCommandHandler(
             DepotName = request.DepotName,
             DepotAddress = request.DepotAddress,
             Items = request.SuppliesToCollect is { Count: > 0 }
-                ? JsonSerializer.Serialize(request.SuppliesToCollect.Select(s => new SupplyToCollectDto
+                ? JsonSerializer.Serialize(request.SuppliesToCollect.Select(s =>
                 {
-                    ItemId = s.Id,
-                    ItemName = s.Name ?? string.Empty,
-                    Quantity = s.Quantity ?? 0,
-                    Unit = s.Unit
+                    var bufferRatio = Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
+                    var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling((s.Quantity ?? 0) * bufferRatio) : 0;
+                    return new SupplyToCollectDto
+                    {
+                        ItemId = s.Id,
+                        ItemName = s.Name ?? string.Empty,
+                        Quantity = s.Quantity ?? 0,
+                        Unit = s.Unit,
+                        BufferRatio = bufferRatio > 0 ? bufferRatio : (double?)null,
+                        BufferQuantity = bufferQty > 0 ? bufferQty : (int?)null
+                    };
                 }))
                 : null,
             Target = request.Target,
@@ -129,7 +143,12 @@ public class AddMissionActivityCommandHandler(
         {
             var itemsToReserve = request.SuppliesToCollect
                 .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
-                .Select(s => (ItemModelId: s.Id!.Value, Quantity: s.Quantity ?? 0))
+                .Select(s =>
+                {
+                    var bufferRatio = Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
+                    var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling((s.Quantity ?? 0) * bufferRatio) : 0;
+                    return (ItemModelId: s.Id!.Value, Quantity: (s.Quantity ?? 0) + bufferQty);
+                })
                 .ToList();
 
             if (itemsToReserve.Count > 0)
