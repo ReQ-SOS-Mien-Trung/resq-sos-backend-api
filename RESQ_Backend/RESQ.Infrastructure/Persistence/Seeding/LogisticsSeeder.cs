@@ -912,13 +912,6 @@ public static class LogisticsSeeder
             }
         }
 
-        // ── Test seed: 2 áo phao cứu sinh tại Depot 1 (Huế) được nhọn chọn là InUse ──────────────────────
-        // Phục vụ test endpoint: POST /operations/missions/5/activities/8/confirm-return
-        // Login bằng: manager@resq.vn / Manager@123
-        var inUse = ReusableItemStatus.InUse.ToString();
-        list.Single(x => x.Id == 1).Status = inUse; // D1-R004-001, Áo phao cứu sinh, Good
-        list.Single(x => x.Id == 2).Status = inUse; // D1-R004-002, Áo phao cứu sinh, Good
-
         modelBuilder.Entity<DepotReusableItem>().HasData(list.ToArray());
     }
 
@@ -1088,7 +1081,32 @@ public static class LogisticsSeeder
             // Mar 2026
             new InventoryLog { Id = 44, DepotSupplyInventoryId = 1,                    SupplyInventoryLotId = 36, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 10000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 3, PerformedBy = mgr1, Note = "Tiếp nhận mì tôm từ Quỹ Tấm Lòng Vàng Đà Nẵng",      ReceivedDate = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc),  ExpiredDate = new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 45, DepotSupplyInventoryId = 3,                    ActionType = InventoryActionType.Export.ToString(), QuantityChange = 5000,  SourceType = InventorySourceType.Mission.ToString(),  MissionId = 1, PerformedBy = mgr1, Note = "Xuất thuốc hạ sốt cấp phát cho vùng thiên tai",      CreatedAt = new DateTime(2026, 3, 10, 7, 30, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 46, DepotSupplyInventoryId = 2,                    ActionType = InventoryActionType.Adjust.ToString(), QuantityChange = -2000, SourceType = InventorySourceType.Adjustment.ToString(),             PerformedBy = mgr1, Note = "Điều chỉnh tồn kho nước sau kiểm kê định kỳ quý I/2026", CreatedAt = new DateTime(2026, 3, 15, 16, 0, 0, DateTimeKind.Utc) }
+            new InventoryLog { Id = 46, DepotSupplyInventoryId = 2,                    ActionType = InventoryActionType.Adjust.ToString(), QuantityChange = -2000, SourceType = InventorySourceType.Adjustment.ToString(),             PerformedBy = mgr1, Note = "Điều chỉnh tồn kho nước sau kiểm kê định kỳ quý I/2026", CreatedAt = new DateTime(2026, 3, 15, 16, 0, 0, DateTimeKind.Utc) },
+
+            // ── Lịch sử xuất / trả cho Activity 6 + 9 (Mission 4, kho Huế — consumable only) ───────────────
+            // Xuất khi manager xác nhận COLLECT_SUPPLIES Activity 6
+            new InventoryLog { Id = 47, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Export.ToString(),  QuantityChange = 120, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Xuất mì tôm cho đội vận chuyển Mission 4 (Activity 6)",             CreatedAt = new DateTime(2026, 3, 5, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 48, DepotSupplyInventoryId = 2, ActionType = InventoryActionType.Export.ToString(),  QuantityChange = 240, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Xuất nước tinh khiết cho đội vận chuyển Mission 4 (Activity 6)",       CreatedAt = new DateTime(2026, 3, 5, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 49, DepotSupplyInventoryId = 3, ActionType = InventoryActionType.Export.ToString(),  QuantityChange = 300, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Xuất thuốc hạ sốt cho đội vận chuyển Mission 4 (Activity 6)",          CreatedAt = new DateTime(2026, 3, 5, 7, 55, 0, DateTimeKind.Utc) },
+            // Nhận lại khi manager xác nhận RETURN_SUPPLIES Activity 9
+            new InventoryLog { Id = 50, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Return.ToString(),  QuantityChange = 50,  SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Nhận lại mì tôm dư thừa từ đội vận chuyển Mission 4 (Activity 9)",      CreatedAt = new DateTime(2026, 3, 5, 11, 30, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 51, DepotSupplyInventoryId = 3, ActionType = InventoryActionType.Return.ToString(),  QuantityChange = 100, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Nhận lại thuốc hạ sốt dư thừa từ đội vận chuyển Mission 4 (Activity 9)", CreatedAt = new DateTime(2026, 3, 5, 11, 30, 0, DateTimeKind.Utc) },
+
+            // ── Lịch sử xuất / trả cho Activity 10 + 11 (Mission 6, kho Huế — consumable + reusable) ────────
+            // Xuất consumable khi manager xác nhận COLLECT_SUPPLIES Activity 10
+            new InventoryLog { Id = 52, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 100, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất mì tôm cho đội vận chuyển Mission 6 (Activity 10)",             CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 53, DepotSupplyInventoryId = 5, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 50,  SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất chăn ấm cho đội vận chuyển Mission 6 (Activity 10)",           CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            // Xuất reusable (áo phao cứu sinh) — 1 log row mỗi đơn vị
+            new InventoryLog { Id = 54, ReusableItemId = 1, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất áo phao D1-R004-001 cho đội vận chuyển Mission 6 (Activity 10)", CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 55, ReusableItemId = 2, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất áo phao D1-R004-002 cho đội vận chuyển Mission 6 (Activity 10)", CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 56, ReusableItemId = 3, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất áo phao D1-R004-003 cho đội vận chuyển Mission 6 (Activity 10)", CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            // Nhận lại consumable dư thừa khi manager xác nhận RETURN_SUPPLIES Activity 11
+            new InventoryLog { Id = 57, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 30, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại mì tôm dư thừa từ đội vận chuyển Mission 6 (Activity 11)",   CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 58, DepotSupplyInventoryId = 5, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 8,  SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại chăn ấm dư thừa từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+            // Nhận lại reusable (áo phao cứu sinh) — 1 log row mỗi đơn vị
+            new InventoryLog { Id = 59, ReusableItemId = 1, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-001 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 60, ReusableItemId = 2, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-002 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 61, ReusableItemId = 3, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-003 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) }
         );
     }
 
