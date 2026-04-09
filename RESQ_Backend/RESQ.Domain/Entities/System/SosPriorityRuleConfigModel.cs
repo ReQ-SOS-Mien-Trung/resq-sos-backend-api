@@ -6,6 +6,12 @@ namespace RESQ.Domain.Entities.System;
 public class SosPriorityRuleConfigModel
 {
     public int Id { get; set; }
+    public string ConfigVersion { get; set; } = "SOS_PRIORITY_V2";
+    public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTime? ActivatedAt { get; set; }
+    public Guid? ActivatedBy { get; set; }
 
     /// <summary>
     /// JSON config đầy đủ cho rulebase SOS_PRIORITY_V1.
@@ -48,5 +54,16 @@ public class SosPriorityRuleConfigModel
     /// </summary>
     public string PriorityThresholdsJson { get; set; } = "{}";
 
+    public string WaterUrgencyScoresJson { get; set; } = "{}";
+    public string FoodUrgencyScoresJson { get; set; } = "{}";
+    public string BlanketUrgencyRulesJson { get; set; } = "{}";
+    public string ClothingUrgencyRulesJson { get; set; } = "{}";
+    public string VulnerabilityRulesJson { get; set; } = "{}";
+    public string VulnerabilityScoreExpressionJson { get; set; } = "{}";
+    public string ReliefScoreExpressionJson { get; set; } = "{}";
+    public string PriorityScoreExpressionJson { get; set; } = "{}";
+
     public DateTime UpdatedAt { get; set; }
+
+    public bool IsDraft => !IsActive && !ActivatedAt.HasValue;
 }

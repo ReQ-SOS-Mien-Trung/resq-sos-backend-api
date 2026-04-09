@@ -52,10 +52,12 @@ public class GetSosEvaluationQueryHandler(
         if (ruleEvaluation is not null)
         {
             var itemsNeeded = DeserializeItems(ruleEvaluation.ItemsNeeded);
-            var breakdown = ParseJson<SosPriorityEvaluationDetails>(ruleEvaluation.DetailsJson);
+            var breakdown = ParseJson<SosPriorityEvaluationDetails>(ruleEvaluation.BreakdownJson ?? ruleEvaluation.DetailsJson);
             ruleDto = new SosRuleEvaluationDto
             {
                 Id = ruleEvaluation.Id,
+                ConfigId = ruleEvaluation.ConfigId,
+                ConfigVersion = ruleEvaluation.ConfigVersion,
                 MedicalScore = ruleEvaluation.MedicalScore,
                 InjuryScore = ruleEvaluation.InjuryScore,
                 MobilityScore = ruleEvaluation.MobilityScore,

@@ -10,6 +10,10 @@ public class SosRuleEvaluationDto
 {
     /// <summary>ID bản ghi đánh giá trong DB</summary>
     public int Id { get; set; }
+    /// <summary>ID version config đã được snapshot khi chấm điểm.</summary>
+    public int? ConfigId { get; set; }
+    /// <summary>config_version đã được snapshot khi chấm điểm.</summary>
+    public string? ConfigVersion { get; set; }
 
     // --- Giá trị tương thích legacy ---
     /// <summary>Điểm y tế theo rule V1.</summary>
@@ -24,7 +28,7 @@ public class SosRuleEvaluationDto
     public double FoodScore { get; set; }
 
     // --- Tổng hợp ---
-    /// <summary>Điểm tổng theo công thức V1: ROUND((medical_score + relief_score) * situation_multiplier).</summary>
+    /// <summary>Điểm tổng theo expression priority_score của config version đã áp dụng.</summary>
     public double TotalScore { get; set; }
     /// <summary>Mức ưu tiên nội bộ: Low / Medium / High / Critical, tương ứng P4 / P3 / P2 / P1.</summary>
     public string PriorityLevel { get; set; } = string.Empty;
@@ -32,7 +36,7 @@ public class SosRuleEvaluationDto
     public string RuleVersion { get; set; } = string.Empty;
     /// <summary>Danh sách vật tư/thiết bị được đề xuất cần mang đến</summary>
     public List<string> ItemsNeeded { get; set; } = [];
-    /// <summary>Breakdown đầy đủ theo rulebase V1.</summary>
+    /// <summary>Breakdown đầy đủ theo config snapshot đã áp dụng.</summary>
     public SosPriorityEvaluationDetails? Breakdown { get; set; }
     /// <summary>Thời điểm đánh giá</summary>
     public DateTime CreatedAt { get; set; }

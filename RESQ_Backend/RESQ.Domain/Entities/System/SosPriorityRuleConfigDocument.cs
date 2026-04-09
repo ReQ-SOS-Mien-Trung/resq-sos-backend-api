@@ -5,10 +5,28 @@ namespace RESQ.Domain.Entities.System;
 public class SosPriorityRuleConfigDocument
 {
     [JsonPropertyName("config_version")]
-    public string ConfigVersion { get; set; } = "SOS_PRIORITY_V1";
+    public string ConfigVersion { get; set; } = "SOS_PRIORITY_V2";
 
     [JsonPropertyName("is_active")]
     public bool IsActive { get; set; } = true;
+
+    [JsonPropertyName("medical_severe_issues")]
+    public List<string> MedicalSevereIssues { get; set; } =
+    [
+        "UNCONSCIOUS",
+        "BREATHING_DIFFICULTY",
+        "CHEST_PAIN_STROKE",
+        "DROWNING",
+        "SEVERELY_BLEEDING"
+    ];
+
+    [JsonPropertyName("request_type_scores")]
+    public Dictionary<string, double> RequestTypeScores { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["RESCUE"] = 30,
+        ["RELIEF"] = 20,
+        ["OTHER"] = 10
+    };
 
     [JsonPropertyName("priority_score")]
     public SosPriorityScoreConfig PriorityScore { get; set; } = new();
@@ -39,6 +57,9 @@ public class SosPriorityRuleConfigDocument
 
     [JsonPropertyName("ui_options")]
     public SosUiOptionsConfig UiOptions { get; set; } = new();
+
+    [JsonPropertyName("display_labels")]
+    public SosDisplayLabelsConfig DisplayLabels { get; set; } = new();
 }
 
 public class SosPriorityScoreConfig
@@ -48,6 +69,17 @@ public class SosPriorityScoreConfig
 
     [JsonPropertyName("use_request_type_score")]
     public bool UseRequestTypeScore { get; set; } = false;
+
+    [JsonPropertyName("expression")]
+    public SosExpressionNode Expression { get; set; } = SosExpressionNode.Unary(
+        "ROUND",
+        SosExpressionNode.Binary(
+            "MUL",
+            SosExpressionNode.Binary(
+                "ADD",
+                SosExpressionNode.VarRef("medical_score"),
+                SosExpressionNode.VarRef("relief_score")),
+            SosExpressionNode.VarRef("situation_multiplier")));
 }
 
 public class SosMedicalScoreConfig
@@ -91,6 +123,12 @@ public class SosReliefScoreConfig
 {
     [JsonPropertyName("formula")]
     public string Formula { get; set; } = "supply_urgency_score + vulnerability_score";
+
+    [JsonPropertyName("expression")]
+    public SosExpressionNode Expression { get; set; } = SosExpressionNode.Binary(
+        "ADD",
+        SosExpressionNode.VarRef("supply_urgency_score"),
+        SosExpressionNode.VarRef("vulnerability_score"));
 
     [JsonPropertyName("supply_urgency_score")]
     public SosSupplyUrgencyScoreConfig SupplyUrgencyScore { get; set; } = new();
@@ -183,6 +221,15 @@ public class SosVulnerabilityScoreConfig
     [JsonPropertyName("formula")]
     public string Formula { get; set; } = "MIN(vulnerability_raw, supply_urgency_score * cap_ratio)";
 
+    [JsonPropertyName("expression")]
+    public SosExpressionNode Expression { get; set; } = SosExpressionNode.Binary(
+        "MIN",
+        SosExpressionNode.VarRef("vulnerability_raw"),
+        SosExpressionNode.Binary(
+            "MUL",
+            SosExpressionNode.VarRef("supply_urgency_score"),
+            SosExpressionNode.VarRef("cap_ratio")));
+
     [JsonPropertyName("vulnerability_raw")]
     public SosVulnerabilityRawConfig VulnerabilityRaw { get; set; } = new();
 
@@ -253,4 +300,82 @@ public class SosUiOptionsConfig
         "2_TO_3_DAYS",
         "OVER_3_DAYS"
     ];
+}
+
+public class SosDisplayLabelsConfig
+{
+    [JsonPropertyName("medical_issues")]
+    public Dictionary<string, string> MedicalIssues { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["UNCONSCIOUS"] = "Bất tỉnh",
+        ["BREATHING_DIFFICULTY"] = "Khó thở",
+        ["CHEST_PAIN_STROKE"] = "Đau ngực/đột quỵ",
+        ["DROWNING"] = "Đuối nước",
+        ["SEVERELY_BLEEDING"] = "Chảy máu nặng",
+        ["BLEEDING"] = "Chảy máu",
+        ["BURNS"] = "Bỏng",
+        ["HEAD_INJURY"] = "Chấn thương đầu",
+        ["CANNOT_MOVE"] = "Không thể di chuyển",
+        ["HIGH_FEVER"] = "Sốt cao",
+        ["DEHYDRATION"] = "Mất nước",
+        ["FRACTURE"] = "Gãy xương",
+        ["INFANT_NEEDS_MILK"] = "Trẻ sơ sinh cần sữa",
+        ["LOST_PARENT"] = "Trẻ lạc người thân",
+        ["CHRONIC_DISEASE"] = "Bệnh nền",
+        ["CONFUSION"] = "Mất phương hướng",
+        ["NEEDS_MEDICAL_DEVICE"] = "Cần thiết bị y tế",
+        ["OTHER"] = "Khác",
+        ["PREGNANCY"] = "Bầu",
+        ["COVID"] = "Covid"
+    };
+
+    [JsonPropertyName("situations")]
+    public Dictionary<string, string> Situations { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["FLOODING"] = "Ngập lụt",
+        ["COLLAPSED"] = "Sập công trình",
+        ["TRAPPED"] = "Mắc kẹt",
+        ["DANGER_ZONE"] = "Vùng nguy hiểm",
+        ["CANNOT_MOVE"] = "Không thể di chuyển",
+        ["OTHER"] = "Khác",
+        ["DEFAULT_WHEN_NULL"] = "Mặc định"
+    };
+
+    [JsonPropertyName("water_duration")]
+    public Dictionary<string, string> WaterDuration { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["UNDER_6H"] = "Dưới 6 giờ",
+        ["6_TO_12H"] = "6 đến 12 giờ",
+        ["12_TO_24H"] = "12 đến 24 giờ",
+        ["1_TO_2_DAYS"] = "1 đến 2 ngày",
+        ["OVER_2_DAYS"] = "Trên 2 ngày",
+        ["NOT_SELECTED"] = "Chưa chọn"
+    };
+
+    [JsonPropertyName("food_duration")]
+    public Dictionary<string, string> FoodDuration { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["UNDER_12H"] = "Dưới 12 giờ",
+        ["12_TO_24H"] = "12 đến 24 giờ",
+        ["1_TO_2_DAYS"] = "1 đến 2 ngày",
+        ["2_TO_3_DAYS"] = "2 đến 3 ngày",
+        ["OVER_3_DAYS"] = "Trên 3 ngày",
+        ["NOT_SELECTED"] = "Chưa chọn"
+    };
+
+    [JsonPropertyName("age_groups")]
+    public Dictionary<string, string> AgeGroups { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ADULT"] = "Người lớn",
+        ["CHILD"] = "Trẻ em",
+        ["ELDERLY"] = "Người cao tuổi"
+    };
+
+    [JsonPropertyName("request_types")]
+    public Dictionary<string, string> RequestTypes { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["RESCUE"] = "Cứu nạn",
+        ["RELIEF"] = "Tiếp tế",
+        ["OTHER"] = "Khác"
+    };
 }

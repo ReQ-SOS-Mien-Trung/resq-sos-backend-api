@@ -113,5 +113,3 @@ namespace RESQ.Infrastructure.Persistence.Base
         }
     }
 }
-
-

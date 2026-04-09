@@ -286,6 +286,7 @@ public class FirebaseService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to subscribe FCM token to topic {Topic}", userTopic);
+            throw;
         }
     }
 
@@ -305,6 +306,7 @@ public class FirebaseService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to unsubscribe FCM token from topic {Topic}", userTopic);
+            throw;
         }
     }
 }

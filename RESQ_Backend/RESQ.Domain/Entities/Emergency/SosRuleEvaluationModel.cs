@@ -6,6 +6,8 @@ public class SosRuleEvaluationModel
 {
     public int Id { get; set; }
     public int SosRequestId { get; set; }
+    public int? ConfigId { get; set; }
+    public string? ConfigVersion { get; set; }
     public double MedicalScore { get; set; }
     public double FoodScore { get; set; }
     public double InjuryScore { get; set; }
@@ -15,6 +17,7 @@ public class SosRuleEvaluationModel
     public SosPriorityLevel PriorityLevel { get; set; }
     public string RuleVersion { get; set; } = "1.0";
     public string? ItemsNeeded { get; set; }
+    public string? BreakdownJson { get; set; }
     public string? DetailsJson { get; set; }
     public DateTime CreatedAt { get; set; }
 

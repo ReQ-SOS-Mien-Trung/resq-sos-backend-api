@@ -16,6 +16,13 @@ public partial class SosRuleEvaluation
     [Column("sos_request_id")]
     public int? SosRequestId { get; set; }
 
+    [Column("config_id")]
+    public int? ConfigId { get; set; }
+
+    [Column("config_version")]
+    [StringLength(100)]
+    public string? ConfigVersion { get; set; }
+
     [Column("medical_score")]
     public double? MedicalScore { get; set; }
 
@@ -44,6 +51,9 @@ public partial class SosRuleEvaluation
 
     [Column("items_needed", TypeName = "jsonb")]
     public string? ItemsNeeded { get; set; }
+
+    [Column("breakdown_json", TypeName = "jsonb")]
+    public string? BreakdownJson { get; set; }
 
     [Column("details_json", TypeName = "jsonb")]
     public string? DetailsJson { get; set; }
