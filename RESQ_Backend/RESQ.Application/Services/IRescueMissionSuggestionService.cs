@@ -163,6 +163,12 @@ public class SuggestedActivityDto
     public string? AssemblyPointName { get; set; }
     public double? AssemblyPointLatitude { get; set; }
     public double? AssemblyPointLongitude { get; set; }
+    /// <summary>Tên điểm đến (kho hoặc điểm tập kết) — ưu tiên hiển thị thay cho tọa độ thô.</summary>
+    public string? DestinationName { get; set; }
+    /// <summary>Vĩ độ điểm đến của activity (kho, vị trí SOS, hoặc điểm tập kết). Frontend dùng để hiển thị bản đồ.</summary>
+    public double? DestinationLatitude { get; set; }
+    /// <summary>Kinh độ điểm đến của activity. Frontend dùng để hiển thị bản đồ.</summary>
+    public double? DestinationLongitude { get; set; }
     /// <summary>Danh sách vật tư cần lấy/giao</summary>
     public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
     /// <summary>Đội cứu hộ được AI giao thực hiện activity này.</summary>
