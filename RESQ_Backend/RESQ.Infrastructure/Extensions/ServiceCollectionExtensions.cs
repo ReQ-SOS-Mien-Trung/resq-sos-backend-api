@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Finance;
@@ -47,9 +48,15 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.Add("Accept", "application/json");
         });
 
+        var dataSourceBuilder = new NpgsqlDataSourceBuilder(
+            configuration.GetConnectionString("ResQDb"));
+        dataSourceBuilder.UseNetTopologySuite();
+        dataSourceBuilder.EnableDynamicJson();
+        var dataSource = dataSourceBuilder.Build();
+
         services.AddDbContext<ResQDbContext>(options =>
             options.UseNpgsql(
-                configuration.GetConnectionString("ResQDb"),
+                dataSource,
                 x =>
                 {
                     x.UseNetTopologySuite();
