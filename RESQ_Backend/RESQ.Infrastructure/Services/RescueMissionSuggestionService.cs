@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -268,6 +269,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             ### COLLECT_SUPPLIES
             - Chỉ tạo khi có vật tư thực tế trong kho (available_quantity > 0).
             - `depot_id`, `depot_name`, `depot_address` phải khớp với kho thực tế trả về từ searchInventory.
+            - `depot_latitude`, `depot_longitude` phải điền theo `depot_latitude`, `depot_longitude` trả về từ searchInventory (để frontend hiển thị bản đồ).
             - `supplies_to_collect` chỉ chứa vật tư lấy từ kho đó với số lượng thực tế lấy.
 
             ### DELIVER_SUPPLIES
@@ -277,7 +279,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             ### RETURN_SUPPLIES
             - Chỉ dùng để trả vật tư tái sử dụng (`item_type = Reusable`) về kho nguồn sau khi hoàn tất các bước hiện trường.
             - `RETURN_SUPPLIES` phải nằm ở cuối kế hoạch cho đúng cặp đội + kho đã lấy vật tư reusable.
-            - `depot_id`, `depot_name`, `depot_address` phải khớp kho gốc; `supplies_to_collect` chỉ chứa các vật tư reusable thực sự cần trả.
+            - `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude` phải khớp kho gốc; `supplies_to_collect` chỉ chứa các vật tư reusable thực sự cần trả.
             - Không đưa vật tư consumable vào `RETURN_SUPPLIES`.
 
             ### RESCUE
@@ -457,6 +459,12 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 DepotId = a.DepotId,
                 DepotName = a.DepotName,
                 DepotAddress = a.DepotAddress,
+                DestinationLatitude  = (a.ActivityType is "COLLECT_SUPPLIES" or "RETURN_SUPPLIES")
+                    ? a.DepotLatitude  : a.AssemblyPointLatitude,
+                DestinationLongitude = (a.ActivityType is "COLLECT_SUPPLIES" or "RETURN_SUPPLIES")
+                    ? a.DepotLongitude : a.AssemblyPointLongitude,
+                DestinationName = (a.ActivityType is "COLLECT_SUPPLIES" or "RETURN_SUPPLIES")
+                    ? a.DepotName : a.AssemblyPointName,
                 SuppliesToCollect = a.SuppliesToCollect?.Select(s => new SupplyToCollectDto
                 {
                     ItemId = s.ItemId,
@@ -541,10 +549,16 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 if (a.TryGetProperty("depot_id", out var di) && di.ValueKind != JsonValueKind.Null && di.TryGetInt32(out var div)) dto.DepotId = div;
                 if (a.TryGetProperty("depot_name", out var dn) && dn.ValueKind != JsonValueKind.Null) dto.DepotName = dn.GetString();
                 if (a.TryGetProperty("depot_address", out var da) && da.ValueKind != JsonValueKind.Null) dto.DepotAddress = da.GetString();
+                if (a.TryGetProperty("depot_latitude",  out var dlat) && dlat.ValueKind != JsonValueKind.Null && dlat.TryGetDouble(out var dlatv)) dto.DestinationLatitude  ??= dlatv;
+                if (a.TryGetProperty("depot_longitude", out var dlon) && dlon.ValueKind != JsonValueKind.Null && dlon.TryGetDouble(out var dlonv)) dto.DestinationLongitude ??= dlonv;
+                if (!dto.DestinationLatitude.HasValue && a.TryGetProperty("assembly_point_latitude",  out var aplat2) && aplat2.ValueKind != JsonValueKind.Null && aplat2.TryGetDouble(out var aplat2v)) dto.DestinationLatitude  = aplat2v;
+                if (!dto.DestinationLongitude.HasValue && a.TryGetProperty("assembly_point_longitude", out var aplon2) && aplon2.ValueKind != JsonValueKind.Null && aplon2.TryGetDouble(out var aplon2v)) dto.DestinationLongitude = aplon2v;
                 if (a.TryGetProperty("assembly_point_id", out var api) && api.ValueKind != JsonValueKind.Null && api.TryGetInt32(out var apiv)) dto.AssemblyPointId = apiv;
                 if (a.TryGetProperty("assembly_point_name", out var activityApn) && activityApn.ValueKind != JsonValueKind.Null) dto.AssemblyPointName = activityApn.GetString();
                 if (a.TryGetProperty("assembly_point_latitude", out var aplat) && aplat.ValueKind != JsonValueKind.Null && aplat.TryGetDouble(out var aplatv)) dto.AssemblyPointLatitude = aplatv;
                 if (a.TryGetProperty("assembly_point_longitude", out var aplon) && aplon.ValueKind != JsonValueKind.Null && aplon.TryGetDouble(out var aplonv)) dto.AssemblyPointLongitude = aplonv;
+                // DestinationName: prefer depot name for supply activities, assembly point name for rescue/evacuate
+                dto.DestinationName ??= dto.DepotName ?? dto.AssemblyPointName;
                 if (a.TryGetProperty("supplies_to_collect", out var stc) && stc.ValueKind == JsonValueKind.Array)
                     dto.SuppliesToCollect = stc.EnumerateArray().Select(s =>
                     {
@@ -1317,6 +1331,136 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             .Replace("  ", " ")
             .Trim();
 
+    /// <summary>
+    /// Populates DestinationLatitude / DestinationLongitude / DestinationName on each activity
+    /// from structured context data (depots and SOS requests), then cleans up descriptions so
+    /// that named destinations are shown by name rather than raw coordinates.
+    /// Falls back to a DB lookup when the depot picked by the AI is not in the nearbyDepots list
+    /// (the AI uses searchInventory which covers all depots, not only the pre-filtered nearby set).
+    /// </summary>
+    private async Task BackfillDestinationInfoAsync(
+        List<SuggestedActivityDto> activities,
+        List<DepotSummary> nearbyDepots,
+        List<SosRequestSummary> sosRequests,
+        CancellationToken cancellationToken)
+    {
+        var depotMap = nearbyDepots.ToDictionary(d => d.Id);
+        var sosMap   = sosRequests
+            .Where(s => s.Latitude.HasValue && s.Longitude.HasValue)
+            .ToDictionary(s => s.Id);
+
+        // Collect depot IDs that are used by supply activities but not in nearbyDepots
+        // so we can batch-load their coordinates from DB.
+        var missingDepotIds = activities
+            .Where(a => (a.ActivityType is "COLLECT_SUPPLIES" or "RETURN_SUPPLIES")
+                        && !a.DestinationLatitude.HasValue
+                        && a.DepotId.HasValue
+                        && !depotMap.ContainsKey(a.DepotId.Value))
+            .Select(a => a.DepotId!.Value)
+            .Distinct()
+            .ToList();
+
+        // Batch DB lookups for missing depots
+        foreach (var depotId in missingDepotIds)
+        {
+            var loc = await _depotInventoryRepository.GetDepotLocationAsync(depotId, cancellationToken);
+            if (loc.HasValue)
+            {
+                // Synthesise a minimal DepotSummary so the switch below can use it uniformly
+                depotMap[depotId] = new DepotSummary
+                {
+                    Id        = depotId,
+                    Name      = activities.First(a => a.DepotId == depotId).DepotName ?? string.Empty,
+                    Latitude  = loc.Value.Latitude,
+                    Longitude = loc.Value.Longitude
+                };
+            }
+        }
+
+        foreach (var activity in activities)
+        {
+            switch (activity.ActivityType?.ToUpperInvariant())
+            {
+                case "COLLECT_SUPPLIES":
+                case "RETURN_SUPPLIES":
+                    if (!activity.DestinationLatitude.HasValue
+                        && activity.DepotId.HasValue
+                        && depotMap.TryGetValue(activity.DepotId.Value, out var depot))
+                    {
+                        activity.DestinationLatitude  = depot.Latitude;
+                        activity.DestinationLongitude = depot.Longitude;
+                        activity.DestinationName    ??= depot.Name;
+                    }
+                    break;
+
+                case "DELIVER_SUPPLIES":
+                case "RESCUE":
+                case "MEDICAL_AID":
+                    if (!activity.DestinationLatitude.HasValue
+                        && activity.SosRequestId.HasValue
+                        && sosMap.TryGetValue(activity.SosRequestId.Value, out var sos))
+                    {
+                        activity.DestinationLatitude  = sos.Latitude;
+                        activity.DestinationLongitude = sos.Longitude;
+                        // On-site SOS activities have no human-readable destination name
+                    }
+                    break;
+
+                case "EVACUATE":
+                    if (!activity.DestinationLatitude.HasValue && activity.AssemblyPointLatitude.HasValue)
+                    {
+                        activity.DestinationLatitude  = activity.AssemblyPointLatitude;
+                        activity.DestinationLongitude = activity.AssemblyPointLongitude;
+                        activity.DestinationName    ??= activity.AssemblyPointName;
+                    }
+                    break;
+            }
+
+            // When the destination has a name, ensure the description shows the name rather
+            // than raw coordinate pairs — coordinates are still available on the DTO fields.
+            if (!string.IsNullOrEmpty(activity.DestinationName)
+                && activity.DestinationLatitude.HasValue
+                && activity.DestinationLongitude.HasValue)
+            {
+                activity.Description = ReplaceDestinationCoordinatesWithName(
+                    activity.Description,
+                    activity.DestinationLatitude.Value,
+                    activity.DestinationLongitude.Value,
+                    activity.DestinationName);
+            }
+        }
+    }
+
+    // Matches bare or parenthesised coordinate pairs, e.g. "10.123, 106.456" or "(10.123, 106.456)".
+    private static readonly Regex DestCoordRegex =
+        new(@"\(?\s*(-?\d{1,3}\.\d+)\s*[,，]\s*(-?\d{1,3}\.\d+)\s*\)?", RegexOptions.Compiled);
+
+    private static string ReplaceDestinationCoordinatesWithName(
+        string description, double lat, double lon, string name)
+    {
+        if (string.IsNullOrEmpty(description)) return description;
+
+        bool nameAlreadyPresent = description.Contains(name, StringComparison.OrdinalIgnoreCase);
+
+        var result = DestCoordRegex.Replace(description, m =>
+        {
+            if (!double.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var mLat)
+                || !double.TryParse(m.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var mLon))
+                return m.Value;
+
+            // Only replace when these coordinates are close enough to the destination (~1 km / ~0.01°)
+            if (Math.Abs(mLat - lat) > 0.01 || Math.Abs(mLon - lon) > 0.01)
+                return m.Value;
+
+            // If name is already in the description → just remove the duplicate coordinates.
+            // Otherwise → replace the coordinate pair with the name.
+            return nameAlreadyPresent ? string.Empty : name;
+        });
+
+        // Clean up double spaces or leading/trailing whitespace left after removal
+        return Regex.Replace(result, @"  +", " ").Trim();
+    }
+
     // ─── SSE helpers ───────────────────────────────────────────────────────────
 
     private static SseMissionEvent Status(string msg) =>
@@ -1547,6 +1691,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
         await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
         await EnsureReusableReturnActivitiesAsync(result.SuggestedActivities, cancellationToken);
+        await BackfillDestinationInfoAsync(result.SuggestedActivities, nearbyDepots ?? [], sosRequests, cancellationToken);
         result.IsSuccess     = true;
         result.ModelName     = settings.Model;
         result.RawAiResponse = finalText;
@@ -1836,6 +1981,12 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
         [JsonPropertyName("depot_address")]
         public string? DepotAddress { get; set; }
+
+        [JsonPropertyName("depot_latitude")]
+        public double? DepotLatitude { get; set; }
+
+        [JsonPropertyName("depot_longitude")]
+        public double? DepotLongitude { get; set; }
 
         [JsonPropertyName("assembly_point_id")]
         public int? AssemblyPointId { get; set; }
