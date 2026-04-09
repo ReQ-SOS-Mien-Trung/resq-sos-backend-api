@@ -11,12 +11,13 @@ public static class FinanceSeed
         var fundSeedTime = new DateTime(2026, 3, 25, 0, 0, 0, DateTimeKind.Utc);
 
         // 0.1 Depot Funds (ví kho) — seed sẵn hạn mức tự ứng cho từng kho
+        // FundSourceType = "Campaign", FundSourceId = 1 → đến từ chiến dịch FLOOD_RELIEF_2026
         var depotFunds = new List<DepotFund>
         {
-            new DepotFund { Id = 1, DepotId = 1, Balance = 120_000_000m, MaxAdvanceLimit = 80_000_000m, LastUpdatedAt = fundSeedTime },
-            new DepotFund { Id = 2, DepotId = 2, Balance = 90_000_000m,  MaxAdvanceLimit = 60_000_000m, LastUpdatedAt = fundSeedTime },
-            new DepotFund { Id = 3, DepotId = 3, Balance = 70_000_000m,  MaxAdvanceLimit = 40_000_000m, LastUpdatedAt = fundSeedTime },
-            new DepotFund { Id = 4, DepotId = 4, Balance = 150_000_000m, MaxAdvanceLimit = 100_000_000m, LastUpdatedAt = fundSeedTime }
+            new DepotFund { Id = 1, DepotId = 1, Balance = 120_000_000m, MaxAdvanceLimit = 80_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 2, DepotId = 2, Balance = 90_000_000m,  MaxAdvanceLimit = 60_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 3, DepotId = 3, Balance = 70_000_000m,  MaxAdvanceLimit = 40_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 4, DepotId = 4, Balance = 150_000_000m, MaxAdvanceLimit = 100_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 }
         };
         modelBuilder.Entity<DepotFund>().HasData(depotFunds);
 

@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Enum.Logistics;
 
@@ -886,5 +887,159 @@ public class ExcelExportService : IExcelExportService
 
         // ── Freeze header row ─────────────────────────────────────────────────
         ws.SheetView.FreezeRows(1);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Depot Closure — External Resolution Template
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] ClosureTemplateHeaders =
+    [
+        "STT",               // A
+        "Tên vật phẩm",     // B
+        "Danh mục",          // C
+        "Đối tượng",         // D  ← NEW
+        "Loại vật phẩm",    // E
+        "Đơn vị",            // F
+        "Ngày nhập",         // G
+        "Hạn sử dụng",      // H
+        "Số lượng",          // I
+        "Đơn giá (VNĐ)",    // J  ← manager điền
+        "Thành tiền (VNĐ)", // K  ← formula
+        "Hình thức xử lý",  // L  ← manager điền (dropdown, cho phép nhập tay)
+        "Người nhận",        // M  ← manager điền
+        "Ghi chú"            // N  ← manager điền
+    ];
+
+    private const int ClosureCols = 14; // A..N
+    private const int ClosurePreFilledCols = 9; // A..I (pre-filled)
+
+    public byte[] GenerateClosureExternalTemplate(string depotName, IReadOnlyList<ClosureInventoryLotItemDto> items)
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Xử lý tồn kho");
+
+        // ─── Row 1: Title banner ─────────────────────────────────────────────
+        ws.Cell(1, 1).Value = $"MẪU XỬ LÝ TỒN KHO BÊN NGOÀI — {depotName.ToUpper()}";
+        var titleRange = ws.Range(1, 1, 1, ClosureCols);
+        titleRange.Merge();
+        titleRange.Style
+            .Font.SetBold(true)
+            .Font.SetFontSize(13)
+            .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+            .Alignment.SetVertical(XLAlignmentVerticalValues.Center)
+            .Fill.SetBackgroundColor(OrangeDark)
+            .Font.SetFontColor(White);
+        ws.Row(1).Height = 28;
+
+        // ─── Row 2: Export timestamp ──────────────────────────────────────────
+        ws.Cell(2, 1).Value = $"Ngày xuất: {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm}";
+        var tsRange = ws.Range(2, 1, 2, ClosureCols);
+        tsRange.Merge();
+        ws.Cell(2, 1).Style
+            .Font.SetItalic(true)
+            .Font.SetFontSize(10)
+            .Font.SetFontColor(Black)
+            .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+
+        // ─── Row 3: Header ────────────────────────────────────────────────────
+        int headerRow = 3;
+        for (int c = 0; c < ClosureTemplateHeaders.Length; c++)
+        {
+            var cell = ws.Cell(headerRow, c + 1);
+            cell.Value = ClosureTemplateHeaders[c];
+            cell.Style
+                .Font.SetBold(true)
+                .Font.SetFontSize(11)
+                .Font.SetFontColor(White)
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+                .Alignment.SetVertical(XLAlignmentVerticalValues.Center);
+
+            // Pre-filled columns (A-H): orange header
+            // Editable columns (I-M): dark blue-gray header
+            cell.Style.Fill.SetBackgroundColor(c < ClosurePreFilledCols ? OrangeMid : LockedHeaderColor);
+        }
+        ws.Row(headerRow).Height = 24;
+
+        // ─── Data rows ───────────────────────────────────────────────────────
+        int dataStartRow = 4;
+        for (int i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            int r = dataStartRow + i;
+
+            ws.Cell(r, 1).Value = i + 1;                       // A: STT
+            ws.Cell(r, 2).Value = item.ItemName;                // B: Tên vật phẩm
+            ws.Cell(r, 3).Value = item.CategoryName;            // C: Danh mục
+            ws.Cell(r, 4).Value = item.TargetGroup;             // D: Đối tượng
+            ws.Cell(r, 5).Value = item.ItemType;                // E: Loại vật phẩm
+            ws.Cell(r, 6).Value = item.Unit;                    // F: Đơn vị
+            // G: Ngày nhập
+            if (item.ReceivedDate.HasValue)
+            {
+                ws.Cell(r, 7).Value = item.ReceivedDate.Value.ToString("dd/MM/yyyy");
+            }
+            // H: Hạn sử dụng
+            if (item.ExpiredDate.HasValue)
+            {
+                ws.Cell(r, 8).Value = item.ExpiredDate.Value.ToString("dd/MM/yyyy");
+            }
+            ws.Cell(r, 9).Value = item.Quantity;                // I: Số lượng
+
+            // J: Đơn giá (editable — manager điền)
+            // K: Thành tiền = Số lượng × Đơn giá (formula)
+            ws.Cell(r, 11).FormulaA1 = $"I{r}*J{r}";
+            ws.Cell(r, 11).Style.NumberFormat.Format = "#,##0";
+
+            // Pre-filled cells: read-only style (light gray background)
+            var preFilledRange = ws.Range(r, 1, r, ClosurePreFilledCols);
+            preFilledRange.Style.Fill.SetBackgroundColor(
+                i % 2 == 0 ? OrangeLight : XLColor.White);
+            preFilledRange.Style.Font.SetFontColor(Black);
+
+            // Editable cells: white background with dashed border
+            var editableRange = ws.Range(r, ClosurePreFilledCols + 1, r, ClosureCols);
+            editableRange.Style.Fill.SetBackgroundColor(XLColor.White);
+            editableRange.Style.Border.SetOutsideBorder(XLBorderStyleValues.Dashed);
+            editableRange.Style.Border.SetOutsideBorderColor(XLColor.FromHtml("#90A4AE"));
+
+            // Dropdown for Handling Method (column L) — cho phép nhập tay nếu có hình thức khác
+            var dvHandling = ws.Cell(r, 12).GetDataValidation();
+            dvHandling.List("\"Donated,Disposed,Sold\"");
+            dvHandling.IgnoreBlanks = true;
+            dvHandling.ShowErrorMessage = false;  // Cho phép nhập tay giá trị ngoài danh sách
+            dvHandling.InputTitle = "Hình thức xử lý";
+            dvHandling.InputMessage = "Chọn hoặc nhập tay cách xử lý vật phẩm này";
+
+            // Full row thin border
+            var dataRow = ws.Range(r, 1, r, ClosureCols);
+            dataRow.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            dataRow.Style.Border.InsideBorder = XLBorderStyleValues.Hair;
+            dataRow.Style.Border.OutsideBorderColor = XLColor.FromHtml("#BDBDBD");
+            dataRow.Style.Border.InsideBorderColor = XLColor.FromHtml("#E0E0E0");
+        }
+
+        // ─── Column widths ───────────────────────────────────────────────────
+        ws.Column(1).Width = 6;    // STT
+        ws.Column(2).Width = 30;   // Tên vật phẩm
+        ws.Column(3).Width = 20;   // Danh mục
+        ws.Column(4).Width = 22;   // Đối tượng
+        ws.Column(5).Width = 14;   // Loại vật phẩm
+        ws.Column(6).Width = 10;   // Đơn vị
+        ws.Column(7).Width = 14;   // Ngày nhập
+        ws.Column(8).Width = 14;   // Hạn sử dụng
+        ws.Column(9).Width = 12;   // Số lượng
+        ws.Column(10).Width = 16;  // Đơn giá
+        ws.Column(11).Width = 18;  // Thành tiền
+        ws.Column(12).Width = 22;  // Hình thức xử lý
+        ws.Column(13).Width = 25;  // Người nhận
+        ws.Column(14).Width = 30;  // Ghi chú
+
+        // ─── Protect pre-filled columns ──────────────────────────────────────
+        ws.SheetView.FreezeRows(headerRow);
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
     }
 }

@@ -778,6 +778,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var command = new ImportPurchasedInventoryCommand
         {
             UserId = userId,
+            DepotFundId = request.DepotFundId,
             AdvancedByName = request.AdvancedByName,
             Invoices = request.Invoices
         };

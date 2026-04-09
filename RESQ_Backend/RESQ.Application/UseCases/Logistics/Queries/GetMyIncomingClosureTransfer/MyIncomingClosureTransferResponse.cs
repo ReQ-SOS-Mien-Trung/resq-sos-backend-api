@@ -1,3 +1,5 @@
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
+
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 
 /// <summary>
@@ -11,7 +13,7 @@ public class MyIncomingClosureTransferResponse
     /// <summary>depotId của kho nguồn — dùng làm route param {id} trong các endpoint đóng kho.</summary>
     public int SourceDepotId { get; set; }
 
-    /// <summary>ID phiên đóng kho — dùng làm route param {closureId}.</summary>
+    /// <summary>ID phiên đóng kho — thông tin audit, không cần dùng trong route.</summary>
     public int ClosureId { get; set; }
 
     /// <summary>ID bản ghi chuyển hàng — dùng làm route param {transferId}.</summary>
@@ -31,4 +33,10 @@ public class MyIncomingClosureTransferResponse
 
     public DateTime CreatedAt { get; set; }
     public DateTime? ShippedAt { get; set; }
+
+    /// <summary>
+    /// Chi tiết từng loại hàng sẽ được chuyển sang kho đích.
+    /// Manager kho đích dùng để biết trước sẽ nhận gì.
+    /// </summary>
+    public List<ClosureInventoryItemDto> IncomingItems { get; set; } = [];
 }

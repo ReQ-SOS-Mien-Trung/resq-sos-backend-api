@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
@@ -134,7 +136,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         // Include DepotSupplyInventories.ReliefItem để lấy thông tin tồn kho chi tiết
         var entities = await _unitOfWork.GetRepository<Depot>()
             .GetAllByPropertyAsync(
-                x => (x.Status == "Available" || x.Status == "Full") && x.CurrentUtilization > 0,
+                x => x.Status == "Available" && x.CurrentUtilization > 0,
                 includeProperties: "DepotManagers.User,SupplyInventories.ItemModel"
             );
 
@@ -147,9 +149,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
     {
         return await _unitOfWork.Set<Depot>()
             .CountAsync(
-                d => d.Id != depotId
-                     && (d.Status == "Available" || d.Status == "Full"
-                         || d.Status == "UnderMaintenance" || d.Status == "Closing"),
+                d => d.Id != depotId && d.Status == "Available",
                 cancellationToken);
     }
 
@@ -285,5 +285,118 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
                    && dm.UnassignedAt == null
                    && dm.DepotId != excludeDepotId,
                 cancellationToken);
+    }
+
+    public async Task<List<ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(
+        int depotId, CancellationToken cancellationToken = default)
+    {
+        // Consumable items: supply_inventory with quantity > 0
+        var consumables = await _unitOfWork.Set<SupplyInventory>()
+            .Where(inv => inv.DepotId == depotId && (inv.Quantity ?? 0) > 0)
+            .Include(inv => inv.ItemModel!)
+                .ThenInclude(im => im.Category)
+            .Select(inv => new ClosureInventoryItemDto
+            {
+                ItemModelId  = inv.ItemModelId ?? 0,
+                ItemName     = inv.ItemModel!.Name ?? "N/A",
+                CategoryName = inv.ItemModel!.Category!.Name ?? "N/A",
+                ItemType     = "Consumable",
+                Unit         = inv.ItemModel!.Unit ?? "N/A",
+                Quantity     = inv.Quantity ?? 0
+            })
+            .ToListAsync(cancellationToken);
+
+        // Reusable items: group by item_model_id, count Available ones
+        var reusables = await _unitOfWork.Set<ReusableItem>()
+            .Where(ri => ri.DepotId == depotId
+                      && ri.Status != "Decommissioned")
+            .Include(ri => ri.ItemModel!)
+                .ThenInclude(im => im.Category)
+            .GroupBy(ri => new
+            {
+                ItemModelId  = ri.ItemModelId ?? 0,
+                ItemName     = ri.ItemModel!.Name ?? "N/A",
+                CategoryName = ri.ItemModel!.Category!.Name ?? "N/A",
+                Unit         = ri.ItemModel!.Unit ?? "N/A"
+            })
+            .Select(g => new ClosureInventoryItemDto
+            {
+                ItemModelId  = g.Key.ItemModelId,
+                ItemName     = g.Key.ItemName,
+                CategoryName = g.Key.CategoryName,
+                ItemType     = "Reusable",
+                Unit         = g.Key.Unit,
+                Quantity     = g.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        return [.. consumables, .. reusables];
+    }
+
+    public async Task<List<ClosureInventoryLotItemDto>> GetLotDetailedInventoryForClosureAsync(
+        int depotId, CancellationToken cancellationToken = default)
+    {
+        // Consumable items: chia theo từng lô (supply_inventory_lots) có remaining > 0
+        // Include TargetGroups để build chuỗi đối tượng sử dụng
+        var consumableLots = await _unitOfWork.Set<SupplyInventoryLot>()
+            .Where(lot => lot.SupplyInventory.DepotId == depotId && lot.RemainingQuantity > 0)
+            .Include(lot => lot.SupplyInventory)
+                .ThenInclude(inv => inv.ItemModel!)
+                    .ThenInclude(im => im.Category)
+            .Include(lot => lot.SupplyInventory)
+                .ThenInclude(inv => inv.ItemModel!)
+                    .ThenInclude(im => im.TargetGroups)
+            .OrderBy(lot => lot.SupplyInventory.ItemModel!.Name)
+            .ThenBy(lot => lot.ExpiredDate)
+            .ToListAsync(cancellationToken);
+
+        var consumables = consumableLots.Select(lot => new ClosureInventoryLotItemDto
+        {
+            ItemModelId  = lot.SupplyInventory.ItemModelId ?? 0,
+            ItemName     = lot.SupplyInventory.ItemModel?.Name ?? "N/A",
+            CategoryName = lot.SupplyInventory.ItemModel?.Category?.Name ?? "N/A",
+            TargetGroup  = TargetGroupTranslations.JoinAsVietnamese(
+                lot.SupplyInventory.ItemModel?.TargetGroups.Select(tg => tg.Name) ?? []),
+            ItemType     = "Consumable",
+            Unit         = lot.SupplyInventory.ItemModel?.Unit ?? "N/A",
+            LotId        = lot.Id,
+            ReceivedDate = lot.ReceivedDate,
+            ExpiredDate  = lot.ExpiredDate,
+            Quantity     = lot.RemainingQuantity
+        }).ToList();
+
+        // Reusable items: nhóm theo item_model (không có lot)
+        var reusableItems = await _unitOfWork.Set<ReusableItem>()
+            .Where(ri => ri.DepotId == depotId && ri.Status != "Decommissioned")
+            .Include(ri => ri.ItemModel!)
+                .ThenInclude(im => im.Category)
+            .Include(ri => ri.ItemModel!)
+                .ThenInclude(im => im.TargetGroups)
+            .ToListAsync(cancellationToken);
+
+        var reusables = reusableItems
+            .GroupBy(ri => ri.ItemModelId ?? 0)
+            .Select(g =>
+            {
+                var first = g.First();
+                return new ClosureInventoryLotItemDto
+                {
+                    ItemModelId  = g.Key,
+                    ItemName     = first.ItemModel?.Name ?? "N/A",
+                    CategoryName = first.ItemModel?.Category?.Name ?? "N/A",
+                    TargetGroup  = TargetGroupTranslations.JoinAsVietnamese(
+                        first.ItemModel?.TargetGroups.Select(tg => tg.Name) ?? []),
+                    ItemType     = "Reusable",
+                    Unit         = first.ItemModel?.Unit ?? "N/A",
+                    LotId        = null,
+                    ReceivedDate = null,
+                    ExpiredDate  = null,
+                    Quantity     = g.Count()
+                };
+            })
+            .OrderBy(x => x.ItemName)
+            .ToList();
+
+        return [.. consumables, .. reusables];
     }
 }

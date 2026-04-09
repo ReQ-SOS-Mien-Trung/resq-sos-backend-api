@@ -8,12 +8,9 @@ using RESQ.Domain.Enum.Finance;
 namespace RESQ.Application.UseCases.Finance.Commands.ApproveFundingRequest;
 
 /// <summary>
-/// Admin duyệt FundingRequest:
-/// 1. Validate FundingRequest (Pending)
-/// 2. Validate Campaign (Active hoặc Closed, đủ tiền)
-/// 3. Approve FundingRequest → gán campaignId
-/// 4. Tạo CampaignDisbursement (Type = FundingRequestApproval)
-/// 5. Tạo FundTransaction (OUT)
+/// Admin duyệt FundingRequest — chọn nguồn quỹ:
+/// (A) Campaign  → validate campaign, trừ campaign, tạo CampaignDisbursement, cộng depot fund
+/// (B) SystemFund → validate system fund, trừ system fund, cộng depot fund
 /// </summary>
 public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingRequestCommand, int>
 {
@@ -22,6 +19,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
     private readonly ICampaignDisbursementRepository _disbursementRepo;
     private readonly IFundTransactionRepository _transactionRepo;
     private readonly IDepotFundRepository _depotFundRepo;
+    private readonly ISystemFundRepository _systemFundRepo;
     private readonly IFundDistributionManager _distributionManager;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -31,6 +29,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         ICampaignDisbursementRepository disbursementRepo,
         IFundTransactionRepository transactionRepo,
         IDepotFundRepository depotFundRepo,
+        ISystemFundRepository systemFundRepo,
         IFundDistributionManager distributionManager,
         IUnitOfWork unitOfWork)
     {
@@ -39,6 +38,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         _disbursementRepo = disbursementRepo;
         _transactionRepo = transactionRepo;
         _depotFundRepo = depotFundRepo;
+        _systemFundRepo = systemFundRepo;
         _distributionManager = distributionManager;
         _unitOfWork = unitOfWork;
     }
@@ -50,25 +50,44 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
             ?? throw new RESQ.Application.Exceptions.NotFoundException(
                 $"Không tìm thấy yêu cầu cấp quỹ #{request.FundingRequestId}.");
 
+        return request.SourceType switch
+        {
+            FundSourceType.Campaign => await HandleCampaignApproval(request, fundingRequest, cancellationToken),
+            FundSourceType.SystemFund => await HandleSystemFundApproval(request, fundingRequest, cancellationToken),
+            _ => throw new RESQ.Application.Exceptions.BadRequestException($"Loại nguồn quỹ không hợp lệ: {request.SourceType}.")
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Campaign → Depot (luồng cũ)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task<int> HandleCampaignApproval(
+        ApproveFundingRequestCommand request,
+        FundingRequestModel fundingRequest,
+        CancellationToken cancellationToken)
+    {
+        if (!request.CampaignId.HasValue)
+            throw new RESQ.Application.Exceptions.BadRequestException("CampaignId là bắt buộc khi nguồn quỹ là Campaign.");
+
+        var campaignId = request.CampaignId.Value;
+
         // 2. Lấy Campaign
-        var campaign = await _campaignRepo.GetByIdAsync(request.CampaignId, cancellationToken)
+        var campaign = await _campaignRepo.GetByIdAsync(campaignId, cancellationToken)
             ?? throw new RESQ.Application.Exceptions.NotFoundException(
-                $"Không tìm thấy chiến dịch #{request.CampaignId}.");
+                $"Không tìm thấy chiến dịch #{campaignId}.");
 
-        // 3. Số dư khả dụng là CurrentBalance của chiến dịch
+        // 3. Số dư khả dụng
         var availableBalance = campaign.CurrentBalance ?? 0;
-
-        // 4. Domain Service validate (campaign active, đủ tiền)
         _distributionManager.ValidateAllocation(campaign, availableBalance, fundingRequest.TotalAmount);
 
-        // 5. Domain logic: Approve request
-        fundingRequest.Approve(request.CampaignId, request.ReviewedBy);
+        // 4. Approve FundingRequest
+        fundingRequest.Approve(campaignId, request.ReviewedBy);
         await _fundingRequestRepo.UpdateAsync(fundingRequest, cancellationToken);
 
-        // 6. Tạo CampaignDisbursement — CreateAsync lưu ngay và trả về ID thực từ DB
-        //    (chưa có items — items thực tế ghi khi depot nhập hàng qua ImportPurchasedInventory)
+        // 5. Tạo CampaignDisbursement
         var disbursement = CampaignDisbursementModel.CreateFromFundingRequest(
-            request.CampaignId,
+            campaignId,
             fundingRequest.DepotId,
             fundingRequest.TotalAmount,
             fundingRequest.Id,
@@ -76,14 +95,14 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         );
         var disbursementId = await _disbursementRepo.CreateAsync(disbursement, cancellationToken);
 
-        // 6b. Trừ số tiền đã giải ngân khỏi CurrentBalance của chiến dịch
+        // 6. Trừ campaign balance
         campaign.Disburse(fundingRequest.TotalAmount, request.ReviewedBy);
         await _campaignRepo.UpdateAsync(campaign, cancellationToken);
 
-        // 7. Tạo FundTransaction (OUT)
-        var transaction = new FundTransactionModel
+        // 7. FundTransaction (OUT)
+        await _transactionRepo.CreateAsync(new FundTransactionModel
         {
-            FundCampaignId = request.CampaignId,
+            FundCampaignId = campaignId,
             Type = TransactionType.Allocation,
             Direction = TransactionDirection.Out,
             Amount = fundingRequest.TotalAmount,
@@ -91,15 +110,15 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
             ReferenceId = disbursementId,
             CreatedBy = request.ReviewedBy,
             CreatedAt = DateTime.UtcNow
-        };
-        await _transactionRepo.CreateAsync(transaction, cancellationToken);
+        }, cancellationToken);
 
-        // 8. Cộng quỹ kho (lazy init nếu chưa có) — tự động trừ nợ nếu balance âm
-        var depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(fundingRequest.DepotId, cancellationToken);
+        // 8. Cộng quỹ kho gắn campaign
+        var depotFund = await _depotFundRepo.GetOrCreateByDepotAndSourceAsync(
+            fundingRequest.DepotId, FundSourceType.Campaign, campaignId, cancellationToken);
         var creditResult = depotFund.Credit(fundingRequest.TotalAmount);
         await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
-        // 9. Ghi log giao dịch quỹ kho — Allocation
+        // 9. Ghi log giao dịch quỹ kho
         await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
         {
             DepotFundId = depotFund.Id,
@@ -107,12 +126,11 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
             Amount = fundingRequest.TotalAmount,
             ReferenceType = "CampaignDisbursement",
             ReferenceId = disbursementId,
-            Note = $"Duyệt yêu cầu cấp quỹ #{fundingRequest.Id} từ chiến dịch #{request.CampaignId}",
+            Note = $"Duyệt yêu cầu cấp quỹ #{fundingRequest.Id} từ chiến dịch #{campaignId}",
             CreatedBy = request.ReviewedBy,
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
 
-        // 9b. Ghi thêm transaction trừ nợ nếu kho đang tự ứng (âm)
         if (creditResult.DebtRepaid > 0)
         {
             await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
@@ -129,7 +147,82 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         }
 
         await _unitOfWork.SaveAsync();
-
         return disbursementId;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  SystemFund → Depot
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task<int> HandleSystemFundApproval(
+        ApproveFundingRequestCommand request,
+        FundingRequestModel fundingRequest,
+        CancellationToken cancellationToken)
+    {
+        // 1. Lấy quỹ hệ thống
+        var systemFund = await _systemFundRepo.GetOrCreateAsync(cancellationToken);
+        if (fundingRequest.TotalAmount > systemFund.Balance)
+            throw new RESQ.Application.Exceptions.ConflictException(
+                $"Quỹ hệ thống không đủ số dư. Hiện có: {systemFund.Balance:N0} VNĐ, Yêu cầu: {fundingRequest.TotalAmount:N0} VNĐ.");
+
+        // 2. Approve FundingRequest (không gắn campaignId)
+        fundingRequest.Approve(null, request.ReviewedBy);
+        await _fundingRequestRepo.UpdateAsync(fundingRequest, cancellationToken);
+
+        // 3. Trừ quỹ hệ thống
+        systemFund.Debit(fundingRequest.TotalAmount);
+        await _systemFundRepo.UpdateAsync(systemFund, cancellationToken);
+
+        // 4. Ghi log giao dịch quỹ hệ thống
+        await _systemFundRepo.CreateTransactionAsync(new SystemFundTransactionModel
+        {
+            SystemFundId = systemFund.Id,
+            TransactionType = SystemFundTransactionType.AllocationToDepot,
+            Amount = fundingRequest.TotalAmount,
+            ReferenceType = "FundingRequest",
+            ReferenceId = fundingRequest.Id,
+            Note = $"Duyệt yêu cầu cấp quỹ #{fundingRequest.Id} — cấp {fundingRequest.TotalAmount:N0} VNĐ cho kho #{fundingRequest.DepotId}",
+            CreatedBy = request.ReviewedBy,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+
+        // 5. Cộng quỹ kho gắn SystemFund
+        var depotFund = await _depotFundRepo.GetOrCreateByDepotAndSourceAsync(
+            fundingRequest.DepotId, FundSourceType.SystemFund, null, cancellationToken);
+        var creditResult = depotFund.Credit(fundingRequest.TotalAmount);
+        await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
+
+        // 6. Ghi log giao dịch quỹ kho
+        await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+        {
+            DepotFundId = depotFund.Id,
+            TransactionType = DepotFundTransactionType.Allocation,
+            Amount = fundingRequest.TotalAmount,
+            ReferenceType = "SystemFund",
+            ReferenceId = systemFund.Id,
+            Note = $"Duyệt yêu cầu cấp quỹ #{fundingRequest.Id} từ quỹ hệ thống",
+            CreatedBy = request.ReviewedBy,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+
+        if (creditResult.DebtRepaid > 0)
+        {
+            await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+            {
+                DepotFundId = depotFund.Id,
+                TransactionType = DepotFundTransactionType.DebtRepayment,
+                Amount = creditResult.DebtRepaid,
+                ReferenceType = "SystemFund",
+                ReferenceId = systemFund.Id,
+                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ đã tự ứng trước đó",
+                CreatedBy = request.ReviewedBy,
+                CreatedAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
+
+        await _unitOfWork.SaveAsync();
+
+        // Trả về 0 vì không tạo CampaignDisbursement (quỹ hệ thống không có disbursement record)
+        return 0;
     }
 }

@@ -16,9 +16,6 @@ public class GetClosureTransferQueryHandler(
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
 
-        if (transfer.ClosureId != request.ClosureId)
-            throw new ConflictException("Bản ghi chuyển kho không khớp với bản ghi đóng kho được cung cấp.");
-
         // Nếu có userId (manager gọi) → tự xác định depot từ token, cho phép cả kho nguồn lẫn kho đích
         if (request.RequestingUserId.HasValue)
         {

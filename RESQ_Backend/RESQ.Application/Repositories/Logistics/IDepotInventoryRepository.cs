@@ -191,4 +191,12 @@ public interface IDepotInventoryRepository
         Guid performedBy,
         string? note,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Kiểm tra xem kho có đang có cam kết tồn kho chưa hoàn tất không:
+    /// - Consumable: mission_reserved_quantity > 0 (đang được đặt cho nhiệm vụ cứu hộ).
+    /// - Reusable: status = 'InUse' tại kho này (đang được sử dụng trong nhiệm vụ).
+    /// Dùng để chặn chuyển sang Unavailable khi còn hoạt động đang diễn ra.
+    /// </summary>
+    Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default);
 }

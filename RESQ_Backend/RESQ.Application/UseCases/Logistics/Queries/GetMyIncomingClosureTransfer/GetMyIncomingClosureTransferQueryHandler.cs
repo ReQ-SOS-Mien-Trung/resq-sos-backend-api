@@ -31,6 +31,10 @@ public class GetMyIncomingClosureTransferQueryHandler(
         // 3. Lấy tên kho nguồn để hiển thị
         var sourceDepot = await depotRepository.GetByIdAsync(transfer.SourceDepotId, cancellationToken);
 
+        // 4. Lấy chi tiết tồn kho kho nguồn — cho manager kho đích biết sẽ nhận gì
+        var incomingItems = await depotRepository.GetDetailedInventoryForClosureAsync(
+            transfer.SourceDepotId, cancellationToken);
+
         logger.LogInformation(
             "GetMyIncomingClosureTransfer | ManagerDepot={Target} SourceDepot={Source} TransferId={T} Status={S}",
             myDepotId, transfer.SourceDepotId, transfer.Id, transfer.Status);
@@ -45,7 +49,8 @@ public class GetMyIncomingClosureTransferQueryHandler(
             SnapshotConsumableUnits  = transfer.SnapshotConsumableUnits,
             SnapshotReusableUnits    = transfer.SnapshotReusableUnits,
             CreatedAt                = transfer.CreatedAt,
-            ShippedAt                = transfer.ShippedAt
+            ShippedAt                = transfer.ShippedAt,
+            IncomingItems            = incomingItems
         };
     }
 }

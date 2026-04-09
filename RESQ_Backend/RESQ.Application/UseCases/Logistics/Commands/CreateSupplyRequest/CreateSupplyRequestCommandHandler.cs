@@ -37,8 +37,8 @@ public class CreateSupplyRequestCommandHandler(
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var requestingDepotStatus = await _depotRepository.GetStatusByIdAsync(requestingDepotId.Value, cancellationToken);
-        if (requestingDepotStatus is DepotStatus.Closing or DepotStatus.Closed)
-            throw new ConflictException("Kho của bạn đang trong quá trình đóng hoặc đã đóng. Không thể tạo yêu cầu tiếp tế.");
+        if (requestingDepotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
+            throw new ConflictException("Kho của bạn ngưng hoạt động hoặc đã đóng. Không thể tạo yêu cầu tiếp tế.");
 
         // 2. Validate không có group nào trỏ về chính kho của manager
         var selfRequest = request.Requests.FirstOrDefault(r => r.SourceDepotId == requestingDepotId.Value);
@@ -49,8 +49,8 @@ public class CreateSupplyRequestCommandHandler(
         foreach (var group in request.Requests)
         {
             var sourceStatus = await _depotRepository.GetStatusByIdAsync(group.SourceDepotId, cancellationToken);
-            if (sourceStatus is DepotStatus.Closing or DepotStatus.Closed)
-                throw new ConflictException($"Kho nguồn #{group.SourceDepotId} đang trong quá trình đóng hoặc đã đóng. Không thể gửi yêu cầu tiếp tế đến kho này.");
+            if (sourceStatus is DepotStatus.Unavailable or DepotStatus.Closed)
+                throw new ConflictException($"Kho nguồn #{group.SourceDepotId} ngưng hoạt động hoặc đã đóng. Không thể gửi yêu cầu tiếp tế đến kho này.");
         }
 
         // 4. Xử lý từng kho nguồn trong transaction

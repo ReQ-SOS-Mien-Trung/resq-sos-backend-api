@@ -51,7 +51,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { id }, id);
     }
 
-    /// <summary>Admin duyệt yêu cầu — chọn campaign để rút tiền.</summary>
+    /// <summary>Admin duyệt yêu cầu — chọn nguồn quỹ (Campaign hoặc SystemFund).</summary>
     [HttpPatch("{id}/approve")]
     [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
@@ -59,7 +59,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Approve(int id, [FromBody] ApproveFundingRequestRequest request)
     {
-        var command = new ApproveFundingRequestCommand(id, request.CampaignId, GetUserId());
+        var command = new ApproveFundingRequestCommand(id, request.SourceType, request.CampaignId, GetUserId());
         var disbursementId = await _mediator.Send(command);
         return Ok(new { DisbursementId = disbursementId });
     }

@@ -287,7 +287,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                               join ri in _unitOfWork.Set<ItemModel>() on dsi.ItemModelId equals ri.Id
                               join cat in _unitOfWork.Set<Category>() on ri.CategoryId equals cat.Id
                               join depot in _unitOfWork.Set<Depot>() on dsi.DepotId equals depot.Id
-                              where (depot.Status == "Available" || depot.Status == "Full")
+                              where depot.Status == "Available"
                                     && ri.ItemType == nameof(ItemType.Consumable)
                                     && (dsi.Quantity ?? 0) - (dsi.MissionReservedQuantity + dsi.TransferReservedQuantity) > 0
                                     && EF.Functions.ILike(cat.Name ?? string.Empty, categoryPattern)
@@ -320,7 +320,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                                 join depot in _unitOfWork.Set<Depot>() on reusable.DepotId equals depot.Id
                                 where reusable.DepotId.HasValue
                                       && reusable.ItemModelId.HasValue
-                                      && (depot.Status == "Available" || depot.Status == "Full")
+                                      && depot.Status == "Available"
                                       && ri.ItemType == nameof(ItemType.Reusable)
                                       && reusable.Status == nameof(ReusableItemStatus.Available)
                                       && EF.Functions.ILike(cat.Name ?? string.Empty, categoryPattern)
@@ -548,7 +548,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (excludeDepotId.HasValue)
             consumableQuery = consumableQuery.Where(x => x.depot.Id != excludeDepotId.Value);
         if (activeDepotsOnly)
-            consumableQuery = consumableQuery.Where(x => x.depot.Status == "Available" || x.depot.Status == "Full");
+            consumableQuery = consumableQuery.Where(x => x.depot.Status == "Available");
         if (hasIdFilter)
             consumableQuery = consumableQuery.Where(x => safeIds.Contains(x.ri.Id));
         consumableQuery = consumableQuery.Where(x => (x.dsi.Quantity ?? 0) - (x.dsi.MissionReservedQuantity + x.dsi.TransferReservedQuantity) >= 1);
@@ -587,7 +587,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (excludeDepotId.HasValue)
             reusableQuery = reusableQuery.Where(x => x.depot.Id != excludeDepotId.Value);
         if (activeDepotsOnly)
-            reusableQuery = reusableQuery.Where(x => x.depot.Status == "Available" || x.depot.Status == "Full");
+            reusableQuery = reusableQuery.Where(x => x.depot.Status == "Available");
         if (hasIdFilter)
             reusableQuery = reusableQuery.Where(x => safeIds.Contains(x.ri.Id));
 
@@ -1928,5 +1928,20 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         }
 
         await _unitOfWork.SaveAsync();
+    }
+
+    public async Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default)
+    {
+        // Consumable: any item reserved for an active mission
+        var hasMissionReservation = await _unitOfWork.Set<SupplyInventory>()
+            .AnyAsync(inv => inv.DepotId == depotId && inv.MissionReservedQuantity > 0, cancellationToken);
+
+        if (hasMissionReservation) return true;
+
+        // Reusable: any unit currently in active mission use
+        var hasReusableInUse = await _unitOfWork.Set<ReusableItem>()
+            .AnyAsync(ri => ri.DepotId == depotId && ri.Status == "InUse", cancellationToken);
+
+        return hasReusableInUse;
     }
 }

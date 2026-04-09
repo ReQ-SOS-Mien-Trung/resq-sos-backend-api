@@ -42,13 +42,28 @@ public static class FinanceLabels
         [DepotFundTransactionType.Deduction.ToString()]     = "Thanh toán mua hàng",
         [DepotFundTransactionType.Refund.ToString()]        = "Hoàn quỹ",
         [DepotFundTransactionType.SelfAdvance.ToString()]   = "Tự ứng",
-        [DepotFundTransactionType.DebtRepayment.ToString()] = "Trả nợ tự ứng"
+        [DepotFundTransactionType.DebtRepayment.ToString()] = "Trả nợ tự ứng",
+        [DepotFundTransactionType.LiquidationRevenue.ToString()] = "Thu từ thanh lý tài sản",
+        [DepotFundTransactionType.ClosureFundReturn.ToString()] = "Hoàn quỹ khi đóng kho"
     };
 
     public static readonly Dictionary<string, string> DepotFundReferenceTypeLabels = new()
     {
         ["CampaignDisbursement"] = "Cấp phát từ chiến dịch",
         ["VatInvoice"]           = "Hóa đơn VAT"
+    };
+
+    public static readonly Dictionary<string, string> FundSourceTypeLabels = new()
+    {
+        [FundSourceType.Campaign.ToString()]   = "Chiến dịch quyên góp",
+        [FundSourceType.SystemFund.ToString()] = "Quỹ hệ thống"
+    };
+
+    public static readonly Dictionary<string, string> SystemFundTransactionTypeLabels = new()
+    {
+        [SystemFundTransactionType.LiquidationRevenue.ToString()]    = "Thu từ thanh lý tài sản",
+        [SystemFundTransactionType.AllocationToDepot.ToString()]      = "Giải ngân cho kho",
+        [SystemFundTransactionType.DepotClosureFundReturn.ToString()] = "Hoàn quỹ kho khi đóng kho"
     };
 
     /// <summary>Tra nhãn tiếng Việt theo key; trả về key gốc nếu không tìm thấy.</summary>

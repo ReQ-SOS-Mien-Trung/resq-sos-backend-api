@@ -54,8 +54,8 @@ public class CancelDepotClosureCommandHandler(
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
-        if (depot.Status != DepotStatus.Closing)
-            throw new ConflictException("Kho không ở trạng thái Closing.");
+        if (depot.Status != DepotStatus.Unavailable)
+            throw new ConflictException("Kho không ở trạng thái Unavailable.");
 
         var cancelledAt = DateTime.UtcNow;
         var restoredStatus = closure.PreviousStatus;

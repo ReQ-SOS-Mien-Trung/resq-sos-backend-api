@@ -8,6 +8,8 @@ using RESQ.Domain.Enum.Finance;
 using RESQ.Application.UseCases.Finance.Commands.SetDepotAdvanceLimit;
 using RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 using RESQ.Application.UseCases.Finance.Queries.GetDepotFundTransactions;
+using RESQ.Application.UseCases.Finance.Queries.GetDepotFundsByDepotId;
+using RESQ.Application.UseCases.Finance.Queries.GetFundTransactionsByFundId;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFundTransactions;
 using System.Security.Claims;
@@ -56,10 +58,54 @@ public class DepotFundController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>[Manager] Xem số dư quỹ kho mình đang quản lý.</summary>
+    /// <summary>[Admin] Xem tất cả quỹ của một kho cụ thể theo depot ID.</summary>
+    [HttpGet("{depotId:int}/funds")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
+    [ProducesResponseType(typeof(List<DepotFundListItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFundsByDepot(int depotId)
+    {
+        var result = await _mediator.Send(new GetDepotFundsByDepotIdQuery(depotId));
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Danh sách quỹ kho của mình dạng select box (key = fund ID, value = tên nguồn + số dư).
+    /// Dùng để chọn depotFundId khi gọi POST /logistics/inventory/import-purchase.</summary>
+    [HttpGet("my/funds-metadata")]
+    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyFundsMetadata()
+    {
+        var funds = await _mediator.Send(new GetMyDepotFundQuery(GetUserId()));
+        var result = funds.Select(f => new MetadataDto
+        {
+            Key   = f.Id.ToString(),
+            Value = $"{f.FundSourceName ?? "Quỹ kho"} — {f.Balance:N0} VNĐ"
+        }).ToList();
+        return Ok(result);
+    }
+
+    /// <summary>[Admin/Manager] Lấy lịch sử giao dịch của một quỹ kho cụ thể theo fund ID.
+    /// Manager chỉ xem được quỹ thuộc kho mình quản lý.</summary>
+    [HttpGet("{fundId:int}/fund-transactions")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    [ProducesResponseType(typeof(PagedResult<DepotFundTransactionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetFundTransactions(
+        int fundId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var query = new GetFundTransactionsByFundIdQuery(fundId, pageNumber, pageSize, GetUserId());
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xem tất cả quỹ kho mình đang quản lý. Dùng Id của từng quỹ để truyền vào depotFundId khi nhập hàng mua sắm.</summary>
     [HttpGet("my")]
     [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
-    [ProducesResponseType(typeof(DepotFundDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<DepotFundListItemDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMy()
     {

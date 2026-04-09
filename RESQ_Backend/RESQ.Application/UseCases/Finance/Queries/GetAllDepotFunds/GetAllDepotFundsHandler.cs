@@ -21,10 +21,13 @@ public class GetAllDepotFundsHandler : IRequestHandler<GetAllDepotFundsQuery, Li
 
         return funds.Select(f => new DepotFundListItemDto
         {
+            Id = f.Id,
             DepotId = f.DepotId,
             DepotName = f.DepotName,
             Balance = f.Balance,
             MaxAdvanceLimit = f.MaxAdvanceLimit,
+            FundSourceType = f.FundSourceType,
+            FundSourceName = f.FundSourceName,
             LastUpdatedAt = f.LastUpdatedAt == DateTime.MinValue ? null : f.LastUpdatedAt
         }).ToList();
     }

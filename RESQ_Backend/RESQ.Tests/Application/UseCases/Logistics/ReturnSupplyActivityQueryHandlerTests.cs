@@ -329,5 +329,8 @@ public class ReturnSupplyActivityQueryHandlerTests
         public Task ZeroOutForClosureAsync(int depotId, int closureId, Guid performedBy, string? note,
             CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+
+        public Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
     }
 }

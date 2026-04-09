@@ -68,5 +68,5 @@ public partial class Depot
     public virtual ICollection<FundingRequest> FundingRequests { get; set; } = new List<FundingRequest>();
 
     [InverseProperty("Depot")]
-    public virtual DepotFund? DepotFund { get; set; }
+    public virtual ICollection<DepotFund> DepotFunds { get; set; } = new List<DepotFund>();
 }

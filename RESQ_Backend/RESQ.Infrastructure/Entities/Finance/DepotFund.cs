@@ -26,8 +26,21 @@ public partial class DepotFund
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime LastUpdatedAt { get; set; }
 
+    /// <summary>Loại nguồn quỹ: "Campaign" hoặc "SystemFund". Null = legacy fund chưa gắn nguồn.</summary>
+    [Column("fund_source_type")]
+    [StringLength(50)]
+    public string? FundSourceType { get; set; }
+
+    /// <summary>
+    /// ID nguồn quỹ:
+    /// - Campaign → FundCampaignId
+    /// - SystemFund → null (singleton)
+    /// </summary>
+    [Column("fund_source_id")]
+    public int? FundSourceId { get; set; }
+
     [ForeignKey("DepotId")]
-    [InverseProperty("DepotFund")]
+    [InverseProperty("DepotFunds")]
     public virtual Depot Depot { get; set; } = null!;
 
     [InverseProperty("DepotFund")]

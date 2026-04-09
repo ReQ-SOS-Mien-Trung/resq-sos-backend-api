@@ -1,4 +1,5 @@
 using FluentValidation;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.AllocateFundToDepot;
 
@@ -6,8 +7,13 @@ public class AllocateFundToDepotValidator : AbstractValidator<AllocateFundToDepo
 {
     public AllocateFundToDepotValidator()
     {
+        RuleFor(x => x.SourceType)
+            .IsInEnum().WithMessage("Loại nguồn quỹ không hợp lệ.");
+
         RuleFor(x => x.FundCampaignId)
-            .GreaterThan(0).WithMessage("Campaign không hợp lệ.");
+            .NotNull().WithMessage("FundCampaignId là bắt buộc khi nguồn quỹ là Campaign.")
+            .GreaterThan(0).WithMessage("Campaign không hợp lệ.")
+            .When(x => x.SourceType == FundSourceType.Campaign);
 
         RuleFor(x => x.DepotId)
             .GreaterThan(0).WithMessage("Depot không hợp lệ.");

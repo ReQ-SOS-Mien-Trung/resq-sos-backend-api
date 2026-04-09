@@ -12,7 +12,7 @@ namespace RESQ.Infrastructure.Services.Logistics;
 /// Runs every 5 minutes.
 /// For each timed-out closure it:
 ///   1. Atomically claims the record (InProgress → Processing).
-///   2. Restores the depot to its previous status (Available / Full).
+///   2. Restores the depot to its previous status (Available).
 ///   3. Marks the closure as TimedOut.
 ///   4. Sends a Firebase push notification to the admin who initiated the closure.
 /// </summary>
@@ -83,7 +83,7 @@ public class DepotClosureTimeoutBackgroundService(
                         return;
                     }
 
-                    if (depot.Status == DepotStatus.Closing)
+                    if (depot.Status == DepotStatus.Unavailable)
                         depot.RestoreFromClosing(closure.PreviousStatus);
 
                     closure.MarkTimedOut();

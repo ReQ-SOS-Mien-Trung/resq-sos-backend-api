@@ -163,6 +163,11 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    // .NET 8 mặc định dùng JsonWebTokenHandler với MapInboundClaims = false,
+    // khiến claim "sub" trong JWT KHÔNG được map thành ClaimTypes.NameIdentifier.
+    // Bật lại để User.FindFirst(ClaimTypes.NameIdentifier) hoạt động đúng.
+    options.MapInboundClaims = true;
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
