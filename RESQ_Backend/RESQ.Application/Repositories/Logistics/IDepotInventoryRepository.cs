@@ -20,6 +20,7 @@ public interface IDepotInventoryRepository
         List<int>? categoryIds,
         List<ItemType>? itemTypes,
         List<TargetGroup>? targetGroups,
+        string? itemName,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);

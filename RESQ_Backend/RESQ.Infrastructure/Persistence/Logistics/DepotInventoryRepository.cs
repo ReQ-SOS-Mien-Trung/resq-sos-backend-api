@@ -53,14 +53,20 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     }
 
     public async Task<PagedResult<InventoryItemModel>> GetInventoryPagedAsync(
-        int depotId, 
-        List<int>? categoryIds, 
-        List<ItemType>? itemTypes, 
-        List<DomainTargetGroup>? targetGroups, 
-        int pageNumber, 
-        int pageSize, 
+        int depotId,
+        List<int>? categoryIds,
+        List<ItemType>? itemTypes,
+        List<DomainTargetGroup>? targetGroups,
+        string? itemName,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default)
     {
+        var normalizedItemName = string.IsNullOrWhiteSpace(itemName) ? null : itemName.Trim().ToLowerInvariant();
+        var hasItemNameFilter  = normalizedItemName is not null;
+        // Captured as non-nullable so the compiler is satisfied inside LINQ expression trees.
+        var itemNameFilter     = normalizedItemName ?? string.Empty;
+
         var safeCategoryIds = categoryIds ?? new List<int>();
         var hasCategoryFilter = safeCategoryIds.Count > 0;
 
@@ -89,8 +95,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 join ri  in _unitOfWork.Set<ItemModel>() on inv.ItemModelId equals ri.Id
                 where inv.DepotId == depotId
                          && ri.ItemType == "Consumable"
-                   && (!hasCategoryFilter  || safeCategoryIds.Contains(ri.CategoryId ?? 0))
+                   && (!hasCategoryFilter   || safeCategoryIds.Contains(ri.CategoryId ?? 0))
                    && (!hasTargetGroupFilter || ri.TargetGroups.Any(tg => targetGroupSet.Contains(tg.Name.ToLower())))
+                   && (!hasItemNameFilter   || (ri.Name ?? string.Empty).ToLower().Contains(itemNameFilter))
                 select new
                 {
                     ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType,
@@ -155,8 +162,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 from dri in _unitOfWork.Set<ReusableItem>()
                 join ri  in _unitOfWork.Set<ItemModel>() on dri.ItemModelId equals ri.Id
                 where dri.DepotId == depotId
-                   && (!hasCategoryFilter  || safeCategoryIds.Contains(ri.CategoryId ?? 0))
+                   && (!hasCategoryFilter   || safeCategoryIds.Contains(ri.CategoryId ?? 0))
                    && (!hasTargetGroupFilter || ri.TargetGroups.Any(tg => targetGroupSet.Contains(tg.Name.ToLower())))
+                   && (!hasItemNameFilter   || (ri.Name ?? string.Empty).ToLower().Contains(itemNameFilter))
                 group new { dri, ri } by new { ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType } into g
                 select new
                 {
