@@ -174,7 +174,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
 
         if (participant != null)
         {
-            await _unitOfWork.GetRepository<ConversationParticipant>().DeleteAsync(participant);
+            await _unitOfWork.GetRepository<ConversationParticipant>().DeleteAsync(participant.Id);
             await _unitOfWork.SaveAsync();
         }
     }
