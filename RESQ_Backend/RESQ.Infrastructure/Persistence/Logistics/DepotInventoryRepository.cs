@@ -707,7 +707,15 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     {
         var itemModelIds = items.Select(i => i.ItemModelId).ToList();
 
-        var inventory = await (
+        // Determine which item IDs are Reusable so we route to the correct availability source.
+        var reusableItemModelIds = (await _unitOfWork.Set<ItemModel>().AsNoTracking()
+            .Where(im => itemModelIds.Contains(im.Id) && im.ItemType == "Reusable")
+            .Select(im => im.Id)
+            .ToListAsync(cancellationToken))
+            .ToHashSet();
+
+        // Consumable: net available = storedQty − missionReserved − transferReserved
+        var consumableAvailability = await (
             from inv in _unitOfWork.Set<SupplyInventory>().AsNoTracking()
             join im in _unitOfWork.Set<ItemModel>().AsNoTracking() on inv.ItemModelId equals im.Id
             where inv.DepotId == depotId
@@ -721,30 +729,77 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             })
             .ToDictionaryAsync(x => x.ItemModelId, x => x.Available, cancellationToken);
 
+        // Reusable: available = count of per-unit rows with Status == "Available".
+        // Distinguishes "no units registered in this depot" (TotalUnits == 0, NotFound)
+        // from "all units currently in use" (AvailableUnits < requested, shortage).
+        var reusableStats = await _unitOfWork.Set<ReusableItem>().AsNoTracking()
+            .Where(r => r.DepotId == depotId
+                     && r.ItemModelId != null
+                     && itemModelIds.Contains(r.ItemModelId!.Value))
+            .GroupBy(r => r.ItemModelId!.Value)
+            .Select(g => new
+            {
+                ItemModelId    = g.Key,
+                TotalUnits     = g.Count(),
+                AvailableUnits = g.Count(r => r.Status == nameof(ReusableItemStatus.Available))
+            })
+            .ToDictionaryAsync(x => x.ItemModelId, cancellationToken);
+
         var shortages = new List<SupplyShortageResult>();
+
         foreach (var (itemModelId, itemName, requestedQty) in items)
         {
-            if (!inventory.TryGetValue(itemModelId, out var available))
+            if (reusableItemModelIds.Contains(itemModelId))
             {
-                shortages.Add(new SupplyShortageResult
+                // Reusable: per-unit status tracking (not bulk quantity)
+                if (!reusableStats.TryGetValue(itemModelId, out var stat) || stat.TotalUnits == 0)
                 {
-                    ItemModelId = itemModelId,
-                    ItemName = itemName,
-                    RequestedQuantity = requestedQty,
-                    AvailableQuantity = 0,
-                    NotFound = true
-                });
+                    shortages.Add(new SupplyShortageResult
+                    {
+                        ItemModelId = itemModelId,
+                        ItemName = itemName,
+                        RequestedQuantity = requestedQty,
+                        AvailableQuantity = 0,
+                        NotFound = true
+                    });
+                }
+                else if (stat.AvailableUnits < requestedQty)
+                {
+                    shortages.Add(new SupplyShortageResult
+                    {
+                        ItemModelId = itemModelId,
+                        ItemName = itemName,
+                        RequestedQuantity = requestedQty,
+                        AvailableQuantity = stat.AvailableUnits,
+                        NotFound = false
+                    });
+                }
             }
-            else if (available < requestedQty)
+            else
             {
-                shortages.Add(new SupplyShortageResult
+                // Consumable: bulk quantity tracked in SupplyInventory
+                if (!consumableAvailability.TryGetValue(itemModelId, out var available))
                 {
-                    ItemModelId = itemModelId,
-                    ItemName = itemName,
-                    RequestedQuantity = requestedQty,
-                    AvailableQuantity = available,
-                    NotFound = false
-                });
+                    shortages.Add(new SupplyShortageResult
+                    {
+                        ItemModelId = itemModelId,
+                        ItemName = itemName,
+                        RequestedQuantity = requestedQty,
+                        AvailableQuantity = 0,
+                        NotFound = true
+                    });
+                }
+                else if (available < requestedQty)
+                {
+                    shortages.Add(new SupplyShortageResult
+                    {
+                        ItemModelId = itemModelId,
+                        ItemName = itemName,
+                        RequestedQuantity = requestedQty,
+                        AvailableQuantity = available,
+                        NotFound = false
+                    });
+                }
             }
         }
 
