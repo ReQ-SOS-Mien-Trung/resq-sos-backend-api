@@ -29,25 +29,30 @@ namespace RESQ.Infrastructure.Persistence.Base
 
         public int SaveChangesWithTransaction()
         {
-            int result = -1;
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            //System.Data.IsolationLevel.Snapshot
-            using (var dbContextTransaction = _context.Database.BeginTransaction())
+            try
             {
-                try
+                return strategy.Execute(() =>
                 {
-                    result = _context.SaveChanges();
-                    dbContextTransaction.Commit();
-                }
-                catch (Exception)
-                {
-                    //Log Exception Handling message                      
-                    result = -1;
-                    dbContextTransaction.Rollback();
-                }
+                    using var dbContextTransaction = _context.Database.BeginTransaction();
+                    try
+                    {
+                        var result = _context.SaveChanges();
+                        dbContextTransaction.Commit();
+                        return result;
+                    }
+                    catch
+                    {
+                        dbContextTransaction.Rollback();
+                        throw;
+                    }
+                });
             }
-
-            return result;
+            catch
+            {
+                return -1;
+            }
         }
 
         public async Task<int> SaveAsync()
@@ -71,25 +76,30 @@ namespace RESQ.Infrastructure.Persistence.Base
 
         public async Task<int> SaveChangesWithTransactionAsync()
         {
-            int result = -1;
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            //System.Data.IsolationLevel.Snapshot
-            using (var dbContextTransaction = _context.Database.BeginTransaction())
+            try
             {
-                try
+                return await strategy.ExecuteAsync(async () =>
                 {
-                    result = await _context.SaveChangesAsync();
-                    dbContextTransaction.Commit();
-                }
-                catch (Exception)
-                {
-                    //Log Exception Handling message                      
-                    result = -1;
-                    dbContextTransaction.Rollback();
-                }
+                    await using var dbContextTransaction = await _context.Database.BeginTransactionAsync();
+                    try
+                    {
+                        var result = await _context.SaveChangesAsync();
+                        await dbContextTransaction.CommitAsync();
+                        return result;
+                    }
+                    catch
+                    {
+                        await dbContextTransaction.RollbackAsync();
+                        throw;
+                    }
+                });
             }
-
-            return result;
+            catch
+            {
+                return -1;
+            }
         }
 
         public void AttachAsUnchanged<TEntity>(TEntity entity) where TEntity : class
@@ -99,17 +109,22 @@ namespace RESQ.Infrastructure.Persistence.Base
 
         public async Task ExecuteInTransactionAsync(Func<Task> action)
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            await strategy.ExecuteAsync(async () =>
             {
-                await action();
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    await action();
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
         }
     }
 }
