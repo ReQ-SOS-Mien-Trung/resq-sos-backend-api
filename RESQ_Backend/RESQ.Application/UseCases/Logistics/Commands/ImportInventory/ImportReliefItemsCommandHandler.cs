@@ -40,8 +40,8 @@ public class ImportReliefItemsCommandHandler(
         }
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId.Value, cancellationToken);
-        if (depotStatus is DepotStatus.Closing or DepotStatus.Closed)
-            throw new ConflictException("Kho đang trong quá trình đóng hoặc đã đóng. Không thể nhập hàng vào kho này.");
+        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
+            throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể nhập hàng vào kho này.");
 
         // 2. Resolve organization ID
         int organizationId;

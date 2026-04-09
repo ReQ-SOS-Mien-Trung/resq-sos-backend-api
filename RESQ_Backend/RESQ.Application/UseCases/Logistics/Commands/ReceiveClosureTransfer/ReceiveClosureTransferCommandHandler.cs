@@ -16,6 +16,7 @@ public class ReceiveClosureTransferCommandHandler(
     IDepotClosureRepository closureRepository,
     IDepotRepository depotRepository,
     IDepotInventoryRepository inventoryRepository,
+    IDepotFundDrainService depotFundDrainService,
     IFirebaseService firebaseService,
     IUnitOfWork unitOfWork,
     ILogger<ReceiveClosureTransferCommandHandler> logger)
@@ -28,8 +29,8 @@ public class ReceiveClosureTransferCommandHandler(
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
 
-        if (transfer.ClosureId != request.ClosureId || transfer.TargetDepotId != request.DepotId)
-            throw new ConflictException("Bản ghi chuyển kho không khớp với kho / bản ghi đóng kho được cung cấp.");
+        if (transfer.TargetDepotId != request.DepotId)
+            throw new ConflictException("Bản ghi chuyển kho không thuộc kho đích này.");
 
         // Kiểm tra người thực hiện là manager của kho đích
         var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
@@ -63,6 +64,10 @@ public class ReceiveClosureTransferCommandHandler(
         // Cập nhật closure + depot trong transaction
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            // Drain quỹ kho nguồn (balance > 0) về quỹ hệ thống
+            await depotFundDrainService.DrainAllToSystemFundAsync(
+                transfer.SourceDepotId, transfer.ClosureId, request.UserId, cancellationToken);
+
             sourceDepot.CompleteClosing();
             closure.Complete(completedAt);
 

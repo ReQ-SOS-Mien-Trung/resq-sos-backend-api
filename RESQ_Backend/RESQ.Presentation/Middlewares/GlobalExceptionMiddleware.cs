@@ -64,11 +64,18 @@ public class GlobalExceptionMiddleware : IMiddleware
                 _logger.LogWarning("Bad request: {Message}", badRequestEx.Message);
                 break;
 
-            // ✅ Unauthorized
+            // ✅ Unauthorized (Application layer)
             case UnauthorizedException unauthorizedEx:
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 response.Message = unauthorizedEx.Message;
                 _logger.LogWarning("Unauthorized: {Message}", unauthorizedEx.Message);
+                break;
+
+            // ✅ Unauthorized (System — safety net cho UnauthorizedAccessException)
+            case UnauthorizedAccessException unauthorizedAccessEx:
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                response.Message = unauthorizedAccessEx.Message;
+                _logger.LogWarning("UnauthorizedAccess: {Message}", unauthorizedAccessEx.Message);
                 break;
 
             // ✅ Forbidden

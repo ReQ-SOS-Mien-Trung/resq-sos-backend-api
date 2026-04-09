@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
@@ -81,5 +82,17 @@ namespace RESQ.Application.Repositories.Logistics
         /// Dùng để ngăn gán một manager đang quản lý kho khác vào kho mới.
         /// </summary>
         Task<bool> IsManagerActiveElsewhereAsync(Guid managerId, int excludeDepotId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Lấy chi tiết tồn kho của kho (consumable + reusable) cho quy trình đóng kho.
+        /// Dùng để hiển thị danh sách hàng còn trong kho khi admin muốn đóng.
+        /// </summary>
+        Task<List<ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Lấy chi tiết tồn kho THEO TỪNG LÔ (consumable = per-lot, reusable = grouped).
+        /// Dùng cho file Excel template xử lý bên ngoài để chia vật tư theo lô.
+        /// </summary>
+        Task<List<ClosureInventoryLotItemDto>> GetLotDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default);
     }
 }

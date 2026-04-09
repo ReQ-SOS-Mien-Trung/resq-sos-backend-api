@@ -27,6 +27,7 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
     public async Task<IActionResult> AllocateFundToDepot([FromBody] AllocateFundToDepotRequest request)
     {
         var command = new AllocateFundToDepotCommand(
+            request.SourceType,
             request.FundCampaignId,
             request.DepotId,
             request.Amount,

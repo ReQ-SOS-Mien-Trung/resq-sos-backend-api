@@ -1,4 +1,5 @@
 using RESQ.Domain.Entities.Finance;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
 
 namespace RESQ.Infrastructure.Mappers.Finance;
@@ -7,12 +8,21 @@ public static class DepotFundMapper
 {
     public static DepotFundModel ToModel(DepotFund entity)
     {
+        FundSourceType? sourceType = entity.FundSourceType switch
+        {
+            "Campaign" => Domain.Enum.Finance.FundSourceType.Campaign,
+            "SystemFund" => Domain.Enum.Finance.FundSourceType.SystemFund,
+            _ => null
+        };
+
         var model = DepotFundModel.Reconstitute(
             entity.Id,
             entity.DepotId,
             entity.Balance,
             entity.MaxAdvanceLimit,
-            entity.LastUpdatedAt
+            entity.LastUpdatedAt,
+            sourceType,
+            entity.FundSourceId
         );
 
         model.DepotName = entity.Depot?.Name;
@@ -28,7 +38,9 @@ public static class DepotFundMapper
             DepotId = model.DepotId,
             Balance = model.Balance,
             MaxAdvanceLimit = model.MaxAdvanceLimit,
-            LastUpdatedAt = model.LastUpdatedAt
+            LastUpdatedAt = model.LastUpdatedAt,
+            FundSourceType = model.FundSourceType?.ToString(),
+            FundSourceId = model.FundSourceId
         };
     }
 
@@ -37,5 +49,7 @@ public static class DepotFundMapper
         entity.Balance = model.Balance;
         entity.MaxAdvanceLimit = model.MaxAdvanceLimit;
         entity.LastUpdatedAt = model.LastUpdatedAt;
+        entity.FundSourceType = model.FundSourceType?.ToString();
+        entity.FundSourceId = model.FundSourceId;
     }
 }

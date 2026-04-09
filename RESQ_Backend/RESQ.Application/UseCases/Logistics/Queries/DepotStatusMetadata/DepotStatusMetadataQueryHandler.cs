@@ -16,9 +16,7 @@ public class GetDepotStatusMetadataQueryHandler
             new() { Key = DepotStatus.Created.ToString(),             Value = "Vừa tạo, chưa có quản lý" },
             new() { Key = DepotStatus.PendingAssignment.ToString(),   Value = "Chờ gán lại quản lý" },
             new() { Key = DepotStatus.Available.ToString(),           Value = "Đang hoạt động" },
-            new() { Key = DepotStatus.Full.ToString(),                Value = "Đã đầy" },
-            new() { Key = DepotStatus.UnderMaintenance.ToString(),    Value = "Đang bảo trì" },
-            new() { Key = DepotStatus.Closing.ToString(),             Value = "Đang tiến hành đóng kho" },
+            new() { Key = DepotStatus.Unavailable.ToString(),         Value = "Ngưng hoạt động" },
             new() { Key = DepotStatus.Closed.ToString(),              Value = "Đã đóng" }
         };
 

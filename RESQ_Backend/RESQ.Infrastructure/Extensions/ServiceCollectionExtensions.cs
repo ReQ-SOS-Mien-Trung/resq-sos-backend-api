@@ -69,6 +69,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
         services.AddScoped<IDepotInventoryRepository, DepotInventoryRepository>();
         services.AddScoped<IDepotClosureRepository, DepotClosureRepository>();
+        services.AddScoped<IDepotClosureExternalItemRepository, DepotClosureExternalItemRepository>();
         services.AddScoped<IDepotClosureTransferRepository, DepotClosureTransferRepository>();
         services.AddScoped<IUpcomingPickupActivityRepository, UpcomingPickupActivityRepository>();
         services.AddScoped<IReturnSupplyActivityRepository, ReturnSupplyActivityRepository>();
@@ -120,6 +121,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICampaignDisbursementRepository, CampaignDisbursementRepository>();
         services.AddScoped<IFundingRequestRepository, FundingRequestRepository>();
         services.AddScoped<IDepotFundRepository, DepotFundRepository>();
+        services.AddScoped<ISystemFundRepository, SystemFundRepository>();
 
         // System Repositories
         services.AddScoped<IPromptRepository, PromptRepository>();
@@ -155,6 +157,7 @@ public static class ServiceCollectionExtensions
         
         // Domain Services
         services.AddScoped<IFundDistributionManager, FundDistributionManager>();
+        services.AddScoped<IDepotFundDrainService, DepotFundDrainService>();
         services.AddScoped<IInventoryQueryService, InventoryQueryService>();
         services.AddScoped<IStockThresholdResolver, StockThresholdResolver>();
         services.AddScoped<IStockWarningEvaluatorService, StockWarningEvaluatorService>();

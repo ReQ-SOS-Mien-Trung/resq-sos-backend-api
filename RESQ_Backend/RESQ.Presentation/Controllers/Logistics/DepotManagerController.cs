@@ -30,7 +30,7 @@ namespace RESQ.Presentation.Controllers.Logistics
 
         /// <summary>
         /// Gỡ manager đang active khỏi kho (soft-unassign): set UnassignedAt cho bản ghi depot_managers,
-        /// lịch sử vẫn được giữ lại. Kho phải ở trạng thái Available, Full hoặc UnderMaintenance.
+        /// lịch sử vẫn được giữ lại. Kho phải ở trạng thái Available.
         /// Sau khi gỡ, kho chuyển về PendingAssignment (chờ gán quản lý mới).
         /// </summary>
         [HttpDelete("{depotId:int}")]

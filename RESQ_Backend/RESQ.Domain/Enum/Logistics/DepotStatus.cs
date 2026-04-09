@@ -5,9 +5,7 @@
         Created,           // Vừa tạo, chưa từng có quản lý
         PendingAssignment, // Đã từng có quản lý, hiện đang chờ gán lại
         Available,
-        Full,
-        UnderMaintenance, // Tạm ngưng hoạt động để bảo trì; có thể trở lại Available
-        Closing,          // Trạng thái trung gian khi admin đang thực hiện đóng kho
+        Unavailable,       // Admin đánh dấu ngưng hoạt động trước khi đóng kho; block mọi thao tác import/export
         Closed
     }
 }

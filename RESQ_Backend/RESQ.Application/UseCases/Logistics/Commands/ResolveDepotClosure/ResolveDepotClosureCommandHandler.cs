@@ -63,8 +63,8 @@ public class ResolveDepotClosureCommandHandler(
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
-        if (depot.Status != DepotStatus.Closing)
-            throw new ConflictException("Kho không ở trạng thái Closing — không thể tiếp tục đóng kho.");
+        if (depot.Status != DepotStatus.Unavailable)
+            throw new ConflictException("Kho không ở trạng thái Unavailable — không thể tiếp tục đóng kho.");
 
         try
         {
@@ -104,7 +104,7 @@ public class ResolveDepotClosureCommandHandler(
         var targetDepot = await depotRepository.GetByIdAsync(request.TargetDepotId!.Value, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy kho đích.");
 
-        if (targetDepot.Status is DepotStatus.Closing or DepotStatus.Closed or DepotStatus.UnderMaintenance)
+        if (targetDepot.Status is DepotStatus.Unavailable or DepotStatus.Closed)
             throw new ConflictException($"Kho đích '{targetDepot.Name}' không khả dụng (trạng thái: {targetDepot.Status}). Vui lòng chọn kho khác.");
 
         var consumableVolume = await depotRepository.GetConsumableTransferVolumeAsync(request.DepotId, cancellationToken);

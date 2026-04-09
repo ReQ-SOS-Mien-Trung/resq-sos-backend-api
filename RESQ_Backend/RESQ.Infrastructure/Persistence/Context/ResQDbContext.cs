@@ -32,6 +32,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<ConversationParticipant> ConversationParticipants { get; set; }
     public virtual DbSet<Depot> Depots { get; set; }
     public virtual DbSet<DepotClosure> DepotClosures { get; set; }
+    public virtual DbSet<DepotClosureExternalItem> DepotClosureExternalItems { get; set; }
     public virtual DbSet<DepotClosureTransfer> DepotClosureTransfers { get; set; }
     public virtual DbSet<CampaignDisbursement> CampaignDisbursements { get; set; }
     public virtual DbSet<DisbursementItem> DisbursementItems { get; set; }
@@ -99,6 +100,8 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<VatInvoiceItem> VatInvoiceItems { get; set; }
     public virtual DbSet<DepotFund> DepotFunds { get; set; }
     public virtual DbSet<DepotFundTransaction> DepotFundTransactions { get; set; }
+    public virtual DbSet<SystemFund> SystemFunds { get; set; }
+    public virtual DbSet<SystemFundTransaction> SystemFundTransactions { get; set; }
     public virtual DbSet<InventoryStockThresholdConfig> InventoryStockThresholdConfigs { get; set; }
     public virtual DbSet<InventoryStockThresholdConfigHistory> InventoryStockThresholdConfigHistories { get; set; }
     public virtual DbSet<StockWarningBandConfig> StockWarningBandConfigs { get; set; }
@@ -226,12 +229,27 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<DepotFund>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("depot_funds_pkey");
-            entity.HasIndex(e => e.DepotId).IsUnique();
+            // Composite unique: mỗi depot + source type + source id chỉ có 1 fund
+            entity.HasIndex(e => new { e.DepotId, e.FundSourceType, e.FundSourceId })
+                  .IsUnique()
+                  .HasDatabaseName("uix_depot_funds_depot_source");
         });
 
         modelBuilder.Entity<DepotFundTransaction>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("depot_fund_transactions_pkey");
+        });
+
+        modelBuilder.Entity<SystemFund>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("system_funds_pkey");
+        });
+
+        modelBuilder.Entity<SystemFundTransaction>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("system_fund_transactions_pkey");
+            entity.HasIndex(e => e.SystemFundId)
+                  .HasDatabaseName("ix_system_fund_transactions_fund_id");
         });
 
         modelBuilder.Entity<SupplyInventoryLot>(entity =>
@@ -272,6 +290,17 @@ public partial class ResQDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.TargetDepotId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DepotClosureExternalItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_closure_external_items_pkey");
+
+            entity.HasIndex(e => e.DepotId)
+                  .HasDatabaseName("ix_depot_closure_external_items_depot_id");
+
+            entity.HasIndex(e => e.ClosureId)
+                  .HasDatabaseName("ix_depot_closure_external_items_closure_id");
         });
 
         modelBuilder.Entity<DepotClosureTransfer>(entity =>

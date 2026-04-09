@@ -51,8 +51,8 @@ public class ImportPurchasedInventoryCommandHandler(
             throw new BadRequestException("TÃ i khoáº£n hiá»‡n táº¡i khÃ´ng Ä‘Æ°á»£c chá»‰ Ä‘á»‹nh quáº£n lÃ½ báº¥t ká»³ kho nÃ o Ä‘ang hoáº¡t Ä‘á»™ng. KhÃ´ng thá»ƒ nháº­p hÃ ng.");
         }
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId.Value, cancellationToken);
-        if (depotStatus is DepotStatus.Closing or DepotStatus.Closed)
-            throw new ConflictException("Kho đang trong quá trình đóng hoặc đã đóng. Không thể nhập hàng vào kho này.");
+        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
+            throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể nhập hàng vào kho này.");
         // 2. Táº£i táº¥t cáº£ danh má»¥c Ä‘á»ƒ mapping hiá»‡u quáº£
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
         var categoriesByCode = categories
@@ -91,16 +91,27 @@ public class ImportPurchasedInventoryCommandHandler(
         DepotFundModel? depotFund = null;
         if (totalCost > 0)
         {
-            depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(depotId.Value, cancellationToken);
+            // Nếu manager chọn quỹ cụ thể → dùng quỹ đó; ngược lại → legacy behavior
+            if (request.DepotFundId.HasValue)
+            {
+                depotFund = await _depotFundRepo.GetByIdAsync(request.DepotFundId.Value, cancellationToken)
+                    ?? throw new BadRequestException($"Không tìm thấy quỹ kho #{request.DepotFundId.Value}.");
+                if (depotFund.DepotId != depotId.Value)
+                    throw new ForbiddenException("Quỹ này không thuộc kho của bạn.");
+            }
+            else
+            {
+                depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(depotId.Value, cancellationToken);
+            }
 
-            // Pre-check quá»¹/háº¡n má»©c tá»± á»©ng trÆ°á»›c khi ghi báº¥t ká»³ dá»¯ liá»‡u nháº­p hÃ ng nÃ o xuá»‘ng DB.
-            // DÃ¹ng báº£n sao domain model Ä‘á»ƒ validate, khÃ´ng mutate tráº¡ng thÃ¡i tháº­t táº¡i thá»i Ä‘iá»ƒm nÃ y.
             var fundCheck = DepotFundModel.Reconstitute(
                 depotFund.Id,
                 depotFund.DepotId,
                 depotFund.Balance,
                 depotFund.MaxAdvanceLimit,
-                depotFund.LastUpdatedAt);
+                depotFund.LastUpdatedAt,
+                depotFund.FundSourceType,
+                depotFund.FundSourceId);
 
             fundCheck.Debit(totalCost);
         }
@@ -369,20 +380,32 @@ public class ImportPurchasedInventoryCommandHandler(
 
                 if (debitResult.IsAdvanced)
                 {
-                    // Kho tự ứng  ghi transaction SelfAdvance
+                    // Phần được trừ từ quỹ kho (totalCost - advancedAmount)
+                    var deductedFromFund = totalCost - debitResult.AdvancedAmount;
+                    if (deductedFromFund > 0)
+                    {
+                        await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+                        {
+                            DepotFundId = depotFund.Id,
+                            TransactionType = DepotFundTransactionType.Deduction,
+                            Amount = deductedFromFund,
+                            ReferenceType = "VatInvoice",
+                            ReferenceId = null,
+                            Note = $"Trừ {deductedFromFund:N0} VNĐ từ quỹ kho cho lần nhập hàng ({request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ)",
+                            CreatedBy = request.UserId,
+                            CreatedAt = DateTime.UtcNow
+                        }, cancellationToken);
+                    }
+
+                    // Phần tự ứng bởi người nhập
                     await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
                     {
                         DepotFundId = depotFund.Id,
                         TransactionType = DepotFundTransactionType.SelfAdvance,
-                        Amount = totalCost,
+                        Amount = debitResult.AdvancedAmount,
                         ReferenceType = "VatInvoice",
                         ReferenceId = null,
-                        Note = BuildSelfAdvanceNote(
-                            depotName,
-                            debitResult.AdvancedAmount,
-                            request.Invoices.Count,
-                            totalCost,
-                            importerName),
+                        Note = $"{importerName} đã ứng {debitResult.AdvancedAmount:N0} VNĐ cho kho ({request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ)",
                         CreatedBy = request.UserId,
                         CreatedAt = DateTime.UtcNow
                     }, cancellationToken);

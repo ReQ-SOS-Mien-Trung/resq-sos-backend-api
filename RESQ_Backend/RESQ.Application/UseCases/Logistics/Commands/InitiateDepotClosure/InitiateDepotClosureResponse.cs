@@ -2,50 +2,69 @@ namespace RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 
 public class InitiateDepotClosureResponse
 {
-    /// <summary>ID của bản ghi đóng kho — dùng để gọi Phase 2 (Resolve).</summary>
-    public int ClosureId { get; set; }
-
     public int DepotId { get; set; }
     public string DepotName { get; set; } = string.Empty;
 
-    /// <summary>
-    /// true = còn hàng, frontend phải hiện form chọn cách xử lý (chuyển kho / xử lý ngoài).
-    /// false = kho trống, đã đóng ngay lập tức — không cần Phase 2.
-    /// </summary>
-    public bool RequiresResolution { get; set; }
+    /// <summary>ID bản ghi đóng kho — chỉ có khi đóng thành công (Success = true).</summary>
+    public int? ClosureId { get; set; }
 
     /// <summary>
-    /// Trạng thái hiện tại của bản ghi đóng kho.
-    /// Frontend dùng field này để quyết định UI:
-    ///   "InProgress"      → Đang chờ admin chọn option → hiển thị countdown + form lựa chọn.
-    ///   "Processing"      → Server đang xử lý lựa chọn → hiển thị loading.
-    ///   "TransferPending" → Đã chọn chuyển kho, đang chờ transfer hoàn tất → KHÔNG hiển thị countdown.
-    ///   "Completed"       → Đóng kho thành công.
-    ///   "Cancelled"       → Đã huỷ.
-    ///   "TimedOut"        → Hết thời gian — kho đã khôi phục.
+    /// true = kho trống, đã đóng thành công.
+    /// false = kho còn hàng, admin phải xử lý tồn kho trước (chuyển kho / xử lý ngoài).
     /// </summary>
-    public string ClosureStatus { get; set; } = string.Empty;
-
-    /// <summary>Tổng quan tồn kho tại thời điểm initiate.</summary>
-    public InventorySummaryDto InventorySummary { get; set; } = new();
-
-    /// <summary>Thời hạn admin phải hoàn thành Phase 2. Sau thời gian này kho tự khôi phục.</summary>
-    public DateTime? TimeoutAt { get; set; }
+    public bool Success { get; set; }
 
     public string Message { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Danh sách hàng tồn kho còn trong kho — chỉ có khi Success = false.
+    /// Admin dùng để quyết định cách xử lý (chuyển kho hoặc xử lý bên ngoài).
+    /// </summary>
+    public List<ClosureInventoryItemDto> RemainingItems { get; set; } = [];
 }
 
-public class InventorySummaryDto
+/// <summary>DTO chi tiết một dòng tồn kho trong kho cần đóng.</summary>
+public class ClosureInventoryItemDto
 {
-    /// <summary>Số loại vật tư tiêu hao còn trong kho.</summary>
-    public int ConsumableItemTypeCount { get; set; }
+    public int ItemModelId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string CategoryName { get; set; } = string.Empty;
 
-    /// <summary>Tổng số đơn vị vật tư tiêu hao.</summary>
-    public int ConsumableUnitTotal { get; set; }
+    /// <summary>"Consumable" hoặc "Reusable"</summary>
+    public string ItemType { get; set; } = string.Empty;
 
-    /// <summary>Số thiết bị tái sử dụng đang ở trong kho (Available).</summary>
-    public int ReusableAvailableCount { get; set; }
+    public string Unit { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+}
 
-    /// <summary>Số thiết bị tái sử dụng đang được dùng trong nhiệm vụ (InUse) — không xử lý được ngay.</summary>
-    public int ReusableInUseCount { get; set; }
+/// <summary>
+/// DTO chi tiết tồn kho theo từng lô — dùng cho Excel template xử lý bên ngoài.
+/// Consumable items được chia theo lot (ngày nhập, hạn sử dụng).
+/// Reusable items được nhóm theo item model (không có lot).
+/// </summary>
+public class ClosureInventoryLotItemDto
+{
+    public int ItemModelId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string CategoryName { get; set; } = string.Empty;
+
+    /// <summary>Đối tượng sử dụng (VD: "Trẻ em, Người già"). Chuỗi ghép từ TargetGroups của ItemModel.</summary>
+    public string TargetGroup { get; set; } = string.Empty;
+
+    /// <summary>"Consumable" hoặc "Reusable"</summary>
+    public string ItemType { get; set; } = string.Empty;
+
+    public string Unit { get; set; } = string.Empty;
+
+    /// <summary>ID lô hàng (null nếu Reusable hoặc consumable không có lot).</summary>
+    public int? LotId { get; set; }
+
+    /// <summary>Ngày nhập lô hàng.</summary>
+    public DateTime? ReceivedDate { get; set; }
+
+    /// <summary>Hạn sử dụng của lô hàng.</summary>
+    public DateTime? ExpiredDate { get; set; }
+
+    /// <summary>Số lượng tồn (remaining) của lô.</summary>
+    public int Quantity { get; set; }
 }

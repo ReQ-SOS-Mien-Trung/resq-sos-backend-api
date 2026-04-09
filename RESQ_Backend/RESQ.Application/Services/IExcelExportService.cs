@@ -1,3 +1,4 @@
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Domain.Entities.Logistics.Models;
 
 namespace RESQ.Application.Services;
@@ -53,6 +54,18 @@ public interface IExcelExportService
         IReadOnlyList<DonationImportCategoryInfo> categories,
         IReadOnlyList<DonationImportItemInfo> items,
         IReadOnlyList<DonationImportTargetGroupInfo> targetGroups);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Depot Closure — External Resolution
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Tạo file Excel template để depot manager ghi nhận cách xử lý tồn kho bên ngoài hệ thống.
+    /// Các cột pre-fill: STT, Tên vật phẩm, Danh mục, Đối tượng, Loại, Đơn vị, Ngày nhập, Hạn sử dụng, Số lượng.
+    /// Các cột để manager điền: Đơn giá, Thành tiền (formula), Hình thức xử lý, Người nhận, Ghi chú.
+    /// Dữ liệu được chia theo từng lô (consumable) hoặc nhóm (reusable).
+    /// </summary>
+    byte[] GenerateClosureExternalTemplate(string depotName, IReadOnlyList<ClosureInventoryLotItemDto> items);
 }
 
 /// <summary>Thông tin danh mục cho Excel template nhập kho.</summary>

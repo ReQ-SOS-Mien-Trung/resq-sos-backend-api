@@ -1,8 +1,9 @@
 using MediatR;
+using RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 
 namespace RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 
 /// <summary>
-/// [Manager] Xem quỹ kho mà mình đang quản lý.
+/// [Manager] Xem tất cả quỹ kho mà mình đang quản lý (có thể nhiều quỹ từ nhiều nguồn khác nhau).
 /// </summary>
-public record GetMyDepotFundQuery(Guid UserId) : IRequest<DepotFundDto>;
+public record GetMyDepotFundQuery(Guid UserId) : IRequest<List<DepotFundListItemDto>>;

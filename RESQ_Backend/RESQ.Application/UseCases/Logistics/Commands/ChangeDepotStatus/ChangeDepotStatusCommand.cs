@@ -5,5 +5,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
 
 public record ChangeDepotStatusCommand(
     int Id,
-    DepotStatus Status
+    DepotStatus Status,
+    Guid RequestedBy
 ) : IRequest<ChangeDepotStatusResponse>;

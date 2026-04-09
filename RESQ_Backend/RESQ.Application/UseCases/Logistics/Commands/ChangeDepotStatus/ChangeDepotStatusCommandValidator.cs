@@ -10,15 +10,15 @@ public class ChangeDepotStatusCommandValidator : AbstractValidator<ChangeDepotSt
         RuleFor(x => x.Id)
             .GreaterThan(0).WithMessage("Id kho phải lớn hơn 0.");
 
+        RuleFor(x => x.RequestedBy)
+            .NotEmpty().WithMessage("Người thực hiện không hợp lệ.");
+
         RuleFor(x => x.Status)
             .IsInEnum().WithMessage("Trạng thái kho không hợp lệ.")
-            .Must(s => s != DepotStatus.Created
-                    && s != DepotStatus.PendingAssignment
-                    && s != DepotStatus.Closing
-                    && s != DepotStatus.Closed)
+            .Must(s => s == DepotStatus.Available || s == DepotStatus.Unavailable)
             .WithMessage("Trạng thái đưa vào không hợp lệ. " +
-                         "Các trạng thái được phép: Available, Full, UnderMaintenance. " +
-                         "Dùng POST /logistics/depot/{id}/close/initiate để đóng kho.");
+                         "Các trạng thái được phép: Available, Unavailable. " +
+                         "Dùng POST /logistics/depot/{id}/close để đóng kho.");
     }
 }
 

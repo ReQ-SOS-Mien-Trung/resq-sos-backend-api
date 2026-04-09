@@ -8,7 +8,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 /// </summary>
 public record ReceiveClosureTransferCommand(
     int DepotId,
-    int ClosureId,
     int TransferId,
     Guid UserId,
     string? Note) : IRequest<ReceiveClosureTransferResponse>;

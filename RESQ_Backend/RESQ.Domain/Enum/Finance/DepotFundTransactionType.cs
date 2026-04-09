@@ -18,5 +18,11 @@ public enum DepotFundTransactionType
     SelfAdvance,
     
     /// <summary>Trừ nợ tự động khi kho nhận tiền mới (từ phần đã tự ứng trước đó).</summary>
-    DebtRepayment
+    DebtRepayment,
+
+    /// <summary>Tiền thu được từ thanh lý tài sản khi đóng kho.</summary>
+    LiquidationRevenue,
+
+    /// <summary>Hoàn tiền quỹ kho về quỹ hệ thống khi đóng kho.</summary>
+    ClosureFundReturn
 }

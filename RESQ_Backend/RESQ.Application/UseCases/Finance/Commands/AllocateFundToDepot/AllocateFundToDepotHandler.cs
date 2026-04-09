@@ -10,11 +10,11 @@ using RESQ.Domain.Enum.Finance;
 namespace RESQ.Application.UseCases.Finance.Commands.AllocateFundToDepot;
 
 /// <summary>
-/// [Cách 1] Admin chủ động cấp tiền từ Campaign → Depot.
-/// 1. Validate campaign (Active hoặc Closed, đủ tiền)
-/// 2. Tạo CampaignDisbursement
-/// 3. Tạo FundTransaction (ghi nhận dòng tiền ra)
-/// 4. Cộng quỹ kho + gửi Firebase notification cho manager
+/// [Cách 1] Admin chủ động cấp tiền từ nguồn quỹ (Campaign hoặc SystemFund) → Depot.
+/// 1. Validate nguồn (campaign đủ tiền / system fund đủ tiền)
+/// 2. Trừ tiền nguồn
+/// 3. Cộng quỹ kho tương ứng (depot fund gắn với nguồn cụ thể)
+/// 4. Ghi log giao dịch + gửi Firebase notification
 /// </summary>
 public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCommand, int>
 {
@@ -24,6 +24,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
     private readonly IDepotFundRepository _depotFundRepo;
     private readonly IDepotRepository _depotRepo;
     private readonly IFundDistributionManager _distributionManager;
+    private readonly ISystemFundRepository _systemFundRepo;
     private readonly IFirebaseService _firebaseService;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -34,6 +35,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         IDepotFundRepository depotFundRepo,
         IDepotRepository depotRepo,
         IFundDistributionManager distributionManager,
+        ISystemFundRepository systemFundRepo,
         IFirebaseService firebaseService,
         IUnitOfWork unitOfWork)
     {
@@ -43,40 +45,51 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         _depotFundRepo = depotFundRepo;
         _depotRepo = depotRepo;
         _distributionManager = distributionManager;
+        _systemFundRepo = systemFundRepo;
         _firebaseService = firebaseService;
         _unitOfWork = unitOfWork;
     }
 
     public async Task<int> Handle(AllocateFundToDepotCommand request, CancellationToken cancellationToken)
     {
+        return request.SourceType switch
+        {
+            FundSourceType.Campaign => await HandleCampaignAllocation(request, cancellationToken),
+            FundSourceType.SystemFund => await HandleSystemFundAllocation(request, cancellationToken),
+            _ => throw new RESQ.Application.Exceptions.BadRequestException($"Loại nguồn quỹ không hợp lệ: {request.SourceType}.")
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Campaign → Depot (giữ nguyên luồng cũ, cộng quỹ vào depot fund gắn campaign)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task<int> HandleCampaignAllocation(AllocateFundToDepotCommand request, CancellationToken cancellationToken)
+    {
+        if (!request.FundCampaignId.HasValue)
+            throw new RESQ.Application.Exceptions.BadRequestException("FundCampaignId là bắt buộc khi nguồn quỹ là Campaign.");
+
+        var campaignId = request.FundCampaignId.Value;
+
         // 1. Lấy campaign
-        var campaign = await _campaignRepo.GetByIdAsync(request.FundCampaignId, cancellationToken)
-            ?? throw new RESQ.Application.Exceptions.NotFoundException($"Không tìm thấy chiến dịch #{request.FundCampaignId}.");
+        var campaign = await _campaignRepo.GetByIdAsync(campaignId, cancellationToken)
+            ?? throw new RESQ.Application.Exceptions.NotFoundException($"Không tìm thấy chiến dịch #{campaignId}.");
 
-        // 2. Số dư khả dụng là CurrentBalance của chiến dịch
         var availableBalance = campaign.CurrentBalance ?? 0;
-
-        // 3. Domain Service validate (status, balance, amount)
         _distributionManager.ValidateAllocation(campaign, availableBalance, request.Amount);
 
-        // 4. Tạo CampaignDisbursement — CreateAsync lưu ngay và trả về ID thực từ DB
+        // 2. Tạo CampaignDisbursement
         var disbursement = CampaignDisbursementModel.CreateAdminAllocation(
-            request.FundCampaignId,
-            request.DepotId,
-            request.Amount,
-            request.Purpose,
-            request.AllocatedBy
-        );
+            campaignId, request.DepotId, request.Amount, request.Purpose, request.AllocatedBy);
         var disbursementId = await _disbursementRepo.CreateAsync(disbursement, cancellationToken);
 
-        // 4b. Trừ số tiền đã cấp khỏi CurrentBalance của chiến dịch
         campaign.Disburse(request.Amount, request.AllocatedBy);
         await _campaignRepo.UpdateAsync(campaign, cancellationToken);
 
-        // 5. Tạo FundTransaction (ghi nhận dòng tiền OUT)
-        var transaction = new FundTransactionModel
+        // 3. Tạo FundTransaction (OUT)
+        await _transactionRepo.CreateAsync(new FundTransactionModel
         {
-            FundCampaignId = request.FundCampaignId,
+            FundCampaignId = campaignId,
             Type = TransactionType.Allocation,
             Direction = TransactionDirection.Out,
             Amount = request.Amount,
@@ -84,15 +97,15 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
             ReferenceId = disbursementId,
             CreatedBy = request.AllocatedBy,
             CreatedAt = DateTime.UtcNow
-        };
-        await _transactionRepo.CreateAsync(transaction, cancellationToken);
+        }, cancellationToken);
 
-        // 6. Cộng quỹ kho (lazy init nếu chưa có) — tự động trừ nợ nếu balance âm
-        var depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(request.DepotId, cancellationToken);
+        // 4. Cộng quỹ kho gắn với campaign (tạo mới nếu chưa có)
+        var depotFund = await _depotFundRepo.GetOrCreateByDepotAndSourceAsync(
+            request.DepotId, FundSourceType.Campaign, campaignId, cancellationToken);
         var creditResult = depotFund.Credit(request.Amount);
         await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
-        // 7. Ghi log giao dịch quỹ kho — Allocation
+        // 5. Ghi log giao dịch quỹ kho — Allocation
         await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
         {
             DepotFundId = depotFund.Id,
@@ -100,12 +113,11 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
             Amount = request.Amount,
             ReferenceType = "CampaignDisbursement",
             ReferenceId = disbursementId,
-            Note = $"Cấp quỹ từ chiến dịch #{request.FundCampaignId}",
+            Note = $"Cấp quỹ từ chiến dịch #{campaignId}",
             CreatedBy = request.AllocatedBy,
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
 
-        // 7b. Ghi thêm transaction trừ nợ nếu kho đang tự ứng (âm)
         if (creditResult.DebtRepaid > 0)
         {
             await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
@@ -115,7 +127,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
                 Amount = creditResult.DebtRepaid,
                 ReferenceType = "CampaignDisbursement",
                 ReferenceId = disbursementId,
-                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ kho đã tự ứng trước đó",
+                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ đã tự ứng trước đó",
                 CreatedBy = request.AllocatedBy,
                 CreatedAt = DateTime.UtcNow
             }, cancellationToken);
@@ -123,20 +135,100 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
 
         await _unitOfWork.SaveAsync();
 
-        // 8. Gửi Firebase notification cho manager hiện tại của kho
-        var depot = await _depotRepo.GetByIdAsync(request.DepotId, cancellationToken);
+        // 6. Firebase notification
+        await NotifyDepotManager(request.DepotId, request.Amount, $"chiến dịch \"{campaign.Name}\"", cancellationToken);
+
+        return disbursementId;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  SystemFund → Depot
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task<int> HandleSystemFundAllocation(AllocateFundToDepotCommand request, CancellationToken cancellationToken)
+    {
+        // 1. Lấy quỹ hệ thống
+        var systemFund = await _systemFundRepo.GetOrCreateAsync(cancellationToken);
+        if (request.Amount > systemFund.Balance)
+            throw new RESQ.Application.Exceptions.ConflictException(
+                $"Quỹ hệ thống không đủ số dư. Hiện có: {systemFund.Balance:N0} VNĐ, Yêu cầu: {request.Amount:N0} VNĐ.");
+
+        // 2. Trừ quỹ hệ thống
+        systemFund.Debit(request.Amount);
+        await _systemFundRepo.UpdateAsync(systemFund, cancellationToken);
+
+        // 3. Ghi log giao dịch quỹ hệ thống (OUT)
+        await _systemFundRepo.CreateTransactionAsync(new SystemFundTransactionModel
+        {
+            SystemFundId = systemFund.Id,
+            TransactionType = SystemFundTransactionType.AllocationToDepot,
+            Amount = request.Amount,
+            ReferenceType = "DepotFundAllocation",
+            ReferenceId = null,
+            Note = $"Cấp {request.Amount:N0} VNĐ cho kho #{request.DepotId} từ quỹ hệ thống",
+            CreatedBy = request.AllocatedBy,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+
+        // 4. Cộng quỹ kho gắn với SystemFund (tạo mới nếu chưa có)
+        var depotFund = await _depotFundRepo.GetOrCreateByDepotAndSourceAsync(
+            request.DepotId, FundSourceType.SystemFund, null, cancellationToken);
+        var creditResult = depotFund.Credit(request.Amount);
+        await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
+
+        // 5. Ghi log giao dịch quỹ kho
+        await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+        {
+            DepotFundId = depotFund.Id,
+            TransactionType = DepotFundTransactionType.Allocation,
+            Amount = request.Amount,
+            ReferenceType = "SystemFund",
+            ReferenceId = systemFund.Id,
+            Note = $"Cấp quỹ từ quỹ hệ thống",
+            CreatedBy = request.AllocatedBy,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+
+        if (creditResult.DebtRepaid > 0)
+        {
+            await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
+            {
+                DepotFundId = depotFund.Id,
+                TransactionType = DepotFundTransactionType.DebtRepayment,
+                Amount = creditResult.DebtRepaid,
+                ReferenceType = "SystemFund",
+                ReferenceId = systemFund.Id,
+                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ đã tự ứng trước đó",
+                CreatedBy = request.AllocatedBy,
+                CreatedAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
+
+        await _unitOfWork.SaveAsync();
+
+        // 6. Firebase notification
+        await NotifyDepotManager(request.DepotId, request.Amount, "quỹ hệ thống", cancellationToken);
+
+        return depotFund.Id;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  Helpers
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task NotifyDepotManager(int depotId, decimal amount, string sourceName, CancellationToken ct)
+    {
+        var depot = await _depotRepo.GetByIdAsync(depotId, ct);
         var managerId = depot?.CurrentManagerId;
         if (managerId.HasValue)
         {
-            var depotName = depot!.Name ?? $"Kho #{request.DepotId}";
+            var depotName = depot!.Name ?? $"Kho #{depotId}";
             await _firebaseService.SendNotificationToUserAsync(
                 managerId.Value,
                 "Quỹ kho được cấp mới",
-                $"Kho {depotName} vừa được cấp {request.Amount:N0} VNĐ từ chiến dịch \"{campaign.Name}\".",
+                $"Kho {depotName} vừa được cấp {amount:N0} VNĐ từ {sourceName}.",
                 "fund_allocation",
-                cancellationToken);
+                ct);
         }
-
-        return disbursementId;
     }
 }
