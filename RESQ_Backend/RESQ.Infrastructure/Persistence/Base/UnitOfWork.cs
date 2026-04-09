@@ -99,19 +99,23 @@ namespace RESQ.Infrastructure.Persistence.Base
 
         public async Task ExecuteInTransactionAsync(Func<Task> action)
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            await strategy.ExecuteAsync(async () =>
             {
-                await action();
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    await action();
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
         }
     }
 }
-
 
