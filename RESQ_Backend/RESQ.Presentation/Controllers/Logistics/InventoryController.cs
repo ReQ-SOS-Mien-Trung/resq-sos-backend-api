@@ -69,6 +69,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         [FromQuery(Name = "categoryCode")] List<ItemCategoryCode>? categoryCodes,
         [FromQuery] List<ItemType>? itemTypes,
         [FromQuery] List<TargetGroup>? targetGroups,
+        [FromQuery] string? itemName,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -80,6 +81,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             CategoryIds = categoryIds,
             ItemTypes = itemTypes,
             TargetGroups = targetGroups,
+            ItemName = itemName,
             PageNumber = pageNumber,
             PageSize = pageSize
         };
