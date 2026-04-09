@@ -18,10 +18,18 @@ public class CreateSosPriorityRuleConfigDraftCommandHandler(
 
     public async Task<SosPriorityRuleConfigResponse> Handle(CreateSosPriorityRuleConfigDraftCommand request, CancellationToken cancellationToken)
     {
-        var active = await _repository.GetAsync(cancellationToken)
-            ?? throw new NotFoundException("Chưa có cấu hình SOS active để clone draft.");
+        var source = request.SourceConfigId.HasValue
+            ? await _repository.GetByIdAsync(request.SourceConfigId.Value, cancellationToken)
+            : await _repository.GetAsync(cancellationToken);
 
-        var sourceConfig = SosPriorityRuleConfigSupport.FromModel(active);
+        if (source == null)
+        {
+            throw request.SourceConfigId.HasValue
+                ? new NotFoundException($"Không tìm thấy cấu hình SOS với Id={request.SourceConfigId.Value} để clone draft.")
+                : new NotFoundException("Chưa có cấu hình SOS active để clone draft.");
+        }
+
+        var sourceConfig = SosPriorityRuleConfigSupport.FromModel(source);
         sourceConfig.IsActive = false;
         sourceConfig.ConfigVersion = await BuildUniqueDraftVersionAsync(sourceConfig.ConfigVersion, cancellationToken);
 

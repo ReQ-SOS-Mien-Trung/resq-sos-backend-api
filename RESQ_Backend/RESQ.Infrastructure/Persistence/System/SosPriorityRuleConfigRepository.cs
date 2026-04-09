@@ -69,4 +69,9 @@ public class SosPriorityRuleConfigRepository(IUnitOfWork unitOfWork) : ISosPrior
         var entity = SosPriorityRuleConfigMapper.ToEntity(model);
         await _unitOfWork.GetRepository<SosPriorityRuleConfig>().UpdateAsync(entity);
     }
+
+    public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        await _unitOfWork.GetRepository<SosPriorityRuleConfig>().DeleteAsyncById(id);
+    }
 }

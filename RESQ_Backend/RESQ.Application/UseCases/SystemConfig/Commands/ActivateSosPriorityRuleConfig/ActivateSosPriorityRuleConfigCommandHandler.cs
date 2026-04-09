@@ -21,9 +21,9 @@ public class ActivateSosPriorityRuleConfigCommandHandler(
         var target = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException($"Cấu hình quy tắc ưu tiên SOS với Id={request.Id} không tồn tại.");
 
-        if (!target.IsDraft)
+        if (target.IsActive)
         {
-            throw new BadRequestException("Chỉ draft config mới có thể activate.");
+            throw new BadRequestException("Config này đang active.");
         }
 
         if (await _repository.ExistsConfigVersionAsync(target.ConfigVersion, target.Id, cancellationToken))
@@ -32,10 +32,14 @@ public class ActivateSosPriorityRuleConfigCommandHandler(
         }
 
         var now = DateTime.UtcNow;
+        var versions = await _repository.GetAllAsync(cancellationToken);
+        var activeVersions = versions
+            .Where(x => x.IsActive && x.Id != target.Id)
+            .ToList();
+
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            var versions = await _repository.GetAllAsync(cancellationToken);
-            foreach (var version in versions.Where(x => x.IsActive && x.Id != target.Id))
+            foreach (var version in activeVersions)
             {
                 version.IsActive = false;
                 version.UpdatedAt = now;
@@ -43,6 +47,11 @@ public class ActivateSosPriorityRuleConfigCommandHandler(
                 archivedDocument.IsActive = false;
                 SosPriorityRuleConfigSupport.SyncLegacyFields(version, archivedDocument);
                 await _repository.UpdateAsync(version, cancellationToken);
+            }
+
+            if (activeVersions.Count > 0)
+            {
+                await _unitOfWork.SaveAsync();
             }
 
             target.IsActive = true;

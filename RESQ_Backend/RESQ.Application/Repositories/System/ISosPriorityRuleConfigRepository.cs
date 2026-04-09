@@ -10,4 +10,5 @@ public interface ISosPriorityRuleConfigRepository
     Task<bool> ExistsConfigVersionAsync(string configVersion, int? excludeId = null, CancellationToken cancellationToken = default);
     Task CreateAsync(SosPriorityRuleConfigModel model, CancellationToken cancellationToken = default);
     Task UpdateAsync(SosPriorityRuleConfigModel model, CancellationToken cancellationToken = default);
+    Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 }

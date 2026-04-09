@@ -6,6 +6,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.SystemConfig.Commands.ActivateSosPriorityRuleConfig;
 using RESQ.Application.UseCases.SystemConfig.Commands.CreateSosPriorityRuleConfigDraft;
+using RESQ.Application.UseCases.SystemConfig.Commands.DeleteSosPriorityRuleConfigDraft;
 using RESQ.Application.UseCases.SystemConfig.Commands.UpdateSosPriorityRuleConfig;
 using RESQ.Application.UseCases.SystemConfig.Commands.ValidateSosPriorityRuleConfig;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosPriorityRuleConfig;
@@ -43,12 +44,21 @@ public class SosPriorityRuleConfigController(IMediator mediator) : ControllerBas
         return Ok(result);
     }
 
-    /// <summary>Clone active config hiện tại thành draft mới.</summary>
+    /// <summary>Clone version được chọn thành draft mới. Nếu không truyền sourceConfigId thì clone active config hiện tại.</summary>
     [HttpPost("drafts")]
-    public async Task<IActionResult> CreateDraft()
+    public async Task<IActionResult> CreateDraft([FromQuery] int? sourceConfigId = null)
     {
-        var result = await _mediator.Send(new CreateSosPriorityRuleConfigDraftCommand(GetCurrentUserId()));
+        var result = await _mediator.Send(
+            new CreateSosPriorityRuleConfigDraftCommand(GetCurrentUserId(), sourceConfigId));
         return Ok(result);
+    }
+
+    /// <summary>Xóa một draft config SOS.</summary>
+    [HttpDelete("drafts/{id:int}")]
+    public async Task<IActionResult> DeleteDraft(int id)
+    {
+        await _mediator.Send(new DeleteSosPriorityRuleConfigDraftCommand(id));
+        return NoContent();
     }
 
     /// <summary>Cập nhật draft config SOS.</summary>
@@ -71,7 +81,7 @@ public class SosPriorityRuleConfigController(IMediator mediator) : ControllerBas
         return Ok(result);
     }
 
-    /// <summary>Activate một draft config thành version active hiện tại.</summary>
+    /// <summary>Activate một version chưa active thành version active hiện tại.</summary>
     [HttpPost("{id:int}/activate")]
     public async Task<IActionResult> Activate(int id)
     {

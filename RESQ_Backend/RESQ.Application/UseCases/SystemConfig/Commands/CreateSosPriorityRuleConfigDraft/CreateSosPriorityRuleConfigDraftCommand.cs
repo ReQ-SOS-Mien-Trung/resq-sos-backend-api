@@ -3,4 +3,5 @@ using RESQ.Application.UseCases.SystemConfig.Queries.GetSosPriorityRuleConfig;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.CreateSosPriorityRuleConfigDraft;
 
-public record CreateSosPriorityRuleConfigDraftCommand(Guid? CreatedBy) : IRequest<SosPriorityRuleConfigResponse>;
+public record CreateSosPriorityRuleConfigDraftCommand(Guid? CreatedBy, int? SourceConfigId)
+    : IRequest<SosPriorityRuleConfigResponse>;
