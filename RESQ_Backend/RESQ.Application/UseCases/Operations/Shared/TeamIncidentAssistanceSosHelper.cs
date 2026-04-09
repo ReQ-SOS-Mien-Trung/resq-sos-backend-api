@@ -1,9 +1,8 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
-using RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Entities.Operations;
 
@@ -21,30 +20,23 @@ internal static class TeamIncidentAssistanceSosHelper
         string incidentDescription,
         double? incidentLatitude,
         double? incidentLongitude,
-        bool needSupportSos,
-        bool needReassignActivity,
-        IncidentSupportRequestData? supportRequest,
+        IncidentSosCreationContext? sosContext,
         IMediator mediator,
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        if (!needSupportSos)
+        if (sosContext is null)
         {
             return null;
         }
 
-        if (supportRequest is null)
+        if (sosContext.Latitude.HasValue != sosContext.Longitude.HasValue)
         {
-            throw new BadRequestException("Thiếu thông tin SupportRequest dù incident yêu cầu hỗ trợ.");
+            throw new BadRequestException("Latitude và Longitude của SOS context phải cùng có giá trị hoặc cùng để trống.");
         }
 
-        if (supportRequest.Latitude.HasValue != supportRequest.Longitude.HasValue)
-        {
-            throw new BadRequestException("Latitude và Longitude của SupportRequest phải cùng có giá trị hoặc cùng để trống.");
-        }
-
-        var latitude = supportRequest.Latitude ?? incidentLatitude ?? missionTeam.Latitude;
-        var longitude = supportRequest.Longitude ?? incidentLongitude ?? missionTeam.Longitude;
+        var latitude = sosContext.Latitude ?? incidentLatitude ?? missionTeam.Latitude;
+        var longitude = sosContext.Longitude ?? incidentLongitude ?? missionTeam.Longitude;
 
         if (!latitude.HasValue || !longitude.HasValue)
         {
@@ -52,35 +44,37 @@ internal static class TeamIncidentAssistanceSosHelper
         }
 
         var reporter = missionTeam.RescueTeamMembers.FirstOrDefault(member => member.UserId == reportedBy);
-        var rawMessage = string.IsNullOrWhiteSpace(supportRequest.RawMessage)
+        var rawMessage = string.IsNullOrWhiteSpace(sosContext.AdditionalDescription)
             ? incidentDescription.Trim()
-            : supportRequest.RawMessage.Trim();
+            : sosContext.AdditionalDescription.Trim();
 
-        var defaultAdultCount = supportRequest.AdultCount ?? Math.Max(missionTeam.MemberCount, 1);
-        var supportTypes = supportRequest.SupportTypes
+        var defaultAdultCount = sosContext.AdultCount ?? Math.Max(missionTeam.MemberCount, 1);
+        var supportTypes = sosContext.SupportTypes
             .Select(type => type.Trim().ToLowerInvariant())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        var sosType = ResolveSupportSosType(supportRequest, supportTypes);
+        var sosType = ResolveSupportSosType(sosContext, supportTypes);
 
         var structuredDataJson = JsonSerializer.Serialize(new
         {
             incident = new
             {
-                situation = string.IsNullOrWhiteSpace(supportRequest.Situation) ? "trapped" : supportRequest.Situation,
-                address = supportRequest.Address,
-                additional_description = string.IsNullOrWhiteSpace(supportRequest.AdditionalDescription)
-                    ? incidentDescription.Trim()
-                    : supportRequest.AdditionalDescription.Trim(),
-                has_injured = supportRequest.HasInjured,
+                situation = "trapped",
+                additional_description = rawMessage,
+                has_injured = sosContext.HasInjured,
                 people_count = new
                 {
                     adult = defaultAdultCount,
-                    child = supportRequest.ChildCount ?? 0,
-                    elderly = supportRequest.ElderlyCount ?? 0
-                }
+                    child = 0,
+                    elderly = 0
+                },
+                support_priority = sosContext.Priority,
+                evacuation_priority = sosContext.EvacuationPriority,
+                meetup_point = sosContext.MeetupPoint,
+                affected_resources = sosContext.AffectedResources,
+                medical_issues = sosContext.MedicalIssues
             },
-            victims = BuildVictims(reporter, supportRequest),
+            victims = BuildVictims(reporter, sosContext),
             team_incident_context = new
             {
                 mission_id = missionId,
@@ -88,6 +82,7 @@ internal static class TeamIncidentAssistanceSosHelper
                 mission_activity_id = activity?.Id,
                 incident_scope = activity is null ? "Mission" : "Activity",
                 incident_type = incidentType,
+                reported_incident_type = sosContext.ReportedIncidentType,
                 decision_code = decisionCode,
                 team_name = missionTeam.TeamName,
                 team_code = missionTeam.TeamCode,
@@ -97,7 +92,9 @@ internal static class TeamIncidentAssistanceSosHelper
             operation_support = new
             {
                 support_types = supportTypes,
-                need_reassign_activity = needReassignActivity,
+                need_reassign_activity = supportTypes.Contains(
+                    IncidentV2Constants.SupportTypes.TakeoverActivity,
+                    StringComparer.OrdinalIgnoreCase),
                 requested_sos_type = sosType,
                 origin = "rescuer_incident"
             }
@@ -141,10 +138,10 @@ internal static class TeamIncidentAssistanceSosHelper
         return response;
     }
 
-    private static string ResolveSupportSosType(IncidentSupportRequestData supportRequest, IReadOnlyCollection<string> supportTypes)
+    private static string ResolveSupportSosType(IncidentSosCreationContext sosContext, IReadOnlyCollection<string> supportTypes)
     {
-        var hasMedicalNeed = supportRequest.HasInjured == true
-            || supportRequest.MedicalIssues is { Count: > 0 }
+        var hasMedicalNeed = sosContext.HasInjured
+            || sosContext.MedicalIssues is { Count: > 0 }
             || supportTypes.Any(type => type.Contains("medical", StringComparison.OrdinalIgnoreCase));
 
         if (hasMedicalNeed)
@@ -160,9 +157,9 @@ internal static class TeamIncidentAssistanceSosHelper
         return supplyOnly ? "SUPPLY" : "RESCUE";
     }
 
-    private static object[]? BuildVictims(MissionTeamMemberInfo? reporter, IncidentSupportRequestData supportRequest)
+    private static object[]? BuildVictims(MissionTeamMemberInfo? reporter, IncidentSosCreationContext sosContext)
     {
-        var hasInjuredVictim = supportRequest.HasInjured == true || supportRequest.MedicalIssues is { Count: > 0 };
+        var hasInjuredVictim = sosContext.HasInjured || sosContext.MedicalIssues is { Count: > 0 };
         if (!hasInjuredVictim)
         {
             return null;
@@ -177,9 +174,9 @@ internal static class TeamIncidentAssistanceSosHelper
                 person_phone = reporter?.Phone,
                 incident_status = new
                 {
-                    is_injured = supportRequest.HasInjured ?? true,
+                    is_injured = sosContext.HasInjured,
                     severity = "moderate",
-                    medical_issues = supportRequest.MedicalIssues
+                    medical_issues = sosContext.MedicalIssues
                 }
             }
         ];

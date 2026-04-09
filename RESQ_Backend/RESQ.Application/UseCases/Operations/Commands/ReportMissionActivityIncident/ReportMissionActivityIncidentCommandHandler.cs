@@ -33,7 +33,7 @@ public class ReportMissionActivityIncidentCommandHandler(
 {
     public async Task<ReportTeamIncidentResponse> Handle(ReportMissionActivityIncidentCommand request, CancellationToken cancellationToken)
     {
-        var normalized = IncidentV2NormalizationHelper.NormalizeActivityRequest(request.Payload);
+        var normalized = IncidentV2NormalizationHelper.NormalizeActivityRequest(request.MissionId, request.MissionTeamId, request.Payload);
 
         var mission = await missionRepository.GetByIdAsync(request.MissionId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy mission #{request.MissionId}.");
@@ -90,7 +90,7 @@ public class ReportMissionActivityIncidentCommandHandler(
             MissionTeamId = missionTeam.Id,
             MissionActivityId = primaryActivity.Id,
             IncidentScope = TeamIncidentScope.Activity,
-            IncidentType = IncidentV2Constants.ActivityIncidentType,
+            IncidentType = normalized.IncidentType ?? IncidentV2Constants.ActivityIncidentType,
             DecisionCode = normalized.DecisionCode,
             Description = normalized.Summary,
             Latitude = normalized.Latitude,
@@ -184,14 +184,12 @@ public class ReportMissionActivityIncidentCommandHandler(
                 missionTeam,
                 primaryActivity,
                 request.ReportedBy,
-                IncidentV2Constants.ActivityIncidentType,
+                normalized.IncidentType ?? IncidentV2Constants.ActivityIncidentType,
                 normalized.DecisionCode,
                 normalized.Summary,
                 normalized.Latitude,
                 normalized.Longitude,
-                normalized.NeedSupportSos,
-                normalized.NeedReassignActivity,
-                normalized.SupportRequest,
+                normalized.SosContext,
                 mediator,
                 logger,
                 cancellationToken);
@@ -226,7 +224,7 @@ public class ReportMissionActivityIncidentCommandHandler(
             MissionTeamId = missionTeam.Id,
             MissionActivityId = primaryActivity.Id,
             IncidentScope = TeamIncidentScope.Activity.ToString(),
-            IncidentType = IncidentV2Constants.ActivityIncidentType,
+            IncidentType = normalized.IncidentType ?? IncidentV2Constants.ActivityIncidentType,
             DecisionCode = normalized.DecisionCode,
             Status = TeamIncidentStatus.Reported.ToString(),
             IncidentSosRequestIds = impactedSosRequestIds.ToList(),
