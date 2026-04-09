@@ -49,19 +49,16 @@ public class UnverifiedUserCleanupBackgroundService : BackgroundService
 
         var expirationThreshold = DateTime.UtcNow.AddHours(-24);
 
-        // Find users who haven't verified their email within 24 hours
-        var expiredUsers = await context.Users
+        // Delete directly in SQL to avoid loading the full User entity graph and spatial columns.
+        var deletedCount = await context.Users
             .Where(u => !u.IsEmailVerified 
                         && u.EmailVerificationToken != null 
                         && u.CreatedAt <= expirationThreshold)
-            .ToListAsync(stoppingToken);
+            .ExecuteDeleteAsync(stoppingToken);
 
-        if (!expiredUsers.Any())
+        if (deletedCount == 0)
             return;
 
-        context.Users.RemoveRange(expiredUsers);
-        await context.SaveChangesAsync(stoppingToken);
-
-        _logger.LogInformation("Auto-deleted {Count} unverified users who expired after 24 hours.", expiredUsers.Count);
+        _logger.LogInformation("Auto-deleted {Count} unverified users who expired after 24 hours.", deletedCount);
     }
 }

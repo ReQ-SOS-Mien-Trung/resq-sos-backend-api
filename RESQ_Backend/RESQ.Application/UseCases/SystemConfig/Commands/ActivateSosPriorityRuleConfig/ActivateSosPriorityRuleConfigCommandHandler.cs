@@ -18,27 +18,28 @@ public class ActivateSosPriorityRuleConfigCommandHandler(
 
     public async Task<SosPriorityRuleConfigResponse> Handle(ActivateSosPriorityRuleConfigCommand request, CancellationToken cancellationToken)
     {
-        var target = await _repository.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException($"Cấu hình quy tắc ưu tiên SOS với Id={request.Id} không tồn tại.");
-
-        if (target.IsActive)
-        {
-            throw new BadRequestException("Config này đang active.");
-        }
-
-        if (await _repository.ExistsConfigVersionAsync(target.ConfigVersion, target.Id, cancellationToken))
-        {
-            throw new BadRequestException($"config_version '{target.ConfigVersion}' đã tồn tại.");
-        }
-
-        var now = DateTime.UtcNow;
-        var versions = await _repository.GetAllAsync(cancellationToken);
-        var activeVersions = versions
-            .Where(x => x.IsActive && x.Id != target.Id)
-            .ToList();
-
+        SosPriorityRuleConfigResponse? response = null;
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            var target = await _repository.GetByIdAsync(request.Id, cancellationToken)
+                ?? throw new NotFoundException($"Cấu hình quy tắc ưu tiên SOS với Id={request.Id} không tồn tại.");
+
+            if (target.IsActive)
+            {
+                throw new BadRequestException("Config này đang active.");
+            }
+
+            if (await _repository.ExistsConfigVersionAsync(target.ConfigVersion, target.Id, cancellationToken))
+            {
+                throw new BadRequestException($"config_version '{target.ConfigVersion}' đã tồn tại.");
+            }
+
+            var now = DateTime.UtcNow;
+            var versions = await _repository.GetAllAsync(cancellationToken);
+            var activeVersions = versions
+                .Where(x => x.IsActive && x.Id != target.Id)
+                .ToList();
+
             foreach (var version in activeVersions)
             {
                 version.IsActive = false;
@@ -64,12 +65,11 @@ public class ActivateSosPriorityRuleConfigCommandHandler(
             await _repository.UpdateAsync(target, cancellationToken);
 
             await _unitOfWork.SaveAsync();
+            response = ToResponse(target);
         });
 
-        var activated = await _repository.GetByIdAsync(request.Id, cancellationToken)
+        return response
             ?? throw new NotFoundException($"Không thể tải config vừa activate với Id={request.Id}.");
-
-        return ToResponse(activated);
     }
 
     private static SosPriorityRuleConfigResponse ToResponse(SosPriorityRuleConfigModel config)
