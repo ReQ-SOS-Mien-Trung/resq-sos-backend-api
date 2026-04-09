@@ -7,16 +7,19 @@ using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 
 namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 
 public class ConfirmDeliverySuppliesCommandHandler(
     IMissionActivityRepository activityRepository,
+    IMediator mediator,
     IUnitOfWork unitOfWork,
     ILogger<ConfirmDeliverySuppliesCommandHandler> logger
 ) : IRequestHandler<ConfirmDeliverySuppliesCommand, ConfirmDeliverySuppliesResponse>
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly IMediator _mediator = mediator;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ConfirmDeliverySuppliesCommandHandler> _logger = logger;
 
@@ -47,9 +50,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
         var validSupplies = supplies.Where(s => s.ItemId.HasValue).ToList();
 
         // 3. Validate all submitted ItemIds exist in the activity
-        var supplyLookup = validSupplies
-            .Where(s => s.ItemId.HasValue)
-            .ToDictionary(s => s.ItemId!.Value);
+        var supplyLookup = validSupplies.ToDictionary(s => s.ItemId!.Value);
 
         foreach (var deliveredItem in request.ActualDeliveredItems)
         {
@@ -58,32 +59,32 @@ public class ConfirmDeliverySuppliesCommandHandler(
                     $"ItemId {deliveredItem.ItemId} không tồn tại trong danh sách vật tư của activity này.");
         }
 
-        // 4. Apply actual delivered quantities into Items JSON
+        // 4. Apply actual delivered quantities into Items JSON then persist
         var deliveredLookup = request.ActualDeliveredItems.ToDictionary(d => d.ItemId);
         foreach (var supply in supplies)
         {
             if (supply.ItemId.HasValue && deliveredLookup.TryGetValue(supply.ItemId.Value, out var deliveredItem))
-            {
                 supply.ActualDeliveredQuantity = deliveredItem.ActualQuantity;
-            }
         }
 
         activity.Items = JsonSerializer.Serialize(supplies);
         await _activityRepository.UpdateAsync(activity, cancellationToken);
+        // Save Items changes before dispatching status command so the inner handler
+        // fetches a fresh entity with ActualDeliveredQuantity already persisted.
+        await _unitOfWork.SaveAsync();
 
-        // 5. Mark activity as Succeed
-        await _activityRepository.UpdateStatusAsync(
-            request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy, cancellationToken);
+        // 5. Dispatch UpdateActivityStatusCommand(Succeed) — reuses all side-effects:
+        //    team location update, SOS sync, auto-chain next activity.
+        await _mediator.Send(
+            new UpdateActivityStatusCommand(request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy),
+            cancellationToken);
 
         // 6. Auto-create RETURN_SUPPLIES for any surplus (planned > actual delivered)
         int? surplusReturnActivityId = null;
         var surplusItems = validSupplies
-            .Where(s =>
-            {
-                if (!s.ItemId.HasValue) return false;
-                if (!deliveredLookup.TryGetValue(s.ItemId.Value, out var delivered)) return false;
-                return delivered.ActualQuantity < s.Quantity;
-            })
+            .Where(s => s.ItemId.HasValue
+                && deliveredLookup.TryGetValue(s.ItemId.Value, out var d)
+                && d.ActualQuantity < s.Quantity)
             .Select(s => new SupplyToCollectDto
             {
                 ItemId = s.ItemId,
@@ -97,9 +98,8 @@ public class ConfirmDeliverySuppliesCommandHandler(
         {
             surplusReturnActivityId = await CreateSurplusReturnActivityAsync(
                 activity, surplusItems, request.ConfirmedBy, cancellationToken);
+            await _unitOfWork.SaveAsync();
         }
-
-        await _unitOfWork.SaveAsync();
 
         _logger.LogInformation(
             "Team confirmed DELIVER_SUPPLIES ActivityId={activityId} MissionId={missionId}: {itemCount} item type(s) delivered. SurplusReturnActivityId={surplusReturn}",
@@ -142,47 +142,36 @@ public class ConfirmDeliverySuppliesCommandHandler(
         Guid decidedBy,
         CancellationToken cancellationToken)
     {
-        try
+        var missionId = deliverActivity.MissionId ?? 0;
+        var existingActivities = await _activityRepository.GetByMissionIdAsync(missionId, cancellationToken);
+        var maxStep = existingActivities.Any() ? existingActivities.Max(a => a.Step ?? 0) : 0;
+
+        var returnActivity = new MissionActivityModel
         {
-            var missionId = deliverActivity.MissionId ?? 0;
-            var existingActivities = await _activityRepository.GetByMissionIdAsync(missionId, cancellationToken);
-            var maxStep = existingActivities.Any() ? existingActivities.Max(a => a.Step ?? 0) : 0;
+            MissionId = missionId,
+            Step = maxStep + 1,
+            ActivityType = "RETURN_SUPPLIES",
+            Description = $"Trả vật tư về kho {deliverActivity.DepotName} do giao thiếu so với kế hoạch (Activity #{deliverActivity.Id})",
+            Priority = deliverActivity.Priority,
+            EstimatedTime = deliverActivity.EstimatedTime,
+            SosRequestId = deliverActivity.SosRequestId,
+            DepotId = deliverActivity.DepotId,
+            DepotName = deliverActivity.DepotName,
+            DepotAddress = deliverActivity.DepotAddress,
+            Items = JsonSerializer.Serialize(surplusItems),
+            Status = MissionActivityStatus.Planned
+        };
 
-            var returnActivity = new MissionActivityModel
-            {
-                MissionId = missionId,
-                Step = maxStep + 1,
-                ActivityType = "RETURN_SUPPLIES",
-                Description = $"Trả vật tư về kho {deliverActivity.DepotName} do giao thiếu so với kế hoạch (Activity #{deliverActivity.Id})",
-                Priority = deliverActivity.Priority,
-                EstimatedTime = deliverActivity.EstimatedTime,
-                SosRequestId = deliverActivity.SosRequestId,
-                DepotId = deliverActivity.DepotId,
-                DepotName = deliverActivity.DepotName,
-                DepotAddress = deliverActivity.DepotAddress,
-                Items = JsonSerializer.Serialize(surplusItems),
-                Status = MissionActivityStatus.Planned
-            };
+        var returnActivityId = await _activityRepository.AddAsync(returnActivity, cancellationToken);
 
-            var returnActivityId = await _activityRepository.AddAsync(returnActivity, cancellationToken);
+        if (deliverActivity.MissionTeamId.HasValue)
+            await _activityRepository.AssignTeamAsync(returnActivityId, deliverActivity.MissionTeamId.Value, cancellationToken);
 
-            if (deliverActivity.MissionTeamId.HasValue)
-            {
-                await _activityRepository.AssignTeamAsync(returnActivityId, deliverActivity.MissionTeamId.Value, cancellationToken);
-            }
+        _logger.LogInformation(
+            "Auto-created RETURN_SUPPLIES ActivityId={returnActivityId} for surplus from DELIVER_SUPPLIES ActivityId={deliverActivityId} MissionId={missionId}",
+            returnActivityId, deliverActivity.Id, missionId);
 
-            _logger.LogInformation(
-                "Auto-created RETURN_SUPPLIES ActivityId={returnActivityId} for surplus from DELIVER_SUPPLIES ActivityId={deliverActivityId} MissionId={missionId}",
-                returnActivityId, deliverActivity.Id, missionId);
-
-            return returnActivityId;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Failed to auto-create surplus RETURN_SUPPLIES activity for DELIVER_SUPPLIES ActivityId={activityId} MissionId={missionId}",
-                deliverActivity.Id, deliverActivity.MissionId);
-            throw;
-        }
+        return returnActivityId;
     }
 }
+
