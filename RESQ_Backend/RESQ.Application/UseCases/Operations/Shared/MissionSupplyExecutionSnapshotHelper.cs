@@ -152,6 +152,41 @@ internal static class MissionSupplyExecutionSnapshotHelper
         await activityRepository.UpdateAsync(returnActivity, cancellationToken);
     }
 
+    /// <summary>
+    /// Ghi nhận thông tin sử dụng buffer (số lượng + lý do) vào JSONB snapshot của activity.
+    /// Phải được gọi trước khi activity chuyển sang Succeed để số buffer được tính vào lượng consume.
+    /// </summary>
+    public static async Task SyncBufferUsageAsync(
+        MissionActivityModel collectActivity,
+        Dictionary<int, MissionPickupBufferUsageDto> bufferUsageByItemId,
+        IMissionActivityRepository activityRepository,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(collectActivity.Items))
+            return;
+
+        var supplies = DeserializeSupplies(collectActivity.Items);
+        if (supplies.Count == 0)
+            return;
+
+        var changed = false;
+        foreach (var supply in supplies)
+        {
+            if (!supply.ItemId.HasValue || !bufferUsageByItemId.TryGetValue(supply.ItemId.Value, out var usage))
+                continue;
+
+            supply.BufferUsedQuantity = usage.BufferQuantityUsed > 0 ? usage.BufferQuantityUsed : (int?)null;
+            supply.BufferUsedReason = usage.BufferQuantityUsed > 0 ? usage.BufferUsedReason : null;
+            changed = true;
+        }
+
+        if (!changed)
+            return;
+
+        collectActivity.Items = JsonSerializer.Serialize(supplies);
+        await activityRepository.UpdateAsync(collectActivity, cancellationToken);
+    }
+
     private static List<SupplyToCollectDto> DeserializeSupplies(string itemsJson) =>
         JsonSerializer.Deserialize<List<SupplyToCollectDto>>(itemsJson, JsonOpts) ?? [];
 

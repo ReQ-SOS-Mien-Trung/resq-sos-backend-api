@@ -133,6 +133,14 @@ public class SupplyToCollectDto
     public List<SupplyExecutionReusableUnitDto>? ReturnedReusableUnits { get; set; }
     /// <summary>Chỉ có sau khi depot manager confirm return: số lượng thực tế được nhập lại cho item này.</summary>
     public int? ActualReturnedQuantity { get; set; }
+    /// <summary>Tỉ lệ dự trù buffer so với số lượng cần thiết (ví dụ: 0.10 = 10%). Được tính khi tạo mission.</summary>
+    public double? BufferRatio { get; set; }
+    /// <summary>Số lượng dự trù buffer được tính toán: CEIL(Quantity × BufferRatio). Được reserve upfront trong kho.</summary>
+    public int? BufferQuantity { get; set; }
+    /// <summary>Số lượng buffer thực tế đã sử dụng khi lấy hàng. Chỉ set khi gọi confirm-pickup với buffer usage.</summary>
+    public int? BufferUsedQuantity { get; set; }
+    /// <summary>Lý do sử dụng buffer — bắt buộc khi BufferUsedQuantity > 0.</summary>
+    public string? BufferUsedReason { get; set; }
 }
 
 public class SuggestedActivityDto

@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Models;
+using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Operations.Commands.ConfirmMissionSupplyPickup;
 
@@ -6,7 +6,7 @@ public class ConfirmMissionSupplyPickupResponse
 {
     public int ActivityId { get; set; }
     public int MissionId { get; set; }
-    public int DepotId { get; set; }
     public string Message { get; set; } = string.Empty;
-    public List<SupplyExecutionItemDto> ConsumedItems { get; set; } = [];
+    /// <summary>Danh sách vật tư với thông tin buffer đã được cập nhật trong snapshot activity.</summary>
+    public List<SupplyToCollectDto>? UpdatedSupplies { get; set; }
 }

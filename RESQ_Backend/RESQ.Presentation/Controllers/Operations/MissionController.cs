@@ -9,6 +9,7 @@ using RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Application.UseCases.Operations.Commands.CompleteMissionTeamExecution;
+using RESQ.Application.UseCases.Operations.Commands.ConfirmMissionSupplyPickup;
 using RESQ.Application.UseCases.Operations.Commands.ConfirmReturnSupplies;
 using RESQ.Application.UseCases.Operations.Commands.CreateMission;
 using RESQ.Application.UseCases.Operations.Commands.ReportMissionActivityIncident;
@@ -296,6 +297,31 @@ public class MissionController(IMediator mediator) : ControllerBase
             dto,
             userId);
 
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Team xác nhận thông tin sử dụng buffer dự trù khi lấy hàng tại kho cho một COLLECT_SUPPLIES activity.
+    /// Gọi trước khi chuyển activity sang Succeed nếu có dùng buffer. Không bắt buộc nếu không dùng buffer.
+    /// Việc trừ kho thực tế xảy ra khi activity được chuyển sang Succeed.
+    /// </summary>
+    [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-pickup")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityAccess)]
+    public async Task<IActionResult> ConfirmMissionSupplyPickup(
+        [FromRoute] int missionId,
+        [FromRoute] int activityId,
+        [FromBody] ConfirmMissionSupplyPickupRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new ConfirmMissionSupplyPickupCommand(
+            activityId,
+            missionId,
+            userId,
+            dto.BufferUsages);
         var result = await _mediator.Send(command);
         return Ok(result);
     }
