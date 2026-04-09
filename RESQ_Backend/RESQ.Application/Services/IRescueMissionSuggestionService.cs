@@ -141,6 +141,8 @@ public class SupplyToCollectDto
     public int? BufferUsedQuantity { get; set; }
     /// <summary>Lý do sử dụng buffer — bắt buộc khi BufferUsedQuantity > 0.</summary>
     public string? BufferUsedReason { get; set; }
+    /// <summary>Chỉ có sau khi team confirm delivery: số lượng thực tế đã giao tới điểm đích cho item này.</summary>
+    public int? ActualDeliveredQuantity { get; set; }
 }
 
 public class SuggestedActivityDto
