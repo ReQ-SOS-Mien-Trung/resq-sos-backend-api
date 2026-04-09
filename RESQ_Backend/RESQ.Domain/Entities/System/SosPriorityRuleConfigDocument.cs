@@ -57,6 +57,9 @@ public class SosPriorityRuleConfigDocument
 
     [JsonPropertyName("ui_options")]
     public SosUiOptionsConfig UiOptions { get; set; } = new();
+
+    [JsonPropertyName("display_labels")]
+    public SosDisplayLabelsConfig DisplayLabels { get; set; } = new();
 }
 
 public class SosPriorityScoreConfig
@@ -297,4 +300,82 @@ public class SosUiOptionsConfig
         "2_TO_3_DAYS",
         "OVER_3_DAYS"
     ];
+}
+
+public class SosDisplayLabelsConfig
+{
+    [JsonPropertyName("medical_issues")]
+    public Dictionary<string, string> MedicalIssues { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["UNCONSCIOUS"] = "Bất tỉnh",
+        ["BREATHING_DIFFICULTY"] = "Khó thở",
+        ["CHEST_PAIN_STROKE"] = "Đau ngực/đột quỵ",
+        ["DROWNING"] = "Đuối nước",
+        ["SEVERELY_BLEEDING"] = "Chảy máu nặng",
+        ["BLEEDING"] = "Chảy máu",
+        ["BURNS"] = "Bỏng",
+        ["HEAD_INJURY"] = "Chấn thương đầu",
+        ["CANNOT_MOVE"] = "Không thể di chuyển",
+        ["HIGH_FEVER"] = "Sốt cao",
+        ["DEHYDRATION"] = "Mất nước",
+        ["FRACTURE"] = "Gãy xương",
+        ["INFANT_NEEDS_MILK"] = "Trẻ sơ sinh cần sữa",
+        ["LOST_PARENT"] = "Trẻ lạc người thân",
+        ["CHRONIC_DISEASE"] = "Bệnh nền",
+        ["CONFUSION"] = "Mất phương hướng",
+        ["NEEDS_MEDICAL_DEVICE"] = "Cần thiết bị y tế",
+        ["OTHER"] = "Khác",
+        ["PREGNANCY"] = "Bầu",
+        ["COVID"] = "Covid"
+    };
+
+    [JsonPropertyName("situations")]
+    public Dictionary<string, string> Situations { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["FLOODING"] = "Ngập lụt",
+        ["COLLAPSED"] = "Sập công trình",
+        ["TRAPPED"] = "Mắc kẹt",
+        ["DANGER_ZONE"] = "Vùng nguy hiểm",
+        ["CANNOT_MOVE"] = "Không thể di chuyển",
+        ["OTHER"] = "Khác",
+        ["DEFAULT_WHEN_NULL"] = "Mặc định"
+    };
+
+    [JsonPropertyName("water_duration")]
+    public Dictionary<string, string> WaterDuration { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["UNDER_6H"] = "Dưới 6 giờ",
+        ["6_TO_12H"] = "6 đến 12 giờ",
+        ["12_TO_24H"] = "12 đến 24 giờ",
+        ["1_TO_2_DAYS"] = "1 đến 2 ngày",
+        ["OVER_2_DAYS"] = "Trên 2 ngày",
+        ["NOT_SELECTED"] = "Chưa chọn"
+    };
+
+    [JsonPropertyName("food_duration")]
+    public Dictionary<string, string> FoodDuration { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["UNDER_12H"] = "Dưới 12 giờ",
+        ["12_TO_24H"] = "12 đến 24 giờ",
+        ["1_TO_2_DAYS"] = "1 đến 2 ngày",
+        ["2_TO_3_DAYS"] = "2 đến 3 ngày",
+        ["OVER_3_DAYS"] = "Trên 3 ngày",
+        ["NOT_SELECTED"] = "Chưa chọn"
+    };
+
+    [JsonPropertyName("age_groups")]
+    public Dictionary<string, string> AgeGroups { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ADULT"] = "Người lớn",
+        ["CHILD"] = "Trẻ em",
+        ["ELDERLY"] = "Người cao tuổi"
+    };
+
+    [JsonPropertyName("request_types")]
+    public Dictionary<string, string> RequestTypes { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["RESCUE"] = "Cứu nạn",
+        ["RELIEF"] = "Tiếp tế",
+        ["OTHER"] = "Khác"
+    };
 }

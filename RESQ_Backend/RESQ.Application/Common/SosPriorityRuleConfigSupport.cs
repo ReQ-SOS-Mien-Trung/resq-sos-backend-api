@@ -69,7 +69,7 @@ public static class SosPriorityRuleConfigSupport
             config.IsActive = model.IsActive;
         }
 
-        return config;
+        return EnsureDefaults(config);
     }
 
     public static SosPriorityRuleConfigDocument Deserialize(string? json)
@@ -81,8 +81,9 @@ public static class SosPriorityRuleConfigSupport
 
         try
         {
-            return JsonSerializer.Deserialize<SosPriorityRuleConfigDocument>(json, JsonOptions)
-                ?? new SosPriorityRuleConfigDocument();
+            return EnsureDefaults(
+                JsonSerializer.Deserialize<SosPriorityRuleConfigDocument>(json, JsonOptions)
+                ?? new SosPriorityRuleConfigDocument());
         }
         catch
         {
@@ -92,11 +93,12 @@ public static class SosPriorityRuleConfigSupport
 
     public static string Serialize(SosPriorityRuleConfigDocument config)
     {
-        return JsonSerializer.Serialize(config, JsonOptions);
+        return JsonSerializer.Serialize(EnsureDefaults(config), JsonOptions);
     }
 
     public static void SyncLegacyFields(SosPriorityRuleConfigModel model, SosPriorityRuleConfigDocument config)
     {
+        config = EnsureDefaults(config);
         model.ConfigVersion = string.IsNullOrWhiteSpace(config.ConfigVersion)
             ? "SOS_PRIORITY_V2"
             : config.ConfigVersion;
@@ -156,6 +158,21 @@ public static class SosPriorityRuleConfigSupport
         model.VulnerabilityScoreExpressionJson = JsonSerializer.Serialize(config.ReliefScore.VulnerabilityScore.Expression, JsonOptions);
         model.ReliefScoreExpressionJson = JsonSerializer.Serialize(config.ReliefScore.Expression, JsonOptions);
         model.PriorityScoreExpressionJson = JsonSerializer.Serialize(config.PriorityScore.Expression, JsonOptions);
+    }
+
+    public static SosPriorityRuleConfigDocument EnsureDefaults(SosPriorityRuleConfigDocument? config)
+    {
+        config ??= new SosPriorityRuleConfigDocument();
+        config.DisplayLabels ??= new SosDisplayLabelsConfig();
+
+        MergeLabelMap(config.DisplayLabels.MedicalIssues, DefaultConfig.DisplayLabels.MedicalIssues);
+        MergeLabelMap(config.DisplayLabels.Situations, DefaultConfig.DisplayLabels.Situations);
+        MergeLabelMap(config.DisplayLabels.WaterDuration, DefaultConfig.DisplayLabels.WaterDuration);
+        MergeLabelMap(config.DisplayLabels.FoodDuration, DefaultConfig.DisplayLabels.FoodDuration);
+        MergeLabelMap(config.DisplayLabels.AgeGroups, DefaultConfig.DisplayLabels.AgeGroups);
+        MergeLabelMap(config.DisplayLabels.RequestTypes, DefaultConfig.DisplayLabels.RequestTypes);
+
+        return config;
     }
 
     public static SosPriorityLevel DeterminePriorityLevel(
@@ -340,6 +357,24 @@ public static class SosPriorityRuleConfigSupport
         }
 
         return builder.ToString().Trim('_');
+    }
+
+    private static void MergeLabelMap(IDictionary<string, string>? target, IReadOnlyDictionary<string, string> defaults)
+    {
+        if (target is null)
+        {
+            return;
+        }
+
+        foreach (var entry in defaults)
+        {
+            if (target.ContainsKey(entry.Key))
+            {
+                continue;
+            }
+
+            target[entry.Key] = entry.Value;
+        }
     }
 
     private static SosPriorityRuleConfigDocument BuildLegacyCompatibleConfig(SosPriorityRuleConfigModel model)

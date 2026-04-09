@@ -57,7 +57,8 @@ public class GetSosPriorityRuleConfigQueryHandler(ISosPriorityRuleConfigReposito
             SituationMultiplier = document.SituationMultiplier,
             PriorityLevel = document.PriorityLevel,
             UiConstraints = document.UiConstraints,
-            UiOptions = document.UiOptions
+            UiOptions = document.UiOptions,
+            DisplayLabels = document.DisplayLabels
         };
     }
 
