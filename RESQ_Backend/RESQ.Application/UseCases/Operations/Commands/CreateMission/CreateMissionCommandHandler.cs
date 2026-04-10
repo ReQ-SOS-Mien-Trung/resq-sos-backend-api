@@ -111,66 +111,71 @@ public class CreateMissionCommandHandler(
             }).ToList()
         };
 
-        var missionId = await _missionRepository.CreateAsync(mission, request.CreatedById, cancellationToken);
+        var missionId = 0;
 
-        // Mark cluster as having a mission created
-        cluster.IsMissionCreated = true;
-        await _sosClusterRepository.UpdateAsync(cluster, cancellationToken);
-
-        // Update all SOS requests in cluster to Assigned
-        await _sosRequestRepository.UpdateStatusByClusterIdAsync(request.ClusterId, SosRequestStatus.Assigned, cancellationToken);
-
-        await _unitOfWork.SaveAsync();
-
-        // Assign rescue teams per activity (using suggestedTeam.id / RescueTeamId)
-        var savedActivities = await _missionRepository.GetByIdAsync(missionId, cancellationToken);
-        if (savedActivities?.Activities is not null)
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            var activityList = savedActivities.Activities
-                .OrderBy(a => a.Step)
-                .ToList();
+            missionId = await _missionRepository.CreateAsync(mission, request.CreatedById, cancellationToken);
 
-            var requestActivities = request.Activities
-                .OrderBy(a => a.Step ?? int.MaxValue)
-                .ToList();
+            // Mark cluster as having a mission created
+            cluster.IsMissionCreated = true;
+            await _sosClusterRepository.UpdateAsync(cluster, cancellationToken);
 
-            for (int i = 0; i < Math.Min(activityList.Count, requestActivities.Count); i++)
+            // Update all SOS requests in cluster to Assigned
+            await _sosRequestRepository.UpdateStatusByClusterIdAsync(request.ClusterId, SosRequestStatus.Assigned, cancellationToken);
+
+            await _unitOfWork.SaveAsync();
+
+            // Assign rescue teams per activity (using suggestedTeam.id / RescueTeamId)
+            var savedActivities = await _missionRepository.GetByIdAsync(missionId, cancellationToken);
+            if (savedActivities?.Activities is not null)
             {
-                var act = requestActivities[i];
-                if (!act.RescueTeamId.HasValue) continue;
+                var activityList = savedActivities.Activities
+                    .OrderBy(a => a.Step)
+                    .ToList();
 
-                try
+                var requestActivities = request.Activities
+                    .OrderBy(a => a.Step ?? int.MaxValue)
+                    .ToList();
+
+                for (int i = 0; i < Math.Min(activityList.Count, requestActivities.Count); i++)
                 {
-                    var assignCmd = new AssignTeamToActivityCommand(
-                        activityList[i].Id,
-                        missionId,
-                        act.RescueTeamId.Value,
-                        request.CreatedById
-                    );
-                    await _mediator.Send(assignCmd, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex,
-                        "Could not assign RescueTeamId={teamId} to ActivityId={actId} in MissionId={missionId}",
-                        act.RescueTeamId.Value, activityList[i].Id, missionId);
+                    var act = requestActivities[i];
+                    if (!act.RescueTeamId.HasValue) continue;
+
+                    try
+                    {
+                        var assignCmd = new AssignTeamToActivityCommand(
+                            activityList[i].Id,
+                            missionId,
+                            act.RescueTeamId.Value,
+                            request.CreatedById
+                        );
+                        await _mediator.Send(assignCmd, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "Could not assign RescueTeamId={teamId} to ActivityId={actId} in MissionId={missionId}",
+                            act.RescueTeamId.Value, activityList[i].Id, missionId);
+                    }
                 }
             }
-        }
 
-        savedActivities = await _missionRepository.GetByIdAsync(missionId, cancellationToken);
-        if (savedActivities?.Activities is not null)
-        {
-            var persistedActivities = savedActivities.Activities
-                .OrderBy(a => a.Step ?? int.MaxValue)
-                .ThenBy(a => a.Id)
-                .ToList();
-            var requestActivities = request.Activities
-                .OrderBy(a => a.Step ?? int.MaxValue)
-                .ToList();
+            savedActivities = await _missionRepository.GetByIdAsync(missionId, cancellationToken);
+            if (savedActivities?.Activities is not null)
+            {
+                var persistedActivities = savedActivities.Activities
+                    .OrderBy(a => a.Step ?? int.MaxValue)
+                    .ThenBy(a => a.Id)
+                    .ToList();
+                var requestActivities = request.Activities
+                    .OrderBy(a => a.Step ?? int.MaxValue)
+                    .ToList();
 
-            await ReserveSuppliesAsync(requestActivities, persistedActivities, cancellationToken);
-        }
+                await ReserveSuppliesAsync(requestActivities, persistedActivities, cancellationToken);
+            }
+        });
 
         _logger.LogInformation("Mission created: MissionId={missionId}", missionId);
 
@@ -478,7 +483,7 @@ public class CreateMissionCommandHandler(
             var requestActivity = requestActivities[index];
             var persistedActivity = persistedActivities[index];
 
-            if (IsReturnSuppliesActivity(requestActivity)
+            if (!IsCollectSuppliesActivity(requestActivity)
                 || !requestActivity.DepotId.HasValue
                 || requestActivity.SuppliesToCollect is not { Count: > 0 })
             {
@@ -513,12 +518,22 @@ public class CreateMissionCommandHandler(
                     cancellationToken);
                 await _unitOfWork.SaveAsync();
             }
+            catch (InvalidOperationException ex)
+            {
+                var activityLabel = persistedActivity.Step.HasValue
+                    ? $"bước {persistedActivity.Step.Value}"
+                    : $"hoạt động #{persistedActivity.Id}";
+
+                throw new BadRequestException(
+                    $"Không thể tạo mission vì kho #{requestActivity.DepotId.Value} không đặt trước được vật tư cho {activityLabel}: {ex.Message}");
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
                     "Không thể đặt trước vật tư tại kho {DepotId} cho activity #{ActivityId} khi tạo mission",
                     requestActivity.DepotId.Value,
                     persistedActivity.Id);
+                throw;
             }
         }
     }
