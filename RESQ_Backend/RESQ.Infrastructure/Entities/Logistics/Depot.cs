@@ -31,11 +31,19 @@ public partial class Depot
     [StringLength(50)]
     public string Status { get; set; } = string.Empty;
 
-    [Column("capacity")]
-    public int? Capacity { get; set; }
+    [Column("capacity", TypeName = "numeric(14,3)")]
+    public decimal? Capacity { get; set; }
 
-    [Column("current_utilization")]
-    public int? CurrentUtilization { get; set; }
+    [Column("current_utilization", TypeName = "numeric(14,3)")]
+    public decimal? CurrentUtilization { get; set; }
+
+    /// <summary>Sức chứa tối đa theo cân nặng (kg).</summary>
+    [Column("weight_capacity", TypeName = "numeric(14,3)")]
+    public decimal? WeightCapacity { get; set; }
+
+    /// <summary>Cân nặng hiện tại đang sử dụng (kg).</summary>
+    [Column("current_weight_utilization", TypeName = "numeric(14,3)")]
+    public decimal? CurrentWeightUtilization { get; set; }
 
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime? LastUpdatedAt { get; set; }

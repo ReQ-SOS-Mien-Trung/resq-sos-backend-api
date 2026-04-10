@@ -29,6 +29,8 @@ public class FundingRequestItemListDto
     public decimal TotalPrice { get; set; }
     public string ItemType { get; set; } = string.Empty;
     public string TargetGroup { get; set; } = string.Empty;
+    public decimal VolumePerUnit { get; set; }
+    public decimal WeightPerUnit { get; set; }
     public DateOnly? ReceivedDate { get; set; }
     public DateOnly? ExpiredDate { get; set; }
     public string? Notes { get; set; }

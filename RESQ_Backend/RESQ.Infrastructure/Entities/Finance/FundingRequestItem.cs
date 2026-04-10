@@ -55,6 +55,12 @@ public partial class FundingRequestItem
     [StringLength(500)]
     public string? Notes { get; set; }
 
+    [Column("volume_per_unit")]
+    public decimal VolumePerUnit { get; set; }
+
+    [Column("weight_per_unit")]
+    public decimal WeightPerUnit { get; set; }
+
     [ForeignKey("FundingRequestId")]
     [InverseProperty("FundingRequestItems")]
     public virtual FundingRequest FundingRequest { get; set; } = null!;

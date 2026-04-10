@@ -54,6 +54,8 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
                     Longitude = depot.Location?.Longitude,
                     Capacity = depot.Capacity,
                     CurrentUtilization = depot.CurrentUtilization,
+                    WeightCapacity = depot.WeightCapacity,
+                    CurrentWeightUtilization = depot.CurrentWeightUtilization,
                     Status = depot.Status.ToString(),
                     
                     // Map Manager details

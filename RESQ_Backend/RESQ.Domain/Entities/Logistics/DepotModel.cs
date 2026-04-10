@@ -11,8 +11,14 @@ public class DepotModel
     public string Address { get; set; } = string.Empty;
     public GeoLocation? Location { get; set; }
 
-    public int Capacity { get; set; }
-    public int CurrentUtilization { get; set; }
+    /// <summary>Sức chứa tối đa theo thể tích (dm³).</summary>
+    public decimal Capacity { get; set; }
+    /// <summary>Thể tích hiện tại đang sử dụng (dm³).</summary>
+    public decimal CurrentUtilization { get; set; }
+    /// <summary>Sức chứa tối đa theo cân nặng (kg).</summary>
+    public decimal WeightCapacity { get; set; }
+    /// <summary>Cân nặng hiện tại đang sử dụng (kg).</summary>
+    public decimal CurrentWeightUtilization { get; set; }
     public DepotStatus Status { get; set; }
 
     private readonly List<DepotManagerAssignment> _managerHistory = [];
@@ -34,12 +40,15 @@ public class DepotModel
         string name,
         string address,
         GeoLocation location,
-        int capacity,
+        decimal capacity,
+        decimal weightCapacity,
         Guid? managerId = null,
         string? imageUrl = null)
     {
         if (capacity <= 0)
-            throw new InvalidDepotCapacityException(capacity);
+            throw new InvalidDepotCapacityException(capacity, "thể tích");
+        if (weightCapacity <= 0)
+            throw new InvalidDepotCapacityException(weightCapacity, "cân nặng");
 
         var depot = new DepotModel
         {
@@ -48,6 +57,8 @@ public class DepotModel
             Location = location,
             Capacity = capacity,
             CurrentUtilization = 0,
+            WeightCapacity = weightCapacity,
+            CurrentWeightUtilization = 0,
             Status = DepotStatus.Created,
             ImageUrl = imageUrl,
             LastUpdatedAt = DateTime.UtcNow
@@ -63,21 +74,28 @@ public class DepotModel
         return depot;
     }
 
-    public void UpdateDetails(string name, string address, GeoLocation location, int capacity, string? imageUrl = null)
+    public void UpdateDetails(string name, string address, GeoLocation location, decimal capacity, decimal weightCapacity, string? imageUrl = null)
     {
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
         if (capacity <= 0)
-            throw new InvalidDepotCapacityException(capacity);
+            throw new InvalidDepotCapacityException(capacity, "thể tích");
+
+        if (weightCapacity <= 0)
+            throw new InvalidDepotCapacityException(weightCapacity, "cân nặng");
 
         if (capacity < CurrentUtilization)
-            throw new DepotCapacityExceededException();
+            throw new DepotCapacityExceededException("Sức chứa thể tích mới thấp hơn thể tích hàng hiện tại trong kho.");
+
+        if (weightCapacity < CurrentWeightUtilization)
+            throw new DepotCapacityExceededException("Sức chứa cân nặng mới thấp hơn cân nặng hàng hiện tại trong kho.");
 
         Name = name;
         Address = address;
         Location = location;
         Capacity = capacity;
+        WeightCapacity = weightCapacity;
         if (imageUrl != null) ImageUrl = imageUrl;
         LastUpdatedAt = DateTime.UtcNow;
     }
@@ -128,7 +146,11 @@ public class DepotModel
 
         if (newStatus == DepotStatus.Available && CurrentUtilization > Capacity)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                "Kho đang vượt quá sức chứa.");
+                "Kho đang vượt quá sức chứa thể tích.");
+
+        if (newStatus == DepotStatus.Available && CurrentWeightUtilization > WeightCapacity)
+            throw new InvalidDepotStatusTransitionException(Status, newStatus,
+                "Kho đang vượt quá sức chứa cân nặng.");
 
         Status = newStatus;
         LastUpdatedAt = DateTime.UtcNow;
@@ -165,6 +187,8 @@ public class DepotModel
                 "Kho phải ở trạng thái Unavailable trước khi đóng hoàn toàn.");
 
         Status = DepotStatus.Closed;
+        CurrentUtilization = 0;
+        CurrentWeightUtilization = 0;
         LastUpdatedAt = DateTime.UtcNow;
     }
 
@@ -190,7 +214,12 @@ public class DepotModel
         _managerHistory.AddRange(history);
     }
 
-    public void UpdateUtilization(int amount)
+    /// <summary>
+    /// Cập nhật mức sử dụng kho dựa trên thể tích và cân nặng.
+    /// </summary>
+    /// <param name="volumeAmount">Tổng thể tích cần thêm (dm³). Phải > 0.</param>
+    /// <param name="weightAmount">Tổng cân nặng cần thêm (kg). Phải > 0.</param>
+    public void UpdateUtilization(decimal volumeAmount, decimal weightAmount)
     {
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
@@ -198,13 +227,20 @@ public class DepotModel
         if (Status == DepotStatus.Unavailable)
             throw new DepotClosingException("Kho đang ngưng hoạt động (Unavailable), không thể thực hiện thao tác này.");
 
-        if (amount <= 0)
-            throw new InvalidDepotUtilizationAmountException(amount);
+        if (volumeAmount <= 0)
+            throw new InvalidDepotUtilizationAmountException(volumeAmount, "thể tích");
 
-        if (CurrentUtilization + amount > Capacity)
-            throw new DepotCapacityExceededException();
+        if (weightAmount <= 0)
+            throw new InvalidDepotUtilizationAmountException(weightAmount, "cân nặng");
 
-        CurrentUtilization += amount;
+        if (CurrentUtilization + volumeAmount > Capacity)
+            throw new DepotCapacityExceededException("Thể tích kho không đủ chứa lượng hàng nhập vào.");
+
+        if (CurrentWeightUtilization + weightAmount > WeightCapacity)
+            throw new DepotCapacityExceededException("Cân nặng kho không đủ chứa lượng hàng nhập vào.");
+
+        CurrentUtilization += volumeAmount;
+        CurrentWeightUtilization += weightAmount;
         LastUpdatedAt = DateTime.UtcNow;
     }
 

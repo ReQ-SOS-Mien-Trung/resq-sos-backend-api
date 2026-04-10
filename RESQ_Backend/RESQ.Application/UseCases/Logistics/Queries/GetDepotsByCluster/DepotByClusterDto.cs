@@ -7,8 +7,10 @@ public class DepotByClusterDto
     public string Name { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
-    public int Capacity { get; set; }
-    public int CurrentUtilization { get; set; }
+    public decimal Capacity { get; set; }
+    public decimal CurrentUtilization { get; set; }
+    public decimal WeightCapacity { get; set; }
+    public decimal CurrentWeightUtilization { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
 

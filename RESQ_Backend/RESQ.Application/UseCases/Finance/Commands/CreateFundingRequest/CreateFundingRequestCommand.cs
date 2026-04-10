@@ -25,4 +25,6 @@ public class FundingRequestItemDto
     public string? ImageUrl { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+    public decimal? VolumePerUnit { get; set; }
+    public decimal? WeightPerUnit { get; set; }
 }

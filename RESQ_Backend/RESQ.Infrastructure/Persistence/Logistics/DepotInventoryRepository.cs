@@ -1814,6 +1814,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             srcInv.MissionReservedQuantity = 0;
             srcInv.TransferReservedQuantity = 0;
             srcInv.LastStockedAt            = now;
+            srcInv.IsDeleted                = true;
 
             lastId = srcInv.Id;
             processedRows++;
@@ -1908,6 +1909,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             inv.MissionReservedQuantity  = 0;
             inv.TransferReservedQuantity = 0;
             inv.LastStockedAt            = now;
+            inv.IsDeleted                = true;
         }
 
         // ── 2. Reusable items — decommission Available units ──────────────────
@@ -1921,6 +1923,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             unit.Status    = nameof(ReusableItemStatus.Decommissioned);
             unit.UpdatedAt = now;
             unit.Note      = $"Đóng kho #{depotId} (xử lý bên ngoài) — closureId #{closureId}. {note}";
+            unit.IsDeleted = true;
 
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
             {
@@ -1953,3 +1956,5 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         return hasReusableInUse;
     }
 }
+
+

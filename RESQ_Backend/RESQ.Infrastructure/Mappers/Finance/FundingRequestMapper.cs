@@ -33,7 +33,9 @@ public static class FundingRequestMapper
                                                .ToList(),
             ReceivedDate   = i.ReceivedDate,
             ExpiredDate    = i.ExpiredDate,
-            Notes          = i.Notes
+            Notes          = i.Notes,
+            VolumePerUnit  = i.VolumePerUnit,
+            WeightPerUnit  = i.WeightPerUnit
         }).ToList();
 
         var model = FundingRequestModel.Reconstitute(
@@ -94,7 +96,9 @@ public static class FundingRequestMapper
                 TargetGroup    = string.Join(",", item.TargetGroups),
                 ReceivedDate   = item.ReceivedDate,
                 ExpiredDate    = item.ExpiredDate,
-                Notes          = item.Notes
+                Notes          = item.Notes,
+                VolumePerUnit  = item.VolumePerUnit,
+                WeightPerUnit  = item.WeightPerUnit
             });
         }
 

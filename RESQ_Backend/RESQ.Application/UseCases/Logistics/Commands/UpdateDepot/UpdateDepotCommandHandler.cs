@@ -46,6 +46,7 @@ public class UpdateDepotCommandHandler(
             request.Address,
             location,
             request.Capacity,
+            request.WeightCapacity,
             request.ImageUrl
         );
 

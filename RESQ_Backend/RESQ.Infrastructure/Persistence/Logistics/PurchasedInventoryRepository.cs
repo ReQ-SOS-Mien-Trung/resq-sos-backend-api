@@ -152,7 +152,16 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
 
         // Business Rule: Check depot capacity before any insert
         var depotId = items[0].model.ReceivedAt;
-        var totalImportQuantity = items.Sum(x => x.model.Quantity);
+
+        // Look up item models to get VolumePerUnit and WeightPerUnit
+        var itemModelRepo = _unitOfWork.GetRepository<ItemModel>();
+        var itemModelIds = items.Select(x => x.model.ItemModelId).Distinct().ToList();
+        var itemModels = await itemModelRepo.GetAllByPropertyAsync(im => itemModelIds.Contains(im.Id));
+        var volumeMap = itemModels.ToDictionary(im => im.Id, im => im.VolumePerUnit ?? 0m);
+        var weightMap = itemModels.ToDictionary(im => im.Id, im => im.WeightPerUnit ?? 0m);
+
+        var totalVolume = items.Sum(x => x.model.Quantity * (volumeMap.GetValueOrDefault(x.model.ItemModelId, 0m)));
+        var totalWeight = items.Sum(x => x.model.Quantity * (weightMap.GetValueOrDefault(x.model.ItemModelId, 0m)));
 
         var depotRepo = _unitOfWork.GetRepository<Depot>();
         var depotEntity = await depotRepo.GetByPropertyAsync(d => d.Id == depotId, tracked: true);
@@ -160,7 +169,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
         {
             var depotModel = DepotMapper.ToDomain(depotEntity);
             // Throws DepotCapacityExceededException if over limit
-            depotModel.UpdateUtilization(totalImportQuantity);
+            depotModel.UpdateUtilization(totalVolume, totalWeight);
             DepotMapper.UpdateEntity(depotEntity, depotModel);
             await depotRepo.UpdateAsync(depotEntity);
         }
@@ -320,7 +329,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
 
         // ── Cập nhật Category.Quantity ────────────────────────────────────────
         // Gom tổng quantity nhập theo ItemModelId, rồi tra CategoryId, rồi cộng vào Category.Quantity
-        var itemModelRepo = _unitOfWork.GetRepository<ItemModel>();
+        // Reuse itemModelRepo from capacity check above
         var categoryRepo  = _unitOfWork.GetRepository<Category>();
 
         var qtyByItemModel = items

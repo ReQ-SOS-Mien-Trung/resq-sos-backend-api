@@ -266,6 +266,8 @@ public class DepotRealtimeOutboxDispatcherBackgroundService(
             Longitude = depot.Location?.Longitude,
             Capacity = depot.Capacity,
             CurrentUtilization = depot.CurrentUtilization,
+            WeightCapacity = depot.WeightCapacity,
+            CurrentWeightUtilization = depot.CurrentWeightUtilization,
             Status = depot.Status.ToString(),
             Manager = manager != null
                 ? new

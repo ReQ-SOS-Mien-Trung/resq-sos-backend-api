@@ -493,6 +493,8 @@ public class MissionContextService(
         DistanceKm = distKm,
         Capacity = depot.Capacity,
         CurrentUtilization = depot.CurrentUtilization,
+        WeightCapacity = depot.WeightCapacity,
+        CurrentWeightUtilization = depot.CurrentWeightUtilization,
         Status = depot.Status.ToString(),
         Inventories = depot.InventoryLines
             .Select(l => new DepotInventoryItemDto

@@ -32,6 +32,14 @@ public partial class ItemModel
     [StringLength(50)]
     public string? ItemType { get; set; }
 
+    /// <summary>Thể tích mỗi đơn vị (dm³ / lít).</summary>
+    [Column("volume_per_unit", TypeName = "numeric(10,3)")]
+    public decimal? VolumePerUnit { get; set; }
+
+    /// <summary>Cân nặng mỗi đơn vị (kg).</summary>
+    [Column("weight_per_unit", TypeName = "numeric(10,3)")]
+    public decimal? WeightPerUnit { get; set; }
+
     [Column("image_url")]
     [StringLength(2048)]
     public string? ImageUrl { get; set; }

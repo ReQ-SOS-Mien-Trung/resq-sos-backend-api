@@ -58,6 +58,8 @@ public class GetDepotsByClusterQueryHandler(
                 Status = depot.Status.ToString(),
                 Capacity = depot.Capacity,
                 CurrentUtilization = depot.CurrentUtilization,
+                WeightCapacity = depot.WeightCapacity,
+                CurrentWeightUtilization = depot.CurrentWeightUtilization,
                 Latitude = depot.Location?.Latitude,
                 Longitude = depot.Location?.Longitude,
                 DistanceKm = distKm

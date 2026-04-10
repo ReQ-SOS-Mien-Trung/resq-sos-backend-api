@@ -46,6 +46,9 @@ public partial class SupplyInventory
     [Column("last_stocked_at", TypeName = "timestamp with time zone")]
     public DateTime? LastStockedAt { get; set; }
 
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; } = false;
+
     [ForeignKey("DepotId")]
     [InverseProperty("SupplyInventories")]
     public virtual Depot? Depot { get; set; }

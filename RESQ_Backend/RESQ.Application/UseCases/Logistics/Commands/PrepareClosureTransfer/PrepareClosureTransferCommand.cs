@@ -10,7 +10,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.PrepareClosureTransfer;
 /// <param name="UserId">Người thực hiện (manager của kho nguồn)</param>
 /// <param name="Note">Ghi chú (tuỳ chọn)</param>
 public record PrepareClosureTransferCommand(
-    int DepotId,
     int TransferId,
     Guid UserId,
     string? Note) : IRequest<PrepareClosureTransferResponse>;

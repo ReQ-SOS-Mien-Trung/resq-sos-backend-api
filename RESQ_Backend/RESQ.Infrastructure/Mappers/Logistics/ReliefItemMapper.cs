@@ -18,6 +18,8 @@ public static class ItemModelMapper
             Description = model.Description,
             Unit = model.Unit,
             ItemType = model.ItemType,
+            VolumePerUnit = model.VolumePerUnit,
+            WeightPerUnit = model.WeightPerUnit,
             ImageUrl = model.ImageUrl,
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt
@@ -34,6 +36,8 @@ public static class ItemModelMapper
             Description = entity.Description,
             Unit = entity.Unit ?? string.Empty,
             ItemType = entity.ItemType ?? string.Empty,
+            VolumePerUnit = entity.VolumePerUnit ?? 0m,
+            WeightPerUnit = entity.WeightPerUnit ?? 0m,
             TargetGroups = entity.TargetGroups?.Select(tg => tg.Name).ToList() ?? new(),
             ImageUrl = entity.ImageUrl,
             CreatedAt = entity.CreatedAt,

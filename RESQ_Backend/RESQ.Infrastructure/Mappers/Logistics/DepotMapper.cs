@@ -17,6 +17,8 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 Address = model.Address,
                 Capacity = model.Capacity,
                 CurrentUtilization = model.CurrentUtilization,
+                WeightCapacity = model.WeightCapacity,
+                CurrentWeightUtilization = model.CurrentWeightUtilization,
                 Status = model.Status.ToString(),
                 LastUpdatedAt = model.LastUpdatedAt,
                 ImageUrl = model.ImageUrl
@@ -54,6 +56,8 @@ namespace RESQ.Infrastructure.Mappers.Resources
             entity.Address = model.Address;
             entity.Capacity = model.Capacity;
             entity.CurrentUtilization = model.CurrentUtilization;
+            entity.WeightCapacity = model.WeightCapacity;
+            entity.CurrentWeightUtilization = model.CurrentWeightUtilization;
             entity.Status = model.Status.ToString();
             entity.LastUpdatedAt = model.LastUpdatedAt;
             entity.ImageUrl = model.ImageUrl;
@@ -83,8 +87,10 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 Name = entity.Name ?? string.Empty,
                 Address = entity.Address ?? string.Empty,
                 Location = location,
-                Capacity = entity.Capacity ?? 0,
-                CurrentUtilization = entity.CurrentUtilization ?? 0,
+                Capacity = entity.Capacity ?? 0m,
+                CurrentUtilization = entity.CurrentUtilization ?? 0m,
+                WeightCapacity = entity.WeightCapacity ?? 0m,
+                CurrentWeightUtilization = entity.CurrentWeightUtilization ?? 0m,
                 Status = status,
                 LastUpdatedAt = entity.LastUpdatedAt,
                 ImageUrl = entity.ImageUrl

@@ -42,4 +42,10 @@ public class FundingRequestItemRequest
 
     [Required]
     public decimal UnitPrice { get; set; }
+
+    /// <summary>Thể tích mỗi đơn vị (dm³). Nếu không truyền, mặc định = 0.</summary>
+    public decimal? VolumePerUnit { get; set; }
+
+    /// <summary>Cân nặng mỗi đơn vị (kg). Nếu không truyền, mặc định = 0.</summary>
+    public decimal? WeightPerUnit { get; set; }
 }

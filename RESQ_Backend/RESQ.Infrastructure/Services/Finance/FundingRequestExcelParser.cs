@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
+using System.Globalization;
 
 namespace RESQ.Infrastructure.Services.Finance;
 
@@ -12,6 +13,21 @@ namespace RESQ.Infrastructure.Services.Finance;
 /// </summary>
 public class FundingRequestExcelParser : IFundingRequestExcelParser
 {
+    private static readonly Dictionary<string, string> TargetGroupVietnameseToRaw = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Tre em"] = "Children",
+        ["Nguoi gia"] = "Elderly",
+        ["Phu nu mang thai"] = "Pregnant",
+        ["Nguoi lon"] = "Adult",
+        ["Luc luong cuu ho"] = "Rescuer"
+    };
+
+    private static readonly Dictionary<string, string> ItemTypeVietnameseToRaw = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Tieu thu"] = "Consumable",
+        ["Tai su dung"] = "Reusable"
+    };
+
     public List<FundingRequestItemModel> ParseSupplyItems(Stream fileStream)
     {
         var items = new List<FundingRequestItemModel>();
@@ -29,18 +45,20 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
             if (string.IsNullOrWhiteSpace(itemName)) continue;
 
             var categoryCode = row.Cell(3).GetString()?.Trim() ?? string.Empty;
-            var unit         = row.Cell(4).GetString()?.Trim();
-            var quantity     = (int)row.Cell(5).GetDouble();
-            var unitPrice    = (decimal)row.Cell(6).GetDouble();
-            var totalPrice   = (decimal)row.Cell(7).GetDouble();
-            var itemType     = row.Cell(8).GetString()?.Trim() ?? string.Empty;
-            var targetGroupRaw = row.Cell(9).GetString()?.Trim() ?? string.Empty;
+            var targetGroupRaw = row.Cell(4).GetString()?.Trim() ?? string.Empty;
+            var itemTypeRaw  = row.Cell(5).GetString()?.Trim() ?? string.Empty;
+            var unit         = row.Cell(6).GetString()?.Trim();
+            var notes        = row.Cell(7).GetString()?.Trim();
+            var quantity     = GetIntOrDefault(row.Cell(8));
+            var unitPrice    = GetDecimalOrDefault(row.Cell(9));
+            var volumePerUnit = GetDecimalOrDefault(row.Cell(10));
+            var weightPerUnit = GetDecimalOrDefault(row.Cell(11));
             var targetGroups = targetGroupRaw
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim())
+                .Select(NormalizeTargetGroup)
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
-            var notes        = row.Cell(10).GetString()?.Trim();
+            var itemType = NormalizeItemType(itemTypeRaw);
 
             items.Add(new FundingRequestItemModel
             {
@@ -50,10 +68,12 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
                 Unit         = unit,
                 Quantity     = quantity,
                 UnitPrice    = unitPrice,
-                TotalPrice   = totalPrice > 0 ? totalPrice : unitPrice * quantity,
+                TotalPrice   = unitPrice * quantity,
                 ItemType     = itemType,
                 TargetGroups = targetGroups,
-                Notes        = notes
+                Notes        = notes,
+                VolumePerUnit = volumePerUnit,
+                WeightPerUnit = weightPerUnit
             });
         }
 
@@ -63,5 +83,94 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
     public decimal CalculateTotal(List<FundingRequestItemModel> items)
     {
         return items.Sum(i => i.TotalPrice);
+    }
+
+    private static int GetIntOrDefault(IXLCell cell)
+    {
+        if (cell.TryGetValue<int>(out var value))
+        {
+            return value;
+        }
+
+        return (int)Math.Round(GetDecimalOrDefault(cell), MidpointRounding.AwayFromZero);
+    }
+
+    private static decimal GetDecimalOrDefault(IXLCell cell)
+    {
+        if (cell.TryGetValue<decimal>(out var value))
+        {
+            return value;
+        }
+
+        var text = cell.GetFormattedString().Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return 0m;
+        }
+
+        if (decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out value))
+        {
+            return value;
+        }
+
+        if (decimal.TryParse(text, NumberStyles.Any, CultureInfo.GetCultureInfo("vi-VN"), out value))
+        {
+            return value;
+        }
+
+        return 0m;
+    }
+
+    private static string NormalizeTargetGroup(string value)
+    {
+        var normalized = value.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        var display = normalized.Split(" - ", 2, StringSplitOptions.TrimEntries)[0];
+        var asciiDisplay = RemoveDiacritics(display);
+
+        return TargetGroupVietnameseToRaw.TryGetValue(asciiDisplay, out var raw)
+            ? raw
+            : display;
+    }
+
+    private static string NormalizeItemType(string value)
+    {
+        var normalized = value.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        var display = normalized.Split(" - ", 2, StringSplitOptions.TrimEntries)[0];
+        var asciiDisplay = RemoveDiacritics(display);
+
+        return ItemTypeVietnameseToRaw.TryGetValue(asciiDisplay, out var raw)
+            ? raw
+            : display;
+    }
+
+    private static string RemoveDiacritics(string value)
+    {
+        var normalized = value.Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder(normalized.Length);
+
+        foreach (var character in normalized)
+        {
+            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder
+            .ToString()
+            .Normalize(System.Text.NormalizationForm.FormC)
+            .Replace('đ', 'd')
+            .Replace('Đ', 'D');
     }
 }

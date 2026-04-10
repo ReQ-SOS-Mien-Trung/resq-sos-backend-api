@@ -56,7 +56,7 @@ namespace RESQ.Application.Repositories.Logistics
         /// Tính tổng số lượng consumable còn trong kho (sum of supply_inventory.quantity).
         /// Dùng cho snapshot và capacity check khi chuyển kho.
         /// </summary>
-        Task<int> GetConsumableTransferVolumeAsync(int depotId, CancellationToken cancellationToken = default);
+        Task<decimal> GetConsumableTransferVolumeAsync(int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Đếm số reusable items còn trong kho (không tính Decommissioned).

@@ -45,6 +45,9 @@ public partial class ReusableItem
     [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; } = false;
+
     [ForeignKey("DepotId")]
     [InverseProperty("ReusableItems")]
     public virtual Depot? Depot { get; set; }

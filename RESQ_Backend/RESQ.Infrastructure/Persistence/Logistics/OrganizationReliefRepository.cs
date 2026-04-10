@@ -46,10 +46,19 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         
         if (depotEntity != null)
         {
+            // Look up item model to get VolumePerUnit and WeightPerUnit
+            var itemModelRepo = _unitOfWork.GetRepository<ReliefItem>();
+            var itemModelEntity = await itemModelRepo.GetByPropertyAsync(im => im.Id == model.ItemModelId);
+            var volumePerUnit = itemModelEntity?.VolumePerUnit ?? 0m;
+            var weightPerUnit = itemModelEntity?.WeightPerUnit ?? 0m;
+
+            var totalVolume = model.Quantity * volumePerUnit;
+            var totalWeight = model.Quantity * weightPerUnit;
+
             var depotModel = DepotMapper.ToDomain(depotEntity);
             
             // This applies Domain Rule: Throws DepotCapacityExceededException if over limit!
-            depotModel.UpdateUtilization(model.Quantity); 
+            depotModel.UpdateUtilization(totalVolume, totalWeight); 
             
             DepotMapper.UpdateEntity(depotEntity, depotModel);
             await depotRepo.UpdateAsync(depotEntity);

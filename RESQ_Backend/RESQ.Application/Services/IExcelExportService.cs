@@ -87,4 +87,6 @@ public record DonationImportItemInfo(
     string ItemTypeDisplay,
     string ItemTypeRaw,
     string Unit,
-    string Description = "");
+    string Description = "",
+    decimal VolumePerUnit = 0,
+    decimal WeightPerUnit = 0);
