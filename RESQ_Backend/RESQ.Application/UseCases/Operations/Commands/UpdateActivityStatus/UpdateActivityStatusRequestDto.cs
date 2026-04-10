@@ -1,8 +1,7 @@
-using RESQ.Domain.Enum.Operations;
-
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 
 public class UpdateActivityStatusRequestDto
 {
-    public MissionActivityStatus Status { get; set; }
+    /// <summary>Target status: Planned, OnGoing, Succeed, PendingConfirmation, Failed, Cancelled</summary>
+    public string Status { get; set; } = string.Empty;
 }

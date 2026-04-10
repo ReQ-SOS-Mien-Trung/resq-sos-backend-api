@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MediatR;
+using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
@@ -29,11 +30,10 @@ public class CancelSosRequestCommandHandler(
         {
             var isCompanion = await companionRepository.IsCompanionAsync(request.SosRequestId, request.RequestedByUserId, cancellationToken);
             if (!isCompanion)
-                throw new ForbiddenException("Bạn không có quyền huỷ SOS request này.");
+                throw new ForbiddenException("Bạn không có quyền hủy SOS request này.");
         }
 
-        if (sos.Status != SosRequestStatus.Pending && sos.Status != SosRequestStatus.Assigned)
-            throw new BadRequestException($"Không thể huỷ SOS request ở trạng thái {sos.Status}.");
+        SosRequestVictimMutationGuard.EnsureCanCancel(sos);
 
         await sosRequestRepository.UpdateStatusAsync(request.SosRequestId, SosRequestStatus.Cancelled, cancellationToken);
         await unitOfWork.SaveAsync();
