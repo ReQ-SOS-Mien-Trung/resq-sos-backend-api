@@ -29,6 +29,7 @@ using RESQ.Domain.Enum.Logistics;
 using RESQ.Application.UseCases.Logistics.Queries.GetClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotById;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureMetadata;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureDetail;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotsByCluster;
@@ -275,6 +276,23 @@ namespace RESQ.Presentation.Controllers.Logistics
         public async Task<IActionResult> GetClosures(int id)
         {
             var result = await _mediator.Send(new GetDepotClosuresQuery(id));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// [Admin] Xem chi tiết một phiên đóng kho.
+        /// Trả về thông tin phiên đóng từ depot_closures và detail theo resolutionType:
+        /// - ExternalResolution: externalItems
+        /// - TransferToDepot: transferDetail
+        /// </summary>
+        [HttpGet("{id}/closures/{closureId}")]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ProducesResponseType(typeof(DepotClosureDetailResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetClosureDetail(int id, int closureId)
+        {
+            var result = await _mediator.Send(new GetDepotClosureDetailQuery(id, closureId));
             return Ok(result);
         }
 

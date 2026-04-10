@@ -38,7 +38,7 @@ public class ExportClosureTemplateQueryHandler(
         return new ExportClosureTemplateResponse
         {
             FileContent = fileContent,
-            FileName = $"Depot_Closure_Inventory_{safeDepotName}_{DateTime.UtcNow:yyyyMMdd}.xlsx"
+            FileName = $"Mau_Xu_Ly_Hang_Ton_Dong_Kho_{safeDepotName}_{DateTime.UtcNow.AddHours(7):yyyyMMdd}.xlsx"
         };
     }
 }

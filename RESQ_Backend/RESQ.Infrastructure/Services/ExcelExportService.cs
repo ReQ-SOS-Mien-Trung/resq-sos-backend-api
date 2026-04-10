@@ -1,4 +1,5 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -979,14 +980,18 @@ public class ExcelExportService : IExcelExportService
 
     private const int ClosureCols = 14; // A..N
     private const int ClosurePreFilledCols = 9; // A..I (pre-filled)
+    private static readonly string[] ClosureHandlingMethodOptions = Enum
+        .GetValues<ExternalDispositionType>()
+        .Select(ExternalDispositionMetadata.GetDisplayValue)
+        .ToArray();
 
     public byte[] GenerateClosureExternalTemplate(string depotName, IReadOnlyList<ClosureInventoryLotItemDto> items)
     {
         using var workbook = new XLWorkbook();
-        var ws = workbook.Worksheets.Add("Xử lý tồn kho");
+        var ws = workbook.Worksheets.Add("Xu ly dong kho");
 
         // ─── Row 1: Title banner ─────────────────────────────────────────────
-        ws.Cell(1, 1).Value = $"MẪU XỬ LÝ TỒN KHO BÊN NGOÀI — {depotName.ToUpper()}";
+        ws.Cell(1, 1).Value = $"MẪU XỬ LÝ HÀNG TỒN KHI ĐÓNG KHO — {depotName.ToUpper()}";
         var titleRange = ws.Range(1, 1, 1, ClosureCols);
         titleRange.Merge();
         titleRange.Style
@@ -1069,13 +1074,15 @@ public class ExcelExportService : IExcelExportService
             editableRange.Style.Border.SetOutsideBorder(XLBorderStyleValues.Dashed);
             editableRange.Style.Border.SetOutsideBorderColor(XLColor.FromHtml("#90A4AE"));
 
-            // Dropdown for Handling Method (column L) — cho phép nhập tay nếu có hình thức khác
+            // Dropdown for Handling Method (column L) - chi duoc chon tu danh sach enum
             var dvHandling = ws.Cell(r, 12).GetDataValidation();
-            dvHandling.List("\"Donated,Disposed,Sold\"");
+            dvHandling.List($"\"{string.Join(",", ClosureHandlingMethodOptions)}\"");
+            dvHandling.ShowErrorMessage = true;
+            dvHandling.ErrorTitle = "Giá trị không hợp lệ";
+            dvHandling.ErrorMessage = "Vui lòng chọn HandlingMethod từ danh sách có sẵn.";
             dvHandling.IgnoreBlanks = true;
-            dvHandling.ShowErrorMessage = false;  // Cho phép nhập tay giá trị ngoài danh sách
             dvHandling.InputTitle = "Hình thức xử lý";
-            dvHandling.InputMessage = "Chọn hoặc nhập tay cách xử lý vật phẩm này";
+            dvHandling.InputMessage = "Chọn một giá trị trong danh sách. Nếu chọn Other thì bắt buộc nhập Ghi chú.";
 
             // Full row thin border
             var dataRow = ws.Range(r, 1, r, ClosureCols);
@@ -1109,3 +1116,8 @@ public class ExcelExportService : IExcelExportService
         return stream.ToArray();
     }
 }
+
+
+
+
+

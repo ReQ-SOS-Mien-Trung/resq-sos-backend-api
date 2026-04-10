@@ -11,6 +11,8 @@ public interface IDepotClosureTransferRepository
 
     Task<DepotClosureTransferRecord?> GetByIdAsync(int transferId, CancellationToken cancellationToken = default);
 
+    Task<DepotClosureTransferRecord?> GetByClosureIdAsync(int closureId, CancellationToken cancellationToken = default);
+
     /// <summary>Lấy transfer đang active theo closureId (chưa Cancelled/Received).</summary>
     Task<DepotClosureTransferRecord?> GetActiveByClosureIdAsync(int closureId, CancellationToken cancellationToken = default);
 
