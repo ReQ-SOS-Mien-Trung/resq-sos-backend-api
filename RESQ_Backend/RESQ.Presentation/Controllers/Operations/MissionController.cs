@@ -16,6 +16,7 @@ using RESQ.Application.UseCases.Operations.Commands.CreateMission;
 using RESQ.Application.UseCases.Operations.Commands.ReportMissionActivityIncident;
 using RESQ.Application.UseCases.Operations.Commands.ReportMissionTeamIncident;
 using RESQ.Application.UseCases.Operations.Commands.SaveMissionTeamReportDraft;
+using RESQ.Application.UseCases.Operations.Commands.SyncMissionActivities;
 using RESQ.Application.UseCases.Operations.Commands.SubmitMissionTeamReport;
 using RESQ.Application.UseCases.Operations.Commands.UnassignTeamFromMission;
 using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
@@ -286,7 +287,21 @@ public class MissionController(IMediator mediator) : ControllerBase
                 $"Trạng thái activity không hợp lệ: '{dto.Status}'. Các giá trị hợp lệ: {validStatuses}.");
         }
 
-        var command = new UpdateActivityStatusCommand(activityId, newStatus, userId);
+        var command = new UpdateActivityStatusCommand(missionId, activityId, newStatus, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>Đồng bộ hàng đợi offline cập nhật trạng thái activity cho đội hiện tại trên nhiều mission.</summary>
+    [HttpPost("activities/sync/my-team")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityExecutionSync)]
+    public async Task<IActionResult> SyncMissionActivities([FromBody] SyncMissionActivitiesRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new SyncMissionActivitiesCommand(userId, dto.Items);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

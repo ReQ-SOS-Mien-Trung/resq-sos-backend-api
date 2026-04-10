@@ -80,7 +80,7 @@ public class ReportTeamIncidentCommandHandler(
         if (currentActivity is not null)
         {
             await mediator.Send(
-                new UpdateActivityStatusCommand(currentActivity.Id, MissionActivityStatus.Failed, request.ReportedBy),
+                new UpdateActivityStatusCommand(missionTeam.MissionId, currentActivity.Id, MissionActivityStatus.Failed, request.ReportedBy),
                 cancellationToken);
         }
         else

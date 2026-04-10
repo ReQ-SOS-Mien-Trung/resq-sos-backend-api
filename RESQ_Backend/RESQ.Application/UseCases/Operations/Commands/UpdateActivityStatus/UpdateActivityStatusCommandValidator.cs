@@ -7,6 +7,9 @@ public class UpdateActivityStatusCommandValidator : AbstractValidator<UpdateActi
 {
     public UpdateActivityStatusCommandValidator()
     {
+        RuleFor(x => x.MissionId)
+            .GreaterThan(0).WithMessage("MissionId phải lớn hơn 0");
+
         RuleFor(x => x.ActivityId)
             .GreaterThan(0).WithMessage("ActivityId phải lớn hơn 0");
 
