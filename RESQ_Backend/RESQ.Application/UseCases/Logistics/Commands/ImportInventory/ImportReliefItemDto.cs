@@ -20,6 +20,19 @@ public class ImportReliefItemDto
     public string? Unit { get; set; }
     public string? ItemType { get; set; }
     public List<string>? TargetGroups { get; set; }
+
+    /// <summary>
+    /// Thể tích mỗi đơn vị (dm³). Bắt buộc khi tạo vật phẩm mới (Path B).
+    /// Bỏ qua nếu chọn vật phẩm có sẵn (Path A).
+    /// </summary>
+    public decimal? VolumePerUnit { get; set; }
+
+    /// <summary>
+    /// Cân nặng mỗi đơn vị (kg). Bắt buộc khi tạo vật phẩm mới (Path B).
+    /// Bỏ qua nếu chọn vật phẩm có sẵn (Path A).
+    /// </summary>
+    public decimal? WeightPerUnit { get; set; }
+
     public DateTime? ReceivedDate { get; set; }
     public DateOnly? ExpiredDate { get; set; }
 }

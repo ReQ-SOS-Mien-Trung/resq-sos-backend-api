@@ -61,7 +61,9 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
                 UnitPrice    = item.UnitPrice,
                 TotalPrice   = item.Quantity * item.UnitPrice,
                 Notes        = item.Description,
-                ImageUrl     = string.IsNullOrWhiteSpace(item.ImageUrl) ? null : item.ImageUrl.Trim()
+                ImageUrl     = string.IsNullOrWhiteSpace(item.ImageUrl) ? null : item.ImageUrl.Trim(),
+                VolumePerUnit = item.VolumePerUnit ?? 0,
+                WeightPerUnit = item.WeightPerUnit ?? 0
             });
         }
 

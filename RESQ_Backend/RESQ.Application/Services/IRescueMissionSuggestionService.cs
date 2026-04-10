@@ -48,8 +48,10 @@ public class DepotSummary
     public double? Longitude { get; set; }
     /// <summary>Khoảng cách (km) từ kho đến SOS request quan trọng nhất trong cluster.</summary>
     public double DistanceKm { get; set; }
-    public int Capacity { get; set; }
-    public int CurrentUtilization { get; set; }
+    public decimal Capacity { get; set; }
+    public decimal CurrentUtilization { get; set; }
+    public decimal WeightCapacity { get; set; }
+    public decimal CurrentWeightUtilization { get; set; }
     public string Status { get; set; } = string.Empty;
     /// <summary>Danh sách vật tư còn khả dụng (quantity - reserved > 0) trong kho này.</summary>
     public List<DepotInventoryItemDto> Inventories { get; set; } = [];

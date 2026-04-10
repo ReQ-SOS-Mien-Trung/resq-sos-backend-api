@@ -101,6 +101,7 @@ namespace RESQ.Presentation.Controllers.Logistics
                 dto.Latitude,
                 dto.Longitude,
                 dto.Capacity,
+                dto.WeightCapacity,
                 dto.ManagerId,
                 dto.ImageUrl
             );
@@ -123,6 +124,7 @@ namespace RESQ.Presentation.Controllers.Logistics
                 dto.Latitude,
                 dto.Longitude,
                 dto.Capacity,
+                dto.WeightCapacity,
                 dto.ImageUrl
             );
 

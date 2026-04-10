@@ -108,14 +108,14 @@ public class ResolveDepotClosureCommandHandler(
             throw new ConflictException($"Kho đích '{targetDepot.Name}' không khả dụng (trạng thái: {targetDepot.Status}). Vui lòng chọn kho khác.");
 
         var consumableVolume = await depotRepository.GetConsumableTransferVolumeAsync(request.DepotId, cancellationToken);
-        var availableCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
-        if (consumableVolume > availableCapacity)
+        var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
+        if (consumableVolume > availableVolumeCapacity)
             throw new ConflictException(
-                $"Kho đích '{targetDepot.Name}' không đủ sức chứa. " +
-                $"Cần: {consumableVolume:N0} — Còn trống: {availableCapacity:N0} đơn vị.");
+                $"Kho đích '{targetDepot.Name}' không đủ sức chứa thể tích. " +
+                $"Cần: {consumableVolume:N0} — Còn trống: {availableVolumeCapacity:N0} dm³.");
 
         var (reusableAvailable, reusableInUse) = await depotRepository.GetReusableItemCountsAsync(request.DepotId, cancellationToken);
-        closure.RecordActualInventory(consumableVolume, reusableAvailable + reusableInUse);
+        closure.RecordActualInventory((int)consumableVolume, reusableAvailable + reusableInUse);
         closure.SetTransferResolution(request.TargetDepotId!.Value);
 
         DepotClosureTransferRecord transfer = null!;
@@ -125,7 +125,7 @@ public class ResolveDepotClosureCommandHandler(
                 closureId: closure.Id,
                 sourceDepotId: request.DepotId,
                 targetDepotId: request.TargetDepotId!.Value,
-                snapshotConsumableUnits: consumableVolume,
+                snapshotConsumableUnits: (int)consumableVolume,
                 snapshotReusableUnits: reusableAvailable);
 
             await transferRepository.CreateAsync(transfer, cancellationToken);
@@ -172,7 +172,7 @@ public class ResolveDepotClosureCommandHandler(
                 TargetDepotId = targetDepot.Id,
                 TargetDepotName = targetDepot.Name,
                 TransferStatus = transfer.Status,
-                SnapshotConsumableUnits = consumableVolume,
+                SnapshotConsumableUnits = (int)consumableVolume,
                 SnapshotReusableUnits = reusableAvailable,
                 ReusableItemsSkipped = reusableInUse
             }
@@ -189,7 +189,7 @@ public class ResolveDepotClosureCommandHandler(
         var currentConsumable = await depotRepository.GetConsumableTransferVolumeAsync(request.DepotId, cancellationToken);
         var (reusableAvailable, reusableInUse) = await depotRepository.GetReusableItemCountsAsync(request.DepotId, cancellationToken);
 
-        closure.RecordActualInventory(currentConsumable, reusableAvailable + reusableInUse);
+        closure.RecordActualInventory((int)currentConsumable, reusableAvailable + reusableInUse);
         closure.SetExternalResolution(request.ExternalNote);
 
         await inventoryRepository.ZeroOutForClosureAsync(

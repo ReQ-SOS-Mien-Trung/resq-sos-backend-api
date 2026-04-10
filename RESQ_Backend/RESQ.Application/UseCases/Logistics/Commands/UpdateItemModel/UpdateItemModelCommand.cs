@@ -15,4 +15,10 @@ public class UpdateItemModelCommand : IRequest<Unit>
     public string ItemType { get; set; } = string.Empty;
     public List<string> TargetGroups { get; set; } = new();
     public string? ImageUrl { get; set; }
+
+    /// <summary>Thể tích mỗi đơn vị (dm³).</summary>
+    public decimal VolumePerUnit { get; set; }
+
+    /// <summary>Cân nặng mỗi đơn vị (kg).</summary>
+    public decimal WeightPerUnit { get; set; }
 }

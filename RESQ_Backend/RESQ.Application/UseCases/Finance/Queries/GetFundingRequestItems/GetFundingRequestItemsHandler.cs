@@ -37,6 +37,8 @@ public class GetFundingRequestItemsHandler
             TotalPrice   = i.TotalPrice,
             ItemType     = i.ItemType,
             TargetGroup  = TargetGroupTranslations.JoinAsVietnamese(i.TargetGroups),
+            VolumePerUnit = i.VolumePerUnit,
+            WeightPerUnit = i.WeightPerUnit,
             ReceivedDate = i.ReceivedDate,
             ExpiredDate  = i.ExpiredDate,
             Notes        = i.Notes

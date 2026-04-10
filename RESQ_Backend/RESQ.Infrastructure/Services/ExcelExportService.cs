@@ -43,13 +43,15 @@ public class ExcelExportService : IExcelExportService
         "Đơn vị",           // F
         "Mô tả vật phẩm",   // G
         "Số lượng",         // H
-        "Ngày hết hạn",    // I
-        "Ngày nhận",        // J
+        "Thể tích (dm³)",   // I
+        "Cân nặng (kg)",    // J
+        "Ngày hết hạn",    // K
+        "Ngày nhận",        // L
     ];
 
     private const int TemplateDataStartRow = 2;
     private const int TemplateDataEndRow   = 102; // 100 data rows
-    private const int TemplateCols         = 10;   // A..J
+    private const int TemplateCols         = 12;   // A..L
 
     public byte[] GenerateInventoryMovementReport(
         IReadOnlyList<InventoryMovementRow> rows,
@@ -299,6 +301,8 @@ public class ExcelExportService : IExcelExportService
         ws.Cell(1, 3).Value = "LoaiVatPham";
         ws.Cell(1, 4).Value = "DonVi";
         ws.Cell(1, 5).Value = "MoTa";
+        ws.Cell(1, 6).Value = "TheTich";
+        ws.Cell(1, 7).Value = "CanNang";
 
         for (int i = 0; i < items.Count; i++)
         {
@@ -309,6 +313,8 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 3).Value = items[i].ItemTypeDisplay;
             ws.Cell(r, 4).Value = items[i].Unit;
             ws.Cell(r, 5).Value = items[i].Description;
+            ws.Cell(r, 6).Value = items[i].VolumePerUnit;
+            ws.Cell(r, 7).Value = items[i].WeightPerUnit;
         }
     }
 
@@ -406,8 +412,10 @@ public class ExcelExportService : IExcelExportService
         ws.Column(6).Width  = 12;  // Đơn vị
         ws.Column(7).Width  = 35;  // Mô tả vật phẩm
         ws.Column(8).Width  = 12;  // Số lượng
-        ws.Column(9).Width  = 16;  // Ngày hết hạn
-        ws.Column(10).Width = 16;  // Ngày nhận
+        ws.Column(9).Width  = 16;  // Thể tích (dm³)
+        ws.Column(10).Width = 16;  // Cân nặng (kg)
+        ws.Column(11).Width = 16;  // Ngày hết hạn
+        ws.Column(12).Width = 16;  // Ngày nhận
 
         // ── Data rows (2..102) ─────────────────────────────────────────────────
         for (int r = TemplateDataStartRow; r <= TemplateDataEndRow; r++)
@@ -470,9 +478,25 @@ public class ExcelExportService : IExcelExportService
             // Col H: Số lượng — number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
 
-            // Col I: Ngày hết hạn — DateOnly (dd/MM/yyyy)
-            ws.Cell(r, 9).Style.NumberFormat.Format = "dd/MM/yyyy";
-            var dvExpiryDate = ws.Cell(r, 9).GetDataValidation();
+            // Col I: Thể tích (dm³) — VLOOKUP auto-fill from DM_Lookup col 6 (existing item), editable for new items
+            ws.Cell(r, 9).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,6,FALSE),\"\")";
+            ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0.000";
+            var dvVolume = ws.Cell(r, 9).GetDataValidation();
+            dvVolume.ShowInputMessage = true;
+            dvVolume.InputTitle = "Thể tích";
+            dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nTự động điền nếu chọn vật phẩm có sẵn.\nNhập thủ công nếu tạo vật phẩm mới.";
+
+            // Col J: Cân nặng (kg) — VLOOKUP auto-fill from DM_Lookup col 7 (existing item), editable for new items
+            ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
+            ws.Cell(r, 10).Style.NumberFormat.Format = "#,##0.000";
+            var dvWeight = ws.Cell(r, 10).GetDataValidation();
+            dvWeight.ShowInputMessage = true;
+            dvWeight.InputTitle = "Cân nặng";
+            dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nTự động điền nếu chọn vật phẩm có sẵn.\nNhập thủ công nếu tạo vật phẩm mới.";
+
+            // Col K: Ngày hết hạn — DateOnly (dd/MM/yyyy)
+            ws.Cell(r, 11).Style.NumberFormat.Format = "dd/MM/yyyy";
+            var dvExpiryDate = ws.Cell(r, 11).GetDataValidation();
             dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvExpiryDate.IgnoreBlanks = true;
             dvExpiryDate.ShowInputMessage = true;
@@ -483,9 +507,9 @@ public class ExcelExportService : IExcelExportService
             dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
             dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col J: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
-            ws.Cell(r, 10).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
-            var dvReceivedDate = ws.Cell(r, 10).GetDataValidation();
+            // Col L: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
+            ws.Cell(r, 12).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
+            var dvReceivedDate = ws.Cell(r, 12).GetDataValidation();
             dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvReceivedDate.IgnoreBlanks = true;
             dvReceivedDate.ShowInputMessage = true;
@@ -530,14 +554,16 @@ public class ExcelExportService : IExcelExportService
         "Đơn vị",           // F  (6)
         "Mô tả vật phẩm",   // G  (7)
         "Số lượng (*)",     // H  (8)
-        "Đơn giá (VNĐ)",   // I  (9)
-        "Ngày hết hạn",    // J  (10)
-        "Ngày nhận",        // K  (11)
+        "Thể tích (dm³)",   // I  (9)
+        "Cân nặng (kg)",    // J  (10)
+        "Đơn giá (VNĐ)",   // K  (11)
+        "Ngày hết hạn",    // L  (12)
+        "Ngày nhận",        // M  (13)
     ];
 
     private const int PurchaseDataStartRow = 2;
     private const int PurchaseDataEndRow   = 102; // 101 data rows (2..102)
-    private const int PurchaseCols         = 11;  // A..K
+    private const int PurchaseCols         = 13;  // A..M
 
     public byte[] GeneratePurchaseImportTemplate(
         IReadOnlyList<DonationImportCategoryInfo> categories,
@@ -602,9 +628,11 @@ public class ExcelExportService : IExcelExportService
         ws.Column(6).Width  = 12;  // F: Đơn vị
         ws.Column(7).Width  = 35;  // G: Mô tả vật phẩm
         ws.Column(8).Width  = 12;  // H: Số lượng
-        ws.Column(9).Width  = 16;  // I: Đơn giá
-        ws.Column(10).Width = 16;  // J: Ngày hết hạn
-        ws.Column(11).Width = 18;  // K: Ngày nhận
+        ws.Column(9).Width  = 16;  // I: Thể tích (dm³)
+        ws.Column(10).Width = 16;  // J: Cân nặng (kg)
+        ws.Column(11).Width = 16;  // K: Đơn giá
+        ws.Column(12).Width = 16;  // L: Ngày hết hạn
+        ws.Column(13).Width = 18;  // M: Ngày nhận
 
         // ── Data rows (2..102) ─────────────────────────────────────────────────
         for (int r = PurchaseDataStartRow; r <= PurchaseDataEndRow; r++)
@@ -665,16 +693,32 @@ public class ExcelExportService : IExcelExportService
             // Col H: Số lượng (*) — number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
 
-            // Col I: Đơn giá (VNĐ) — currency format (purchase-specific)
-            ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0";
-            var dvUnitPrice = ws.Cell(r, 9).GetDataValidation();
+            // Col I: Thể tích (dm³) — VLOOKUP auto-fill from DM_Lookup col 6, editable for new items
+            ws.Cell(r, 9).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,6,FALSE),\"\")";
+            ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0.000";
+            var dvVolume = ws.Cell(r, 9).GetDataValidation();
+            dvVolume.ShowInputMessage = true;
+            dvVolume.InputTitle = "Thể tích";
+            dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nTự động điền nếu chọn vật phẩm có sẵn.\nNhập thủ công nếu tạo vật phẩm mới.";
+
+            // Col J: Cân nặng (kg) — VLOOKUP auto-fill from DM_Lookup col 7, editable for new items
+            ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
+            ws.Cell(r, 10).Style.NumberFormat.Format = "#,##0.000";
+            var dvWeight = ws.Cell(r, 10).GetDataValidation();
+            dvWeight.ShowInputMessage = true;
+            dvWeight.InputTitle = "Cân nặng";
+            dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nTự động điền nếu chọn vật phẩm có sẵn.\nNhập thủ công nếu tạo vật phẩm mới.";
+
+            // Col K: Đơn giá (VNĐ) — currency format (purchase-specific)
+            ws.Cell(r, 11).Style.NumberFormat.Format = "#,##0";
+            var dvUnitPrice = ws.Cell(r, 11).GetDataValidation();
             dvUnitPrice.ShowInputMessage = true;
             dvUnitPrice.InputTitle = "Đơn giá";
             dvUnitPrice.InputMessage = "Giá mua mỗi đơn vị (VNĐ).\nĐể trống nếu không có.";
 
-            // Col J: Ngày hết hạn — DateOnly (dd/MM/yyyy)
-            ws.Cell(r, 10).Style.NumberFormat.Format = "dd/MM/yyyy";
-            var dvExpiryDate = ws.Cell(r, 10).GetDataValidation();
+            // Col L: Ngày hết hạn — DateOnly (dd/MM/yyyy)
+            ws.Cell(r, 12).Style.NumberFormat.Format = "dd/MM/yyyy";
+            var dvExpiryDate = ws.Cell(r, 12).GetDataValidation();
             dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvExpiryDate.IgnoreBlanks = true;
             dvExpiryDate.ShowInputMessage = true;
@@ -685,9 +729,9 @@ public class ExcelExportService : IExcelExportService
             dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
             dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col K: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
-            ws.Cell(r, 11).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
-            var dvReceivedDate = ws.Cell(r, 11).GetDataValidation();
+            // Col M: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
+            ws.Cell(r, 13).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
+            var dvReceivedDate = ws.Cell(r, 13).GetDataValidation();
             dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvReceivedDate.IgnoreBlanks = true;
             dvReceivedDate.ShowInputMessage = true;
@@ -721,7 +765,8 @@ public class ExcelExportService : IExcelExportService
     //  Funding Request Template — like purchase but without expiry/received date
     //  Cols: STT (A), Tên vật phẩm (B), Danh mục (C), Đối tượng (D),
     //        Loại vật phẩm (E), Đơn vị (F), Mô tả vật phẩm (G),
-    //        Số lượng (*) (H), Đơn giá (VNĐ) (I)  — 9 cols total
+    //        Số lượng (*) (H), Đơn giá (VNĐ) (I),
+    //        Thể tích (dm³) (J), Cân nặng (kg) (K) — 11 cols total
     // ═══════════════════════════════════════════════════════════════════════════
 
     private static readonly string[] FundingRequestTemplateHeaders =
@@ -735,11 +780,13 @@ public class ExcelExportService : IExcelExportService
         "Mô tả vật phẩm",   // G  (7)
         "Số lượng (*)",     // H  (8)
         "Đơn giá (VNĐ)",   // I  (9)
+        "Thể tích (dm³)",  // J  (10) — VLOOKUP auto-fill
+        "Cân nặng (kg)",   // K  (11) — VLOOKUP auto-fill
     ];
 
     private const int FundingRequestDataStartRow = 2;
     private const int FundingRequestDataEndRow   = 102; // 101 data rows (2..102)
-    private const int FundingRequestCols         = 9;   // A..I
+    private const int FundingRequestCols         = 11;  // A..K
 
     public byte[] GenerateFundingRequestTemplate(
         IReadOnlyList<DonationImportCategoryInfo> categories,

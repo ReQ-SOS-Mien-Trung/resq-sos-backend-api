@@ -26,6 +26,7 @@ public class GetMyDepotInventoryQueryHandler(IDepotInventoryRepository depotInve
             request.CategoryIds,
             request.ItemTypes,
             request.TargetGroups,
+            null,
             request.PageNumber,
             request.PageSize,
             cancellationToken

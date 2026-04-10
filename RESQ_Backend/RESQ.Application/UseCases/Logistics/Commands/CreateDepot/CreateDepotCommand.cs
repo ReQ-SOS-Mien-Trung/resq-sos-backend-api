@@ -6,7 +6,8 @@ public record CreateDepotCommand (
     string Address,
     double Latitude,
     double Longitude,
-    int Capacity,
+    decimal Capacity,
+    decimal WeightCapacity,
     Guid? ManagerId = null,
     string? ImageUrl = null
     ) : IRequest<CreateDepotResponse>;

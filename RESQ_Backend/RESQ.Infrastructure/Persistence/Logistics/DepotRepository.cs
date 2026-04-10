@@ -176,13 +176,19 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         return (asSource, asRequester);
     }
 
-    public async Task<int> GetConsumableTransferVolumeAsync(int depotId, CancellationToken cancellationToken = default)
+    public async Task<decimal> GetConsumableTransferVolumeAsync(int depotId, CancellationToken cancellationToken = default)
     {
         var total = await _unitOfWork.Set<SupplyInventory>()
             .Where(inv => inv.DepotId == depotId && (inv.Quantity ?? 0) > 0)
-            .SumAsync(inv => (int?)(inv.Quantity ?? 0), cancellationToken);
+            .Join(
+                _unitOfWork.Set<ItemModel>(),
+                inv => inv.ItemModelId,
+                im => im.Id,
+                (inv, im) => (decimal)(inv.Quantity ?? 0) * (im.VolumePerUnit ?? 0m)
+            )
+            .SumAsync(x => (decimal?)x, cancellationToken);
 
-        return total ?? 0;
+        return total ?? 0m;
     }
 
     public async Task<(int AvailableCount, int InUseCount)> GetReusableItemCountsAsync(

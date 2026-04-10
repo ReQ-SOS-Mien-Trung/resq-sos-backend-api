@@ -77,7 +77,7 @@ public class UploadExternalResolutionCommandHandler(
             initiatedBy: request.ManagerUserId,
             closeReason: "Xử lý tồn kho bên ngoài hệ thống (JSON upload)",
             previousStatus: previousStatus,
-            snapshotConsumableUnits: consumableVolume,
+            snapshotConsumableUnits: (int)consumableVolume,
             snapshotReusableUnits: reusableAvailable + reusableInUse,
             totalConsumableRows: consumableRowCount,
             totalReusableUnits: reusableAvailable + reusableInUse);

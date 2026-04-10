@@ -58,13 +58,13 @@ public class InitiateDepotClosureTransferCommandHandler(
             throw new ConflictException(
                 $"Kho đích '{targetDepot.Name}' không khả dụng (trạng thái: {targetDepot.Status}). Vui lòng chọn kho khác.");
 
-        // 5. Kiểm tra sức chứa kho đích
+        // 5. Kiểm tra sức chứa kho đích (thể tích)
         var consumableVolume = await depotRepository.GetConsumableTransferVolumeAsync(request.DepotId, cancellationToken);
-        var availableCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
-        if (consumableVolume > availableCapacity)
+        var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
+        if (consumableVolume > availableVolumeCapacity)
             throw new ConflictException(
-                $"Kho đích '{targetDepot.Name}' không đủ sức chứa. " +
-                $"Cần: {consumableVolume:N0} — Còn trống: {availableCapacity:N0} đơn vị.");
+                $"Kho đích '{targetDepot.Name}' không đủ sức chứa thể tích. " +
+                $"Cần: {consumableVolume:N0} — Còn trống: {availableVolumeCapacity:N0} dm³.");
 
         // 6. Lấy snapshot tồn kho
         var consumableRowCount = await depotRepository.GetConsumableInventoryRowCountAsync(request.DepotId, cancellationToken);
@@ -76,7 +76,7 @@ public class InitiateDepotClosureTransferCommandHandler(
             initiatedBy: request.InitiatedBy,
             closeReason: request.Reason,
             previousStatus: depot.Status,
-            snapshotConsumableUnits: consumableVolume,
+            snapshotConsumableUnits: (int)consumableVolume,
             snapshotReusableUnits: reusableAvailable + reusableInUse,
             totalConsumableRows: consumableRowCount,
             totalReusableUnits: reusableAvailable + reusableInUse);
@@ -92,7 +92,7 @@ public class InitiateDepotClosureTransferCommandHandler(
                 closureId: closureId,
                 sourceDepotId: request.DepotId,
                 targetDepotId: request.TargetDepotId,
-                snapshotConsumableUnits: consumableVolume,
+                snapshotConsumableUnits: (int)consumableVolume,
                 snapshotReusableUnits: reusableAvailable);
 
             closure.MarkTransferPending();
@@ -136,7 +136,7 @@ public class InitiateDepotClosureTransferCommandHandler(
             TargetDepotId           = request.TargetDepotId,
             TargetDepotName         = targetDepot.Name,
             TransferStatus          = transfer.Status,
-            SnapshotConsumableUnits = consumableVolume,
+            SnapshotConsumableUnits = (int)consumableVolume,
             SnapshotReusableUnits   = reusableAvailable,
             ReusableItemsSkipped    = reusableInUse,
             Message = $"Đã xác nhận kho đích '{targetDepot.Name}'. " +

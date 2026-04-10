@@ -82,7 +82,9 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
                 : im.ItemType ?? string.Empty,
             ItemTypeRaw: im.ItemType ?? string.Empty,
             Unit: im.Unit ?? string.Empty,
-            Description: im.Description ?? string.Empty
+            Description: im.Description ?? string.Empty,
+            VolumePerUnit: im.VolumePerUnit ?? 0,
+            WeightPerUnit: im.WeightPerUnit ?? 0
         )).ToList();
     }
 
@@ -179,6 +181,8 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
         entity.Description = model.Description;
         entity.Unit = model.Unit;
         entity.ItemType = model.ItemType;
+        entity.VolumePerUnit = model.VolumePerUnit;
+        entity.WeightPerUnit = model.WeightPerUnit;
         entity.ImageUrl = model.ImageUrl;
         entity.UpdatedAt = model.UpdatedAt ?? DateTime.UtcNow;
 

@@ -46,6 +46,8 @@ public class UpdateItemModelCommandHandler(IItemModelMetadataRepository itemMode
                 Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
                 Unit = request.Unit.Trim(),
                 ItemType = normalizedItemType,
+                VolumePerUnit = request.VolumePerUnit,
+                WeightPerUnit = request.WeightPerUnit,
                 TargetGroups = normalizedTargetGroups,
                 ImageUrl = string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl.Trim(),
                 UpdatedAt = DateTime.UtcNow

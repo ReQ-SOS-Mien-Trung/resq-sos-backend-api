@@ -227,7 +227,9 @@ public class ImportPurchasedInventoryCommandHandler(
                                     normalizedUnit,
                                     normalizedItemType,
                                     targetGroups,
-                                    item.Description);
+                                    volumePerUnit: item.VolumePerUnit ?? 0,
+                                    weightPerUnit: item.WeightPerUnit ?? 0,
+                                    description: item.Description);
                                 resolvedRecord.ImageUrl = string.IsNullOrWhiteSpace(item.ImageUrl) ? null : item.ImageUrl.Trim();
                             }
                             catch (Exception ex)

@@ -42,7 +42,9 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
                 Description  = i.Description,
                 ImageUrl     = i.ImageUrl,
                 Quantity     = i.Quantity,
-                UnitPrice    = i.UnitPrice
+                UnitPrice    = i.UnitPrice,
+                VolumePerUnit = i.VolumePerUnit,
+                WeightPerUnit = i.WeightPerUnit
             }).ToList(),
             GetUserId()
         );

@@ -41,6 +41,8 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
             var notes        = row.Cell(10).GetString()?.Trim();
+            var volumePerUnit = (decimal)row.Cell(11).GetDouble();
+            var weightPerUnit = (decimal)row.Cell(12).GetDouble();
 
             items.Add(new FundingRequestItemModel
             {
@@ -53,7 +55,9 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
                 TotalPrice   = totalPrice > 0 ? totalPrice : unitPrice * quantity,
                 ItemType     = itemType,
                 TargetGroups = targetGroups,
-                Notes        = notes
+                Notes        = notes,
+                VolumePerUnit = volumePerUnit,
+                WeightPerUnit = weightPerUnit
             });
         }
 

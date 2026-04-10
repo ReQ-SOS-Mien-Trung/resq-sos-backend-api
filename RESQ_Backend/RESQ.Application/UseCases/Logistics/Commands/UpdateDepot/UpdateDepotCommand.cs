@@ -8,6 +8,7 @@ public record UpdateDepotCommand(
     string Address,
     double Latitude,
     double Longitude,
-    int Capacity,
+    decimal Capacity,
+    decimal WeightCapacity,
     string? ImageUrl = null
 ) : IRequest;

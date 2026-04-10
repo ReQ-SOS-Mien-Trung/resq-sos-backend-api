@@ -8,12 +8,14 @@ public class ItemModelRecord
     public string? Description { get; set; }
     public string Unit { get; set; } = string.Empty;
     public string ItemType { get; set; } = string.Empty;
+    public decimal VolumePerUnit { get; set; }
+    public decimal WeightPerUnit { get; set; }
     public List<string> TargetGroups { get; set; } = new();
     public string? ImageUrl { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
-    public static ItemModelRecord Create(int categoryId, string name, string unit, string itemType, List<string> targetGroups, string? description = null)
+    public static ItemModelRecord Create(int categoryId, string name, string unit, string itemType, List<string> targetGroups, decimal volumePerUnit = 0, decimal weightPerUnit = 0, string? description = null)
     {
         return new ItemModelRecord
         {
@@ -22,6 +24,8 @@ public class ItemModelRecord
             Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
             Unit = unit.Trim(),
             ItemType = itemType,
+            VolumePerUnit = volumePerUnit,
+            WeightPerUnit = weightPerUnit,
             TargetGroups = targetGroups,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

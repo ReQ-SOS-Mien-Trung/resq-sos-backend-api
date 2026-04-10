@@ -95,7 +95,9 @@ public class FundingRequestRepository : IFundingRequestRepository
                                                   .Select(s => s.Trim()).ToList(),
             ReceivedDate     = i.ReceivedDate,
             ExpiredDate      = i.ExpiredDate,
-            Notes            = i.Notes
+            Notes            = i.Notes,
+            VolumePerUnit    = i.VolumePerUnit,
+            WeightPerUnit    = i.WeightPerUnit
         }).ToList();
 
         return new PagedResult<FundingRequestItemModel>(models, totalCount, pageNumber, pageSize);

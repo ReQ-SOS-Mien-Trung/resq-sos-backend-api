@@ -49,6 +49,7 @@ public class CreateDepotCommandHandler(
             request.Address,
             location,
             request.Capacity,
+            request.WeightCapacity,
             request.ManagerId,
             request.ImageUrl
         );
@@ -72,6 +73,8 @@ public class CreateDepotCommandHandler(
             Longitude = addedDepot.Location?.Longitude,
             Capacity = addedDepot.Capacity,
             CurrentUtilization = addedDepot.CurrentUtilization,
+            WeightCapacity = addedDepot.WeightCapacity,
+            CurrentWeightUtilization = addedDepot.CurrentWeightUtilization,
             Status = addedDepot.Status.ToString(),
             DepotManagerId = addedDepot.CurrentManagerId,
             LastUpdatedAt = addedDepot.LastUpdatedAt
