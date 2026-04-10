@@ -57,4 +57,5 @@ public interface IDepotClosureRepository
     /// Kèm thông tin kho đích (nếu TransferToDepot).
     /// </summary>
     Task<List<DepotClosureListItem>> GetClosuresByDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
+    Task<DepotClosureListItem?> GetClosureDetailAsync(int depotId, int closureId, CancellationToken cancellationToken = default);
 }

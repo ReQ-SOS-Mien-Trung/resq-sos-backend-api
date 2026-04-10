@@ -7,6 +7,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Finance.Commands.ApproveFundingRequest;
 using RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 using RESQ.Application.UseCases.Finance.Commands.RejectFundingRequest;
+using RESQ.Application.UseCases.Finance.Queries.GetFundSourceTypesMetadata;
 using RESQ.Application.UseCases.Finance.Queries.GenerateFundingRequestTemplate;
 using RESQ.Application.UseCases.Finance.Queries.GetFundingRequestItems;
 using RESQ.Application.UseCases.Finance.Queries.GetFundingRequests;
@@ -87,6 +88,15 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
     {
         var values = Enum.GetNames<FundingRequestStatus>();
         return Ok(values);
+    }
+
+    /// <summary>[Metadata] Danh sách loại nguồn quỹ dùng cho dropdown duyệt yêu cầu cấp quỹ.</summary>
+    [HttpGet("metadata/source-types")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFundSourceTypeMetadata()
+    {
+        var result = await _mediator.Send(new GetFundSourceTypesMetadataQuery());
+        return Ok(result);
     }
 
     /// <summary>Tai file Excel mau yeu cau cap quy gom 11 cot, co them volumePerUnit va weightPerUnit.</summary>

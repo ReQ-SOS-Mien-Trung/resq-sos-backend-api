@@ -1,4 +1,4 @@
-namespace RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
+﻿namespace RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
 
 /// <summary>
 /// Body JSON cho endpoint xử lý tồn kho bên ngoài.
@@ -10,10 +10,10 @@ public class UploadExternalResolutionRequestDto
     public List<ExternalResolutionItemDto> Items { get; set; } = [];
 }
 
-/// <summary>Một dòng hàng tồn kho đã xử lý — tương ứng với một row trong Excel template.</summary>
+/// <summary>Một dòng hàng tồn kho đã xử lý, tương ứng với một row trong Excel template.</summary>
 public class ExternalResolutionItemDto
 {
-    /// <summary>Số thứ tự dòng (đánh dấu mỗi hàng).</summary>
+    /// <summary>Số thứ tự dòng.</summary>
     public int RowNumber { get; set; }
 
     public string ItemName { get; set; } = string.Empty;

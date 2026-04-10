@@ -1,5 +1,6 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -31,25 +32,20 @@ public class UploadExternalResolutionCommandHandler(
             "UploadExternalResolution | ManagerUserId={By}",
             request.ManagerUserId);
 
-        // 1. Resolve depot từ manager token
         var depotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.ManagerUserId, cancellationToken)
             ?? throw new NotFoundException("Bạn hiện không phụ trách kho nào.");
 
-        // 2. Tải kho
         var depot = await depotRepository.GetByIdAsync(depotId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
-        // 3. Phải ở trạng thái Unavailable
         if (depot.Status != DepotStatus.Unavailable)
             throw new ConflictException(
                 $"Kho đang ở trạng thái '{depot.Status}'. Chỉ cho phép xử lý bên ngoài khi kho đang Unavailable.");
 
-        // 4. Guard: không phải kho duy nhất còn hoạt động
         var activeCount = await depotRepository.GetActiveDepotCountExcludingAsync(depotId, cancellationToken);
         if (activeCount == 0)
             throw new ConflictException("Không thể đóng kho duy nhất còn đang hoạt động trong hệ thống.");
 
-        // 5. Phải có phiên đóng kho đang chờ với hình thức ExternalResolution
         var existingClosure = await closureRepository.GetActiveClosureByDepotIdAsync(depotId, cancellationToken)
             ?? throw new ConflictException(
                 "Kho chưa được đánh dấu xử lý bên ngoài. Admin cần gọi POST /{id}/close/mark-external trước.");
@@ -58,7 +54,6 @@ public class UploadExternalResolutionCommandHandler(
             throw new ConflictException(
                 "Phiên đóng kho hiện tại không phải hình thức xử lý bên ngoài. Không thể thực hiện thao tác này.");
 
-        // 6. Validate JSON items
         var items = request.Items;
         if (items == null || items.Count == 0)
             throw new BadRequestException("Danh sách hàng tồn kho rỗng. Vui lòng cung cấp ít nhất một dòng.");
@@ -68,32 +63,50 @@ public class UploadExternalResolutionCommandHandler(
             throw new BadRequestException(
                 $"Các dòng sau thiếu Hình thức xử lý: {string.Join(", ", invalidRows.Select(i => i.RowNumber))}.");
 
+        var invalidHandlingMethodRows = items
+            .Where(i => !string.IsNullOrWhiteSpace(i.HandlingMethod)
+                     && !ExternalDispositionMetadata.Parse(i.HandlingMethod).HasValue)
+            .ToList();
+        if (invalidHandlingMethodRows.Count > 0)
+            throw new BadRequestException(
+                $"Các dòng sau có Hình thức xử lý không hợp lệ: {string.Join(", ", invalidHandlingMethodRows.Select(i => i.RowNumber))}.");
+
+        var otherRowsMissingNote = items
+            .Where(i => ExternalDispositionMetadata.Parse(i.HandlingMethod) == ExternalDispositionType.Other
+                     && string.IsNullOrWhiteSpace(i.Note))
+            .ToList();
+        if (otherRowsMissingNote.Count > 0)
+            throw new BadRequestException(
+                $"Các dòng sau chọn HandlingMethod = Other nhưng thiếu Ghi chú: {string.Join(", ", otherRowsMissingNote.Select(i => i.RowNumber))}.");
+
         var closureRecord = existingClosure;
         var now = DateTime.UtcNow;
+        var liquidationRevenue = items
+            .Where(p => ExternalDispositionMetadata.Parse(p.HandlingMethod) == ExternalDispositionType.Liquidated
+                     && p.TotalPrice.HasValue && p.TotalPrice.Value > 0)
+            .Sum(p => p.TotalPrice!.Value);
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            // 7a. Tạo DepotClosureExternalItem records (audit trail, per-item ImageUrl)
             var externalItems = items.Select(p => new CreateClosureExternalItemDto(
-                DepotId:        depotId,
-                ClosureId:      closureRecord.Id,
-                ItemName:       p.ItemName,
-                CategoryName:   p.CategoryName,
-                ItemType:       p.ItemType,
-                Unit:           p.Unit,
-                Quantity:       p.Quantity,
-                UnitPrice:      p.UnitPrice,
-                TotalPrice:     p.TotalPrice,
-                HandlingMethod: p.HandlingMethod,
-                Recipient:      p.Recipient,
-                Note:           p.Note,
-                ImageUrl:       p.ImageUrl,
-                ProcessedBy:    request.ManagerUserId,
-                ProcessedAt:    now
+                DepotId: depotId,
+                ClosureId: closureRecord.Id,
+                ItemName: p.ItemName,
+                CategoryName: p.CategoryName,
+                ItemType: p.ItemType,
+                Unit: p.Unit,
+                Quantity: p.Quantity,
+                UnitPrice: p.UnitPrice,
+                TotalPrice: p.TotalPrice,
+                HandlingMethod: ExternalDispositionMetadata.Parse(p.HandlingMethod)!.Value.ToString(),
+                Recipient: p.Recipient,
+                Note: p.Note,
+                ImageUrl: p.ImageUrl,
+                ProcessedBy: request.ManagerUserId,
+                ProcessedAt: now
             ));
             await externalItemRepository.CreateBulkAsync(externalItems, cancellationToken);
 
-            // 7b. Zero-out toàn bộ inventory
             await inventoryRepository.ZeroOutForClosureAsync(
                 depotId: depotId,
                 closureId: closureRecord.Id,
@@ -101,77 +114,59 @@ public class UploadExternalResolutionCommandHandler(
                 note: "Xử lý bên ngoài hệ thống (JSON upload)",
                 cancellationToken: cancellationToken);
 
-            // 7c. Tính tiền thanh lý (Sold) → cộng vào quỹ hệ thống
-            var soldRevenue = items
-                .Where(p => p.HandlingMethod.Equals("Sold", StringComparison.OrdinalIgnoreCase)
-                         && p.TotalPrice.HasValue && p.TotalPrice.Value > 0)
-                .Sum(p => p.TotalPrice!.Value);
-
-            if (soldRevenue > 0)
+            if (liquidationRevenue > 0)
             {
                 var systemFund = await systemFundRepository.GetOrCreateAsync(cancellationToken);
-                systemFund.Credit(soldRevenue);
+                systemFund.Credit(liquidationRevenue);
                 await systemFundRepository.UpdateAsync(systemFund, cancellationToken);
 
                 await systemFundRepository.CreateTransactionAsync(new SystemFundTransactionModel
                 {
-                    SystemFundId    = systemFund.Id,
+                    SystemFundId = systemFund.Id,
                     TransactionType = SystemFundTransactionType.LiquidationRevenue,
-                    Amount          = soldRevenue,
-                    ReferenceType   = "DepotClosure",
-                    ReferenceId     = closureRecord.Id,
-                    Note            = $"Tiền thanh lý tài sản khi đóng kho #{depotId} — {soldRevenue:N0} VNĐ",
-                    CreatedBy       = request.ManagerUserId,
-                    CreatedAt       = now
+                    Amount = liquidationRevenue,
+                    ReferenceType = "DepotClosure",
+                    ReferenceId = closureRecord.Id,
+                    Note = $"Tiền thanh lý tài sản khi đóng kho #{depotId} - {liquidationRevenue:N0} VNĐ",
+                    CreatedBy = request.ManagerUserId,
+                    CreatedAt = now
                 }, cancellationToken);
 
                 logger.LogInformation(
-                    "UploadExternalResolution | Sold revenue={Revenue} credited to SystemFund | DepotId={DepotId} ClosureId={ClosureId}",
-                    soldRevenue, depotId, closureRecord.Id);
+                    "UploadExternalResolution | Liquidation revenue={Revenue} credited to SystemFund | DepotId={DepotId} ClosureId={ClosureId}",
+                    liquidationRevenue, depotId, closureRecord.Id);
             }
 
-            // 7d. Drain quỹ kho (balance > 0) về quỹ hệ thống
             await depotFundDrainService.DrainAllToSystemFundAsync(depotId, closureRecord.Id, request.ManagerUserId, cancellationToken);
 
             var actualConsumables = items.Where(i => i.ItemType == "Consumable").Sum(i => i.Quantity);
             var actualReusables = items.Where(i => i.ItemType == "Reusable").Sum(i => i.Quantity);
             closureRecord.RecordActualInventory(actualConsumables, actualReusables);
 
-            // 7e. Đóng kho: set status=Closed, utilization=0, unassign manager trong domain
             depot.CompleteClosing();
-
-            // 7f. Hoàn tất closure record: set status=Completed
             closureRecord.Complete(now);
 
-            // Persist depot (status=Closed, utilization=0) và closure (status=Completed).
-            // DepotRepository.UpdateAsync tự detect transition → Closed và set UnassignedAt
-            // cho tất cả manager đang active trong cùng 1 call — không cần gọi UnassignManagerAsync riêng.
             await depotRepository.UpdateAsync(depot, cancellationToken);
             await closureRepository.UpdateAsync(closureRecord, cancellationToken);
-            
-            // Persist các thay đổi vào DB trong transaction hiện tại
             await unitOfWork.SaveAsync();
         });
 
         logger.LogInformation(
-            "UploadExternalResolution completed — depot CLOSED | DepotId={DepotId} Items={Count} ClosureId={ClosureId}",
+            "UploadExternalResolution completed - depot CLOSED | DepotId={DepotId} Items={Count} ClosureId={ClosureId}",
             depotId, items.Count, closureRecord.Id);
 
         var (_, reusableInUse) = await depotRepository.GetReusableItemCountsAsync(depotId, cancellationToken);
 
         return new UploadExternalResolutionResponse
         {
-            DepotId            = depotId,
-            DepotName          = depot.Name,
-            ClosureId          = closureRecord.Id,
+            DepotId = depotId,
+            DepotName = depot.Name,
+            ClosureId = closureRecord.Id,
             ProcessedItemCount = items.Count,
-            SoldRevenue        = items
-                .Where(p => p.HandlingMethod.Equals("Sold", StringComparison.OrdinalIgnoreCase)
-                         && p.TotalPrice.HasValue && p.TotalPrice.Value > 0)
-                .Sum(p => p.TotalPrice!.Value),
+            SoldRevenue = liquidationRevenue,
             SnapshotConsumableUnits = closureRecord.SnapshotConsumableUnits,
-            SnapshotReusableUnits   = closureRecord.SnapshotReusableUnits,
-            ReusableItemsSkipped    = reusableInUse,
+            SnapshotReusableUnits = closureRecord.SnapshotReusableUnits,
+            ReusableItemsSkipped = reusableInUse,
             Message = $"Đã ghi nhận {items.Count} dòng xử lý bên ngoài, xóa toàn bộ tồn kho và đóng kho thành công."
         };
     }

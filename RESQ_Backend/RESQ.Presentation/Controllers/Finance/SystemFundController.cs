@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Enum.Finance;
+using RESQ.Application.UseCases.Finance.Queries.GetFundSourceTypesMetadata;
 using RESQ.Application.UseCases.Finance.Queries.GetSystemFund;
 using RESQ.Application.UseCases.Finance.Queries.GetSystemFundTransactions;
 
@@ -19,15 +20,9 @@ public class SystemFundController(IMediator mediator) : ControllerBase
     /// <summary>[Metadata] Danh sách loại nguồn quỹ (key = tên tiếng Anh, value = tên tiếng Việt).</summary>
     [HttpGet("metadata/source-types")]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
-    public IActionResult GetSourceTypeMetadata()
+    public async Task<IActionResult> GetSourceTypeMetadata()
     {
-        var result = Enum.GetValues<FundSourceType>()
-            .Select(t => new MetadataDto
-            {
-                Key   = t.ToString(),
-                Value = FinanceLabels.Translate(FinanceLabels.FundSourceTypeLabels, t.ToString())
-            })
-            .ToList();
+        var result = await _mediator.Send(new GetFundSourceTypesMetadataQuery());
         return Ok(result);
     }
 

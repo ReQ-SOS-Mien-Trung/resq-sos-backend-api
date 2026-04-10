@@ -7,6 +7,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Finance.Commands.AllocateFundToDepot;
 using RESQ.Application.UseCases.Finance.Commands.AddDisbursementItems;
 using RESQ.Application.UseCases.Finance.Queries.GetCampaignDisbursements;
+using RESQ.Application.UseCases.Finance.Queries.GetFundSourceTypesMetadata;
 using RESQ.Application.UseCases.Finance.Queries.GetPublicCampaignSpending;
 using System.Security.Claims;
 
@@ -17,6 +18,15 @@ namespace RESQ.Presentation.Controllers.Finance;
 public class CampaignDisbursementController(IMediator mediator, IAuthorizationService authorizationService) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
+
+    /// <summary>[Metadata] Danh sách loại nguồn quỹ dùng cho dropdown cấp tiền cho kho.</summary>
+    [HttpGet("metadata/source-types")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFundSourceTypeMetadata()
+    {
+        var result = await _mediator.Send(new GetFundSourceTypesMetadataQuery());
+        return Ok(result);
+    }
 
     /// <summary>[Cách 1] Admin chủ động cấp tiền từ Campaign → Depot.</summary>
     [HttpPost("allocate")]
