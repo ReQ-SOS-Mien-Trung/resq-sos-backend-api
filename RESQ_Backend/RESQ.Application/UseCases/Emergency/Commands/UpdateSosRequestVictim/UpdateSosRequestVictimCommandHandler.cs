@@ -3,10 +3,8 @@ using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
-using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Emergency;
-using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Emergency.Commands.UpdateSosRequestVictim;
 
@@ -15,7 +13,6 @@ public class UpdateSosRequestVictimCommandHandler(
     ISosRequestCompanionRepository companionRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     ISosRuleEvaluationRepository sosRuleEvaluationRepository,
-    IMissionRepository missionRepository,
     ISosPriorityEvaluationService priorityEvaluationService,
     IUnitOfWork unitOfWork
 ) : IRequestHandler<UpdateSosRequestVictimCommand, UpdateSosRequestVictimResponse>
@@ -35,20 +32,7 @@ public class UpdateSosRequestVictimCommandHandler(
             }
         }
 
-        if (sos.ClusterId.HasValue)
-        {
-            var relatedMissions = (await missionRepository.GetByClusterIdAsync(sos.ClusterId.Value, cancellationToken))
-                .Where(mission => mission.Activities.Any(activity => activity.SosRequestId == sos.Id)
-                    && mission.Status != MissionStatus.Planned)
-                .OrderByDescending(mission => mission.CreatedAt)
-                .ToList();
-
-            if (relatedMissions.Count > 0)
-            {
-                throw new BadRequestException(
-                    $"Không thể cập nhật SOS request #{sos.Id} vì mission #{relatedMissions[0].Id} đã bắt đầu hoặc đã kết thúc.");
-            }
-        }
+        SosRequestVictimMutationGuard.EnsureCanUpdate(sos);
 
         var latestVictimUpdateLookup = await sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync([sos.Id], cancellationToken);
         latestVictimUpdateLookup.TryGetValue(sos.Id, out var latestVictimUpdate);

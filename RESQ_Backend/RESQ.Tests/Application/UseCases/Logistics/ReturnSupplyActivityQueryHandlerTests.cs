@@ -260,7 +260,7 @@ public class ReturnSupplyActivityQueryHandlerTests
             => Task.FromResult(ActiveDepotId.HasValue ? new List<int> { ActiveDepotId.Value } : []);
 
         public Task<PagedResult<InventoryItemModel>> GetInventoryPagedAsync(int depotId, List<int>? categoryIds, List<ItemType>? itemTypes,
-            List<TargetGroup>? targetGroups, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+            List<TargetGroup>? targetGroups, string? itemName, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task<PagedResult<InventoryLotModel>> GetInventoryLotsAsync(int depotId, int itemModelId, int pageNumber, int pageSize,

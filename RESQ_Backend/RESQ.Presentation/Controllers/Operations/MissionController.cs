@@ -32,6 +32,7 @@ using RESQ.Application.UseCases.Operations.Queries.MissionMetadata;
 using RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetRescuerRoute;
+using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Presentation.Controllers.Operations;
 
@@ -265,7 +266,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Cập nhật trạng thái activity: pending | in_progress | completed | cancelled | skipped.
+    /// Cập nhật trạng thái activity: Planned | OnGoing | Succeed | PendingConfirmation | Failed | Cancelled.
     /// </summary>
     [HttpPatch("{missionId:int}/activities/{activityId:int}/status")]
     [Authorize(Policy = PermissionConstants.PolicyActivityAccess)] // includes ActivityTeamManage | ActivityOwnManage
@@ -275,7 +276,17 @@ public class MissionController(IMediator mediator) : ControllerBase
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
-        var command = new UpdateActivityStatusCommand(activityId, dto.Status, userId);
+        var validStatuses = string.Join(", ", Enum.GetNames<MissionActivityStatus>());
+
+        if (string.IsNullOrWhiteSpace(dto.Status)
+            || !Enum.TryParse<MissionActivityStatus>(dto.Status.Trim(), ignoreCase: true, out var newStatus)
+            || !Enum.IsDefined(newStatus))
+        {
+            throw new BadRequestException(
+                $"Trạng thái activity không hợp lệ: '{dto.Status}'. Các giá trị hợp lệ: {validStatuses}.");
+        }
+
+        var command = new UpdateActivityStatusCommand(activityId, newStatus, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }
