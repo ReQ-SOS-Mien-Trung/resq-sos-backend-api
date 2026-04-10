@@ -312,7 +312,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// <summary>
         /// [Manager] Tải file Excel template liệt kê hàng tồn kho của kho mình đang quản lý.
         /// Hệ thống tự lấy depotId từ token người dùng qua bảng depot manager với điều kiện UnassignedAt == null.
-        /// Kho phải ở trạng thái Unavailable và còn hàng.
+        /// Kho chỉ cần còn hàng tồn để xuất mẫu xử lý.
         /// </summary>
         [HttpGet("close/export-template")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]

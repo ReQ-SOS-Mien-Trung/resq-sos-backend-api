@@ -3,8 +3,6 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
-using RESQ.Domain.Enum.Logistics;
-
 namespace RESQ.Application.UseCases.Logistics.Queries.ExportClosureTemplate;
 
 public class ExportClosureTemplateQueryHandler(
@@ -23,12 +21,6 @@ public class ExportClosureTemplateQueryHandler(
 
         var depot = await depotRepository.GetByIdAsync(depotId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
-
-        if (depot.Status != DepotStatus.Unavailable)
-        {
-            throw new ConflictException(
-                $"Kho đang ở trạng thái '{depot.Status}'. Chỉ xuất mẫu xử lý khi kho đang Unavailable.");
-        }
 
         var items = await depotRepository.GetLotDetailedInventoryForClosureAsync(depotId, cancellationToken);
         if (items.Count == 0)
