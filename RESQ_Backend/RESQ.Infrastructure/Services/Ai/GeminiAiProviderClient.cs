@@ -92,7 +92,7 @@ public class GeminiAiProviderClient(
                         [
                             CreateTextPart(
                                 string.IsNullOrWhiteSpace(request.SystemPrompt)
-                                    ? request.Messages[0].Content
+                                    ? request.Messages[0].Content ?? string.Empty
                                     : $"{request.SystemPrompt}\n\n{request.Messages[0].Content}")
                         ]
                     }
@@ -207,7 +207,7 @@ public class GeminiAiProviderClient(
 
             toolCalls.Add(new AiToolCall
             {
-                Id = $"gemini-call-{index + 1}-{Guid.NewGuid():N}",
+                Id = $"gemini-call-{toolCalls.Count + 1}-{Guid.NewGuid():N}",
                 Name = name,
                 Arguments = arguments,
                 NativeFunctionCallPart = parts[index].Clone()
