@@ -854,6 +854,9 @@ public class ExcelExportService : IExcelExportService
         ws.Column(9).Width  = 16;  // I: Đơn giá
 
         // ── Data rows (2..102) ─────────────────────────────────────────────────
+        ws.Column(10).Width = 20;  // J: The tich / don vi
+        ws.Column(11).Width = 22;  // K: Can nang / don vi
+
         for (int r = FundingRequestDataStartRow; r <= FundingRequestDataEndRow; r++)
         {
             int rowNum = r - FundingRequestDataStartRow + 1;
@@ -923,6 +926,22 @@ public class ExcelExportService : IExcelExportService
                 var rowRange = ws.Range(r, 1, r, FundingRequestCols);
                 rowRange.Style.Fill.SetBackgroundColor(OrangeLight);
             }
+
+            dvUnitPrice.InputMessage = "Nhap gia du kien cho moi don vi (VND).";
+
+            ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$F,6,FALSE),0)";
+            ws.Cell(r, 10).Style.NumberFormat.Format = "#,##0.###";
+            var dvVolumePerUnit = ws.Cell(r, 10).GetDataValidation();
+            dvVolumePerUnit.ShowInputMessage = true;
+            dvVolumePerUnit.InputTitle = "The tich / don vi";
+            dvVolumePerUnit.InputMessage = "The tich moi don vi (dm3). Co the sua tay neu vat pham moi.";
+
+            ws.Cell(r, 11).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),0)";
+            ws.Cell(r, 11).Style.NumberFormat.Format = "#,##0.###";
+            var dvWeightPerUnit = ws.Cell(r, 11).GetDataValidation();
+            dvWeightPerUnit.ShowInputMessage = true;
+            dvWeightPerUnit.InputTitle = "Can nang / don vi";
+            dvWeightPerUnit.InputMessage = "Can nang moi don vi (kg). Co the sua tay neu vat pham moi.";
 
             // Thin borders for all data cells
             var dataRow = ws.Range(r, 1, r, FundingRequestCols);

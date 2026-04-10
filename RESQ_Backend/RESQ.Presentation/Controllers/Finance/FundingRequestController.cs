@@ -89,7 +89,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return Ok(values);
     }
 
-    /// <summary>Tải file Excel mẫu yêu cầu cấp tiền — 9 cột (không có Ngày hết hạn và Ngày nhận).</summary>
+    /// <summary>Tai file Excel mau yeu cau cap quy gom 11 cot, co them volumePerUnit va weightPerUnit.</summary>
     [HttpGet("template")]
     [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]

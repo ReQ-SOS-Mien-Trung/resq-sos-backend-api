@@ -631,17 +631,21 @@ public static class LogisticsSeeder
         // CurrentUtilization = Σ (quantity × volumePerUnit) across all items (consumable + reusable + vehicle)
         // CurrentWeightUtilization = Σ (quantity × weightPerUnit) across all items
         // Volume unit: dm³ (cubic decimeters), Weight unit: kg
-        // Depot 1 (Huế):      Volume=831777.9,  Weight=330877.49  → Capacity 1100000 (~75.6%), WeightCapacity 440000 (~75.2%)
-        // Depot 2 (Đà Nẵng):  Volume=754700.9,  Weight=365265.69  → Capacity 1000000 (~75.5%), WeightCapacity 480000 (~76.1%)
-        // Depot 3 (Hà Tĩnh):  Volume=443207.6,  Weight=195723.64  → Capacity 600000  (~73.9%), WeightCapacity 260000 (~75.3%)
-        // Depot 4 (HN/TW):    Volume=1064369.2, Weight=472365.44  → Capacity 1400000 (~76.0%), WeightCapacity 650000 (~72.7%)
-        // Depot 5 (Quảng Nam — trống, dùng test tiếp nhận đóng kho): 0
+        // Depot 1 (Huế):        Volume=831777.9,  Weight=330877.49  → Capacity 1100000 (~75.6%), WeightCapacity 440000 (~75.2%)
+        // Depot 2 (Đà Nẵng):    Volume=754700.9,  Weight=365265.69  → Capacity 1000000 (~75.5%), WeightCapacity 480000 (~76.1%)
+        // Depot 3 (Hà Tĩnh):    Volume=443207.6,  Weight=195723.64  → Capacity 600000  (~73.9%), WeightCapacity 260000 (~75.3%)
+        // Depot 4 (HN/TW):      Volume=1064369.2, Weight=472365.44  → Capacity 1400000 (~76.0%), WeightCapacity 650000 (~72.7%)
+        // Depot 5 (Thăng Bình): Volume=1890,      Weight=581       → closure test: external resolution
+        // Depot 6 (Quảng Ninh): Volume=2400,      Weight=732.5     → closure test: transfer to another depot
+        // Depot 7 (Vinh):       Volume=0,         Weight=0         → closure test: empty depot / transfer target
         modelBuilder.Entity<Depot>().HasData(
             new Depot { Id = 1, Name = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", Address = "46 Đống Đa, TP. Huế, Thừa Thiên Huế", Location = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1100000m,  CurrentUtilization = 831777.9m,  WeightCapacity = 440000m,  CurrentWeightUtilization = 330877.49m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg" },
             new Depot { Id = 2, Name = "Ủy ban MTTQVN TP Đà Nẵng", Address = "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", Location = new Point(108.22283205420794, 16.080298466000496) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1000000m,  CurrentUtilization = 754700.9m,  WeightCapacity = 480000m,  CurrentWeightUtilization = 365265.69m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
             new Depot { Id = 3, Name = "Ủy Ban MTTQ Tỉnh Hà Tĩnh", Address = "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", Location = new Point(105.90102499916586, 18.349622333272194) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 600000m,   CurrentUtilization = 443207.6m,  WeightCapacity = 260000m,  CurrentWeightUtilization = 195723.64m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg" },
             new Depot { Id = 4, Name = "Ủy ban MTTQVN Việt Nam", Address = "46 Tràng Thi, Hoàn Kiếm, Hà Nội", Location = new Point(105.842191, 21.027819) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1400000m,  CurrentUtilization = 1064369.2m, WeightCapacity = 650000m,  CurrentWeightUtilization = 472365.44m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
-            new Depot { Id = 5, Name = "Ủy ban MTTQVN Tỉnh Quảng Nam", Address = "72 Hùng Vương, TP. Tam Kỳ, Quảng Nam", Location = new Point(108.47388, 15.57360) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 900000m,   CurrentUtilization = 0m,         WeightCapacity = 500000m,  CurrentWeightUtilization = 0m,         LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" }
+            new Depot { Id = 5, Name = "Ủy ban MTTQVN Huyện Thăng Bình", Address = "282 Tiểu La, thị trấn Hà Lam, huyện Thăng Bình, Quảng Nam", Location = new Point(108.4587, 15.6949) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 250000m, CurrentUtilization = 1890m, WeightCapacity = 120000m, CurrentWeightUtilization = 581m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
+            new Depot { Id = 6, Name = "Ủy ban MTTQVN Huyện Quảng Ninh", Address = "TT. Quán Hàu, huyện Quảng Ninh, Quảng Bình", Location = new Point(106.6175, 17.4619) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 280000m, CurrentUtilization = 2400m, WeightCapacity = 140000m, CurrentWeightUtilization = 732.5m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
+            new Depot { Id = 7, Name = "Ủy ban MTTQVN Tỉnh Nghệ An", Address = "1 Phan Đăng Lưu, TP. Vinh, Nghệ An", Location = new Point(105.6936046, 18.6732581) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 300000m, CurrentUtilization = 0m, WeightCapacity = 150000m, CurrentWeightUtilization = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" }
         );
     }
 
@@ -654,7 +658,9 @@ public static class LogisticsSeeder
             new DepotManager { Id = 2, DepotId = 2, UserId = SeedConstants.Manager2UserId,  AssignedAt = now },
             new DepotManager { Id = 3, DepotId = 3, UserId = SeedConstants.Manager3UserId,  AssignedAt = now },
             new DepotManager { Id = 4, DepotId = 4, UserId = SeedConstants.Manager4UserId,  AssignedAt = now },
-            new DepotManager { Id = 5, DepotId = 5, UserId = SeedConstants.Manager5UserId,  AssignedAt = now }
+            new DepotManager { Id = 5, DepotId = 5, UserId = SeedConstants.Manager5UserId,  AssignedAt = now },
+            new DepotManager { Id = 6, DepotId = 6, UserId = SeedConstants.Manager6UserId,  AssignedAt = now },
+            new DepotManager { Id = 7, DepotId = 7, UserId = SeedConstants.Manager7UserId,  AssignedAt = now }
         );
     }
 
@@ -815,6 +821,70 @@ public static class LogisticsSeeder
             if (transferReservedOverrides.TryGetValue(entry.Id, out var transferReserved))
                 entry.TransferReservedQuantity = transferReserved;
         }
+
+        list.AddRange(
+            [
+                new DepotSupplyInventory
+                {
+                    Id = 289,
+                    DepotId = 5,
+                    ItemModelId = 1,
+                    Quantity = 1200,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt = new DateTime(2026, 2, 18, 8, 0, 0, DateTimeKind.Utc)
+                },
+                new DepotSupplyInventory
+                {
+                    Id = 290,
+                    DepotId = 5,
+                    ItemModelId = 2,
+                    Quantity = 800,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt = new DateTime(2026, 2, 18, 9, 0, 0, DateTimeKind.Utc)
+                },
+                new DepotSupplyInventory
+                {
+                    Id = 291,
+                    DepotId = 5,
+                    ItemModelId = 43,
+                    Quantity = 300,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt = new DateTime(2026, 2, 20, 8, 30, 0, DateTimeKind.Utc)
+                },
+                new DepotSupplyInventory
+                {
+                    Id = 292,
+                    DepotId = 6,
+                    ItemModelId = 1,
+                    Quantity = 1500,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc)
+                },
+                new DepotSupplyInventory
+                {
+                    Id = 293,
+                    DepotId = 6,
+                    ItemModelId = 2,
+                    Quantity = 1000,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc)
+                },
+                new DepotSupplyInventory
+                {
+                    Id = 294,
+                    DepotId = 6,
+                    ItemModelId = 43,
+                    Quantity = 400,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt = new DateTime(2026, 3, 6, 8, 30, 0, DateTimeKind.Utc)
+                }
+            ]);
 
         modelBuilder.Entity<DepotSupplyInventory>().HasData(list.ToArray());
     }
@@ -988,6 +1058,14 @@ public static class LogisticsSeeder
             // ── Donation import (Mar 2026) ──────────────────────────────────
             // Log 44: mì tôm, Mar 2026
             new() { Id = 36, SupplyInventoryId = 1,  Quantity = 10000, RemainingQuantity = 10000, ReceivedDate = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 3, CreatedAt = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc) },
+
+            // ── Closure test depots ─────────────────────────────────────────
+            new() { Id = 62, SupplyInventoryId = 289, Quantity = 1200, RemainingQuantity = 1200, ReceivedDate = new DateTime(2026, 2, 18, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 2, 18, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 6, CreatedAt = new DateTime(2026, 2, 18, 8, 0, 0, DateTimeKind.Utc) },
+            new() { Id = 63, SupplyInventoryId = 290, Quantity = 800,  RemainingQuantity = 800,  ReceivedDate = new DateTime(2026, 2, 18, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 8, 18, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 3, CreatedAt = new DateTime(2026, 2, 18, 9, 0, 0, DateTimeKind.Utc) },
+            new() { Id = 64, SupplyInventoryId = 291, Quantity = 300,  RemainingQuantity = 300,  ReceivedDate = new DateTime(2026, 2, 20, 8, 30, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 6, CreatedAt = new DateTime(2026, 2, 20, 8, 30, 0, DateTimeKind.Utc) },
+            new() { Id = 65, SupplyInventoryId = 292, Quantity = 1500, RemainingQuantity = 1500, ReceivedDate = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 3, 5, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, CreatedAt = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc) },
+            new() { Id = 66, SupplyInventoryId = 293, Quantity = 1000, RemainingQuantity = 1000, ReceivedDate = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 9, 5, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, CreatedAt = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc) },
+            new() { Id = 67, SupplyInventoryId = 294, Quantity = 400,  RemainingQuantity = 400,  ReceivedDate = new DateTime(2026, 3, 6, 8, 30, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 4, CreatedAt = new DateTime(2026, 3, 6, 8, 30, 0, DateTimeKind.Utc) },
         };
 
         modelBuilder.Entity<SupplyInventoryLot>().HasData(lots.ToArray());
@@ -1107,7 +1185,15 @@ public static class LogisticsSeeder
             // Nhận lại reusable (áo phao cứu sinh) — 1 log row mỗi đơn vị
             new InventoryLog { Id = 59, ReusableItemId = 1, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-001 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 60, ReusableItemId = 2, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-002 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 61, ReusableItemId = 3, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-003 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) }
+            new InventoryLog { Id = 61, ReusableItemId = 3, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-003 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+
+            // ── Seed riêng cho test đóng kho depot 5/6 ─────────────────────
+            new InventoryLog { Id = 62, DepotSupplyInventoryId = 289, SupplyInventoryLotId = 62, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1200, SourceType = InventorySourceType.Donation.ToString(), SourceId = 6, PerformedBy = SeedConstants.Manager5UserId, Note = "Nhập mì tôm kho Thăng Bình để test xử lý đóng kho bên ngoài", ReceivedDate = new DateTime(2026, 2, 18, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 2, 18, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 18, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 63, DepotSupplyInventoryId = 290, SupplyInventoryLotId = 63, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 800,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3, PerformedBy = SeedConstants.Manager5UserId, Note = "Nhập nước tinh khiết kho Thăng Bình để test đóng kho", ReceivedDate = new DateTime(2026, 2, 18, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 8, 18, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 18, 9, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 64, DepotSupplyInventoryId = 291, SupplyInventoryLotId = 64, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 300,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 6, PerformedBy = SeedConstants.Manager5UserId, Note = "Nhập áo mưa người lớn kho Thăng Bình để test xử lý bên ngoài", ReceivedDate = new DateTime(2026, 2, 20, 8, 30, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 20, 8, 30, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 65, DepotSupplyInventoryId = 292, SupplyInventoryLotId = 65, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1500, SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, PerformedBy = SeedConstants.Manager6UserId, Note = "Nhập mì tôm kho Quảng Ninh để test chuyển kho khi đóng kho", ReceivedDate = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 3, 5, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 66, DepotSupplyInventoryId = 293, SupplyInventoryLotId = 66, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, PerformedBy = SeedConstants.Manager6UserId, Note = "Nhập nước tinh khiết kho Quảng Ninh để test luồng chuyển kho", ReceivedDate = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 9, 5, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 67, DepotSupplyInventoryId = 294, SupplyInventoryLotId = 67, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 400,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 4, PerformedBy = SeedConstants.Manager6UserId, Note = "Nhập áo mưa người lớn kho Quảng Ninh để test đóng kho chuyển sang kho khác", ReceivedDate = new DateTime(2026, 3, 6, 8, 30, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 3, 6, 8, 30, 0, DateTimeKind.Utc) }
         );
     }
 
@@ -1157,19 +1243,20 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 11, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<DepotSupplyRequest>().HasData(
-            // Req 1 (IN PROGRESS — Accepted/Approved): Kho 3 (Hà Tĩnh) xin từ Kho 1 (Huế)
-            // Kho nguồn đã chấp nhận, đang chuẩn bị hàng. TransferReserved đã set ở DSI.
+            // Req 1 (COMPLETED — 2 bên đã xác nhận): Kho 3 (Hà Tĩnh) xin từ Kho 1 (Huế)
             new DepotSupplyRequest
             {
                 Id = 1, RequestingDepotId = 3, SourceDepotId = 1,
                 Note = "Thiếu lương thực và nước uống cứu trợ khẩn cấp",
                 PriorityLevel     = "High",
-                SourceStatus      = SourceDepotStatus.Accepted.ToString(),
-                RequestingStatus  = RequestingDepotStatus.Approved.ToString(),
+                SourceStatus      = SourceDepotStatus.Completed.ToString(),
+                RequestingStatus  = RequestingDepotStatus.Received.ToString(),
                 RequestedBy       = SeedConstants.Manager3UserId,
-                CreatedAt         = now,
-                AutoRejectAt      = now.AddHours(2),
-                RespondedAt       = now.AddHours(1)
+                CreatedAt         = now.AddDays(-28),
+                AutoRejectAt      = now.AddDays(-28).AddHours(2),
+                RespondedAt       = now.AddDays(-27),
+                ShippedAt         = now.AddDays(-26),
+                CompletedAt       = now.AddDays(-25)
             },
             // Req 2 (COMPLETED — 2 bên đã xác nhận): Kho 2 (Đà Nẵng) xin từ Kho 1 (Huế)
             new DepotSupplyRequest
@@ -1251,7 +1338,7 @@ public static class LogisticsSeeder
     private static void SeedDepotSupplyRequestItems(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<DepotSupplyRequestItem>().HasData(
-            // Req 1 (IN PROGRESS): mì tôm + nước — đặt trữ tại Kho 1
+            // Req 1 (COMPLETED): mì tôm + nước
             new DepotSupplyRequestItem { Id = 1, DepotSupplyRequestId = 1, ItemModelId = 1, Quantity = 6000 },
             new DepotSupplyRequestItem { Id = 2, DepotSupplyRequestId = 1, ItemModelId = 2, Quantity = 4000 },
             // Req 2 (COMPLETED): thuốc Paracetamol

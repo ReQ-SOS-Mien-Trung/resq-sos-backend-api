@@ -17,7 +17,10 @@ public static class FinanceSeed
             new DepotFund { Id = 1, DepotId = 1, Balance = 120_000_000m, MaxAdvanceLimit = 80_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
             new DepotFund { Id = 2, DepotId = 2, Balance = 90_000_000m,  MaxAdvanceLimit = 60_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
             new DepotFund { Id = 3, DepotId = 3, Balance = 70_000_000m,  MaxAdvanceLimit = 40_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
-            new DepotFund { Id = 4, DepotId = 4, Balance = 150_000_000m, MaxAdvanceLimit = 100_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 }
+            new DepotFund { Id = 4, DepotId = 4, Balance = 150_000_000m, MaxAdvanceLimit = 100_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 5, DepotId = 5, Balance = 18_000_000m,  MaxAdvanceLimit = 12_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 6, DepotId = 6, Balance = 22_000_000m,  MaxAdvanceLimit = 14_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 7, DepotId = 7, Balance = 8_000_000m,   MaxAdvanceLimit = 5_000_000m,   LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 }
         };
         modelBuilder.Entity<DepotFund>().HasData(depotFunds);
 
@@ -119,6 +122,42 @@ public static class FinanceSeed
                 Note = "Nhập vật tư y tế và cứu hộ",
                 CreatedBy = SeedConstants.Manager4UserId,
                 CreatedAt = new DateTime(2026, 2, 14, 3, 20, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 9,
+                DepotFundId = 5,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 18_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1006,
+                Note = "Admin cấp quỹ kho Thăng Bình để test đóng kho xử lý bên ngoài",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 12, 2, 0, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 10,
+                DepotFundId = 6,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 22_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1007,
+                Note = "Admin cấp quỹ kho Quảng Ninh để test đóng kho chuyển kho",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 14, 2, 15, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 11,
+                DepotFundId = 7,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 8_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1008,
+                Note = "Admin cấp quỹ kho Nghệ An để test đóng kho trống",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 16, 1, 45, 0, DateTimeKind.Utc)
             }
         };
         modelBuilder.Entity<DepotFundTransaction>().HasData(depotFundTransactions);
