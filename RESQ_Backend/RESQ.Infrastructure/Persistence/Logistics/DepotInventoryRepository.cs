@@ -860,6 +860,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                     reservationItem.LotAllocations.AddRange(plannedLots);
                 }
+
+                reservationItems.Add(reservationItem);
+                continue;
             }
 
             // Reusable items: Available → Reserved (mission — no SupplyRequestId)
@@ -1019,7 +1022,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             }
 
             // Reusable items: Reserved → InUse
-            var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
+            if (isReusable)
+            {
+                var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
                 .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == nameof(ReusableItemStatus.Reserved) && r.SupplyRequestId == null)
                 .OrderBy(r => r.Id)
                 .Take(quantity)
@@ -1055,6 +1060,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     SerialNumber = unit.SerialNumber,
                     Condition = unit.Condition
                 });
+            }
+
             }
 
             executionItems.Add(executionItem);
@@ -1100,6 +1107,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                     inventory.MissionReservedQuantity -= quantity;
                 }
+
+                continue;
             }
 
             // Reusable items: Reserved → Available
