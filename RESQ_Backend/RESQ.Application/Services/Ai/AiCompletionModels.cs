@@ -72,6 +72,7 @@ public sealed class AiToolCall
     public string Id { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
     public JsonElement Arguments { get; init; }
+    public JsonElement? NativeFunctionCallPart { get; init; }
 }
 
 public sealed class AiToolDefinition
