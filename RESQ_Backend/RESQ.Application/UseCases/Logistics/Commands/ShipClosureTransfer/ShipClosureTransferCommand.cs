@@ -10,7 +10,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
 /// <param name="UserId">Người thực hiện (manager của kho nguồn)</param>
 /// <param name="Note">Ghi chú xuất hàng (tuỳ chọn)</param>
 public record ShipClosureTransferCommand(
-    int DepotId,
     int TransferId,
     Guid UserId,
     string? Note) : IRequest<ShipClosureTransferResponse>;

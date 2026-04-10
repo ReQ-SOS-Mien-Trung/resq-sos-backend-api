@@ -14,5 +14,9 @@ public class UploadExternalResolutionResponse
     /// <summary>Tổng tiền thanh lý (Sold) đã chuyển vào quỹ hệ thống. 0 nếu không có item nào được thanh lý.</summary>
     public decimal SoldRevenue { get; set; }
 
+    public int SnapshotConsumableUnits { get; set; }
+    public int SnapshotReusableUnits { get; set; }
+    public int ReusableItemsSkipped { get; set; }
+
     public string Message { get; set; } = string.Empty;
 }

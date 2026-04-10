@@ -7,7 +7,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 /// Kích hoạt BulkTransfer và hoàn tất đóng kho.
 /// </summary>
 public record ReceiveClosureTransferCommand(
-    int DepotId,
     int TransferId,
     Guid UserId,
     string? Note) : IRequest<ReceiveClosureTransferResponse>;

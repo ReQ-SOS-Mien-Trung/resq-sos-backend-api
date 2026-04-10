@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -9,6 +9,7 @@ namespace RESQ.Application.UseCases.Logistics.Queries.ExportClosureTemplate;
 
 public class ExportClosureTemplateQueryHandler(
     IDepotRepository depotRepository,
+    IDepotInventoryRepository depotInventoryRepository,
     IExcelExportService excelExportService,
     ILogger<ExportClosureTemplateQueryHandler> logger)
     : IRequestHandler<ExportClosureTemplateQuery, ExportClosureTemplateResponse>
@@ -17,25 +18,30 @@ public class ExportClosureTemplateQueryHandler(
         ExportClosureTemplateQuery request,
         CancellationToken cancellationToken)
     {
-        // 1. Load depot
-        var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
+        var depotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+            ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
+
+        var depot = await depotRepository.GetByIdAsync(depotId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
-        // 2. Depot phải ở trạng thái Unavailable
         if (depot.Status != DepotStatus.Unavailable)
+        {
             throw new ConflictException(
                 $"Kho đang ở trạng thái '{depot.Status}'. Chỉ xuất mẫu xử lý khi kho đang Unavailable.");
+        }
 
-        // 3. Lấy chi tiết tồn kho theo từng lô
-        var items = await depotRepository.GetLotDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
+        var items = await depotRepository.GetLotDetailedInventoryForClosureAsync(depotId, cancellationToken);
         if (items.Count == 0)
             throw new ConflictException("Kho không còn hàng tồn, không cần xuất mẫu xử lý.");
 
-        // 4. Tạo file Excel (bao gồm cột đơn giá, thành tiền, chia theo lô)
         var fileContent = excelExportService.GenerateClosureExternalTemplate(depot.Name, items);
         var safeDepotName = depot.Name.Replace(" ", "_");
 
-        logger.LogInformation("ExportClosureTemplate | DepotId={DepotId} Items={Count}", request.DepotId, items.Count);
+        logger.LogInformation(
+            "ExportClosureTemplate | DepotId={DepotId} UserId={UserId} Items={Count}",
+            depotId,
+            request.UserId,
+            items.Count);
 
         return new ExportClosureTemplateResponse
         {

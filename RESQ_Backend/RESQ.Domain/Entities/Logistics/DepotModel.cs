@@ -187,6 +187,8 @@ public class DepotModel
                 "Kho phải ở trạng thái Unavailable trước khi đóng hoàn toàn.");
 
         Status = DepotStatus.Closed;
+        CurrentUtilization = 0;
+        CurrentWeightUtilization = 0;
         LastUpdatedAt = DateTime.UtcNow;
     }
 

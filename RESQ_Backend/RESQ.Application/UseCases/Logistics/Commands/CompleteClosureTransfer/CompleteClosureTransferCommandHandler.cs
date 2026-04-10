@@ -26,9 +26,6 @@ public class CompleteClosureTransferCommandHandler(
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
 
-        if (transfer.SourceDepotId != request.DepotId)
-            throw new ConflictException("Bản ghi chuyển kho không thuộc kho nguồn này.");
-
         // Kiểm tra người thực hiện là manager của kho nguồn
         var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
