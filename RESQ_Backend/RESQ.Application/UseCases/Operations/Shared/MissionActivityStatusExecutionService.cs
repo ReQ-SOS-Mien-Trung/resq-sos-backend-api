@@ -1,0 +1,393 @@
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
+using RESQ.Application.Common.StateMachines;
+using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
+using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
+
+namespace RESQ.Application.UseCases.Operations.Shared;
+
+public class MissionActivityStatusExecutionService(
+    IMissionActivityRepository activityRepository,
+    IMissionTeamRepository missionTeamRepository,
+    IPersonnelQueryRepository personnelQueryRepository,
+    IDepotInventoryRepository depotInventoryRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
+    ITeamIncidentRepository teamIncidentRepository,
+    IUnitOfWork unitOfWork,
+    ILogger<MissionActivityStatusExecutionService> logger
+) : IMissionActivityStatusExecutionService
+{
+    private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
+    private readonly IPersonnelQueryRepository _personnelQueryRepository = personnelQueryRepository;
+    private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
+    private readonly ITeamIncidentRepository _teamIncidentRepository = teamIncidentRepository;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly ILogger<MissionActivityStatusExecutionService> _logger = logger;
+
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    public async Task<MissionActivityStatusExecutionResult> ApplyAsync(
+        int expectedMissionId,
+        int activityId,
+        MissionActivityStatus requestedStatus,
+        Guid decisionBy,
+        CancellationToken cancellationToken = default)
+    {
+        var activity = await _activityRepository.GetByIdAsync(activityId, cancellationToken);
+        if (activity is null)
+            throw MissionActivitySyncErrorCodes.WithCode(
+                new NotFoundException($"Không tìm thấy activity với ID: {activityId}"),
+                MissionActivitySyncErrorCodes.ActivityNotFound);
+
+        if (activity.MissionId != expectedMissionId)
+            throw MissionActivitySyncErrorCodes.WithCode(
+                new BadRequestException("Activity này không thuộc mission được chỉ định."),
+                MissionActivitySyncErrorCodes.MissionActivityMismatch);
+
+        if (activity.MissionTeamId.HasValue)
+        {
+            var userTeam = await _personnelQueryRepository.GetActiveRescueTeamByUserIdAsync(decisionBy, cancellationToken);
+            if (userTeam is not null)
+            {
+                var missionTeam = await _missionTeamRepository.GetByIdAsync(activity.MissionTeamId.Value, cancellationToken);
+                if (missionTeam is not null && missionTeam.RescuerTeamId != userTeam.Id)
+                    throw MissionActivitySyncErrorCodes.WithCode(
+                        new ForbiddenException("Bạn không có quyền cập nhật trạng thái activity này. Activity được giao cho đội khác."),
+                        MissionActivitySyncErrorCodes.ForbiddenTeamMismatch);
+            }
+        }
+
+        MissionTeamModel? assignedMissionTeam = null;
+        if (activity.MissionTeamId.HasValue)
+        {
+            assignedMissionTeam = await _missionTeamRepository.GetByIdAsync(activity.MissionTeamId.Value, cancellationToken);
+        }
+
+        var effectiveStatus = requestedStatus;
+        if (string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+            && requestedStatus == MissionActivityStatus.Succeed
+            && activity.Status == MissionActivityStatus.OnGoing)
+        {
+            effectiveStatus = MissionActivityStatus.PendingConfirmation;
+            _logger.LogInformation(
+                "RETURN_SUPPLIES ActivityId={ActivityId}: intercepted Succeed -> PendingConfirmation (awaiting depot manager confirmation)",
+                activityId);
+        }
+
+        if (effectiveStatus == MissionActivityStatus.OnGoing
+            && activity.MissionId.HasValue
+            && activity.MissionTeamId.HasValue)
+        {
+            var missionActivities = (await _activityRepository
+                .GetByMissionIdAsync(activity.MissionId.Value, cancellationToken))
+                .ToList();
+
+            if (MissionActivitySequenceHelper.HasActiveActivityForTeam(
+                missionActivities,
+                activity.MissionTeamId.Value,
+                activity.Id))
+            {
+                throw MissionActivitySyncErrorCodes.WithCode(
+                    new BadRequestException(
+                        "Đội cứu hộ đang có activity khác ở trạng thái đang thực hiện hoặc chờ xác nhận. " +
+                        "Vui lòng hoàn thành activity hiện tại trước khi bắt đầu activity tiếp theo."),
+                    MissionActivitySyncErrorCodes.ActivitySequenceBlocked);
+            }
+
+            var earliestUnfinishedActivity = MissionActivitySequenceHelper
+                .GetEarliestUnfinishedActivityForSameTeam(missionActivities, activity);
+
+            if (earliestUnfinishedActivity is not null && earliestUnfinishedActivity.Id != activity.Id)
+            {
+                throw MissionActivitySyncErrorCodes.WithCode(
+                    new BadRequestException(
+                        $"Không thể bắt đầu activity #{activity.Id}. " +
+                        $"Đội cứu hộ phải hoàn thành activity #{earliestUnfinishedActivity.Id} trước khi thao tác activity tiếp theo."),
+                    MissionActivitySyncErrorCodes.ActivitySequenceBlocked);
+            }
+        }
+
+        try
+        {
+            MissionActivityStateMachine.EnsureValidTransition(activity.Status, effectiveStatus);
+        }
+        catch (BadRequestException ex)
+        {
+            throw MissionActivitySyncErrorCodes.WithCode(ex, MissionActivitySyncErrorCodes.InvalidStatusTransition);
+        }
+
+        await _activityRepository.UpdateStatusAsync(activityId, effectiveStatus, decisionBy, cancellationToken);
+        activity.Status = effectiveStatus;
+
+        if (assignedMissionTeam is not null
+            && string.Equals(assignedMissionTeam.Status, MissionTeamExecutionStatus.Assigned.ToString(), StringComparison.OrdinalIgnoreCase)
+            && effectiveStatus is MissionActivityStatus.OnGoing or MissionActivityStatus.Succeed)
+        {
+            await _missionTeamRepository.UpdateStatusAsync(
+                assignedMissionTeam.Id,
+                MissionTeamExecutionStatus.InProgress.ToString(),
+                cancellationToken);
+        }
+
+        var isCollectActivity = string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+        var pickupExecution = new MissionSupplyPickupExecutionResult();
+
+        if (effectiveStatus == MissionActivityStatus.Succeed
+            && isCollectActivity
+            && activity.DepotId.HasValue
+            && !string.IsNullOrWhiteSpace(activity.Items))
+        {
+            var items = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts);
+            if (items is { Count: > 0 })
+            {
+                var itemsToConsume = items
+                    .Where(item => item.ItemId.HasValue && item.Quantity > 0)
+                    .Select(item => ((int ItemModelId, int Quantity))(item.ItemId!.Value, item.Quantity + (item.BufferUsedQuantity ?? 0)))
+                    .ToList();
+
+                if (itemsToConsume.Count > 0)
+                {
+                    pickupExecution = await _depotInventoryRepository.ConsumeReservedSuppliesAsync(
+                        activity.DepotId.Value,
+                        itemsToConsume,
+                        decisionBy,
+                        activityId,
+                        activity.MissionId ?? 0,
+                        cancellationToken);
+
+                    var unusedBufferItems = items
+                        .Where(item => item.ItemId.HasValue && (item.BufferQuantity ?? 0) > (item.BufferUsedQuantity ?? 0))
+                        .Select(item => ((int ItemModelId, int Quantity))(item.ItemId!.Value, (item.BufferQuantity ?? 0) - (item.BufferUsedQuantity ?? 0)))
+                        .ToList();
+                    if (unusedBufferItems.Count > 0)
+                    {
+                        try
+                        {
+                            await _depotInventoryRepository.ReleaseReservedSuppliesAsync(activity.DepotId.Value, unusedBufferItems, cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex,
+                                "Failed to release unused buffer for ActivityId={ActivityId}. Reserved stock may be slightly over-locked.",
+                                activity.Id);
+                        }
+                    }
+
+                    await MissionSupplyExecutionSnapshotHelper.SyncPickupExecutionAsync(
+                        activity,
+                        pickupExecution,
+                        _activityRepository,
+                        _logger,
+                        cancellationToken);
+
+                    _logger.LogInformation(
+                        "Inventory consumed for ActivityId={ActivityId} DepotId={DepotId}: {Count} item type(s), bufferUsed={BufferUsed}",
+                        activity.Id,
+                        activity.DepotId.Value,
+                        itemsToConsume.Count,
+                        items.Sum(item => item.BufferUsedQuantity ?? 0));
+                }
+            }
+        }
+
+        var shouldRelease = effectiveStatus is MissionActivityStatus.Cancelled or MissionActivityStatus.Failed;
+        if (shouldRelease
+            && isCollectActivity
+            && activity.DepotId.HasValue
+            && !string.IsNullOrWhiteSpace(activity.Items))
+        {
+            try
+            {
+                var items = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts);
+                if (items is { Count: > 0 })
+                {
+                    var itemsToRelease = items
+                        .Where(item => item.ItemId.HasValue && item.Quantity > 0)
+                        .Select(item => ((int ItemModelId, int Quantity))(item.ItemId!.Value, item.Quantity + (item.BufferQuantity ?? 0)))
+                        .ToList();
+
+                    if (itemsToRelease.Count > 0)
+                    {
+                        await _depotInventoryRepository.ReleaseReservedSuppliesAsync(activity.DepotId.Value, itemsToRelease, cancellationToken);
+                        _logger.LogInformation(
+                            "Reservation released for ActivityId={ActivityId} DepotId={DepotId} due to status={Status}: {Count} item type(s) (incl. buffer)",
+                            activity.Id,
+                            activity.DepotId.Value,
+                            effectiveStatus,
+                            itemsToRelease.Count);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "INVENTORY ALERT: Failed to release reservation for ActivityId={ActivityId} DepotId={DepotId}. Reserved stock may be incorrectly locked. Manual reconciliation required.",
+                    activity.Id,
+                    activity.DepotId.Value);
+            }
+        }
+
+        if (assignedMissionTeam is not null
+            && effectiveStatus is MissionActivityStatus.Succeed or MissionActivityStatus.PendingConfirmation
+            && TryGetActivityLocation(activity, out var latitude, out var longitude, out var locationSource))
+        {
+            await _missionTeamRepository.UpdateCurrentLocationAsync(
+                assignedMissionTeam.Id,
+                latitude,
+                longitude,
+                $"{locationSource}:{activity.Id}",
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Updated MissionTeamId={MissionTeamId} location from ActivityId={ActivityId} ({LocationSource}) to {Latitude},{Longitude}",
+                assignedMissionTeam.Id,
+                activity.Id,
+                locationSource,
+                latitude,
+                longitude);
+        }
+
+        if (activity.MissionId.HasValue && activity.SosRequestId.HasValue)
+        {
+            var missionActivities = (await _activityRepository.GetByMissionIdAsync(activity.MissionId.Value, cancellationToken)).ToList();
+            var updatedActivity = missionActivities.FirstOrDefault(item => item.Id == activity.Id);
+
+            if (updatedActivity is not null)
+            {
+                updatedActivity.Status = activity.Status;
+            }
+            else
+            {
+                missionActivities.Add(activity);
+            }
+
+            await MissionActivitySosRequestSyncHelper.SyncTouchedSosRequestsAsync(
+                [activity.SosRequestId],
+                missionActivities,
+                _sosRequestRepository,
+                _sosRequestUpdateRepository,
+                _activityRepository,
+                _teamIncidentRepository,
+                _logger,
+                cancellationToken);
+        }
+
+        await _unitOfWork.SaveAsync();
+
+        var isDeliverActivity = string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+        if (effectiveStatus == MissionActivityStatus.Failed
+            && isDeliverActivity
+            && !string.IsNullOrWhiteSpace(activity.Items)
+            && activity.DepotId.HasValue)
+        {
+            await CreateReturnSuppliesActivityAsync(activity, decisionBy, cancellationToken);
+        }
+
+        if (effectiveStatus is MissionActivityStatus.Succeed or MissionActivityStatus.Failed or MissionActivityStatus.Cancelled)
+        {
+            var autoStartedNextActivityId = await MissionActivityAutoStartHelper.AutoStartNextActivityForSameTeamAsync(
+                activity,
+                decisionBy,
+                _activityRepository,
+                _missionTeamRepository,
+                _logger,
+                cancellationToken);
+
+            if (autoStartedNextActivityId.HasValue)
+            {
+                await _unitOfWork.SaveAsync();
+            }
+        }
+
+        return new MissionActivityStatusExecutionResult
+        {
+            EffectiveStatus = effectiveStatus,
+            CurrentServerStatus = activity.Status,
+            ConsumedItems = pickupExecution.Items
+        };
+    }
+
+    private static bool TryGetActivityLocation(MissionActivityModel activity, out double latitude, out double longitude, out string locationSource)
+    {
+        if (activity.TargetLatitude.HasValue && activity.TargetLongitude.HasValue)
+        {
+            latitude = activity.TargetLatitude.Value;
+            longitude = activity.TargetLongitude.Value;
+            locationSource = "MissionActivity.Target";
+            return true;
+        }
+
+        if (activity.AssemblyPointLatitude.HasValue && activity.AssemblyPointLongitude.HasValue)
+        {
+            latitude = activity.AssemblyPointLatitude.Value;
+            longitude = activity.AssemblyPointLongitude.Value;
+            locationSource = "MissionActivity.AssemblyPoint";
+            return true;
+        }
+
+        latitude = default;
+        longitude = default;
+        locationSource = string.Empty;
+        return false;
+    }
+
+    private async Task CreateReturnSuppliesActivityAsync(MissionActivityModel failedActivity, Guid decisionBy, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var missionId = failedActivity.MissionId ?? 0;
+            var existingActivities = await _activityRepository.GetByMissionIdAsync(missionId, cancellationToken);
+            var maxStep = existingActivities.Any() ? existingActivities.Max(activity => activity.Step ?? 0) : 0;
+
+            var returnActivity = new MissionActivityModel
+            {
+                MissionId = missionId,
+                Step = maxStep + 1,
+                ActivityType = "RETURN_SUPPLIES",
+                Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
+                Priority = failedActivity.Priority,
+                EstimatedTime = failedActivity.EstimatedTime,
+                SosRequestId = failedActivity.SosRequestId,
+                DepotId = failedActivity.DepotId,
+                DepotName = failedActivity.DepotName,
+                DepotAddress = failedActivity.DepotAddress,
+                Items = failedActivity.Items,
+                Status = MissionActivityStatus.Planned
+            };
+
+            var returnActivityId = await _activityRepository.AddAsync(returnActivity, cancellationToken);
+
+            if (failedActivity.MissionTeamId.HasValue)
+            {
+                await _activityRepository.AssignTeamAsync(returnActivityId, failedActivity.MissionTeamId.Value, cancellationToken);
+            }
+
+            await _unitOfWork.SaveAsync();
+
+            _logger.LogInformation(
+                "Auto-created RETURN_SUPPLIES ActivityId={ReturnActivityId} for failed DELIVER_SUPPLIES ActivityId={FailedActivityId} MissionId={MissionId}",
+                returnActivityId,
+                failedActivity.Id,
+                missionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to auto-create RETURN_SUPPLIES activity for failed DELIVER_SUPPLIES ActivityId={ActivityId} MissionId={MissionId}",
+                failedActivity.Id,
+                failedActivity.MissionId);
+        }
+    }
+}

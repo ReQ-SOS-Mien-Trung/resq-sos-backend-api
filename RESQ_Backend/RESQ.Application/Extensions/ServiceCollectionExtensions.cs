@@ -2,6 +2,7 @@
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using RESQ.Application.Behaviours;
+using RESQ.Application.UseCases.Operations.Shared;
 
 namespace RESQ.Application.Extensions;
 
@@ -30,6 +31,8 @@ public static class ServiceCollectionExtensions
         services.AddValidatorsFromAssembly(
             typeof(ServiceCollectionExtensions).Assembly
         );
+
+        services.AddScoped<IMissionActivityStatusExecutionService, MissionActivityStatusExecutionService>();
 
         // Note: The AddTransient calls below are legacy syntax if using cfg.AddBehavior above, 
         // but kept if you are not using MediatR 12+ built-in registration fully or supporting older patterns.

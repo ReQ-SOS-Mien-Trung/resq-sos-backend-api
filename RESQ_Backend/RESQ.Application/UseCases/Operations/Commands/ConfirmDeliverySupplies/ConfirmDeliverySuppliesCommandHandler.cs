@@ -76,7 +76,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
         // 5. Dispatch UpdateActivityStatusCommand(Succeed) — reuses all side-effects:
         //    team location update, SOS sync, auto-chain next activity.
         await _mediator.Send(
-            new UpdateActivityStatusCommand(request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy),
+            new UpdateActivityStatusCommand(request.MissionId, request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy),
             cancellationToken);
 
         // 6. Auto-create RETURN_SUPPLIES for any surplus (planned > actual delivered)
