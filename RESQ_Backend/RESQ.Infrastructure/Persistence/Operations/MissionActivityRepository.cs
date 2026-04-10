@@ -67,6 +67,10 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
         entity.Description = activity.Description;
         entity.Target = MissionActivityMapper.EnsureValidJson(activity.Target);
         entity.Items = MissionActivityMapper.EnsureValidJson(activity.Items);
+        if (activity.LastDecisionBy.HasValue)
+        {
+            entity.LastDecisionBy = activity.LastDecisionBy;
+        }
 
         if (activity.TargetLatitude.HasValue && activity.TargetLongitude.HasValue)
         {

@@ -1,0 +1,368 @@
+using System.Text.Json;
+using MediatR;
+using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
+using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
+using RESQ.Application.UseCases.Operations.Shared;
+using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Operations;
+
+namespace RESQ.Application.UseCases.Operations.Commands.UpdateMissionPendingActivities;
+
+public class UpdateMissionPendingActivitiesCommandHandler(
+    IMissionRepository missionRepository,
+    IMissionActivityRepository activityRepository,
+    IDepotInventoryRepository depotInventoryRepository,
+    IUnitOfWork unitOfWork,
+    ILogger<UpdateMissionPendingActivitiesCommandHandler> logger
+) : IRequestHandler<UpdateMissionPendingActivitiesCommand, UpdateMissionPendingActivitiesResponse>
+{
+    private readonly IMissionRepository _missionRepository = missionRepository;
+    private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly ILogger<UpdateMissionPendingActivitiesCommandHandler> _logger = logger;
+
+    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+    private const double DefaultBufferRatio = 0.10;
+
+    public async Task<UpdateMissionPendingActivitiesResponse> Handle(UpdateMissionPendingActivitiesCommand request, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Updating {Count} pending mission activities in MissionId={MissionId}",
+            request.Activities.Count,
+            request.MissionId);
+
+        var mission = await _missionRepository.GetByIdAsync(request.MissionId, cancellationToken);
+        if (mission is null)
+            throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
+
+        if (mission.Status is MissionStatus.Completed or MissionStatus.Incompleted)
+            throw new BadRequestException("Không thể cập nhật activity của mission đã kết thúc.");
+
+        var missionActivities = (await _activityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken)).ToList();
+        var activityLookup = missionActivities.ToDictionary(activity => activity.Id);
+        var plans = new List<ActivityUpdatePlan>(request.Activities.Count);
+
+        foreach (var patch in request.Activities)
+        {
+            if (!activityLookup.TryGetValue(patch.ActivityId, out var activity))
+                throw new NotFoundException($"Activity #{patch.ActivityId} không thuộc mission #{request.MissionId}.");
+
+            if (activity.Status != MissionActivityStatus.Planned)
+                throw new BadRequestException($"Chỉ được cập nhật activity Planned. Activity #{activity.Id} hiện ở trạng thái {activity.Status}.");
+
+            var currentItems = ParseSupplies(activity.Items);
+            IReadOnlyList<SupplyToCollectDto> nextItems = patch.Items is null
+                ? []
+                : NormalizeRequestedSupplies(patch.Items, currentItems);
+            var nextItemsJson = patch.Items is null
+                ? activity.Items
+                : nextItems.Count == 0
+                    ? null
+                    : JsonSerializer.Serialize(nextItems);
+
+            var projectedActivity = CloneActivity(activity);
+            ApplyPatch(projectedActivity, patch, nextItemsJson, request.UpdatedBy);
+
+            plans.Add(new ActivityUpdatePlan(activity, projectedActivity, patch, currentItems, nextItems));
+        }
+
+        ValidateProjectedSteps(missionActivities, plans);
+        await ValidateInventoryAvailabilityAsync(plans, cancellationToken);
+
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            foreach (var plan in plans.Where(plan => plan.ShouldReplaceItems && plan.Activity.DepotId.HasValue))
+            {
+                var itemsToRelease = BuildReservationItems(plan.CurrentItems);
+                if (itemsToRelease.Count > 0)
+                {
+                    await _depotInventoryRepository.ReleaseReservedSuppliesAsync(
+                        plan.Activity.DepotId!.Value,
+                        itemsToRelease,
+                        cancellationToken);
+                }
+            }
+
+            foreach (var plan in plans)
+            {
+                CopyProjectedValues(plan.Activity, plan.ProjectedActivity);
+                await _activityRepository.UpdateAsync(plan.Activity, cancellationToken);
+            }
+
+            await _unitOfWork.SaveAsync();
+
+            foreach (var plan in plans)
+            {
+                if (plan.ShouldReplaceItems && plan.Activity.DepotId.HasValue && plan.NextItems.Count > 0)
+                {
+                    var reservationResult = await _depotInventoryRepository.ReserveSuppliesAsync(
+                        plan.Activity.DepotId.Value,
+                        BuildReservationItems(plan.NextItems),
+                        cancellationToken);
+
+                    await MissionSupplyExecutionSnapshotHelper.SyncReservationSnapshotAsync(
+                        plan.Activity,
+                        reservationResult,
+                        _activityRepository,
+                        _logger,
+                        cancellationToken);
+                    await _unitOfWork.SaveAsync();
+                    continue;
+                }
+
+                if (plan.ShouldReplaceItems)
+                {
+                    await MissionSupplyExecutionSnapshotHelper.RebuildExpectedReturnUnitsAsync(
+                        plan.Activity,
+                        _activityRepository,
+                        _logger,
+                        cancellationToken);
+                }
+            }
+
+            await _unitOfWork.SaveAsync();
+        });
+
+        return new UpdateMissionPendingActivitiesResponse
+        {
+            MissionId = request.MissionId,
+            Activities = plans.Select(plan => new UpdatedMissionPendingActivityDto
+            {
+                ActivityId = plan.Activity.Id,
+                MissionId = plan.Activity.MissionId,
+                MissionTeamId = plan.Activity.MissionTeamId,
+                Step = plan.Activity.Step,
+                Description = plan.Activity.Description,
+                Target = plan.Activity.Target,
+                TargetLatitude = plan.Activity.TargetLatitude,
+                TargetLongitude = plan.Activity.TargetLongitude,
+                Status = plan.Activity.Status.ToString(),
+                SuppliesToCollect = ParseSupplies(plan.Activity.Items)
+            }).ToList()
+        };
+    }
+
+    private static void ValidateProjectedSteps(
+        IReadOnlyCollection<MissionActivityModel> missionActivities,
+        IReadOnlyCollection<ActivityUpdatePlan> plans)
+    {
+        var projectedById = missionActivities.ToDictionary(activity => activity.Id, CloneActivity);
+        foreach (var plan in plans)
+        {
+            projectedById[plan.Activity.Id] = CloneActivity(plan.ProjectedActivity);
+        }
+
+        foreach (var teamGroup in projectedById.Values.GroupBy(activity => activity.MissionTeamId))
+        {
+            var duplicateStep = teamGroup
+                .Where(activity => activity.Step.HasValue)
+                .GroupBy(activity => activity.Step!.Value)
+                .FirstOrDefault(group => group.Count() > 1);
+
+            if (duplicateStep is null)
+                continue;
+
+            var missionTeamLabel = teamGroup.Key.HasValue
+                ? $"đội #{teamGroup.Key.Value}"
+                : "nhóm activity chưa gán đội";
+            var activityIds = string.Join(", ", duplicateStep.Select(activity => $"#{activity.Id}"));
+            throw new BadRequestException(
+                $"Step {duplicateStep.Key} bị trùng trong {missionTeamLabel}. Các activity liên quan: {activityIds}.");
+        }
+    }
+
+    private async Task ValidateInventoryAvailabilityAsync(
+        IReadOnlyCollection<ActivityUpdatePlan> plans,
+        CancellationToken cancellationToken)
+    {
+        var deltasByDepot = new Dictionary<int, Dictionary<int, InventoryDelta>>();
+
+        foreach (var plan in plans.Where(plan => plan.ShouldReplaceItems && plan.Activity.DepotId.HasValue))
+        {
+            var depotId = plan.Activity.DepotId!.Value;
+            var oldItems = BuildReservationItems(plan.CurrentItems);
+            var newItems = BuildReservationItems(plan.NextItems);
+            var oldLookup = oldItems.ToDictionary(item => item.ItemModelId, item => item.Quantity);
+            var newLookup = newItems.ToDictionary(item => item.ItemModelId, item => item.Quantity);
+
+            foreach (var itemModelId in oldLookup.Keys.Union(newLookup.Keys))
+            {
+                var oldQuantity = oldLookup.GetValueOrDefault(itemModelId);
+                var newQuantity = newLookup.GetValueOrDefault(itemModelId);
+                var delta = newQuantity - oldQuantity;
+                if (delta <= 0)
+                    continue;
+
+                if (!deltasByDepot.TryGetValue(depotId, out var depotDeltas))
+                {
+                    depotDeltas = [];
+                    deltasByDepot[depotId] = depotDeltas;
+                }
+
+                if (!depotDeltas.TryGetValue(itemModelId, out var inventoryDelta))
+                {
+                    inventoryDelta = new InventoryDelta($"Item#{itemModelId}", 0);
+                }
+
+                var itemName = plan.NextItems.FirstOrDefault(item => item.ItemId == itemModelId)?.ItemName
+                    ?? plan.CurrentItems.FirstOrDefault(item => item.ItemId == itemModelId)?.ItemName
+                    ?? inventoryDelta.ItemName;
+
+                depotDeltas[itemModelId] = inventoryDelta with
+                {
+                    ItemName = itemName,
+                    Quantity = inventoryDelta.Quantity + delta
+                };
+            }
+        }
+
+        foreach (var depot in deltasByDepot)
+        {
+            var itemsToCheck = depot.Value
+                .Select(item => (item.Key, item.Value.ItemName, item.Value.Quantity))
+                .Where(item => item.Quantity > 0)
+                .ToList();
+
+            if (itemsToCheck.Count == 0)
+                continue;
+
+            var shortages = await _depotInventoryRepository.CheckSupplyAvailabilityAsync(
+                depot.Key,
+                itemsToCheck,
+                cancellationToken);
+
+            if (shortages.Count == 0)
+                continue;
+
+            var errors = shortages.Select(shortage => shortage.NotFound
+                ? $"Kho {depot.Key}: Vật tư '{shortage.ItemName}' không có trong kho."
+                : $"Kho {depot.Key}: Vật tư '{shortage.ItemName}' không đủ số lượng bổ sung — cần thêm {shortage.RequestedQuantity}, khả dụng {shortage.AvailableQuantity}.");
+            throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", errors)}");
+        }
+    }
+
+    private static MissionActivityModel CloneActivity(MissionActivityModel activity) => new()
+    {
+        Id = activity.Id,
+        MissionId = activity.MissionId,
+        Step = activity.Step,
+        ActivityType = activity.ActivityType,
+        Description = activity.Description,
+        Target = activity.Target,
+        Items = activity.Items,
+        TargetLatitude = activity.TargetLatitude,
+        TargetLongitude = activity.TargetLongitude,
+        Status = activity.Status,
+        MissionTeamId = activity.MissionTeamId,
+        Priority = activity.Priority,
+        EstimatedTime = activity.EstimatedTime,
+        SosRequestId = activity.SosRequestId,
+        DepotId = activity.DepotId,
+        DepotName = activity.DepotName,
+        DepotAddress = activity.DepotAddress,
+        AssemblyPointId = activity.AssemblyPointId,
+        AssemblyPointName = activity.AssemblyPointName,
+        AssemblyPointLatitude = activity.AssemblyPointLatitude,
+        AssemblyPointLongitude = activity.AssemblyPointLongitude,
+        AssignedAt = activity.AssignedAt,
+        CompletedAt = activity.CompletedAt,
+        LastDecisionBy = activity.LastDecisionBy,
+        CompletedBy = activity.CompletedBy
+    };
+
+    private static void ApplyPatch(
+        MissionActivityModel activity,
+        UpdateMissionPendingActivityPatch patch,
+        string? nextItemsJson,
+        Guid updatedBy)
+    {
+        if (patch.Step.HasValue)
+            activity.Step = patch.Step.Value;
+
+        if (patch.Description is not null)
+            activity.Description = patch.Description;
+
+        if (patch.Target is not null)
+            activity.Target = patch.Target;
+
+        if (patch.TargetLatitude.HasValue && patch.TargetLongitude.HasValue)
+        {
+            activity.TargetLatitude = patch.TargetLatitude.Value;
+            activity.TargetLongitude = patch.TargetLongitude.Value;
+        }
+
+        if (patch.Items is not null)
+            activity.Items = nextItemsJson;
+
+        activity.LastDecisionBy = updatedBy;
+    }
+
+    private static void CopyProjectedValues(MissionActivityModel target, MissionActivityModel source)
+    {
+        target.Step = source.Step;
+        target.Description = source.Description;
+        target.Target = source.Target;
+        target.Items = source.Items;
+        target.TargetLatitude = source.TargetLatitude;
+        target.TargetLongitude = source.TargetLongitude;
+        target.LastDecisionBy = source.LastDecisionBy;
+    }
+
+    private static List<SupplyToCollectDto> ParseSupplies(string? itemsJson) =>
+        string.IsNullOrWhiteSpace(itemsJson)
+            ? []
+            : JsonSerializer.Deserialize<List<SupplyToCollectDto>>(itemsJson, JsonOpts) ?? [];
+
+    private static List<SupplyToCollectDto> NormalizeRequestedSupplies(
+        IEnumerable<SupplyToCollectDto> requestedItems,
+        IReadOnlyCollection<SupplyToCollectDto> currentItems)
+    {
+        return requestedItems
+            .Where(item => item.ItemId.HasValue)
+            .Select(item =>
+            {
+                var existing = currentItems.FirstOrDefault(current => current.ItemId == item.ItemId);
+                var quantity = item.Quantity;
+                var bufferRatio = Math.Max(0.0, item.BufferRatio ?? existing?.BufferRatio ?? DefaultBufferRatio);
+                var bufferQuantity = bufferRatio > 0 ? (int)Math.Ceiling(quantity * bufferRatio) : 0;
+
+                return new SupplyToCollectDto
+                {
+                    ItemId = item.ItemId,
+                    ItemName = string.IsNullOrWhiteSpace(item.ItemName)
+                        ? existing?.ItemName ?? $"Item#{item.ItemId}"
+                        : item.ItemName,
+                    ImageUrl = item.ImageUrl ?? existing?.ImageUrl,
+                    Quantity = quantity,
+                    Unit = item.Unit ?? existing?.Unit,
+                    BufferRatio = bufferRatio > 0 ? bufferRatio : null,
+                    BufferQuantity = bufferQuantity > 0 ? bufferQuantity : null
+                };
+            })
+            .ToList();
+    }
+
+    private static List<(int ItemModelId, int Quantity)> BuildReservationItems(IEnumerable<SupplyToCollectDto> items) =>
+        items
+            .Where(item => item.ItemId.HasValue && item.Quantity > 0)
+            .Select(item => (item.ItemId!.Value, item.Quantity + (item.BufferQuantity ?? 0)))
+            .ToList();
+
+    private sealed record ActivityUpdatePlan(
+        MissionActivityModel Activity,
+        MissionActivityModel ProjectedActivity,
+        UpdateMissionPendingActivityPatch Patch,
+        IReadOnlyList<SupplyToCollectDto> CurrentItems,
+        IReadOnlyList<SupplyToCollectDto> NextItems)
+    {
+        public bool ShouldReplaceItems => Patch.Items is not null;
+    }
+
+    private sealed record InventoryDelta(string ItemName, int Quantity);
+}

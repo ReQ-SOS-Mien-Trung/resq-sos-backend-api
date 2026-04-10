@@ -22,6 +22,7 @@ using RESQ.Application.UseCases.Operations.Commands.UnassignTeamFromMission;
 using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMission;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionActivity;
+using RESQ.Application.UseCases.Operations.Commands.UpdateMissionPendingActivities;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
@@ -261,6 +262,35 @@ public class MissionController(IMediator mediator) : ControllerBase
             dto.TargetLatitude,
             dto.TargetLongitude
         );
+
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Coordinator cập nhật đồng thời nhiều activity chưa thực hiện trong một mission.
+    /// Chỉ cho phép sửa activity ở trạng thái Planned.
+    /// </summary>
+    [HttpPatch("{missionId:int}/activities/pending")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
+    public async Task<IActionResult> UpdateMissionPendingActivities([FromRoute] int missionId, [FromBody] UpdateMissionPendingActivitiesRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new UpdateMissionPendingActivitiesCommand(
+            missionId,
+            userId,
+            dto.Activities.Select(activity => new UpdateMissionPendingActivityPatch(
+                activity.ActivityId,
+                activity.Step,
+                activity.Description,
+                activity.Target,
+                activity.TargetLatitude,
+                activity.TargetLongitude,
+                activity.Items))
+            .ToList());
 
         var result = await _mediator.Send(command);
         return Ok(result);
