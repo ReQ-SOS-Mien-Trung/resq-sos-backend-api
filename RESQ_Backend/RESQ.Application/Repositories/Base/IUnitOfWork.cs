@@ -20,6 +20,10 @@ public interface IUnitOfWork
     Task<int> SaveAsync();
     void AttachAsUnchanged<TEntity>(TEntity entity) where TEntity : class;
 
+    void ClearTrackedChanges()
+    {
+    }
+
     /// <summary>
     /// Thực thi một hành động trong transaction scope.
     /// Nếu exception xảy ra, toàn bộ thay đổi sẽ rollback.

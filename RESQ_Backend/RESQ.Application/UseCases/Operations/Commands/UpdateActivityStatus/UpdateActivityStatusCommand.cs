@@ -4,6 +4,7 @@ using RESQ.Domain.Enum.Operations;
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 
 public record UpdateActivityStatusCommand(
+    int MissionId,
     int ActivityId,
     MissionActivityStatus Status,
     Guid DecisionBy

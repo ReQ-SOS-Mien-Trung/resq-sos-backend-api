@@ -24,3 +24,6 @@ RESQ_Backend/RESQ.Presentation/appsettings.Production.json
 RESQ_Backend/RESQ.Presentation/appsettings.Production.json
 RESQ_Backend/RESQ.Tests/bin
 RESQ_Backend/RESQ.Tests/obj
+RESQ_Backend/tools/UnitTestReportGenerator/obj
+RESQ_Backend/tools/UnitTestReportGenerator/bin
+RESQ_Backend/tools

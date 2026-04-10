@@ -107,6 +107,11 @@ namespace RESQ.Infrastructure.Persistence.Base
             _context.Entry(entity).State = EntityState.Unchanged;
         }
 
+        public void ClearTrackedChanges()
+        {
+            _context.ChangeTracker.Clear();
+        }
+
         public async Task ExecuteInTransactionAsync(Func<Task> action)
         {
             var strategy = _context.Database.CreateExecutionStrategy();

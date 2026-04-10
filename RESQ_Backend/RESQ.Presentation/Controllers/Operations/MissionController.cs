@@ -16,11 +16,13 @@ using RESQ.Application.UseCases.Operations.Commands.CreateMission;
 using RESQ.Application.UseCases.Operations.Commands.ReportMissionActivityIncident;
 using RESQ.Application.UseCases.Operations.Commands.ReportMissionTeamIncident;
 using RESQ.Application.UseCases.Operations.Commands.SaveMissionTeamReportDraft;
+using RESQ.Application.UseCases.Operations.Commands.SyncMissionActivities;
 using RESQ.Application.UseCases.Operations.Commands.SubmitMissionTeamReport;
 using RESQ.Application.UseCases.Operations.Commands.UnassignTeamFromMission;
 using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMission;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionActivity;
+using RESQ.Application.UseCases.Operations.Commands.UpdateMissionPendingActivities;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
@@ -32,6 +34,7 @@ using RESQ.Application.UseCases.Operations.Queries.MissionMetadata;
 using RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 using RESQ.Application.UseCases.Operations.Queries.GetRescuerRoute;
+using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Presentation.Controllers.Operations;
 
@@ -265,7 +268,36 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Cập nhật trạng thái activity: pending | in_progress | completed | cancelled | skipped.
+    /// Coordinator cập nhật đồng thời nhiều activity chưa thực hiện trong một mission.
+    /// Chỉ cho phép sửa activity ở trạng thái Planned.
+    /// </summary>
+    [HttpPatch("{missionId:int}/activities/pending")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
+    public async Task<IActionResult> UpdateMissionPendingActivities([FromRoute] int missionId, [FromBody] UpdateMissionPendingActivitiesRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new UpdateMissionPendingActivitiesCommand(
+            missionId,
+            userId,
+            dto.Activities.Select(activity => new UpdateMissionPendingActivityPatch(
+                activity.ActivityId,
+                activity.Step,
+                activity.Description,
+                activity.Target,
+                activity.TargetLatitude,
+                activity.TargetLongitude,
+                activity.Items))
+            .ToList());
+
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Cập nhật trạng thái activity: Planned | OnGoing | Succeed | PendingConfirmation | Failed | Cancelled.
     /// </summary>
     [HttpPatch("{missionId:int}/activities/{activityId:int}/status")]
     [Authorize(Policy = PermissionConstants.PolicyActivityAccess)] // includes ActivityTeamManage | ActivityOwnManage
@@ -275,7 +307,31 @@ public class MissionController(IMediator mediator) : ControllerBase
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
-        var command = new UpdateActivityStatusCommand(activityId, dto.Status, userId);
+        var validStatuses = string.Join(", ", Enum.GetNames<MissionActivityStatus>());
+
+        if (string.IsNullOrWhiteSpace(dto.Status)
+            || !Enum.TryParse<MissionActivityStatus>(dto.Status.Trim(), ignoreCase: true, out var newStatus)
+            || !Enum.IsDefined(newStatus))
+        {
+            throw new BadRequestException(
+                $"Trạng thái activity không hợp lệ: '{dto.Status}'. Các giá trị hợp lệ: {validStatuses}.");
+        }
+
+        var command = new UpdateActivityStatusCommand(missionId, activityId, newStatus, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>Đồng bộ hàng đợi offline cập nhật trạng thái activity cho đội hiện tại trên nhiều mission.</summary>
+    [HttpPost("activities/sync/my-team")]
+    [Authorize(Policy = PermissionConstants.PolicyActivityExecutionSync)]
+    public async Task<IActionResult> SyncMissionActivities([FromBody] SyncMissionActivitiesRequestDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new SyncMissionActivitiesCommand(userId, dto.Items);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

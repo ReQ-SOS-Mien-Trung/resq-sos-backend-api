@@ -113,6 +113,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMissionAiSuggestionRepository, MissionAiSuggestionRepository>();
         services.AddScoped<IMissionRepository, MissionRepository>();
         services.AddScoped<IMissionActivityRepository, MissionActivityRepository>();
+        services.AddScoped<IMissionActivitySyncMutationRepository, MissionActivitySyncMutationRepository>();
         services.AddScoped<IMissionTeamRepository, MissionTeamRepository>();
         services.AddScoped<IMissionTeamReportRepository, MissionTeamReportRepository>();
         services.AddScoped<ITeamIncidentRepository, TeamIncidentRepository>();

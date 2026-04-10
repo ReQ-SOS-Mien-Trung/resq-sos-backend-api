@@ -11,6 +11,7 @@ public record GetMyDepotInventoryQuery : IRequest<PagedResult<InventoryItemDto>>
     public List<int>? CategoryIds { get; set; }
     public List<ItemType>? ItemTypes { get; set; }
     public List<TargetGroup>? TargetGroups { get; set; }
+    public string? ItemName { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

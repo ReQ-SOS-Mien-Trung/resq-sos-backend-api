@@ -176,6 +176,9 @@ public static class PermissionConstants
     /// <summary>ActivityGlobalView | ActivityPointView | MissionGlobalManage | MissionPointManage | ActivityTeamManage | ActivityOwnManage</summary>
     public const string PolicyActivityAccess = "policy.activity.access";
 
+    /// <summary>ActivityTeamManage | ActivityOwnManage</summary>
+    public const string PolicyActivityExecutionSync = "policy.activity.execution.sync";
+
     /// <summary>InventoryGlobalManage | InventoryGlobalView | InventoryDepotManage | InventoryDepotPointView</summary>
     public const string PolicyInventoryRead = "policy.inventory.read";
 

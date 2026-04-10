@@ -36,7 +36,7 @@ public class GeminiAiProviderClient(
         client.Timeout = request.Timeout;
 
         var url = string.Format(request.ApiUrl, request.Model, request.ApiKey);
-        var payload = BuildRequest(request);
+    var payload = BuildRequest(request);
 
         try
         {
@@ -59,20 +59,10 @@ public class GeminiAiProviderClient(
             var candidate = parsed?.Candidates?.FirstOrDefault();
             var parts = candidate?.Content?.Parts ?? [];
 
-            var toolCalls = parts
-                .Where(part => part.FunctionCall != null)
-                .Select((part, index) => new AiToolCall
-                {
-                    Id = $"gemini-call-{index + 1}-{Guid.NewGuid():N}",
-                    Name = part.FunctionCall!.Name,
-                    Arguments = part.FunctionCall.Args
-                })
-                .ToList();
-
             return new AiCompletionResponse
             {
-                Text = string.Concat(parts.Where(part => part.Text != null).Select(part => part.Text)),
-                ToolCalls = toolCalls,
+                Text = string.Concat(parts.Select(GetTextPart).Where(text => text != null)),
+                ToolCalls = ParseToolCalls(parts),
                 FinishReason = candidate?.FinishReason,
                 BlockReason = parsed?.PromptFeedback?.BlockReason,
                 HttpStatusCode = (int)response.StatusCode,
@@ -88,7 +78,7 @@ public class GeminiAiProviderClient(
         }
     }
 
-    private static object BuildRequest(AiCompletionRequest request)
+    private GeminiRequest BuildRequest(AiCompletionRequest request)
     {
         if (request.Tools.Count == 0 && request.Messages.Count == 1 && request.Messages[0].Role == AiChatRole.User)
         {
@@ -100,12 +90,10 @@ public class GeminiAiProviderClient(
                     {
                         Parts =
                         [
-                            new GeminiPart
-                            {
-                                Text = string.IsNullOrWhiteSpace(request.SystemPrompt)
-                                    ? request.Messages[0].Content
-                                    : $"{request.SystemPrompt}\n\n{request.Messages[0].Content}"
-                            }
+                            CreateTextPart(
+                                string.IsNullOrWhiteSpace(request.SystemPrompt)
+                                    ? request.Messages[0].Content ?? string.Empty
+                                    : $"{request.SystemPrompt}\n\n{request.Messages[0].Content}")
                         ]
                     }
                 ],
@@ -123,9 +111,9 @@ public class GeminiAiProviderClient(
                 ? null
                 : new GeminiSystemInstruction
                 {
-                    Parts = [new GeminiPart { Text = request.SystemPrompt }]
+                    Parts = [CreateTextPart(request.SystemPrompt)]
                 },
-            Contents = request.Messages.Select(MapMessage).ToList(),
+            Contents = request.Messages.Select((message, index) => MapMessage(message, index)).ToList(),
             Tools = request.Tools.Count == 0
                 ? null
                 :
@@ -148,57 +136,158 @@ public class GeminiAiProviderClient(
         };
     }
 
-    private static GeminiContent MapMessage(AiChatMessage message)
+    private GeminiContent MapMessage(AiChatMessage message, int messageIndex)
     {
         return message.Role switch
         {
             AiChatRole.User => new GeminiContent
             {
                 Role = "user",
-                Parts = [new GeminiPart { Text = message.Content ?? string.Empty }]
+                Parts = [CreateTextPart(message.Content ?? string.Empty)]
             },
             AiChatRole.Assistant => new GeminiContent
             {
                 Role = "model",
-                Parts = BuildAssistantParts(message)
+                Parts = BuildAssistantParts(message, messageIndex)
             },
             AiChatRole.Tool => new GeminiContent
             {
                 Role = "user",
                 Parts =
                 [
-                    new GeminiPart
-                    {
-                        FunctionResponse = new GeminiFunctionResponse
-                        {
-                            Name = message.ToolName ?? string.Empty,
-                            Response = message.ToolResult ?? JsonSerializer.SerializeToElement(new { })
-                        }
-                    }
+                    CreateFunctionResponsePart(
+                        message.ToolName ?? string.Empty,
+                        message.ToolResult ?? CreateEmptyObject())
                 ]
             },
             _ => throw new NotSupportedException($"Unsupported Gemini role: {message.Role}")
         };
     }
 
-    private static List<GeminiPart> BuildAssistantParts(AiChatMessage message)
+    private List<JsonElement> BuildAssistantParts(AiChatMessage message, int messageIndex)
     {
-        var parts = new List<GeminiPart>();
+        var parts = new List<JsonElement>();
         if (!string.IsNullOrWhiteSpace(message.Content))
         {
-            parts.Add(new GeminiPart { Text = message.Content });
+            parts.Add(CreateTextPart(message.Content));
         }
 
-        parts.AddRange(message.ToolCalls.Select(call => new GeminiPart
+        for (var toolCallIndex = 0; toolCallIndex < message.ToolCalls.Count; toolCallIndex++)
+        {
+            var toolCall = message.ToolCalls[toolCallIndex];
+            if (toolCall.NativeFunctionCallPart is { ValueKind: JsonValueKind.Object } nativePart)
+            {
+                parts.Add(nativePart.Clone());
+                continue;
+            }
+
+            _logger.LogWarning(
+                "Gemini replay is rebuilding functionCall at contents[{MessageIndex}].parts[{PartIndex}] for tool {ToolName} ({ToolCallId}) because the provider-native functionCall part payload was not preserved. Gemini may reject the follow-up request if a thought signature was required.",
+                messageIndex,
+                parts.Count,
+                toolCall.Name,
+                toolCall.Id);
+
+            parts.Add(CreateFunctionCallPart(toolCall.Name, toolCall.Arguments));
+        }
+
+        return parts;
+    }
+
+    private static List<AiToolCall> ParseToolCalls(IReadOnlyList<JsonElement> parts)
+    {
+        var toolCalls = new List<AiToolCall>();
+
+        for (var index = 0; index < parts.Count; index++)
+        {
+            if (!TryGetFunctionCall(parts[index], out var name, out var arguments))
+            {
+                continue;
+            }
+
+            toolCalls.Add(new AiToolCall
+            {
+                Id = $"gemini-call-{toolCalls.Count + 1}-{Guid.NewGuid():N}",
+                Name = name,
+                Arguments = arguments,
+                NativeFunctionCallPart = parts[index].Clone()
+            });
+        }
+
+        return toolCalls;
+    }
+
+    private static bool TryGetFunctionCall(JsonElement part, out string name, out JsonElement arguments)
+    {
+        name = string.Empty;
+        arguments = CreateEmptyObject();
+
+        if (part.ValueKind != JsonValueKind.Object
+            || !part.TryGetProperty("functionCall", out var functionCall)
+            || functionCall.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (!functionCall.TryGetProperty("name", out var nameElement))
+        {
+            return false;
+        }
+
+        name = nameElement.GetString() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        if (functionCall.TryGetProperty("args", out var argsElement))
+        {
+            arguments = argsElement.Clone();
+        }
+
+        return true;
+    }
+
+    private static string? GetTextPart(JsonElement part)
+    {
+        return part.ValueKind == JsonValueKind.Object
+            && part.TryGetProperty("text", out var textElement)
+            ? textElement.GetString()
+            : null;
+    }
+
+    private static JsonElement CreateTextPart(string? text)
+    {
+        return JsonSerializer.SerializeToElement(new GeminiPart { Text = text }, SerializerOptions);
+    }
+
+    private static JsonElement CreateFunctionCallPart(string name, JsonElement arguments)
+    {
+        return JsonSerializer.SerializeToElement(new GeminiPart
         {
             FunctionCall = new GeminiFunctionCall
             {
-                Name = call.Name,
-                Args = call.Arguments
+                Name = name,
+                Args = arguments.ValueKind == JsonValueKind.Undefined ? CreateEmptyObject() : arguments
             }
-        }));
+        }, SerializerOptions);
+    }
 
-        return parts;
+    private static JsonElement CreateFunctionResponsePart(string name, JsonElement response)
+    {
+        return JsonSerializer.SerializeToElement(new GeminiPart
+        {
+            FunctionResponse = new GeminiFunctionResponse
+            {
+                Name = name,
+                Response = response.ValueKind == JsonValueKind.Undefined ? CreateEmptyObject() : response
+            }
+        }, SerializerOptions);
+    }
+
+    private static JsonElement CreateEmptyObject()
+    {
+        return JsonSerializer.SerializeToElement(new { });
     }
 
     private sealed class GeminiRequest
@@ -221,7 +310,7 @@ public class GeminiAiProviderClient(
     private sealed class GeminiSystemInstruction
     {
         [JsonPropertyName("parts")]
-        public List<GeminiPart> Parts { get; set; } = [];
+        public List<JsonElement> Parts { get; set; } = [];
     }
 
     private sealed class GeminiContent
@@ -231,7 +320,7 @@ public class GeminiAiProviderClient(
         public string? Role { get; set; }
 
         [JsonPropertyName("parts")]
-        public List<GeminiPart> Parts { get; set; } = [];
+        public List<JsonElement> Parts { get; set; } = [];
     }
 
     private sealed class GeminiPart

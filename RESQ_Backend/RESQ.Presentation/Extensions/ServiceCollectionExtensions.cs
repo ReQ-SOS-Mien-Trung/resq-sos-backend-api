@@ -102,6 +102,11 @@ public static class ServiceCollectionExtensions
                     PermissionConstants.ActivityTeamManage,
                     PermissionConstants.ActivityOwnManage)));
 
+            options.AddPolicy(PermissionConstants.PolicyActivityExecutionSync, p => p.Requirements.Add(
+                new PermissionRequirement(
+                    PermissionConstants.ActivityTeamManage,
+                    PermissionConstants.ActivityOwnManage)));
+
             options.AddPolicy(PermissionConstants.PolicyInventoryRead, p => p.Requirements.Add(
                 new PermissionRequirement(
                     PermissionConstants.InventoryGlobalManage,

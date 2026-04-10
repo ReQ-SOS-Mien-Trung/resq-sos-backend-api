@@ -54,6 +54,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<Message> Messages { get; set; }
     public virtual DbSet<Mission> Missions { get; set; }
     public virtual DbSet<MissionActivity> MissionActivities { get; set; }
+    public virtual DbSet<MissionActivitySyncMutation> MissionActivitySyncMutations { get; set; }
     public virtual DbSet<MissionActivityReport> MissionActivityReports { get; set; }
     public virtual DbSet<MissionAiSuggestion> MissionAiSuggestions { get; set; }
     public virtual DbSet<MissionItem> MissionItems { get; set; }
@@ -455,6 +456,14 @@ public partial class ResQDbContext : DbContext
                 .HasDatabaseName("ix_depot_realtime_outbox_depot_version");
             entity.HasIndex(e => new { e.Status, e.NextAttemptAt })
                 .HasDatabaseName("ix_depot_realtime_outbox_status_next_attempt");
+        });
+
+        modelBuilder.Entity<MissionActivitySyncMutation>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("mission_activity_sync_mutations_pkey");
+            entity.HasIndex(e => e.ClientMutationId)
+                .HasDatabaseName("ux_mission_activity_sync_mutations_client_mutation_id")
+                .IsUnique();
         });
 
         modelBuilder.Entity<MissionTeamReport>(entity =>

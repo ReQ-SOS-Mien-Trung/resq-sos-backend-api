@@ -2,19 +2,25 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Services;
 using System.Globalization;
-using System.Net;
-using System.Net.Mail;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace RESQ.Infrastructure.Services
 {
     public class EmailService : IEmailService
     {
         private readonly IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<EmailService> _logger;
 
-        public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
+        public EmailService(
+            IConfiguration configuration,
+            IHttpClientFactory httpClientFactory,
+            ILogger<EmailService> logger)
         {
             _configuration = configuration;
+            _httpClientFactory = httpClientFactory;
             _logger = logger;
         }
 
@@ -405,43 +411,88 @@ namespace RESQ.Infrastructure.Services
         private async Task SendEmailAsync(string toEmail, string subject, string body, CancellationToken cancellationToken)
         {
             var emailSettings = _configuration.GetSection("EmailSettings");
-            
-            var smtpHost = emailSettings["SmtpHost"] ?? "smtp.gmail.com";
-            var smtpPortStr = emailSettings["SmtpPort"] ?? "587";
-            var smtpUsername = emailSettings["SmtpUsername"];
-            var smtpPassword = emailSettings["SmtpPassword"];
-            var fromEmail = emailSettings["FromEmail"] ?? smtpUsername;
+            var apiBaseUrl = emailSettings["ApiBaseUrl"] ?? "https://api.sendgrid.com/v3/mail/send";
+            var apiKey = emailSettings["ApiKey"] ?? Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+            var fromEmail = emailSettings["FromEmail"] ?? Environment.GetEnvironmentVariable("SENDGRID_FROM_EMAIL");
             var fromName = emailSettings["FromName"] ?? "RESQ System";
+            var timeoutSecondsRaw = emailSettings["SendTimeoutSeconds"] ?? "15";
 
-            if (string.IsNullOrEmpty(smtpUsername) || string.IsNullOrEmpty(smtpPassword))
+            if (string.IsNullOrWhiteSpace(apiKey))
             {
-                _logger.LogWarning("Email settings not configured. Skipping email send to {email}", toEmail);
+                _logger.LogWarning("SendGrid API key is not configured. Skipping email send to {email}", toEmail);
                 return;
             }
 
-            if (!int.TryParse(smtpPortStr, out int smtpPort))
+            if (string.IsNullOrWhiteSpace(fromEmail) ||
+                fromEmail.Equals("verified-sender@example.com", StringComparison.OrdinalIgnoreCase))
             {
-                smtpPort = 587;
+                _logger.LogWarning("SendGrid FromEmail is not configured. Skipping email send to {email}", toEmail);
+                return;
+            }
+
+            if (!int.TryParse(timeoutSecondsRaw, out var timeoutSeconds) || timeoutSeconds <= 0)
+            {
+                timeoutSeconds = 15;
             }
 
             try
             {
-                using var client = new SmtpClient(smtpHost, smtpPort)
+                var payload = new
                 {
-                    Credentials = new NetworkCredential(smtpUsername, smtpPassword),
-                    EnableSsl = true
+                    from = new
+                    {
+                        email = fromEmail,
+                        name = fromName
+                    },
+                    personalizations = new[]
+                    {
+                        new
+                        {
+                            to = new[]
+                            {
+                                new
+                                {
+                                    email = toEmail
+                                }
+                            }
+                        }
+                    },
+                    subject,
+                    content = new[]
+                    {
+                        new
+                        {
+                            type = "text/html",
+                            value = body
+                        }
+                    }
                 };
 
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(fromEmail!, fromName),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true
-                };
-                mailMessage.To.Add(toEmail);
+                var client = _httpClientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 
-                await client.SendMailAsync(mailMessage, cancellationToken);
+                using var request = new HttpRequestMessage(HttpMethod.Post, apiBaseUrl)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(payload),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+                using var response = await client.SendAsync(request, cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                    _logger.LogError(
+                        "Failed to send email to {email}. SendGrid returned {statusCode}: {responseBody}",
+                        toEmail,
+                        (int)response.StatusCode,
+                        errorBody);
+                    return;
+                }
+
                 _logger.LogInformation("Email sent successfully to {email}", toEmail);
             }
             catch (Exception ex)
