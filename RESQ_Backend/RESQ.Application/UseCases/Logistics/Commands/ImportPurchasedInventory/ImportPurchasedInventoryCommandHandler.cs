@@ -108,7 +108,8 @@ public class ImportPurchasedInventoryCommandHandler(
                 depotFund.Id,
                 depotFund.DepotId,
                 depotFund.Balance,
-                depotFund.MaxAdvanceLimit,
+                depotFund.AdvanceLimit,
+                depotFund.OutstandingAdvanceAmount,
                 depotFund.LastUpdatedAt,
                 depotFund.FundSourceType,
                 depotFund.FundSourceId);
@@ -366,79 +367,24 @@ public class ImportPurchasedInventoryCommandHandler(
                 response.TotalFailed += errors.Count;
             }
 
-            // 8b. Trá»« quá»¹ kho dá»±a trÃªn tá»•ng chi phÃ­ hÃ³a Ä‘Æ¡n (cho phÃ©p balance Ã¢m náº¿u trong háº¡n má»©c tá»± á»©ng)
+            // 8b. Trừ quỹ kho dựa trên tổng chi phí hóa đơn (bây giờ không cho phép âm)
             if (totalCost > 0 && depotFund != null)
             {
-                var debitResult = depotFund.Debit(totalCost);
+                depotFund.Debit(totalCost);
                 await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
-                var depotName = depotFund.DepotName ?? $"Kho #{depotFund.DepotId}";
-
-                // Resolve tên người nhập cho cả 2 case (Deduction và SelfAdvance)
-                var importerName = await ResolveAdvancedByNameAsync(
-                    request.AdvancedByName,
-                    request.UserId,
-                    cancellationToken);
-
-                if (debitResult.IsAdvanced)
+                // Ghi transaction Deduction bình thường
+                await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
                 {
-                    // Phần được trừ từ quỹ kho (totalCost - advancedAmount)
-                    var deductedFromFund = totalCost - debitResult.AdvancedAmount;
-                    if (deductedFromFund > 0)
-                    {
-                        await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
-                        {
-                            DepotFundId = depotFund.Id,
-                            TransactionType = DepotFundTransactionType.Deduction,
-                            Amount = deductedFromFund,
-                            ReferenceType = "VatInvoice",
-                            ReferenceId = null,
-                            Note = $"Trừ {deductedFromFund:N0} VNĐ từ quỹ kho cho lần nhập hàng ({request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ)",
-                            CreatedBy = request.UserId,
-                            CreatedAt = DateTime.UtcNow
-                        }, cancellationToken);
-                    }
-
-                    // Phần tự ứng bởi người nhập
-                    await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
-                    {
-                        DepotFundId = depotFund.Id,
-                        TransactionType = DepotFundTransactionType.SelfAdvance,
-                        Amount = debitResult.AdvancedAmount,
-                        ReferenceType = "VatInvoice",
-                        ReferenceId = null,
-                        Note = $"{importerName} đã ứng {debitResult.AdvancedAmount:N0} VNĐ cho kho ({request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ)",
-                        CreatedBy = request.UserId,
-                        CreatedAt = DateTime.UtcNow
-                    }, cancellationToken);
-
-                    // Notify tất cả admin biết kho đang tự ứng vượt quỹ (fire-and-forget)
-                    var adminIds = await _userRepository.GetActiveAdminUserIdsAsync(cancellationToken);
-                    foreach (var adminId in adminIds)
-                    {
-                        _ = _firebaseService.SendNotificationToUserAsync(
-                            adminId,
-                            "Kho tự ứng quỹ nhập hàng",
-                            $"{depotName} vừa tự ứng {debitResult.AdvancedAmount:N0} VNĐ để nhập vật tư ({request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ). Người ứng: {importerName}.",
-                            "depot_fund_self_advance",
-                            CancellationToken.None);
-                    }
-                }
-                else
-                {
-                    // Đủ quỹ  ghi transaction Deduction bình thường
-                    await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
-                    {
-                        DepotFundId = depotFund.Id,
-                        TransactionType = DepotFundTransactionType.Deduction,
-                        Amount = totalCost,
-                        ReferenceType = "VatInvoice",
-                        ReferenceId = null,
-                        Note = $"Nhập hàng {request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ",
-                        CreatedBy = request.UserId,
-                        CreatedAt = DateTime.UtcNow
-                    }, cancellationToken);
-                }
+                    DepotFundId = depotFund.Id,
+                    TransactionType = DepotFundTransactionType.Deduction,
+                    Amount = totalCost,
+                    ReferenceType = "VatInvoice",
+                    ReferenceId = null,
+                    Note = $"Nhập hàng {request.Invoices.Count} hóa đơn, tổng {totalCost:N0} VNĐ",
+                    CreatedBy = request.UserId,
+                    CreatedAt = DateTime.UtcNow
+                }, cancellationToken);
             }
 
             // 9. Commit táº¥t cáº£ cÃ¡c nhÃ³m trong 1 transaction
@@ -488,55 +434,6 @@ public class ImportPurchasedInventoryCommandHandler(
 
     private static string? NormalizeNote(string? note)
         => string.IsNullOrWhiteSpace(note) ? null : note.Trim();
-
-    private async Task<string> ResolveAdvancedByNameAsync(string? requestedName, Guid userId, CancellationToken cancellationToken)
-    {
-        var normalizedRequestedName = NormalizeAdvancedByName(requestedName);
-        if (!string.IsNullOrWhiteSpace(normalizedRequestedName))
-            return normalizedRequestedName;
-
-        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
-        if (user != null)
-        {
-            var fullName = string.Join(" ", new[] { user.LastName?.Trim(), user.FirstName?.Trim() }
-                .Where(x => !string.IsNullOrWhiteSpace(x)));
-
-            if (!string.IsNullOrWhiteSpace(fullName))
-                return fullName;
-
-            if (!string.IsNullOrWhiteSpace(user.Username))
-                return user.Username.Trim();
-
-            if (!string.IsNullOrWhiteSpace(user.Email))
-                return user.Email.Trim();
-
-            if (!string.IsNullOrWhiteSpace(user.Phone))
-                return user.Phone.Trim();
-        }
-
-        return userId.ToString();
-    }
-
-    private static string? NormalizeAdvancedByName(string? advancedByName)
-    {
-        if (string.IsNullOrWhiteSpace(advancedByName))
-            return null;
-
-        var names = advancedByName
-            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .ToList();
-
-        return names.Count == 0 ? null : string.Join(", ", names);
-    }
-
-    private static string BuildSelfAdvanceNote(
-        string depotName,
-        decimal advancedAmount,
-        int invoiceCount,
-        decimal totalCost,
-        string advancedByName)
-        => $"{depotName} đã tự ứng {advancedAmount:N0} VNĐ để nhập vật tư ({invoiceCount} hóa đơn, tổng {totalCost:N0} VNĐ). Người ứng: {advancedByName}.";
 }
 
 

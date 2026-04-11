@@ -22,11 +22,11 @@ public class SetDepotAdvanceLimitHandler : IRequestHandler<SetDepotAdvanceLimitC
 
     public async Task<Unit> Handle(SetDepotAdvanceLimitCommand request, CancellationToken cancellationToken)
     {
-        if (request.MaxAdvanceLimit < 0)
-            throw new BadRequestException("Hạn mức tự ứng không được là số âm.");
+        if (request.AdvanceLimit < 0)
+            throw new BadRequestException("Hạn mức ứng trước không được là số âm.");
 
         var depotFund = await _depotFundRepo.GetOrCreateByDepotIdAsync(request.DepotId, cancellationToken);
-        depotFund.SetMaxAdvanceLimit(request.MaxAdvanceLimit);
+        depotFund.SetAdvanceLimit(request.AdvanceLimit);
         await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
         await _unitOfWork.SaveAsync();
 

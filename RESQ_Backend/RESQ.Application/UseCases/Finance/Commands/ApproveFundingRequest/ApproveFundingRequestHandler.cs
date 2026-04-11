@@ -115,7 +115,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         // 8. Cộng quỹ kho gắn campaign
         var depotFund = await _depotFundRepo.GetOrCreateByDepotAndSourceAsync(
             fundingRequest.DepotId, FundSourceType.Campaign, campaignId, cancellationToken);
-        var creditResult = depotFund.Credit(fundingRequest.TotalAmount);
+        depotFund.Credit(fundingRequest.TotalAmount);
         await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
         // 9. Ghi log giao dịch quỹ kho
@@ -130,21 +130,6 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
             CreatedBy = request.ReviewedBy,
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
-
-        if (creditResult.DebtRepaid > 0)
-        {
-            await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
-            {
-                DepotFundId = depotFund.Id,
-                TransactionType = DepotFundTransactionType.DebtRepayment,
-                Amount = creditResult.DebtRepaid,
-                ReferenceType = "CampaignDisbursement",
-                ReferenceId = disbursementId,
-                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ kho đã tự ứng trước đó",
-                CreatedBy = request.ReviewedBy,
-                CreatedAt = DateTime.UtcNow
-            }, cancellationToken);
-        }
 
         await _unitOfWork.SaveAsync();
         return disbursementId;
@@ -189,7 +174,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         // 5. Cộng quỹ kho gắn SystemFund
         var depotFund = await _depotFundRepo.GetOrCreateByDepotAndSourceAsync(
             fundingRequest.DepotId, FundSourceType.SystemFund, null, cancellationToken);
-        var creditResult = depotFund.Credit(fundingRequest.TotalAmount);
+        depotFund.Credit(fundingRequest.TotalAmount);
         await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
         // 6. Ghi log giao dịch quỹ kho
@@ -204,21 +189,6 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
             CreatedBy = request.ReviewedBy,
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
-
-        if (creditResult.DebtRepaid > 0)
-        {
-            await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
-            {
-                DepotFundId = depotFund.Id,
-                TransactionType = DepotFundTransactionType.DebtRepayment,
-                Amount = creditResult.DebtRepaid,
-                ReferenceType = "SystemFund",
-                ReferenceId = systemFund.Id,
-                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ đã tự ứng trước đó",
-                CreatedBy = request.ReviewedBy,
-                CreatedAt = DateTime.UtcNow
-            }, cancellationToken);
-        }
 
         await _unitOfWork.SaveAsync();
 

@@ -21,4 +21,11 @@ public class DepotFundTransactionModel
     public string? Note { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>Tên người ứng trước / người được hoàn trả.</summary>
+    public string? ContributorName { get; set; }
+
+
+    /// <summary>ID người ứng trước / người được hoàn trả (nullable nếu là người bên ngoài hệ thống).</summary>
+    public Guid? ContributorId { get; set; }
 }

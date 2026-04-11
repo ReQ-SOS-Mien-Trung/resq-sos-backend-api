@@ -5,6 +5,6 @@ namespace RESQ.Application.UseCases.Finance.Commands.SetDepotAdvanceLimit;
 /// </summary>
 public class SetAdvanceLimitRequest
 {
-    /// <summary>Hạn mức tối đa kho được phép tự ứng (balance âm). 0 = không cho phép âm.</summary>
-    public decimal MaxAdvanceLimit { get; set; }
+    /// <summary>Hạn mức tối đa tổng tiền ứng trước cho kho này. 0 = không cho phép ứng.</summary>
+    public decimal AdvanceLimit { get; set; }
 }

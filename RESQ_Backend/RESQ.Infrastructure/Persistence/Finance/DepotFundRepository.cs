@@ -85,7 +85,7 @@ public class DepotFundRepository : IDepotFundRepository
         {
             DepotId = depotId,
             Balance = 0m,
-            MaxAdvanceLimit = 0m,
+            AdvanceLimit = 0m,
             LastUpdatedAt = DateTime.UtcNow,
             FundSourceType = sourceTypeStr,
             FundSourceId = sourceId

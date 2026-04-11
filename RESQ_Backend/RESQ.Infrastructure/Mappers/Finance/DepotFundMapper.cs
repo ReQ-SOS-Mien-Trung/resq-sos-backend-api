@@ -19,7 +19,8 @@ public static class DepotFundMapper
             entity.Id,
             entity.DepotId,
             entity.Balance,
-            entity.MaxAdvanceLimit,
+            entity.AdvanceLimit,
+            entity.OutstandingAdvanceAmount,
             entity.LastUpdatedAt,
             sourceType,
             entity.FundSourceId
@@ -37,7 +38,8 @@ public static class DepotFundMapper
             Id = model.Id,
             DepotId = model.DepotId,
             Balance = model.Balance,
-            MaxAdvanceLimit = model.MaxAdvanceLimit,
+            AdvanceLimit = model.AdvanceLimit,
+            OutstandingAdvanceAmount = model.OutstandingAdvanceAmount,
             LastUpdatedAt = model.LastUpdatedAt,
             FundSourceType = model.FundSourceType?.ToString(),
             FundSourceId = model.FundSourceId
@@ -47,7 +49,8 @@ public static class DepotFundMapper
     public static void UpdateEntity(DepotFund entity, DepotFundModel model)
     {
         entity.Balance = model.Balance;
-        entity.MaxAdvanceLimit = model.MaxAdvanceLimit;
+        entity.AdvanceLimit = model.AdvanceLimit;
+        entity.OutstandingAdvanceAmount = model.OutstandingAdvanceAmount;
         entity.LastUpdatedAt = model.LastUpdatedAt;
         entity.FundSourceType = model.FundSourceType?.ToString();
         entity.FundSourceId = model.FundSourceId;

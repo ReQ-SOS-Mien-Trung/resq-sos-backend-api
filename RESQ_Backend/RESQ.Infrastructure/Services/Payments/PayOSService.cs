@@ -118,21 +118,21 @@ public class PayOSService : IPaymentGatewayService
             if (!root.TryGetProperty("data", out var dataElement) ||
                 !root.TryGetProperty("signature", out var signatureElement))
             {
-                _logger.LogWarning("Webhook thiáº¿u data hoáº·c signature.");
+                _logger.LogWarning("Webhook thiếu data hoặc signature.");
                 return false;
             }
 
             var receivedSignature = signatureElement.GetString();
             if (string.IsNullOrEmpty(receivedSignature))
             {
-                _logger.LogWarning("Signature rá»—ng.");
+                _logger.LogWarning("Signature rỗng.");
                 return false;
             }
 
             var checksumKey = _configuration["PayOS:ChecksumKey"];
             if (string.IsNullOrEmpty(checksumKey))
             {
-                _logger.LogError("Thiáº¿u cáº¥u hÃ¬nh PayOS ChecksumKey.");
+                _logger.LogError("Thiếu cấu hình PayOS ChecksumKey.");
                 return false;
             }
 
@@ -143,7 +143,7 @@ public class PayOSService : IPaymentGatewayService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Lá»—i verify PayOS webhook.");
+            _logger.LogError(ex, "Lỗi verify PayOS webhook.");
             return false;
         }
     }

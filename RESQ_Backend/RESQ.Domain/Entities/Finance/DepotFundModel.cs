@@ -3,17 +3,16 @@ using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Domain.Entities.Finance;
 
-/// <summary>Kết quả trừ quỹ — cho biết kho có phải tự ứng hay không.</summary>
-public record DebitResult(bool IsAdvanced, decimal AdvancedAmount);
-
-/// <summary>Kết quả cộng quỹ — cho biết đã tự động trừ bao nhiêu nợ.</summary>
-public record CreditResult(decimal DebtRepaid, decimal NetCredited);
-
 /// <summary>
 /// Quỹ của kho (depot). Mỗi kho có NHIỀU quỹ — mỗi quỹ gắn với 1 nguồn (chiến dịch hoặc quỹ hệ thống).
-/// Ví dụ: Kho 1 được cấp từ Chiến dịch A và Chiến dịch B → 2 DepotFund records.
-/// Balance tăng khi Admin cấp tiền, giảm khi Manager nhập hàng.
-/// Cho phép Balance âm (tự ứng) trong giới hạn MaxAdvanceLimit.
+/// 
+/// === QUY TẮC TÀI CHÍNH MỚI ===
+/// 1. Balance KHÔNG BAO GIỜ được âm.
+/// 2. Nhập hàng (Debit): nếu quỹ không đủ → từ chối, yêu cầu Ứng trước (Advance).
+/// 3. Ứng trước (Advance): cá nhân ứng tiền cho kho → tăng Balance + tăng OutstandingAdvanceAmount.
+///    Ràng buộc: OutstandingAdvanceAmount + amount <= AdvanceLimit.
+/// 4. Hoàn trả (Repay): kho trả lại tiền ứng → giảm Balance + giảm OutstandingAdvanceAmount.
+///    Ràng buộc: amount <= OutstandingAdvanceAmount và amount <= Balance.
 /// </summary>
 public class DepotFundModel
 {
@@ -21,8 +20,11 @@ public class DepotFundModel
     public int DepotId { get; private set; }
     public decimal Balance { get; private set; }
 
-    /// <summary>Hạn mức tối đa quỹ này được phép tự ứng (balance âm). 0 = không cho phép âm. Admin cấu hình.</summary>
-    public decimal MaxAdvanceLimit { get; private set; }
+    /// <summary>Hạn mức tối đa tổng tiền ứng trước cho kho này. 0 = không cho phép ứng. Admin cấu hình.</summary>
+    public decimal AdvanceLimit { get; private set; }
+
+    /// <summary>Tổng số tiền đã ứng trước và chưa hoàn trả.</summary>
+    public decimal OutstandingAdvanceAmount { get; private set; }
 
     public DateTime LastUpdatedAt { get; private set; }
 
@@ -54,22 +56,24 @@ public class DepotFundModel
             FundSourceType = sourceType,
             FundSourceId = sourceId,
             Balance = 0m,
-            MaxAdvanceLimit = 0m,
+            AdvanceLimit = 0m,
+            OutstandingAdvanceAmount = 0m,
             LastUpdatedAt = DateTime.UtcNow
         };
     }
 
     /// <summary>Reconstitute from DB.</summary>
     public static DepotFundModel Reconstitute(
-        int id, int depotId, decimal balance, decimal maxAdvanceLimit, DateTime lastUpdatedAt,
-        FundSourceType? sourceType = null, int? sourceId = null)
+        int id, int depotId, decimal balance, decimal advanceLimit, decimal outstandingAdvanceAmount,
+        DateTime lastUpdatedAt, FundSourceType? sourceType = null, int? sourceId = null)
     {
         return new DepotFundModel
         {
             Id = id,
             DepotId = depotId,
             Balance = balance,
-            MaxAdvanceLimit = maxAdvanceLimit,
+            AdvanceLimit = advanceLimit,
+            OutstandingAdvanceAmount = outstandingAdvanceAmount,
             LastUpdatedAt = lastUpdatedAt,
             FundSourceType = sourceType,
             FundSourceId = sourceId
@@ -77,61 +81,73 @@ public class DepotFundModel
     }
 
     /// <summary>
-    /// Cộng quỹ (khi Admin cấp tiền). Nếu balance đang âm (nợ), tự động trừ nợ trước.
-    /// Trả về CreditResult chứa thông tin nợ đã trả.
+    /// Cộng quỹ (khi Admin cấp tiền). Đơn giản tăng Balance.
     /// </summary>
-    public CreditResult Credit(decimal amount)
+    public void Credit(decimal amount)
     {
         if (amount <= 0) throw new NegativeMoneyException(amount);
-
-        decimal debtRepaid = 0m;
-
-        if (Balance < 0)
-        {
-            debtRepaid = Math.Min(amount, Math.Abs(Balance));
-        }
 
         Balance += amount;
         LastUpdatedAt = DateTime.UtcNow;
-
-        return new CreditResult(debtRepaid, amount - debtRepaid);
     }
 
     /// <summary>
-    /// Trừ quỹ (khi Manager nhập hàng). Cho phép balance âm nếu nằm trong MaxAdvanceLimit.
-    /// Nếu vượt quá giới hạn ứng trước → throw AdvanceLimitExceededException.
-    /// Trả về DebitResult cho biết kho có tự ứng hay không.
+    /// Trừ quỹ (khi Manager nhập hàng). Balance KHÔNG ĐƯỢC ÂM.
+    /// Nếu quỹ không đủ → throw InsufficientDepotFundException.
     /// </summary>
-    public DebitResult Debit(decimal amount)
+    public void Debit(decimal amount)
     {
         if (amount <= 0) throw new NegativeMoneyException(amount);
 
-        var newBalance = Balance - amount;
+        if (Balance < amount)
+            throw new InsufficientDepotFundException(Balance, amount);
 
-        if (newBalance < 0 && Math.Abs(newBalance) > MaxAdvanceLimit)
-            throw new AdvanceLimitExceededException(Balance, amount, MaxAdvanceLimit);
-
-        // Tính phần tự ứng: phần balance đi vào vùng âm
-        var advancedAmount = 0m;
-        if (newBalance < 0)
-        {
-            advancedAmount = Balance >= 0 ? Math.Abs(newBalance) : amount;
-        }
-
-        Balance = newBalance;
+        Balance -= amount;
         LastUpdatedAt = DateTime.UtcNow;
-
-        return new DebitResult(
-            IsAdvanced: advancedAmount > 0,
-            AdvancedAmount: advancedAmount
-        );
     }
 
-    /// <summary>Admin cập nhật hạn mức tự ứng tối đa.</summary>
-    public void SetMaxAdvanceLimit(decimal limit)
+    /// <summary>
+    /// Ứng trước cá nhân cho kho. Tăng Balance (kho có thêm tiền) và tăng OutstandingAdvanceAmount.
+    /// Ràng buộc: OutstandingAdvanceAmount + amount <= AdvanceLimit.
+    /// </summary>
+    public void Advance(decimal amount)
+    {
+        if (amount <= 0) throw new NegativeMoneyException(amount);
+
+        if (OutstandingAdvanceAmount + amount > AdvanceLimit)
+            throw new AdvanceLimitExceededException(OutstandingAdvanceAmount, amount, AdvanceLimit);
+
+        Balance += amount;
+        OutstandingAdvanceAmount += amount;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Hoàn trả tiền ứng trước cho cá nhân. Giảm Balance và giảm OutstandingAdvanceAmount.
+    /// Ràng buộc: amount <= OutstandingAdvanceAmount và amount <= Balance.
+    /// </summary>
+    public void Repay(decimal amount)
+    {
+        if (amount <= 0) throw new NegativeMoneyException(amount);
+
+        if (amount > OutstandingAdvanceAmount)
+            throw new OverRepaymentException(amount, OutstandingAdvanceAmount);
+
+        if (amount > Balance)
+            throw new InsufficientDepotFundException(Balance, amount);
+
+        Balance -= amount;
+        OutstandingAdvanceAmount -= amount;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Admin cập nhật hạn mức ứng trước tối đa. Không được thấp hơn số dư ứng trước chưa hoàn trả.</summary>
+    public void SetAdvanceLimit(decimal limit)
     {
         if (limit < 0) throw new NegativeMoneyException(limit);
-        MaxAdvanceLimit = limit;
+        if (limit < OutstandingAdvanceAmount)
+            throw new InvalidAdvanceLimitException(limit, OutstandingAdvanceAmount);
+        AdvanceLimit = limit;
         LastUpdatedAt = DateTime.UtcNow;
     }
 }

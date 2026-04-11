@@ -14,13 +14,13 @@ public static class FinanceSeed
         // FundSourceType = "Campaign", FundSourceId = 1 → đến từ chiến dịch FLOOD_RELIEF_2026
         var depotFunds = new List<DepotFund>
         {
-            new DepotFund { Id = 1, DepotId = 1, Balance = 120_000_000m, MaxAdvanceLimit = 80_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
-            new DepotFund { Id = 2, DepotId = 2, Balance = 90_000_000m,  MaxAdvanceLimit = 60_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
-            new DepotFund { Id = 3, DepotId = 3, Balance = 70_000_000m,  MaxAdvanceLimit = 40_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
-            new DepotFund { Id = 4, DepotId = 4, Balance = 150_000_000m, MaxAdvanceLimit = 100_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
-            new DepotFund { Id = 5, DepotId = 5, Balance = 18_000_000m,  MaxAdvanceLimit = 12_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
-            new DepotFund { Id = 6, DepotId = 6, Balance = 22_000_000m,  MaxAdvanceLimit = 14_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
-            new DepotFund { Id = 7, DepotId = 7, Balance = 8_000_000m,   MaxAdvanceLimit = 5_000_000m,   LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 }
+            new DepotFund { Id = 1, DepotId = 1, Balance = 120_000_000m, AdvanceLimit = 80_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 2, DepotId = 2, Balance = 90_000_000m,  AdvanceLimit = 60_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 3, DepotId = 3, Balance = 70_000_000m,  AdvanceLimit = 40_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 4, DepotId = 4, Balance = 150_000_000m, AdvanceLimit = 100_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 5, DepotId = 5, Balance = 18_000_000m,  AdvanceLimit = 12_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 6, DepotId = 6, Balance = 22_000_000m,  AdvanceLimit = 14_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 7, DepotId = 7, Balance = 8_000_000m,   AdvanceLimit = 5_000_000m,   LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 }
         };
         modelBuilder.Entity<DepotFund>().HasData(depotFunds);
 

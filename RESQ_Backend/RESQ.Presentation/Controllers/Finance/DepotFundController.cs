@@ -141,13 +141,37 @@ public class DepotFundController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>[Admin] Cấu hình hạn mức tự ứng (balance âm tối đa) cho một kho.</summary>
+    /// <summary>[Admin] Cấu hình hạn mức tổng tiền được phép ứng trước cho một kho.</summary>
     [HttpPut("{depotId:int}/advance-limit")]
     [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> SetAdvanceLimit(int depotId, [FromBody] SetAdvanceLimitRequest request)
     {
-        await _mediator.Send(new SetDepotAdvanceLimitCommand(depotId, request.MaxAdvanceLimit));
+        await _mediator.Send(new SetDepotAdvanceLimitCommand(depotId, request.AdvanceLimit));
+        return NoContent();
+    }
+
+    /// <summary>[Admin] Ghi nhận cá nhân ứng tiền cho kho.</summary>
+    [HttpPost("{depotFundId:int}/advance")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Advance(int depotFundId, [FromBody] RESQ.Application.UseCases.Finance.Commands.CreateAdvanceTransaction.CreateAdvanceTransactionRequest request)
+    {
+        var command = new RESQ.Application.UseCases.Finance.Commands.CreateAdvanceTransaction.CreateAdvanceTransactionCommand(
+            depotFundId, request.Amount, request.ContributorName, request.ContributorId, GetUserId());
+        await _mediator.Send(command);
+        return NoContent();
+    }
+
+    /// <summary>[Admin] Hoàn trả tiền ứng trước cho cá nhân.</summary>
+    [HttpPost("{depotFundId:int}/repayment")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Repay(int depotFundId, [FromBody] RESQ.Application.UseCases.Finance.Commands.CreateRepaymentTransaction.CreateRepaymentTransactionRequest request)
+    {
+        var command = new RESQ.Application.UseCases.Finance.Commands.CreateRepaymentTransaction.CreateRepaymentTransactionCommand(
+            depotFundId, request.Amount, request.ContributorName, request.ContributorId, GetUserId());
+        await _mediator.Send(command);
         return NoContent();
     }
 

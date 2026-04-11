@@ -24,7 +24,9 @@ public static class DepotFundTransactionMapper
             ReferenceId = entity.ReferenceId,
             Note = entity.Note,
             CreatedBy = entity.CreatedBy,
-            CreatedAt = entity.CreatedAt
+            CreatedAt = entity.CreatedAt,
+            ContributorName = entity.ContributorName,
+            ContributorId = entity.ContributorId
         };
     }
 
@@ -40,7 +42,9 @@ public static class DepotFundTransactionMapper
             ReferenceId = model.ReferenceId,
             Note = model.Note,
             CreatedBy = model.CreatedBy,
-            CreatedAt = model.CreatedAt
+            CreatedAt = model.CreatedAt,
+            ContributorName = model.ContributorName,
+            ContributorId = model.ContributorId
         };
     }
 }

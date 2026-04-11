@@ -27,7 +27,8 @@ public class GetDepotFundsByDepotIdHandler : IRequestHandler<GetDepotFundsByDepo
             DepotId        = f.DepotId,
             DepotName      = f.DepotName,
             Balance        = f.Balance,
-            MaxAdvanceLimit = f.MaxAdvanceLimit,
+            AdvanceLimit = f.AdvanceLimit,
+            OutstandingAdvanceAmount = f.OutstandingAdvanceAmount,
             FundSourceType = f.FundSourceType,
             FundSourceName = f.FundSourceName,
             LastUpdatedAt  = f.LastUpdatedAt == DateTime.MinValue ? null : f.LastUpdatedAt

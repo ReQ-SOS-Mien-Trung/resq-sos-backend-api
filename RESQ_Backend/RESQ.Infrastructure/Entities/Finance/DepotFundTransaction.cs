@@ -38,6 +38,13 @@ public partial class DepotFundTransaction
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime CreatedAt { get; set; }
 
+    [Column("contributor_name")]
+    [StringLength(255)]
+    public string? ContributorName { get; set; }
+
+    [Column("contributor_id")]
+    public Guid? ContributorId { get; set; }
+
     [ForeignKey("DepotFundId")]
     [InverseProperty("DepotFundTransactions")]
     public virtual DepotFund DepotFund { get; set; } = null!;
