@@ -7,6 +7,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosCluster;
 using RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
+using RESQ.Application.UseCases.Emergency.Queries.GetAlternativeDepots;
 using RESQ.Application.UseCases.Emergency.Queries.GetMissionSuggestions;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 using RESQ.Application.UseCases.Emergency.Queries.StreamRescueMissionSuggestion;
@@ -94,6 +95,17 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMissionSuggestions([FromRoute] int clusterId)
     {
         var result = await _mediator.Send(new GetMissionSuggestionsQuery(clusterId));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Goi y top 3 kho thay the de coordinator bo sung thu cong khi kho chinh khong du vat tu.
+    /// </summary>
+    [HttpGet("{clusterId:int}/alternative-depots")]
+    [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
+    public async Task<IActionResult> GetAlternativeDepots([FromRoute] int clusterId, [FromQuery] int selectedDepotId)
+    {
+        var result = await _mediator.Send(new GetAlternativeDepotsQuery(clusterId, selectedDepotId));
         return Ok(result);
     }
 }

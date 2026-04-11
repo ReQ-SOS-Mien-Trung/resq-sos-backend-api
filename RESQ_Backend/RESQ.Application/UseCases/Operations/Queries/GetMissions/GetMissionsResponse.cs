@@ -2,6 +2,7 @@ using System.Text.Json;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Emergency.Shared;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMissions;
 
@@ -78,13 +79,6 @@ public class MissionAiSuggestionSection
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
     public DateTime? CreatedAt { get; set; }
 
-    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
-    private static readonly JsonSerializerOptions SnakeCaseJsonOpts = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-    };
-
     internal static MissionAiSuggestionSection? From(
         RESQ.Domain.Entities.Emergency.MissionAiSuggestionModel model)
     {
@@ -102,27 +96,15 @@ public class MissionAiSuggestionSection
             CreatedAt = model.CreatedAt
         };
 
-        // Parse Metadata JSON for extra fields
-        if (!string.IsNullOrWhiteSpace(model.Metadata))
+        var meta = MissionAiSuggestionJsonHelper.ParseMetadata(model.Metadata);
+        if (meta is not null)
         {
-            try
-            {
-                var meta = DeserializeWithNamingFallback<AiMetadata>(
-                    model.Metadata,
-                    "needs_additional_depot",
-                    "supply_shortages",
-                    "overall_assessment");
-                if (meta is not null)
-                {
-                    section.OverallAssessment = meta.OverallAssessment;
-                    section.EstimatedDuration = meta.EstimatedDuration;
-                    section.SpecialNotes = meta.SpecialNotes;
-                    section.NeedsAdditionalDepot = meta.NeedsAdditionalDepot;
-                    section.SupplyShortages = meta.SupplyShortages ?? [];
-                    section.SuggestedResources = meta.SuggestedResources ?? [];
-                }
-            }
-            catch { /* ignore malformed metadata */ }
+            section.OverallAssessment = meta.OverallAssessment;
+            section.EstimatedDuration = meta.EstimatedDuration;
+            section.SpecialNotes = meta.SpecialNotes;
+            section.NeedsAdditionalDepot = meta.NeedsAdditionalDepot;
+            section.SupplyShortages = meta.SupplyShortages ?? [];
+            section.SuggestedResources = meta.SuggestedResources ?? [];
         }
 
         // Prefer validated activities, then draft, then the legacy first blob.
@@ -131,46 +113,9 @@ public class MissionAiSuggestionSection
                 string.Equals(activity.SuggestionPhase, "Draft", StringComparison.OrdinalIgnoreCase) ? 1 : 2)
             .Select(activity => activity.SuggestedActivities)
             .FirstOrDefault(blob => !string.IsNullOrWhiteSpace(blob));
-        if (!string.IsNullOrWhiteSpace(activityBlob))
-        {
-            try
-            {
-                section.SuggestedActivities = DeserializeWithNamingFallback<List<SuggestedActivityDto>>(
-                    activityBlob,
-                    "activity_type",
-                    "estimated_time",
-                    "sos_request_id",
-                    "supplies_to_collect") ?? [];
-            }
-            catch { /* ignore malformed activities */ }
-        }
+        section.SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(activityBlob);
 
         return section;
-    }
-
-    private static T? DeserializeWithNamingFallback<T>(string json, params string[] snakeCaseMarkers)
-    {
-        var prefersSnakeCase = snakeCaseMarkers.Any(marker =>
-            json.Contains($"\"{marker}\"", StringComparison.Ordinal));
-
-        var primaryOptions = prefersSnakeCase ? SnakeCaseJsonOpts : JsonOpts;
-        var secondaryOptions = prefersSnakeCase ? JsonOpts : SnakeCaseJsonOpts;
-
-        try
-        {
-            return JsonSerializer.Deserialize<T>(json, primaryOptions);
-        }
-        catch
-        {
-            try
-            {
-                return JsonSerializer.Deserialize<T>(json, secondaryOptions);
-            }
-            catch
-            {
-                return default;
-            }
-        }
     }
 }
 
