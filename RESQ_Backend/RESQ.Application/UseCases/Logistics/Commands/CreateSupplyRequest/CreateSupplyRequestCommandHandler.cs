@@ -14,6 +14,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
 public class CreateSupplyRequestCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     ISupplyRequestRepository supplyRequestRepository,
     ISupplyRequestPriorityConfigRepository supplyRequestPriorityConfigRepository,
     IFirebaseService firebaseService,
@@ -23,6 +24,7 @@ public class CreateSupplyRequestCommandHandler(
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IDepotRepository _depotRepository = depotRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly ISupplyRequestRepository _supplyRequestRepository = supplyRequestRepository;
     private readonly ISupplyRequestPriorityConfigRepository _supplyRequestPriorityConfigRepository = supplyRequestPriorityConfigRepository;
     private readonly IFirebaseService _firebaseService = firebaseService;
@@ -40,6 +42,9 @@ public class CreateSupplyRequestCommandHandler(
         if (requestingDepotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
             throw new ConflictException("Kho của bạn ngưng hoạt động hoặc đã đóng. Không thể tạo yêu cầu tiếp tế.");
 
+        var requestingDepot = await _depotRepository.GetByIdAsync(requestingDepotId.Value, cancellationToken)
+            ?? throw new NotFoundException($"Không tìm thấy kho yêu cầu #{requestingDepotId.Value}.");
+
         // 2. Validate không có group nào trỏ về chính kho của manager
         var selfRequest = request.Requests.FirstOrDefault(r => r.SourceDepotId == requestingDepotId.Value);
         if (selfRequest != null)
@@ -53,7 +58,58 @@ public class CreateSupplyRequestCommandHandler(
                 throw new ConflictException($"Kho nguồn #{group.SourceDepotId} ngưng hoạt động hoặc đã đóng. Không thể gửi yêu cầu tiếp tế đến kho này.");
         }
 
-        // 4. Xử lý từng kho nguồn trong transaction
+        // 4. Validate kho yêu cầu còn đủ sức chứa để nhận toàn bộ lượng hàng trong request
+        var requestedItems = request.Requests
+            .SelectMany(group => group.Items)
+            .GroupBy(item => item.ItemModelId)
+            .Select(group => new
+            {
+                ItemModelId = group.Key,
+                Quantity = group.Sum(item => item.Quantity)
+            })
+            .ToList();
+
+        var itemModelMap = await _itemModelMetadataRepository.GetByIdsAsync(
+            requestedItems.Select(x => x.ItemModelId).ToList(),
+            cancellationToken);
+
+        var missingItemModelIds = requestedItems
+            .Where(x => !itemModelMap.ContainsKey(x.ItemModelId))
+            .Select(x => x.ItemModelId)
+            .ToList();
+
+        if (missingItemModelIds.Count > 0)
+            throw new NotFoundException($"Không tìm thấy metadata vật tư cho các itemModelId: {string.Join(", ", missingItemModelIds)}.");
+
+        var totalRequestedVolume = requestedItems.Sum(x =>
+            x.Quantity * itemModelMap[x.ItemModelId].VolumePerUnit);
+
+        var totalRequestedWeight = requestedItems.Sum(x =>
+            x.Quantity * itemModelMap[x.ItemModelId].WeightPerUnit);
+
+        var remainingVolumeCapacity = requestingDepot.Capacity - requestingDepot.CurrentUtilization;
+        var remainingWeightCapacity = requestingDepot.WeightCapacity - requestingDepot.CurrentWeightUtilization;
+
+        if (totalRequestedVolume > remainingVolumeCapacity || totalRequestedWeight > remainingWeightCapacity)
+        {
+            var reasons = new List<string>();
+            if (totalRequestedVolume > remainingVolumeCapacity)
+            {
+                reasons.Add(
+                    $"thể tích cần {totalRequestedVolume:N2} dm³ nhưng kho chỉ còn {remainingVolumeCapacity:N2} dm³");
+            }
+
+            if (totalRequestedWeight > remainingWeightCapacity)
+            {
+                reasons.Add(
+                    $"cân nặng cần {totalRequestedWeight:N2} kg nhưng kho chỉ còn {remainingWeightCapacity:N2} kg");
+            }
+
+            throw new ConflictException(
+                $"Kho yêu cầu không đủ sức chứa để nhận toàn bộ vật tư trong phiếu tiếp tế: {string.Join("; ", reasons)}.");
+        }
+
+        // 5. Xử lý từng kho nguồn trong transaction
         var config = await _supplyRequestPriorityConfigRepository.GetAsync(cancellationToken);
         var timing = config == null
             ? SupplyRequestPriorityPolicy.DefaultTiming
@@ -93,7 +149,7 @@ public class CreateSupplyRequestCommandHandler(
             }
         });
 
-        // 4. Gửi notification cho manager của kho nguồn
+        // 6. Gửi notification cho manager của kho nguồn
         foreach (var created in createdRequests)
         {
             var sourceManagerUserId = await _supplyRequestRepository.GetActiveManagerUserIdByDepotIdAsync(created.SourceDepotId, cancellationToken);
