@@ -24,7 +24,7 @@ public class GetMyClosureTransfersQueryHandler(
         else
         {
             depotId = managerDepotId
-                ?? throw new NotFoundException("Ban hien khong phu trach kho nao.");
+                ?? throw new NotFoundException("Ban hien không ph? trách kho nào.");
         }
 
         var transfers = await transferRepository.GetByRelatedDepotIdAsync(depotId, cancellationToken);

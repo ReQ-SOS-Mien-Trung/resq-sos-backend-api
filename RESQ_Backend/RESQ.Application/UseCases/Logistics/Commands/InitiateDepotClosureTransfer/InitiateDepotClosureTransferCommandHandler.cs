@@ -98,6 +98,7 @@ public class InitiateDepotClosureTransferCommandHandler(
             closure.MarkTransferPending();
             await transferRepository.CreateAsync(transfer, cancellationToken);
             await closureRepository.UpdateAsync(closure, cancellationToken);
+            await unitOfWork.SaveAsync();
         });
 
         logger.LogInformation(

@@ -230,7 +230,6 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<DepotFund>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("depot_funds_pkey");
-            // Composite unique: mỗi depot + source type + source id chỉ có 1 fund
             entity.HasIndex(e => new { e.DepotId, e.FundSourceType, e.FundSourceId })
                   .IsUnique()
                   .HasDatabaseName("uix_depot_funds_depot_source");
@@ -239,6 +238,10 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<DepotFundTransaction>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("depot_fund_transactions_pkey");
+            entity.HasIndex(e => new { e.DepotFundId, e.CreatedAt })
+                  .HasDatabaseName("ix_depot_fund_transactions_fund_created_at");
+            entity.HasIndex(e => new { e.ContributorPhoneNumber, e.TransactionType })
+                  .HasDatabaseName("ix_depot_fund_transactions_contributor_phone_type");
         });
 
         modelBuilder.Entity<SystemFund>(entity =>

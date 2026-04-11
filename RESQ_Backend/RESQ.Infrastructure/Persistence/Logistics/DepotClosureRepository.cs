@@ -87,11 +87,11 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
     }
 
     /// <summary>
-    /// Atomic claim: dÃ¹ng conditional UPDATE Ä‘á»ƒ chuyá»ƒn InProgress â†’ Processing.
-    /// Tráº£ vá» true náº¿u thÃ nh cÃ´ng, false náº¿u Ä‘Ã£ bá»‹ claim bá»Ÿi tiáº¿n trÃ¬nh khÃ¡c.
-    /// row_version Ä‘Æ°á»£c tÄƒng lÃªn cÃ¹ng lÃºc Ä‘á»ƒ CancelDepotClosure khÃ´ng thá»ƒ dÃ¹ng
-    /// TryForceClaimFromProcessingAsync (vá»‘n kiá»ƒm tra row_version) Ä‘á»ƒ steal lock
-    /// trong khoáº£ng há»Ÿ khi Resolve Ä‘ang mid-flight.
+    /// Atomic claim: dùng conditional UPDATE để chuyển InProgress -> Processing.
+    /// Trả về true nếu thành công, false nếu đã bị claim bởi tiến trình khác.
+    /// row_version được tăng lên cùng lúc để CancelDepotClosure không thể dùng
+    /// TryForceClaimFromProcessingAsync (vốn kiểm tra row_version) để steal lock
+    /// trong khoảng hở khi Resolve đang mid-flight.
     /// </summary>
     public async Task<bool> TryClaimForProcessingAsync(int closureId, CancellationToken cancellationToken = default)
     {
@@ -107,8 +107,8 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
     }
 
     /// <summary>
-    /// HoÃ n tÃ¡c claim: chuyá»ƒn Processing â†’ InProgress Ä‘á»ƒ cho phÃ©p user retry
-    /// sau khi xáº£y ra lá»—i validation (ConflictException / NotFoundException).
+    /// Hoàn tác claim: chuyển Processing -> InProgress để cho phép user retry
+    /// sau khi xảy ra lỗi validation (ConflictException / NotFoundException).
     /// </summary>
     public async Task ResetProcessingToInProgressAsync(int closureId, CancellationToken cancellationToken = default)
     {
@@ -122,8 +122,8 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
     }
 
     /// <summary>
-    /// TÃ¡i claim báº£n ghi bá»‹ káº¹t táº¡i Processing báº±ng optimistic concurrency (kiá»ƒm tra rowVersion).
-    /// An toÃ n khi nhiá»u request cÃ¹ng cá»‘ recover Ä‘á»“ng thá»i: chá»‰ Ä‘Ãºng 1 request thÃ nh cÃ´ng.
+    /// Tái claim bản ghi bị kẹt tại Processing bằng optimistic concurrency (kiểm tra rowVersion).
+    /// An toàn khi nhiều request cùng cố recover đồng thời: chỉ đúng 1 request thành công.
     /// </summary>
     public async Task<bool> TryForceClaimFromProcessingAsync(int closureId, int expectedRowVersion, CancellationToken cancellationToken = default)
     {

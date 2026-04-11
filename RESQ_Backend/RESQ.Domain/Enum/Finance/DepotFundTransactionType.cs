@@ -14,15 +14,23 @@ public enum DepotFundTransactionType
     /// <summary>Hoàn quỹ (trường hợp đặc biệt).</summary>
     Refund,
     
-    /// <summary>Kho tự ứng tiền nhập hàng khi quỹ không đủ (balance → âm).</summary>
+    /// <summary>[Obsolete] Kho tự ứng tiền nhập hàng khi quỹ không đủ (balance → âm). Chỉ dùng cho dữ liệu lịch sử.</summary>
+    [Obsolete("Replaced by PersonalAdvance. Kept for historical audit records.")]
     SelfAdvance,
     
-    /// <summary>Trừ nợ tự động khi kho nhận tiền mới (từ phần đã tự ứng trước đó).</summary>
+    /// <summary>[Obsolete] Trừ nợ tự động khi kho nhận tiền mới. Chỉ dùng cho dữ liệu lịch sử.</summary>
+    [Obsolete("Replaced by AdvanceRepayment. Kept for historical audit records.")]
     DebtRepayment,
 
     /// <summary>Tiền thu được từ thanh lý tài sản khi đóng kho.</summary>
     LiquidationRevenue,
 
     /// <summary>Hoàn tiền quỹ kho về quỹ hệ thống khi đóng kho.</summary>
-    ClosureFundReturn
+    ClosureFundReturn,
+
+    /// <summary>Ứng trước cá nhân cho kho — tăng Balance + tăng OutstandingAdvanceAmount.</summary>
+    PersonalAdvance,
+
+    /// <summary>Hoàn trả tiền ứng trước cho cá nhân — giảm Balance + giảm OutstandingAdvanceAmount.</summary>
+    AdvanceRepayment
 }

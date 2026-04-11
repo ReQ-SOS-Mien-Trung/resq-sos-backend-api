@@ -783,7 +783,6 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         {
             UserId = userId,
             DepotFundId = request.DepotFundId,
-            AdvancedByName = request.AdvancedByName,
             Invoices = request.Invoices
         };
 

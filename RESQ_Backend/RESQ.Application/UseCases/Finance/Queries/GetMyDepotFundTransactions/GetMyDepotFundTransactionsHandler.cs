@@ -29,7 +29,7 @@ public class GetMyDepotFundTransactionsHandler(
             depotId,
             request.PageNumber,
             request.PageSize,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         var dtos = pagedResult.Items.Select(t => new DepotFundTransactionDto
         {
@@ -41,7 +41,9 @@ public class GetMyDepotFundTransactionsHandler(
             ReferenceId = t.ReferenceId,
             Note = t.Note,
             CreatedBy = t.CreatedBy,
-            CreatedAt = t.CreatedAt.ToVietnamTime()
+            CreatedAt = t.CreatedAt.ToVietnamTime(),
+            ContributorName = t.ContributorName,
+            ContributorPhoneNumber = t.ContributorPhoneNumber
         }).ToList();
 
         return new PagedResult<DepotFundTransactionDto>(

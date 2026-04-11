@@ -16,7 +16,7 @@ public class GetClosureTransferQueryHandler(
         CancellationToken cancellationToken)
     {
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
-            ?? throw new NotFoundException($"Khong tim thay ban ghi chuyen kho #{request.TransferId}.");
+            ?? throw new NotFoundException($"Không tìm th?y b?n ghi chuy?n kho #{request.TransferId}.");
 
         if (request.RequestingUserId.HasValue)
         {
@@ -32,12 +32,12 @@ public class GetClosureTransferQueryHandler(
 
             if (managerDepotId != transfer.SourceDepotId && managerDepotId != transfer.TargetDepotId)
             {
-                throw new ForbiddenException("Ban khong phai manager cua kho nguon hoac kho dich trong ban ghi chuyen hang nay.");
+                throw new ForbiddenException("B?n không ph?i manager c?a kho ngu?n ho?c kho dích trong ban ghi chuyen hang nay.");
             }
         }
         else if (transfer.SourceDepotId != request.DepotId)
         {
-            throw new ConflictException("Ban ghi chuyen kho khong khop voi thong tin duoc cung cap.");
+            throw new ConflictException("B?n ghi chuy?n kho không kh?p v?i thông tin du?c cung c?p.");
         }
 
         return new ClosureTransferResponse

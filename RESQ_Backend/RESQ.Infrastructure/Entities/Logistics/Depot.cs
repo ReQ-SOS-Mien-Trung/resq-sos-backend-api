@@ -45,6 +45,12 @@ public partial class Depot
     [Column("current_weight_utilization", TypeName = "numeric(14,3)")]
     public decimal? CurrentWeightUtilization { get; set; }
 
+    [Column("advance_limit", TypeName = "numeric(18,2)")]
+    public decimal AdvanceLimit { get; set; }
+
+    [Column("outstanding_advance_amount", TypeName = "numeric(18,2)")]
+    public decimal OutstandingAdvanceAmount { get; set; }
+
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime? LastUpdatedAt { get; set; }
 

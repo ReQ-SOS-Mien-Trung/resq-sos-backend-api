@@ -9,8 +9,11 @@ public class DepotFundDto
     public string? DepotName { get; set; }
     public decimal Balance { get; set; }
 
-    /// <summary>Hạn mức tối đa kho được phép tự ứng (balance âm). 0 = không cho âm.</summary>
-    public decimal MaxAdvanceLimit { get; set; }
+    /// <summary>Hạn mức tối đa tổng tiền ứng trước cho kho này. 0 = không cho phép ứng.</summary>
+    public decimal AdvanceLimit { get; set; }
+
+    /// <summary>Tổng tiền đã được các cá nhân ứng trước cho kho.</summary>
+    public decimal OutstandingAdvanceAmount { get; set; }
 
     public DateTime? LastUpdatedAt { get; set; }
 }

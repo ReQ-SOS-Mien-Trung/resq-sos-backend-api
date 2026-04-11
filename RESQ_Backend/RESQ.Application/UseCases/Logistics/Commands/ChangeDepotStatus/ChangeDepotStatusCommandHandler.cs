@@ -50,7 +50,7 @@ public class ChangeDepotStatusCommandHandler(
         }
 
         var depot = await _depotRepository.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException("Khong tim thay kho cuu tro");
+            ?? throw new NotFoundException("Không tìm th?y kho c?u tr?");
 
         if (request.Status == DepotStatus.Unavailable)
         {
@@ -83,7 +83,7 @@ public class ChangeDepotStatusCommandHandler(
         {
             Id = depot.Id,
             Status = depot.Status.ToString(),
-            Message = "Cap nhat trang thai kho thanh cong."
+            Message = "C?p nh?t tr?ng thái kho thành công."
         };
     }
 }

@@ -24,9 +24,9 @@ public class CreateFundingRequestValidator : AbstractValidator<CreateFundingRequ
             item.RuleFor(i => i.UnitPrice)
                 .GreaterThan(0).WithMessage("ÄÆ¡n giÃ¡ pháº£i lá»›n hÆ¡n 0.");
             item.RuleFor(i => i.VolumePerUnit)
-                .GreaterThanOrEqualTo(0).WithMessage("The tich moi don vi khong duoc am.");
+                .GreaterThanOrEqualTo(0).WithMessage("Th? tích m?i don v? không du?c âm.");
             item.RuleFor(i => i.WeightPerUnit)
-                .GreaterThanOrEqualTo(0).WithMessage("Can nang moi don vi khong duoc am.");
+                .GreaterThanOrEqualTo(0).WithMessage("Cân n?ng m?i don v? không du?c âm.");
         });
 
         RuleFor(x => x.RequestedBy)

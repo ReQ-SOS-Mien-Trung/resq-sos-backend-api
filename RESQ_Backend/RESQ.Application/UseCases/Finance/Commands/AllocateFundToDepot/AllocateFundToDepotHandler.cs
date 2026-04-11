@@ -102,7 +102,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         // 4. Cộng quỹ kho gắn với campaign (tạo mới nếu chưa có)
         var depotFund = await _depotFundRepo.GetOrCreateByDepotAndSourceAsync(
             request.DepotId, FundSourceType.Campaign, campaignId, cancellationToken);
-        var creditResult = depotFund.Credit(request.Amount);
+        depotFund.Credit(request.Amount);
         await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
         // 5. Ghi log giao dịch quỹ kho — Allocation
@@ -117,21 +117,6 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
             CreatedBy = request.AllocatedBy,
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
-
-        if (creditResult.DebtRepaid > 0)
-        {
-            await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
-            {
-                DepotFundId = depotFund.Id,
-                TransactionType = DepotFundTransactionType.DebtRepayment,
-                Amount = creditResult.DebtRepaid,
-                ReferenceType = "CampaignDisbursement",
-                ReferenceId = disbursementId,
-                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ đã tự ứng trước đó",
-                CreatedBy = request.AllocatedBy,
-                CreatedAt = DateTime.UtcNow
-            }, cancellationToken);
-        }
 
         await _unitOfWork.SaveAsync();
 
@@ -173,7 +158,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         // 4. Cộng quỹ kho gắn với SystemFund (tạo mới nếu chưa có)
         var depotFund = await _depotFundRepo.GetOrCreateByDepotAndSourceAsync(
             request.DepotId, FundSourceType.SystemFund, null, cancellationToken);
-        var creditResult = depotFund.Credit(request.Amount);
+        depotFund.Credit(request.Amount);
         await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
         // 5. Ghi log giao dịch quỹ kho
@@ -188,21 +173,6 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
             CreatedBy = request.AllocatedBy,
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
-
-        if (creditResult.DebtRepaid > 0)
-        {
-            await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
-            {
-                DepotFundId = depotFund.Id,
-                TransactionType = DepotFundTransactionType.DebtRepayment,
-                Amount = creditResult.DebtRepaid,
-                ReferenceType = "SystemFund",
-                ReferenceId = systemFund.Id,
-                Note = $"Trừ {creditResult.DebtRepaid:N0} VNĐ nợ đã tự ứng trước đó",
-                CreatedBy = request.AllocatedBy,
-                CreatedAt = DateTime.UtcNow
-            }, cancellationToken);
-        }
 
         await _unitOfWork.SaveAsync();
 

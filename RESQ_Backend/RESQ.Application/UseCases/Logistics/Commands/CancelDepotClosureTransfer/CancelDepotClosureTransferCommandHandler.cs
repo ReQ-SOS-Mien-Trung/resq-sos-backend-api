@@ -51,6 +51,7 @@ public class CancelDepotClosureTransferCommandHandler(
                 closure.Cancel(request.CancelledBy, cancelledAt, request.Reason ?? "Hủy phiên chuyển kho");
                 await closureRepository.UpdateAsync(closure, cancellationToken);
             }
+            await unitOfWork.SaveAsync();
         });
 
         logger.LogInformation(

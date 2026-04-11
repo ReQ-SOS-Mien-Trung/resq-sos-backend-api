@@ -100,7 +100,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                    && (!hasItemNameFilter   || (ri.Name ?? string.Empty).ToLower().Contains(itemNameFilter))
                 select new
                 {
-                    ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType,
+                    ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType, ri.WeightPerUnit, ri.VolumePerUnit,
                     Quantity                 = inv.Quantity                 ?? 0,
                     MissionReservedQuantity  = inv.MissionReservedQuantity,
                     TransferReservedQuantity = inv.TransferReservedQuantity,
@@ -150,7 +150,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     Availability   = _inventoryQueryService.ComputeAvailability(x.Quantity, x.MissionReservedQuantity, x.TransferReservedQuantity),
                     LastStockedAt  = x.LastStockedAt,
                     LotCount       = ls?.LotCount ?? 0,
-                    NearestExpiryDate = ls?.NearestExpiryDate
+                    NearestExpiryDate = ls?.NearestExpiryDate,
+                    WeightPerUnit     = x.WeightPerUnit,
+                    VolumePerUnit     = x.VolumePerUnit
                 };
             }));
         }
@@ -165,7 +167,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                    && (!hasCategoryFilter   || safeCategoryIds.Contains(ri.CategoryId ?? 0))
                    && (!hasTargetGroupFilter || ri.TargetGroups.Any(tg => targetGroupSet.Contains(tg.Name.ToLower())))
                    && (!hasItemNameFilter   || (ri.Name ?? string.Empty).ToLower().Contains(itemNameFilter))
-                group new { dri, ri } by new { ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType } into g
+                group new { dri, ri } by new { ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType, ri.WeightPerUnit, ri.VolumePerUnit } into g
                 select new
                 {
                     Id                  = g.Key.Id,
@@ -173,6 +175,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     ImageUrl            = g.Key.ImageUrl,
                     CategoryId          = g.Key.CategoryId,
                     ItemType            = g.Key.ItemType,
+                    WeightPerUnit       = g.Key.WeightPerUnit,
+                    VolumePerUnit       = g.Key.VolumePerUnit,
                     TotalUnits               = g.Count(),
                     AvailableUnits           = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.Available)),
                     ReservedForMissionUnits  = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.Reserved) && x.dri.SupplyRequestId == null),
@@ -214,6 +218,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                                         x.ReservedForMissionUnits,
                                         x.ReservedForTransferUnits),
                 LastStockedAt     = x.LastStockedAt,
+                WeightPerUnit     = x.WeightPerUnit,
+                VolumePerUnit     = x.VolumePerUnit,
                 ReusableBreakdown = new RESQ.Domain.Entities.Logistics.ValueObjects.ReusableBreakdown
                 {
                     TotalUnits               = x.TotalUnits,
@@ -1980,5 +1986,10 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         return hasReusableInUse;
     }
 }
+
+
+
+
+
 
 

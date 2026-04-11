@@ -1,34 +1,47 @@
 using MediatR;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 
-/// <summary>
-/// Handler: Lấy tất cả quỹ kho kèm thông tin depot.
-/// </summary>
-public class GetAllDepotFundsHandler : IRequestHandler<GetAllDepotFundsQuery, List<DepotFundListItemDto>>
+public class GetAllDepotFundsHandler : IRequestHandler<GetAllDepotFundsQuery, List<DepotFundsResponseDto>>
 {
     private readonly IDepotFundRepository _depotFundRepo;
+    private readonly IDepotRepository _depotRepo;
 
-    public GetAllDepotFundsHandler(IDepotFundRepository depotFundRepo)
+    public GetAllDepotFundsHandler(IDepotFundRepository depotFundRepo, IDepotRepository depotRepo)
     {
         _depotFundRepo = depotFundRepo;
+        _depotRepo = depotRepo;
     }
 
-    public async Task<List<DepotFundListItemDto>> Handle(GetAllDepotFundsQuery request, CancellationToken cancellationToken)
+    public async Task<List<DepotFundsResponseDto>> Handle(GetAllDepotFundsQuery request, CancellationToken cancellationToken)
     {
         var funds = await _depotFundRepo.GetAllWithDepotInfoAsync(cancellationToken);
+        var depots = (await _depotRepo.GetAllAsync(cancellationToken)).ToDictionary(d => d.Id);
 
-        return funds.Select(f => new DepotFundListItemDto
+        var grouped = funds.GroupBy(f => f.DepotId).Select(g =>
         {
-            Id = f.Id,
-            DepotId = f.DepotId,
-            DepotName = f.DepotName,
-            Balance = f.Balance,
-            MaxAdvanceLimit = f.MaxAdvanceLimit,
-            FundSourceType = f.FundSourceType,
-            FundSourceName = f.FundSourceName,
-            LastUpdatedAt = f.LastUpdatedAt == DateTime.MinValue ? null : f.LastUpdatedAt
-        }).ToList();
+            var depotId = g.Key;
+            var depot = depots.TryGetValue(depotId, out var d) ? d : null;
+
+            return new DepotFundsResponseDto
+            {
+                DepotId = depotId,
+                DepotName = g.First().DepotName,
+                AdvanceLimit = depot?.AdvanceLimit ?? 0,
+                OutstandingAdvanceAmount = depot?.OutstandingAdvanceAmount ?? 0,
+                Funds = g.Select(f => new DepotFundItemDto
+                {
+                    Id = f.Id,
+                    Balance = f.Balance,
+                    FundSourceType = f.FundSourceType,
+                    FundSourceName = f.FundSourceName,
+                    LastUpdatedAt = f.LastUpdatedAt == DateTime.MinValue ? null : f.LastUpdatedAt
+                }).OrderBy(f => f.Id).ToList()
+            };
+        }).OrderBy(g => g.DepotId).ToList();
+
+        return grouped;
     }
 }

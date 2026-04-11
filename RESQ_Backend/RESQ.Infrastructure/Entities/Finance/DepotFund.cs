@@ -19,30 +19,20 @@ public partial class DepotFund
     [Column("balance")]
     public decimal Balance { get; set; }
 
-    /// <summary>Hạn mức tối đa mà kho được phép tự ứng (balance âm). 0 = không cho âm. Admin cấu hình.</summary>
-    [Column("max_advance_limit")]
-    public decimal MaxAdvanceLimit { get; set; }
-
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime LastUpdatedAt { get; set; }
 
-    /// <summary>Loại nguồn quỹ: "Campaign" hoặc "SystemFund". Null = legacy fund chưa gắn nguồn.</summary>
     [Column("fund_source_type")]
     [StringLength(50)]
     public string? FundSourceType { get; set; }
 
-    /// <summary>
-    /// ID nguồn quỹ:
-    /// - Campaign → FundCampaignId
-    /// - SystemFund → null (singleton)
-    /// </summary>
     [Column("fund_source_id")]
     public int? FundSourceId { get; set; }
 
-    [ForeignKey("DepotId")]
-    [InverseProperty("DepotFunds")]
+    [ForeignKey(nameof(DepotId))]
+    [InverseProperty(nameof(Depot.DepotFunds))]
     public virtual Depot Depot { get; set; } = null!;
 
-    [InverseProperty("DepotFund")]
+    [InverseProperty(nameof(DepotFundTransaction.DepotFund))]
     public virtual ICollection<DepotFundTransaction> DepotFundTransactions { get; set; } = new List<DepotFundTransaction>();
 }

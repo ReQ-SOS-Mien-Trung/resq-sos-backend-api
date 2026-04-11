@@ -26,7 +26,7 @@ public class InitiateDepotClosureCommandHandler(
             request.DepotId, request.InitiatedBy);
 
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
-            ?? throw new NotFoundException("Khong tim thay kho cuu tro.");
+            ?? throw new NotFoundException("Không tìm th?y kho c?u tr?.");
 
         if (depot.Status == DepotStatus.Closed)
             throw new ConflictException("Kho da dong cua.");
@@ -40,7 +40,7 @@ public class InitiateDepotClosureCommandHandler(
 
         var activeCount = await depotRepository.GetActiveDepotCountExcludingAsync(request.DepotId, cancellationToken);
         if (activeCount == 0)
-            throw new ConflictException("Khong the dong kho duy nhat con dang hoat dong trong he thong.");
+            throw new ConflictException("Không th? dóng kho duy nh?t còn dang ho?t d?ng trong h? th?ng.");
 
         var latestClosure = await closureRepository.GetLatestClosureByDepotIdAsync(request.DepotId, cancellationToken);
 
@@ -112,6 +112,8 @@ public class InitiateDepotClosureCommandHandler(
                 closureRecord!.Id,
                 request.InitiatedBy,
                 cancellationToken);
+
+            await unitOfWork.SaveAsync();
         });
 
         logger.LogInformation(
@@ -127,8 +129,8 @@ public class InitiateDepotClosureCommandHandler(
             ClosureId = closureRecord!.Id,
             Success = true,
             Message = isFinalizingExistingClosure
-                ? "Da xac nhan hoan tat dong kho. Quy kho da duoc chuyen ve quy he thong, kho chuyen sang Closed va manager da duoc go."
-                : "Kho khong co hang ton nen da duoc dong ngay. Quy kho da duoc chuyen ve quy he thong va manager da duoc go."
+                ? "Ðã xác nh?n hoàn t?t dóng kho. Qu? kho dã du?c chuy?n v? qu? h? th?ng, kho chuy?n sang Closed và manager dã du?c g?."
+                : "Kho không có hàng t?n nên dã du?c dóng ngay. Qu? kho dã du?c chuy?n v? qu? h? th?ng và manager dã du?c g?."
         };
     }
 }

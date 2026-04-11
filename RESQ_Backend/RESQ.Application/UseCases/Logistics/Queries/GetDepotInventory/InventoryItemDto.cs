@@ -10,6 +10,8 @@ public class InventoryItemDto
     public int? CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public string? ItemType { get; set; }
+    public decimal? WeightPerUnit { get; set; }
+    public decimal? VolumePerUnit { get; set; }
     public List<string> TargetGroups { get; set; } = new();
 
     // ── Consumable only (null khi ItemType = Reusable) ────────────────────────────

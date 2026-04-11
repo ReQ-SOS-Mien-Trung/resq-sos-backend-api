@@ -9,6 +9,5 @@ public class ImportPurchasedInventoryRequest
     /// </summary>
     public int? DepotFundId { get; set; }
 
-    public string? AdvancedByName { get; set; }
     public List<ImportPurchaseGroupDto> Invoices { get; set; } = new();
 }
