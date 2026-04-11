@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
             typeof(ServiceCollectionExtensions).Assembly
         );
 
+        services.AddScoped<IMissionPendingActivityUpdateService, MissionPendingActivityUpdateService>();
         services.AddScoped<IMissionActivityStatusExecutionService, MissionActivityStatusExecutionService>();
 
         // Note: The AddTransient calls below are legacy syntax if using cfg.AddBehavior above, 

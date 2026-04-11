@@ -26,6 +26,7 @@
     <ProjectReference Include="..\RESQ.Application\RESQ.Application.csproj" />
     <ProjectReference Include="..\RESQ.Domain\RESQ.Domain.csproj" />
     <ProjectReference Include="..\RESQ.Infrastructure\RESQ.Infrastructure.csproj" />
+    <ProjectReference Include="..\RESQ.Presentation\RESQ.Presentation.csproj" />
   </ItemGroup>
 
 </Project>
