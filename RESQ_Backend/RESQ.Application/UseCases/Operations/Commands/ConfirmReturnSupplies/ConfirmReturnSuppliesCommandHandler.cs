@@ -84,14 +84,16 @@ public class ConfirmReturnSuppliesCommandHandler(
 
             if (IsReusableItem(itemRecord))
             {
-                plannedReusableQuantities[itemId] = item.Quantity;
-
                 var expectedUnits = item.ExpectedReturnUnits?
                     .Where(unit => unit.ReusableItemId > 0)
                     .GroupBy(unit => unit.ReusableItemId)
                     .Select(group => CloneReusableUnit(group.First()))
                     .OrderBy(unit => unit.ReusableItemId)
                     .ToList() ?? [];
+
+                plannedReusableQuantities[itemId] = expectedUnits.Count > 0
+                    ? expectedUnits.Count
+                    : item.Quantity;
 
                 if (expectedUnits.Count > 0)
                 {
@@ -142,7 +144,7 @@ public class ConfirmReturnSuppliesCommandHandler(
             if (reusableItem.Quantity.HasValue && reusableItem.Quantity.Value < 0)
                 throw new BadRequestException($"Số lượng reusable fallback cho item #{reusableItem.ItemModelId} không hợp lệ.");
 
-            if (explicitUnits.Count > 0 && reusableItem.Quantity.HasValue && reusableItem.Quantity.Value != explicitUnits.Count)
+            if (!hasExpectedReusableSnapshot && explicitUnits.Count > 0 && reusableItem.Quantity.HasValue && reusableItem.Quantity.Value != explicitUnits.Count)
                 throw new BadRequestException(
                     $"Item reusable #{reusableItem.ItemModelId}: quantity không khớp số lượng units thực tế được gửi lên.");
 
@@ -274,15 +276,19 @@ public class ConfirmReturnSuppliesCommandHandler(
                 resultLookup[plannedItem.ItemId.Value] = resultItem;
             }
 
-            resultItem.ExpectedQuantity = plannedItem.Quantity;
+            var expectedReusableUnits = plannedItem.ExpectedReturnUnits?
+                .Select(CloneReusableUnit)
+                .OrderBy(unit => unit.ReusableItemId)
+                .ToList() ?? [];
+
+            resultItem.ExpectedQuantity = expectedReusableUnits.Count > 0
+                ? expectedReusableUnits.Count
+                : plannedItem.Quantity;
             resultItem.ItemName = string.IsNullOrWhiteSpace(resultItem.ItemName)
                 ? plannedItem.ItemName
                 : resultItem.ItemName;
             resultItem.Unit ??= plannedItem.Unit;
-            resultItem.ExpectedReusableUnits = plannedItem.ExpectedReturnUnits?
-                .Select(CloneReusableUnit)
-                .OrderBy(unit => unit.ReusableItemId)
-                .ToList() ?? [];
+            resultItem.ExpectedReusableUnits = expectedReusableUnits;
         }
 
         executionResult.Items = executionResult.Items

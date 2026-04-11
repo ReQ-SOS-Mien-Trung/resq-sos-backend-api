@@ -54,6 +54,64 @@ public class ReturnSupplyActivityQueryHandlerTests
     }
 
     [Fact]
+    public async Task UpcomingReturnsHandler_UsesExpectedReusableUnitCount_WhenSnapshotExists()
+    {
+        const int depotId = 12;
+        const int itemId = 80;
+
+        var handler = new GetMyUpcomingReturnActivitiesQueryHandler(
+            new StubDepotInventoryRepository { ActiveDepotId = depotId },
+            new StubItemModelMetadataRepository(),
+            new StubReturnSupplyActivityRepository
+            {
+                UpcomingResult = new PagedResult<UpcomingReturnActivityListItem>(
+                    [
+                        new UpcomingReturnActivityListItem
+                        {
+                            DepotId = depotId,
+                            DepotName = "Kho test",
+                            MissionId = 7,
+                            ActivityId = 23,
+                            ActivityType = "RETURN_SUPPLIES",
+                            Status = MissionActivityStatus.PendingConfirmation.ToString(),
+                            Items =
+                            [
+                                new ReturnSupplyActivityItemDetail
+                                {
+                                    ItemId = itemId,
+                                    ItemName = "Cang khieng thuong",
+                                    Quantity = 2,
+                                    Unit = "chiec",
+                                    ExpectedReturnUnits =
+                                    [
+                                        new SupplyExecutionReusableUnitDto { ReusableItemId = 171, ItemModelId = itemId, SerialNumber = "D2-R080-001" },
+                                        new SupplyExecutionReusableUnitDto { ReusableItemId = 172, ItemModelId = itemId, SerialNumber = "D2-R080-002" },
+                                        new SupplyExecutionReusableUnitDto { ReusableItemId = 173, ItemModelId = itemId, SerialNumber = "D2-R080-003" }
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    1,
+                    1,
+                    20)
+            });
+
+        var result = await handler.Handle(new GetMyUpcomingReturnActivitiesQuery(Guid.NewGuid())
+        {
+            Status = MissionActivityStatus.PendingConfirmation,
+            PageNumber = 1,
+            PageSize = 20
+        }, CancellationToken.None);
+
+        var activity = Assert.Single(result.Items);
+        var item = Assert.Single(activity.Items);
+
+        Assert.Equal(3, item.Quantity);
+        Assert.Equal(3, item.ExpectedReturnUnits.Count);
+    }
+
+    [Fact]
     public async Task ReturnHistoryHandler_ThrowsNotFound_WhenUserHasNoActiveDepot()
     {
         var handler = new GetMyReturnHistoryActivitiesQueryHandler(

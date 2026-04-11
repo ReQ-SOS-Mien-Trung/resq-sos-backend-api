@@ -1,0 +1,278 @@
+using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
+using RESQ.Application.Common.Models;
+using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
+using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
+using RESQ.Application.UseCases.Operations.Commands.ConfirmReturnSupplies;
+using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Entities.Logistics.Models;
+using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Enum.Logistics;
+using RESQ.Domain.Enum.Operations;
+
+namespace RESQ.Tests.Application.UseCases.Operations.Commands;
+
+public class ConfirmReturnSuppliesCommandHandlerTests
+{
+    [Fact]
+    public async Task Handle_UsesExpectedReusableUnitCount_WhenQuantitySnapshotIsStale()
+    {
+        const int activityId = 23;
+        const int missionId = 7;
+        const int depotId = 2;
+        const int itemId = 80;
+        var userId = Guid.NewGuid();
+
+        var expectedUnits = new List<SupplyExecutionReusableUnitDto>
+        {
+            new() { ReusableItemId = 171, ItemModelId = itemId, ItemName = "Cang khieng thuong", SerialNumber = "D2-R080-001" },
+            new() { ReusableItemId = 172, ItemModelId = itemId, ItemName = "Cang khieng thuong", SerialNumber = "D2-R080-002" },
+            new() { ReusableItemId = 173, ItemModelId = itemId, ItemName = "Cang khieng thuong", SerialNumber = "D2-R080-003" }
+        };
+
+        var activity = new MissionActivityModel
+        {
+            Id = activityId,
+            MissionId = missionId,
+            DepotId = depotId,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Cang khieng thuong",
+                    Quantity = 2,
+                    Unit = "chiec",
+                    ExpectedReturnUnits = expectedUnits
+                }
+            })
+        };
+
+        var activityRepository = new StubMissionActivityRepository(activity);
+        var depotInventoryRepository = new StubDepotInventoryRepository
+        {
+            ManagerDepotIds = [depotId],
+            ReturnResult = new MissionSupplyReturnExecutionResult
+            {
+                Items =
+                [
+                    new MissionSupplyReturnExecutionItemDto
+                    {
+                        ItemModelId = itemId,
+                        ItemName = "Cang khieng thuong",
+                        Unit = "chiec",
+                        ActualQuantity = 3,
+                        ReturnedReusableUnits = expectedUnits
+                    }
+                ]
+            }
+        };
+        var metadataRepository = new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
+        {
+            [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+        });
+        var handler = new ConfirmReturnSuppliesCommandHandler(
+            activityRepository,
+            depotInventoryRepository,
+            metadataRepository,
+            new StubUnitOfWork(),
+            NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+
+        var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
+            activityId,
+            missionId,
+            userId,
+            [],
+            [
+                new ActualReturnedReusableItemDto
+                {
+                    ItemModelId = itemId,
+                    Quantity = 2,
+                    Units = expectedUnits
+                        .Select(unit => new ActualReturnedReusableUnitDto { ReusableItemId = unit.ReusableItemId })
+                        .ToList()
+                }
+            ],
+            null), CancellationToken.None);
+
+        var restoredItem = Assert.Single(response.RestoredItems);
+
+        Assert.False(response.DiscrepancyRecorded);
+        Assert.Equal(3, restoredItem.ExpectedQuantity);
+        Assert.Equal(3, depotInventoryRepository.ReceivedReusableItems.Count);
+        Assert.Equal(MissionActivityStatus.Succeed, activityRepository.UpdatedStatus);
+    }
+
+    private sealed class StubMissionActivityRepository(MissionActivityModel activity) : IMissionActivityRepository
+    {
+        public MissionActivityStatus? UpdatedStatus { get; private set; }
+
+        public Task<MissionActivityModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+            => Task.FromResult<MissionActivityModel?>(activity);
+
+        public Task<IEnumerable<MissionActivityModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IEnumerable<MissionActivityModel>>([activity]);
+
+        public Task<IEnumerable<MissionActivityModel>> GetBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task UpdateAsync(MissionActivityModel updatedActivity, CancellationToken cancellationToken = default)
+        {
+            activity.Items = updatedActivity.Items;
+            activity.Description = updatedActivity.Description;
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default)
+        {
+            UpdatedStatus = status;
+            activity.Status = status;
+            return Task.CompletedTask;
+        }
+
+        public Task AssignTeamAsync(int activityId, int missionTeamId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task ResetAssignmentsToPlannedAsync(IEnumerable<int> activityIds, Guid decisionBy, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+    }
+
+    private sealed class StubItemModelMetadataRepository(Dictionary<int, ItemModelRecord> records) : IItemModelMetadataRepository
+    {
+        public Task<List<MetadataDto>> GetAllForMetadataAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<MetadataDto>> GetByCategoryCodeAsync(ItemCategoryCode categoryCode, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<DonationImportItemInfo>> GetAllForDonationTemplateAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<DonationImportTargetGroupInfo>> GetAllTargetGroupsForTemplateAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Dictionary<int, ItemModelRecord>> GetByIdsAsync(IReadOnlyList<int> ids, CancellationToken cancellationToken = default)
+            => Task.FromResult(ids.Where(records.ContainsKey).ToDictionary(id => id, id => records[id]));
+
+        public Task<bool> CategoryExistsAsync(int categoryId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<bool> HasInventoryTransactionsAsync(int itemModelId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<bool> UpdateItemModelAsync(ItemModelRecord model, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+    }
+
+    private sealed class StubDepotInventoryRepository : IDepotInventoryRepository
+    {
+        public List<int> ManagerDepotIds { get; set; } = [];
+        public MissionSupplyReturnExecutionResult ReturnResult { get; set; } = new();
+        public List<(int ReusableItemId, string? Condition, string? Note)> ReceivedReusableItems { get; private set; } = [];
+
+        public Task<int?> GetActiveDepotIdByManagerAsync(Guid userId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<int>> GetActiveDepotIdsByManagerAsync(Guid userId, CancellationToken cancellationToken = default)
+            => Task.FromResult(ManagerDepotIds);
+
+        public Task<PagedResult<InventoryItemModel>> GetInventoryPagedAsync(int depotId, List<int>? categoryIds, List<ItemType>? itemTypes,
+            List<TargetGroup>? targetGroups, string? itemName, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<PagedResult<InventoryLotModel>> GetInventoryLotsAsync(int depotId, int itemModelId, int pageNumber, int pageSize,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<(List<AgentInventoryItem> Items, int TotalCount)> SearchForAgentAsync(string categoryKeyword, string? typeKeyword,
+            int page, int pageSize, IReadOnlyCollection<int>? allowedDepotIds = null, CancellationToken ct = default)
+            => throw new NotImplementedException();
+
+        public Task<(double Latitude, double Longitude)?> GetDepotLocationAsync(int depotId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<(List<WarehouseItemRow> Rows, int TotalItemCount)> SearchWarehousesByItemsAsync(List<int>? itemModelIds,
+            Dictionary<int, int> itemQuantities, bool activeDepotsOnly, int? excludeDepotId, int pageNumber, int pageSize,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(int depotId,
+            List<(int ItemModelId, string ItemName, int RequestedQuantity)> items, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<MissionSupplyReservationResult> ReserveSuppliesAsync(int depotId, List<(int ItemModelId, int Quantity)> items,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<MissionSupplyPickupExecutionResult> ConsumeReservedSuppliesAsync(int depotId, List<(int ItemModelId, int Quantity)> items,
+            Guid performedBy, int activityId, int missionId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(int depotId, int missionId, int activityId, Guid performedBy,
+            List<(int ItemModelId, int Quantity)> consumableItems,
+            List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
+            List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+            string? discrepancyNote,
+            CancellationToken cancellationToken = default)
+        {
+            ReceivedReusableItems = reusableItems;
+            return Task.FromResult(ReturnResult);
+        }
+
+        public Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(int? depotId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task ReleaseReservedSuppliesAsync(int depotId, List<(int ItemModelId, int Quantity)> items, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task ExportInventoryAsync(int depotId, int itemModelId, int quantity, Guid performedBy, string? note,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task AdjustInventoryAsync(int depotId, int itemModelId, int quantityChange, Guid performedBy, string reason, string? note,
+            DateTime? expiredDate, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<(int ProcessedRows, int? LastInventoryId)> BulkTransferForClosureAsync(int sourceDepotId, int targetDepotId,
+            int closureId, Guid performedBy, int? lastProcessedInventoryId = null, int batchSize = 100,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken ct = default)
+            => throw new NotImplementedException();
+
+        public Task ZeroOutForClosureAsync(int depotId, int closureId, Guid performedBy, string? note, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+    }
+
+    private sealed class StubUnitOfWork : IUnitOfWork
+    {
+        public IGenericRepository<T> GetRepository<T>() where T : class => throw new NotImplementedException();
+        public IQueryable<T> Set<T>() where T : class => throw new NotImplementedException();
+        public IQueryable<T> SetTracked<T>() where T : class => throw new NotImplementedException();
+        public int SaveChangesWithTransaction() => throw new NotImplementedException();
+        public Task<int> SaveChangesWithTransactionAsync() => throw new NotImplementedException();
+        public Task<int> SaveAsync() => Task.FromResult(1);
+        public void AttachAsUnchanged<TEntity>(TEntity entity) where TEntity : class { }
+        public Task ExecuteInTransactionAsync(Func<Task> action) => action();
+    }
+}
