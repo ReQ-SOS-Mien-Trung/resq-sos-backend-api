@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
@@ -41,15 +41,6 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
         return entity == null ? null : ToDomain(entity);
     }
 
-    public async Task<List<DepotClosureRecord>> GetTimedOutClosuresAsync(CancellationToken cancellationToken = default)
-    {
-        var now = DateTime.UtcNow;
-        var entities = await _unitOfWork.GetRepository<DepotClosure>()
-            .GetAllByPropertyAsync(
-                x => x.Status == "InProgress" && x.ClosingTimeoutAt < now);
-        return entities.Select(ToDomain).ToList();
-    }
-
     public async Task UpdateAsync(DepotClosureRecord record, CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<DepotClosure>();
@@ -84,11 +75,11 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
     }
 
     /// <summary>
-    /// Atomic claim: dùng conditional UPDATE để chuyển InProgress → Processing.
-    /// Trả về true nếu thành công, false nếu đã bị claim bởi tiến trình khác.
-    /// row_version được tăng lên cùng lúc để CancelDepotClosure không thể dùng
-    /// TryForceClaimFromProcessingAsync (vốn kiểm tra row_version) để steal lock
-    /// trong khoảng hở khi Resolve đang mid-flight.
+    /// Atomic claim: dÃ¹ng conditional UPDATE Ä‘á»ƒ chuyá»ƒn InProgress â†’ Processing.
+    /// Tráº£ vá» true náº¿u thÃ nh cÃ´ng, false náº¿u Ä‘Ã£ bá»‹ claim bá»Ÿi tiáº¿n trÃ¬nh khÃ¡c.
+    /// row_version Ä‘Æ°á»£c tÄƒng lÃªn cÃ¹ng lÃºc Ä‘á»ƒ CancelDepotClosure khÃ´ng thá»ƒ dÃ¹ng
+    /// TryForceClaimFromProcessingAsync (vá»‘n kiá»ƒm tra row_version) Ä‘á»ƒ steal lock
+    /// trong khoáº£ng há»Ÿ khi Resolve Ä‘ang mid-flight.
     /// </summary>
     public async Task<bool> TryClaimForProcessingAsync(int closureId, CancellationToken cancellationToken = default)
     {
@@ -104,8 +95,8 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
     }
 
     /// <summary>
-    /// Hoàn tác claim: chuyển Processing → InProgress để cho phép user retry
-    /// sau khi xảy ra lỗi validation (ConflictException / NotFoundException).
+    /// HoÃ n tÃ¡c claim: chuyá»ƒn Processing â†’ InProgress Ä‘á»ƒ cho phÃ©p user retry
+    /// sau khi xáº£y ra lá»—i validation (ConflictException / NotFoundException).
     /// </summary>
     public async Task ResetProcessingToInProgressAsync(int closureId, CancellationToken cancellationToken = default)
     {
@@ -119,8 +110,8 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
     }
 
     /// <summary>
-    /// Tái claim bản ghi bị kẹt tại Processing bằng optimistic concurrency (kiểm tra rowVersion).
-    /// An toàn khi nhiều request cùng cố recover đồng thời: chỉ đúng 1 request thành công.
+    /// TÃ¡i claim báº£n ghi bá»‹ káº¹t táº¡i Processing báº±ng optimistic concurrency (kiá»ƒm tra rowVersion).
+    /// An toÃ n khi nhiá»u request cÃ¹ng cá»‘ recover Ä‘á»“ng thá»i: chá»‰ Ä‘Ãºng 1 request thÃ nh cÃ´ng.
     /// </summary>
     public async Task<bool> TryForceClaimFromProcessingAsync(int closureId, int expectedRowVersion, CancellationToken cancellationToken = default)
     {
@@ -151,19 +142,28 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
 
     public async Task<List<DepotClosureListItem>> GetClosuresByDepotIdAsync(int depotId, CancellationToken cancellationToken = default)
     {
-        return await BuildClosureListQuery()
-            .Where(x => x.DepotId == depotId)
+        var items = await BuildClosureListQuery()
+            .Where(x => x.DepotId == depotId || x.TargetDepotId == depotId)
             .OrderByDescending(x => x.InitiatedAt)
             .ToListAsync(cancellationToken);
+
+        foreach (var item in items)
+        {
+            item.RelatedDepotRole = item.TargetDepotId == depotId ? "TargetDepot" : "SourceDepot";
+        }
+
+        return items;
     }
 
     public async Task<DepotClosureListItem?> GetClosureDetailAsync(int depotId, int closureId, CancellationToken cancellationToken = default)
     {
         return await BuildClosureListQuery()
-            .FirstOrDefaultAsync(x => x.DepotId == depotId && x.Id == closureId, cancellationToken);
+            .FirstOrDefaultAsync(
+                x => x.Id == closureId && (x.DepotId == depotId || x.TargetDepotId == depotId),
+                cancellationToken);
     }
 
-    // ── Mappers ──────────────────────────────────────────────────────────────
+    // â”€â”€ Mappers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static DepotClosure ToEntity(DepotClosureRecord record)
     {
@@ -172,7 +172,6 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
             DepotId = record.DepotId,
             InitiatedBy = record.InitiatedBy,
             InitiatedAt = record.InitiatedAt,
-            ClosingTimeoutAt = record.ClosingTimeoutAt,
             PreviousStatus = record.PreviousStatus.ToString(),
             CloseReason = record.CloseReason,
             Status = record.Status.ToString(),
@@ -195,7 +194,6 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
             depotId: entity.DepotId,
             initiatedBy: entity.InitiatedBy,
             initiatedAt: entity.InitiatedAt,
-            closingTimeoutAt: entity.ClosingTimeoutAt,
             previousStatus: prevStatus,
             closeReason: entity.CloseReason,
             status: status,
@@ -269,7 +267,6 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
                 SnapshotConsumableUnits = closure.SnapshotConsumableUnits,
                 SnapshotReusableUnits = closure.SnapshotReusableUnits,
                 InitiatedAt = closure.InitiatedAt,
-                ClosingTimeoutAt = closure.ClosingTimeoutAt,
                 CompletedAt = closure.CompletedAt,
                 CancelledAt = closure.CancelledAt,
                 TransferId = transfer != null ? transfer.Id : (int?)null,

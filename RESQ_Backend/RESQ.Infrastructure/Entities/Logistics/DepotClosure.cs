@@ -19,9 +19,6 @@ public class DepotClosure
     [Column("initiated_at", TypeName = "timestamp with time zone")]
     public DateTime InitiatedAt { get; set; }
 
-    [Column("closing_timeout_at", TypeName = "timestamp with time zone")]
-    public DateTime ClosingTimeoutAt { get; set; }
-
     [Column("previous_status")]
     [StringLength(50)]
     public string PreviousStatus { get; set; } = string.Empty;

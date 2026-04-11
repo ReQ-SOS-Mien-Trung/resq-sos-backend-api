@@ -277,11 +277,6 @@ public partial class ResQDbContext : DbContext
                   .HasFilter("status IN ('InProgress', 'Processing')")
                   .IsUnique();
 
-            // Index cho timeout daemon
-            entity.HasIndex(e => e.ClosingTimeoutAt)
-                  .HasDatabaseName("ix_depot_closures_timeout_sweep")
-                  .HasFilter("status = 'InProgress'");
-
             entity.HasOne(e => e.Depot)
                 .WithMany()
                 .HasForeignKey(e => e.DepotId)

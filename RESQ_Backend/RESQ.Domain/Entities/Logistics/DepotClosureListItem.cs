@@ -10,6 +10,7 @@ public class DepotClosureListItem
 {
     public int Id { get; set; }
     public int DepotId { get; set; }
+    public string RelatedDepotRole { get; set; } = "SourceDepot";
 
     public DepotClosureStatus Status { get; set; }
     public DepotStatus PreviousStatus { get; set; }
@@ -39,7 +40,6 @@ public class DepotClosureListItem
 
     // Timestamps
     public DateTime InitiatedAt { get; set; }
-    public DateTime ClosingTimeoutAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 
