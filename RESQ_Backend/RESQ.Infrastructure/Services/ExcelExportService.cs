@@ -382,6 +382,18 @@ public class ExcelExportService : IExcelExportService
         return $"{normalizedDisplay} - {normalizedCode}";
     }
 
+    private static void ConfigureManualEntryGuidance(
+        IXLCell cell,
+        string title,
+        string inputMessage)
+    {
+        var validation = cell.GetDataValidation();
+        validation.ShowInputMessage = true;
+        validation.InputTitle = title;
+        validation.InputMessage = inputMessage;
+        validation.ShowErrorMessage = false;
+    }
+
     // ─── Main entry sheet: headers, STT, dropdowns, VLOOKUP formulas ──────────
     private static void BuildMainSheet(
         IXLWorksheet ws,
@@ -472,9 +484,17 @@ public class ExcelExportService : IExcelExportService
 
             // Col F: Đơn vị — VLOOKUP auto-fill (editable)
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
+            ConfigureManualEntryGuidance(
+                ws.Cell(r, 6),
+                "Đơn vị",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền đơn vị.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
             // Col G: Mô tả vật phẩm — VLOOKUP auto-fill (editable)
             ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
+            ConfigureManualEntryGuidance(
+                ws.Cell(r, 7),
+                "Mô tả vật phẩm",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền mô tả.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
             // Col H: Số lượng — number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
@@ -485,7 +505,8 @@ public class ExcelExportService : IExcelExportService
             var dvVolume = ws.Cell(r, 9).GetDataValidation();
             dvVolume.ShowInputMessage = true;
             dvVolume.InputTitle = "Thể tích";
-            dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nTự động điền nếu chọn vật phẩm có sẵn.\nNhập thủ công nếu tạo vật phẩm mới.";
+            dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
+            dvVolume.ShowErrorMessage = false;
 
             // Col J: Cân nặng (kg) — VLOOKUP auto-fill from DM_Lookup col 7 (existing item), editable for new items
             ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
@@ -493,7 +514,8 @@ public class ExcelExportService : IExcelExportService
             var dvWeight = ws.Cell(r, 10).GetDataValidation();
             dvWeight.ShowInputMessage = true;
             dvWeight.InputTitle = "Cân nặng";
-            dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nTự động điền nếu chọn vật phẩm có sẵn.\nNhập thủ công nếu tạo vật phẩm mới.";
+            dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
+            dvWeight.ShowErrorMessage = false;
 
             // Col K: Ngày hết hạn — DateOnly (dd/MM/yyyy)
             ws.Cell(r, 11).Style.NumberFormat.Format = "dd/MM/yyyy";
@@ -687,9 +709,17 @@ public class ExcelExportService : IExcelExportService
 
             // Col F: Đơn vị — VLOOKUP auto-fill
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
+            ConfigureManualEntryGuidance(
+                ws.Cell(r, 6),
+                "Đơn vị",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền đơn vị.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
             // Col G: Mô tả vật phẩm — VLOOKUP auto-fill
             ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
+            ConfigureManualEntryGuidance(
+                ws.Cell(r, 7),
+                "Mô tả vật phẩm",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền mô tả.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
             // Col H: Số lượng (*) — number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
@@ -700,7 +730,8 @@ public class ExcelExportService : IExcelExportService
             var dvVolume = ws.Cell(r, 9).GetDataValidation();
             dvVolume.ShowInputMessage = true;
             dvVolume.InputTitle = "Thể tích";
-            dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nTự động điền nếu chọn vật phẩm có sẵn.\nNhập thủ công nếu tạo vật phẩm mới.";
+            dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
+            dvVolume.ShowErrorMessage = false;
 
             // Col J: Cân nặng (kg) — VLOOKUP auto-fill from DM_Lookup col 7, editable for new items
             ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
@@ -708,7 +739,8 @@ public class ExcelExportService : IExcelExportService
             var dvWeight = ws.Cell(r, 10).GetDataValidation();
             dvWeight.ShowInputMessage = true;
             dvWeight.InputTitle = "Cân nặng";
-            dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nTự động điền nếu chọn vật phẩm có sẵn.\nNhập thủ công nếu tạo vật phẩm mới.";
+            dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
+            dvWeight.ShowErrorMessage = false;
 
             // Col K: Đơn giá (VNĐ) — currency format (purchase-specific)
             ws.Cell(r, 11).Style.NumberFormat.Format = "#,##0";
@@ -907,9 +939,17 @@ public class ExcelExportService : IExcelExportService
 
             // Col F: Đơn vị — VLOOKUP auto-fill
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
+            ConfigureManualEntryGuidance(
+                ws.Cell(r, 6),
+                "Đơn vị",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền đơn vị.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
             // Col G: Mô tả vật phẩm — VLOOKUP auto-fill
             ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
+            ConfigureManualEntryGuidance(
+                ws.Cell(r, 7),
+                "Mô tả vật phẩm",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền mô tả.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
             // Col H: Số lượng (*) — number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
@@ -928,21 +968,21 @@ public class ExcelExportService : IExcelExportService
                 rowRange.Style.Fill.SetBackgroundColor(OrangeLight);
             }
 
-            dvUnitPrice.InputMessage = "Nhap gia du kien cho moi don vi (VND).";
-
-            ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$F,6,FALSE),0)";
+            ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$F,6,FALSE),\"\")";
             ws.Cell(r, 10).Style.NumberFormat.Format = "#,##0.###";
             var dvVolumePerUnit = ws.Cell(r, 10).GetDataValidation();
             dvVolumePerUnit.ShowInputMessage = true;
-            dvVolumePerUnit.InputTitle = "The tich / don vi";
-            dvVolumePerUnit.InputMessage = "The tich moi don vi (dm3). Co the sua tay neu vat pham moi.";
+            dvVolumePerUnit.InputTitle = "Thể tích / đơn vị";
+            dvVolumePerUnit.InputMessage = "Thể tích mỗi đơn vị (dm³).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
+            dvVolumePerUnit.ShowErrorMessage = false;
 
-            ws.Cell(r, 11).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),0)";
+            ws.Cell(r, 11).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
             ws.Cell(r, 11).Style.NumberFormat.Format = "#,##0.###";
             var dvWeightPerUnit = ws.Cell(r, 11).GetDataValidation();
             dvWeightPerUnit.ShowInputMessage = true;
-            dvWeightPerUnit.InputTitle = "Can nang / don vi";
-            dvWeightPerUnit.InputMessage = "Can nang moi don vi (kg). Co the sua tay neu vat pham moi.";
+            dvWeightPerUnit.InputTitle = "Cân nặng / đơn vị";
+            dvWeightPerUnit.InputMessage = "Cân nặng mỗi đơn vị (kg).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
+            dvWeightPerUnit.ShowErrorMessage = false;
 
             // Thin borders for all data cells
             var dataRow = ws.Range(r, 1, r, FundingRequestCols);
