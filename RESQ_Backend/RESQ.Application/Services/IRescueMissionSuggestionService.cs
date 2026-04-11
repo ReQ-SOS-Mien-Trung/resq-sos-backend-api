@@ -9,6 +9,7 @@ public interface IRescueMissionSuggestionService
         List<DepotSummary>? nearbyDepots = null,
         List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
+        int? clusterId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -20,6 +21,7 @@ public interface IRescueMissionSuggestionService
         List<DepotSummary>? nearbyDepots = null,
         List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
+        int? clusterId = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -84,6 +86,7 @@ public class SosRequestSummary
 
 public class RescueMissionSuggestionResult
 {
+    public int? SuggestionId { get; set; }
     public bool IsSuccess { get; set; }
     public string? ErrorMessage { get; set; }
     public string? ModelName { get; set; }
@@ -99,6 +102,10 @@ public class RescueMissionSuggestionResult
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    /// <summary>true khi coordinator cần bổ sung thêm kho/nguồn cấp phát vì kho được chọn chưa đủ đồ.</summary>
+    public bool NeedsAdditionalDepot { get; set; }
+    /// <summary>Danh sách vật tư còn thiếu sau khi đối chiếu với kho phù hợp nhất mà AI đã chọn cho mission.</summary>
+    public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public double ConfidenceScore { get; set; }
     public string? RawAiResponse { get; set; }
 
@@ -111,6 +118,23 @@ public class RescueMissionSuggestionResult
 
     /// <summary>Đội cứu hộ được AI đề xuất cho sứ mệnh này (populated khi agent tìm được đội phù hợp).</summary>
     public SuggestedTeamDto? SuggestedTeam { get; set; }
+}
+
+public class SupplyShortageDto
+{
+    /// <summary>ID SOS chịu ảnh hưởng trực tiếp bởi thiếu hụt này.</summary>
+    public int? SosRequestId { get; set; }
+    /// <summary>ID vật tư nếu backend/AI xác định được từ inventory.</summary>
+    public int? ItemId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    /// <summary>ID kho mà AI đã chọn làm kho chính cho mission, nếu có.</summary>
+    public int? SelectedDepotId { get; set; }
+    public string? SelectedDepotName { get; set; }
+    public int NeededQuantity { get; set; }
+    public int AvailableQuantity { get; set; }
+    public int MissingQuantity { get; set; }
+    public string? Notes { get; set; }
 }
 
 public class SupplyToCollectDto

@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient();
         services.Configure<AiProvidersOptions>(configuration.GetSection("AiProviders"));
         services.Configure<PromptSecretsOptions>(configuration.GetSection("PromptSecrets"));
+        services.Configure<MissionSuggestionPipelineOptions>(configuration.GetSection("MissionSuggestionPipeline"));
         services.AddHttpClient("Goong", client =>
         {
             client.DefaultRequestHeaders.Add("Accept", "application/json");

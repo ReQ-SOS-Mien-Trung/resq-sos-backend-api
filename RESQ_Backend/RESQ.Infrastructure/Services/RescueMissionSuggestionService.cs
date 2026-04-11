@@ -5,6 +5,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
@@ -12,32 +14,35 @@ using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Domain.Enum.System;
+using RESQ.Infrastructure.Options;
 
 namespace RESQ.Infrastructure.Services;
 
-public class RescueMissionSuggestionService : IRescueMissionSuggestionService
+public partial class RescueMissionSuggestionService : IRescueMissionSuggestionService
 {
     private readonly IAiProviderClientFactory _aiProviderClientFactory;
     private readonly IAiPromptExecutionSettingsResolver _settingsResolver;
     private readonly IPromptRepository _promptRepository;
+    private readonly IMissionAiSuggestionRepository _missionAiSuggestionRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository;
     private readonly IAssemblyPointRepository _assemblyPointRepository;
+    private readonly MissionSuggestionPipelineOptions _pipelineOptions;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
 
-    // Fallback defaults
     private const string FallbackModel = "gemini-2.5-flash";
     private const string FallbackApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
     private const double FallbackTemperature = 0.5;
     private const int FallbackMaxTokens = 65535;
+    private const double LowConfidenceThreshold = 0.65;
 
-    // Agent loop constants
     private const int MaxAgentTurns = 20;
     private const int AgentPageSize = 10;
     private const string CollectSuppliesActivityType = "COLLECT_SUPPLIES";
     private const string ReturnSuppliesActivityType = "RETURN_SUPPLIES";
     private const string ReusableItemType = "Reusable";
     private const string SingleTeamExecutionMode = "SingleTeam";
+
     private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
     private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex CoordinateRegex = new(@"(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", RegexOptions.Compiled);
@@ -53,17 +58,21 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         IAiProviderClientFactory aiProviderClientFactory,
         IAiPromptExecutionSettingsResolver settingsResolver,
         IPromptRepository promptRepository,
+        IMissionAiSuggestionRepository missionAiSuggestionRepository,
         IDepotInventoryRepository depotInventoryRepository,
         IItemModelMetadataRepository itemModelMetadataRepository,
         IAssemblyPointRepository assemblyPointRepository,
+        IOptions<MissionSuggestionPipelineOptions> pipelineOptions,
         ILogger<RescueMissionSuggestionService> logger)
     {
         _aiProviderClientFactory = aiProviderClientFactory;
         _settingsResolver = settingsResolver;
         _promptRepository = promptRepository;
+        _missionAiSuggestionRepository = missionAiSuggestionRepository;
         _depotInventoryRepository = depotInventoryRepository;
         _itemModelMetadataRepository = itemModelMetadataRepository;
         _assemblyPointRepository = assemblyPointRepository;
+        _pipelineOptions = pipelineOptions.Value;
         _logger = logger;
     }
 
@@ -72,6 +81,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         List<DepotSummary>? nearbyDepots = null,
         List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
+        int? clusterId = null,
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -80,7 +90,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         try
         {
             await foreach (var evt in GenerateSuggestionStreamAsync(
-                sosRequests, nearbyDepots, nearbyTeams, isMultiDepotRecommended, cancellationToken))
+                sosRequests, nearbyDepots, nearbyTeams, isMultiDepotRecommended, clusterId, cancellationToken))
             {
                 if (evt.EventType == "result" && evt.Result != null)
                     finalResult = evt.Result;
@@ -155,235 +165,71 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
 
     private static string BuildAgentInstructions(bool isMultiDepotRecommended = false)
     {
-        var multiDepotSection = isMultiDepotRecommended
-            ? """
+        _ = isMultiDepotRecommended;
 
-              ## CHẾ ĐỘ ĐA KHO (MULTI-DEPOT) — BẮT BUỘC ÁP DỤNG
-              Hệ thống đã xác định rằng KHÔNG CÓ KHO ĐƠN LẺ NÀO có thể cung cấp đủ tất cả vật tư cần thiết. Bạn BẮT BUỘC phải sử dụng nhiều kho.
-
-              **Bước 1 — Thu thập dữ liệu đa kho**:
-              - Gọi searchInventory cho TỪNG danh mục riêng lẻ, và nếu `total_pages > 1`, gọi tiếp các trang sau để lấy đủ dữ liệu từ tất cả các kho.
-              - Sau khi thu thập xong, lập bảng phân tích: với từng loại vật tư cần thiết, liệt kê **từng kho** có vật tư đó và `available_quantity` của kho đó.
-
-              **Bước 2 — Xác định kho cho từng loại vật tư**:
-              - Với mỗi loại vật tư, chọn kho có đủ số lượng và gần sự cố nhất.
-              - Nếu không có kho nào đủ số lượng cho một loại vật tư, phân bổ từ nhiều kho: lấy hết tại kho A rồi lấy phần còn thiếu tại kho B.
-              - Ví dụ: Cần 360 gói mì tôm. Kho A có 200, Kho B có 200 → lấy 200 từ Kho A (step 1), lấy 160 từ Kho B (step 2).
-              - Ví dụ: Cần 120 chai nước (Kho A có đủ 120), cần 4 gói sữa (chỉ Kho B có) → 2 bước COLLECT từ 2 kho khác nhau.
-
-              **Bước 3 — Tạo bước COLLECT_SUPPLIES tách biệt theo kho**:
-              - Mỗi kho = một bước COLLECT_SUPPLIES riêng với đúng `depot_id`, `depot_name`, `depot_address` của kho đó.
-              - `supplies_to_collect` trong bước đó chỉ chứa vật tư thực tế lấy từ KHO ĐÓ với số lượng thực tế lấy.
-              - Ghi rõ trong `description`: "Di chuyển đến kho [Tên kho]. Lấy: [Vật tư A] x[qty], [Vật tư B] x[qty]".
-              - **TUYỆT ĐỐI KHÔNG** gộp vật tư từ nhiều kho vào cùng một bước COLLECT_SUPPLIES.
-
-              **Lập lịch trình theo tối ưu địa lý (quan trọng)**:
-              - Sắp xếp thứ tự các bước dựa trên tọa độ thực tế để **tổng quãng đường di chuyển là ngắn nhất**.
-              - Nếu trên đường từ Kho A đến Kho B có điểm SOS mà Kho A đã có đủ vật tư để phục vụ → **được phép** dừng xử lý SOS đó trước rồi mới đến Kho B.
-                Ví dụ hợp lệ: COLLECT(Kho A) → DELIVER/RESCUE SOS #1 (tiện đường) → COLLECT(Kho B) → DELIVER/RESCUE SOS #2
-              - Nếu tất cả các kho nằm cùng một phía và các điểm SOS nằm phía khác → ưu tiên gom hàng từ tất cả kho trước, rồi mới đến các điểm SOS.
-                Ví dụ hợp lệ: COLLECT(Kho A) → COLLECT(Kho B) → DELIVER SOS #1 → RESCUE SOS #2
-              - **CẤM**: Quay ngược lại kho khi không có lý do địa lý — tức là đã đến điểm SOS xong lại quay ngược hướng về kho lấy thêm đồ cho CHÍNH SOS ĐÓ hoặc cho SOS đã xử lý xong.
-              - Ghi rõ lý do địa lý trong `description` của từng bước (ví dụ: "tiện đường từ Kho A sang Kho B", "Kho A đã có đủ vật tư cho SOS #1").
-
-              **Lưu ý khi xuất JSON**:
-              - Ưu tiên dùng nhiều kho khác nhau nếu dữ liệu searchInventory trả về vật tư từ nhiều kho. Nếu chỉ tìm thấy 1 kho có vật tư, thì 1 kho là chấp nhận được — ghi chú trong `special_notes`: "Chỉ tìm thấy vật tư tại 1 kho trong khu vực".
-
-              """
-            : string.Empty;
-
-        return $$"""
+        return """
             ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
-            Bạn có thể gọi ba công cụ để tìm kiếm dữ liệu thực từ hệ thống trước khi lập kế hoạch:
+            Bạn có thể gọi ba công cụ để lấy dữ liệu thực trước khi lập kế hoạch:
 
-            - **searchInventory(category, type?, page)**: Tìm kiếm vật tư trong kho theo danh mục (ví dụ: "Nước", "Thực phẩm", "Y tế", "Cứu hộ"). Trả về danh sách vật tư khả dụng kèm theo item_id, tên, item_type, **available_quantity** (số lượng tiêu hao khả dụng hoặc số đơn vị reusable đang Available), depot_id, tên kho, địa chỉ kho, depot_latitude, depot_longitude. Với vật tư reusable còn có thêm `good_available_count`, `fair_available_count`, `poor_available_count`. Mỗi hàng trong kết quả là một (vật tư, kho) riêng biệt — cùng một vật tư có thể xuất hiện ở nhiều hàng nếu có ở nhiều kho khác nhau.
-            - **getTeams(ability?, available?, page)**: Tìm kiếm đội cứu hộ trong pool nearby teams của cluster hiện tại. Có thể lọc theo khả năng (team_type). Trả về team_id, tên, loại, trạng thái, số thành viên, vị trí điểm tập kết (assembly_point_name, latitude, longitude) và distance_km.
-            - **getAssemblyPoints(page)**: Lấy danh sách điểm tập kết đang hoạt động. Trả về assembly_point_id, tên, sức chứa tối đa và vị trí (latitude, longitude).
+            - **searchInventory(category, type?, page)**: Tìm vật tư khả dụng trong **các kho hợp lệ của cluster hiện tại**. Kết quả chỉ chứa các kho backend đã cho phép trong phạm vi lập kế hoạch này. Mỗi dòng là một cặp (vật tư, kho) với item_id, item_name, item_type, available_quantity, depot_id, depot_name, depot_address, depot_latitude, depot_longitude.
+            - **getTeams(ability?, available?, page)**: Trả về nearby teams đang Available trong bán kính cluster hiện tại.
+            - **getAssemblyPoints(page)**: Trả về các assembly point đang hoạt động.
 
-            **BẮT BUỘC trước khi lập kế hoạch**:
-            - Gọi **searchInventory** cho TỪNG danh mục: Thực phẩm, Nước, Y tế, Cứu hộ (và các danh mục khác phù hợp). Không bỏ qua danh mục nào có thể liên quan.
-            - Gọi **getTeams** để lấy team_id cho `suggested_team`.
-            - Nếu có activity loại **RESCUE** hoặc **EVACUATE**, bắt buộc gọi **getAssemblyPoints** và chọn `assembly_point_id` gần nạn nhân nhất cho từng activity đó.
-            - Dùng đúng item_id, depot_id, team_id từ kết quả — KHÔNG tự tạo ID.
-            {{multiDepotSection}}
-            ## QUY TẮC KIỂM TRA VÀ BÁO CÁO THIẾU HỤT VẬT TƯ (BẮT BUỘC)
-            Sau khi nhận kết quả searchInventory, kết quả có thể chứa cùng một loại vật tư từ **nhiều kho khác nhau**.
-            Mỗi dòng kết quả là một cặp (vật tư, kho) — PHẢI đọc và tổng hợp từ tất cả các dòng trước khi quyết định.
+            ## QUY TẮC KHO — CHỈ CHỌN MỘT KHO CHO TOÀN BỘ MISSION
+            - BẮT BUỘC gọi **searchInventory** cho từng danh mục phù hợp: Thực phẩm, Nước, Y tế, Cứu hộ, Quần áo, nơi trú ẩn... Không bỏ sót danh mục liên quan.
+            - Sau khi có kết quả, so sánh các `depot_id` xuất hiện và chọn **đúng một kho phù hợp nhất cho toàn bộ mission**.
+            - Tiêu chí chọn kho: ưu tiên kho đáp ứng được nhiều nhu cầu SOS nhất và có tổng số lượng phù hợp cao nhất. Nếu tương đương, chọn kho có vị trí thuận lợi hơn trong kết quả đã trả về.
+            - Toàn bộ activity có dùng kho trong mission này phải dùng cùng một `depot_id`, `depot_name`, `depot_address` của kho đã chọn.
+            - **TUYỆT ĐỐI KHÔNG** tạo kế hoạch lấy vật tư từ kho thứ hai, không chia vật tư giữa nhiều kho, không gộp nhiều kho.
+            - Nếu kho đã chọn không đủ đồ, vẫn chỉ lấy những gì kho đó hiện có rồi báo thiếu. Không được chuyển sang kho khác.
 
-            **Bước 1 — Gom hàng từ nhiều kho nếu một kho không đủ**:
-            - Với mỗi loại vật tư cần, so sánh `needed_quantity` với `available_quantity` của từng kho xuất hiện trong kết quả.
-            - Nếu Kho A không đủ: lấy hết Kho A, rồi bổ sung từ Kho B, Kho C... cho đến đủ hoặc hết nguồn cung.
-            - Mỗi kho đóng góp vào bước COLLECT_SUPPLIES riêng của kho đó (không gộp chung).
-            - Ví dụ: Cần 500 chai nước. Kho A có 300, Kho B có 250.
-              → COLLECT(Kho A): 300 chai nước + COLLECT(Kho B): 200 chai nước → tổng = 500 ✓
-            - Ghi rõ trong description từng COLLECT: "Lấy [vật tư] x[qty] để bù đắp số lượng thiếu từ [Kho A]".
+            ## BÁO CÁO THIẾU HỤT VẬT TƯ
+            - Nếu sau khi đối chiếu với kho đã chọn mà còn thiếu bất kỳ vật tư nào, đặt `needs_additional_depot = true`.
+            - Khi có thiếu hụt, điền `supply_shortages` với từng dòng thiếu theo format:
+              - `sos_request_id`: SOS bị ảnh hưởng
+              - `item_id`: nếu xác định được từ inventory; nếu không thì để null
+              - `item_name`, `unit`
+              - `selected_depot_id`, `selected_depot_name`: chính là kho duy nhất đã chọn
+              - `needed_quantity`, `available_quantity`, `missing_quantity`
+              - `notes`: mô tả ngắn gọn lý do thiếu nếu cần
+            - Nếu kho đã chọn không có món đó, dùng `available_quantity = 0` và `missing_quantity = needed_quantity`.
+            - Nếu kho chỉ có một phần, dùng `available_quantity < needed_quantity` và `missing_quantity = needed_quantity - available_quantity`.
+            - `special_notes` phải ghi rõ rằng coordinator cần bổ sung thêm kho/nguồn cấp phát vì đang thiếu vật tư nào và số lượng thiếu bao nhiêu.
+            - Nếu không có thiếu hụt, đặt `needs_additional_depot = false` và `supply_shortages = []`.
 
-            **Bước 2 — Xác định tình trạng sau khi đã gom từ tất cả kho**:
+            ## QUY TẮC ESTIMATE TIME
+            - Mỗi activity phải có `estimated_time` theo đúng một trong hai format: `"X phút"` hoặc `"Y giờ Z phút"`.
+            - `estimated_time` phải bao gồm thời gian di chuyển thực địa + thời gian lấy hàng/giao hàng + thời gian xử lý tại hiện trường tương ứng với activity đó.
+            - `estimated_duration` là tổng thời gian tuần tự của toàn bộ activities theo đúng thứ tự step trong mission, cũng dùng format `"X phút"` hoặc `"Y giờ Z phút"`.
+            - Không để `estimated_time` hoặc `estimated_duration` mơ hồ kiểu `"nhanh"`, `"sớm"`, `"khoảng vài giờ"`.
 
-            **Trường hợp 1 — Đủ hàng** (`tổng available_quantity từ tất cả kho >= needed_quantity`):
-            - Tạo các bước COLLECT_SUPPLIES riêng biệt cho từng kho đóng góp.
-            - Tổng `supplies_to_collect.quantity` trên tất cả các bước COLLECT = đúng `needed_quantity`.
+            ## QUY TẮC THỨ TỰ ACTIVITY
+            - `COLLECT_SUPPLIES` phải đứng trước activity hiện trường sử dụng số vật tư đó.
+            - Không được tạo thêm `COLLECT_SUPPLIES` cho cùng SOS sau khi đã bắt đầu `DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, hoặc `EVACUATE` của SOS đó.
+            - Nếu có vật tư reusable được lấy ở `COLLECT_SUPPLIES`, phải có `RETURN_SUPPLIES` ở cuối kế hoạch để trả đúng về cùng kho đã chọn.
+            - Không tạo `COLLECT_SUPPLIES` ở cuối kế hoạch nếu phía sau không có activity nào dùng số hàng đó.
 
-            **Trường hợp 2 — Thiếu một phần** (`0 < tổng available_quantity từ TẤT CẢ kho < needed_quantity`):
-            - Lấy hết tất cả những gì có thể từ tất cả kho (mỗi kho một bước COLLECT riêng).
-            - BẮT BUỘC ghi vào `special_notes`:
-              `"[SOS ID X]: Thiếu [TÊN VẬT TƯ] x[SỐ LƯỢNG THIẾU] [đơn vị] (tổng tất cả kho chỉ có [tổng_available]/[needed_quantity] [đơn vị])"`
+            ## QUY TẮC TỪNG LOẠI ACTIVITY
+            - `COLLECT_SUPPLIES`: chỉ tạo cho vật tư thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó.
+            - `DELIVER_SUPPLIES`: giao đúng các vật tư vừa lấy từ kho đã chọn cho SOS tương ứng.
+            - `RESCUE`: luôn tạo nếu hiện trường cần cứu người, kể cả khi thiết bị cứu hộ bị thiếu; thiếu gì thì ghi vào `supply_shortages` và `special_notes`.
+            - `MEDICAL_AID`: nếu thiếu vật tư y tế thì vẫn có thể tạo activity, nhưng phải ghi rõ thiếu hụt.
+            - `EVACUATE`: không lấy vật tư ở bước này; phải chọn `assembly_point_id` gần nạn nhân nhất.
 
-            **Trường hợp 3 — Không có trong kho** (không tìm thấy vật tư trong bất kỳ kho nào):
-            - KHÔNG tạo bước COLLECT_SUPPLIES cho vật tư này.
-            - BẮT BUỘC ghi vào `special_notes`: `"[SOS ID X]: Không có [TÊN VẬT TƯ] trong hệ thống kho"`
-            - **PHÂN BIỆT RÕ**: "Không có trong kho" khác với "thiếu một phần" — KHÔNG viết "kho chỉ có 0/X" cho trường hợp này.
-
-            ## QUY TẮC THỨ TỰ ACTIVITIES — TỐI ƯU ĐỊA LÝ
-            Thứ tự các bước phải được tối ưu dựa trên **tọa độ thực tế** để quãng đường di chuyển tổng cộng là ngắn nhất.
-
-            **Nguyên tắc lập lịch**:
-            - Sắp xếp các bước theo trình tự di chuyển hợp lý trên bản đồ — không được tạo ra hành trình "đi rồi quay ngược lại" vô lý.
-            - Được phép xen kẽ COLLECT và hoạt động SOS nếu địa lý cho phép:
-              - ĐÚNG: COLLECT(Kho A) → DELIVER SOS #1 (tiện đường) → COLLECT(Kho B) → RESCUE SOS #2
-              - ĐÚNG: COLLECT(Kho A) → COLLECT(Kho B) → DELIVER SOS #1 → RESCUE SOS #2
-              - SAI:  COLLECT(Kho A) → DELIVER SOS #1 → quay ngược về Kho A để lấy thêm đồ cho SOS #1 đã phục vụ xong
-              - SAI:  COLLECT(Kho A) → RESCUE SOS #2 (xa kho B) → COLLECT(Kho B ở hướng ngược lại) → quay về SOS #2 giao thêm hàng
-
-            **Quy tắc bắt buộc**:
-            - COLLECT_SUPPLIES phải đứng TRƯỚC hoạt động (DELIVER/RESCUE/MEDICAL_AID) sử dụng vật tư từ kho đó.
-            - KHÔNG được tạo COLLECT_SUPPLIES sau khi đã DELIVER/RESCUE cho SOS đó xong (không được quay lại kho để bổ sung cho SOS đã hoàn tất).
-            - Nếu cần nhiều kho, sắp xếp thứ tự kho theo địa lý (đi lần lượt, không vòng vèo).
-            - Ghi rõ lý do địa lý trong `description` khi có bước xen kẽ giữa COLLECT và SOS.
-            - Nếu bất kỳ bước `COLLECT_SUPPLIES` nào lấy vật tư có `item_type = Reusable`, bạn **phải** tạo bước `RETURN_SUPPLIES` ở cuối kế hoạch để đưa đúng số vật tư reusable đó về lại đúng kho nguồn.
-            - Mỗi cặp (`depot_id`, `suggested_team.team_id`) phải có `RETURN_SUPPLIES` riêng. Không gộp nhiều kho hoặc nhiều đội vào cùng một bước trả.
-
-            ## QUY TẮC MỖI SOS CHỈ XỬ LÝ TẠI HIỆN TRƯỜNG MỘT ĐỢT
-            - Khi một SOS cần vật tư từ nhiều kho, bạn phải lập kế hoạch **lấy đủ toàn bộ vật tư cần thiết từ tất cả các kho trước**, rồi mới tới hiện trường SOS đó.
-            - Sau khi đã bắt đầu hoạt động tại hiện trường của một SOS (`DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, `EVACUATE`), **không được** chèn thêm bất kỳ bước `COLLECT_SUPPLIES` nào cho chính SOS đó ở phía sau.
-            - Với mỗi SOS, các bước tại hiện trường phải được gom thành một cụm liên tiếp, ví dụ hợp lệ: `COLLECT(Kho A)` → `COLLECT(Kho B)` → `DELIVER SOS #2` → `RESCUE SOS #2` → `MEDICAL_AID SOS #2`.
-            - Ví dụ sai: `COLLECT(Kho A)` → `DELIVER SOS #2` → `RESCUE SOS #2` → `COLLECT(Kho B)` → `DELIVER SOS #2`.
-            - Nếu không thể lấy đủ vật tư, vẫn phải lấy hết tất cả vật tư hiện có trước khi đến hiện trường lần đầu, sau đó ghi thiếu hụt vào `special_notes` thay vì lập kế hoạch quay lại kho.
-            - **KHÔNG được để bước `COLLECT_SUPPLIES` ở cuối kế hoạch nếu phía sau không còn bước nào sử dụng số vật tư đó.** Mọi bước COLLECT phải đứng trước cụm activity hiện trường tương ứng.
-            - **KHÔNG được gộp nhiều SOS vào cùng một bước `EVACUATE`.** Mỗi SOS cần sơ tán phải có bước `EVACUATE` riêng ngay sau khi xử lý xong SOS đó, rồi mới được di chuyển sang SOS tiếp theo.
-            - Ví dụ đúng: `COLLECT` → `DELIVER SOS #2` → `RESCUE SOS #2` → `MEDICAL_AID SOS #2` → `EVACUATE SOS #2` → `DELIVER SOS #1` → `RESCUE SOS #1` → `EVACUATE SOS #1`.
-            - Ví dụ sai: `DELIVER SOS #2` → `RESCUE SOS #2` → `DELIVER SOS #1` → `RESCUE SOS #1` → `EVACUATE SOS #2 và SOS #1`.
-
-            ## QUY TẮC CHO TỪNG LOẠI ACTIVITY
-
-            ### COLLECT_SUPPLIES
-            - Chỉ tạo khi có vật tư thực tế trong kho (available_quantity > 0).
-            - `depot_id`, `depot_name`, `depot_address` phải khớp với kho thực tế trả về từ searchInventory.
-            - `depot_latitude`, `depot_longitude` phải điền theo `depot_latitude`, `depot_longitude` trả về từ searchInventory (để frontend hiển thị bản đồ).
-            - `supplies_to_collect` chỉ chứa vật tư lấy từ kho đó với số lượng thực tế lấy.
-
-            ### DELIVER_SUPPLIES
-            - Tạo sau mỗi COLLECT_SUPPLIES để giao hàng đến điểm sự cố.
-            - `supplies_to_collect` liệt kê đúng những gì đã lấy từ bước COLLECT tương ứng.
-
-            ### RETURN_SUPPLIES
-            - Chỉ dùng để trả vật tư tái sử dụng (`item_type = Reusable`) về kho nguồn sau khi hoàn tất các bước hiện trường.
-            - `RETURN_SUPPLIES` phải nằm ở cuối kế hoạch cho đúng cặp đội + kho đã lấy vật tư reusable.
-            - `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude` phải khớp kho gốc; `supplies_to_collect` chỉ chứa các vật tư reusable thực sự cần trả.
-            - Không đưa vật tư consumable vào `RETURN_SUPPLIES`.
-
-            ### RESCUE
-            - **LUÔN tạo bước RESCUE** ngay cả khi thiếu thiết bị cứu hộ.
-            - Nếu cần thiết bị cứu hộ chuyên dụng (dụng cụ phá dỡ, thiết bị nâng đỡ v.v.) và có trong kho → đưa vào `supplies_to_collect`.
-            - Nếu thiết bị cần thiết KHÔNG có trong kho → ghi rõ vào `special_notes` rằng thiếu thiết bị nào. KHÔNG tạo thêm bước nào khác cho trường hợp này.
-            - Với mỗi bước RESCUE, phải điền `assembly_point_id` bằng điểm tập kết đang hoạt động gần vị trí nạn nhân nhất từ kết quả `getAssemblyPoints`.
-
-            ### MEDICAL_AID
-            - **LUÔN có `supplies_to_collect`** nếu tình huống cần vật tư y tế (sơ cứu, thuốc, dụng cụ y tế).
-            - Trước khi tạo bước MEDICAL_AID, PHẢI gọi searchInventory với danh mục "Y tế" để lấy danh sách vật tư y tế khả dụng.
-            - Nếu có vật tư y tế trong kho → điền vào `supplies_to_collect` với item_id và depot_id thực tế.
-            - Nếu vật tư y tế KHÔNG có hoặc THIẾU → vẫn tạo bước MEDICAL_AID, để `supplies_to_collect: null`, và ghi vào `special_notes` rằng thiếu vật tư y tế cụ thể nào.
-            - Đừng bỏ qua bước COLLECT_SUPPLIES cho vật tư y tế nếu có trong kho — phải lấy trước khi thực hiện MEDICAL_AID.
-
-            ### EVACUATE
-            - Tạo khi cần vận chuyển người bị thương đến cơ sở y tế.
-            - `supplies_to_collect`: null (không lấy vật tư ở bước này).
-            - Với mỗi bước EVACUATE, phải điền `assembly_point_id` bằng điểm tập kết đang hoạt động gần vị trí nạn nhân nhất từ kết quả `getAssemblyPoints`.
-
-            **QUY TẮC RETRY khi tìm đội (rất quan trọng)**:
-            - Luôn thử `getTeams(page=1)` hoặc `getTeams(ability=..., page=1)` trước để lấy đội gần nhất trong vùng.
-            - Nếu bạn có dùng lọc `ability` mà không thấy đội nào, gọi lại `getTeams` **không truyền `ability`** để lấy toàn bộ nearby team pool.
-            - Công cụ `getTeams` **chỉ** trả về các đội đang Available và nằm trong bán kính cluster hiện tại. Truyền `available=false` **không** được hiểu là mở rộng ra đội xa hơn hoặc đội không Available.
-            - Nếu `getTeams` vẫn rỗng sau khi bỏ ability filter, lúc đó mới được để `suggested_team = null` và phải ghi rõ trong `coordination_notes` hoặc `reason` rằng cluster hiện không có nearby team phù hợp.
-            - KHÔNG được tự suy diễn hoặc tạo ra team ngoài kết quả thực tế của `getTeams`.
-
-            ## SỬ DỤNG VỊ TRÍ ĐỂ LẬP KẾ HOẠCH
-            Mỗi SOS request có trường `vi_tri` chứa tọa độ (latitude, longitude) của sự cố.
-            Kết quả searchInventory trả về `depot_latitude`, `depot_longitude` — tọa độ của kho vật tư.
-            Kết quả getTeams trả về `latitude`, `longitude` — tọa độ điểm tập kết của đội cứu hộ.
-
-            **Quy tắc sử dụng vị trí**:
-            - Ưu tiên chọn kho vật tư **gần nhất** với vị trí sự cố (so sánh tọa độ).
-            - Ưu tiên chọn đội cứu hộ có điểm tập kết **gần nhất** với vị trí sự cố.
-            - Với activity RESCUE hoặc EVACUATE, ưu tiên chọn **assembly point gần nhất** với vị trí sự cố và điền `assembly_point_id` vào activity.
-            - Khi có nhiều sự cố, phân công đội và kho sao cho quãng đường di chuyển tổng cộng là nhỏ nhất.
-            - Ghi rõ lý do chọn kho và đội dựa trên vị trí địa lý trong trường `reason` và `description`.
-
-            **Trường bắt buộc trong suggested_team**: Ngoài team_id, team_name, team_type và reason, bạn **phải** điền thêm:
-            - `assembly_point_name`: tên điểm tập kết (lấy từ kết quả getTeams)
-            - `latitude`: vĩ độ điểm tập kết (lấy từ kết quả getTeams)
-            - `longitude`: kinh độ điểm tập kết (lấy từ kết quả getTeams)
-                        - `distance_km`: khoảng cách từ điểm tập kết đến cluster (lấy từ kết quả getTeams nếu có)
-            Nếu đội không có điểm tập kết (giá trị null trong kết quả), hãy để các trường đó là null.
-
-                        ## QUY TẮC PHÂN TÍCH MỘT ĐỘI HAY NHIỀU ĐỘI
-                        - Mỗi activity **bắt buộc** phải có các trường sau:
-                            - `execution_mode`: chỉ được là `SingleTeam` hoặc `SplitAcrossTeams`
-                            - `required_team_count`: số đội tối thiểu cần cho mục tiêu thực tế của activity này
-                            - `coordination_group_key`: để `null` nếu `execution_mode = SingleTeam`; bắt buộc có nếu `execution_mode = SplitAcrossTeams`
-                            - `coordination_notes`: giải thích rõ vì sao activity này do một đội tự làm được hoặc là một phần của kế hoạch nhiều đội
-                        - `SingleTeam` nghĩa là một đội có thể hoàn thành mục tiêu của activity này một cách độc lập.
-                        - `SplitAcrossTeams` nghĩa là mục tiêu thực tế cần nhiều đội, nhưng **mỗi activity trong JSON vẫn chỉ đại diện cho phần việc của đúng một đội**.
-                        - Backend hiện chỉ thực thi theo mô hình **một activity - một team**. Vì vậy nếu cần nhiều đội, bạn **phải tách thành nhiều activity riêng**, mỗi activity có `suggested_team` riêng nhưng dùng cùng `coordination_group_key`.
-                        - Ví dụ đúng: Team A đi lấy nước và y tế ở Kho X, Team B đi lấy dụng cụ cứu hộ ở chính Kho X. Khi đó phải tạo **hai** `COLLECT_SUPPLIES` khác nhau, cùng `depot_id = X`, nhưng khác `supplies_to_collect`, khác `suggested_team`, cùng `coordination_group_key`, và `coordination_notes` phải nói rõ đây là kế hoạch chia vật tư theo đội.
-                        - Ví dụ sai: chỉ tạo một `COLLECT_SUPPLIES` tại Kho X rồi ghi trong mô tả rằng cả Team A và Team B cùng làm activity đó.
-
-            ## QUY TẮC PHÂN CÔNG ĐỘI VÀO ACTIVITY
-            - **MỖI activity PHẢI có trường `suggested_team`** — không được để null trừ khi thực sự không tìm được đội nào.
-            - Sau khi gọi getTeams, phân công đội phù hợp vào từng activity dựa trên loại hoạt động và vị trí.
-            - Nếu một đội đảm nhận nhiều activity, điền cùng một đội vào `suggested_team` của từng activity đó.
-                        - Nếu một mục tiêu thực tế cần nhiều đội, tách thành nhiều activity đơn-team. Mỗi activity vẫn chỉ có **một** `suggested_team`, nhưng `execution_mode` phải là `SplitAcrossTeams` và các activity liên quan phải chia sẻ cùng `coordination_group_key`.
-            - **KHÔNG** chỉ điền đội vào mảng `resources` rồi để `suggested_team` là null trong activities.
-            - Nếu không có đủ đội cho tất cả activity, ưu tiên gán đội cho các bước có `priority = Critical` và các bước RESCUE/MEDICAL_AID/EVACUATE trước.
-                        - Format `suggested_team` bên trong mỗi activity:
-              ```json
-              "suggested_team": {
-                "team_id": 5,
-                "team_name": "Đội Phản ứng nhanh Quảng Bình",
-                "team_type": "RescueTeam",
-                "reason": "Gần nhất với sự cố, có khả năng y tế",
-                "assembly_point_name": "Trụ sở PCCC Quảng Bình",
-                "latitude": 17.46,
-                                "longitude": 106.62,
-                                "distance_km": 3.2
-              }
-              ```
-                        - Format tối thiểu cho phần phân tích execution trong mỗi activity:
-                            ```json
-                            "execution_mode": "SplitAcrossTeams",
-                            "required_team_count": 2,
-                            "coordination_group_key": "collect-depot-12-sos-45",
-                            "coordination_notes": "Kho này được chia cho 2 đội; activity này là phần lấy vật tư của Team A."
-                            ```
-
-            ## QUY TẮC LẬP KẾ HOẠCH
-            - Không lập kế hoạch tuần tự nếu có nhiều sự cố.
-            - Nếu có nhiều SOS request, hãy phân chia đội cứu hộ xử lý song song.
-            - Mỗi đội chỉ nên phụ trách một khu vực hoặc một sự cố.
-            - Ưu tiên xử lý sự cố có người bị thương nặng trước.
-
-            ## QUY TẮC SỬ DỤNG ID
-            - KHÔNG được tự tạo item_id hoặc team_id.
-            - Chỉ sử dụng ID xuất hiện trong kết quả tool.
-            - Nếu không tìm thấy vật tư phù hợp, hãy ghi rõ "Không có sẵn".
+            ## QUY TẮC TEAM VÀ ASSEMBLY POINT
+            - Gọi `getTeams` để lấy `team_id`; không tự bịa team ngoài kết quả công cụ.
+            - Nếu lọc theo `ability` mà không thấy team, gọi lại `getTeams` không truyền ability trước khi chấp nhận `suggested_team = null`.
+            - Với `RESCUE` hoặc `EVACUATE`, bắt buộc gọi `getAssemblyPoints` và chọn `assembly_point_id` gần nạn nhân nhất.
 
             ## ĐỊNH DẠNG overall_assessment
-            - Toàn bộ nội dung phải là một chuỗi văn bản liên tục trên MỘT DÒNG DUY NHẤT — KHÔNG được chèn `\n`, xuống dòng, hoặc ký tự xuống dòng bất kỳ.
-            - Khi đề cập từng sự cố, dùng định dạng `[SOS ID X]:` (trong đó X là giá trị `id` của SOS request).
-            - Phân cách giữa các sự cố bằng dấu cách thông thường, KHÔNG dùng `\n`.
-            - KHÔNG dùng "SOS 1 (ID X):" hoặc các biến thể đánh số thứ tự khác.
-            - Ví dụ đúng: "[SOS ID 4]: 120 người bị cô lập... [SOS ID 3]: 5 người bị nạn..."
-            - Ví dụ sai: "[SOS ID 4]: 120 người bị cô lập...\n[SOS ID 3]: 5 người bị nạn..."
+            - Toàn bộ nội dung phải nằm trên một dòng duy nhất.
+            - Khi nhắc tới SOS, dùng format `[SOS ID X]: ...`.
+
+            ## JSON BẮT BUỘC
+            - Trả về JSON thuần, không markdown.
+            - Ngoài các field mission hiện có, luôn trả thêm:
+              - `needs_additional_depot`: boolean
+              - `supply_shortages`: array
             """;
     }
 
@@ -508,6 +354,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             },
             EstimatedDuration = parsed.EstimatedDuration,
             SpecialNotes = parsed.SpecialNotes,
+            NeedsAdditionalDepot = parsed.NeedsAdditionalDepot,
+            SupplyShortages = parsed.SupplyShortages?.Select(MapSupplyShortage).ToList() ?? [],
             ConfidenceScore = parsed.ConfidenceScore
         };
     }
@@ -529,6 +377,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         if (root.TryGetProperty("overall_assessment", out var oa)) result.OverallAssessment = oa.GetString()?.Replace("\n", " ").Replace("\r", " ").Trim();
         if (root.TryGetProperty("estimated_duration", out var ed)) result.EstimatedDuration = ed.GetString();
         if (root.TryGetProperty("special_notes", out var sn)) result.SpecialNotes = sn.GetString();
+        if (root.TryGetProperty("needs_additional_depot", out var nad) && nad.ValueKind is JsonValueKind.True or JsonValueKind.False) result.NeedsAdditionalDepot = nad.GetBoolean();
+        result.SupplyShortages = ParseSupplyShortages(root);
         if (root.TryGetProperty("confidence_score", out var cs) && cs.TryGetDouble(out var csVal)) result.ConfidenceScore = csVal;
 
         if (root.TryGetProperty("activities", out var acts) && acts.ValueKind == JsonValueKind.Array)
@@ -616,6 +466,51 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         return result;
     }
 
+    private static List<SupplyShortageDto> ParseSupplyShortages(JsonElement root)
+    {
+        if (!root.TryGetProperty("supply_shortages", out var shortages)
+            || shortages.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return shortages.EnumerateArray()
+            .Select(shortage =>
+            {
+                var dto = new SupplyShortageDto();
+                if (shortage.TryGetProperty("sos_request_id", out var sri) && sri.ValueKind != JsonValueKind.Null && sri.TryGetInt32(out var sriv)) dto.SosRequestId = sriv;
+                if (shortage.TryGetProperty("item_id", out var iid) && iid.ValueKind != JsonValueKind.Null && iid.TryGetInt32(out var iidv)) dto.ItemId = iidv;
+                if (shortage.TryGetProperty("item_name", out var itemName) && itemName.ValueKind != JsonValueKind.Null) dto.ItemName = itemName.GetString() ?? string.Empty;
+                if (shortage.TryGetProperty("unit", out var unit) && unit.ValueKind != JsonValueKind.Null) dto.Unit = unit.GetString();
+                if (shortage.TryGetProperty("selected_depot_id", out var sdi) && sdi.ValueKind != JsonValueKind.Null && sdi.TryGetInt32(out var sdiv)) dto.SelectedDepotId = sdiv;
+                if (shortage.TryGetProperty("selected_depot_name", out var sdn) && sdn.ValueKind != JsonValueKind.Null) dto.SelectedDepotName = sdn.GetString();
+                if (shortage.TryGetProperty("needed_quantity", out var nq) && nq.ValueKind != JsonValueKind.Null && nq.TryGetInt32(out var nqv)) dto.NeededQuantity = nqv;
+                if (shortage.TryGetProperty("available_quantity", out var aq) && aq.ValueKind != JsonValueKind.Null && aq.TryGetInt32(out var aqv)) dto.AvailableQuantity = aqv;
+                if (shortage.TryGetProperty("missing_quantity", out var mq) && mq.ValueKind != JsonValueKind.Null && mq.TryGetInt32(out var mqv)) dto.MissingQuantity = mqv;
+                if (shortage.TryGetProperty("notes", out var notes) && notes.ValueKind != JsonValueKind.Null) dto.Notes = notes.GetString();
+                return dto;
+            })
+            .Where(shortage => !string.IsNullOrWhiteSpace(shortage.ItemName) || shortage.ItemId.HasValue)
+            .ToList();
+    }
+
+    private static SupplyShortageDto MapSupplyShortage(AiSupplyShortage shortage)
+    {
+        return new SupplyShortageDto
+        {
+            SosRequestId = shortage.SosRequestId,
+            ItemId = shortage.ItemId,
+            ItemName = shortage.ItemName ?? string.Empty,
+            Unit = shortage.Unit,
+            SelectedDepotId = shortage.SelectedDepotId,
+            SelectedDepotName = shortage.SelectedDepotName,
+            NeededQuantity = shortage.NeededQuantity,
+            AvailableQuantity = shortage.AvailableQuantity,
+            MissingQuantity = shortage.MissingQuantity,
+            Notes = shortage.Notes
+        };
+    }
+
     private static RescueMissionSuggestionResult ExtractViaRegex(string text)
     {
         static string? ExtractStr(string src, string field)
@@ -630,6 +525,11 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
         }
+        static bool ExtractBool(string src, string field)
+        {
+            var m = Regex.Match(src, $@"""{field}""\s*:\s*(true|false)", RegexOptions.IgnoreCase);
+            return m.Success && bool.TryParse(m.Groups[1].Value, out var value) && value;
+        }
 
         return new RescueMissionSuggestionResult
         {
@@ -640,8 +540,246 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
             OverallAssessment = ExtractStr(text, "overall_assessment")?.Replace("\n", " ").Replace("\r", " ").Trim(),
             EstimatedDuration = ExtractStr(text, "estimated_duration"),
             SpecialNotes = ExtractStr(text, "special_notes"),
+            NeedsAdditionalDepot = ExtractBool(text, "needs_additional_depot"),
             ConfidenceScore = ExtractNum(text, "confidence_score") ?? 0.3
         };
+    }
+
+    private static void BackfillShortageItemIds(List<SupplyShortageDto> shortages, List<DepotSummary> depots)
+    {
+        if (shortages.Count == 0 || depots.Count == 0)
+            return;
+
+        var itemLookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var depot in depots)
+        {
+            foreach (var inventory in depot.Inventories)
+            {
+                if (inventory.ItemId.HasValue && !string.IsNullOrWhiteSpace(inventory.ItemName))
+                    itemLookup.TryAdd(NormalizeItemName(inventory.ItemName), inventory.ItemId.Value);
+            }
+        }
+
+        foreach (var shortage in shortages)
+        {
+            if (shortage.ItemId.HasValue || string.IsNullOrWhiteSpace(shortage.ItemName))
+                continue;
+
+            var normalized = NormalizeItemName(shortage.ItemName);
+            if (itemLookup.TryGetValue(normalized, out var exactId))
+            {
+                shortage.ItemId = exactId;
+                continue;
+            }
+
+            foreach (var (key, id) in itemLookup)
+            {
+                if (normalized.Contains(key, StringComparison.OrdinalIgnoreCase)
+                    || key.Contains(normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    shortage.ItemId = id;
+                    break;
+                }
+            }
+        }
+    }
+
+    private static void NormalizeSupplyShortages(RescueMissionSuggestionResult result)
+    {
+        var selectedDepot = GetSingleDepotSelection(result.SuggestedActivities);
+
+        result.SupplyShortages = result.SupplyShortages
+            .Select(shortage => NormalizeSupplyShortage(shortage, selectedDepot))
+            .Where(shortage => (!string.IsNullOrWhiteSpace(shortage.ItemName) || shortage.ItemId.HasValue)
+                && shortage.MissingQuantity > 0)
+            .GroupBy(shortage => new
+            {
+                shortage.SosRequestId,
+                ItemKey = shortage.ItemId?.ToString() ?? NormalizeItemName(shortage.ItemName),
+                shortage.SelectedDepotId
+            })
+            .Select(group => group.First())
+            .ToList();
+
+        result.NeedsAdditionalDepot = result.SupplyShortages.Count > 0;
+
+        if (!result.NeedsAdditionalDepot)
+            return;
+
+        result.SpecialNotes = AppendSpecialNote(result.SpecialNotes, BuildShortageCoordinatorNote(result.SupplyShortages));
+    }
+
+    private static SupplyShortageDto NormalizeSupplyShortage(
+        SupplyShortageDto shortage,
+        (int DepotId, string? DepotName)? selectedDepot)
+    {
+        var normalized = CloneSupplyShortage(shortage);
+
+        normalized.AvailableQuantity = Math.Max(normalized.AvailableQuantity, 0);
+        if (normalized.NeededQuantity <= 0 && normalized.MissingQuantity > 0)
+            normalized.NeededQuantity = normalized.AvailableQuantity + normalized.MissingQuantity;
+
+        if (normalized.MissingQuantity <= 0)
+            normalized.MissingQuantity = Math.Max(normalized.NeededQuantity - normalized.AvailableQuantity, 0);
+
+        if (normalized.SelectedDepotId is null && selectedDepot.HasValue)
+            normalized.SelectedDepotId = selectedDepot.Value.DepotId;
+
+        if (string.IsNullOrWhiteSpace(normalized.SelectedDepotName) && selectedDepot.HasValue)
+            normalized.SelectedDepotName = selectedDepot.Value.DepotName;
+
+        return normalized;
+    }
+
+    private static (int DepotId, string? DepotName)? GetSingleDepotSelection(IEnumerable<SuggestedActivityDto> activities)
+    {
+        var depots = activities
+            .Where(activity => activity.DepotId.HasValue)
+            .GroupBy(activity => activity.DepotId!.Value)
+            .Select(group => new
+            {
+                DepotId = group.Key,
+                DepotName = group.Select(activity => activity.DepotName).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
+            })
+            .ToList();
+
+        return depots.Count == 1 ? (depots[0].DepotId, depots[0].DepotName) : null;
+    }
+
+    private static void ApplySingleDepotConstraint(RescueMissionSuggestionResult result)
+    {
+        var depots = result.SuggestedActivities
+            .Where(activity => activity.DepotId.HasValue)
+            .GroupBy(activity => activity.DepotId!.Value)
+            .Select(group => group.First())
+            .OrderBy(activity => activity.DepotId)
+            .ToList();
+
+        if (depots.Count <= 1)
+            return;
+
+        var depotLabel = string.Join(
+            ", ",
+            depots.Select(activity => string.IsNullOrWhiteSpace(activity.DepotName)
+                ? $"#{activity.DepotId}"
+                : $"{activity.DepotName} (#{activity.DepotId})"));
+
+        result.NeedsManualReview = true;
+        result.SpecialNotes = AppendSpecialNote(
+            result.SpecialNotes,
+            $"Plan hiện đang dùng nhiều kho: {depotLabel}. Backend yêu cầu AI chỉ chọn một kho phù hợp nhất cho toàn mission.");
+    }
+
+    private static void NormalizeEstimatedDurations(RescueMissionSuggestionResult result)
+    {
+        var totalMinutes = 0;
+        var validActivityCount = 0;
+
+        foreach (var activity in result.SuggestedActivities.OrderBy(activity => activity.Step))
+        {
+            if (string.IsNullOrWhiteSpace(activity.EstimatedTime))
+            {
+                result.NeedsManualReview = true;
+                result.SpecialNotes = AppendSpecialNote(
+                    result.SpecialNotes,
+                    $"Activity step {activity.Step} ({activity.ActivityType}) chưa có estimated_time hợp lệ.");
+                continue;
+            }
+
+            if (!TryParseDurationToMinutes(activity.EstimatedTime, out var activityMinutes))
+            {
+                result.NeedsManualReview = true;
+                result.SpecialNotes = AppendSpecialNote(
+                    result.SpecialNotes,
+                    $"Activity step {activity.Step} ({activity.ActivityType}) có estimated_time khó hiểu: '{activity.EstimatedTime}'.");
+                continue;
+            }
+
+            activity.EstimatedTime = FormatDuration(activityMinutes);
+            totalMinutes += activityMinutes;
+            validActivityCount++;
+        }
+
+        if (validActivityCount == result.SuggestedActivities.Count && validActivityCount > 0)
+        {
+            result.EstimatedDuration = FormatDuration(totalMinutes);
+            return;
+        }
+
+        if (TryParseDurationToMinutes(result.EstimatedDuration, out var missionMinutes))
+        {
+            result.EstimatedDuration = FormatDuration(missionMinutes);
+            return;
+        }
+
+        if (result.SuggestedActivities.Count > 0)
+        {
+            result.NeedsManualReview = true;
+            result.SpecialNotes = AppendSpecialNote(
+                result.SpecialNotes,
+                "Mission chưa có estimated_duration hợp lệ để coordinator kiểm tra.");
+        }
+    }
+
+    private static bool TryParseDurationToMinutes(string? rawText, out int totalMinutes)
+    {
+        totalMinutes = 0;
+
+        if (string.IsNullOrWhiteSpace(rawText))
+            return false;
+
+        var text = rawText.Trim().ToLowerInvariant();
+
+        if (int.TryParse(text, out var numericMinutes))
+        {
+            totalMinutes = numericMinutes;
+            return numericMinutes > 0;
+        }
+
+        var hourMatch = Regex.Match(text, @"(?<value>\d+)\s*(giờ|gio|hour|hours|hr|hrs|h)");
+        var minuteMatch = Regex.Match(text, @"(?<value>\d+)\s*(phút|phut|minute|minutes|min|mins|m)");
+
+        if (!hourMatch.Success && !minuteMatch.Success)
+            return false;
+
+        if (hourMatch.Success)
+            totalMinutes += int.Parse(hourMatch.Groups["value"].Value) * 60;
+
+        if (minuteMatch.Success)
+            totalMinutes += int.Parse(minuteMatch.Groups["value"].Value);
+
+        return totalMinutes > 0;
+    }
+
+    private static string FormatDuration(int totalMinutes)
+    {
+        var safeMinutes = Math.Max(totalMinutes, 1);
+        var hours = safeMinutes / 60;
+        var minutes = safeMinutes % 60;
+
+        if (hours <= 0)
+            return $"{safeMinutes} phút";
+
+        return minutes == 0
+            ? $"{hours} giờ"
+            : $"{hours} giờ {minutes} phút";
+    }
+
+    private static string BuildShortageCoordinatorNote(IReadOnlyCollection<SupplyShortageDto> shortages)
+    {
+        var details = shortages
+            .Select(shortage =>
+            {
+                var sosPrefix = shortage.SosRequestId.HasValue ? $"[SOS ID {shortage.SosRequestId.Value}] " : string.Empty;
+                var unitSuffix = string.IsNullOrWhiteSpace(shortage.Unit) ? string.Empty : $" {shortage.Unit}";
+                return $"{sosPrefix}{shortage.ItemName} thiếu x{shortage.MissingQuantity}{unitSuffix}";
+            })
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        return details.Count == 0
+            ? "Coordinator cần bổ sung thêm kho/nguồn cấp phát vì kho đã chọn không đủ vật tư."
+            : "Coordinator cần bổ sung thêm kho/nguồn cấp phát. Thiếu: " + string.Join("; ", details) + ".";
     }
 
     private static bool IsCollectActivity(SuggestedActivityDto activity) =>
@@ -1121,6 +1259,23 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         };
     }
 
+    private static SupplyShortageDto CloneSupplyShortage(SupplyShortageDto shortage)
+    {
+        return new SupplyShortageDto
+        {
+            SosRequestId = shortage.SosRequestId,
+            ItemId = shortage.ItemId,
+            ItemName = shortage.ItemName,
+            Unit = shortage.Unit,
+            SelectedDepotId = shortage.SelectedDepotId,
+            SelectedDepotName = shortage.SelectedDepotName,
+            NeededQuantity = shortage.NeededQuantity,
+            AvailableQuantity = shortage.AvailableQuantity,
+            MissingQuantity = shortage.MissingQuantity,
+            Notes = shortage.Notes
+        };
+    }
+
     private static SuggestedTeamDto? CloneSuggestedTeam(SuggestedTeamDto? team)
     {
         return team == null
@@ -1335,8 +1490,8 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     /// Populates DestinationLatitude / DestinationLongitude / DestinationName on each activity
     /// from structured context data (depots and SOS requests), then cleans up descriptions so
     /// that named destinations are shown by name rather than raw coordinates.
-    /// Falls back to a DB lookup when the depot picked by the AI is not in the nearbyDepots list
-    /// (the AI uses searchInventory which covers all depots, not only the pre-filtered nearby set).
+    /// Falls back to a DB lookup when the depot picked by the AI is not already present in the
+    /// scoped nearby-depot context used for the current mission suggestion.
     /// </summary>
     private async Task BackfillDestinationInfoAsync(
         List<SuggestedActivityDto> activities,
@@ -1476,9 +1631,63 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         List<DepotSummary>? nearbyDepots = null,
         List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
+        int? clusterId = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var availableNearbyTeams = nearbyTeams ?? [];
+        MissionSuggestionMetadata? pipelineMetadata = null;
+        int? suggestionId = null;
+
+        if (_pipelineOptions.UseMissionSuggestionPipeline)
+        {
+            pipelineMetadata = CreateSuggestionMetadataForPipeline();
+            suggestionId = await EnsureSuggestionRecordAsync(clusterId, pipelineMetadata, cancellationToken);
+
+            await using var pipelineEnumerator = GeneratePipelineSuggestionStreamAsync(
+                sosRequests,
+                nearbyDepots,
+                availableNearbyTeams,
+                isMultiDepotRecommended,
+                clusterId,
+                suggestionId,
+                pipelineMetadata,
+                cancellationToken).GetAsyncEnumerator(cancellationToken);
+
+            MissionSuggestionPipelineFallbackException? pipelineFallback = null;
+
+            while (true)
+            {
+                bool movedNext;
+                try
+                {
+                    movedNext = await pipelineEnumerator.MoveNextAsync();
+                }
+                catch (MissionSuggestionPipelineFallbackException ex)
+                {
+                    pipelineFallback = ex;
+                    break;
+                }
+
+                if (!movedNext)
+                    yield break;
+
+                yield return pipelineEnumerator.Current;
+            }
+
+            if (pipelineFallback is not null)
+            {
+                if (pipelineMetadata.Pipeline is not null)
+                {
+                    pipelineMetadata.Pipeline.PipelineStatus = "fallback";
+                    pipelineMetadata.Pipeline.UsedLegacyFallback = true;
+                    pipelineMetadata.Pipeline.LegacyFallbackReason = pipelineFallback.Message;
+                    pipelineMetadata.Pipeline.FinalResultSource = "legacy";
+                    await SaveSuggestionMetadataAsync(suggestionId, pipelineMetadata, cancellationToken);
+                }
+
+                _logger.LogWarning(pipelineFallback, "Mission suggestion pipeline fell back to legacy planning");
+            }
+        }
 
         yield return Status("Đang tải cấu hình AI agent...");
 
@@ -1505,7 +1714,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         var userMessage = (prompt.UserPromptTemplate ?? string.Empty)
             .Replace("{{sos_requests_data}}", sosDataJson)
             .Replace("{{total_count}}", sosRequests.Count.ToString())
-            .Replace("{{depots_data}}", "(Dữ liệu kho không được truyền trực tiếp. Hãy gọi công cụ searchInventory để tra cứu vật tư khả dụng theo từng danh mục, rồi dùng dữ liệu đó để lập bước COLLECT_SUPPLIES và DELIVER_SUPPLIES.)")
+            .Replace("{{depots_data}}", "(Dữ liệu kho không được truyền trực tiếp. Hãy gọi công cụ searchInventory để tra cứu vật tư khả dụng trong các kho hợp lệ của cluster hiện tại, sau đó chọn đúng một kho phù hợp nhất cho toàn mission.)")
             .TrimEnd();
 
         var nearbyTeamsNote = availableNearbyTeams.Count > 0
@@ -1661,7 +1870,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 JsonElement toolResult;
                 try
                 {
-                    toolResult = await ExecuteToolAsync(toolCall.Name, toolCall.Arguments, availableNearbyTeams, cancellationToken);
+                    toolResult = await ExecuteToolAsync(toolCall.Name, toolCall.Arguments, nearbyDepots, availableNearbyTeams, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -1685,16 +1894,21 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         _logger.LogDebug("Raw AI response (final turn):\n{raw}", finalText);
 
         var result       = ParseMissionSuggestion(finalText);
-        var sosLookup = sosRequests.ToDictionary(x => x.Id);
-        NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
-        BackfillItemIds(result.SuggestedActivities, nearbyDepots ?? []);
-        BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
-        await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
-        await EnsureReusableReturnActivitiesAsync(result.SuggestedActivities, cancellationToken);
-        await BackfillDestinationInfoAsync(result.SuggestedActivities, nearbyDepots ?? [], sosRequests, cancellationToken);
         result.IsSuccess     = true;
         result.ModelName     = settings.Model;
         result.RawAiResponse = finalText;
+        await FinalizeSuggestionResultAsync(
+            result,
+            sosRequests,
+            nearbyDepots,
+            availableNearbyTeams,
+            isMultiDepotRecommended,
+            clusterId,
+            suggestionId,
+            pipelineMetadata,
+            null,
+            "legacy",
+            cancellationToken);
 
         _logger.LogInformation(
             "Agent mission suggestion: Provider={provider}, Model={model}, Title={title}, Type={type}, Activities={count}, Team={team}, Confidence={conf}",
@@ -1712,6 +1926,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
     private async Task<JsonElement> ExecuteToolAsync(
         string toolName,
         JsonElement args,
+        IReadOnlyCollection<DepotSummary>? nearbyDepots,
         IReadOnlyCollection<AgentTeamInfo> nearbyTeams,
         CancellationToken ct)
     {
@@ -1722,9 +1937,14 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
                 var category = args.TryGetProperty("category", out var c) ? c.GetString() ?? string.Empty : string.Empty;
                 var type     = args.TryGetProperty("type",     out var t) ? t.GetString() : null;
                 var page     = args.TryGetProperty("page",     out var p) && p.TryGetInt32(out var pv) ? pv : 1;
+                var allowedDepotIds = nearbyDepots?
+                    .Select(depot => depot.Id)
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToList();
 
                 var (items, total) = await _depotInventoryRepository.SearchForAgentAsync(
-                    category, type, page, AgentPageSize, ct);
+                    category, type, page, AgentPageSize, allowedDepotIds, ct);
 
                 var totalPages = (int)Math.Ceiling((double)total / AgentPageSize);
                 return JsonSerializer.SerializeToElement(new
@@ -1807,7 +2027,7 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         new()
         {
             Name = "searchInventory",
-            Description = "Tìm kiếm vật tư đang khả dụng trong kho theo danh mục và loại. Trả về cả consumable lẫn reusable với item_id, tên, item_type, available_quantity, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude). Reusable còn có good_available_count, fair_available_count, poor_available_count.",
+            Description = "Tìm kiếm vật tư đang khả dụng theo danh mục và loại trong các kho hợp lệ của cluster hiện tại. Trả về cả consumable lẫn reusable với item_id, tên, item_type, available_quantity, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude). Reusable còn có good_available_count, fair_available_count, poor_available_count.",
             Parameters = ParseJson(
                 """
                 {
@@ -1895,8 +2115,47 @@ public class RescueMissionSuggestionService : IRescueMissionSuggestionService
         [JsonPropertyName("special_notes")]
         public string? SpecialNotes { get; set; }
 
+        [JsonPropertyName("needs_additional_depot")]
+        public bool NeedsAdditionalDepot { get; set; }
+
+        [JsonPropertyName("supply_shortages")]
+        public List<AiSupplyShortage>? SupplyShortages { get; set; }
+
         [JsonPropertyName("confidence_score")]
         public double ConfidenceScore { get; set; }
+    }
+
+    private class AiSupplyShortage
+    {
+        [JsonPropertyName("sos_request_id")]
+        public int? SosRequestId { get; set; }
+
+        [JsonPropertyName("item_id")]
+        public int? ItemId { get; set; }
+
+        [JsonPropertyName("item_name")]
+        public string? ItemName { get; set; }
+
+        [JsonPropertyName("unit")]
+        public string? Unit { get; set; }
+
+        [JsonPropertyName("selected_depot_id")]
+        public int? SelectedDepotId { get; set; }
+
+        [JsonPropertyName("selected_depot_name")]
+        public string? SelectedDepotName { get; set; }
+
+        [JsonPropertyName("needed_quantity")]
+        public int NeededQuantity { get; set; }
+
+        [JsonPropertyName("available_quantity")]
+        public int AvailableQuantity { get; set; }
+
+        [JsonPropertyName("missing_quantity")]
+        public int MissingQuantity { get; set; }
+
+        [JsonPropertyName("notes")]
+        public string? Notes { get; set; }
     }
 
     private class AiSuggestedTeam

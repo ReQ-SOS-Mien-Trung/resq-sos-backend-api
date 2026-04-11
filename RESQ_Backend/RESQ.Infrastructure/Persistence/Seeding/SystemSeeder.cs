@@ -54,7 +54,7 @@ public static class SystemSeeder
                 SystemPrompt = "Bạn là một AI chuyên phân tích các tin nhắn cầu cứu trong thiên tai...",
                 Temperature = 0.3,
                 MaxTokens = 1000,
-                Version = "v1.0",
+                Version = "v1.1",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
               ApiKey = null,
                 Model = "gemini-2.5-flash",
@@ -112,9 +112,11 @@ QUY TẮC CỐT LÕI — KHÔNG ĐƯỢC VI PHẠM
 2. COLLECT_SUPPLIES TRƯỚC DELIVER_SUPPLIES — Không thể giao vật tư chưa lấy.
 2a. Nếu COLLECT_SUPPLIES có vật tư reusable thì cuối kế hoạch PHẢI có RETURN_SUPPLIES tương ứng để trả đúng số vật tư reusable đó về đúng kho nguồn.
 2b. Mỗi cặp kho + đội phải có RETURN_SUPPLIES riêng. Không gộp nhiều kho hoặc nhiều đội vào cùng một bước trả.
+2c. Chỉ được chọn MỘT KHO cho toàn bộ mission. Nếu kho đã chọn không đủ vật tư thì vẫn chỉ lấy từ kho đó và báo thiếu hụt; không được chuyển sang kho thứ hai.
 3. FOOD, WATER, MEDICAL_KIT, thuốc, sữa, lương thực → PHẢI là supplies_to_collect trong COLLECT_SUPPLIES. KHÔNG vào mảng resources.
 4. resources[] = CHỈ ĐƯỢC CHỨA: TEAM, VEHICLE, BOAT, EQUIPMENT (công cụ/phương tiện). Tuyệt đối không có FOOD/WATER/MEDICAL_KIT trong resources.
 5. Mỗi bước mô tả ĐI ĐÂU và LÀM GÌ cụ thể.
+6. Mỗi activity phải có estimated_time theo format ""X phút"" hoặc ""Y giờ Z phút"". estimated_duration của mission phải là tổng tuần tự các activities theo cùng format.
 
 ═══════════════════════════════════════════════════
 VÍ DỤ ĐÚNG về thứ tự activities:
@@ -185,6 +187,21 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
   ],
   ""estimated_duration"": ""X giờ"",
   ""special_notes"": ""Vật tư kho không có sẵn / điều kiện đặc biệt hiện trường"",
+  ""needs_additional_depot"": true,
+  ""supply_shortages"": [
+    {
+      ""sos_request_id"": 1,
+      ""item_id"": 2,
+      ""item_name"": ""Nước sạch"",
+      ""unit"": ""chai"",
+      ""selected_depot_id"": 1,
+      ""selected_depot_name"": ""Kho A"",
+      ""needed_quantity"": 200,
+      ""available_quantity"": 120,
+      ""missing_quantity"": 80,
+      ""notes"": ""Kho đã chọn không đủ số lượng nước cần giao""
+    }
+  ],
   ""confidence_score"": 0.85
 }",
                 UserPromptTemplate = @"Lập kế hoạch nhiệm vụ cứu hộ cho các SOS sau:
@@ -198,11 +215,11 @@ Tổng số SOS: {{total_count}}
 
 QUAN TRỌNG — LÀM THEO ĐÚNG THỨ TỰ NÀY:
 1. Xác định tổng vật tư cần thiết từ tất cả SOS.
-2. Đối chiếu với kho: vật tư nào kho có (so_luong_kha_dung > 0) → tạo bước COLLECT_SUPPLIES (step 1) lấy từ kho đó.
-3. Tiếp theo tạo bước DELIVER_SUPPLIES (step 2) giao vật tư vừa lấy đến nạn nhân.
+2. Đối chiếu với dữ liệu kho và chọn đúng MỘT kho phù hợp nhất cho toàn mission.
+3. Vật tư nào kho đã chọn có (so_luong_kha_dung > 0) → tạo bước COLLECT_SUPPLIES lấy từ kho đó, rồi DELIVER_SUPPLIES tương ứng.
 4. Thêm các bước RESCUE / EVACUATE / MEDICAL_AID cho hành động cứu hộ trực tiếp.
 4a. Nếu có COLLECT_SUPPLIES chứa vật tư reusable, thêm RETURN_SUPPLIES ở cuối kế hoạch để trả đúng số vật tư reusable đó về kho nguồn.
-5. Vật tư kho không có → ghi thiếu hụt vào special_notes (KHÔNG đặt vào resources).
+5. Nếu kho đã chọn không đủ hoặc không có vật tư, đặt needs_additional_depot=true, ghi từng dòng thiếu vào supply_shortages, và tóm tắt lại trong special_notes để coordinator biết cần bổ sung thêm kho/nguồn cấp phát.
 6. resources[] = chỉ TEAM, VEHICLE, BOAT, EQUIPMENT.
 
 Trả về JSON (không giải thích, không markdown).",

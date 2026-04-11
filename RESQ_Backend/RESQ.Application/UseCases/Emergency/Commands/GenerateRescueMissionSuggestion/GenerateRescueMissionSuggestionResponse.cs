@@ -22,6 +22,8 @@ public class GenerateRescueMissionSuggestionResponse
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public bool NeedsAdditionalDepot { get; set; }
+    public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public double ConfidenceScore { get; set; }
 
     /// <summary>true khi AI không đủ tự tin — người điều phối nên xem xét và điều chỉnh thủ công.</summary>

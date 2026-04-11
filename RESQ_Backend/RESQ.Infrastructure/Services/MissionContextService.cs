@@ -112,8 +112,10 @@ public class MissionContextService(
         var availableDepots = (await depotRepository.GetAvailableDepotsAsync(cancellationToken)).ToList();
 
         if (availableDepots.Count == 0)
-            throw new BadRequestException(
-                "Không lọc được kho phù hợp: hiện không có kho nào đang hoạt động và còn hàng. Vui lòng tự lập kế hoạch thủ công.");
+        {
+            logger.LogWarning("MissionContext: no active depots available for anchor SOS {sosId}", anchorSos.Id);
+            return ([], false);
+        }
 
         var nearby = availableDepots
             .Where(d => d.Location is not null)
@@ -128,89 +130,68 @@ public class MissionContextService(
             .ToList();
 
         if (nearby.Count == 0)
-            throw new BadRequestException(
-                $"Không lọc được kho phù hợp: không có kho nào trong bán kính {MaxDepotRadiusKm} km. Vui lòng tự lập kế hoạch thủ công.");
+        {
+            logger.LogWarning(
+                "MissionContext: no nearby depots found within {radiusKm}km for anchor SOS {sosId}",
+                MaxDepotRadiusKm,
+                anchorSos.Id);
+            return ([], false);
+        }
 
         var supplyList = neededSupplies.ToList();
         int totalNeeded = supplyList.Count;
 
+        if (totalNeeded == 0)
+        {
+            return (nearby
+                .OrderBy(x => x.distKm)
+                .Take(MaxDepotContext)
+                .Select(x => MapToDepotSummary(x.depot, x.distKm))
+                .ToList(), false);
+        }
+
         var candidates = nearby
             .Select(x =>
             {
-                var itemNamesUpper = x.depot.InventoryLines
-                    .Select(l => l.ItemName.ToUpperInvariant())
-                    .ToList();
                 int mask = 0;
-                if (totalNeeded > 0)
+                int matchedQuantity = 0;
+
+                for (int i = 0; i < supplyList.Count; i++)
                 {
-                    for (int i = 0; i < supplyList.Count; i++)
-                    {
-                        if (CoversSingleSupply(itemNamesUpper, supplyList[i]))
-                            mask |= (1 << i);
-                    }
+                    if (x.depot.InventoryLines.Any(line => MatchesSupply(line.ItemName, supplyList[i])))
+                        mask |= (1 << i);
                 }
-                return (x.depot, x.distKm, mask);
+
+                matchedQuantity = x.depot.InventoryLines
+                    .Where(line => supplyList.Any(supply => MatchesSupply(line.ItemName, supply)))
+                    .Sum(line => line.AvailableQuantity);
+
+                return (x.depot, x.distKm, mask, matchedQuantity);
             })
-            .Where(x => totalNeeded == 0 || x.mask > 0)
+            .Where(x => x.mask > 0)
             .OrderByDescending(x => BitCount(x.mask))
+            .ThenByDescending(x => x.matchedQuantity)
             .ThenBy(x => x.distKm)
             .Take(MaxDepotContext)
             .ToList();
 
         if (candidates.Count == 0)
-            throw new BadRequestException(
-                $"Không lọc được kho phù hợp: các kho trong bán kính {MaxDepotRadiusKm} km không có vật tư nào khớp với nhu cầu SOS. Vui lòng tự lập kế hoạch thủ công.");
-
-        if (totalNeeded == 0)
         {
-            var nearest = candidates.First();
-            return ([MapToDepotSummary(nearest.depot, nearest.distKm)], false);
+            logger.LogInformation(
+                "MissionContext: nearby depots exist for anchor SOS {sosId} but none currently match needed supplies [{supplies}]",
+                anchorSos.Id,
+                string.Join(", ", supplyList));
+
+            return (nearby
+                .OrderBy(x => x.distKm)
+                .Take(MaxDepotContext)
+                .Select(x => MapToDepotSummary(x.depot, x.distKm))
+                .ToList(), false);
         }
 
-        int fullMask = (1 << totalNeeded) - 1;
-        var bestCover = FindMinimumSetCover(candidates, fullMask);
-
-        bool multiDepotRecommended;
-        List<(DepotModel depot, double distKm, int mask)> chosen;
-
-        if (bestCover is not null)
-        {
-            if (bestCover.Count > 1)
-            {
-                // Multiple depots needed to cover all supply types
-                chosen = bestCover;
-                multiDepotRecommended = true;
-            }
-            else
-            {
-                // Single depot covers all supply types — but check if it has enough QUANTITY.
-                // If other nearby depots have significant additional stock (>= 30% of primary's
-                // total available), the primary depot may not have sufficient quantities for
-                // all SOS needs, so expose all candidates and recommend multi-depot.
-                var primary = bestCover[0];
-                if (HasSignificantAlternativeStock(primary, candidates))
-                {
-                    chosen = candidates; // expose all candidates so AI can draw from any
-                    multiDepotRecommended = true;
-                    logger.LogInformation(
-                        "MissionContext: Single depot (Id={depotId}) covers all supply types but " +
-                        "other candidates hold significant additional stock — switching to multi-depot mode.",
-                        primary.depot.Id);
-                }
-                else
-                {
-                    chosen = bestCover;
-                    multiDepotRecommended = false;
-                }
-            }
-        }
-        else
-        {
-            chosen = GreedyMaxCover(candidates, fullMask);
-            multiDepotRecommended = true;
-        }
-
-        return (chosen.Select(x => MapToDepotSummary(x.depot, x.distKm)).ToList(), multiDepotRecommended);
+        return (candidates
+            .Select(x => MapToDepotSummary(x.depot, x.distKm))
+            .ToList(), false);
     }
 
     private async Task<List<AgentTeamInfo>> BuildNearbyTeamSummariesAsync(
@@ -478,9 +459,18 @@ public class MissionContextService(
 
     private static bool CoversSingleSupply(IReadOnlyList<string> itemNamesUpper, string supply)
     {
+        return itemNamesUpper.Any(itemName => MatchesSupply(itemName, supply));
+    }
+
+    private static bool MatchesSupply(string? itemName, string supply)
+    {
+        if (string.IsNullOrWhiteSpace(itemName))
+            return false;
+
         if (SupplyCategoryKeywords.TryGetValue(supply, out var keywords))
-            return itemNamesUpper.Any(n => keywords.Any(kw => n.Contains(kw, StringComparison.OrdinalIgnoreCase)));
-        return itemNamesUpper.Any(n => n.Contains(supply, StringComparison.OrdinalIgnoreCase));
+            return keywords.Any(keyword => itemName.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+
+        return itemName.Contains(supply, StringComparison.OrdinalIgnoreCase);
     }
 
     private static DepotSummary MapToDepotSummary(DepotModel depot, double distKm) => new()

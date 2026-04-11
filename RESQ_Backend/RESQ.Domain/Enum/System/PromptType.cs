@@ -10,5 +10,9 @@ public enum PromptType
     SosPriorityAnalysis = 1,
 
     /// <summary>Lập kế hoạch điều phối nhiệm vụ cứu hộ.</summary>
-    MissionPlanning = 2
+    MissionPlanning = 2,
+    MissionRequirementsAssessment = 3,
+    MissionDepotPlanning = 4,
+    MissionTeamPlanning = 5,
+    MissionPlanValidation = 6
 }

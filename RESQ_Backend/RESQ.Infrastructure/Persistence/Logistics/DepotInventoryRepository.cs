@@ -281,11 +281,20 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         string? typeKeyword,
         int page,
         int pageSize,
+        IReadOnlyCollection<int>? allowedDepotIds = null,
         CancellationToken ct = default)
     {
         var safePage = Math.Max(page, 1);
         var safePageSize = Math.Max(pageSize, 1);
         var takeFromEachSource = safePage * safePageSize;
+        var allowedDepotIdList = allowedDepotIds?
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList() ?? [];
+
+        if (allowedDepotIds is not null && allowedDepotIdList.Count == 0)
+            return ([], 0);
+
         var categoryPattern = $"%{categoryKeyword.Trim()}%";
         var typePattern = string.IsNullOrWhiteSpace(typeKeyword)
             ? null
@@ -315,6 +324,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                                   PoorAvailableCount = null
                               };
 
+        if (allowedDepotIdList.Count > 0)
+            consumableQuery = consumableQuery.Where(x => allowedDepotIdList.Contains(x.DepotId));
+
         if (typePattern is not null)
         {
             consumableQuery = consumableQuery.Where(x =>
@@ -333,6 +345,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                                       && reusable.Status == nameof(ReusableItemStatus.Available)
                                       && EF.Functions.ILike(cat.Name ?? string.Empty, categoryPattern)
                                 select new { reusable, ri, cat, depot };
+
+        if (allowedDepotIdList.Count > 0)
+            reusableBaseQuery = reusableBaseQuery.Where(x => allowedDepotIdList.Contains(x.depot.Id));
 
         if (typePattern is not null)
         {
