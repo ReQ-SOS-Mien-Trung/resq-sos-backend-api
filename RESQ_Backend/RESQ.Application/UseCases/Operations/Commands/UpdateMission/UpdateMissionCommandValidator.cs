@@ -8,19 +8,19 @@ public class UpdateMissionCommandValidator : AbstractValidator<UpdateMissionComm
     public UpdateMissionCommandValidator()
     {
         RuleFor(x => x.MissionId)
-            .GreaterThan(0).WithMessage("MissionId pháº£i lá»›n hÆ¡n 0");
+            .GreaterThan(0).WithMessage("MissionId phải lớn hơn 0");
 
         RuleFor(x => x.MissionType)
-            .MaximumLength(50).WithMessage("MissionType khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 50 kÃ½ tá»±")
+            .MaximumLength(50).WithMessage("MissionType không được vượt quá 50 ký tự")
             .When(x => x.MissionType != null);
 
         RuleFor(x => x.UpdatedBy)
-            .NotEmpty().WithMessage("UpdatedBy lÃ  báº¯t buá»™c khi cáº­p nháº­t activity")
+            .NotEmpty().WithMessage("UpdatedBy là bắt buộc khi cập nhật activity")
             .When(x => x.Activities.Count > 0);
 
         RuleFor(x => x.Activities)
             .Must(HaveDistinctActivityIds)
-            .WithMessage("Danh sÃ¡ch activity khÃ´ng Ä‘Æ°á»£c chá»©a ActivityId trÃ¹ng nhau")
+            .WithMessage("Danh sách activity không được chứa ActivityId trùng nhau")
             .When(x => x.Activities.Count > 0);
 
         RuleForEach(x => x.Activities)
@@ -36,37 +36,37 @@ internal class UpdateMissionActivityPatchValidator : AbstractValidator<UpdateMis
     public UpdateMissionActivityPatchValidator()
     {
         RuleFor(x => x.ActivityId)
-            .GreaterThan(0).WithMessage("ActivityId pháº£i lá»›n hÆ¡n 0");
+            .GreaterThan(0).WithMessage("ActivityId phải lớn hơn 0");
 
         RuleFor(x => x.Step)
-            .GreaterThan(0).WithMessage("Step pháº£i lá»›n hÆ¡n 0")
+            .GreaterThan(0).WithMessage("Step phải lớn hơn 0")
             .When(x => x.Step.HasValue);
 
         RuleFor(x => x)
             .Must(HasAtLeastOneChange)
-            .WithMessage("Má»—i activity pháº£i cÃ³ Ã­t nháº¥t má»™t thay Ä‘á»•i");
+            .WithMessage("Mỗi activity phải có ít nhất một thay đổi");
 
         RuleFor(x => x)
             .Must(HaveCompleteCoordinates)
-            .WithMessage("TargetLatitude vÃ  TargetLongitude pháº£i Ä‘Æ°á»£c gá»­i cÃ¹ng nhau");
+            .WithMessage("TargetLatitude và TargetLongitude phải được gửi cùng nhau");
 
         RuleFor(x => x.Items)
             .Must(HaveDistinctItemIds)
-            .WithMessage("Danh sÃ¡ch item khÃ´ng Ä‘Æ°á»£c chá»©a ItemId trÃ¹ng nhau")
+            .WithMessage("Danh sách item không được chứa ItemId trùng nhau")
             .When(x => x.Items is not null);
 
         RuleForEach(x => x.Items!)
             .ChildRules(item =>
             {
                 item.RuleFor(x => x.ItemId)
-                    .NotNull().WithMessage("ItemId lÃ  báº¯t buá»™c khi cáº­p nháº­t item")
-                    .GreaterThan(0).WithMessage("ItemId pháº£i lá»›n hÆ¡n 0");
+                    .NotNull().WithMessage("ItemId là bắt buộc khi cập nhật item")
+                    .GreaterThan(0).WithMessage("ItemId phải lớn hơn 0");
 
                 item.RuleFor(x => x.Quantity)
-                    .GreaterThan(0).WithMessage("Quantity pháº£i lá»›n hÆ¡n 0");
+                    .GreaterThan(0).WithMessage("Quantity phải lớn hơn 0");
 
                 item.RuleFor(x => x.BufferRatio)
-                    .GreaterThanOrEqualTo(0).WithMessage("BufferRatio khÃ´ng Ä‘Æ°á»£c Ã¢m")
+                    .GreaterThanOrEqualTo(0).WithMessage("BufferRatio không được âm")
                     .When(x => x.BufferRatio.HasValue);
             })
             .When(x => x.Items is not null);

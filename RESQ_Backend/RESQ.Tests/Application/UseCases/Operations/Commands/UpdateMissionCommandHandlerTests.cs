@@ -246,7 +246,7 @@ public class UpdateMissionCommandHandlerTests
                     ]),
                 CancellationToken.None));
 
-        Assert.Contains("tá»“n kho", exception.Message, StringComparison.OrdinalIgnoreCase);
+    Assert.Contains("tồn kho", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(missionRepository.UpdateWasCalled);
         Assert.Equal("Initial", missionRepository.StoredMission!.MissionType);
         Assert.Equal(0, unitOfWork.SaveCalls);
