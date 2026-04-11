@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -7,54 +6,58 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
-using RESQ.Application.UseCases.Operations.Shared;
+using RESQ.Application.UseCases.Operations.Commands.UpdateMission;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 
-namespace RESQ.Application.UseCases.Operations.Commands.UpdateMissionPendingActivities;
+namespace RESQ.Application.UseCases.Operations.Shared;
 
-public class UpdateMissionPendingActivitiesCommandHandler(
-    IMissionRepository missionRepository,
+public class MissionPendingActivityUpdateService(
     IMissionActivityRepository activityRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IUnitOfWork unitOfWork,
-    ILogger<UpdateMissionPendingActivitiesCommandHandler> logger
-) : IRequestHandler<UpdateMissionPendingActivitiesCommand, UpdateMissionPendingActivitiesResponse>
+    ILogger<MissionPendingActivityUpdateService> logger
+) : IMissionPendingActivityUpdateService
 {
-    private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ILogger<UpdateMissionPendingActivitiesCommandHandler> _logger = logger;
+    private readonly ILogger<MissionPendingActivityUpdateService> _logger = logger;
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
     private const double DefaultBufferRatio = 0.10;
 
-    public async Task<UpdateMissionPendingActivitiesResponse> Handle(UpdateMissionPendingActivitiesCommand request, CancellationToken cancellationToken)
+    public async Task ApplyAsync(
+        MissionModel mission,
+        Guid updatedBy,
+        IReadOnlyList<UpdateMissionActivityPatch> activities,
+        CancellationToken cancellationToken = default)
     {
+        if (activities.Count == 0)
+            return;
+
         _logger.LogInformation(
             "Updating {Count} pending mission activities in MissionId={MissionId}",
-            request.Activities.Count,
-            request.MissionId);
-
-        var mission = await _missionRepository.GetByIdAsync(request.MissionId, cancellationToken);
-        if (mission is null)
-            throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
+            activities.Count,
+            mission.Id);
 
         if (mission.Status is MissionStatus.Completed or MissionStatus.Incompleted)
-            throw new BadRequestException("Không thể cập nhật activity của mission đã kết thúc.");
+            throw new BadRequestException("KhÃ´ng thá»ƒ cáº­p nháº­t activity cá»§a mission Ä‘Ã£ káº¿t thÃºc.");
 
-        var missionActivities = (await _activityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken)).ToList();
+        var missionActivities = (await _activityRepository.GetByMissionIdAsync(mission.Id, cancellationToken)).ToList();
         var activityLookup = missionActivities.ToDictionary(activity => activity.Id);
-        var plans = new List<ActivityUpdatePlan>(request.Activities.Count);
+        var plans = new List<ActivityUpdatePlan>(activities.Count);
 
-        foreach (var patch in request.Activities)
+        foreach (var patch in activities)
         {
             if (!activityLookup.TryGetValue(patch.ActivityId, out var activity))
-                throw new NotFoundException($"Activity #{patch.ActivityId} không thuộc mission #{request.MissionId}.");
+                throw new NotFoundException($"Activity #{patch.ActivityId} khÃ´ng thuá»™c mission #{mission.Id}.");
 
             if (activity.Status != MissionActivityStatus.Planned)
-                throw new BadRequestException($"Chỉ được cập nhật activity Planned. Activity #{activity.Id} hiện ở trạng thái {activity.Status}.");
+            {
+                throw new BadRequestException(
+                    $"Chá»‰ Ä‘Æ°á»£c cáº­p nháº­t activity Planned. Activity #{activity.Id} hiá»‡n á»Ÿ tráº¡ng thÃ¡i {activity.Status}.");
+            }
 
             var currentItems = ParseSupplies(activity.Items);
             IReadOnlyList<SupplyToCollectDto> nextItems = patch.Items is null
@@ -67,7 +70,7 @@ public class UpdateMissionPendingActivitiesCommandHandler(
                     : JsonSerializer.Serialize(nextItems);
 
             var projectedActivity = CloneActivity(activity);
-            ApplyPatch(projectedActivity, patch, nextItemsJson, request.UpdatedBy);
+            ApplyPatch(projectedActivity, patch, nextItemsJson, updatedBy);
 
             plans.Add(new ActivityUpdatePlan(activity, projectedActivity, patch, currentItems, nextItems));
         }
@@ -75,77 +78,56 @@ public class UpdateMissionPendingActivitiesCommandHandler(
         ValidateProjectedSteps(missionActivities, plans);
         await ValidateInventoryAvailabilityAsync(plans, cancellationToken);
 
-        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        foreach (var plan in plans.Where(plan => plan.ShouldReplaceItems && plan.Activity.DepotId.HasValue))
         {
-            foreach (var plan in plans.Where(plan => plan.ShouldReplaceItems && plan.Activity.DepotId.HasValue))
-            {
-                var itemsToRelease = BuildReservationItems(plan.CurrentItems);
-                if (itemsToRelease.Count > 0)
-                {
-                    await _depotInventoryRepository.ReleaseReservedSuppliesAsync(
-                        plan.Activity.DepotId!.Value,
-                        itemsToRelease,
-                        cancellationToken);
-                }
-            }
+            var itemsToRelease = BuildReservationItems(plan.CurrentItems);
+            if (itemsToRelease.Count == 0)
+                continue;
 
-            foreach (var plan in plans)
-            {
-                CopyProjectedValues(plan.Activity, plan.ProjectedActivity);
-                await _activityRepository.UpdateAsync(plan.Activity, cancellationToken);
-            }
+            await _depotInventoryRepository.ReleaseReservedSuppliesAsync(
+                plan.Activity.DepotId!.Value,
+                itemsToRelease,
+                cancellationToken);
+        }
 
-            await _unitOfWork.SaveAsync();
-
-            foreach (var plan in plans)
-            {
-                if (plan.ShouldReplaceItems && plan.Activity.DepotId.HasValue && plan.NextItems.Count > 0)
-                {
-                    var reservationResult = await _depotInventoryRepository.ReserveSuppliesAsync(
-                        plan.Activity.DepotId.Value,
-                        BuildReservationItems(plan.NextItems),
-                        cancellationToken);
-
-                    await MissionSupplyExecutionSnapshotHelper.SyncReservationSnapshotAsync(
-                        plan.Activity,
-                        reservationResult,
-                        _activityRepository,
-                        _logger,
-                        cancellationToken);
-                    await _unitOfWork.SaveAsync();
-                    continue;
-                }
-
-                if (plan.ShouldReplaceItems)
-                {
-                    await MissionSupplyExecutionSnapshotHelper.RebuildExpectedReturnUnitsAsync(
-                        plan.Activity,
-                        _activityRepository,
-                        _logger,
-                        cancellationToken);
-                }
-            }
-
-            await _unitOfWork.SaveAsync();
-        });
-
-        return new UpdateMissionPendingActivitiesResponse
+        foreach (var plan in plans)
         {
-            MissionId = request.MissionId,
-            Activities = plans.Select(plan => new UpdatedMissionPendingActivityDto
+            CopyProjectedValues(plan.Activity, plan.ProjectedActivity);
+            await _activityRepository.UpdateAsync(plan.Activity, cancellationToken);
+        }
+
+        await _unitOfWork.SaveAsync();
+
+        foreach (var plan in plans)
+        {
+            if (plan.ShouldReplaceItems && plan.Activity.DepotId.HasValue && plan.NextItems.Count > 0)
             {
-                ActivityId = plan.Activity.Id,
-                MissionId = plan.Activity.MissionId,
-                MissionTeamId = plan.Activity.MissionTeamId,
-                Step = plan.Activity.Step,
-                Description = plan.Activity.Description,
-                Target = plan.Activity.Target,
-                TargetLatitude = plan.Activity.TargetLatitude,
-                TargetLongitude = plan.Activity.TargetLongitude,
-                Status = plan.Activity.Status.ToString(),
-                SuppliesToCollect = ParseSupplies(plan.Activity.Items)
-            }).ToList()
-        };
+                var reservationResult = await _depotInventoryRepository.ReserveSuppliesAsync(
+                    plan.Activity.DepotId.Value,
+                    BuildReservationItems(plan.NextItems),
+                    cancellationToken);
+
+                await MissionSupplyExecutionSnapshotHelper.SyncReservationSnapshotAsync(
+                    plan.Activity,
+                    reservationResult,
+                    _activityRepository,
+                    _logger,
+                    cancellationToken);
+                await _unitOfWork.SaveAsync();
+                continue;
+            }
+
+            if (plan.ShouldReplaceItems)
+            {
+                await MissionSupplyExecutionSnapshotHelper.RebuildExpectedReturnUnitsAsync(
+                    plan.Activity,
+                    _activityRepository,
+                    _logger,
+                    cancellationToken);
+            }
+        }
+
+        await _unitOfWork.SaveAsync();
     }
 
     private static void ValidateProjectedSteps(
@@ -169,11 +151,11 @@ public class UpdateMissionPendingActivitiesCommandHandler(
                 continue;
 
             var missionTeamLabel = teamGroup.Key.HasValue
-                ? $"đội #{teamGroup.Key.Value}"
-                : "nhóm activity chưa gán đội";
+                ? $"Ä‘á»™i #{teamGroup.Key.Value}"
+                : "nhÃ³m activity chÆ°a gÃ¡n Ä‘á»™i";
             var activityIds = string.Join(", ", duplicateStep.Select(activity => $"#{activity.Id}"));
             throw new BadRequestException(
-                $"Step {duplicateStep.Key} bị trùng trong {missionTeamLabel}. Các activity liên quan: {activityIds}.");
+                $"Step {duplicateStep.Key} bá»‹ trÃ¹ng trong {missionTeamLabel}. CÃ¡c activity liÃªn quan: {activityIds}.");
         }
     }
 
@@ -241,9 +223,9 @@ public class UpdateMissionPendingActivitiesCommandHandler(
                 continue;
 
             var errors = shortages.Select(shortage => shortage.NotFound
-                ? $"Kho {depot.Key}: Vật tư '{shortage.ItemName}' không có trong kho."
-                : $"Kho {depot.Key}: Vật tư '{shortage.ItemName}' không đủ số lượng bổ sung — cần thêm {shortage.RequestedQuantity}, khả dụng {shortage.AvailableQuantity}.");
-            throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", errors)}");
+                ? $"Kho {depot.Key}: Váº­t tÆ° '{shortage.ItemName}' khÃ´ng cÃ³ trong kho."
+                : $"Kho {depot.Key}: Váº­t tÆ° '{shortage.ItemName}' khÃ´ng Ä‘á»§ sá»‘ lÆ°á»£ng bá»• sung â€” cáº§n thÃªm {shortage.RequestedQuantity}, kháº£ dá»¥ng {shortage.AvailableQuantity}.");
+            throw new BadRequestException($"Kiá»ƒm tra tá»“n kho tháº¥t báº¡i:\n{string.Join("\n", errors)}");
         }
     }
 
@@ -278,7 +260,7 @@ public class UpdateMissionPendingActivitiesCommandHandler(
 
     private static void ApplyPatch(
         MissionActivityModel activity,
-        UpdateMissionPendingActivityPatch patch,
+        UpdateMissionActivityPatch patch,
         string? nextItemsJson,
         Guid updatedBy)
     {
@@ -357,7 +339,7 @@ public class UpdateMissionPendingActivitiesCommandHandler(
     private sealed record ActivityUpdatePlan(
         MissionActivityModel Activity,
         MissionActivityModel ProjectedActivity,
-        UpdateMissionPendingActivityPatch Patch,
+        UpdateMissionActivityPatch Patch,
         IReadOnlyList<SupplyToCollectDto> CurrentItems,
         IReadOnlyList<SupplyToCollectDto> NextItems)
     {
