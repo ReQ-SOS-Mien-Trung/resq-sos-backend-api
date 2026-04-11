@@ -41,6 +41,18 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
         return entity == null ? null : ToDomain(entity);
     }
 
+    public async Task<DepotClosureRecord?> GetLatestClosureByDepotIdAsync(int depotId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.Set<DepotClosure>()
+            .AsNoTracking()
+            .Where(x => x.DepotId == depotId)
+            .OrderByDescending(x => x.InitiatedAt)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return entity == null ? null : ToDomain(entity);
+    }
+
     public async Task UpdateAsync(DepotClosureRecord record, CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<DepotClosure>();

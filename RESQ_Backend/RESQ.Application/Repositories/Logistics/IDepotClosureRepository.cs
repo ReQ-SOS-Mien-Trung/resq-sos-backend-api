@@ -14,6 +14,8 @@ public interface IDepotClosureRepository
 
     Task<DepotClosureRecord?> GetActiveClosureByDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
 
+    Task<DepotClosureRecord?> GetLatestClosureByDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
+
     Task UpdateAsync(DepotClosureRecord record, CancellationToken cancellationToken = default);
 
     Task<bool> TryClaimForProcessingAsync(int closureId, CancellationToken cancellationToken = default);

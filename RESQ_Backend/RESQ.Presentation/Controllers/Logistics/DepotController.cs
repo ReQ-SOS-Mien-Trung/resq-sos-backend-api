@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -53,7 +54,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
 
         /// <summary>Lấy danh sách tất cả kho có phân trang.</summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpGet]
         [Authorize(Policy = PermissionConstants.PolicyDepotView)]
         public async Task<IActionResult> Get(
@@ -75,7 +75,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>Xem chi tiết một kho theo ID.</summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpGet("{id}")]
         [Authorize(Policy = PermissionConstants.PolicyDepotView)]
         public async Task<IActionResult> GetById(int id)
@@ -89,7 +88,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// Chỉ trả về kho đang Available và còn hàng, trong bán kính cấu hình
         /// dùng chung với endpoint lấy đội cứu hộ gần cluster.
         /// </summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpGet("by-cluster/{clusterId}")]
         [Authorize(Policy = PermissionConstants.PolicyDepotView)]
         public async Task<IActionResult> GetByCluster(int clusterId)
@@ -99,7 +97,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>Tạo kho mới. Manager là optional — nếu gán ngay thì kho chuyển sang Available.</summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpPost]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         public async Task<IActionResult> Create([FromBody] CreateDepotRequestDto dto)
@@ -120,7 +117,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>Cập nhật thông tin kho.</summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpPut("{id}")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateDepotRequestDto dto)
@@ -145,7 +141,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// Gán / đổi manager cho kho. Nếu kho đang có manager khác, manager cũ sẽ được unassign tự động.
         /// Kho chuyển sang trạng thái Available sau khi gán.
         /// </summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpPatch("{id}/manager")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         [ProducesResponseType(typeof(AssignDepotManagerResponse), StatusCodes.Status200OK)]
@@ -162,7 +157,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// Gỡ manager khỏi kho. Manager cũ bị unassign (UnassignedAt được set) nhưng lịch sử vẫn được giữ lại.
         /// Kho chuyển sang trạng thái PendingAssignment sau khi gỡ.
         /// </summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpDelete("{id}/manager")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         [ProducesResponseType(typeof(UnassignDepotManagerResponse), StatusCodes.Status200OK)]
@@ -219,7 +213,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// <summary>
         /// [Metadata] Danh sách Manager (RoleId=4) chưa quản lý kho nào — dùng cho dropdown gán manager.
         /// </summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpGet("metadata/available-managers")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         [ProducesResponseType(typeof(List<AvailableManagerDto>), StatusCodes.Status200OK)]
@@ -230,7 +223,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>[Manager] Xem quỹ kho của mình.</summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpGet("my-fund")]
         [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
         [ProducesResponseType(typeof(DepotFundDto), StatusCodes.Status200OK)]
@@ -243,7 +235,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>[Admin] Xem quỹ tất cả kho.</summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
+
         [HttpGet("funds")]
     [Authorize(Policy = PermissionConstants.SystemConfigManage)]
         [ProducesResponseType(typeof(List<DepotFundListItemDto>), StatusCodes.Status200OK)]
@@ -353,7 +345,9 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// <summary>
         /// [Admin] Đóng kho — bước khởi tạo.
         /// - Kho phải ở trạng thái Unavailable.
-        /// - Kho trống → đóng ngay (200 OK).
+        /// - Kho trống và chưa có phiên xử lý hàng tồn trước đó → đóng ngay (200 OK).
+        /// - Kho đã được xử lý hàng tồn xong từ trước (external resolution hoặc transfer receive), admin gọi lại endpoint này để finalize:
+        ///   chuyển quỹ kho về quỹ hệ thống, chuyển kho sang Closed và gỡ manager khỏi kho.
         /// - Còn hàng → 409 Conflict kèm danh sách hàng tồn.
         ///   Admin chọn 1 trong 2 cách xử lý:
         ///   (1) Xử lý bên ngoài: GET /close/export-template → POST /close/external-resolution.
@@ -411,7 +405,8 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// [Admin] Gửi kết quả xử lý tồn kho bên ngoài dạng JSON.
         /// Frontend convert file Excel template thành JSON rồi gửi lên.
         /// Kho phải ở trạng thái Unavailable và còn hàng (không có transfer đang diễn ra).
-        /// Server tạo bản ghi kiểm toán nội bộ, xoá toàn bộ inventory, và đóng kho.
+        /// Server tạo bản ghi kiểm toán nội bộ và xoá toàn bộ inventory.
+        /// Sau bước này kho vẫn giữ trạng thái Unavailable; admin phải gọi lại POST /{id}/close để finalize đóng kho.
         /// </summary>
         [HttpPost("close/external-resolution")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -541,7 +536,8 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Manager kho đích] Xác nhận đã nhận hàng — kích hoạt bulk transfer inventory và hoàn tất đóng kho nguồn.
+        /// [Manager kho đích] Xác nhận đã nhận hàng — kích hoạt bulk transfer inventory và hoàn tất bước xử lý hàng tồn.
+        /// Sau bước này kho nguồn vẫn giữ trạng thái Unavailable; admin phải gọi lại POST /{id}/close để finalize đóng kho.
         /// Dùng transferId từ GET /my-incoming-closure-transfer.
         /// </summary>
         [HttpPost("transfer/{transferId}/receive")]
@@ -560,7 +556,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>
+        /// <summary>Lấy UserId từ access token hiện tại.</summary>
         private Guid GetUserId()
         {
             var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -580,7 +576,9 @@ namespace RESQ.Presentation.Controllers.Logistics
                 throw new ForbiddenException("Endpoint nay chi danh cho manager kho.");
 
             return await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(userId)
-                ?? throw new NotFoundException("Ban hien khong phu trach kho nao.");
+                ?? throw ExceptionCodes.WithCode(
+                    new NotFoundException("Ban hien khong phu trach kho nao."),
+                    LogisticsErrorCodes.DepotManagerNotAssigned);
         }
 
         private async Task EnsureAdminRoleAsync(Guid userId)

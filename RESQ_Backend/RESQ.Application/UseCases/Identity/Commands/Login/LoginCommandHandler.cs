@@ -1,6 +1,8 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
@@ -57,6 +59,25 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
                 throw new UnauthorizedException("Thông tin đăng nhập không hợp lệ");
             }
 
+            int? depotId = null;
+            string? depotName = null;
+            int? managedDepotId = null;
+
+            if (user.RoleId == RoleConstants.Manager)
+            {
+                managedDepotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(user.Id, cancellationToken);
+                if (!managedDepotId.HasValue)
+                {
+                    _logger.LogWarning(
+                        "Login blocked: Depot manager has no active depot assignment for UserId={userId}",
+                        user.Id);
+
+                    throw ExceptionCodes.WithCode(
+                        new ForbiddenException("Tài khoản quản lý kho chưa được gán kho phụ trách."),
+                        LogisticsErrorCodes.DepotManagerNotAssigned);
+                }
+            }
+
             // Generate tokens
             var accessToken = _tokenService.GenerateAccessToken(user);
             var refreshToken = _tokenService.GenerateRefreshToken();
@@ -75,9 +96,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
 
             var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
 
-            int? depotId = null;
-            string? depotName = null;
-            var managedDepotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(user.Id, cancellationToken);
+            managedDepotId ??= await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(user.Id, cancellationToken);
             if (managedDepotId.HasValue)
             {
                 depotId = managedDepotId.Value;
