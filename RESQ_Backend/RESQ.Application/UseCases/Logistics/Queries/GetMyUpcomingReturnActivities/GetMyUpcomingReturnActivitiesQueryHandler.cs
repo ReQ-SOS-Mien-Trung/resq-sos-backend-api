@@ -68,16 +68,21 @@ public class GetMyUpcomingReturnActivitiesQueryHandler(
         return new PagedResult<UpcomingReturnActivityDto>(items, paged.TotalCount, paged.PageNumber, paged.PageSize);
     }
 
-    private static ReturnSupplyActivityItemDto MapItem(ReturnSupplyActivityItemDetail item) => new()
+    private static ReturnSupplyActivityItemDto MapItem(ReturnSupplyActivityItemDetail item)
     {
-        ItemId = item.ItemId,
-        ItemName = item.ItemName,
-        Quantity = item.Quantity,
-        Unit = item.Unit,
-        ActualReturnedQuantity = item.ActualReturnedQuantity,
-        ExpectedReturnUnits = item.ExpectedReturnUnits.Select(CloneUnit).ToList(),
-        ReturnedReusableUnits = item.ReturnedReusableUnits.Select(CloneUnit).ToList()
-    };
+        var expectedReturnUnits = item.ExpectedReturnUnits.Select(CloneUnit).ToList();
+
+        return new ReturnSupplyActivityItemDto
+        {
+            ItemId = item.ItemId,
+            ItemName = item.ItemName,
+            Quantity = expectedReturnUnits.Count > 0 ? expectedReturnUnits.Count : item.Quantity,
+            Unit = item.Unit,
+            ActualReturnedQuantity = item.ActualReturnedQuantity,
+            ExpectedReturnUnits = expectedReturnUnits,
+            ReturnedReusableUnits = item.ReturnedReusableUnits.Select(CloneUnit).ToList()
+        };
+    }
 
     private static SupplyExecutionReusableUnitDto CloneUnit(SupplyExecutionReusableUnitDto unit) => new()
     {
