@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -9,22 +9,40 @@ public class GetDepotClosureDetailQueryHandler(
     IDepotRepository depotRepository,
     IDepotClosureRepository closureRepository,
     IDepotClosureTransferRepository transferRepository,
+    IDepotInventoryRepository inventoryRepository,
     IDepotClosureExternalItemRepository externalItemRepository)
     : IRequestHandler<GetDepotClosureDetailQuery, DepotClosureDetailResponse>
 {
     public async Task<DepotClosureDetailResponse> Handle(GetDepotClosureDetailQuery request, CancellationToken cancellationToken)
     {
-        var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
-            ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
-
         var closure = await closureRepository.GetByIdAsync(request.ClosureId, cancellationToken)
-            ?? throw new NotFoundException("Không tìm thấy phiên đóng kho.");
+            ?? throw new NotFoundException("Khong tim thay phien dong kho.");
 
-        if (closure.DepotId != request.DepotId)
-            throw new NotFoundException("Không tìm thấy phiên đóng kho thuộc kho được yêu cầu.");
+        if (request.RequestingUserId.HasValue)
+        {
+            var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(
+                request.RequestingUserId.Value, cancellationToken);
+
+            if (managerDepotId.HasValue)
+            {
+                if (managerDepotId != closure.DepotId && managerDepotId != closure.TargetDepotId)
+                    throw new ForbiddenException("Ban khong phai manager cua kho nguon hoac kho dich trong phien dong kho nay.");
+            }
+            else if (request.DepotId != closure.DepotId && request.DepotId != closure.TargetDepotId)
+            {
+                throw new NotFoundException("Khong tim thay phien dong kho thuoc kho duoc yeu cau.");
+            }
+        }
+        else if (request.DepotId != closure.DepotId && request.DepotId != closure.TargetDepotId)
+        {
+            throw new NotFoundException("Khong tim thay phien dong kho thuoc kho duoc yeu cau.");
+        }
+
+        var depot = await depotRepository.GetByIdAsync(closure.DepotId, cancellationToken)
+            ?? throw new NotFoundException("Khong tim thay kho cuu tro.");
 
         var summary = await closureRepository.GetClosureDetailAsync(request.DepotId, request.ClosureId, cancellationToken)
-            ?? throw new NotFoundException("Không tìm thấy dữ liệu chi tiết của phiên đóng kho.");
+            ?? throw new NotFoundException("Khong tim thay du lieu chi tiet cua phien dong kho.");
 
         var response = new DepotClosureDetailResponse
         {
@@ -52,9 +70,6 @@ public class GetDepotClosureDetailQueryHandler(
             IsForced = closure.IsForced,
             ForceReason = closure.ForceReason,
             InitiatedAt = closure.InitiatedAt,
-            ClosingTimeoutAt = closure.Status is DepotClosureStatus.InProgress or DepotClosureStatus.Processing
-                ? closure.ClosingTimeoutAt
-                : null,
             CompletedAt = closure.CompletedAt,
             CancelledAt = closure.CancelledAt
         };
@@ -115,3 +130,4 @@ public class GetDepotClosureDetailQueryHandler(
         return response;
     }
 }
+

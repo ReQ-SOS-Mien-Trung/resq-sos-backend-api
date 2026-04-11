@@ -1,27 +1,28 @@
-namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
+﻿namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 
 public class DepotClosureDto
 {
     public int Id { get; set; }
     public int DepotId { get; set; }
+    public string DepotRole { get; set; } = "SourceDepot";
 
-    /// <summary>Trạng thái của phiên đóng kho: InProgress | Completed | Cancelled | TimedOut</summary>
+    /// <summary>Status of the closure session.</summary>
     public string Status { get; set; } = string.Empty;
 
-    /// <summary>Trạng thái kho trước khi đóng: Available | Full</summary>
+    /// <summary>Depot status before closure: Available | Full</summary>
     public string PreviousStatus { get; set; } = string.Empty;
 
-    /// <summary>Lý do đóng kho do admin nhập khi initiate.</summary>
+    /// <summary>Closure reason entered by admin during initiation.</summary>
     public string CloseReason { get; set; } = string.Empty;
 
-    /// <summary>Cách xử lý hàng tồn: TransferToDepot | ExternalResolution | null (nếu kho rỗng)</summary>
+    /// <summary>Inventory resolution type: TransferToDepot | ExternalResolution | null</summary>
     public string? ResolutionType { get; set; }
 
-    /// <summary>Kho đích nhận hàng (khi ResolutionType = TransferToDepot).</summary>
+    /// <summary>Destination depot when ResolutionType = TransferToDepot.</summary>
     public int? TargetDepotId { get; set; }
     public string? TargetDepotName { get; set; }
 
-    /// <summary>Ghi chú xử lý bên ngoài (khi ResolutionType = ExternalResolution).</summary>
+    /// <summary>External resolution note when ResolutionType = ExternalResolution.</summary>
     public string? ExternalNote { get; set; }
 
     public Guid InitiatedBy { get; set; }
@@ -31,26 +32,13 @@ public class DepotClosureDto
     public string? CancelledByFullName { get; set; }
     public string? CancellationReason { get; set; }
 
-    /// <summary>Số lượng vật tư tiêu hao (consumable) trong kho lúc bắt đầu đóng.</summary>
     public int SnapshotConsumableUnits { get; set; }
-
-    /// <summary>Số lượng thiết bị tái sử dụng (reusable) trong kho lúc bắt đầu đóng.</summary>
     public int SnapshotReusableUnits { get; set; }
 
     public DateTime InitiatedAt { get; set; }
-
-    /// <summary>
-    /// Chỉ có giá trị khi Status = InProgress hoặc Processing.
-    /// Null với tất cả các trạng thái còn lại (TransferPending, Completed, Cancelled, TimedOut).
-    /// </summary>
-    public DateTime? ClosingTimeoutAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 
-    /// <summary>
-    /// Tóm tắt lệnh chuyển hàng nếu có (khi ResolutionType = TransferToDepot).
-    /// null nếu kho rỗng hoặc chọn ExternalResolution.
-    /// </summary>
     public TransferSummaryDto? Transfer { get; set; }
 }
 
@@ -58,9 +46,6 @@ public class TransferSummaryDto
 {
     public int TransferId { get; set; }
 
-    /// <summary>
-    /// Trạng thái chuyển hàng:
-    /// AwaitingShipment → Preparing → Shipping → Completed | Cancelled
-    /// </summary>
+    /// <summary>AwaitingShipment -> Preparing -> Shipping -> Completed | Cancelled</summary>
     public string Status { get; set; } = string.Empty;
 }

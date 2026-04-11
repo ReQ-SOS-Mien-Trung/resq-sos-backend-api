@@ -26,7 +26,6 @@ public class DepotClosureDetailResponse
     public bool IsForced { get; set; }
     public string? ForceReason { get; set; }
     public DateTime InitiatedAt { get; set; }
-    public DateTime? ClosingTimeoutAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public DepotClosureTransferDetailDto? TransferDetail { get; set; }

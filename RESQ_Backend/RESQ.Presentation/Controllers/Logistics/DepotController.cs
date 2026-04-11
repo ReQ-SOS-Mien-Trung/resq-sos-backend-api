@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 using RESQ.Application.UseCases.Logistics.Commands.AssignDepotManager;
@@ -21,18 +22,19 @@ using RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.UpdateDepot;
 using RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
 using RESQ.Application.UseCases.Logistics.Commands.MarkExternalClosure;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.UseCases.Logistics.Queries.GetAvailableManagersMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.DepotStatusMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots;
 using RESQ.Domain.Enum.Logistics;
-using RESQ.Application.UseCases.Logistics.Queries.GetClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotById;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureDetail;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotsByCluster;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyClosureTransfers;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Queries.ExportClosureTemplate;
 using System.Security.Claims;
@@ -41,9 +43,14 @@ namespace RESQ.Presentation.Controllers.Logistics
 {
     [Route("logistics/depot")]
     [ApiController]
-    public class DepotController(IMediator mediator) : ControllerBase
+    public class DepotController(
+        IMediator mediator,
+        IUserRepository userRepository,
+        IDepotInventoryRepository depotInventoryRepository) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;
+        private readonly IUserRepository _userRepository = userRepository;
+        private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
 
         /// <summary>Lấy danh sách tất cả kho có phân trang.</summary>
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -267,32 +274,70 @@ namespace RESQ.Presentation.Controllers.Logistics
             return result is null ? NoContent() : Ok(result);
         }
 
-        /// <summary>[Admin] Lấy toàn bộ lịch sử phiên đóng kho của một kho.</summary>
-        [HttpGet("{id}/closures")]
-        [ApiExplorerSettings(IgnoreApi = true)]
-        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        /// <summary>[Manager] Lay toan bo lich su phien dong kho cua kho dang quan ly. DepotId duoc suy ra tu token.</summary>
+        [HttpGet("closures")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(List<DepotClosureDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetClosures(int id)
+        public async Task<IActionResult> GetMyClosures()
         {
-            var result = await _mediator.Send(new GetDepotClosuresQuery(id));
+            var userId = GetUserId();
+            var depotId = await GetRequiredManagerDepotIdAsync(userId);
+            var result = await _mediator.Send(new GetDepotClosuresQuery(depotId, userId));
+            return Ok(result);
+        }
+
+        /// <summary>[Admin] Lay toan bo lich su phien dong kho cua mot kho cu the.</summary>
+        [HttpGet("{depotId}/closures")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(List<DepotClosureDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetClosuresByDepot(int depotId)
+        {
+            var userId = GetUserId();
+            await EnsureAdminRoleAsync(userId);
+            var result = await _mediator.Send(new GetDepotClosuresQuery(depotId, userId));
+            return Ok(result);
+        }
+
+        /// <summary>[Manager] Xem chi tiet mot phien dong kho cua kho dang quan ly. DepotId duoc suy ra tu token.</summary>
+        [HttpGet("closures/{closureId}")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(DepotClosureDetailResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetMyClosureDetail(int closureId)
+        {
+            var userId = GetUserId();
+            var depotId = await GetRequiredManagerDepotIdAsync(userId);
+            var result = await _mediator.Send(new GetDepotClosureDetailQuery(depotId, closureId, userId));
+            return Ok(result);
+        }
+
+        /// <summary>[Admin] Xem chi tiet mot phien dong kho cua mot kho cu the.</summary>
+        [HttpGet("{depotId}/closures/{closureId}")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(DepotClosureDetailResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetClosureDetailByDepot(int depotId, int closureId)
+        {
+            var userId = GetUserId();
+            await EnsureAdminRoleAsync(userId);
+            var result = await _mediator.Send(new GetDepotClosureDetailQuery(depotId, closureId, userId));
             return Ok(result);
         }
 
         /// <summary>
-        /// [Admin] Xem chi tiết một phiên đóng kho.
-        /// Trả về thông tin phiên đóng từ depot_closures và detail theo resolutionType:
-        /// - ExternalResolution: externalItems
-        /// - TransferToDepot: transferDetail
+        /// [Manager kho nguồn/kho đích] Lấy toàn bộ transfer đóng kho mà kho hiện tại có tham gia.
+        /// Hệ thống tự xác định depotId từ token và trả về cả transfer phía nguồn lẫn phía đích.
         /// </summary>
-        [HttpGet("{id}/closures/{closureId}")]
-        [ApiExplorerSettings(IgnoreApi = true)]
-        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
-        [ProducesResponseType(typeof(DepotClosureDetailResponse), StatusCodes.Status200OK)]
+        [HttpGet("transfer")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(List<MyClosureTransferDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetClosureDetail(int id, int closureId)
+        public async Task<IActionResult> GetMyClosureTransfers()
         {
-            var result = await _mediator.Send(new GetDepotClosureDetailQuery(id, closureId));
+            var userId = GetUserId();
+            var result = await _mediator.Send(new GetMyClosureTransfersQuery(userId));
             return Ok(result);
         }
 
@@ -516,21 +561,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// Xem trạng thái bản ghi chuyển hàng khi đóng kho.
-        /// {id} là kho nguồn (source depot). Manager kho nguồn / kho đích đều dùng được.
-        /// </summary>
-        [HttpGet("{id}/transfer/{transferId}")]
-        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
-        [ProducesResponseType(typeof(ClosureTransferResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetClosureTransfer(int id, int transferId)
-        {
-            var userId = GetUserId();
-            var query = new GetClosureTransferQuery(id, transferId, userId);
-            var result = await _mediator.Send(query);
-            return Ok(result);
-        }
-
         private Guid GetUserId()
         {
             var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -539,6 +569,27 @@ namespace RESQ.Presentation.Controllers.Logistics
                 return userId;
             }
             throw new Application.Exceptions.UnauthorizedException("Token không hợp lệ hoặc thiếu thông tin người dùng.");
+        }
+
+        private async Task<int> GetRequiredManagerDepotIdAsync(Guid userId)
+        {
+            var user = await _userRepository.GetByIdAsync(userId)
+                ?? throw new UnauthorizedException("Khong tim thay thong tin nguoi dung tu token.");
+
+            if (user.RoleId != 4)
+                throw new ForbiddenException("Endpoint nay chi danh cho manager kho.");
+
+            return await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(userId)
+                ?? throw new NotFoundException("Ban hien khong phu trach kho nao.");
+        }
+
+        private async Task EnsureAdminRoleAsync(Guid userId)
+        {
+            var user = await _userRepository.GetByIdAsync(userId)
+                ?? throw new UnauthorizedException("Khong tim thay thong tin nguoi dung tu token.");
+
+            if (user.RoleId != 1)
+                throw new ForbiddenException("Endpoint nay chi danh cho admin va yeu cau depotId tren route.");
         }
     }
 }

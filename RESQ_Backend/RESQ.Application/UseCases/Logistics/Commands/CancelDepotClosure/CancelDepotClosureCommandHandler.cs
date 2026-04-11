@@ -33,7 +33,7 @@ public class CancelDepotClosureCommandHandler(
             throw new ConflictException(
                 $"Không thể huỷ — bản ghi đóng kho đang ở trạng thái '{closure.Status}'.");
 
-        // 2. Atomic claim để tránh race condition với timeout daemon
+        // 2. Atomic claim để tránh race condition với request xử lý đồng thời
         //    Nếu Processing (bị kẹt từ lần trước): dùng force-claim bằng rowVersion
         //    Nếu InProgress: dùng claim thông thường
         bool claimed;

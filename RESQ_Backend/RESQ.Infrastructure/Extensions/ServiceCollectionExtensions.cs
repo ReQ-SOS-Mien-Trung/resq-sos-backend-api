@@ -190,8 +190,6 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<DepotRealtimeOutboxDispatcherBackgroundService>();
         services.AddHostedService<DepotRealtimeDeadLetterRetryBackgroundService>();
         services.AddHostedService<SupplyRequestDeadlineBackgroundService>();
-        services.AddHostedService<DepotClosureTimeoutBackgroundService>();
-
         return services;
     }
 }

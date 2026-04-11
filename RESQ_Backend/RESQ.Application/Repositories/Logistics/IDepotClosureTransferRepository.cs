@@ -2,6 +2,23 @@ using RESQ.Domain.Entities.Logistics;
 
 namespace RESQ.Application.Repositories.Logistics;
 
+public class DepotClosureTransferListItem
+{
+    public int TransferId { get; set; }
+    public int ClosureId { get; set; }
+    public int SourceDepotId { get; set; }
+    public string SourceDepotName { get; set; } = string.Empty;
+    public int TargetDepotId { get; set; }
+    public string TargetDepotName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public int SnapshotConsumableUnits { get; set; }
+    public int SnapshotReusableUnits { get; set; }
+    public DateTime? ShippedAt { get; set; }
+    public DateTime? ReceivedAt { get; set; }
+    public DateTime? CancelledAt { get; set; }
+}
+
 /// <summary>
 /// Repository quản lý bản ghi chuyển hàng khi đóng kho (depot_closure_transfers).
 /// </summary>
@@ -22,6 +39,8 @@ public interface IDepotClosureTransferRepository
     /// Chỉ trả về transfer chưa kết thúc (chưa Received/Cancelled).
     /// </summary>
     Task<DepotClosureTransferRecord?> GetActiveIncomingByTargetDepotIdAsync(int targetDepotId, CancellationToken cancellationToken = default);
+
+    Task<List<DepotClosureTransferListItem>> GetByRelatedDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default);
 }

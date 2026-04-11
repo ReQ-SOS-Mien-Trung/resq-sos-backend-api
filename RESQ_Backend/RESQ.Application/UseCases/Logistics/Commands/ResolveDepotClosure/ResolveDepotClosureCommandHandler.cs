@@ -50,8 +50,7 @@ public class ResolveDepotClosureCommandHandler(
         else if (closure.Status != DepotClosureStatus.InProgress)
         {
             throw new ConflictException(
-                $"Bản ghi đóng kho đang ở trạng thái '{closure.Status}' — không thể tiếp tục xử lý. " +
-                "Nếu đã hết hạn, vui lòng tạo yêu cầu đóng kho mới.");
+                $"Bản ghi đóng kho đang ở trạng thái '{closure.Status}' — không thể tiếp tục xử lý.");
         }
         else
         {
