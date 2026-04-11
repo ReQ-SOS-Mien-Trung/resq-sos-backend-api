@@ -139,7 +139,7 @@ public class MissionController(IMediator mediator) : ControllerBase
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-                throw new UnauthorizedException("Token khÃ´ng há»£p lá»‡ hoáº·c khÃ´ng tÃ¬m tháº¥y thÃ´ng tin ngÆ°á»i dÃ¹ng.");
+                throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
             updatedBy = userId;
         }

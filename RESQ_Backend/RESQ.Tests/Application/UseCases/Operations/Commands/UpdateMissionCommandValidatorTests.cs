@@ -25,7 +25,7 @@ public class UpdateMissionCommandValidatorTests
         var result = _validator.Validate(command);
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("ActivityId trÃ¹ng", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("ActivityId trùng", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -64,8 +64,8 @@ public class UpdateMissionCommandValidatorTests
         var result = _validator.Validate(command);
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("Ã­t nháº¥t má»™t thay Ä‘á»•i", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("TargetLatitude vÃ  TargetLongitude", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("ít nhất một thay đổi", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("TargetLatitude và TargetLongitude", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class UpdateMissionCommandValidatorTests
         var result = _validator.Validate(command);
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("ItemId trÃ¹ng", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("Quantity pháº£i lá»›n hÆ¡n 0", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("ItemId trùng", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("Quantity phải lớn hơn 0", StringComparison.OrdinalIgnoreCase));
     }
 }
