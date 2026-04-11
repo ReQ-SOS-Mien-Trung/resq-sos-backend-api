@@ -187,6 +187,11 @@ public class DepotModel
                 "Kho phải ở trạng thái Unavailable trước khi đóng hoàn toàn.");
 
         Status = DepotStatus.Closed;
+        var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
+        if (activeAssignment != null)
+        {
+            activeAssignment.Unassign(DateTime.UtcNow);
+        }
         CurrentUtilization = 0;
         CurrentWeightUtilization = 0;
         LastUpdatedAt = DateTime.UtcNow;
@@ -303,3 +308,4 @@ public record DepotInventoryLine(
     string? Unit,
     int AvailableQuantity
 );
+
