@@ -1,5 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
@@ -8,15 +10,15 @@ using RESQ.Application.Services;
 namespace RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 
 /// <summary>
-/// Quản lý kho đích xác nhận nhận hàng → Received.
-/// Sau đó kích hoạt BulkTransferForClosure và hoàn tất bản ghi đóng kho + depot.
+/// Manager kho dich xac nhan nhan hang.
+/// Sau do he thong bulk-transfer inventory va danh dau phien xu ly hang ton da xong,
+/// nhung van cho admin goi POST /logistics/depot/{id}/close de dong kho that su.
 /// </summary>
 public class ReceiveClosureTransferCommandHandler(
     IDepotClosureTransferRepository transferRepository,
     IDepotClosureRepository closureRepository,
     IDepotRepository depotRepository,
     IDepotInventoryRepository inventoryRepository,
-    IDepotFundDrainService depotFundDrainService,
     IFirebaseService firebaseService,
     IUnitOfWork unitOfWork,
     ILogger<ReceiveClosureTransferCommandHandler> logger)
@@ -27,26 +29,25 @@ public class ReceiveClosureTransferCommandHandler(
         CancellationToken cancellationToken)
     {
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
+            ?? throw new NotFoundException($"Khong tim thay ban ghi chuyen kho #{request.TransferId}.");
 
-        // Kiểm tra người thực hiện là manager của kho đích
         var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
-            ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
+            ?? throw ExceptionCodes.WithCode(
+                new BadRequestException("Tai khoan khong quan ly kho nao dang hoat dong."),
+                LogisticsErrorCodes.DepotManagerNotAssigned);
 
         if (managerDepotId != transfer.TargetDepotId)
-            throw new ForbiddenException("Bạn không phải manager của kho đích trong quá trình nhận hàng này.");
+            throw new ForbiddenException("Ban khong phai manager cua kho dich trong qua trinh nhan hang nay.");
 
         var closure = await closureRepository.GetByIdAsync(transfer.ClosureId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy bản ghi đóng kho #{transfer.ClosureId}.");
+            ?? throw new NotFoundException($"Khong tim thay ban ghi dong kho #{transfer.ClosureId}.");
 
         var sourceDepot = await depotRepository.GetByIdAsync(transfer.SourceDepotId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy kho nguồn #{transfer.SourceDepotId}.");
+            ?? throw new NotFoundException($"Khong tim thay kho nguon #{transfer.SourceDepotId}.");
 
-        // Transition: Completed → Received (domain validates)
         transfer.MarkReceived(request.UserId, request.Note);
         var completedAt = DateTime.UtcNow;
 
-        // Thực hiện bulk transfer thực tế (di chuyển inventory)
         var (processedRows, _) = await inventoryRepository.BulkTransferForClosureAsync(
             sourceDepotId: transfer.SourceDepotId,
             targetDepotId: transfer.TargetDepotId,
@@ -55,42 +56,34 @@ public class ReceiveClosureTransferCommandHandler(
             cancellationToken: cancellationToken);
 
         logger.LogInformation(
-            "BulkTransfer completed | ClosureId={C} Rows={R} TransferId={T}",
+            "BulkTransfer completed | ClosureId={ClosureId} Rows={Rows} TransferId={TransferId}",
             transfer.ClosureId, processedRows, transfer.Id);
 
-        // Cập nhật closure + depot trong transaction
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            // Drain quỹ kho nguồn (balance > 0) về quỹ hệ thống
-            await depotFundDrainService.DrainAllToSystemFundAsync(
-                transfer.SourceDepotId, transfer.ClosureId, request.UserId, cancellationToken);
-
-            sourceDepot.CompleteClosing();
             closure.Complete(completedAt);
 
             await transferRepository.UpdateAsync(transfer, cancellationToken);
-            await depotRepository.UpdateAsync(sourceDepot, cancellationToken);
             await closureRepository.UpdateAsync(closure, cancellationToken);
             await unitOfWork.SaveAsync();
         });
 
         logger.LogInformation(
-            "DepotClosure completed via transfer | DepotId={D} ClosureId={C}",
+            "Depot closure inventory resolution completed via transfer | DepotId={DepotId} ClosureId={ClosureId}",
             transfer.SourceDepotId, closure.Id);
 
-        // Notify admin who initiated closure
         try
         {
             await firebaseService.SendNotificationToUserAsync(
                 closure.InitiatedBy,
-                "Đóng kho hoàn tất",
-                $"Kho đã được đóng thành công. Toàn bộ hàng tồn đã được chuyển sang kho đích.",
+                "Xu ly hang ton da hoan tat",
+                $"Toan bo hang ton cua kho '{sourceDepot.Name}' da duoc chuyen sang kho dich. Kho van o trang thai Unavailable va cho admin xac nhan dong kho.",
                 "depot_closure_completed",
                 cancellationToken);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to notify admin | ClosureId={Id}", closure.Id);
+            logger.LogWarning(ex, "Failed to notify admin | ClosureId={ClosureId}", closure.Id);
         }
 
         return new ReceiveClosureTransferResponse
@@ -101,7 +94,7 @@ public class ReceiveClosureTransferCommandHandler(
             ConsumableUnitsMoved = transfer.SnapshotConsumableUnits,
             ReusableItemsMoved = transfer.SnapshotReusableUnits,
             CompletedAt = completedAt,
-            Message = "Đã xác nhận nhận hàng. Quá trình đóng kho đã hoàn tất."
+            Message = "Da xac nhan nhan hang. Hang ton da duoc chuyen xong, kho nguon van giu trang thai Unavailable va cho admin xac nhan dong kho."
         };
     }
 }

@@ -199,9 +199,7 @@ public class ResolveDepotClosureCommandHandler(
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            depot.CompleteClosing();
             closure.Complete(completedAt);
-            await depotRepository.UpdateAsync(depot, cancellationToken);
             await closureRepository.UpdateAsync(closure, cancellationToken);
             await unitOfWork.SaveAsync();
         });
@@ -213,7 +211,7 @@ public class ResolveDepotClosureCommandHandler(
             DepotName = depot.Name,
             ResolutionType = request.ResolutionType.ToString(),
             CompletedAt = completedAt,
-            Message = "Đóng kho thành công. Hàng tồn đã được xử lý theo hình thức bên ngoài."
+            Message = "Đã xử lý xong hàng tồn theo hình thức bên ngoài. Kho vẫn giữ trạng thái Unavailable và chờ admin xác nhận đóng kho."
         };
     }
 }

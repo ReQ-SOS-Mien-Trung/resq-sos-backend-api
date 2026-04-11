@@ -1,4 +1,6 @@
 using MediatR;
+using RESQ.Application.Common;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 
@@ -14,31 +16,28 @@ public class GetClosureTransferQueryHandler(
         CancellationToken cancellationToken)
     {
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
+            ?? throw new NotFoundException($"Khong tim thay ban ghi chuyen kho #{request.TransferId}.");
 
-        // Nếu có userId (manager gọi) → tự xác định depot từ token, cho phép cả kho nguồn lẫn kho đích
         if (request.RequestingUserId.HasValue)
         {
             var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(
                 request.RequestingUserId.Value, cancellationToken);
 
-            if (managerDepotId.HasValue)
+            if (!managerDepotId.HasValue)
             {
-                if (managerDepotId != transfer.SourceDepotId && managerDepotId != transfer.TargetDepotId)
-                    throw new ForbiddenException("Bạn không phải manager của kho nguồn hoặc kho đích trong bản ghi chuyển hàng này.");
+                throw ExceptionCodes.WithCode(
+                    new ForbiddenException("Tài khoản quản lý kho chưa được gán kho phụ trách."),
+                    LogisticsErrorCodes.DepotManagerNotAssigned);
             }
-            else
+
+            if (managerDepotId != transfer.SourceDepotId && managerDepotId != transfer.TargetDepotId)
             {
-                // Không phải manager (admin) → kiểm tra theo DepotId truyền vào
-                if (transfer.SourceDepotId != request.DepotId)
-                    throw new ConflictException("Bản ghi chuyển kho không khớp với thông tin được cung cấp.");
+                throw new ForbiddenException("Ban khong phai manager cua kho nguon hoac kho dich trong ban ghi chuyen hang nay.");
             }
         }
-        else
+        else if (transfer.SourceDepotId != request.DepotId)
         {
-            // Không có userId → kiểm tra theo DepotId (backward compatible)
-            if (transfer.SourceDepotId != request.DepotId)
-                throw new ConflictException("Bản ghi chuyển kho không khớp với thông tin được cung cấp.");
+            throw new ConflictException("Ban ghi chuyen kho khong khop voi thong tin duoc cung cap.");
         }
 
         return new ClosureTransferResponse

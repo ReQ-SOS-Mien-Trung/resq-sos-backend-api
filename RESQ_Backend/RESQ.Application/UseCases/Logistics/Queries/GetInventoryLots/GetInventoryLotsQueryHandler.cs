@@ -1,4 +1,6 @@
 using MediatR;
+using RESQ.Application.Common;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -12,9 +14,18 @@ public class GetInventoryLotsQueryHandler(IDepotInventoryRepository depotInvento
 
     public async Task<PagedResult<InventoryLotDto>> Handle(GetInventoryLotsQuery request, CancellationToken cancellationToken)
     {
-        var depotId = request.DepotId
-            ?? await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
-            ?? throw new NotFoundException("Không tìm thấy kho cứu trợ được chỉ định.");
+        int depotId;
+        if (request.DepotId.HasValue)
+        {
+            depotId = request.DepotId.Value;
+        }
+        else
+        {
+            depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+                ?? throw ExceptionCodes.WithCode(
+                    new NotFoundException("Tài khoản quản lý kho chưa được gán kho phụ trách."),
+                    LogisticsErrorCodes.DepotManagerNotAssigned);
+        }
 
         var pagedLots = await _depotInventoryRepository.GetInventoryLotsAsync(
             depotId, request.ItemModelId, request.PageNumber, request.PageSize, cancellationToken);

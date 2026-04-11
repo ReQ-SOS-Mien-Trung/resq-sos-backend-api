@@ -5,9 +5,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
-using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
-using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Domain.Enum.Logistics;
 
@@ -19,7 +17,6 @@ public class UploadExternalResolutionCommandHandler(
     IDepotClosureExternalItemRepository externalItemRepository,
     IDepotInventoryRepository inventoryRepository,
     ISystemFundRepository systemFundRepository,
-    IDepotFundDrainService depotFundDrainService,
     IUnitOfWork unitOfWork,
     ILogger<UploadExternalResolutionCommandHandler> logger)
     : IRequestHandler<UploadExternalResolutionCommand, UploadExternalResolutionResponse>
@@ -137,22 +134,18 @@ public class UploadExternalResolutionCommandHandler(
                     liquidationRevenue, depotId, closureRecord.Id);
             }
 
-            await depotFundDrainService.DrainAllToSystemFundAsync(depotId, closureRecord.Id, request.ManagerUserId, cancellationToken);
-
             var actualConsumables = items.Where(i => i.ItemType == "Consumable").Sum(i => i.Quantity);
             var actualReusables = items.Where(i => i.ItemType == "Reusable").Sum(i => i.Quantity);
             closureRecord.RecordActualInventory(actualConsumables, actualReusables);
 
-            depot.CompleteClosing();
             closureRecord.Complete(now);
 
-            await depotRepository.UpdateAsync(depot, cancellationToken);
             await closureRepository.UpdateAsync(closureRecord, cancellationToken);
             await unitOfWork.SaveAsync();
         });
 
         logger.LogInformation(
-            "UploadExternalResolution completed - depot CLOSED | DepotId={DepotId} Items={Count} ClosureId={ClosureId}",
+            "UploadExternalResolution completed | DepotId={DepotId} Items={Count} ClosureId={ClosureId}",
             depotId, items.Count, closureRecord.Id);
 
         var (_, reusableInUse) = await depotRepository.GetReusableItemCountsAsync(depotId, cancellationToken);
@@ -167,7 +160,7 @@ public class UploadExternalResolutionCommandHandler(
             SnapshotConsumableUnits = closureRecord.SnapshotConsumableUnits,
             SnapshotReusableUnits = closureRecord.SnapshotReusableUnits,
             ReusableItemsSkipped = reusableInUse,
-            Message = $"Đã ghi nhận {items.Count} dòng xử lý bên ngoài, xóa toàn bộ tồn kho và đóng kho thành công."
+            Message = $"Đã ghi nhận {items.Count} dòng xử lý bên ngoài và xóa toàn bộ tồn kho. Kho vẫn giữ trạng thái Unavailable, chờ admin xác nhận đóng kho."
         };
     }
 }

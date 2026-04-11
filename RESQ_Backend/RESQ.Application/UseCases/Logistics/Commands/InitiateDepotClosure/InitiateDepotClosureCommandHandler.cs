@@ -25,26 +25,25 @@ public class InitiateDepotClosureCommandHandler(
             "InitiateDepotClosure | DepotId={DepotId} InitiatedBy={InitiatedBy}",
             request.DepotId, request.InitiatedBy);
 
-        // 1. Load kho
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
-            ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
+            ?? throw new NotFoundException("Khong tim thay kho cuu tro.");
 
-        // 2. Nếu đã Closed → không cho đóng lại
         if (depot.Status == DepotStatus.Closed)
-            throw new ConflictException("Kho đã đóng cửa.");
+            throw new ConflictException("Kho da dong cua.");
 
-        // 3. Phải ở trạng thái Unavailable trước khi đóng
         if (depot.Status != DepotStatus.Unavailable)
+        {
             throw new ConflictException(
-                $"Kho đang ở trạng thái '{depot.Status}'. " +
-                "Admin phải chuyển kho sang Unavailable trước khi đóng kho.");
+                $"Kho dang o trang thai '{depot.Status}'. " +
+                "Admin phai chuyen kho sang Unavailable truoc khi dong kho.");
+        }
 
-        // 4. Guard: không phải kho duy nhất còn hoạt động
         var activeCount = await depotRepository.GetActiveDepotCountExcludingAsync(request.DepotId, cancellationToken);
         if (activeCount == 0)
-            throw new ConflictException("Không thể đóng kho duy nhất còn đang hoạt động trong hệ thống.");
+            throw new ConflictException("Khong the dong kho duy nhat con dang hoat dong trong he thong.");
 
-        // 5. Kiểm tra tồn kho — nếu còn hàng thì trả 409 kèm chi tiết (không tạo closure record)
+        var latestClosure = await closureRepository.GetLatestClosureByDepotIdAsync(request.DepotId, cancellationToken);
+
         var inventoryItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
         if (inventoryItems.Count > 0)
         {
@@ -60,41 +59,66 @@ public class InitiateDepotClosureCommandHandler(
                 DepotId = depot.Id,
                 DepotName = depot.Name,
                 Success = false,
-                Message = $"Kho vẫn còn hàng tồn ({totalConsumable} đơn vị tiêu hao, {totalReusable} thiết bị tái sử dụng). " +
-                          "Hãy chọn cách xử lý: chuyển kho (POST /close/transfer) hoặc xử lý bên ngoài (POST /close/external-resolution).",
+                Message = $"Kho van con hang ton ({totalConsumable} don vi tieu hao, {totalReusable} thiet bi tai su dung). " +
+                          "Hay chon cach xu ly: chuyen kho (POST /close/transfer) hoac xu ly ben ngoai (POST /close/external-resolution).",
                 RemainingItems = inventoryItems
             };
         }
 
-        // 6. Kho trống → đóng ngay
+        if (latestClosure is
+            {
+                Status: not DepotClosureStatus.Completed
+                    and not DepotClosureStatus.Cancelled
+                    and not DepotClosureStatus.Failed
+            })
+        {
+            throw new ConflictException(
+                $"Phien dong kho hien tai dang o trang thai '{latestClosure.Status}'. " +
+                "Can hoan tat xu ly hang ton truoc khi admin xac nhan dong kho.");
+        }
+
         var previousStatus = depot.Status;
         DepotClosureRecord? closureRecord = null;
+        var isFinalizingExistingClosure = latestClosure?.Status == DepotClosureStatus.Completed;
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             depot.CompleteClosing();
             await depotRepository.UpdateAsync(depot, cancellationToken);
 
-            closureRecord = DepotClosureRecord.Create(
-                depotId: request.DepotId,
-                initiatedBy: request.InitiatedBy,
-                closeReason: request.Reason,
-                previousStatus: previousStatus,
-                snapshotConsumableUnits: 0,
-                snapshotReusableUnits: 0,
-                totalConsumableRows: 0,
-                totalReusableUnits: 0);
-            closureRecord.Complete(DateTime.UtcNow);
+            if (isFinalizingExistingClosure)
+            {
+                closureRecord = latestClosure!;
+            }
+            else
+            {
+                closureRecord = DepotClosureRecord.Create(
+                    depotId: request.DepotId,
+                    initiatedBy: request.InitiatedBy,
+                    closeReason: request.Reason,
+                    previousStatus: previousStatus,
+                    snapshotConsumableUnits: 0,
+                    snapshotReusableUnits: 0,
+                    totalConsumableRows: 0,
+                    totalReusableUnits: 0);
+                closureRecord.Complete(DateTime.UtcNow);
 
-            var id = await closureRepository.CreateAsync(closureRecord, cancellationToken);
-            closureRecord.SetGeneratedId(id);
+                var id = await closureRepository.CreateAsync(closureRecord, cancellationToken);
+                closureRecord.SetGeneratedId(id);
+            }
 
-            // Drain quỹ kho (balance > 0) về quỹ hệ thống
             await depotFundDrainService.DrainAllToSystemFundAsync(
-                request.DepotId, id, request.InitiatedBy, cancellationToken);
+                request.DepotId,
+                closureRecord!.Id,
+                request.InitiatedBy,
+                cancellationToken);
         });
 
-        logger.LogInformation("Depot {DepotId} closed successfully (empty inventory)", request.DepotId);
+        logger.LogInformation(
+            "Depot {DepotId} closed successfully | FinalizedExistingClosure={FinalizedExistingClosure} ClosureId={ClosureId}",
+            request.DepotId,
+            isFinalizingExistingClosure,
+            closureRecord!.Id);
 
         return new InitiateDepotClosureResponse
         {
@@ -102,7 +126,9 @@ public class InitiateDepotClosureCommandHandler(
             DepotName = depot.Name,
             ClosureId = closureRecord!.Id,
             Success = true,
-            Message = "Kho không có hàng tồn — đã đóng thành công."
+            Message = isFinalizingExistingClosure
+                ? "Da xac nhan hoan tat dong kho. Quy kho da duoc chuyen ve quy he thong, kho chuyen sang Closed va manager da duoc go."
+                : "Kho khong co hang ton nen da duoc dong ngay. Quy kho da duoc chuyen ve quy he thong va manager da duoc go."
         };
     }
 }
