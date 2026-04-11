@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
@@ -16,7 +16,7 @@ public class UploadExternalResolutionCommandHandler(
     IDepotClosureRepository closureRepository,
     IDepotClosureExternalItemRepository externalItemRepository,
     IDepotInventoryRepository inventoryRepository,
-    ISystemFundRepository systemFundRepository,
+    IDepotFundRepository depotFundRepo,
     IUnitOfWork unitOfWork,
     ILogger<UploadExternalResolutionCommandHandler> logger)
     : IRequestHandler<UploadExternalResolutionCommand, UploadExternalResolutionResponse>
@@ -30,35 +30,35 @@ public class UploadExternalResolutionCommandHandler(
             request.ManagerUserId);
 
         var depotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.ManagerUserId, cancellationToken)
-            ?? throw new NotFoundException("Bạn hiện không phụ trách kho nào.");
+            ?? throw new NotFoundException("B?n hi?n kh�ng ph? tr�ch kho n�o.");
 
         var depot = await depotRepository.GetByIdAsync(depotId, cancellationToken)
-            ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
+            ?? throw new NotFoundException("Kh�ng t�m th?y kho c?u tr?.");
 
         if (depot.Status != DepotStatus.Unavailable)
             throw new ConflictException(
-                $"Kho đang ở trạng thái '{depot.Status}'. Chỉ cho phép xử lý bên ngoài khi kho đang Unavailable.");
+                $"Kho dang ? tr?ng th�i '{depot.Status}'. Ch? cho ph�p x? l� b�n ngo�i khi kho dang Unavailable.");
 
         var activeCount = await depotRepository.GetActiveDepotCountExcludingAsync(depotId, cancellationToken);
         if (activeCount == 0)
-            throw new ConflictException("Không thể đóng kho duy nhất còn đang hoạt động trong hệ thống.");
+            throw new ConflictException("Kh�ng th? d�ng kho duy nh?t c�n dang ho?t d?ng trong h? th?ng.");
 
         var existingClosure = await closureRepository.GetActiveClosureByDepotIdAsync(depotId, cancellationToken)
             ?? throw new ConflictException(
-                "Kho chưa được đánh dấu xử lý bên ngoài. Admin cần gọi POST /{id}/close/mark-external trước.");
+                "Kho chua du?c d�nh d?u x? l� b�n ngo�i. Admin c?n g?i POST /{id}/close/mark-external tru?c.");
 
         if (existingClosure.ResolutionType != CloseResolutionType.ExternalResolution)
             throw new ConflictException(
-                "Phiên đóng kho hiện tại không phải hình thức xử lý bên ngoài. Không thể thực hiện thao tác này.");
+                "Phi�n d�ng kho hi?n t?i kh�ng ph?i h�nh th?c x? l� b�n ngo�i. Kh�ng th? th?c hi?n thao t�c n�y.");
 
         var items = request.Items;
         if (items == null || items.Count == 0)
-            throw new BadRequestException("Danh sách hàng tồn kho rỗng. Vui lòng cung cấp ít nhất một dòng.");
+            throw new BadRequestException("Danh s�ch h�ng t?n kho r?ng. Vui l�ng cung c?p �t nh?t m?t d�ng.");
 
         var invalidRows = items.Where(i => string.IsNullOrWhiteSpace(i.HandlingMethod)).ToList();
         if (invalidRows.Count > 0)
             throw new BadRequestException(
-                $"Các dòng sau thiếu Hình thức xử lý: {string.Join(", ", invalidRows.Select(i => i.RowNumber))}.");
+                $"C�c d�ng sau thi?u H�nh th?c x? l�: {string.Join(", ", invalidRows.Select(i => i.RowNumber))}.");
 
         var invalidHandlingMethodRows = items
             .Where(i => !string.IsNullOrWhiteSpace(i.HandlingMethod)
@@ -66,7 +66,7 @@ public class UploadExternalResolutionCommandHandler(
             .ToList();
         if (invalidHandlingMethodRows.Count > 0)
             throw new BadRequestException(
-                $"Các dòng sau có Hình thức xử lý không hợp lệ: {string.Join(", ", invalidHandlingMethodRows.Select(i => i.RowNumber))}.");
+                $"C�c d�ng sau c� H�nh th?c x? l� kh�ng h?p l?: {string.Join(", ", invalidHandlingMethodRows.Select(i => i.RowNumber))}.");
 
         var otherRowsMissingNote = items
             .Where(i => ExternalDispositionMetadata.Parse(i.HandlingMethod) == ExternalDispositionType.Other
@@ -74,7 +74,7 @@ public class UploadExternalResolutionCommandHandler(
             .ToList();
         if (otherRowsMissingNote.Count > 0)
             throw new BadRequestException(
-                $"Các dòng sau chọn HandlingMethod = Other nhưng thiếu Ghi chú: {string.Join(", ", otherRowsMissingNote.Select(i => i.RowNumber))}.");
+                $"C�c d�ng sau ch?n HandlingMethod = Other nhung thi?u Ghi ch�: {string.Join(", ", otherRowsMissingNote.Select(i => i.RowNumber))}.");
 
         var closureRecord = existingClosure;
         var now = DateTime.UtcNow;
@@ -108,29 +108,31 @@ public class UploadExternalResolutionCommandHandler(
                 depotId: depotId,
                 closureId: closureRecord.Id,
                 performedBy: request.ManagerUserId,
-                note: "Xử lý bên ngoài hệ thống (JSON upload)",
+                note: "X? l� b�n ngo�i h? th?ng (JSON upload)",
                 cancellationToken: cancellationToken);
 
-            if (liquidationRevenue > 0)
+                        if (liquidationRevenue > 0)
             {
-                var systemFund = await systemFundRepository.GetOrCreateAsync(cancellationToken);
-                systemFund.Credit(liquidationRevenue);
-                await systemFundRepository.UpdateAsync(systemFund, cancellationToken);
+                var depotFund = await depotFundRepo.GetOrCreateByDepotAndSourceAsync(
+                    depotId, FundSourceType.SystemFund, null, cancellationToken);
+                
+                depotFund.Credit(liquidationRevenue);
+                await depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
-                await systemFundRepository.CreateTransactionAsync(new SystemFundTransactionModel
+                await depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
                 {
-                    SystemFundId = systemFund.Id,
-                    TransactionType = SystemFundTransactionType.LiquidationRevenue,
+                    DepotFundId = depotFund.Id,
+                    TransactionType = DepotFundTransactionType.LiquidationRevenue,
                     Amount = liquidationRevenue,
                     ReferenceType = "DepotClosure",
                     ReferenceId = closureRecord.Id,
-                    Note = $"Tiền thanh lý tài sản khi đóng kho #{depotId} - {liquidationRevenue:N0} VNĐ",
+                    Note = $"Ti?n thanh l� t�i s?n khi d�ng kho #{depotId} - {liquidationRevenue:N0} VN�",
                     CreatedBy = request.ManagerUserId,
                     CreatedAt = now
                 }, cancellationToken);
 
                 logger.LogInformation(
-                    "UploadExternalResolution | Liquidation revenue={Revenue} credited to SystemFund | DepotId={DepotId} ClosureId={ClosureId}",
+                    "UploadExternalResolution | Liquidation revenue={Revenue} credited to DepotFund (SystemFund source) | DepotId={DepotId} ClosureId={ClosureId}",
                     liquidationRevenue, depotId, closureRecord.Id);
             }
 
@@ -160,7 +162,10 @@ public class UploadExternalResolutionCommandHandler(
             SnapshotConsumableUnits = closureRecord.SnapshotConsumableUnits,
             SnapshotReusableUnits = closureRecord.SnapshotReusableUnits,
             ReusableItemsSkipped = reusableInUse,
-            Message = $"Đã ghi nhận {items.Count} dòng xử lý bên ngoài và xóa toàn bộ tồn kho. Kho vẫn giữ trạng thái Unavailable, chờ admin xác nhận đóng kho."
+            Message = $"�� ghi nh?n {items.Count} d�ng x? l� b�n ngo�i v� x�a to�n b? t?n kho. Kho v?n gi? tr?ng th�i Unavailable, ch? admin x�c nh?n d�ng kho."
         };
     }
 }
+
+
+
