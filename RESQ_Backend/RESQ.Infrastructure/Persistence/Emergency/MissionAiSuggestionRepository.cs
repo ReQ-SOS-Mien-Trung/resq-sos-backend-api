@@ -1,5 +1,6 @@
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Mappers.Emergency;
@@ -31,6 +32,66 @@ public class MissionAiSuggestionRepository(IUnitOfWork unitOfWork) : IMissionAiS
         }
 
         return missionEntity.Id;
+    }
+
+    public async Task UpdateAsync(MissionAiSuggestionModel model, CancellationToken cancellationToken = default)
+    {
+        var missionRepo = _unitOfWork.GetRepository<MissionAiSuggestion>();
+        var activityRepo = _unitOfWork.GetRepository<ActivityAiSuggestion>();
+
+        var entity = await missionRepo.GetByPropertyAsync(x => x.Id == model.Id);
+        if (entity is null)
+            return;
+
+        entity.ClusterId = model.ClusterId;
+        entity.ModelName = model.ModelName;
+        entity.ModelVersion = model.ModelVersion;
+        entity.AnalysisType = model.AnalysisType;
+        entity.SuggestedMissionTitle = model.SuggestedMissionTitle;
+        entity.SuggestedPriorityScore = model.SuggestedPriorityScore;
+        entity.ConfidenceScore = model.ConfidenceScore;
+        entity.SuggestionScope = model.SuggestionScope;
+        entity.Metadata = model.Metadata;
+        if (model.CreatedAt.HasValue)
+            entity.CreatedAt = model.CreatedAt;
+        await missionRepo.UpdateAsync(entity);
+        await _unitOfWork.SaveAsync();
+
+        var existingActivities = await activityRepo
+            .GetAllByPropertyAsync(x => x.ParentMissionSuggestionId == model.Id);
+
+        foreach (var existingActivity in existingActivities)
+            await activityRepo.DeleteAsyncById(existingActivity.Id);
+
+        if (existingActivities.Count > 0)
+            await _unitOfWork.SaveAsync();
+
+        if (model.Activities.Count == 0)
+            return;
+
+        foreach (var activity in model.Activities)
+        {
+            activity.ParentMissionSuggestionId = model.Id;
+            var activityEntity = MissionAiSuggestionMapper.ToActivityEntity(activity);
+            await activityRepo.AddAsync(activityEntity);
+        }
+
+        await _unitOfWork.SaveAsync();
+    }
+
+    public async Task SavePipelineSnapshotAsync(
+        int suggestionId,
+        MissionSuggestionMetadata metadata,
+        CancellationToken cancellationToken = default)
+    {
+        var repo = _unitOfWork.GetRepository<MissionAiSuggestion>();
+        var entity = await repo.GetByPropertyAsync(x => x.Id == suggestionId);
+        if (entity is null)
+            return;
+
+        entity.Metadata = global::System.Text.Json.JsonSerializer.Serialize(metadata);
+        await repo.UpdateAsync(entity);
+        await _unitOfWork.SaveAsync();
     }
 
     public async Task<MissionAiSuggestionModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)

@@ -5,6 +5,8 @@ namespace RESQ.Tests.TestDoubles;
 internal sealed class StubUnitOfWork : IUnitOfWork
 {
     public int SaveCalls { get; private set; }
+    public int ExecuteInTransactionCalls { get; private set; }
+    public int ClearTrackedChangesCalls { get; private set; }
 
     public IGenericRepository<T> GetRepository<T>() where T : class => throw new NotImplementedException();
 
@@ -26,5 +28,14 @@ internal sealed class StubUnitOfWork : IUnitOfWork
     {
     }
 
-    public Task ExecuteInTransactionAsync(Func<Task> action) => action();
+    public void ClearTrackedChanges()
+    {
+        ClearTrackedChangesCalls++;
+    }
+
+    public async Task ExecuteInTransactionAsync(Func<Task> action)
+    {
+        ExecuteInTransactionCalls++;
+        await action();
+    }
 }

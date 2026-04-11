@@ -2,7 +2,7 @@ using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Emergency.Shared;
 
-internal static class RescueMissionSuggestionReviewHelper
+public static class RescueMissionSuggestionReviewHelper
 {
     private const string SingleTeamMode = "SingleTeam";
     private const string SplitAcrossTeamsMode = "SplitAcrossTeams";

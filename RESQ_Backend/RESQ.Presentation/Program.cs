@@ -240,3 +240,5 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<DashboardHub>("/hubs/dashboard");
 
 app.Run();
+
+public partial class Program;

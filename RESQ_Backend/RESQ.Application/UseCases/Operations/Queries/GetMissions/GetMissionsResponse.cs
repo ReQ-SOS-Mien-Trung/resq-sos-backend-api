@@ -72,11 +72,18 @@ public class MissionAiSuggestionSection
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public bool NeedsAdditionalDepot { get; set; }
+    public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public List<SuggestedActivityDto> SuggestedActivities { get; set; } = [];
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
     public DateTime? CreatedAt { get; set; }
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions SnakeCaseJsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+    };
 
     internal static MissionAiSuggestionSection? From(
         RESQ.Domain.Entities.Emergency.MissionAiSuggestionModel model)
@@ -100,31 +107,70 @@ public class MissionAiSuggestionSection
         {
             try
             {
-                var meta = JsonSerializer.Deserialize<AiMetadata>(model.Metadata, JsonOpts);
+                var meta = DeserializeWithNamingFallback<AiMetadata>(
+                    model.Metadata,
+                    "needs_additional_depot",
+                    "supply_shortages",
+                    "overall_assessment");
                 if (meta is not null)
                 {
                     section.OverallAssessment = meta.OverallAssessment;
                     section.EstimatedDuration = meta.EstimatedDuration;
                     section.SpecialNotes = meta.SpecialNotes;
+                    section.NeedsAdditionalDepot = meta.NeedsAdditionalDepot;
+                    section.SupplyShortages = meta.SupplyShortages ?? [];
                     section.SuggestedResources = meta.SuggestedResources ?? [];
                 }
             }
             catch { /* ignore malformed metadata */ }
         }
 
-        // Parse SuggestedActivities from the first ActivityAiSuggestion blob
-        var activityBlob = model.Activities.FirstOrDefault()?.SuggestedActivities;
+        // Prefer validated activities, then draft, then the legacy first blob.
+        var activityBlob = model.Activities
+            .OrderBy(activity => string.Equals(activity.SuggestionPhase, "Validated", StringComparison.OrdinalIgnoreCase) ? 0 :
+                string.Equals(activity.SuggestionPhase, "Draft", StringComparison.OrdinalIgnoreCase) ? 1 : 2)
+            .Select(activity => activity.SuggestedActivities)
+            .FirstOrDefault(blob => !string.IsNullOrWhiteSpace(blob));
         if (!string.IsNullOrWhiteSpace(activityBlob))
         {
             try
             {
-                section.SuggestedActivities = JsonSerializer.Deserialize<List<SuggestedActivityDto>>(
-                    activityBlob, JsonOpts) ?? [];
+                section.SuggestedActivities = DeserializeWithNamingFallback<List<SuggestedActivityDto>>(
+                    activityBlob,
+                    "activity_type",
+                    "estimated_time",
+                    "sos_request_id",
+                    "supplies_to_collect") ?? [];
             }
             catch { /* ignore malformed activities */ }
         }
 
         return section;
+    }
+
+    private static T? DeserializeWithNamingFallback<T>(string json, params string[] snakeCaseMarkers)
+    {
+        var prefersSnakeCase = snakeCaseMarkers.Any(marker =>
+            json.Contains($"\"{marker}\"", StringComparison.Ordinal));
+
+        var primaryOptions = prefersSnakeCase ? SnakeCaseJsonOpts : JsonOpts;
+        var secondaryOptions = prefersSnakeCase ? JsonOpts : SnakeCaseJsonOpts;
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, primaryOptions);
+        }
+        catch
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<T>(json, secondaryOptions);
+            }
+            catch
+            {
+                return default;
+            }
+        }
     }
 }
 

@@ -46,6 +46,7 @@ public interface IDepotInventoryRepository
         string? typeKeyword,
         int page,
         int pageSize,
+        IReadOnlyCollection<int>? allowedDepotIds = null,
         CancellationToken ct = default);
 
     /// <summary>
