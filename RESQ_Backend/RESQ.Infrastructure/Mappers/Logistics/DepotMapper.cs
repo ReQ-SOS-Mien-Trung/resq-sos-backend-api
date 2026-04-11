@@ -19,6 +19,8 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 CurrentUtilization = model.CurrentUtilization,
                 WeightCapacity = model.WeightCapacity,
                 CurrentWeightUtilization = model.CurrentWeightUtilization,
+                AdvanceLimit = model.AdvanceLimit,
+                OutstandingAdvanceAmount = model.OutstandingAdvanceAmount,
                 Status = model.Status.ToString(),
                 LastUpdatedAt = model.LastUpdatedAt,
                 ImageUrl = model.ImageUrl
@@ -58,6 +60,8 @@ namespace RESQ.Infrastructure.Mappers.Resources
             entity.CurrentUtilization = model.CurrentUtilization;
             entity.WeightCapacity = model.WeightCapacity;
             entity.CurrentWeightUtilization = model.CurrentWeightUtilization;
+            entity.AdvanceLimit = model.AdvanceLimit;
+            entity.OutstandingAdvanceAmount = model.OutstandingAdvanceAmount;
             entity.Status = model.Status.ToString();
             entity.LastUpdatedAt = model.LastUpdatedAt;
             entity.ImageUrl = model.ImageUrl;
@@ -95,6 +99,13 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 LastUpdatedAt = entity.LastUpdatedAt,
                 ImageUrl = entity.ImageUrl
             };
+
+            model.SetAdvanceLimit(entity.AdvanceLimit);
+            if (entity.OutstandingAdvanceAmount > 0)
+            {
+                model.RecordAdvance(entity.OutstandingAdvanceAmount);
+            }
+            model.LastUpdatedAt = entity.LastUpdatedAt;
 
             if (entity.DepotManagers != null && entity.DepotManagers.Count != 0)
             {

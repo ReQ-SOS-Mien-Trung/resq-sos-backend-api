@@ -108,8 +108,6 @@ public class ImportPurchasedInventoryCommandHandler(
                 depotFund.Id,
                 depotFund.DepotId,
                 depotFund.Balance,
-                depotFund.AdvanceLimit,
-                depotFund.OutstandingAdvanceAmount,
                 depotFund.LastUpdatedAt,
                 depotFund.FundSourceType,
                 depotFund.FundSourceId);

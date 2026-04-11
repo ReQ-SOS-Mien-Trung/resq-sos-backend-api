@@ -1,69 +1,36 @@
 using MediatR;
-using RESQ.Application.Common;
-using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
-using RESQ.Application.Services;
 using RESQ.Application.UseCases.Finance.Queries.GetDepotFundTransactions;
 using RESQ.Domain.Entities.Finance;
+using RESQ.Domain.Enum.Finance;
 
-namespace RESQ.Application.UseCases.Finance.Queries.GetFundTransactionsByFundId;
+namespace RESQ.Application.UseCases.Finance.Queries.GetMyDepotAdvanceTransactions;
 
-/// <summary>
-/// Admin xem bất kỳ quỹ kho nào.
-/// Quản kho chỉ xem được quỹ thuộc kho mình đang quản lý.
-/// </summary>
-public class GetFundTransactionsByFundIdHandler
-    : IRequestHandler<GetFundTransactionsByFundIdQuery, PagedResult<DepotFundTransactionDto>>
+public class GetMyDepotAdvanceTransactionsHandler(
+    IDepotInventoryRepository depotInventoryRepo,
+    IDepotFundRepository depotFundRepo)
+    : IRequestHandler<GetMyDepotAdvanceTransactionsQuery, PagedResult<DepotFundTransactionDto>>
 {
-    private readonly IDepotFundRepository _depotFundRepo;
-    private readonly IDepotInventoryRepository _depotInventoryRepo;
-    private readonly IUserPermissionResolver _permissionResolver;
-
-    public GetFundTransactionsByFundIdHandler(
-        IDepotFundRepository depotFundRepo,
-        IDepotInventoryRepository depotInventoryRepo,
-        IUserPermissionResolver permissionResolver)
-    {
-        _depotFundRepo = depotFundRepo;
-        _depotInventoryRepo = depotInventoryRepo;
-        _permissionResolver = permissionResolver;
-    }
+    private readonly IDepotInventoryRepository _depotInventoryRepo = depotInventoryRepo;
+    private readonly IDepotFundRepository _depotFundRepo = depotFundRepo;
 
     public async Task<PagedResult<DepotFundTransactionDto>> Handle(
-        GetFundTransactionsByFundIdQuery request,
+        GetMyDepotAdvanceTransactionsQuery request,
         CancellationToken cancellationToken)
     {
-        var fund = await _depotFundRepo.GetByIdAsync(request.FundId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy quỹ kho #{request.FundId}.");
+        var depotId = await _depotInventoryRepo.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+            ?? throw new NotFoundException("Tài khoản hiện tại chưa được phân công quản lý kho đang hoạt động.");
 
-        var permissions = await _permissionResolver.GetEffectivePermissionCodesAsync(request.RequestedBy, cancellationToken);
-        var isAdmin = permissions.Contains(PermissionConstants.InventoryGlobalManage, StringComparer.OrdinalIgnoreCase);
-
-        if (!isAdmin)
-        {
-            var managedDepotId = await _depotInventoryRepo.GetActiveDepotIdByManagerAsync(request.RequestedBy, cancellationToken);
-            if (!managedDepotId.HasValue)
-            {
-                throw ExceptionCodes.WithCode(
-                    new ForbiddenException("Tài khoản quản lý kho chưa được gán kho phụ trách."),
-                    LogisticsErrorCodes.DepotManagerNotAssigned);
-            }
-
-            if (managedDepotId.Value != fund.DepotId)
-            {
-                throw new ForbiddenException("Quỹ này không thuộc kho bạn đang quản lý.");
-            }
-        }
-
-        var pagedResult = await _depotFundRepo.GetPagedTransactionsByFundIdAsync(
-            request.FundId,
+        var pagedResult = await _depotFundRepo.GetPagedTransactionsByDepotIdAsync(
+            depotId,
             request.PageNumber,
             request.PageSize,
-            cancellationToken: cancellationToken);
+            [DepotFundTransactionType.PersonalAdvance, DepotFundTransactionType.AdvanceRepayment],
+            cancellationToken);
 
         var contributorInputs = pagedResult.Items
             .Where(x => !string.IsNullOrWhiteSpace(x.ContributorName) && !string.IsNullOrWhiteSpace(x.ContributorPhoneNumber))
@@ -77,7 +44,7 @@ public class GetFundTransactionsByFundIdHandler
 
         var contributorDebts = contributorInputs.Count == 0
             ? []
-            : await _depotFundRepo.GetContributorDebtsByDepotAsync(fund.DepotId, contributorInputs, cancellationToken);
+            : await _depotFundRepo.GetContributorDebtsByDepotAsync(depotId, contributorInputs, cancellationToken);
 
         var debtMap = contributorDebts.ToDictionary(
             x => $"{x.ContributorName}|{x.ContributorPhoneNumber}",
@@ -118,6 +85,10 @@ public class GetFundTransactionsByFundIdHandler
             return dto;
         }).ToList();
 
-        return new PagedResult<DepotFundTransactionDto>(dtos, pagedResult.TotalCount, pagedResult.PageNumber, pagedResult.PageSize);
+        return new PagedResult<DepotFundTransactionDto>(
+            dtos,
+            pagedResult.TotalCount,
+            pagedResult.PageNumber,
+            pagedResult.PageSize);
     }
 }

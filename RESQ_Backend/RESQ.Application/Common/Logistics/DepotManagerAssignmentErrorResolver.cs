@@ -8,13 +8,13 @@ public static class DepotManagerAssignmentErrorResolver
 {
     private static readonly string[] KnownMessageFragments =
     [
-        "khong phu trach kho nao",
-        "khong quan ly kho nao dang hoat dong",
-        "khong duoc chi dinh quan ly bat ky kho nao dang hoat dong",
-        "ban hien khong phu trach kho nao",
-        "ban khong co kho dang hoat dong",
-        "tai khoan hien tai khong duoc chi dinh quan ly bat ky kho nao dang hoat dong",
-        "tai khoan khong quan ly kho nao dang hoat dong",
+        "không ph? trách kho nào",
+        "không qu?n lý kho nào dang hoat dong",
+        "không du?c ch? d?nh qu?n lý bat ky kho nao dang hoat dong",
+        "ban hien không ph? trách kho nào",
+        "b?n không có kho dang hoat dong",
+        "tài kho?n hi?n t?i không du?c ch? d?nh qu?n lý bat ky kho nao dang hoat dong",
+        "tài kho?n không quan ly kho nao dang hoat dong",
         "tai khoan quan ly kho chua duoc gan kho phu trach"
     ];
 

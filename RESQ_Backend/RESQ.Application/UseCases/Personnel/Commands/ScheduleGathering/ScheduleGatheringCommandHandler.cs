@@ -25,7 +25,7 @@ public class ScheduleGatheringCommandHandler(
         // 2. Normalize ve UTC de luu tru.
         var assemblyDateUtc = request.AssemblyDate.ToUtcForStorage();
 
-        // 3. Khong cho phep lap lich vao ngay qua khu theo gio Viet Nam.
+        // 3. Không cho phép l?p l?ch vào ngày quá kh? theo gi? Vi?t Nam.
         var assemblyDateInVietnam = assemblyDateUtc.ToVietnamTime().Date;
         var todayInVietnam = DateTime.UtcNow.ToVietnamTime().Date;
         if (assemblyDateInVietnam < todayInVietnam)

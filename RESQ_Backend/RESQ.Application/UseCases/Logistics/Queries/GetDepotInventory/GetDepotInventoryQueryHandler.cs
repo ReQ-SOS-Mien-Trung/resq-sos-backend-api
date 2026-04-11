@@ -49,8 +49,8 @@ public class GetDepotInventoryQueryHandler(
                     "Consumable" => "Tiêu thụ",
                     "Reusable"   => "Tái sử dụng",
                     _            => x.ItemType
-                },
-                TargetGroups      = x.TargetGroups,
+                },                WeightPerUnit     = x.WeightPerUnit,
+                VolumePerUnit     = x.VolumePerUnit,                TargetGroups      = x.TargetGroups,
                 // Consumable fields
                 Quantity                    = isReusable ? null : x.Availability.Quantity,
                 TotalReservedQuantity       = isReusable ? null : x.Availability.TotalReservedQuantity,

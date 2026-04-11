@@ -42,6 +42,10 @@ public partial class DepotFundTransaction
     [StringLength(255)]
     public string? ContributorName { get; set; }
 
+    [Column("contributor_phone_number")]
+    [StringLength(20)]
+    public string? ContributorPhoneNumber { get; set; }
+
     [Column("contributor_id")]
     public Guid? ContributorId { get; set; }
 

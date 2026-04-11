@@ -2,13 +2,14 @@ using MediatR;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateRepaymentTransaction;
 
-/// <summary>
-/// Domain command for creating a repayment transaction for a depot fund.
-/// </summary>
-public record CreateRepaymentTransactionCommand(
+public record RepaymentFundAllocation(
     int DepotFundId,
-    decimal Amount,
+    decimal Amount
+);
+
+public record CreateRepaymentTransactionCommand(
     string ContributorName,
-    Guid? ContributorId,
-    Guid CreatedBy
+    string PhoneNumber,
+    IReadOnlyCollection<RepaymentFundAllocation> Repayments,
+    Guid RequestedBy
 ) : IRequest<Unit>;

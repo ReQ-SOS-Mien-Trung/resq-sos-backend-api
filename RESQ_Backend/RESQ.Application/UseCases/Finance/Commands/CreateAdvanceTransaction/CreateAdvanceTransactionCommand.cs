@@ -2,13 +2,14 @@ using MediatR;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateAdvanceTransaction;
 
-/// <summary>
-/// Domain command for creating a personal advance transaction for a depot fund.
-/// </summary>
-public record CreateAdvanceTransactionCommand(
-    int DepotFundId,
+public record CreateAdvanceTransactionItem(
     decimal Amount,
     string ContributorName,
-    Guid? ContributorId,
-    Guid CreatedBy
+    string PhoneNumber
+);
+
+public record CreateAdvanceTransactionCommand(
+    int DepotFundId,
+    IReadOnlyCollection<CreateAdvanceTransactionItem> Transactions,
+    Guid RequestedBy
 ) : IRequest<Unit>;

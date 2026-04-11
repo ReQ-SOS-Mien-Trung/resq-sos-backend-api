@@ -26,6 +26,7 @@ public static class DepotFundTransactionMapper
             CreatedBy = entity.CreatedBy,
             CreatedAt = entity.CreatedAt,
             ContributorName = entity.ContributorName,
+            ContributorPhoneNumber = entity.ContributorPhoneNumber,
             ContributorId = entity.ContributorId
         };
     }
@@ -44,6 +45,7 @@ public static class DepotFundTransactionMapper
             CreatedBy = model.CreatedBy,
             CreatedAt = model.CreatedAt,
             ContributorName = model.ContributorName,
+            ContributorPhoneNumber = model.ContributorPhoneNumber,
             ContributorId = model.ContributorId
         };
     }

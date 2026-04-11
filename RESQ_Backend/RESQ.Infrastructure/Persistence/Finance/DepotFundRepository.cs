@@ -5,7 +5,6 @@ using RESQ.Application.Repositories.Finance;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
-using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Mappers.Finance;
 
 namespace RESQ.Infrastructure.Persistence.Finance;
@@ -23,37 +22,43 @@ public class DepotFundRepository : IDepotFundRepository
     {
         var entity = await _unitOfWork.Set<DepotFund>()
             .Include(x => x.Depot)
+            .OrderByDescending(x => x.LastUpdatedAt)
             .FirstOrDefaultAsync(x => x.DepotId == depotId, cancellationToken);
 
-        return entity == null ? null : DepotFundMapper.ToModel(entity);
+        if (entity == null) return null;
+
+        var model = DepotFundMapper.ToModel(entity);
+        await PopulateFundSourceNamesAsync([model], cancellationToken);
+        return model;
     }
 
     public async Task<DepotFundModel> GetOrCreateByDepotIdAsync(int depotId, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.SetTracked<DepotFund>()
             .Include(x => x.Depot)
+            .OrderByDescending(x => x.LastUpdatedAt)
             .FirstOrDefaultAsync(x => x.DepotId == depotId, cancellationToken);
 
-        if (entity != null)
-            return DepotFundMapper.ToModel(entity);
-
-        // Lazy init: tạo mới với balance = 0
-        var newFund = new DepotFund
+        if (entity == null)
         {
-            DepotId = depotId,
-            Balance = 0m,
-            LastUpdatedAt = DateTime.UtcNow
-        };
+            entity = new DepotFund
+            {
+                DepotId = depotId,
+                Balance = 0m,
+                LastUpdatedAt = DateTime.UtcNow
+            };
 
-        await _unitOfWork.GetRepository<DepotFund>().AddAsync(newFund);
-        await _unitOfWork.SaveAsync();
+            await _unitOfWork.GetRepository<DepotFund>().AddAsync(entity);
+            await _unitOfWork.SaveAsync();
 
-        // Reload with Depot include
-        var saved = await _unitOfWork.SetTracked<DepotFund>()
-            .Include(x => x.Depot)
-            .FirstAsync(x => x.Id == newFund.Id, cancellationToken);
+            entity = await _unitOfWork.SetTracked<DepotFund>()
+                .Include(x => x.Depot)
+                .FirstAsync(x => x.Id == entity.Id, cancellationToken);
+        }
 
-        return DepotFundMapper.ToModel(saved);
+        var model = DepotFundMapper.ToModel(entity);
+        await PopulateFundSourceNamesAsync([model], cancellationToken);
+        return model;
     }
 
     public async Task<DepotFundModel?> GetByIdAsync(int depotFundId, CancellationToken cancellationToken = default)
@@ -62,11 +67,32 @@ public class DepotFundRepository : IDepotFundRepository
             .Include(x => x.Depot)
             .FirstOrDefaultAsync(x => x.Id == depotFundId, cancellationToken);
 
-        return entity == null ? null : DepotFundMapper.ToModel(entity);
+        if (entity == null) return null;
+
+        var model = DepotFundMapper.ToModel(entity);
+        await PopulateFundSourceNamesAsync([model], cancellationToken);
+        return model;
+    }
+
+    public async Task<List<DepotFundModel>> GetByIdsAsync(IEnumerable<int> depotFundIds, CancellationToken cancellationToken = default)
+    {
+        var ids = depotFundIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+
+        var entities = await _unitOfWork.Set<DepotFund>()
+            .Include(x => x.Depot)
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        var models = entities.Select(DepotFundMapper.ToModel).ToList();
+        await PopulateFundSourceNamesAsync(models, cancellationToken);
+        return models;
     }
 
     public async Task<DepotFundModel> GetOrCreateByDepotAndSourceAsync(
-        int depotId, FundSourceType sourceType, int? sourceId,
+        int depotId,
+        FundSourceType sourceType,
+        int? sourceId,
         CancellationToken cancellationToken = default)
     {
         var sourceTypeStr = sourceType.ToString();
@@ -77,28 +103,28 @@ public class DepotFundRepository : IDepotFundRepository
                                    && x.FundSourceType == sourceTypeStr
                                    && x.FundSourceId == sourceId, cancellationToken);
 
-        if (entity != null)
-            return DepotFundMapper.ToModel(entity);
-
-        // Tạo mới depot fund gắn với nguồn cụ thể
-        var newFund = new DepotFund
+        if (entity == null)
         {
-            DepotId = depotId,
-            Balance = 0m,
-            AdvanceLimit = 0m,
-            LastUpdatedAt = DateTime.UtcNow,
-            FundSourceType = sourceTypeStr,
-            FundSourceId = sourceId
-        };
+            entity = new DepotFund
+            {
+                DepotId = depotId,
+                Balance = 0m,
+                LastUpdatedAt = DateTime.UtcNow,
+                FundSourceType = sourceTypeStr,
+                FundSourceId = sourceId
+            };
 
-        await _unitOfWork.GetRepository<DepotFund>().AddAsync(newFund);
-        await _unitOfWork.SaveAsync();
+            await _unitOfWork.GetRepository<DepotFund>().AddAsync(entity);
+            await _unitOfWork.SaveAsync();
 
-        var saved = await _unitOfWork.SetTracked<DepotFund>()
-            .Include(x => x.Depot)
-            .FirstAsync(x => x.Id == newFund.Id, cancellationToken);
+            entity = await _unitOfWork.SetTracked<DepotFund>()
+                .Include(x => x.Depot)
+                .FirstAsync(x => x.Id == entity.Id, cancellationToken);
+        }
 
-        return DepotFundMapper.ToModel(saved);
+        var model = DepotFundMapper.ToModel(entity);
+        await PopulateFundSourceNamesAsync([model], cancellationToken);
+        return model;
     }
 
     public async Task<List<DepotFundModel>> GetAllByDepotIdAsync(int depotId, CancellationToken cancellationToken = default)
@@ -109,19 +135,22 @@ public class DepotFundRepository : IDepotFundRepository
             .OrderByDescending(x => x.LastUpdatedAt)
             .ToListAsync(cancellationToken);
 
-        return entities.Select(DepotFundMapper.ToModel).ToList();
+        var models = entities.Select(DepotFundMapper.ToModel).ToList();
+        await PopulateFundSourceNamesAsync(models, cancellationToken);
+        return models;
     }
 
     public async Task<List<DepotFundModel>> GetAllWithDepotInfoAsync(CancellationToken cancellationToken = default)
     {
-        // Lấy tất cả depot funds kèm depot info
-        var funds = await _unitOfWork.Set<DepotFund>()
+        var entities = await _unitOfWork.Set<DepotFund>()
             .Include(x => x.Depot)
             .OrderBy(x => x.DepotId)
             .ThenByDescending(x => x.LastUpdatedAt)
             .ToListAsync(cancellationToken);
 
-        return funds.Select(DepotFundMapper.ToModel).ToList();
+        var models = entities.Select(DepotFundMapper.ToModel).ToList();
+        await PopulateFundSourceNamesAsync(models, cancellationToken);
+        return models;
     }
 
     public async Task UpdateAsync(DepotFundModel model, CancellationToken cancellationToken = default)
@@ -148,6 +177,8 @@ public class DepotFundRepository : IDepotFundRepository
 
         return await _unitOfWork.Set<DepotFund>()
             .Where(x => ids.Contains(x.DepotId))
+            .GroupBy(x => x.DepotId)
+            .Select(g => new { DepotId = g.Key, Balance = g.Sum(x => x.Balance) })
             .ToDictionaryAsync(x => x.DepotId, x => x.Balance, cancellationToken);
     }
 
@@ -155,11 +186,21 @@ public class DepotFundRepository : IDepotFundRepository
         int depotId,
         int pageNumber,
         int pageSize,
+        IReadOnlyCollection<DepotFundTransactionType>? transactionTypes = null,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.Set<DepotFundTransaction>()
-            .Where(x => x.DepotFund.DepotId == depotId)
-            .OrderByDescending(x => x.CreatedAt);
+            .Where(x => x.DepotFund.DepotId == depotId);
+
+        if (transactionTypes is { Count: > 0 })
+        {
+            var typeNames = transactionTypes.Select(x => x.ToString()).ToList();
+            query = query.Where(x => typeNames.Contains(x.TransactionType));
+        }
+
+        query = query
+            .OrderByDescending(x => x.CreatedAt)
+            .ThenByDescending(x => x.Id);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -176,11 +217,21 @@ public class DepotFundRepository : IDepotFundRepository
         int depotFundId,
         int pageNumber,
         int pageSize,
+        IReadOnlyCollection<DepotFundTransactionType>? transactionTypes = null,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.Set<DepotFundTransaction>()
-            .Where(x => x.DepotFundId == depotFundId)
-            .OrderByDescending(x => x.CreatedAt);
+            .Where(x => x.DepotFundId == depotFundId);
+
+        if (transactionTypes is { Count: > 0 })
+        {
+            var typeNames = transactionTypes.Select(x => x.ToString()).ToList();
+            query = query.Where(x => typeNames.Contains(x.TransactionType));
+        }
+
+        query = query
+            .OrderByDescending(x => x.CreatedAt)
+            .ThenByDescending(x => x.Id);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -191,5 +242,134 @@ public class DepotFundRepository : IDepotFundRepository
 
         var models = items.Select(DepotFundTransactionMapper.ToModel).ToList();
         return new PagedResult<DepotFundTransactionModel>(models, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<List<ContributorDebtModel>> GetContributorDebtsByDepotAsync(
+        int depotId,
+        IEnumerable<ContributorDebtModel> contributors,
+        CancellationToken cancellationToken = default)
+    {
+        var contributorList = contributors
+            .Where(x => !string.IsNullOrWhiteSpace(x.ContributorName) && !string.IsNullOrWhiteSpace(x.ContributorPhoneNumber))
+            .ToList();
+
+        if (contributorList.Count == 0) return [];
+
+        var lowerNames = contributorList.Select(x => x.ContributorName.ToLowerInvariant()).Distinct().ToList();
+        var phones = contributorList.Select(x => x.ContributorPhoneNumber).Distinct().ToList();
+
+        var personalAdvanceType = DepotFundTransactionType.PersonalAdvance.ToString();
+        var repaymentType = DepotFundTransactionType.AdvanceRepayment.ToString();
+
+        return await _unitOfWork.Set<DepotFundTransaction>()
+            .Where(x => x.DepotFund.DepotId == depotId
+                        && x.ContributorName != null
+                        && x.ContributorPhoneNumber != null
+                        && lowerNames.Contains(x.ContributorName.ToLower())
+                        && phones.Contains(x.ContributorPhoneNumber)
+                        && (x.TransactionType == personalAdvanceType || x.TransactionType == repaymentType))
+            .GroupBy(x => new
+            {
+                x.ContributorName,
+                x.ContributorPhoneNumber
+            })
+            .Select(g => new ContributorDebtModel
+            {
+                ContributorName = g.Key.ContributorName!,
+                ContributorPhoneNumber = g.Key.ContributorPhoneNumber!,
+                TotalAdvancedAmount = g.Sum(x => x.TransactionType == personalAdvanceType ? x.Amount : 0m),
+                TotalRepaidAmount = g.Sum(x => x.TransactionType == repaymentType ? x.Amount : 0m)
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<ContributorDebtByFundModel>> GetContributorDebtsByFundAsync(
+        int depotId,
+        IEnumerable<int> depotFundIds,
+        IEnumerable<ContributorDebtModel> contributors,
+        CancellationToken cancellationToken = default)
+    {
+        var fundIds = depotFundIds.Distinct().ToList();
+        if (fundIds.Count == 0) return [];
+
+        var contributorList = contributors
+            .Where(x => !string.IsNullOrWhiteSpace(x.ContributorName) && !string.IsNullOrWhiteSpace(x.ContributorPhoneNumber))
+            .ToList();
+        if (contributorList.Count == 0) return [];
+
+        var lowerNames = contributorList.Select(x => x.ContributorName.ToLowerInvariant()).Distinct().ToList();
+        var phones = contributorList.Select(x => x.ContributorPhoneNumber).Distinct().ToList();
+
+        var personalAdvanceType = DepotFundTransactionType.PersonalAdvance.ToString();
+        var repaymentType = DepotFundTransactionType.AdvanceRepayment.ToString();
+
+        return await _unitOfWork.Set<DepotFundTransaction>()
+            .Where(x => x.DepotFund.DepotId == depotId
+                        && fundIds.Contains(x.DepotFundId)
+                        && x.ContributorName != null
+                        && x.ContributorPhoneNumber != null
+                        && lowerNames.Contains(x.ContributorName.ToLower())
+                        && phones.Contains(x.ContributorPhoneNumber)
+                        && (x.TransactionType == personalAdvanceType || x.TransactionType == repaymentType))
+            .GroupBy(x => new
+            {
+                x.DepotFundId,
+                x.ContributorName,
+                x.ContributorPhoneNumber
+            })
+            .Select(g => new ContributorDebtByFundModel
+            {
+                DepotFundId = g.Key.DepotFundId,
+                ContributorName = g.Key.ContributorName!,
+                ContributorPhoneNumber = g.Key.ContributorPhoneNumber!,
+                TotalAdvancedAmount = g.Sum(x => x.TransactionType == personalAdvanceType ? x.Amount : 0m),
+                TotalRepaidAmount = g.Sum(x => x.TransactionType == repaymentType ? x.Amount : 0m)
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task PopulateFundSourceNamesAsync(List<DepotFundModel> funds, CancellationToken cancellationToken)
+    {
+        if (funds.Count == 0) return;
+
+        var campaignIds = funds
+            .Where(x => x.FundSourceType == FundSourceType.Campaign && x.FundSourceId.HasValue)
+            .Select(x => x.FundSourceId!.Value)
+            .Distinct()
+            .ToList();
+
+        var campaignNames = campaignIds.Count == 0
+            ? new Dictionary<int, string>()
+            : await _unitOfWork.Set<FundCampaign>()
+                .Where(x => campaignIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, x => x.Name ?? $"Campaign #{x.Id}", cancellationToken);
+
+        var systemFundName = await _unitOfWork.Set<SystemFund>()
+            .OrderBy(x => x.Id)
+            .Select(x => x.Name)
+            .FirstOrDefaultAsync(cancellationToken) ?? "Qu? h? th?ng";
+
+        foreach (var fund in funds)
+        {
+            switch (fund.FundSourceType)
+            {
+                case FundSourceType.Campaign:
+                    if (fund.FundSourceId.HasValue && campaignNames.TryGetValue(fund.FundSourceId.Value, out var campaignName))
+                    {
+                        fund.FundSourceName = campaignName;
+                    }
+                    else
+                    {
+                        fund.FundSourceName = fund.FundSourceId.HasValue ? $"Campaign #{fund.FundSourceId.Value}" : "Campaign";
+                    }
+                    break;
+                case FundSourceType.SystemFund:
+                    fund.FundSourceName = systemFundName;
+                    break;
+                default:
+                    fund.FundSourceName = null;
+                    break;
+            }
+        }
     }
 }

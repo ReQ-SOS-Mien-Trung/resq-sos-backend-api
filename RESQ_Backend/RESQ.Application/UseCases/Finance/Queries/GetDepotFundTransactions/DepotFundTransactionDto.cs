@@ -20,4 +20,10 @@ public class DepotFundTransactionDto
     public string? Note { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? ContributorName { get; set; }
+    public string? ContributorPhoneNumber { get; set; }
+    public decimal? ContributorTotalAdvancedAmount { get; set; }
+    public decimal? ContributorTotalRepaidAmount { get; set; }
+    public decimal? ContributorOutstandingAmount { get; set; }
+    public decimal? ContributorRepaidPercentage { get; set; }
 }

@@ -11,7 +11,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 
 /// <summary>
 /// Manager kho dich xac nhan nhan hang.
-/// Sau do he thong bulk-transfer inventory va danh dau phien xu ly hang ton da xong,
+/// Sau dó h? th?ng bulk-transfer inventory va danh dau phien xu ly hang ton da xong,
 /// nhung van cho admin goi POST /logistics/depot/{id}/close de dong kho that su.
 /// </summary>
 public class ReceiveClosureTransferCommandHandler(
@@ -29,21 +29,21 @@ public class ReceiveClosureTransferCommandHandler(
         CancellationToken cancellationToken)
     {
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
-            ?? throw new NotFoundException($"Khong tim thay ban ghi chuyen kho #{request.TransferId}.");
+            ?? throw new NotFoundException($"Không tìm th?y b?n ghi chuy?n kho #{request.TransferId}.");
 
         var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
             ?? throw ExceptionCodes.WithCode(
-                new BadRequestException("Tai khoan khong quan ly kho nao dang hoat dong."),
+                new BadRequestException("Tài kho?n không qu?n lý kho nào dang ho?t d?ng."),
                 LogisticsErrorCodes.DepotManagerNotAssigned);
 
         if (managerDepotId != transfer.TargetDepotId)
-            throw new ForbiddenException("Ban khong phai manager cua kho dich trong qua trinh nhan hang nay.");
+            throw new ForbiddenException("B?n không ph?i manager c?a kho dích trong quá trình nh?n hàng này.");
 
         var closure = await closureRepository.GetByIdAsync(transfer.ClosureId, cancellationToken)
-            ?? throw new NotFoundException($"Khong tim thay ban ghi dong kho #{transfer.ClosureId}.");
+            ?? throw new NotFoundException($"Không tìm th?y b?n ghi dóng kho #{transfer.ClosureId}.");
 
         var sourceDepot = await depotRepository.GetByIdAsync(transfer.SourceDepotId, cancellationToken)
-            ?? throw new NotFoundException($"Khong tim thay kho nguon #{transfer.SourceDepotId}.");
+            ?? throw new NotFoundException($"Không tìm th?y kho ngu?n #{transfer.SourceDepotId}.");
 
         transfer.MarkReceived(request.UserId, request.Note);
         var completedAt = DateTime.UtcNow;

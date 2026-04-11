@@ -1,4 +1,4 @@
-ï»¿using MediatR;
+using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -16,7 +16,7 @@ public class GetDepotClosureDetailQueryHandler(
     public async Task<DepotClosureDetailResponse> Handle(GetDepotClosureDetailQuery request, CancellationToken cancellationToken)
     {
         var closure = await closureRepository.GetByIdAsync(request.ClosureId, cancellationToken)
-            ?? throw new NotFoundException("Khong tim thay phien dong kho.");
+            ?? throw new NotFoundException("Không tìm th?y phiên dóng kho.");
 
         if (request.RequestingUserId.HasValue)
         {
@@ -26,23 +26,23 @@ public class GetDepotClosureDetailQueryHandler(
             if (managerDepotId.HasValue)
             {
                 if (managerDepotId != closure.DepotId && managerDepotId != closure.TargetDepotId)
-                    throw new ForbiddenException("Ban khong phai manager cua kho nguon hoac kho dich trong phien dong kho nay.");
+                    throw new ForbiddenException("B?n không ph?i manager c?a kho ngu?n ho?c kho dích trong phien dong kho nay.");
             }
             else if (request.DepotId != closure.DepotId && request.DepotId != closure.TargetDepotId)
             {
-                throw new NotFoundException("Khong tim thay phien dong kho thuoc kho duoc yeu cau.");
+                throw new NotFoundException("Không tìm th?y phiên dóng kho thu?c kho du?c yêu c?u.");
             }
         }
         else if (request.DepotId != closure.DepotId && request.DepotId != closure.TargetDepotId)
         {
-            throw new NotFoundException("Khong tim thay phien dong kho thuoc kho duoc yeu cau.");
+            throw new NotFoundException("Không tìm th?y phiên dóng kho thu?c kho du?c yêu c?u.");
         }
 
         var depot = await depotRepository.GetByIdAsync(closure.DepotId, cancellationToken)
-            ?? throw new NotFoundException("Khong tim thay kho cuu tro.");
+            ?? throw new NotFoundException("Không tìm th?y kho c?u tr?.");
 
         var summary = await closureRepository.GetClosureDetailAsync(request.DepotId, request.ClosureId, cancellationToken)
-            ?? throw new NotFoundException("Khong tim thay du lieu chi tiet cua phien dong kho.");
+            ?? throw new NotFoundException("Không tìm th?y d? li?u chi ti?t c?a phiên dóng kho.");
 
         var response = new DepotClosureDetailResponse
         {

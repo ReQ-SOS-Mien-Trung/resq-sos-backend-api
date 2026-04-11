@@ -1,4 +1,4 @@
-ï»¿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -23,7 +23,7 @@ public class GetDepotClosuresQueryHandler(
 
         var depot = await _depotRepository.GetByIdAsync(request.DepotId, cancellationToken);
         if (depot == null)
-            throw new NotFoundException("Khong tim thay kho cuu tro.");
+            throw new NotFoundException("Không tìm th?y kho c?u tr?.");
 
         if (request.RequestingUserId.HasValue)
         {

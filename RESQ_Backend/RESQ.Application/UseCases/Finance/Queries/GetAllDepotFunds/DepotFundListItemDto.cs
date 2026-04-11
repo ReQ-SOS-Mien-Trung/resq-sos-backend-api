@@ -2,29 +2,20 @@ using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 
-/// <summary>
-/// DTO item trong danh sách quỹ kho — dùng cho cả Admin (xem tất cả) và Manager (xem quỹ mình).
-/// </summary>
-public class DepotFundListItemDto
+public class DepotFundsResponseDto
 {
-    /// <summary>ID của bản ghi quỹ — dùng để chọn quỹ khi nhập hàng (import-purchase).</summary>
-    public int Id { get; set; }
     public int DepotId { get; set; }
     public string? DepotName { get; set; }
-    public decimal Balance { get; set; }
-
-    /// <summary>Hạn mức tối đa tổng tiền ứng trước cho kho này. 0 = không cho phép ứng.</summary>
     public decimal AdvanceLimit { get; set; }
-
-    /// <summary>Tổng tiền đã được các cá nhân ứng trước cho kho.</summary>
     public decimal OutstandingAdvanceAmount { get; set; }
+    public List<DepotFundItemDto> Funds { get; set; } = new();
+}
 
-    /// <summary>Loại nguồn quỹ: Campaign / SystemFund / null (legacy).</summary>
+public class DepotFundItemDto
+{
+    public int Id { get; set; }
+    public decimal Balance { get; set; }
     public FundSourceType? FundSourceType { get; set; }
-
-    /// <summary>Tên nguồn quỹ (tên chiến dịch hoặc "Quỹ hệ thống").</summary>
     public string? FundSourceName { get; set; }
-
-    /// <summary>null nếu kho chưa từng được cấp quỹ.</summary>
     public DateTime? LastUpdatedAt { get; set; }
 }
