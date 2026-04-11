@@ -1,0 +1,62 @@
+No,Requirement Name,Class Name,Function Name,Function Code(Optional),Sheet Name,Description,Pre-Condition
+1,REQ-SYSTEMCONFIG-CREATE-PROMPT-001,Prompt,CreatePrompt,FC01,CreatePrompt,"Validate prompt creation payload and reject unsupported AI providers.","- Provider is submitted in create prompt request
+- Provider must be Gemini or OpenRouter"
+2,REQ-SYSTEMCONFIG-UPDATE-PROMPT-001,Prompt,UpdatePrompt,FC02,UpdatePrompt,"Validate prompt update payload and reject unsupported AI providers.","- Existing prompt id is provided
+- Provider must be Gemini or OpenRouter when updated"
+3,REQ-EMERGENCY-CANCEL-SOS-001,SosRequest,CancelSosRequest,FC03,CancelSosRequest,"Victim or companion cancels an SOS request that is still cancellable.","- SOS request exists
+- Requester is owner or registered companion
+- SOS status is Pending or Assigned"
+4,REQ-EMERGENCY-CREATE-SOS-CLUSTER-001,SosCluster,CreateSosCluster,FC04,CreateSosCluster,"Coordinator groups SOS requests into a cluster after validation of ids, statuses, duplicate membership and distance threshold.","- At least one SOS request id is provided
+- SOS request ids are unique
+- All SOS requests exist
+- SOS status is Pending or Incident
+- SOS requests are not already in another cluster
+- Distance between SOS points is within configured limit"
+5,REQ-EMERGENCY-SOS-DOMAIN-RULES-001,SosRequest,SosRequestDomainRules,FC05,SosRequestDomainRules,"Apply core SOS domain rules for creation, message normalization, timestamping and state changes.","- UserId is not empty
+- Raw SOS message is not blank
+- Location is valid"
+6,REQ-EMERGENCY-UPDATE-SOS-VICTIM-001,SosRequest,UpdateSosRequestVictim,FC06,UpdateSosRequestVictim,"Owner or companion submits victim updates and the system re-evaluates priority when mission execution has not started.","- SOS request exists
+- Requester is owner or registered companion
+- Any related mission is still Planned"
+7,REQ-LOGISTICS-UPCOMING-RETURN-ACTIVITIES-001,ReturnSupplyActivity,GetMyUpcomingReturnActivities,FC07,GetMyUpcomingReturnActivities,"Depot manager retrieves upcoming return-supply activities and filters by allowed execution statuses.","- User is assigned to an active depot
+- Status is OnGoing or PendingConfirmation
+- Page size is from 1 to 50"
+8,REQ-LOGISTICS-RETURN-HISTORY-001,ReturnSupplyActivity,GetMyReturnHistoryActivities,FC08,GetMyReturnHistoryActivities,"Depot manager retrieves return history with paging, date-range validation and enriched item images.","- User is assigned to an active depot
+- Page number is greater than 0
+- Page size is from 1 to 50
+- FromDate is not later than ToDate"
+9,REQ-OPERATIONS-ADD-MISSION-ACTIVITY-001,MissionActivity,AddMissionActivity,FC09,AddMissionActivity,"Validate inputs before adding a mission activity to an existing mission.","- MissionId is greater than 0
+- ActivityType is provided
+- Step is positive when sent
+- RescueTeamId is positive when sent"
+10,REQ-OPERATIONS-ASSIGN-TEAM-TO-MISSION-001,MissionTeam,AssignTeamToMission,FC10,AssignTeamToMission,"Coordinator assigns a rescue team to a mission and updates team mission state to Assigned.","- Mission exists
+- Rescue team exists
+- Coordinator provides assignment request"
+11,REQ-OPERATIONS-COMPLETE-MISSION-TEAM-EXECUTION-001,MissionTeam,CompleteMissionTeamExecution,FC11,CompleteMissionTeamExecution,"Assigned rescue team member completes mission execution and moves the team to waiting-for-report state.","- Mission team exists
+- Mission team belongs to the selected mission
+- CompletedBy is a member of the rescue team
+- Mission team status is not Cancelled or Reported"
+12,REQ-OPERATIONS-CREATE-MISSION-001,Mission,CreateMission,FC12,CreateMission,"Validate mission creation payload before mission planning and rescue team assignment are processed.","- ClusterId is greater than 0
+- CreatedById is not empty
+- Activities collection is present
+- Each activity has ActivityType
+- RescueTeamId is positive when sent"
+13,REQ-OPERATIONS-UNASSIGN-TEAM-FROM-MISSION-001,MissionTeam,UnassignTeamFromMission,FC13,UnassignTeamFromMission,"Coordinator removes a rescue team from a mission and resets team mission state.","- Mission team assignment exists"
+14,REQ-OPERATIONS-UPDATE-MISSION-001,Mission,UpdateMission,FC14,UpdateMission,"Coordinator updates mission type, priority and planned schedule.","- Mission exists
+- Updated mission schedule or priority data is provided"
+15,REQ-OPERATIONS-UPDATE-MISSION-STATUS-001,Mission,UpdateMissionStatus,FC15,UpdateMissionStatus,"Coordinator changes mission status using valid transitions and synchronizes linked SOS requests when mission starts.","- Mission exists
+- New status follows allowed transition rules
+- Request does not directly finalize mission through this command"
+16,REQ-OPERATIONS-UPDATE-TEAM-INCIDENT-STATUS-001,TeamIncident,UpdateTeamIncidentStatus,FC16,UpdateTeamIncidentStatus,"Coordinator updates team incident progress and resolves it with rescue team state handling.","- Team incident exists
+- New status follows Reported -> InProgress -> Resolved
+- HasInjuredMember is provided when resolving manually"
+17,REQ-OPERATIONS-NORMALIZE-MISSION-INCIDENT-001,IncidentV2,NormalizeMissionIncidentRequest,FC17,NormalizeMissionIncidentRequest,"Normalize and validate mission-level incident payloads against route context, decision code rules and rescue-support payload requirements.","- MissionId and MissionTeamId from route are known
+- Request scope is Mission
+- Context mission and team ids match route
+- Decision-specific blocks are present when required"
+18,REQ-OPERATIONS-NORMALIZE-ACTIVITY-INCIDENT-001,IncidentV2,NormalizeActivityIncidentRequest,FC18,NormalizeActivityIncidentRequest,"Normalize and validate activity-level incident payloads, including context activities and impact flags.","- MissionId and MissionTeamId from route are known
+- Request scope is Activity
+- Context contains at least one affected activity"
+19,REQ-OPERATIONS-MAP-TEAM-INCIDENT-QUERY-001,TeamIncident,MapTeamIncidentQueryDto,FC19,MapTeamIncidentQueryDto,"Map team incident entities to response DTOs with fallback incident type, injury/support flags and affected activities.","- Team incident data exists
+- DetailJson may contain subtype, injury or support fields
+- Affected activities are loaded when available"

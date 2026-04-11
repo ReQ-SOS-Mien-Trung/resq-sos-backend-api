@@ -271,7 +271,7 @@ public class ReturnSupplyActivityQueryHandlerTests
             => throw new NotImplementedException();
 
         public Task<(List<AgentInventoryItem> Items, int TotalCount)> SearchForAgentAsync(string categoryKeyword, string? typeKeyword, int page,
-            int pageSize, CancellationToken ct = default)
+            int pageSize, IReadOnlyCollection<int>? allowedDepotIds = null, CancellationToken ct = default)
             => throw new NotImplementedException();
 
         public Task<(double Latitude, double Longitude)?> GetDepotLocationAsync(int depotId, CancellationToken cancellationToken = default)
