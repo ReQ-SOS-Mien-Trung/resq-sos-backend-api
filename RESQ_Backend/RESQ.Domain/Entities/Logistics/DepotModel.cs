@@ -1,4 +1,4 @@
-using RESQ.Domain.Entities.Finance.Exceptions;
+﻿using RESQ.Domain.Entities.Finance.Exceptions;
 using RESQ.Domain.Entities.Logistics.Exceptions;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Logistics;
@@ -129,15 +129,15 @@ public class DepotModel
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
                 "Kho đã đóng vĩnh viễn, không thể thay đổi trạng thái.");
 
-        if (Status == DepotStatus.Unavailable && newStatus != DepotStatus.Available)
+        if ((Status == DepotStatus.Unavailable || Status == DepotStatus.Closing) && newStatus != DepotStatus.Available)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                "Kho đang ngưng hoạt động. Chỉ có thể chuyển về Available hoặc tiến hành đóng kho.");
+                "Kho đang ngưng hoạt động/đóng kho. Chỉ có thể chuyển về Available hoặc đóng luôn.");
 
         // Transition matrix khớp với state diagram
         var allowed = new Dictionary<DepotStatus, HashSet<DepotStatus>>
         {
-            [DepotStatus.Available]   = [DepotStatus.Unavailable],
-            [DepotStatus.Unavailable] = [DepotStatus.Available],
+            [DepotStatus.Available]   = [DepotStatus.Unavailable, DepotStatus.Closing],
+            [DepotStatus.Unavailable] = [DepotStatus.Available], [DepotStatus.Closing] = [DepotStatus.Available],
         };
 
         if (!allowed.TryGetValue(Status, out var validTargets) || !validTargets.Contains(newStatus))
@@ -164,16 +164,16 @@ public class DepotModel
 
     /// <summary>
     /// Bước 1 đóng kho: chuyển từ Unavailable → Closed.
-    /// Admin phải set Unavailable trước, và kho phải trống (không còn hàng) mới được đóng.
+    /// Admin phải set Closing trước, và kho phải trống (không còn hàng) mới được đóng.
     /// </summary>
     public void InitiateClosing()
     {
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
-        if (Status != DepotStatus.Unavailable)
+        if (Status != DepotStatus.Closing)
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho phải ở trạng thái Unavailable trước khi đóng. Hãy chuyển sang Unavailable trước.");
+                "Kho phải ở trạng thái Closing trước khi đóng. Hãy chuyển sang Closing trước.");
 
         // Không set Closing nữa — đi thẳng từ Unavailable.
         // Giữ phương thức để backward compat, CompleteClosing sẽ set Closed.
@@ -182,13 +182,13 @@ public class DepotModel
 
     /// <summary>
     /// Bước 2 đóng kho: hoàn tất đóng kho sau khi đã xử lý hàng tồn.
-    /// Kho phải ở trạng thái Unavailable.
+    /// Kho phải ở trạng thái Closing.
     /// </summary>
     public void CompleteClosing()
     {
-        if (Status != DepotStatus.Unavailable)
+        if (Status != DepotStatus.Closing)
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho phải ở trạng thái Unavailable trước khi đóng hoàn toàn.");
+                "Kho phải ở trạng thái Closing.trước khi đóng hoàn toàn.");
 
         Status = DepotStatus.Closed;
         var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
@@ -206,9 +206,9 @@ public class DepotModel
     /// </summary>
     public void RestoreFromClosing(DepotStatus previousStatus)
     {
-        if (Status != DepotStatus.Unavailable)
+        if (Status != DepotStatus.Closing)
             throw new InvalidDepotStatusTransitionException(Status, previousStatus,
-                "Chỉ có thể khôi phục kho từ trạng thái Unavailable.");
+                "Chỉ có thể Khôi phục kho từ trạng thái Closing.");
 
         if (previousStatus != DepotStatus.Available)
             throw new InvalidDepotStatusTransitionException(Status, previousStatus,
@@ -233,8 +233,8 @@ public class DepotModel
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
-        if (Status == DepotStatus.Unavailable)
-            throw new DepotClosingException("Kho đang ngưng hoạt động (Unavailable), không thể thực hiện thao tác này.");
+        if (Status == DepotStatus.Unavailable || Status == DepotStatus.Closing)
+            throw new DepotClosingException("Kho đang ngưng hoạt động/đóng kho, không thể thực hiện thao tác này.");
 
         if (volumeAmount <= 0)
             throw new InvalidDepotUtilizationAmountException(volumeAmount, "thể tích");
@@ -258,10 +258,10 @@ public class DepotModel
             throw new DepotClosedException();
 
         if (volumeAmount <= 0)
-            throw new InvalidDepotUtilizationAmountException(volumeAmount, "th? t�ch");
+            throw new InvalidDepotUtilizationAmountException(volumeAmount, "th? t�ch");
 
         if (weightAmount <= 0)
-            throw new InvalidDepotUtilizationAmountException(weightAmount, "c�n n?ng");
+            throw new InvalidDepotUtilizationAmountException(weightAmount, "c�n n?ng");
 
         CurrentUtilization = Math.Max(0, CurrentUtilization - volumeAmount);
         CurrentWeightUtilization = Math.Max(0, CurrentWeightUtilization - weightAmount);
@@ -295,9 +295,9 @@ public class DepotModel
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
-        if (Status == DepotStatus.Unavailable)
+        if (Status == DepotStatus.Unavailable || Status == DepotStatus.Closing)
             throw new DepotClosingException(
-                "Kho đang ngưng hoạt động (Unavailable), không thể gỡ quản lý.");
+                "Kho đang ngưng hoạt động/đóng kho, không thể gỡ quản lý.");
 
         var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
         activeAssignment?.Unassign(DateTime.UtcNow);
