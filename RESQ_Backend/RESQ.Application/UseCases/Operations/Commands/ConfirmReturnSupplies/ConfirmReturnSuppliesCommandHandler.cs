@@ -33,6 +33,9 @@ public class ConfirmReturnSuppliesCommandHandler(
     public async Task<ConfirmReturnSuppliesResponse> Handle(
         ConfirmReturnSuppliesCommand request, CancellationToken cancellationToken)
     {
+        var consumableItems = request.ConsumableItems ?? [];
+        var reusableItems = request.ReusableItems ?? [];
+
         var activity = await _activityRepository.GetByIdAsync(request.ActivityId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy activity với ID {request.ActivityId}.");
 
@@ -111,7 +114,7 @@ public class ConfirmReturnSuppliesCommandHandler(
         }
 
         var hasExpectedReusableSnapshot = expectedReusableUnitById.Count > 0;
-        var actualConsumables = request.ConsumableItems
+        var actualConsumables = consumableItems
             .Where(item => item.Quantity > 0)
             .GroupBy(item => item.ItemModelId)
             .Select(group => new ActualReturnedConsumableItemDto
@@ -132,12 +135,12 @@ public class ConfirmReturnSuppliesCommandHandler(
         var legacyReusableQuantities = new List<(int ItemModelId, int Quantity)>();
         var actualReusableQuantities = new Dictionary<int, int>();
 
-        foreach (var reusableItem in request.ReusableItems)
+        foreach (var reusableItem in reusableItems)
         {
             if (!plannedReusableQuantities.ContainsKey(reusableItem.ItemModelId))
                 throw new BadRequestException($"Item reusable #{reusableItem.ItemModelId} không thuộc kế hoạch RETURN_SUPPLIES này.");
 
-            var explicitUnits = reusableItem.Units
+            var explicitUnits = (reusableItem.Units ?? [])
                 .Where(unit => unit.ReusableItemId > 0)
                 .ToList();
 
@@ -212,16 +215,24 @@ public class ConfirmReturnSuppliesCommandHandler(
         if (discrepancyDetected && string.IsNullOrWhiteSpace(request.DiscrepancyNote))
             throw new BadRequestException("Khi số lượng trả thực tế thiếu hoặc dư so với kế hoạch, phải nhập lý do chênh lệch.");
 
-        var executionResult = await _depotInventoryRepository.ReceiveMissionReturnAsync(
-            depotId,
-            missionId,
-            request.ActivityId,
-            request.ConfirmedBy,
-            actualConsumables.Select(item => (item.ItemModelId, item.Quantity)).ToList(),
-            explicitReusableItems,
-            legacyReusableQuantities,
-            request.DiscrepancyNote,
-            cancellationToken);
+        MissionSupplyReturnExecutionResult executionResult;
+        try
+        {
+            executionResult = await _depotInventoryRepository.ReceiveMissionReturnAsync(
+                depotId,
+                missionId,
+                request.ActivityId,
+                request.ConfirmedBy,
+                actualConsumables.Select(item => (item.ItemModelId, item.Quantity)).ToList(),
+                explicitReusableItems,
+                legacyReusableQuantities,
+                request.DiscrepancyNote,
+                cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new BadRequestException(ex.Message);
+        }
 
         HydrateExpectedReturnData(executionResult, validItems);
 
@@ -256,6 +267,7 @@ public class ConfirmReturnSuppliesCommandHandler(
         MissionSupplyReturnExecutionResult executionResult,
         IEnumerable<SupplyToCollectDto> plannedItems)
     {
+        executionResult.Items ??= [];
         var resultLookup = executionResult.Items.ToDictionary(item => item.ItemModelId);
 
         foreach (var plannedItem in plannedItems)
