@@ -1,6 +1,7 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 
@@ -15,7 +16,17 @@ public class GetDepotMetadataHandler : IRequestHandler<GetDepotMetadataQuery, Li
 
     public async Task<List<MetadataDto>> Handle(GetDepotMetadataQuery request, CancellationToken cancellationToken)
     {
-        var depots = await _depotRepository.GetAllAsync(cancellationToken);
+        var depots = await _depotRepository.GetAllAsync(cancellationToken);     
+
+        if (request.ExcludeUnavailableAndClosed)
+        {
+            depots = depots.Where(d => 
+                d.Status != DepotStatus.Unavailable && 
+                d.Status != DepotStatus.Closed &&
+                d.CurrentUtilization < d.Capacity &&
+                d.CurrentWeightUtilization < d.WeightCapacity
+            ).ToList();
+        }
 
         return depots
             .OrderBy(d => d.Id)
