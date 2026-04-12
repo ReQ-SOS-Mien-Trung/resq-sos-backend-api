@@ -110,6 +110,142 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         Assert.Equal(MissionActivityStatus.Succeed, activityRepository.UpdatedStatus);
     }
 
+    [Fact]
+    public async Task Handle_MapsInventoryInvalidOperation_ToBadRequest()
+    {
+        const int activityId = 24;
+        const int missionId = 7;
+        const int depotId = 2;
+        const int itemId = 80;
+        var userId = Guid.NewGuid();
+
+        var activity = new MissionActivityModel
+        {
+            Id = activityId,
+            MissionId = missionId,
+            DepotId = depotId,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Cang khieng thuong",
+                    Quantity = 1,
+                    Unit = "chiec",
+                    ExpectedReturnUnits =
+                    [
+                        new SupplyExecutionReusableUnitDto
+                        {
+                            ReusableItemId = 171,
+                            ItemModelId = itemId,
+                            ItemName = "Cang khieng thuong",
+                            SerialNumber = "D2-R080-001"
+                        }
+                    ]
+                }
+            })
+        };
+
+        var activityRepository = new StubMissionActivityRepository(activity);
+        var depotInventoryRepository = new StubDepotInventoryRepository
+        {
+            ManagerDepotIds = [depotId],
+            ExceptionFactory = () => new InvalidOperationException("Reusable unit #171 khong o trang thai InUse.")
+        };
+        var metadataRepository = new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
+        {
+            [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+        });
+        var handler = new ConfirmReturnSuppliesCommandHandler(
+            activityRepository,
+            depotInventoryRepository,
+            metadataRepository,
+            new StubUnitOfWork(),
+            NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+
+        var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
+            handler.Handle(new ConfirmReturnSuppliesCommand(
+                activityId,
+                missionId,
+                userId,
+                [],
+                [
+                    new ActualReturnedReusableItemDto
+                    {
+                        ItemModelId = itemId,
+                        Units =
+                        [
+                            new ActualReturnedReusableUnitDto { ReusableItemId = 171 }
+                        ]
+                    }
+                ],
+                null), CancellationToken.None));
+
+        Assert.Equal("Reusable unit #171 khong o trang thai InUse.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_AllowsNullNestedCollections_AndReturnsBusinessErrorInsteadOf500()
+    {
+        const int activityId = 25;
+        const int missionId = 7;
+        const int depotId = 2;
+        const int itemId = 80;
+        var userId = Guid.NewGuid();
+
+        var activity = new MissionActivityModel
+        {
+            Id = activityId,
+            MissionId = missionId,
+            DepotId = depotId,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Cang khieng thuong",
+                    Quantity = 1,
+                    Unit = "chiec"
+                }
+            })
+        };
+
+        var handler = new ConfirmReturnSuppliesCommandHandler(
+            new StubMissionActivityRepository(activity),
+            new StubDepotInventoryRepository
+            {
+                ManagerDepotIds = [depotId]
+            },
+            new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
+            {
+                [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+            }),
+            new StubUnitOfWork(),
+            NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+
+        var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
+            handler.Handle(new ConfirmReturnSuppliesCommand(
+                activityId,
+                missionId,
+                userId,
+                null!,
+                [
+                    new ActualReturnedReusableItemDto
+                    {
+                        ItemModelId = itemId,
+                        Quantity = null,
+                        Units = null!
+                    }
+                ],
+                null), CancellationToken.None));
+
+        Assert.Contains("phai nhap ly do chenh lech", RemoveDiacritics(ex.Message), StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class StubMissionActivityRepository(MissionActivityModel activity) : IMissionActivityRepository
     {
         public MissionActivityStatus? UpdatedStatus { get; private set; }
@@ -182,6 +318,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         public List<int> ManagerDepotIds { get; set; } = [];
         public MissionSupplyReturnExecutionResult ReturnResult { get; set; } = new();
         public List<(int ReusableItemId, string? Condition, string? Note)> ReceivedReusableItems { get; private set; } = [];
+        public Func<Exception>? ExceptionFactory { get; set; }
 
         public Task<int?> GetActiveDepotIdByManagerAsync(Guid userId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
@@ -231,6 +368,9 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             string? discrepancyNote,
             CancellationToken cancellationToken = default)
         {
+            if (ExceptionFactory is not null)
+                throw ExceptionFactory();
+
             ReceivedReusableItems = reusableItems;
             return Task.FromResult(ReturnResult);
         }
@@ -274,5 +414,22 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         public Task<int> SaveAsync() => Task.FromResult(1);
         public void AttachAsUnchanged<TEntity>(TEntity entity) where TEntity : class { }
         public Task ExecuteInTransactionAsync(Func<Task> action) => action();
+    }
+
+    private static string RemoveDiacritics(string value)
+    {
+        var normalized = value.Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder(normalized.Length);
+        foreach (var character in normalized)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(character) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                builder.Append(character);
+        }
+
+        return builder
+            .ToString()
+            .Normalize(System.Text.NormalizationForm.FormC)
+            .Replace('đ', 'd')
+            .Replace('Đ', 'D');
     }
 }
