@@ -11,8 +11,8 @@ public enum AssemblyPointStatus
     /// <summary>Đã đầy — không thể gán thêm đội.</summary>
     Overloaded,
 
-    /// <summary>Đang bảo trì (vào từ Active hoặc Overloaded).</summary>
-    UnderMaintenance,
+    /// <summary>Không khả dụng (không sử dụng được).</summary>
+    Unavailable,
 
     /// <summary>Đã đóng vĩnh viễn — không thể chuyển sang bất kỳ trạng thái nào khác.</summary>
     Closed

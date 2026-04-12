@@ -27,6 +27,11 @@ public class SetTeamUnavailableCommandHandler(
         if (!request.CanOverrideTeamAvailability && !isTeamLeader)
             throw new ForbiddenException("Chỉ đội trưởng hoặc caller có quyền override mới có thể đánh dấu đội không sẵn sàng.");
 
+        if (team.Status == RescueTeamStatus.OnMission || team.Status == RescueTeamStatus.Assigned || team.Status == RescueTeamStatus.Stuck)
+        {
+            throw new BadRequestException("Đội cứu hộ không được chuyển sang trạng thái Unavailable khi đang trong nhiệm vụ.");
+        }
+
         // 3. Thực hiện chuyển trạng thái (domain logic giữ nguyên)
         team.SetUnavailable();
 

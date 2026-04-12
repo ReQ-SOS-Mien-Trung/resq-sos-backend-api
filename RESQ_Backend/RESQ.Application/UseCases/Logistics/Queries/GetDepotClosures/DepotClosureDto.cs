@@ -40,12 +40,15 @@ public class DepotClosureDto
     public DateTime? CancelledAt { get; set; }
 
     public TransferSummaryDto? Transfer { get; set; }
+    public List<TransferSummaryDto> Transfers { get; set; } = [];
 }
 
 public class TransferSummaryDto
 {
     public int TransferId { get; set; }
+    public int? TargetDepotId { get; set; }
+    public string? TargetDepotName { get; set; }
 
-    /// <summary>AwaitingShipment -> Preparing -> Shipping -> Completed | Cancelled</summary>
+    /// <summary>AwaitingPreparation -> Preparing -> Shipping -> Completed -> Received | Cancelled</summary>
     public string Status { get; set; } = string.Empty;
 }

@@ -373,6 +373,11 @@ public class CreateMissionCommandHandlerTests
         public Task<(int ProcessedRows, int? LastInventoryId)> BulkTransferForClosureAsync(int sourceDepotId, int targetDepotId, int closureId, Guid performedBy, int? lastProcessedInventoryId = null, int batchSize = 100, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task TransferClosureItemsAsync(int sourceDepotId, int targetDepotId, int closureId, int transferId,
+            Guid performedBy, IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken ct = default)
             => Task.FromResult<Guid?>(null);
 

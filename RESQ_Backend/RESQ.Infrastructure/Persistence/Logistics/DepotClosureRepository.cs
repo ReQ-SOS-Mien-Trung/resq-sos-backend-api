@@ -154,14 +154,77 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
 
     public async Task<List<DepotClosureListItem>> GetClosuresByDepotIdAsync(int depotId, CancellationToken cancellationToken = default)
     {
+        var relatedTransfers = await (
+            from transfer in _dbContext.DepotClosureTransfers.AsNoTracking()
+            join targetDepot in _dbContext.Depots.AsNoTracking()
+                on transfer.TargetDepotId equals targetDepot.Id
+            where transfer.SourceDepotId == depotId || transfer.TargetDepotId == depotId
+            select new
+            {
+                transfer.ClosureId,
+                transfer.Id,
+                transfer.TargetDepotId,
+                TargetDepotName = targetDepot.Name,
+                transfer.Status
+            })
+            .ToListAsync(cancellationToken);
+
+        var targetRelatedClosureIds = relatedTransfers
+            .Where(x => x.TargetDepotId == depotId)
+            .Select(x => x.ClosureId)
+            .Distinct()
+            .ToList();
+
         var items = await BuildClosureListQuery()
-            .Where(x => x.DepotId == depotId || x.TargetDepotId == depotId)
+            .Where(x => x.DepotId == depotId || targetRelatedClosureIds.Contains(x.Id))
             .OrderByDescending(x => x.InitiatedAt)
             .ToListAsync(cancellationToken);
 
         foreach (var item in items)
         {
-            item.RelatedDepotRole = item.TargetDepotId == depotId ? "TargetDepot" : "SourceDepot";
+            item.RelatedDepotRole = item.DepotId == depotId ? "SourceDepot" : "TargetDepot";
+
+            var transferSummaries = relatedTransfers
+                .Where(x => x.ClosureId == item.Id)
+                .OrderBy(x => x.TargetDepotName)
+                .ThenBy(x => x.Id)
+                .Select(x => new DepotClosureListTransferItem
+                {
+                    TransferId = x.Id,
+                    TargetDepotId = x.TargetDepotId,
+                    TargetDepotName = x.TargetDepotName,
+                    Status = x.Status
+                })
+                .ToList();
+
+            item.Transfers = transferSummaries;
+
+            var relevantTransfers = item.RelatedDepotRole == "TargetDepot"
+                ? transferSummaries.Where(x => x.TargetDepotId == depotId).ToList()
+                : transferSummaries;
+
+            if (relevantTransfers.Count == 1)
+            {
+                item.TransferId = relevantTransfers[0].TransferId;
+                item.TransferStatus = relevantTransfers[0].Status;
+            }
+
+            var distinctTargets = relevantTransfers
+                .Select(x => new { x.TargetDepotId, x.TargetDepotName })
+                .Distinct()
+                .Take(2)
+                .ToList();
+
+            if (distinctTargets.Count == 1)
+            {
+                item.TargetDepotId = distinctTargets[0].TargetDepotId;
+                item.TargetDepotName = distinctTargets[0].TargetDepotName;
+            }
+            else if (item.RelatedDepotRole == "TargetDepot")
+            {
+                item.TargetDepotId = null;
+                item.TargetDepotName = null;
+            }
         }
 
         return items;
@@ -251,9 +314,6 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
             join targetDepot in _dbContext.Depots.AsNoTracking()
                 on closure.TargetDepotId equals targetDepot.Id into targetGroup
             from targetDepot in targetGroup.DefaultIfEmpty()
-            join transfer in _dbContext.DepotClosureTransfers.AsNoTracking()
-                on closure.Id equals transfer.ClosureId into transferGroup
-            from transfer in transferGroup.DefaultIfEmpty()
             select new DepotClosureListItem
             {
                 Id = closure.Id,
@@ -281,8 +341,6 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
                 InitiatedAt = closure.InitiatedAt,
                 CompletedAt = closure.CompletedAt,
                 CancelledAt = closure.CancelledAt,
-                TransferId = transfer != null ? transfer.Id : (int?)null,
-                TransferStatus = transfer != null ? transfer.Status : null,
             };
     }
 }

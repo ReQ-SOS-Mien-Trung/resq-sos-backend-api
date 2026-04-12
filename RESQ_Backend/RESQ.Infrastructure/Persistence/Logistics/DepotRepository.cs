@@ -308,11 +308,15 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
                 CategoryName = inv.ItemModel!.Category!.Name ?? "N/A",
                 ItemType     = "Consumable",
                 Unit         = inv.ItemModel!.Unit ?? "N/A",
-                Quantity     = inv.Quantity ?? 0
+                Quantity     = inv.Quantity ?? 0,
+                TransferableQuantity = inv.Quantity ?? 0,
+                BlockedQuantity = 0,
+                VolumePerUnit = inv.ItemModel!.VolumePerUnit,
+                WeightPerUnit = inv.ItemModel!.WeightPerUnit
             })
             .ToListAsync(cancellationToken);
 
-        // Reusable items: group by item_model_id, count Available ones
+        // Reusable items: group by item_model_id, tách số lượng có thể chuyển và số lượng đang bị block
         var reusables = await _unitOfWork.Set<ReusableItem>()
             .Where(ri => ri.DepotId == depotId
                       && ri.Status != "Decommissioned")
@@ -332,7 +336,11 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
                 CategoryName = g.Key.CategoryName,
                 ItemType     = "Reusable",
                 Unit         = g.Key.Unit,
-                Quantity     = g.Count()
+                Quantity     = g.Count(),
+                TransferableQuantity = g.Count(x => x.Status == "Available"),
+                BlockedQuantity = g.Count(x => x.Status != "Available"),
+                VolumePerUnit = g.Max(x => x.ItemModel!.VolumePerUnit),
+                WeightPerUnit = g.Max(x => x.ItemModel!.WeightPerUnit)
             })
             .ToListAsync(cancellationToken);
 

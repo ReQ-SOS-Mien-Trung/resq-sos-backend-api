@@ -1985,11 +1985,245 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         return hasReusableInUse;
     }
+
+
+    public async Task TransferClosureItemsAsync(
+        int sourceDepotId,
+        int targetDepotId,
+        int closureId,
+        int transferId,
+        Guid performedBy,
+        IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+        CancellationToken cancellationToken = default)
+    {
+        if (items.Count == 0) return;
+
+        var sourceDepotEntity = await _unitOfWork.GetRepository<Depot>().GetByPropertyAsync(d => d.Id == sourceDepotId, tracked: true);
+        var targetDepotEntity = await _unitOfWork.GetRepository<Depot>().GetByPropertyAsync(d => d.Id == targetDepotId, tracked: true);
+
+        if (sourceDepotEntity != null && targetDepotEntity != null)
+        {
+            var itemModelIds = items.Select(i => i.ItemModelId).ToList();
+            var itemModels = await _unitOfWork.GetRepository<ItemModel>()
+                .AsQueryable()
+                .Where(x => itemModelIds.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            decimal totalVolume = 0;
+            decimal totalWeight = 0;
+
+            foreach (var dto in items)
+            {
+                var model = itemModels.FirstOrDefault(x => x.Id == dto.ItemModelId);
+                if (model != null)
+                {
+                    totalVolume += (model.VolumePerUnit ?? 0) * dto.Quantity;
+                    totalWeight += (model.WeightPerUnit ?? 0) * dto.Quantity;
+                }
+            }
+
+            if (totalVolume > 0 || totalWeight > 0)
+            {
+                sourceDepotEntity.CurrentUtilization = Math.Max(0m, (sourceDepotEntity.CurrentUtilization ?? 0m) - totalVolume);
+                sourceDepotEntity.CurrentWeightUtilization = Math.Max(0m, (sourceDepotEntity.CurrentWeightUtilization ?? 0m) - totalWeight);
+                
+                targetDepotEntity.CurrentUtilization = (targetDepotEntity.CurrentUtilization ?? 0m) + totalVolume;
+                targetDepotEntity.CurrentWeightUtilization = (targetDepotEntity.CurrentWeightUtilization ?? 0m) + totalWeight;
+
+                await _unitOfWork.GetRepository<Depot>().UpdateAsync(sourceDepotEntity);
+                await _unitOfWork.GetRepository<Depot>().UpdateAsync(targetDepotEntity);
+            }
+        }
+
+        var now = DateTime.UtcNow;
+
+        var newSupplyInventories = new List<SupplyInventory>();
+        var newSupplyInventoryLots = new List<SupplyInventoryLot>();
+        var newInventoryLogs = new List<InventoryLog>();
+
+        var consumableAssignments = items
+            .Where(x => string.Equals(x.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(x => x.ItemModelId)
+            .Select(g => new { ItemModelId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .ToList();
+
+        if (consumableAssignments.Count > 0)
+        {
+            var itemModelIds = consumableAssignments.Select(x => x.ItemModelId).ToList();
+            var sourceInventories = await _unitOfWork.SetTracked<SupplyInventory>()
+                .Where(inv => inv.DepotId == sourceDepotId
+                           && itemModelIds.Contains(inv.ItemModelId ?? 0)
+                           && (inv.Quantity ?? 0) > 0)
+                .Include(inv => inv.Lots)
+                .ToListAsync(cancellationToken);
+
+            var targetInventories = await _unitOfWork.SetTracked<SupplyInventory>()
+                .Where(inv => inv.DepotId == targetDepotId
+                           && itemModelIds.Contains(inv.ItemModelId ?? 0))
+                .ToListAsync(cancellationToken);
+
+            foreach (var assignment in consumableAssignments)
+            {
+                var srcInv = sourceInventories.FirstOrDefault(x => x.ItemModelId == assignment.ItemModelId)
+                    ?? throw new InvalidOperationException($"Không tìm thấy tồn kho vật tư #{assignment.ItemModelId} tại kho nguồn để chuyển theo kế hoạch đóng kho.");
+
+                var remainingToMove = assignment.Quantity;
+                if ((srcInv.Quantity ?? 0) < remainingToMove)
+                {
+                    throw new InvalidOperationException($"Số lượng vật tư #{assignment.ItemModelId} còn lại tại kho nguồn không đủ để chuyển theo kế hoạch đóng kho.");
+                }
+
+                var dstInv = targetInventories.FirstOrDefault(inv => inv.ItemModelId == assignment.ItemModelId);
+                if (dstInv == null)
+                {
+                    dstInv = new SupplyInventory
+                    {
+                        DepotId = targetDepotId,
+                        ItemModelId = assignment.ItemModelId,
+                        Quantity = 0,
+                        MissionReservedQuantity = 0,
+                        TransferReservedQuantity = 0,
+                        LastStockedAt = now
+                    };
+                    newSupplyInventories.Add(dstInv);
+                    targetInventories.Add(dstInv);
+                }
+
+                var lots = srcInv.Lots
+                    .Where(l => l.RemainingQuantity > 0)
+                    .OrderBy(l => l.ExpiredDate == null ? 1 : 0)
+                    .ThenBy(l => l.ExpiredDate)
+                    .ThenBy(l => l.ReceivedDate)
+                    .ToList();
+
+                foreach (var srcLot in lots)
+                {
+                    if (remainingToMove <= 0) break;
+
+                    var qty = Math.Min(srcLot.RemainingQuantity, remainingToMove);
+                    srcLot.RemainingQuantity -= qty;
+                    remainingToMove -= qty;
+
+                    var outLog = new InventoryLog
+                    {
+                        SupplyInventory = srcInv,
+                        SupplyInventoryLot = srcLot,
+                        ActionType = InventoryActionType.TransferOut.ToString(),
+                        QuantityChange = -qty,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        PerformedBy = performedBy,
+                        Note = $"Đóng kho #{sourceDepotId}: chuyển theo transfer #{transferId} lô #{srcLot.Id} vật tư #{assignment.ItemModelId} SL {qty} sang kho #{targetDepotId}",
+                        ExpiredDate = srcLot.ExpiredDate,
+                        ReceivedDate = srcLot.ReceivedDate,
+                        CreatedAt = now
+                    };
+                    newInventoryLogs.Add(outLog);
+
+                    var dstLot = new SupplyInventoryLot
+                    {
+                        SupplyInventory = dstInv,
+                        Quantity = qty,
+                        RemainingQuantity = qty,
+                        ReceivedDate = srcLot.ReceivedDate ?? now,
+                        ExpiredDate = srcLot.ExpiredDate,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        CreatedAt = now
+                    };
+                    newSupplyInventoryLots.Add(dstLot);
+
+                    var inLog = new InventoryLog
+                    {
+                        SupplyInventory = dstInv,
+                        SupplyInventoryLot = dstLot,
+                        ActionType = InventoryActionType.TransferIn.ToString(),
+                        QuantityChange = qty,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        PerformedBy = performedBy,
+                        Note = $"Đóng kho #{sourceDepotId}: nhận theo transfer #{transferId} vật tư #{assignment.ItemModelId} SL {qty} từ kho nguồn",
+                        ExpiredDate = srcLot.ExpiredDate,
+                        ReceivedDate = srcLot.ReceivedDate,
+                        CreatedAt = now
+                    };
+                    newInventoryLogs.Add(inLog);
+
+                    dstInv.Quantity = (dstInv.Quantity ?? 0) + qty;
+                    dstInv.LastStockedAt = now;
+                }
+
+                if (remainingToMove > 0)
+                {
+                    throw new InvalidOperationException($"Không đủ lô khả dụng để chuyển vật tư #{assignment.ItemModelId} theo kế hoạch đóng kho.");
+                }
+
+                srcInv.Quantity = (srcInv.Quantity ?? 0) - assignment.Quantity;
+                srcInv.LastStockedAt = now;
+                if ((srcInv.Quantity ?? 0) <= 0 && srcInv.MissionReservedQuantity == 0 && srcInv.TransferReservedQuantity == 0)
+                {
+                    srcInv.IsDeleted = true;
+                }
+            }
+        }
+
+        var reusableAssignments = items
+            .Where(x => string.Equals(x.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(x => x.ItemModelId)
+            .Select(g => new { ItemModelId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .ToList();
+
+        if (reusableAssignments.Count > 0)
+        {
+            var itemModelIds = reusableAssignments.Select(x => x.ItemModelId).ToList();
+            var availableUnits = await _unitOfWork.GetRepository<ReusableItem>()
+                .AsQueryable(tracked: true)
+                .Where(r => r.DepotId == sourceDepotId
+                         && r.Status == nameof(ReusableItemStatus.Available)
+                         && itemModelIds.Contains(r.ItemModelId ?? 0))
+                .OrderBy(r => r.ItemModelId)
+                .ThenBy(r => r.Id)
+                .ToListAsync(cancellationToken);
+
+            foreach (var assignment in reusableAssignments)
+            {
+                var units = availableUnits
+                    .Where(x => x.ItemModelId == assignment.ItemModelId)
+                    .Take(assignment.Quantity)
+                    .ToList();
+
+                if (units.Count < assignment.Quantity)
+                {
+                    throw new InvalidOperationException($"Thiết bị tái sử dụng #{assignment.ItemModelId} khả dụng tại kho nguồn không đủ để chuyển theo kế hoạch đóng kho.");
+                }
+
+                foreach (var unit in units)
+                {
+                    var oldDepotId = unit.DepotId;
+                    unit.DepotId = targetDepotId;
+                    unit.UpdatedAt = now;
+
+                    newInventoryLogs.Add(new InventoryLog
+                    {
+                        ReusableItemId = unit.Id,
+                        ActionType = InventoryActionType.TransferOut.ToString(),
+                        QuantityChange = 1,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        PerformedBy = performedBy,
+                        Note = $"Đóng kho #{oldDepotId}: di chuyển theo transfer #{transferId} thiết bị #{unit.Id} sang kho #{targetDepotId}",
+                        CreatedAt = now
+                    });
+                }
+            }
+        }
+
+        if (newSupplyInventories.Any()) await _unitOfWork.GetRepository<SupplyInventory>().AddRangeAsync(newSupplyInventories);
+        if (newSupplyInventoryLots.Any()) await _unitOfWork.GetRepository<SupplyInventoryLot>().AddRangeAsync(newSupplyInventoryLots);
+        if (newInventoryLogs.Any()) await _unitOfWork.GetRepository<InventoryLog>().AddRangeAsync(newInventoryLogs);
+
+        await _unitOfWork.SaveAsync();
+    }
 }
-
-
-
-
-
 
 

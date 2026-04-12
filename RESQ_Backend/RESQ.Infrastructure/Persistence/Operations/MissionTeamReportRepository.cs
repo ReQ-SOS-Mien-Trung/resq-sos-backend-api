@@ -1,4 +1,4 @@
-using RESQ.Application.Repositories.Base;
+﻿using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
@@ -63,7 +63,7 @@ public class MissionTeamReportRepository(IUnitOfWork unitOfWork) : IMissionTeamR
 
         if (entity is null)
         {
-            throw new InvalidOperationException($"KhÃ´ng tÃ¬m tháº¥y bÃ¡o cÃ¡o cho mission team {missionTeamId}.");
+            throw new InvalidOperationException($"Không tìm thấy báo cáo cho mission team {missionTeamId}.");
         }
 
         entity.ReportStatus = MissionTeamReportStatus.Submitted.ToString();

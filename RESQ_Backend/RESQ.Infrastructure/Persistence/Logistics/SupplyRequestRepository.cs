@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -154,7 +154,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
     {
         var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
             .GetByPropertyAsync(x => x.Id == id, tracked: true)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y yÃªu cáº§u cung cáº¥p #{id}.");
+            ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{id}.");
 
         if (entity.AutoRejectAt.HasValue)
             return;
@@ -168,7 +168,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
     {
         var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
             .GetByPropertyAsync(x => x.Id == id, tracked: true)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y yÃªu cáº§u cung cáº¥p #{id}.");
+            ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{id}.");
 
         if (entity.HighEscalationNotified)
             return;
@@ -184,7 +184,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
     {
         var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
             .GetByPropertyAsync(x => x.Id == id, tracked: true)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y yÃªu cáº§u cung cáº¥p #{id}.");
+            ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{id}.");
 
         if (entity.UrgentEscalationNotified)
             return;
@@ -315,12 +315,17 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
     {
         var now = DateTime.UtcNow;
         var hasReusableChanges = false;
+        decimal totalVolume = 0m;
+        decimal totalWeight = 0m;
 
         foreach (var (itemModelId, quantity) in items)
         {
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
                 ?? throw new NotFoundException($"Vật tư #{itemModelId} không tồn tại trong hệ thống.");
+
+            totalVolume += (itemModel.VolumePerUnit ?? 0m) * quantity;
+            totalWeight += (itemModel.WeightPerUnit ?? 0m) * quantity;
 
             if (itemModel.ItemType == "Reusable")
             {
@@ -460,6 +465,18 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             });
         }
 
+        if (totalVolume > 0m || totalWeight > 0m)
+        {
+            var sourceDepot = await _unitOfWork.GetRepository<RESQ.Infrastructure.Entities.Logistics.Depot>()
+                .GetByPropertyAsync(x => x.Id == sourceDepotId, tracked: true);
+            
+            if (sourceDepot != null)
+            {
+                sourceDepot.CurrentUtilization = Math.Max(0m, (sourceDepot.CurrentUtilization ?? 0m) - totalVolume);
+                sourceDepot.CurrentWeightUtilization = Math.Max(0m, (sourceDepot.CurrentWeightUtilization ?? 0m) - totalWeight);
+            }
+        }
+
         await _unitOfWork.SaveAsync();
     }
 
@@ -471,12 +488,17 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
+        decimal totalVolume = 0m;
+        decimal totalWeight = 0m;
 
         foreach (var (itemModelId, quantity) in items)
         {
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
                 ?? throw new NotFoundException($"Vật tư #{itemModelId} không tồn tại trong hệ thống.");
+
+            totalVolume += (itemModel.VolumePerUnit ?? 0m) * quantity;
+            totalWeight += (itemModel.WeightPerUnit ?? 0m) * quantity;
 
             if (itemModel.ItemType == "Reusable")
             {
@@ -565,6 +587,18 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     Note                   = $"Nhận tiếp tế {itemModel.Name} (#{itemModelId}) từ yêu cầu #{supplyRequestId}",
                     CreatedAt              = now
                 });
+            }
+        }
+
+        if (totalVolume > 0m || totalWeight > 0m)
+        {
+            var requestingDepot = await _unitOfWork.GetRepository<RESQ.Infrastructure.Entities.Logistics.Depot>()
+                .GetByPropertyAsync(x => x.Id == requestingDepotId, tracked: true);
+            
+            if (requestingDepot != null)
+            {
+                requestingDepot.CurrentUtilization = (requestingDepot.CurrentUtilization ?? 0m) + totalVolume;
+                requestingDepot.CurrentWeightUtilization = (requestingDepot.CurrentWeightUtilization ?? 0m) + totalWeight;
             }
         }
 

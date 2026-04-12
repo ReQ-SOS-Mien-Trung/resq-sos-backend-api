@@ -21,6 +21,24 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork, ResQDbContex
         return entity.Id;
     }
 
+    public async Task<int> CreateAsync(
+        DepotClosureTransferRecord record,
+        IReadOnlyCollection<DepotClosureTransferItemRecord> items,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = ToEntity(record);
+        entity.Items = items.Select(ToEntity).ToList();
+
+        await _unitOfWork.GetRepository<DepotClosureTransfer>().AddAsync(entity);
+        await _unitOfWork.SaveAsync();
+
+        foreach (var item in items)
+        {
+            item.AttachToTransfer(entity.Id);
+        }
+        return entity.Id;
+    }
+
     public async Task<DepotClosureTransferRecord?> GetByIdAsync(int transferId, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<DepotClosureTransfer>()
@@ -35,6 +53,18 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork, ResQDbContex
         return entity == null ? null : ToDomain(entity);
     }
 
+    public async Task<List<DepotClosureTransferRecord>> GetAllByClosureIdAsync(int closureId, CancellationToken cancellationToken = default)
+    {
+        var entities = await _unitOfWork.Set<DepotClosureTransfer>()
+            .AsNoTracking()
+            .Where(x => x.ClosureId == closureId)
+            .OrderBy(x => x.CreatedAt)
+            .ThenBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
     public async Task<DepotClosureTransferRecord?> GetActiveByClosureIdAsync(int closureId, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<DepotClosureTransfer>()
@@ -44,6 +74,16 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork, ResQDbContex
                      x.Status != "Cancelled",
                 tracked: false);
         return entity == null ? null : ToDomain(entity);
+    }
+
+    public async Task<bool> HasOpenTransfersAsync(int closureId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<DepotClosureTransfer>()
+            .AnyAsync(
+                x => x.ClosureId == closureId &&
+                     x.Status != "Received" &&
+                     x.Status != "Cancelled",
+                cancellationToken);
     }
 
     public async Task<DepotClosureTransferRecord?> GetActiveIncomingByTargetDepotIdAsync(int targetDepotId, CancellationToken cancellationToken = default)
@@ -86,6 +126,18 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork, ResQDbContex
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<DepotClosureTransferItemRecord>> GetItemsByTransferIdAsync(int transferId, CancellationToken cancellationToken = default)
+    {
+        var entities = await _unitOfWork.Set<DepotClosureTransferItem>()
+            .AsNoTracking()
+            .Where(x => x.TransferId == transferId)
+            .OrderBy(x => x.ItemType)
+            .ThenBy(x => x.ItemName)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
     public async Task UpdateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<DepotClosureTransfer>();
@@ -123,6 +175,19 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork, ResQDbContex
         };
     }
 
+    private static DepotClosureTransferItem ToEntity(DepotClosureTransferItemRecord record)
+    {
+        return new DepotClosureTransferItem
+        {
+            TransferId = record.TransferId,
+            ItemModelId = record.ItemModelId,
+            ItemName = record.ItemName,
+            ItemType = record.ItemType,
+            Unit = record.Unit,
+            Quantity = record.Quantity
+        };
+    }
+
     private static DepotClosureTransferRecord ToDomain(DepotClosureTransfer entity)
     {
         return DepotClosureTransferRecord.FromPersistence(
@@ -144,4 +209,18 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork, ResQDbContex
             cancelledBy: entity.CancelledBy,
             cancellationReason: entity.CancellationReason);
     }
+
+    private static DepotClosureTransferItemRecord ToDomain(DepotClosureTransferItem entity)
+    {
+        return DepotClosureTransferItemRecord.FromPersistence(
+            id: entity.Id,
+            transferId: entity.TransferId,
+            itemModelId: entity.ItemModelId,
+            itemName: entity.ItemName,
+            itemType: entity.ItemType,
+            unit: entity.Unit,
+            quantity: entity.Quantity);
+    }
 }
+
+

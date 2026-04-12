@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -41,9 +41,8 @@ public class UpdateAssemblyPointCommandHandler(
         // 2. Update Domain Model
         var location = new GeoLocation(request.Latitude, request.Longitude);
 
-        // We pass the existing assemblyPoint.Code to preserve immutability
+        // We passed the original properties excluding Code.
         assemblyPoint.UpdateDetails(
-            assemblyPoint.Code, 
             request.Name,
             request.MaxCapacity,
             location,

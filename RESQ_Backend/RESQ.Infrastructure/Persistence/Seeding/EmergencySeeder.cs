@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
@@ -109,7 +109,7 @@ public static class EmergencySeeder
                 LocationAccuracy = 8,
                 SosType = "RESCUE",
                 OriginId = "D1A00001-0000-4A8A-B0BF-000000000001",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 3 | Người già: 1 | Bị thương: Người lớn 1: Bệnh nền (Nghiêm trọng) | Ghi chú: Cu ba 82 tuoi bi liet nua nguoi khong di chuyen duoc, nuoc lu dang len nhanh",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 3 | Người già: 1 | Bị thương: Người lớn 1: Bệnh nền (Nghiêm trọng) | Ghi chú: Cụ bà 82 tuổi bị liệt nửa người không di chuyển được, nước lũ đang lên nhanh",
                 StructuredData = """
                     {
                       "situation": "FLOODING",
@@ -120,7 +120,7 @@ public static class EmergencySeeder
                       "people_count": { "adult": 2, "child": 0, "elderly": 1 },
                       "medical_issues": ["CHRONIC_DISEASE", "MOBILITY_IMPAIRMENT", "BREATHING_DIFFICULTY"],
                       "supplies": ["MEDICINE", "TRANSPORTATION"],
-                      "additional_description": "Cu ba 82 tuoi bi liet nua nguoi, kho tho, nuoc lu dang len nhanh khong tu di chuyen duoc",
+                      "additional_description": "Cụ bà 82 tuổi bị liệt nửa người, khó thở, nước lũ đang lên nhanh không tự di chuyển được",
                       "injured_persons": [
                         {
                           "index": 1,
@@ -183,7 +183,7 @@ public static class EmergencySeeder
                       "people_count": { "adult": 3, "child": 3, "elderly": 0 },
                       "medical_issues": ["PREGNANCY", "BREATHING_DIFFICULTY"],
                       "supplies": ["MEDICINE", "WATER"],
-                      "additional_description": "Dang tru tren mai nha, 3 tre nho kho tho vi met moi, vo mang thai thang 8, nuoc van dang dang",
+                      "additional_description": "Đang trú trên mái nhà, 3 trẻ nhỏ khó thở vì mệt mỏi, vợ mang thai tháng 8, nước vẫn đang dâng",
                       "injured_persons": [
                         {
                           "index": 1,
@@ -240,7 +240,7 @@ public static class EmergencySeeder
                 LocationAccuracy = 6,
                 SosType = "RESCUE",
                 OriginId = "D1B00003-0000-4A8A-B0BF-000000000003",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 5 | Bị thương: Người lớn 1: Gãy tay (Trung bình); Người lớn 2: Chảy máu đầu (Nghiêm trọng) | Ghi chú: Sat lo dat chan duong tinh lo, xe tai bi chan lai, can truc thang hoac di bo rung",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 5 | Bị thương: Người lớn 1: Gãy tay (Trung bình); Người lớn 2: Chảy máu đầu (Nghiêm trọng) | Ghi chú: Sạt lở đất chặn đường tỉnh lộ, xe tải bị chặn lại, cần trực thăng hoặc đi bộ rừng",
                 StructuredData = """
                     {
                       "incident": {
@@ -250,7 +250,7 @@ public static class EmergencySeeder
                         "need_medical": true,
                         "others_are_stable": false,
                         "people_count": { "adult": 5, "child": 0, "elderly": 0 },
-                        "additional_description": "Sat lo dat chan duong tinh lo, 2 nguoi bi thuong nang, can truc thang hoac di bo rung"
+                        "additional_description": "Sạt lở đất chặn đường tỉnh lộ, 2 người bị thương nặng, cần trực thăng hoặc đi bộ rừng"
                       },
                       "group_needs": {
                         "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
@@ -321,7 +321,7 @@ public static class EmergencySeeder
                 LocationAccuracy = 15,
                 SosType = "RESCUE",
                 OriginId = "D1B00004-0000-4A8A-B0BF-000000000004",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị cô lập | Số người: 120 | Trẻ em: 4 | Người già: 25 | Bị thương: Người lớn 1: Bệnh nền (Trung bình) | Ghi chú: Ca thon co lap 3 ngay, het luong thuc va nuoc sach, 4 be can sua gap, nguoi gia het thuoc huyet ap",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị cô lập | Số người: 120 | Trẻ em: 4 | Người già: 25 | Bị thương: Người lớn 1: Bệnh nền (Trung bình) | Ghi chú: Cả thôn cô lập 3 ngày, hết lương thực và nước sạch, 4 bé cần sữa gấp, người già hết thuốc huyết áp",
                 StructuredData = """
                     {
                       "incident": {
@@ -331,7 +331,7 @@ public static class EmergencySeeder
                         "need_medical": true,
                         "others_are_stable": false,
                         "people_count": { "adult": 91, "child": 4, "elderly": 25 },
-                        "additional_description": "Ca thon co lap 3 ngay, het luong thuc va nuoc sach, 4 be duoi 1 tuoi can sua gap, nguoi gia het thuoc huyet ap"
+                        "additional_description": "Cả thôn cô lập 3 ngày, hết lương thực và nước sạch, 4 bé dưới 1 tuổi cần sữa gấp, người già hết thuốc huyết áp"
                       },
                       "group_needs": {
                         "supplies": ["FOOD", "WATER", "MEDICINE"],
@@ -397,7 +397,7 @@ public static class EmergencySeeder
                 LocationAccuracy = 5,
                 SosType = "RESCUE",
                 OriginId = "D1C00005-0000-4A8A-B0BF-000000000005",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 1 | Bị thương: Người lớn 1: Gãy chân (Nghiêm trọng) | Ghi chú: Lac trong rung Hoa Phu, gay chan trai khong di duoc, dien thoai sap het pin 8%",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 1 | Bị thương: Người lớn 1: Gãy chân (Nghiêm trọng) | Ghi chú: Lạc trong rừng Hòa Phú, gãy chân trái không đi được, điện thoại sắp hết pin 8%",
                 StructuredData = """
                     {
                       "incident": {
@@ -407,7 +407,7 @@ public static class EmergencySeeder
                         "need_medical": true,
                         "others_are_stable": true,
                         "people_count": { "adult": 1, "child": 0, "elderly": 0 },
-                        "additional_description": "Lac trong rung Hoa Phu tu sang, gay chan trai khong tu di duoc, dien thoai con 8% pin, toa do GPS 16.0240N 108.0100E"
+                        "additional_description": "Lạc trong rừng Hòa Phú từ sáng, gãy chân trái không tự đi được, điện thoại còn 8% pin, tọa độ GPS 16.0240N 108.0100E"
                       },
                       "group_needs": {
                         "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
@@ -472,7 +472,7 @@ public static class EmergencySeeder
                 LocationAccuracy = 10,
                 SosType = "RESCUE",
                 OriginId = "D1D00006-0000-4A8A-B0BF-000000000006",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 4 | Người già: 2 | Ghi chú: Nuoc lu dang len cao, can xuong can to de chuyen nguoi gia ra, 2 cu gia khong di chuyen duoc",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 4 | Người già: 2 | Ghi chú: Nước lũ đang lên cao, cần xuồng cạn to để chuyển người già ra, 2 cụ già không di chuyển được",
                 StructuredData = """
                     {
                       "incident": {
@@ -482,7 +482,7 @@ public static class EmergencySeeder
                         "need_medical": false,
                         "others_are_stable": false,
                         "people_count": { "adult": 2, "child": 0, "elderly": 2 },
-                        "additional_description": "Nuoc lu dang len cao, can xuong can to de chuyen nguoi gia ra, 2 cu gia khong di chuyen duoc"
+                        "additional_description": "Nước lũ đang lên cao, cần xuồng cạn to để chuyển người già ra, 2 cụ già không di chuyển được"
                       },
                       "group_needs": {
                         "supplies": ["WATER", "TRANSPORTATION"]
@@ -592,7 +592,7 @@ public static class EmergencySeeder
                 LocationAccuracy = 12,
                 SosType = "RESCUE",
                 OriginId = "D1G00008-0000-4A8A-B0BF-000000000008",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 3 | Bị thương: Người lớn 1: Trầy xước (Nhẹ) | Ghi chú: Nuoc vao nha cap 1, nguoi bi thuong nhe do leo len mai, can ho tro di tan",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 3 | Bị thương: Người lớn 1: Trầy xước (Nhẹ) | Ghi chú: Nước vào nhà cấp 1, người bị thương nhẹ do leo lên mái, cần hỗ trợ di tản",
                 StructuredData = """
                     {
                       "incident": {
@@ -602,7 +602,7 @@ public static class EmergencySeeder
                         "need_medical": false,
                         "others_are_stable": true,
                         "people_count": { "adult": 2, "child": 0, "elderly": 1 },
-                        "additional_description": "Nuoc vao nha cap 1, nguoi bi thuong nhe do leo len mai, can ho tro di tan"
+                        "additional_description": "Nước vào nhà cấp 1, người bị thương nhẹ do leo lên mái, cần hỗ trợ di tản"
                       },
                       "group_needs": {
                         "supplies": ["TRANSPORTATION"]

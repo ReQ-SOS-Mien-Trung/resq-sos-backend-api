@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 
@@ -28,12 +29,10 @@ public class GetMyIncomingClosureTransferQueryHandler(
             return null; // 204 No Content — không có phiên nào đang chờ
         }
 
+        var transferItems = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
+
         // 3. Lấy tên kho nguồn để hiển thị
         var sourceDepot = await depotRepository.GetByIdAsync(transfer.SourceDepotId, cancellationToken);
-
-        // 4. Lấy chi tiết tồn kho kho nguồn — cho manager kho đích biết sẽ nhận gì
-        var incomingItems = await depotRepository.GetDetailedInventoryForClosureAsync(
-            transfer.SourceDepotId, cancellationToken);
 
         logger.LogInformation(
             "GetMyIncomingClosureTransfer | ManagerDepot={Target} SourceDepot={Source} TransferId={T} Status={S}",
@@ -50,7 +49,16 @@ public class GetMyIncomingClosureTransferQueryHandler(
             SnapshotReusableUnits    = transfer.SnapshotReusableUnits,
             CreatedAt                = transfer.CreatedAt,
             ShippedAt                = transfer.ShippedAt,
-            IncomingItems            = incomingItems
+            IncomingItems            = transferItems.Select(item => new ClosureInventoryItemDto
+            {
+                ItemModelId = item.ItemModelId,
+                ItemName = item.ItemName,
+                ItemType = item.ItemType,
+                Unit = item.Unit ?? "N/A",
+                Quantity = item.Quantity,
+                TransferableQuantity = item.Quantity,
+                BlockedQuantity = 0
+            }).ToList()
         };
     }
 }

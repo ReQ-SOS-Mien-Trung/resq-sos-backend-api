@@ -263,6 +263,29 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
     {
         if (models.Count == 0) return;
 
+        // Business Rule: Check depot capacity before any insert
+        var depotId = models[0].ReceivedAt;
+
+        var itemModelRepo = _unitOfWork.GetRepository<ReliefItem>();
+        var itemModelIds = models.Select(x => x.ItemModelId).Distinct().ToList();
+        var itemModels = await itemModelRepo.GetAllByPropertyAsync(im => itemModelIds.Contains(im.Id));
+        var volumeMap = itemModels.ToDictionary(im => im.Id, im => im.VolumePerUnit ?? 0m);
+        var weightMap = itemModels.ToDictionary(im => im.Id, im => im.WeightPerUnit ?? 0m);
+
+        var totalVolume = models.Sum(x => x.Quantity * (volumeMap.GetValueOrDefault(x.ItemModelId, 0m)));
+        var totalWeight = models.Sum(x => x.Quantity * (weightMap.GetValueOrDefault(x.ItemModelId, 0m)));
+
+        var depotRepo = _unitOfWork.GetRepository<Depot>();
+        var depotEntity = await depotRepo.GetByPropertyAsync(d => d.Id == depotId, tracked: true);
+        if (depotEntity != null)
+        {
+            var depotModel = DepotMapper.ToDomain(depotEntity);
+            // Throws DepotCapacityExceededException if over limit
+            depotModel.UpdateUtilization(totalVolume, totalWeight);
+            DepotMapper.UpdateEntity(depotEntity, depotModel);
+            await depotRepo.UpdateAsync(depotEntity);
+        }
+
         var orgReliefRepo = _unitOfWork.GetRepository<OrganizationReliefItem>();
         var inventoryRepo = _unitOfWork.GetRepository<DepotSupplyInventory>();
         var reusableRepo  = _unitOfWork.GetRepository<ReusableItem>();
@@ -414,7 +437,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         await _unitOfWork.SaveAsync();
 
         // ── Cập nhật Category.Quantity (tổng toàn hệ thống) ──────────────────
-        var itemModelRepo = _unitOfWork.GetRepository<ReliefItem>();
+
         var categoryRepo  = _unitOfWork.GetRepository<Category>();
 
         var qtyByItemModel = models

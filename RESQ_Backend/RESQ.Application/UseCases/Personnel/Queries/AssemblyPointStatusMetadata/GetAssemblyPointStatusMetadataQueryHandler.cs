@@ -17,10 +17,11 @@ public class GetAssemblyPointStatusMetadataQueryHandler
             new() { Key = AssemblyPointStatus.Created.ToString(),          Value = "Mới tạo" },
             new() { Key = AssemblyPointStatus.Active.ToString(),           Value = "Đang hoạt động" },
             new() { Key = AssemblyPointStatus.Overloaded.ToString(),       Value = "Quá tải" },
-            new() { Key = AssemblyPointStatus.UnderMaintenance.ToString(), Value = "Đang bảo trì" },
+            new() { Key = AssemblyPointStatus.Unavailable.ToString(), Value = "Đang bảo trì" },
             new() { Key = AssemblyPointStatus.Closed.ToString(),           Value = "Đã đóng" }
         };
 
         return await Task.FromResult(result);
     }
 }
+

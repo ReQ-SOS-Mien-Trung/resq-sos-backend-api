@@ -35,6 +35,10 @@ public class ClosureInventoryItemDto
 
     public string Unit { get; set; } = string.Empty;
     public int Quantity { get; set; }
+    public int TransferableQuantity { get; set; }
+    public int BlockedQuantity { get; set; }
+    public decimal? VolumePerUnit { get; set; }
+    public decimal? WeightPerUnit { get; set; }
 }
 
 /// <summary>

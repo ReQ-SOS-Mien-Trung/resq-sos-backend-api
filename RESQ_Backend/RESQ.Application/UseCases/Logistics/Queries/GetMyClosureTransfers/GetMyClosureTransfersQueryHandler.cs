@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 
@@ -17,14 +17,14 @@ public class GetMyClosureTransfersQueryHandler(
         if (request.DepotId.HasValue)
         {
             if (managerDepotId.HasValue && managerDepotId.Value != request.DepotId.Value)
-                throw new ForbiddenException("Ban chi co the xem transfer cua kho minh quan ly.");
+                throw new ForbiddenException("Bạn chỉ có thể xem transfer của kho mình quản lý.");
 
             depotId = request.DepotId.Value;
         }
         else
         {
             depotId = managerDepotId
-                ?? throw new NotFoundException("Ban hien kh�ng ph? tr�ch kho n�o.");
+                ?? throw new NotFoundException("Bạn hiện không phụ trách kho nào.");
         }
 
         var transfers = await transferRepository.GetByRelatedDepotIdAsync(depotId, cancellationToken);

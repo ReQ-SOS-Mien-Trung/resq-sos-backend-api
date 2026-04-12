@@ -52,10 +52,9 @@ public class AssemblyPointModel
 
     /// <summary>
     /// Cập nhật thông tin điểm tập kết.
-    /// Không được cập nhật khi đang <see cref="AssemblyPointStatus.Closed"/>
-    /// hoặc <see cref="AssemblyPointStatus.UnderMaintenance"/>.
+    /// Không được cập nhật khi đang <see cref="AssemblyPointStatus.Closed"/>.
     /// </summary>
-    public void UpdateDetails(string code, string name, int maxCapacity, GeoLocation location, string? imageUrl = null)
+    public void UpdateDetails(string name, int maxCapacity, GeoLocation location, string? imageUrl = null)
     {
         if (maxCapacity <= 0)
             throw new InvalidAssemblyPointCapacityException(maxCapacity);
@@ -63,10 +62,6 @@ public class AssemblyPointModel
         if (Status == AssemblyPointStatus.Closed)
             throw new AssemblyPointClosedException();
 
-        if (Status == AssemblyPointStatus.UnderMaintenance)
-            throw new AssemblyPointUnavailableException();
-
-        Code = code;
         Name = name;
         MaxCapacity = maxCapacity;
         Location = location;
@@ -78,9 +73,9 @@ public class AssemblyPointModel
     /// Chuyển trạng thái theo state-flow được phép:
     /// <list type="bullet">
     ///   <item>Created → Active</item>
-    ///   <item>Active → Overloaded | UnderMaintenance | Closed</item>
-    ///   <item>Overloaded → Active | UnderMaintenance (không thể Closed trực tiếp)</item>
-    ///   <item>UnderMaintenance → Active (Complete maintenance)</item>
+    ///   <item>Active → Overloaded | Unavailable | Closed</item>
+    ///   <item>Overloaded → Active | Unavailable (không thể Closed trực tiếp)</item>
+    ///   <item>Unavailable → Active (Complete maintenance)</item>
     ///   <item>Closed → (không có chuyển đổi nào — viĩnh viễn)</item>
     /// </list>
     /// </summary>
@@ -95,10 +90,10 @@ public class AssemblyPointModel
         var allowed = Status switch
         {
             AssemblyPointStatus.Created          => new[] { AssemblyPointStatus.Active },
-            AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Overloaded, AssemblyPointStatus.UnderMaintenance, AssemblyPointStatus.Closed },
-            AssemblyPointStatus.Overloaded       => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.UnderMaintenance },
-            // Theo state diagram: UnderMaintenance chỉ có thể chuyển về Active (Complete maintenance)
-            AssemblyPointStatus.UnderMaintenance => new[] { AssemblyPointStatus.Active },
+            AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Overloaded, AssemblyPointStatus.Unavailable, AssemblyPointStatus.Closed },
+            AssemblyPointStatus.Overloaded       => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.Unavailable },
+            // Theo state diagram: Unavailable chỉ có thể chuyển về Active (Complete maintenance)
+            AssemblyPointStatus.Unavailable => new[] { AssemblyPointStatus.Active },
             _                                    => Array.Empty<AssemblyPointStatus>()
         };
 
@@ -148,3 +143,4 @@ public class AssemblyPointModel
         }
     }
 }
+

@@ -161,7 +161,7 @@ public class DepotClosureRecord
         };
     }
 
-    public void SetTransferResolution(int targetDepotId)
+    public void SetTransferResolution(int? targetDepotId = null)
     {
         ResolutionType = CloseResolutionType.TransferToDepot;
         TargetDepotId = targetDepotId;

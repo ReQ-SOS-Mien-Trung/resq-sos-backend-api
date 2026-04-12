@@ -5,26 +5,26 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Domain.Enum.Personnel;
 
-namespace RESQ.Application.UseCases.Personnel.Commands.CompleteAssemblyPointMaintenance;
+namespace RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointAvailable;
 
-public class CompleteAssemblyPointMaintenanceCommandHandler(
+public class SetAssemblyPointAvailableCommandHandler(
     IAssemblyPointRepository repository,
     IUnitOfWork unitOfWork,
-    ILogger<CompleteAssemblyPointMaintenanceCommandHandler> logger)
-    : IRequestHandler<CompleteAssemblyPointMaintenanceCommand, CompleteAssemblyPointMaintenanceResponse>
+    ILogger<SetAssemblyPointAvailableCommandHandler> logger)
+    : IRequestHandler<SetAssemblyPointAvailableCommand, SetAssemblyPointAvailableResponse>
 {
     private readonly IAssemblyPointRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ILogger<CompleteAssemblyPointMaintenanceCommandHandler> _logger = logger;
+    private readonly ILogger<SetAssemblyPointAvailableCommandHandler> _logger = logger;
 
-    public async Task<CompleteAssemblyPointMaintenanceResponse> Handle(CompleteAssemblyPointMaintenanceCommand request, CancellationToken cancellationToken)
+    public async Task<SetAssemblyPointAvailableResponse> Handle(SetAssemblyPointAvailableCommand request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("CompleteAssemblyPointMaintenance: Id={Id}", request.Id);
+        _logger.LogInformation("SetAssemblyPointAvailable: Id={Id}", request.Id);
 
         var assemblyPoint = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy điểm tập kết");
 
-        // Domain enforces: chỉ UnderMaintenance → Active
+        // Domain enforces: chỉ Unavailable → Active
         assemblyPoint.ChangeStatus(AssemblyPointStatus.Active);
 
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
@@ -32,7 +32,7 @@ public class CompleteAssemblyPointMaintenanceCommandHandler(
 
         _logger.LogInformation("AssemblyPoint maintenance completed: Id={Id}", request.Id);
 
-        return new CompleteAssemblyPointMaintenanceResponse
+        return new SetAssemblyPointAvailableResponse
         {
             Id = assemblyPoint.Id,
             Status = assemblyPoint.Status.ToString(),
@@ -40,3 +40,4 @@ public class CompleteAssemblyPointMaintenanceCommandHandler(
         };
     }
 }
+
