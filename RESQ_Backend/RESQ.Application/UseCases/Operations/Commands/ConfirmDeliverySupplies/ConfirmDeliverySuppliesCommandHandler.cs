@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Operations;
@@ -13,12 +14,14 @@ namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 
 public class ConfirmDeliverySuppliesCommandHandler(
     IMissionActivityRepository activityRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository,
     IMediator mediator,
     IUnitOfWork unitOfWork,
     ILogger<ConfirmDeliverySuppliesCommandHandler> logger
 ) : IRequestHandler<ConfirmDeliverySuppliesCommand, ConfirmDeliverySuppliesResponse>
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IMediator _mediator = mediator;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ConfirmDeliverySuppliesCommandHandler> _logger = logger;
@@ -79,24 +82,45 @@ public class ConfirmDeliverySuppliesCommandHandler(
             new UpdateActivityStatusCommand(request.MissionId, request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy),
             cancellationToken);
 
-        // 6. Auto-create RETURN_SUPPLIES for any surplus (planned > actual delivered)
+        // 6. Upsert RETURN_SUPPLIES for any consumable surplus (planned > actual delivered).
+        // Reusable units are already handled by the mission's final RETURN_SUPPLIES activity.
         int? surplusReturnActivityId = null;
-        var surplusItems = validSupplies
+        var surplusCandidates = validSupplies
             .Where(s => s.ItemId.HasValue
                 && deliveredLookup.TryGetValue(s.ItemId.Value, out var d)
                 && d.ActualQuantity < s.Quantity)
-            .Select(s => new SupplyToCollectDto
-            {
-                ItemId = s.ItemId,
-                ItemName = s.ItemName,
-                Unit = s.Unit,
-                Quantity = s.Quantity - deliveredLookup[s.ItemId!.Value].ActualQuantity
-            })
             .ToList();
+
+        var surplusItems = new List<SupplyToCollectDto>();
+        if (surplusCandidates.Count > 0)
+        {
+            var itemMetadata = await _itemModelMetadataRepository.GetByIdsAsync(
+                surplusCandidates.Select(s => s.ItemId!.Value).Distinct().ToList(),
+                cancellationToken);
+
+            foreach (var supply in surplusCandidates)
+            {
+                var itemId = supply.ItemId!.Value;
+                if (!itemMetadata.TryGetValue(itemId, out var metadata))
+                    throw new BadRequestException($"Không tìm thấy metadata vật tư #{itemId}.");
+
+                if (string.Equals(metadata.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                surplusItems.Add(new SupplyToCollectDto
+                {
+                    ItemId = supply.ItemId,
+                    ItemName = supply.ItemName,
+                    ImageUrl = supply.ImageUrl,
+                    Unit = supply.Unit,
+                    Quantity = supply.Quantity - deliveredLookup[itemId].ActualQuantity
+                });
+            }
+        }
 
         if (surplusItems.Count > 0 && activity.DepotId.HasValue)
         {
-            surplusReturnActivityId = await CreateSurplusReturnActivityAsync(
+            surplusReturnActivityId = await UpsertSurplusReturnActivityAsync(
                 activity, surplusItems, request.ConfirmedBy, cancellationToken);
             await _unitOfWork.SaveAsync();
         }
@@ -129,21 +153,48 @@ public class ConfirmDeliverySuppliesCommandHandler(
             MissionId = request.MissionId,
             Status = MissionActivityStatus.Succeed.ToString(),
             Message = surplusReturnActivityId.HasValue
-                ? $"Xác nhận giao hàng thành công. Đã tạo activity trả hàng #{surplusReturnActivityId} cho vật tư giao thiếu."
+                ? $"Xác nhận giao hàng thành công. Đã cập nhật activity trả hàng #{surplusReturnActivityId} cho vật tư giao thiếu."
                 : "Xác nhận giao hàng thành công.",
             SurplusReturnActivityId = surplusReturnActivityId,
             DeliveredItems = resultItems
         };
     }
 
-    private async Task<int> CreateSurplusReturnActivityAsync(
+    private async Task<int> UpsertSurplusReturnActivityAsync(
         MissionActivityModel deliverActivity,
         List<SupplyToCollectDto> surplusItems,
         Guid decidedBy,
         CancellationToken cancellationToken)
     {
         var missionId = deliverActivity.MissionId ?? 0;
-        var existingActivities = await _activityRepository.GetByMissionIdAsync(missionId, cancellationToken);
+        var existingActivities = (await _activityRepository.GetByMissionIdAsync(missionId, cancellationToken)).ToList();
+        var existingReturnActivity = existingActivities
+            .Where(activity => activity.Id != deliverActivity.Id
+                && activity.MissionTeamId == deliverActivity.MissionTeamId
+                && activity.DepotId == deliverActivity.DepotId
+                && string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+                && activity.Status is MissionActivityStatus.Planned
+                    or MissionActivityStatus.OnGoing
+                    or MissionActivityStatus.PendingConfirmation
+                && (!deliverActivity.Step.HasValue
+                    || !activity.Step.HasValue
+                    || activity.Step.Value > deliverActivity.Step.Value))
+            .OrderBy(activity => activity.Step ?? int.MaxValue)
+            .ThenBy(activity => activity.Id)
+            .FirstOrDefault();
+
+        if (existingReturnActivity is not null)
+        {
+            MergeSurplusItems(existingReturnActivity, surplusItems, deliverActivity.Id);
+            await _activityRepository.UpdateAsync(existingReturnActivity, cancellationToken);
+
+            _logger.LogInformation(
+                "Merged surplus from DELIVER_SUPPLIES ActivityId={deliverActivityId} into existing RETURN_SUPPLIES ActivityId={returnActivityId} MissionId={missionId}",
+                deliverActivity.Id, existingReturnActivity.Id, missionId);
+
+            return existingReturnActivity.Id;
+        }
+
         var maxStep = existingActivities.Any() ? existingActivities.Max(a => a.Step ?? 0) : 0;
 
         var returnActivity = new MissionActivityModel
@@ -173,5 +224,51 @@ public class ConfirmDeliverySuppliesCommandHandler(
 
         return returnActivityId;
     }
+
+    private static void MergeSurplusItems(
+        MissionActivityModel returnActivity,
+        IEnumerable<SupplyToCollectDto> surplusItems,
+        int deliverActivityId)
+    {
+        var currentItems = string.IsNullOrWhiteSpace(returnActivity.Items)
+            ? []
+            : JsonSerializer.Deserialize<List<SupplyToCollectDto>>(returnActivity.Items, _jsonOpts) ?? [];
+
+        foreach (var surplusItem in surplusItems)
+        {
+            if (!surplusItem.ItemId.HasValue || surplusItem.Quantity <= 0)
+                continue;
+
+            var existingItem = currentItems.FirstOrDefault(item => item.ItemId == surplusItem.ItemId);
+            if (existingItem is null)
+            {
+                currentItems.Add(CloneSurplusItem(surplusItem));
+                continue;
+            }
+
+            existingItem.Quantity += surplusItem.Quantity;
+        }
+
+        returnActivity.Items = JsonSerializer.Serialize(currentItems);
+
+        var note = $"Bổ sung vật tư giao thiếu từ activity #{deliverActivityId}.";
+        if (string.IsNullOrWhiteSpace(returnActivity.Description))
+        {
+            returnActivity.Description = note;
+        }
+        else if (!returnActivity.Description.Contains(note, StringComparison.Ordinal))
+        {
+            returnActivity.Description = $"{returnActivity.Description}{Environment.NewLine}{note}";
+        }
+    }
+
+    private static SupplyToCollectDto CloneSurplusItem(SupplyToCollectDto item) => new()
+    {
+        ItemId = item.ItemId,
+        ItemName = item.ItemName,
+        ImageUrl = item.ImageUrl,
+        Quantity = item.Quantity,
+        Unit = item.Unit
+    };
 }
 
