@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using RESQ.Application.Common.Constants;
@@ -7,7 +7,7 @@ using RESQ.Application.UseCases.SystemConfig.Queries.GetVictimsByPeriod;
 namespace RESQ.Presentation.Hubs;
 
 /// <summary>
-/// SignalR Hub cho admin dashboard.
+/// Hub SignalR cho dashboard admin.
 /// - Admin kết nối → tự động join group "admin_dashboard" và nhận dữ liệu ban đầu.
 /// - Server push "ReceiveVictimsByPeriod" khi có SOS mới tạo.
 /// - Client có thể gọi GetVictimsByPeriod(from, to, granularity, statuses) để refresh on-demand.
@@ -22,9 +22,9 @@ public class DashboardHub(IMediator mediator) : Hub
 
     public override async Task OnConnectedAsync()
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, GroupName);
+        // Push dữ liệu ban đầu (6 tháng gần nhất, nhóm theo tháng) cho client vừa kết nối
 
-        // Push initial data (6 tháng gần nhất, group by month) cho client vừa kết nối
+        // Push dữ liệu ban đầu (6 tháng gần nhất, nhóm theo tháng) cho client vừa kết nối
         var data = await _mediator.Send(new GetVictimsByPeriodQuery(null, null, null));
         await Clients.Caller.SendAsync("ReceiveVictimsByPeriod", data);
 

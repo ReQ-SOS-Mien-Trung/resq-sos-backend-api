@@ -24,12 +24,13 @@ public class CreateFundingRequestValidator : AbstractValidator<CreateFundingRequ
             item.RuleFor(i => i.UnitPrice)
                 .GreaterThan(0).WithMessage("Đơn giá phải lớn hơn 0.");
             item.RuleFor(i => i.VolumePerUnit)
-                .GreaterThanOrEqualTo(0).WithMessage("Th? t�ch m?i don v? kh�ng du?c �m.");
+                .GreaterThanOrEqualTo(0).WithMessage("Thể tích mỗi đơn vị không được âm.");
             item.RuleFor(i => i.WeightPerUnit)
-                .GreaterThanOrEqualTo(0).WithMessage("C�n n?ng m?i don v? kh�ng du?c �m.");
+                .GreaterThanOrEqualTo(0).WithMessage("Cân nặng mỗi đơn vị không được âm.");
         });
 
         RuleFor(x => x.RequestedBy)
             .NotEmpty().WithMessage("Người yêu cầu không hợp lệ.");
     }
 }
+

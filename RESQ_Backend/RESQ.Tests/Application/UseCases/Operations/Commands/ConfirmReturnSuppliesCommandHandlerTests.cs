@@ -394,6 +394,11 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task TransferClosureItemsAsync(int sourceDepotId, int targetDepotId, int closureId, int transferId,
+            Guid performedBy, IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken ct = default)
             => throw new NotImplementedException();
 

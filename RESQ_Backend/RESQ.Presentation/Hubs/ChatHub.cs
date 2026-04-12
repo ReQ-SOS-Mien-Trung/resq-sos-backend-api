@@ -11,7 +11,7 @@ using RESQ.Application.UseCases.Operations.Commands.SendMessage;
 namespace RESQ.Presentation.Hubs;
 
 /// <summary>
-/// Real-time chat hub.
+/// Hub chat thời gian thực.
 /// - Mỗi Victim có 1 phòng chat riêng (không gắn với mission).
 /// - AI gợi ý chủ đề → Victim chọn SOS Request → Coordinator join và hỗ trợ.
 /// Client kết nối với JWT Bearer token (qua query string ?access_token=...).

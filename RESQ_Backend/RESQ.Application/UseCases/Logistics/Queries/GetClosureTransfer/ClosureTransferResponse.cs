@@ -26,4 +26,14 @@ public class ClosureTransferResponse
     public DateTime? CancelledAt { get; set; }
     public Guid? CancelledBy { get; set; }
     public string? CancellationReason { get; set; }
+    public List<ClosureTransferItemResponse> Items { get; set; } = [];
+}
+
+public class ClosureTransferItemResponse
+{
+    public int ItemModelId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string ItemType { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    public int Quantity { get; set; }
 }

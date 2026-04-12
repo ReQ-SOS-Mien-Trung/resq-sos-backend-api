@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
@@ -16,7 +16,8 @@ public class GetClosureTransferQueryHandler(
         CancellationToken cancellationToken)
     {
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y b?n ghi chuy?n kho #{request.TransferId}.");
+            ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
+        var transferItems = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
 
         if (request.RequestingUserId.HasValue)
         {
@@ -32,12 +33,12 @@ public class GetClosureTransferQueryHandler(
 
             if (managerDepotId != transfer.SourceDepotId && managerDepotId != transfer.TargetDepotId)
             {
-                throw new ForbiddenException("B?n kh�ng ph?i manager c?a kho ngu?n ho?c kho d�ch trong ban ghi chuyen hang nay.");
+                throw new ForbiddenException("Bạn không phải là manager của kho nguồn hoặc kho đích trong bản ghi chuyển hàng này.");
             }
         }
         else if (transfer.SourceDepotId != request.DepotId)
         {
-            throw new ConflictException("B?n ghi chuy?n kho kh�ng kh?p v?i th�ng tin du?c cung c?p.");
+            throw new ConflictException("Bản ghi chuyển kho không khớp với thông tin được cung cấp.");
         }
 
         return new ClosureTransferResponse
@@ -58,7 +59,16 @@ public class GetClosureTransferQueryHandler(
             ReceiveNote = transfer.ReceiveNote,
             CancelledAt = transfer.CancelledAt,
             CancelledBy = transfer.CancelledBy,
-            CancellationReason = transfer.CancellationReason
+            CancellationReason = transfer.CancellationReason,
+            Items = transferItems.Select(item => new ClosureTransferItemResponse
+            {
+                ItemModelId = item.ItemModelId,
+                ItemName = item.ItemName,
+                ItemType = item.ItemType,
+                Unit = item.Unit,
+                Quantity = item.Quantity
+            }).ToList()
         };
     }
 }
+

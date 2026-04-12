@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -23,7 +23,7 @@ public class GetDepotClosuresQueryHandler(
 
         var depot = await _depotRepository.GetByIdAsync(request.DepotId, cancellationToken);
         if (depot == null)
-            throw new NotFoundException("Kh�ng t�m th?y kho c?u tr?.");
+            throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
         if (request.RequestingUserId.HasValue)
         {
@@ -31,7 +31,7 @@ public class GetDepotClosuresQueryHandler(
                 request.RequestingUserId.Value, cancellationToken);
 
             if (managerDepotId.HasValue && managerDepotId.Value != request.DepotId)
-                throw new ForbiddenException("Ban chi co the xem danh sach phien dong cua kho minh quan ly.");
+                throw new ForbiddenException("Bạn chỉ có thể xem danh sách phiên đóng của kho mình quản lý.");
         }
 
         var items = await _closureRepository.GetClosuresByDepotIdAsync(request.DepotId, cancellationToken);
@@ -62,9 +62,20 @@ public class GetDepotClosuresQueryHandler(
                 ? new TransferSummaryDto
                 {
                     TransferId = item.TransferId.Value,
+                    TargetDepotId = item.TargetDepotId,
+                    TargetDepotName = item.TargetDepotName,
                     Status = item.TransferStatus ?? string.Empty
                 }
-                : null
+                : null,
+            Transfers = item.Transfers
+                .Select(transfer => new TransferSummaryDto
+                {
+                    TransferId = transfer.TransferId,
+                    TargetDepotId = transfer.TargetDepotId,
+                    TargetDepotName = transfer.TargetDepotName,
+                    Status = transfer.Status
+                })
+                .ToList()
         }).ToList();
 
         _logger.LogInformation(
@@ -76,3 +87,5 @@ public class GetDepotClosuresQueryHandler(
         return result;
     }
 }
+
+

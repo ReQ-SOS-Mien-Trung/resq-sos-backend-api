@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using RESQ.Application.Common.Constants;
@@ -7,7 +7,7 @@ using RESQ.Application.Common.Models;
 namespace RESQ.Presentation.Hubs;
 
 /// <summary>
-/// Real-time notification hub.
+/// Hub thông báo thời gian thực.
 /// Mỗi user tự động join group "notification_user_{userId}" khi kết nối.
 /// Server push event "ReceiveNotification" khi có notification mới.
 /// Client kết nối với JWT Bearer token qua query string ?access_token=...

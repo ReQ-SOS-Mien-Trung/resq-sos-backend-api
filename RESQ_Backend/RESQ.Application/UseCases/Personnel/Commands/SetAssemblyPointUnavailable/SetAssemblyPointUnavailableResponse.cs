@@ -1,8 +1,9 @@
-namespace RESQ.Application.UseCases.Personnel.Commands.StartAssemblyPointMaintenance;
+namespace RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointUnavailable;
 
-public class StartAssemblyPointMaintenanceResponse
+public class SetAssemblyPointUnavailableResponse
 {
     public int Id { get; set; }
     public string Status { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 }
+

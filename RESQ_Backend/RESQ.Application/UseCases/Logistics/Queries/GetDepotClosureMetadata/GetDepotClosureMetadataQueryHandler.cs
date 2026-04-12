@@ -16,7 +16,7 @@ public class GetDepotClosureMetadataQueryHandler
         {
             ResolutionTypes =
             [
-                new MetadataDto { Key = CloseResolutionType.TransferToDepot.ToString(), Value = "Chuyển toàn bộ hàng sang kho khác" },
+                new MetadataDto { Key = CloseResolutionType.TransferToDepot.ToString(), Value = "Phân bổ hàng tồn sang một hoặc nhiều kho khác" },
                 new MetadataDto { Key = CloseResolutionType.ExternalResolution.ToString(), Value = "Tự xử lý bên ngoài (admin ghi chú cách xử lý)" }
             ],
             HandlingMethods = Enum.GetValues<ExternalDispositionType>()

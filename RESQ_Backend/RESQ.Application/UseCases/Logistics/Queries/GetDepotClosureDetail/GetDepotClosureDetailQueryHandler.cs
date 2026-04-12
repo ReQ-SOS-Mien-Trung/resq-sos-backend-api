@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -16,7 +16,9 @@ public class GetDepotClosureDetailQueryHandler(
     public async Task<DepotClosureDetailResponse> Handle(GetDepotClosureDetailQuery request, CancellationToken cancellationToken)
     {
         var closure = await closureRepository.GetByIdAsync(request.ClosureId, cancellationToken)
-            ?? throw new NotFoundException("Kh�ng t�m th?y phi�n d�ng kho.");
+            ?? throw new NotFoundException("Không tìm thấy phiên đóng kho.");
+        var transfers = await transferRepository.GetAllByClosureIdAsync(closure.Id, cancellationToken);
+        var targetDepotIds = transfers.Select(x => x.TargetDepotId).Distinct().ToHashSet();
 
         if (request.RequestingUserId.HasValue)
         {
@@ -25,24 +27,33 @@ public class GetDepotClosureDetailQueryHandler(
 
             if (managerDepotId.HasValue)
             {
-                if (managerDepotId != closure.DepotId && managerDepotId != closure.TargetDepotId)
-                    throw new ForbiddenException("B?n kh�ng ph?i manager c?a kho ngu?n ho?c kho d�ch trong phien dong kho nay.");
+                if (managerDepotId != closure.DepotId && !targetDepotIds.Contains(managerDepotId.Value))
+                    throw new ForbiddenException("Bạn không phải là manager của kho nguồn hoặc kho đích trong phiên đóng kho này.");
             }
-            else if (request.DepotId != closure.DepotId && request.DepotId != closure.TargetDepotId)
+            else if (request.DepotId != closure.DepotId && !targetDepotIds.Contains(request.DepotId))
             {
-                throw new NotFoundException("Kh�ng t�m th?y phi�n d�ng kho thu?c kho du?c y�u c?u.");
+                throw new NotFoundException("Không tìm thấy phiên đóng kho thuộc kho được yêu cầu.");
             }
         }
-        else if (request.DepotId != closure.DepotId && request.DepotId != closure.TargetDepotId)
+        else if (request.DepotId != closure.DepotId && !targetDepotIds.Contains(request.DepotId))
         {
-            throw new NotFoundException("Kh�ng t�m th?y phi�n d�ng kho thu?c kho du?c y�u c?u.");
+            throw new NotFoundException("Không tìm thấy phiên đóng kho thuộc kho được yêu cầu.");
         }
 
         var depot = await depotRepository.GetByIdAsync(closure.DepotId, cancellationToken)
-            ?? throw new NotFoundException("Kh�ng t�m th?y kho c?u tr?.");
+            ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
-        var summary = await closureRepository.GetClosureDetailAsync(request.DepotId, request.ClosureId, cancellationToken)
-            ?? throw new NotFoundException("Kh�ng t�m th?y d? li?u chi ti?t c?a phi�n d�ng kho.");
+        var summary = await closureRepository.GetClosureDetailAsync(closure.DepotId, request.ClosureId, cancellationToken)
+            ?? throw new NotFoundException("Không tìm thấy dữ liệu chi tiết của phiên đóng kho.");
+
+        var singleTarget = transfers.Select(x => x.TargetDepotId).Distinct().Take(2).ToList();
+        int? singleTargetDepotId = singleTarget.Count == 1 ? singleTarget[0] : null;
+        string? singleTargetDepotName = null;
+        if (singleTargetDepotId.HasValue)
+        {
+            var targetDepot = await depotRepository.GetByIdAsync(singleTargetDepotId.Value, cancellationToken);
+            singleTargetDepotName = targetDepot?.Name;
+        }
 
         var response = new DepotClosureDetailResponse
         {
@@ -53,8 +64,8 @@ public class GetDepotClosureDetailQueryHandler(
             PreviousStatus = closure.PreviousStatus.ToString(),
             CloseReason = closure.CloseReason,
             ResolutionType = closure.ResolutionType?.ToString(),
-            TargetDepotId = summary.TargetDepotId,
-            TargetDepotName = summary.TargetDepotName,
+            TargetDepotId = singleTargetDepotId,
+            TargetDepotName = singleTargetDepotName,
             ExternalNote = closure.ExternalNote,
             InitiatedBy = closure.InitiatedBy,
             InitiatedByFullName = summary.InitiatedByFullName,
@@ -76,10 +87,10 @@ public class GetDepotClosureDetailQueryHandler(
 
         if (closure.ResolutionType == CloseResolutionType.TransferToDepot)
         {
-            var transfer = await transferRepository.GetByClosureIdAsync(closure.Id, cancellationToken);
-            if (transfer != null)
+            foreach (var transfer in transfers)
             {
-                response.TransferDetail = new DepotClosureTransferDetailDto
+                var items = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
+                response.TransferDetails.Add(new DepotClosureTransferDetailDto
                 {
                     Id = transfer.Id,
                     ClosureId = transfer.ClosureId,
@@ -97,9 +108,21 @@ public class GetDepotClosureDetailQueryHandler(
                     ReceiveNote = transfer.ReceiveNote,
                     CancelledAt = transfer.CancelledAt,
                     CancelledBy = transfer.CancelledBy,
-                    CancellationReason = transfer.CancellationReason
-                };
+                    CancellationReason = transfer.CancellationReason,
+                    Items = items.Select(item => new DepotClosureTransferItemDetailDto
+                    {
+                        ItemModelId = item.ItemModelId,
+                        ItemName = item.ItemName,
+                        ItemType = item.ItemType,
+                        Unit = item.Unit,
+                        Quantity = item.Quantity
+                    }).ToList()
+                });
             }
+
+            response.TransferDetail = response.TransferDetails.Count == 1
+                ? response.TransferDetails[0]
+                : null;
         }
 
         if (closure.ResolutionType == CloseResolutionType.ExternalResolution)
@@ -130,4 +153,5 @@ public class GetDepotClosureDetailQueryHandler(
         return response;
     }
 }
+
 

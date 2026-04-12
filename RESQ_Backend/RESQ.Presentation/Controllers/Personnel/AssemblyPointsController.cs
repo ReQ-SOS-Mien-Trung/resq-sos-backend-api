@@ -4,8 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Personnel.Commands.ActivateAssemblyPoint;
-using RESQ.Application.UseCases.Personnel.Commands.StartAssemblyPointMaintenance;
-using RESQ.Application.UseCases.Personnel.Commands.CompleteAssemblyPointMaintenance;
+using RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointUnavailable;
+using RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointAvailable;
 using RESQ.Application.UseCases.Personnel.Commands.CloseAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.CreateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.UpdateAssemblyPoint;
@@ -147,7 +147,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> StartMaintenance(int id)
         {
-            var result = await _mediator.Send(new StartAssemblyPointMaintenanceCommand(id));
+            var result = await _mediator.Send(new SetAssemblyPointUnavailableCommand(id));
             return Ok(result);
         }
 
@@ -158,7 +158,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> CompleteMaintenance(int id)
         {
-            var result = await _mediator.Send(new CompleteAssemblyPointMaintenanceCommand(id));
+            var result = await _mediator.Send(new SetAssemblyPointAvailableCommand(id));
             return Ok(result);
         }
 
@@ -272,3 +272,4 @@ namespace RESQ.Presentation.Controllers.Personnel
         }
     }
 }
+

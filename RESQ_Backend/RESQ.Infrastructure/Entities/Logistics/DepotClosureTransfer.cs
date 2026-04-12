@@ -69,4 +69,7 @@ public class DepotClosureTransfer
     // Navigation property
     [ForeignKey(nameof(ClosureId))]
     public DepotClosure? Closure { get; set; }
+
+    [InverseProperty(nameof(DepotClosureTransferItem.Transfer))]
+    public ICollection<DepotClosureTransferItem> Items { get; set; } = new List<DepotClosureTransferItem>();
 }

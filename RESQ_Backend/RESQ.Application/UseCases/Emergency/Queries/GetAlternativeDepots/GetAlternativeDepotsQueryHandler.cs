@@ -32,7 +32,7 @@ public class GetAlternativeDepotsQueryHandler(
         CancellationToken cancellationToken)
     {
         if (request.SelectedDepotId <= 0)
-            throw new BadRequestException("selectedDepotId phai lon hon 0.");
+            throw new BadRequestException("selectedDepotId phải lớn hơn 0.");
 
         _logger.LogInformation(
             "Getting alternative depots for ClusterId={clusterId}, SelectedDepotId={selectedDepotId}",
@@ -40,10 +40,10 @@ public class GetAlternativeDepotsQueryHandler(
             request.SelectedDepotId);
 
         var cluster = await _sosClusterRepository.GetByIdAsync(request.ClusterId, cancellationToken)
-            ?? throw new NotFoundException($"Khong tim thay cluster voi ID: {request.ClusterId}");
+            ?? throw new NotFoundException($"Không tìm thấy cụm với ID: {request.ClusterId}");
 
         if (!cluster.CenterLatitude.HasValue || !cluster.CenterLongitude.HasValue)
-            throw new BadRequestException($"Cluster {request.ClusterId} khong co toa do tam de xep hang kho thay the.");
+            throw new BadRequestException($"Cụm {request.ClusterId} không có tọa độ tâm để xếp hạng kho thay thế.");
 
         var latestSuggestion = (await _missionAiSuggestionRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken))
             .OrderByDescending(suggestion => suggestion.CreatedAt ?? DateTime.MinValue)
@@ -51,7 +51,7 @@ public class GetAlternativeDepotsQueryHandler(
             .FirstOrDefault();
 
         if (latestSuggestion is null)
-            throw new NotFoundException($"Cluster {request.ClusterId} chua co AI mission suggestion nao.");
+            throw new NotFoundException($"Cụm {request.ClusterId} chưa có gợi ý nhiệm vụ từ AI.");
 
         var metadata = MissionAiSuggestionJsonHelper.ParseMetadata(latestSuggestion.Metadata);
         var rawShortages = metadata?.SupplyShortages ?? [];
@@ -61,7 +61,7 @@ public class GetAlternativeDepotsQueryHandler(
                 && shortage.SelectedDepotId.Value != request.SelectedDepotId))
         {
             throw new BadRequestException(
-                $"selectedDepotId={request.SelectedDepotId} khong khop voi kho chinh trong latest AI suggestion cua cluster {request.ClusterId}.");
+                $"selectedDepotId={request.SelectedDepotId} không khớp với kho chính trong gợi ý AI mới nhất của cụm {request.ClusterId}.");
         }
 
         var aggregatedShortages = AggregateShortages(rawShortages);
@@ -255,7 +255,7 @@ public class GetAlternativeDepotsQueryHandler(
         var distanceLabel = distanceKm.ToString("0.##", CultureInfo.InvariantCulture);
         if (coversAllShortages)
         {
-            return $"Kho nay cover toan bo shortage ({coveredQuantity}/{totalMissingQuantity} don vi), cach tam cluster {distanceLabel} km.";
+            return $"Kho này đáp ứng toàn bộ phần thiếu hụt ({coveredQuantity}/{totalMissingQuantity} đơn vị), cách tâm cụm {distanceLabel} km.";
         }
 
         var remainingItems = itemCoverageDetails
@@ -267,10 +267,10 @@ public class GetAlternativeDepotsQueryHandler(
             .ToList();
 
         var missingLabel = remainingItems.Count == 0
-            ? "mot so mat hang"
+            ? "một số mặt hàng"
             : JoinWithAnd(remainingItems);
 
-        return $"Kho nay cover mot phan {coveredQuantity}/{totalMissingQuantity} don vi, con thieu {missingLabel}, cach tam cluster {distanceLabel} km.";
+        return $"Kho này đáp ứng một phần {coveredQuantity}/{totalMissingQuantity} đơn vị, còn thiếu {missingLabel}, cách tâm cụm {distanceLabel} km.";
     }
 
     private static string JoinWithAnd(IReadOnlyList<string> values)
@@ -279,14 +279,14 @@ public class GetAlternativeDepotsQueryHandler(
         {
             0 => string.Empty,
             1 => values[0],
-            2 => $"{values[0]} va {values[1]}",
-            _ => $"{string.Join(", ", values.Take(values.Count - 1))} va {values[^1]}"
+            2 => $"{values[0]} và {values[1]}",
+            _ => $"{string.Join(", ", values.Take(values.Count - 1))} và {values[^1]}"
         };
     }
 
     private static string BuildFallbackItemName(int? itemId)
     {
-        return itemId.HasValue ? $"Vat tu #{itemId.Value}" : "Vat tu chua ro";
+        return itemId.HasValue ? $"Vật tư #{itemId.Value}" : "Vật tư chưa rõ";
     }
 
     private static string NormalizeText(string? value)
@@ -372,3 +372,4 @@ public class GetAlternativeDepotsQueryHandler(
         }
     }
 }
+

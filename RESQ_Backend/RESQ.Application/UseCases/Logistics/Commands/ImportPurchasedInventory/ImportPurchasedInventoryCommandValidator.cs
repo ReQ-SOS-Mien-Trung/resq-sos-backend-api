@@ -7,7 +7,7 @@ public class ImportPurchasedInventoryCommandValidator : AbstractValidator<Import
     public ImportPurchasedInventoryCommandValidator()
     {
         RuleFor(x => x.Invoices)
-            .NotEmpty().WithMessage("Danh s�ch h�a don nh?p h�ng kh�ng du?c d? tr?ng.");
+            .NotEmpty().WithMessage("Danh sách hóa đơn nhập hàng không được để trống.");
 
         RuleForEach(x => x.Invoices).SetValidator(new ImportPurchaseGroupDtoValidator());
     }

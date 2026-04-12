@@ -19,6 +19,16 @@ public class DepotClosureTransferListItem
     public DateTime? CancelledAt { get; set; }
 }
 
+public class DepotClosureTransferItemListItem
+{
+    public int TransferId { get; set; }
+    public int ItemModelId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string ItemType { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    public int Quantity { get; set; }
+}
+
 /// <summary>
 /// Repository quản lý bản ghi chuyển hàng khi đóng kho (depot_closure_transfers).
 /// </summary>
@@ -26,12 +36,21 @@ public interface IDepotClosureTransferRepository
 {
     Task<int> CreateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default);
 
+    Task<int> CreateAsync(
+        DepotClosureTransferRecord record,
+        IReadOnlyCollection<DepotClosureTransferItemRecord> items,
+        CancellationToken cancellationToken = default);
+
     Task<DepotClosureTransferRecord?> GetByIdAsync(int transferId, CancellationToken cancellationToken = default);
 
     Task<DepotClosureTransferRecord?> GetByClosureIdAsync(int closureId, CancellationToken cancellationToken = default);
 
+    Task<List<DepotClosureTransferRecord>> GetAllByClosureIdAsync(int closureId, CancellationToken cancellationToken = default);
+
     /// <summary>Lấy transfer đang active theo closureId (chưa Cancelled/Received).</summary>
     Task<DepotClosureTransferRecord?> GetActiveByClosureIdAsync(int closureId, CancellationToken cancellationToken = default);
+
+    Task<bool> HasOpenTransfersAsync(int closureId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Lấy transfer đang active mà kho <paramref name="targetDepotId"/> là kho đích nhận hàng.
@@ -41,6 +60,8 @@ public interface IDepotClosureTransferRepository
     Task<DepotClosureTransferRecord?> GetActiveIncomingByTargetDepotIdAsync(int targetDepotId, CancellationToken cancellationToken = default);
 
     Task<List<DepotClosureTransferListItem>> GetByRelatedDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
+
+    Task<List<DepotClosureTransferItemRecord>> GetItemsByTransferIdAsync(int transferId, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default);
 }

@@ -29,6 +29,7 @@ public class DepotClosureDetailResponse
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public DepotClosureTransferDetailDto? TransferDetail { get; set; }
+    public List<DepotClosureTransferDetailDto> TransferDetails { get; set; } = [];
     public List<DepotClosureExternalItemDetailResponse> ExternalItems { get; set; } = [];
 }
 
@@ -51,6 +52,16 @@ public class DepotClosureTransferDetailDto
     public DateTime? CancelledAt { get; set; }
     public Guid? CancelledBy { get; set; }
     public string? CancellationReason { get; set; }
+    public List<DepotClosureTransferItemDetailDto> Items { get; set; } = [];
+}
+
+public class DepotClosureTransferItemDetailDto
+{
+    public int ItemModelId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string ItemType { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    public int Quantity { get; set; }
 }
 
 public class DepotClosureExternalItemDetailResponse

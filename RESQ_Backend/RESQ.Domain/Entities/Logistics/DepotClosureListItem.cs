@@ -46,4 +46,13 @@ public class DepotClosureListItem
     // Transfer tóm tắt (nếu có)
     public int? TransferId { get; set; }
     public string? TransferStatus { get; set; }
+    public List<DepotClosureListTransferItem> Transfers { get; set; } = [];
+}
+
+public class DepotClosureListTransferItem
+{
+    public int TransferId { get; set; }
+    public int TargetDepotId { get; set; }
+    public string TargetDepotName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
 }

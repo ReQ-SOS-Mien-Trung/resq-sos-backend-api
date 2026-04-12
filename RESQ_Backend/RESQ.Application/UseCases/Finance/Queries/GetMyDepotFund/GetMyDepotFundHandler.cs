@@ -25,7 +25,7 @@ public class GetMyDepotFundHandler : IRequestHandler<GetMyDepotFundQuery, MyDepo
     public async Task<MyDepotFundsResponseDto> Handle(GetMyDepotFundQuery request, CancellationToken cancellationToken)
     {
         var depotId = await _depotInventoryRepo.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
-            ?? throw new NotFoundException("Tai khoan hien tai kh�ng du?c ch? d?nh qu?n l� bat ky kho nao dang hoat dong.");
+            ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var funds = await _depotFundRepo.GetAllByDepotIdAsync(depotId, cancellationToken);
         var depot = await _depotRepo.GetByIdAsync(depotId, cancellationToken);
@@ -47,4 +47,3 @@ public class GetMyDepotFundHandler : IRequestHandler<GetMyDepotFundQuery, MyDepo
         };
     }
 }
-

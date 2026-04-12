@@ -3,9 +3,22 @@ namespace RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosureTrans
 /// <summary>Request body cho POST /{id}/close/transfer.</summary>
 public class InitiateDepotClosureTransferRequestDto
 {
-    /// <summary>ID kho đích sẽ tiếp nhận toàn bộ hàng tồn kho nguồn.</summary>
-    public int TargetDepotId { get; set; }
-
     /// <summary>Lý do đóng kho (tùy chọn).</summary>
     public string? Reason { get; set; }
+
+    /// <summary>Danh sách phân bổ vật tư sang các kho đích.</summary>
+    public List<InitiateDepotClosureTransferDepotAssignmentRequestDto> Assignments { get; set; } = [];
+}
+
+public class InitiateDepotClosureTransferDepotAssignmentRequestDto
+{
+    public int TargetDepotId { get; set; }
+    public List<InitiateDepotClosureTransferAssignmentRequestItemDto> Items { get; set; } = [];
+}
+
+public class InitiateDepotClosureTransferAssignmentRequestItemDto
+{
+    public int ItemModelId { get; set; }
+    public string ItemType { get; set; } = string.Empty;
+    public int Quantity { get; set; }
 }

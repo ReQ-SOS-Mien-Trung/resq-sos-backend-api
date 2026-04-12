@@ -34,6 +34,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<DepotClosure> DepotClosures { get; set; }
     public virtual DbSet<DepotClosureExternalItem> DepotClosureExternalItems { get; set; }
     public virtual DbSet<DepotClosureTransfer> DepotClosureTransfers { get; set; }
+    public virtual DbSet<DepotClosureTransferItem> DepotClosureTransferItems { get; set; }
     public virtual DbSet<CampaignDisbursement> CampaignDisbursements { get; set; }
     public virtual DbSet<DisbursementItem> DisbursementItems { get; set; }
     public virtual DbSet<FundingRequest> FundingRequests { get; set; }
@@ -313,13 +314,25 @@ public partial class ResQDbContext : DbContext
             // Chỉ 1 transfer active per closure
             entity.HasIndex(e => e.ClosureId)
                   .HasDatabaseName("uix_depot_closure_transfers_active")
-                  .HasFilter("status NOT IN ('Completed', 'Cancelled')")
-                  .IsUnique();
+                  .HasFilter("status NOT IN ('Received', 'Cancelled')");
 
             entity.HasOne(e => e.Closure)
-                .WithMany()
+                .WithMany(c => c.Transfers)
                 .HasForeignKey(e => e.ClosureId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DepotClosureTransferItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_closure_transfer_items_pkey");
+
+            entity.HasIndex(e => e.TransferId)
+                .HasDatabaseName("ix_depot_closure_transfer_items_transfer_id");
+
+            entity.HasOne(e => e.Transfer)
+                .WithMany(t => t.Items)
+                .HasForeignKey(e => e.TransferId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SupplyRequestPriorityConfig>(entity =>

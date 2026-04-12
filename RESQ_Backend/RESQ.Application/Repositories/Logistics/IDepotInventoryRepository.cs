@@ -176,6 +176,15 @@ public interface IDepotInventoryRepository
         int batchSize = 100,
         CancellationToken cancellationToken = default);
 
+    Task TransferClosureItemsAsync(
+        int sourceDepotId,
+        int targetDepotId,
+        int closureId,
+        int transferId,
+        Guid performedBy,
+        IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Tra cứu userId của quản lý đang được phân công tại kho (ngược với GetActiveDepotIdByManagerAsync).
     /// </summary>
@@ -201,4 +210,11 @@ public interface IDepotInventoryRepository
     /// Dùng để chặn chuyển sang Unavailable khi còn hoạt động đang diễn ra.
     /// </summary>
     Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default);
+}
+
+public class DepotClosureTransferItemMoveDto
+{
+    public int ItemModelId { get; set; }
+    public string ItemType { get; set; } = string.Empty;
+    public int Quantity { get; set; }
 }

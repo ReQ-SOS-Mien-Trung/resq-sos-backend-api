@@ -117,4 +117,7 @@ public class DepotClosure
 
     [ForeignKey("TargetDepotId")]
     public virtual Depot? TargetDepot { get; set; }
+
+    [InverseProperty(nameof(DepotClosureTransfer.Closure))]
+    public virtual ICollection<DepotClosureTransfer> Transfers { get; set; } = new List<DepotClosureTransfer>();
 }
