@@ -40,8 +40,6 @@ public static class FinanceLabels
         [DepotFundTransactionType.Allocation.ToString()] = "Cấp quỹ",
         [DepotFundTransactionType.Deduction.ToString()] = "Thanh toán mua hàng",
         [DepotFundTransactionType.Refund.ToString()] = "Hoàn quỹ",
-        [DepotFundTransactionType.SelfAdvance.ToString()] = "Tự ứng",
-        [DepotFundTransactionType.DebtRepayment.ToString()] = "Trả nợ tự ứng",
         [DepotFundTransactionType.PersonalAdvance.ToString()] = "Cá nhân ứng cho kho",
         [DepotFundTransactionType.AdvanceRepayment.ToString()] = "Kho hoàn trả tiền ứng",
         [DepotFundTransactionType.LiquidationRevenue.ToString()] = "Thu từ thanh lý tài sản",

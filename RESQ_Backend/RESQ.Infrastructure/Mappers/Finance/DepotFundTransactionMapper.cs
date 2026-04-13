@@ -9,9 +9,10 @@ public static class DepotFundTransactionMapper
     public static DepotFundTransactionModel ToModel(DepotFundTransaction entity)
     {
         var typeEnum = DepotFundTransactionType.Allocation;
-        if (!string.IsNullOrEmpty(entity.TransactionType))
+        if (!string.IsNullOrEmpty(entity.TransactionType)
+            && DepotFundTransactionTypeAlias.TryParse(entity.TransactionType, out var parsedType))
         {
-            Enum.TryParse(entity.TransactionType, true, out typeEnum);
+            typeEnum = parsedType;
         }
 
         return new DepotFundTransactionModel
