@@ -53,7 +53,7 @@ public class CreateMissionCommandHandlerTests
         var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(BuildCommand(CreateCollectActivity(quantity: 800)), CancellationToken.None));
 
-        Assert.Contains("could not reserve supplies", ex.Message);
+        Assert.Contains("Reserved stock is 0 while mission needs 800.", ex.Message);
         Assert.Equal(1, unitOfWork.TransactionCalls);
         Assert.Single(depotInventoryRepository.ReserveCalls);
         Assert.Equal(1, missionRepository.CreateCalls);
