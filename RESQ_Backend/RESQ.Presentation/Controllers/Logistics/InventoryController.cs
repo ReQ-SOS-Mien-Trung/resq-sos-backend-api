@@ -38,6 +38,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetMyReturnHistoryActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingPickupActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingReturnActivities;
+using RESQ.Application.UseCases.Logistics.Queries.GetAllActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholds;
 using RESQ.Application.UseCases.Logistics.Queries.GetReliefItemsByCategoryCode;
 using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequestPriorityConfig;
@@ -197,6 +198,33 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new GetMyReturnHistoryActivitiesQuery(userId)
         {
+            FromDate = fromDate,
+            ToDate = toDate,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>[Admin] Xem tất cả activity lấy đồ (COLLECT_SUPPLIES) và trả đồ (RETURN_SUPPLIES) trên toàn hệ thống.</summary>
+    [HttpGet("admin/activities")]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+    [ProducesResponseType(typeof(PagedResult<AdminActivityDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllActivities(
+        [FromQuery] string? activityType,
+        [FromQuery] int? depotId,
+        [FromQuery] List<string>? statuses,
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var result = await _mediator.Send(new GetAllActivitiesQuery
+        {
+            ActivityType = activityType,
+            DepotId = depotId,
+            Statuses = statuses,
             FromDate = fromDate,
             ToDate = toDate,
             PageNumber = pageNumber,
