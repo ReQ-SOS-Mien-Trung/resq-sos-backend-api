@@ -5,9 +5,11 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMission;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Shared;
@@ -15,17 +17,20 @@ namespace RESQ.Application.UseCases.Operations.Shared;
 public class MissionPendingActivityUpdateService(
     IMissionActivityRepository activityRepository,
     IDepotInventoryRepository depotInventoryRepository,
+    IAssemblyPointRepository assemblyPointRepository,
     IUnitOfWork unitOfWork,
     ILogger<MissionPendingActivityUpdateService> logger
 ) : IMissionPendingActivityUpdateService
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IAssemblyPointRepository _assemblyPointRepository = assemblyPointRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<MissionPendingActivityUpdateService> _logger = logger;
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
     private const double DefaultBufferRatio = 0.10;
+    private const string ReturnAssemblyPointActivityType = "RETURN_ASSEMBLY_POINT";
 
     public async Task ApplyAsync(
         MissionModel mission,
@@ -53,13 +58,17 @@ public class MissionPendingActivityUpdateService(
             if (!activityLookup.TryGetValue(patch.ActivityId, out var activity))
                 throw new NotFoundException($"Activity #{patch.ActivityId} không thuộc mission #{mission.Id}.");
 
-            if (activity.Status != MissionActivityStatus.Planned)
+            if (activity.Status != MissionActivityStatus.Planned
+                && !CanUpdateOngoingReturnAssemblyPoint(activity, patch))
             {
                 throw new BadRequestException(
                     $"Chỉ được cập nhật activity Planned. Activity #{activity.Id} hiện ở trạng thái {activity.Status}.");
             }
 
             var currentItems = ParseSupplies(activity.Items);
+            var nextAssemblyPoint = patch.AssemblyPointId.HasValue
+                ? await GetAssemblyPointForUpdateAsync(patch.AssemblyPointId.Value, cancellationToken)
+                : null;
             IReadOnlyList<SupplyToCollectDto> nextItems = patch.Items is null
                 ? []
                 : NormalizeRequestedSupplies(patch.Items, currentItems);
@@ -70,7 +79,7 @@ public class MissionPendingActivityUpdateService(
                     : JsonSerializer.Serialize(nextItems);
 
             var projectedActivity = CloneActivity(activity);
-            ApplyPatch(projectedActivity, patch, nextItemsJson, updatedBy);
+            ApplyPatch(projectedActivity, patch, nextItemsJson, nextAssemblyPoint, updatedBy);
 
             plans.Add(new ActivityUpdatePlan(activity, projectedActivity, patch, currentItems, nextItems));
         }
@@ -229,6 +238,32 @@ public class MissionPendingActivityUpdateService(
         }
     }
 
+    private async Task<AssemblyPointModel> GetAssemblyPointForUpdateAsync(
+        int assemblyPointId,
+        CancellationToken cancellationToken)
+    {
+        var assemblyPoint = await _assemblyPointRepository.GetByIdAsync(assemblyPointId, cancellationToken)
+            ?? throw new BadRequestException($"Khong tim thay diem tap ket #{assemblyPointId}.");
+
+        if (assemblyPoint.Location is null)
+            throw new BadRequestException($"Diem tap ket #{assemblyPointId} chua co toa do hop le.");
+
+        return assemblyPoint;
+    }
+
+    private static bool CanUpdateOngoingReturnAssemblyPoint(
+        MissionActivityModel activity,
+        UpdateMissionActivityPatch patch)
+    {
+        return string.Equals(activity.ActivityType, ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
+            && activity.Status == MissionActivityStatus.OnGoing
+            && !patch.Step.HasValue
+            && patch.Target is null
+            && !patch.TargetLatitude.HasValue
+            && !patch.TargetLongitude.HasValue
+            && patch.Items is null;
+    }
+
     private static MissionActivityModel CloneActivity(MissionActivityModel activity) => new()
     {
         Id = activity.Id,
@@ -262,6 +297,7 @@ public class MissionPendingActivityUpdateService(
         MissionActivityModel activity,
         UpdateMissionActivityPatch patch,
         string? nextItemsJson,
+        AssemblyPointModel? nextAssemblyPoint,
         Guid updatedBy)
     {
         if (patch.Step.HasValue)
@@ -282,6 +318,14 @@ public class MissionPendingActivityUpdateService(
         if (patch.Items is not null)
             activity.Items = nextItemsJson;
 
+        if (nextAssemblyPoint is not null)
+        {
+            activity.AssemblyPointId = nextAssemblyPoint.Id;
+            activity.AssemblyPointName = nextAssemblyPoint.Name;
+            activity.AssemblyPointLatitude = nextAssemblyPoint.Location!.Latitude;
+            activity.AssemblyPointLongitude = nextAssemblyPoint.Location.Longitude;
+        }
+
         activity.LastDecisionBy = updatedBy;
     }
 
@@ -293,6 +337,10 @@ public class MissionPendingActivityUpdateService(
         target.Items = source.Items;
         target.TargetLatitude = source.TargetLatitude;
         target.TargetLongitude = source.TargetLongitude;
+        target.AssemblyPointId = source.AssemblyPointId;
+        target.AssemblyPointName = source.AssemblyPointName;
+        target.AssemblyPointLatitude = source.AssemblyPointLatitude;
+        target.AssemblyPointLongitude = source.AssemblyPointLongitude;
         target.LastDecisionBy = source.LastDecisionBy;
     }
 

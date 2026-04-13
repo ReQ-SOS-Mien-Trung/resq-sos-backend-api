@@ -12,6 +12,7 @@ public class MissionTeamDto
     public int RescueTeamId { get; set; }
     public string? TeamName { get; set; }
     public string? TeamCode { get; set; }
+    public int? AssemblyPointId { get; set; }
     public string? AssemblyPointName { get; set; }
     public string? TeamType { get; set; }
     public string? Status { get; set; }

@@ -22,6 +22,7 @@ public class MissionTeamModel
     // Display hydration
     public string? TeamName { get; set; }
     public string? TeamCode { get; set; }
+    public int? AssemblyPointId { get; set; }
     public string? AssemblyPointName { get; set; }
 
     // Rescue team detail

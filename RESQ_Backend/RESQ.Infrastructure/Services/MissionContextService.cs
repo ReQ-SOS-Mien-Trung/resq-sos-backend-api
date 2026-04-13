@@ -215,6 +215,7 @@ public class MissionContextService(
                 Status = team.Status.ToString(),
                 IsAvailable = true,
                 MemberCount = team.Members.Count(member => member.Status != TeamMemberStatus.Removed),
+                AssemblyPointId = team.AssemblyPointId,
                 AssemblyPointName = team.AssemblyPointName,
                 Latitude = team.AssemblyPointLocation?.Latitude,
                 Longitude = team.AssemblyPointLocation?.Longitude,

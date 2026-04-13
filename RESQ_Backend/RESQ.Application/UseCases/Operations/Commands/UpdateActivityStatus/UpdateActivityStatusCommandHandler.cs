@@ -31,6 +31,7 @@ public class UpdateActivityStatusCommandHandler(
                 request.ActivityId,
                 request.Status,
                 request.DecisionBy,
+                request.ImageUrl,
                 cancellationToken);
         });
 
@@ -39,6 +40,7 @@ public class UpdateActivityStatusCommandHandler(
             ActivityId = request.ActivityId,
             Status = executionResult!.EffectiveStatus.ToString(),
             DecisionBy = request.DecisionBy,
+            ImageUrl = executionResult.ImageUrl,
             ConsumedItems = executionResult.ConsumedItems
         };
     }

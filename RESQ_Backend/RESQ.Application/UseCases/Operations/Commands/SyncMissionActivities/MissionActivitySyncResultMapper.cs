@@ -23,11 +23,13 @@ internal static class MissionActivitySyncResultMapper
             Outcome = MissionActivitySyncOutcomes.Applied,
             EffectiveStatus = executionResult.EffectiveStatus,
             CurrentServerStatus = executionResult.CurrentServerStatus,
+            ImageUrl = executionResult.ImageUrl,
             ConsumedItems = executionResult.ConsumedItems
         };
 
     public static MissionActivitySyncResultDto CreateDuplicate(
         MissionActivitySyncItemDto item,
+        string? imageUrl,
         string? message = null) => new()
         {
             ClientMutationId = item.ClientMutationId,
@@ -40,12 +42,14 @@ internal static class MissionActivitySyncResultMapper
             CurrentServerStatus = item.TargetStatus,
             ErrorCode = MissionActivitySyncErrorCodes.AlreadyAtTargetStatus,
             Message = message ?? "Activity hiện đã ở trạng thái mục tiêu.",
+            ImageUrl = imageUrl,
             ConsumedItems = []
         };
 
     public static MissionActivitySyncResultDto CreateConflict(
         MissionActivitySyncItemDto item,
         RESQ.Domain.Enum.Operations.MissionActivityStatus currentServerStatus,
+        string? imageUrl,
         string? message = null) => new()
         {
             ClientMutationId = item.ClientMutationId,
@@ -58,6 +62,7 @@ internal static class MissionActivitySyncResultMapper
             CurrentServerStatus = currentServerStatus,
             ErrorCode = MissionActivitySyncErrorCodes.BaseStatusMismatch,
             Message = message ?? "Trạng thái hiện tại trên server không khớp với baseServerStatus.",
+            ImageUrl = imageUrl,
             ConsumedItems = []
         };
 
@@ -65,7 +70,8 @@ internal static class MissionActivitySyncResultMapper
         MissionActivitySyncItemDto item,
         string errorCode,
         string message,
-        RESQ.Domain.Enum.Operations.MissionActivityStatus? currentServerStatus) => new()
+        RESQ.Domain.Enum.Operations.MissionActivityStatus? currentServerStatus,
+        string? imageUrl) => new()
         {
             ClientMutationId = item.ClientMutationId,
             MissionId = item.MissionId,
@@ -77,13 +83,15 @@ internal static class MissionActivitySyncResultMapper
             CurrentServerStatus = currentServerStatus,
             ErrorCode = errorCode,
             Message = message,
+            ImageUrl = imageUrl,
             ConsumedItems = []
         };
 
     public static MissionActivitySyncResultDto CreateFailed(
         MissionActivitySyncItemDto item,
         string message,
-        RESQ.Domain.Enum.Operations.MissionActivityStatus? currentServerStatus) => new()
+        RESQ.Domain.Enum.Operations.MissionActivityStatus? currentServerStatus,
+        string? imageUrl) => new()
         {
             ClientMutationId = item.ClientMutationId,
             MissionId = item.MissionId,
@@ -95,6 +103,7 @@ internal static class MissionActivitySyncResultMapper
             CurrentServerStatus = currentServerStatus,
             ErrorCode = MissionActivitySyncErrorCodes.ServerError,
             Message = message,
+            ImageUrl = imageUrl,
             ConsumedItems = []
         };
 

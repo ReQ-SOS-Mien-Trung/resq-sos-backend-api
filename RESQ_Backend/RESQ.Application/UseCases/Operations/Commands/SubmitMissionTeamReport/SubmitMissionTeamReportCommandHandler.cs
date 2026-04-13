@@ -146,7 +146,7 @@ public class SubmitMissionTeamReportCommandHandler(
                     statusUpdate.ActivityId,
                     effectiveStatus,
                     request.SubmittedBy,
-                    cancellationToken);
+                    cancellationToken: cancellationToken);
 
                 assignedActivities[statusUpdate.ActivityId].Status = effectiveStatus;
 
@@ -185,11 +185,18 @@ public class SubmitMissionTeamReportCommandHandler(
 
                 try
                 {
-                    var maxStep = mission.Activities.Any() ? mission.Activities.Max(a => a.Step ?? 0) : 0;
+                    var insertionStep = MissionReturnAssemblyPointStepHelper.ReserveStepBeforeReturnAssemblyPoint(
+                        mission.Activities,
+                        failedActivity.MissionTeamId,
+                        out var shiftedActivities);
+
+                    foreach (var shiftedActivity in shiftedActivities)
+                        await missionActivityRepository.UpdateAsync(shiftedActivity, cancellationToken);
+
                     var returnActivity = new MissionActivityModel
                     {
                         MissionId = request.MissionId,
-                        Step = maxStep + 1,
+                        Step = insertionStep,
                         ActivityType = "RETURN_SUPPLIES",
                         Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
                         Priority = failedActivity.Priority,
@@ -297,6 +304,16 @@ public class SubmitMissionTeamReportCommandHandler(
 
     private static bool TryGetActivityLocation(MissionActivityModel activity, out double latitude, out double longitude, out string locationSource)
     {
+        if (string.Equals(activity.ActivityType, MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
+            && activity.AssemblyPointLatitude.HasValue
+            && activity.AssemblyPointLongitude.HasValue)
+        {
+            latitude = activity.AssemblyPointLatitude.Value;
+            longitude = activity.AssemblyPointLongitude.Value;
+            locationSource = "MissionActivity.AssemblyPoint";
+            return true;
+        }
+
         if (activity.TargetLatitude.HasValue && activity.TargetLongitude.HasValue)
         {
             latitude = activity.TargetLatitude.Value;

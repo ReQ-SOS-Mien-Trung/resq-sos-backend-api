@@ -123,7 +123,8 @@ internal static class MissionActivitySosRequestSyncHelper
     }
 
     private static bool IsLifecycleActivity(MissionActivityModel activity) =>
-        !string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+        !string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(activity.ActivityType, MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase);
 
     private static SosPriorityLevel EscalatePriority(
         SosPriorityLevel? currentPriority,

@@ -21,4 +21,5 @@ public record UpdateMissionActivityPatch(
     string? Target,
     double? TargetLatitude,
     double? TargetLongitude,
-    List<SupplyToCollectDto>? Items);
+    List<SupplyToCollectDto>? Items,
+    int? AssemblyPointId = null);

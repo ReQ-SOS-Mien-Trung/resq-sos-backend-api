@@ -10,5 +10,9 @@ public class UpdateMissionActivityResponse
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
     public string? Status { get; set; }
+    public int? AssemblyPointId { get; set; }
+    public string? AssemblyPointName { get; set; }
+    public double? AssemblyPointLatitude { get; set; }
+    public double? AssemblyPointLongitude { get; set; }
     public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
 }

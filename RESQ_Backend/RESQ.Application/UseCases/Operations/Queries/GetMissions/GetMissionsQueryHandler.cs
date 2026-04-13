@@ -78,6 +78,7 @@ public class GetMissionsQueryHandler(
                             RescueTeamId = t.RescuerTeamId,
                             TeamName = t.TeamName,
                             TeamCode = t.TeamCode,
+                            AssemblyPointId = t.AssemblyPointId,
                             AssemblyPointName = t.AssemblyPointName,
                             TeamType = t.TeamType,
                             Status = t.Status,
@@ -109,6 +110,7 @@ public class GetMissionsQueryHandler(
                         Step = a.Step,
                         ActivityType = a.ActivityType,
                         Description = a.Description,
+                        ImageUrl = a.ImageUrl,
                         Priority = a.Priority,
                         EstimatedTime = a.EstimatedTime,
                         SosRequestId = a.SosRequestId,
@@ -125,7 +127,8 @@ public class GetMissionsQueryHandler(
                         Status = a.Status.ToString(),
                         MissionTeamId = a.MissionTeamId,
                         AssignedAt = a.AssignedAt,
-                        CompletedAt = a.CompletedAt
+                        CompletedAt = a.CompletedAt,
+                        CompletedBy = a.CompletedBy
                     }).ToList(),
                     AiSuggestionId = aiModel?.Id,
                     SuggestedMissionTitle = aiModel?.SuggestedMissionTitle,

@@ -15,6 +15,8 @@ public class SyncMissionActivitiesCommandHandlerTests
     [Fact]
     public async Task Handle_ReplaysStoredSnapshot_ByClientMutationId()
     {
+        const string replayImageUrl = "https://cdn.example.com/replay.jpg";
+
         var existingResult = new MissionActivitySyncResultDto
         {
             ClientMutationId = Guid.NewGuid(),
@@ -26,7 +28,8 @@ public class SyncMissionActivitiesCommandHandlerTests
             EffectiveStatus = MissionActivityStatus.Succeed,
             CurrentServerStatus = MissionActivityStatus.Succeed,
             ErrorCode = MissionActivitySyncErrorCodes.AlreadyAtTargetStatus,
-            Message = "Replay"
+            Message = "Replay",
+            ImageUrl = replayImageUrl
         };
 
         var mutationRepository = new InMemoryMissionActivitySyncMutationRepository();
@@ -45,6 +48,7 @@ public class SyncMissionActivitiesCommandHandlerTests
         Assert.Single(response.Results);
         Assert.Equal(MissionActivitySyncOutcomes.Duplicate, response.Results[0].Outcome);
         Assert.Equal("Replay", response.Results[0].Message);
+        Assert.Equal(replayImageUrl, response.Results[0].ImageUrl);
         Assert.Empty(executionService.Calls);
         Assert.Equal(1, response.Summary.Duplicate);
     }
@@ -82,7 +86,7 @@ public class SyncMissionActivitiesCommandHandlerTests
             [
                 CreateItem(Guid.NewGuid(), 7, 21, new DateTimeOffset(2026, 4, 10, 10, 2, 0, TimeSpan.Zero), MissionActivityStatus.OnGoing, MissionActivityStatus.Succeed),
                 CreateItem(Guid.NewGuid(), 7, 20, new DateTimeOffset(2026, 4, 10, 10, 0, 0, TimeSpan.Zero), MissionActivityStatus.Planned, MissionActivityStatus.OnGoing),
-                CreateItem(Guid.NewGuid(), 7, 22, new DateTimeOffset(2026, 4, 10, 10, 3, 0, TimeSpan.Zero), MissionActivityStatus.OnGoing, MissionActivityStatus.Succeed)
+                CreateItem(Guid.NewGuid(), 7, 22, new DateTimeOffset(2026, 4, 10, 10, 3, 0, 0, TimeSpan.Zero), MissionActivityStatus.OnGoing, MissionActivityStatus.Succeed)
             ]),
             CancellationToken.None);
 
@@ -124,16 +128,23 @@ public class SyncMissionActivitiesCommandHandlerTests
             ]),
             CancellationToken.None);
 
-        Assert.Equal(
-            [30, 31, 32],
-            executionService.Calls.Select(call => call.activityId).ToArray());
+        Assert.Equal([30, 31, 32], executionService.Calls.Select(call => call.activityId).ToArray());
     }
 
     [Fact]
     public async Task Handle_MapsRejectedOutcome_WhenExecutionServiceThrowsTeamMismatch()
     {
+        const string existingImageUrl = "https://cdn.example.com/existing.jpg";
+
         var activityRepository = new InMemoryMissionActivityRepository();
-        activityRepository.Upsert(new MissionActivityModel { Id = 40, MissionId = 11, Status = MissionActivityStatus.OnGoing, ActivityType = "RESCUE" });
+        activityRepository.Upsert(new MissionActivityModel
+        {
+            Id = 40,
+            MissionId = 11,
+            Status = MissionActivityStatus.OnGoing,
+            ActivityType = "RESCUE",
+            ImageUrl = existingImageUrl
+        });
 
         var executionService = new StubMissionActivityStatusExecutionService(activityRepository)
         {
@@ -154,7 +165,88 @@ public class SyncMissionActivitiesCommandHandlerTests
         var result = Assert.Single(response.Results);
         Assert.Equal(MissionActivitySyncOutcomes.Rejected, result.Outcome);
         Assert.Equal(MissionActivitySyncErrorCodes.ForbiddenTeamMismatch, result.ErrorCode);
+        Assert.Equal(existingImageUrl, result.ImageUrl);
         Assert.Equal(1, unitOfWork.ClearTrackedChangesCalls);
+    }
+
+    [Fact]
+    public async Task Handle_ForwardsImageUrl_AndReturnsServerImageOnAppliedResult()
+    {
+        const string requestImageUrl = "https://cdn.example.com/request.jpg";
+        const string storedImageUrl = "https://cdn.example.com/stored.jpg";
+
+        var activityRepository = new InMemoryMissionActivityRepository();
+        activityRepository.Upsert(new MissionActivityModel { Id = 50, MissionId = 13, Status = MissionActivityStatus.OnGoing, ActivityType = "RESCUE" });
+
+        var executionService = new StubMissionActivityStatusExecutionService(activityRepository)
+        {
+            ResultFactory = item => new MissionActivityStatusExecutionResult
+            {
+                EffectiveStatus = MissionActivityStatus.Succeed,
+                CurrentServerStatus = MissionActivityStatus.Succeed,
+                ImageUrl = storedImageUrl
+            }
+        };
+
+        var handler = BuildHandler(activityRepository, new InMemoryMissionActivitySyncMutationRepository(), executionService, new StubUnitOfWork());
+
+        var response = await handler.Handle(
+            new SyncMissionActivitiesCommand(Guid.NewGuid(),
+            [
+                CreateItem(Guid.NewGuid(), 13, 50, new DateTimeOffset(2026, 4, 10, 12, 30, 0, TimeSpan.Zero), MissionActivityStatus.OnGoing, MissionActivityStatus.Succeed, requestImageUrl)
+            ]),
+            CancellationToken.None);
+
+        var result = Assert.Single(response.Results);
+        Assert.Equal(MissionActivitySyncOutcomes.Applied, result.Outcome);
+        Assert.Equal(storedImageUrl, result.ImageUrl);
+
+        var call = Assert.Single(executionService.Calls);
+        Assert.Equal(requestImageUrl, call.imageUrl);
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsCurrentServerImage_ForDuplicateAndConflictOutcomes()
+    {
+        const string duplicateImageUrl = "https://cdn.example.com/duplicate.jpg";
+        const string conflictImageUrl = "https://cdn.example.com/conflict.jpg";
+
+        var activityRepository = new InMemoryMissionActivityRepository();
+        activityRepository.Upsert(new MissionActivityModel
+        {
+            Id = 60,
+            MissionId = 14,
+            Status = MissionActivityStatus.Succeed,
+            ActivityType = "RESCUE",
+            ImageUrl = duplicateImageUrl
+        });
+        activityRepository.Upsert(new MissionActivityModel
+        {
+            Id = 61,
+            MissionId = 14,
+            Status = MissionActivityStatus.Failed,
+            ActivityType = "RESCUE",
+            ImageUrl = conflictImageUrl
+        });
+
+        var handler = BuildHandler(
+            activityRepository,
+            new InMemoryMissionActivitySyncMutationRepository(),
+            new StubMissionActivityStatusExecutionService(activityRepository),
+            new StubUnitOfWork());
+
+        var response = await handler.Handle(
+            new SyncMissionActivitiesCommand(Guid.NewGuid(),
+            [
+                CreateItem(Guid.NewGuid(), 14, 60, new DateTimeOffset(2026, 4, 10, 13, 0, 0, TimeSpan.Zero), MissionActivityStatus.OnGoing, MissionActivityStatus.Succeed),
+                CreateItem(Guid.NewGuid(), 14, 61, new DateTimeOffset(2026, 4, 10, 13, 5, 0, TimeSpan.Zero), MissionActivityStatus.OnGoing, MissionActivityStatus.Succeed)
+            ]),
+            CancellationToken.None);
+
+        Assert.Equal(MissionActivitySyncOutcomes.Duplicate, response.Results[0].Outcome);
+        Assert.Equal(duplicateImageUrl, response.Results[0].ImageUrl);
+        Assert.Equal(MissionActivitySyncOutcomes.Conflict, response.Results[1].Outcome);
+        Assert.Equal(conflictImageUrl, response.Results[1].ImageUrl);
     }
 
     private static SyncMissionActivitiesCommandHandler BuildHandler(
@@ -175,14 +267,16 @@ public class SyncMissionActivitiesCommandHandlerTests
         int activityId,
         DateTimeOffset queuedAt,
         MissionActivityStatus baseServerStatus,
-        MissionActivityStatus targetStatus) => new()
+        MissionActivityStatus targetStatus,
+        string? imageUrl = null) => new()
         {
             ClientMutationId = clientMutationId,
             MissionId = missionId,
             ActivityId = activityId,
             QueuedAt = queuedAt,
             BaseServerStatus = baseServerStatus,
-            TargetStatus = targetStatus
+            TargetStatus = targetStatus,
+            ImageUrl = imageUrl
         };
 
     private sealed class InMemoryMissionActivityRepository : IMissionActivityRepository
@@ -213,10 +307,15 @@ public class SyncMissionActivitiesCommandHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default)
+        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, string? imageUrl = null, CancellationToken cancellationToken = default)
         {
             _activities[activityId].Status = status;
             _activities[activityId].LastDecisionBy = decisionBy;
+            if (!string.IsNullOrWhiteSpace(imageUrl))
+            {
+                _activities[activityId].ImageUrl = imageUrl.Trim();
+            }
+
             return Task.CompletedTask;
         }
 
@@ -308,15 +407,21 @@ public class SyncMissionActivitiesCommandHandlerTests
     {
         private readonly InMemoryMissionActivityRepository? _activityRepository = activityRepository;
 
-        public List<(int expectedMissionId, int activityId, MissionActivityStatus requestedStatus, Guid decisionBy)> Calls { get; } = [];
+        public List<(int expectedMissionId, int activityId, MissionActivityStatus requestedStatus, Guid decisionBy, string? imageUrl)> Calls { get; } = [];
 
-        public Func<(int expectedMissionId, int activityId, MissionActivityStatus requestedStatus, Guid decisionBy), MissionActivityStatusExecutionResult>? ResultFactory { get; set; }
+        public Func<(int expectedMissionId, int activityId, MissionActivityStatus requestedStatus, Guid decisionBy, string? imageUrl), MissionActivityStatusExecutionResult>? ResultFactory { get; set; }
 
-        public Func<(int expectedMissionId, int activityId, MissionActivityStatus requestedStatus, Guid decisionBy), Exception>? ExceptionFactory { get; set; }
+        public Func<(int expectedMissionId, int activityId, MissionActivityStatus requestedStatus, Guid decisionBy, string? imageUrl), Exception>? ExceptionFactory { get; set; }
 
-        public Task<MissionActivityStatusExecutionResult> ApplyAsync(int expectedMissionId, int activityId, MissionActivityStatus requestedStatus, Guid decisionBy, CancellationToken cancellationToken = default)
+        public Task<MissionActivityStatusExecutionResult> ApplyAsync(
+            int expectedMissionId,
+            int activityId,
+            MissionActivityStatus requestedStatus,
+            Guid decisionBy,
+            string? imageUrl = null,
+            CancellationToken cancellationToken = default)
         {
-            var call = (expectedMissionId, activityId, requestedStatus, decisionBy);
+            var call = (expectedMissionId, activityId, requestedStatus, decisionBy, imageUrl);
             Calls.Add(call);
 
             var exception = ExceptionFactory?.Invoke(call);
@@ -333,7 +438,7 @@ public class SyncMissionActivitiesCommandHandlerTests
 
             if (_activityRepository is not null)
             {
-                _activityRepository.UpdateStatusAsync(activityId, result.EffectiveStatus, decisionBy, cancellationToken).GetAwaiter().GetResult();
+                _activityRepository.UpdateStatusAsync(activityId, result.EffectiveStatus, decisionBy, result.ImageUrl, cancellationToken).GetAwaiter().GetResult();
             }
 
             return Task.FromResult(result);

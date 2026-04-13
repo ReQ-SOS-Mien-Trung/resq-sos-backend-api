@@ -250,7 +250,7 @@ public class ConfirmReturnSuppliesCommandHandler(
             _activityRepository,
             cancellationToken);
 
-        await _activityRepository.UpdateStatusAsync(request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy, cancellationToken);
+        await _activityRepository.UpdateStatusAsync(request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy, cancellationToken: cancellationToken);
 
         await _unitOfWork.SaveAsync();
 

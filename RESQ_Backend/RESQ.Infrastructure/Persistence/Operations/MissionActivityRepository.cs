@@ -87,6 +87,7 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
         entity.Description = activity.Description;
         entity.Target = MissionActivityMapper.EnsureValidJson(activity.Target);
         entity.Items = MissionActivityMapper.EnsureValidJson(activity.Items);
+        entity.AssemblyPointId = activity.AssemblyPointId;
         if (activity.LastDecisionBy.HasValue)
         {
             entity.LastDecisionBy = activity.LastDecisionBy;
@@ -101,7 +102,7 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
         await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);
     }
 
-    public async Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default)
+    public async Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, string? imageUrl = null, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<MissionActivity>()
             .GetByPropertyAsync(x => x.Id == activityId, tracked: true);
@@ -116,6 +117,9 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
 
         if (status == MissionActivityStatus.Succeed)
             entity.CompletedBy = decisionBy;
+
+        if (!string.IsNullOrWhiteSpace(imageUrl))
+            entity.ImageUrl = imageUrl.Trim();
 
         await _unitOfWork.GetRepository<MissionActivity>().UpdateAsync(entity);
     }

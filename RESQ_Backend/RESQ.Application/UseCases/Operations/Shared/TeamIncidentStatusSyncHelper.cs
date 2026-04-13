@@ -110,7 +110,8 @@ internal static class TeamIncidentStatusSyncHelper
         var hasAssignedActivities = relatedActivities.Any(activity =>
             activity.SosRequestId.HasValue
             && activity.MissionTeamId.HasValue
-            && !string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase));
+            && !string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(activity.ActivityType, MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase));
 
         return hasAssignedActivities ? TeamIncidentStatus.InProgress : null;
     }

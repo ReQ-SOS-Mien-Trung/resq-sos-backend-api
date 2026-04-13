@@ -158,7 +158,8 @@ public class MissionController(IMediator mediator) : ControllerBase
                 activity.Target,
                 activity.TargetLatitude,
                 activity.TargetLongitude,
-                activity.Items))
+                activity.Items,
+                activity.AssemblyPointId))
             .ToList()
         );
 
@@ -280,6 +281,7 @@ public class MissionController(IMediator mediator) : ControllerBase
             dto.Description,
             dto.Target,
             dto.Items,
+            dto.AssemblyPointId,
             dto.TargetLatitude,
             dto.TargetLongitude
         );
@@ -309,7 +311,7 @@ public class MissionController(IMediator mediator) : ControllerBase
                 $"Trạng thái activity không hợp lệ: '{dto.Status}'. Các giá trị hợp lệ: {validStatuses}.");
         }
 
-        var command = new UpdateActivityStatusCommand(missionId, activityId, newStatus, userId);
+        var command = new UpdateActivityStatusCommand(missionId, activityId, newStatus, userId, dto.ImageUrl);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

@@ -9,6 +9,7 @@ public record UpdateMissionActivityCommand(
     string? Description,
     string? Target,
     string? Items,
+    int? AssemblyPointId,
     double? TargetLatitude,
     double? TargetLongitude
 ) : IRequest<UpdateMissionActivityResponse>;

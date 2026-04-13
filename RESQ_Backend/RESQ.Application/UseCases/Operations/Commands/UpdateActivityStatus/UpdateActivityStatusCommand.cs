@@ -7,5 +7,6 @@ public record UpdateActivityStatusCommand(
     int MissionId,
     int ActivityId,
     MissionActivityStatus Status,
-    Guid DecisionBy
+    Guid DecisionBy,
+    string? ImageUrl = null
 ) : IRequest<UpdateActivityStatusResponse>;

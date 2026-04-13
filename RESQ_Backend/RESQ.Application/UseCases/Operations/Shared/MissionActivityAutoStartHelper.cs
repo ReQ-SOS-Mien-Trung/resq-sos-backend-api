@@ -98,7 +98,7 @@ internal static class MissionActivityAutoStartHelper
             return false;
 
         MissionActivityStateMachine.EnsureValidTransition(activity.Status, MissionActivityStatus.OnGoing);
-        await activityRepository.UpdateStatusAsync(activity.Id, MissionActivityStatus.OnGoing, decisionBy, cancellationToken);
+        await activityRepository.UpdateStatusAsync(activity.Id, MissionActivityStatus.OnGoing, decisionBy, cancellationToken: cancellationToken);
 
         var assignedMissionTeam = await missionTeamRepository.GetByIdAsync(activity.MissionTeamId.Value, cancellationToken);
         if (assignedMissionTeam is not null

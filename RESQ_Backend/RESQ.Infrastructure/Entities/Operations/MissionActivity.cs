@@ -29,6 +29,9 @@ public partial class MissionActivity
     [Column("description")]
     public string? Description { get; set; }
 
+    [Column("image_url")]
+    public string? ImageUrl { get; set; }
+
     [Column("target", TypeName = "jsonb")]
     public string? Target { get; set; }
 

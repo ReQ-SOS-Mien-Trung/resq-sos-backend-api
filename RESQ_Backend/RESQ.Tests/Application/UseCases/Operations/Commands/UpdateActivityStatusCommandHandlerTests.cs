@@ -12,12 +12,15 @@ public class UpdateActivityStatusCommandHandlerTests
     [Fact]
     public async Task Handle_ExecutesSharedServiceInsideTransactionAndMapsResponse()
     {
+        const string imageUrl = "https://cdn.example.com/activity-proof.jpg";
+
         var executionService = new StubMissionActivityStatusExecutionService
         {
             NextResult = new MissionActivityStatusExecutionResult
             {
                 EffectiveStatus = MissionActivityStatus.PendingConfirmation,
                 CurrentServerStatus = MissionActivityStatus.PendingConfirmation,
+                ImageUrl = imageUrl,
                 ConsumedItems =
                 [
                     new SupplyExecutionItemDto
@@ -39,7 +42,7 @@ public class UpdateActivityStatusCommandHandlerTests
         var decisionBy = Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111");
 
         var response = await handler.Handle(
-            new UpdateActivityStatusCommand(12, 34, MissionActivityStatus.Succeed, decisionBy),
+            new UpdateActivityStatusCommand(12, 34, MissionActivityStatus.Succeed, decisionBy, imageUrl),
             CancellationToken.None);
 
         Assert.Equal(1, unitOfWork.ExecuteInTransactionCalls);
@@ -50,17 +53,19 @@ public class UpdateActivityStatusCommandHandlerTests
         Assert.Equal(34, call.ActivityId);
         Assert.Equal(MissionActivityStatus.Succeed, call.RequestedStatus);
         Assert.Equal(decisionBy, call.DecisionBy);
+        Assert.Equal(imageUrl, call.ImageUrl);
 
         Assert.Equal(34, response.ActivityId);
         Assert.Equal(MissionActivityStatus.PendingConfirmation.ToString(), response.Status);
         Assert.Equal(decisionBy, response.DecisionBy);
+        Assert.Equal(imageUrl, response.ImageUrl);
         Assert.Single(response.ConsumedItems);
         Assert.Equal(7, response.ConsumedItems[0].ItemModelId);
     }
 
     private sealed class StubMissionActivityStatusExecutionService : IMissionActivityStatusExecutionService
     {
-        public List<(int ExpectedMissionId, int ActivityId, MissionActivityStatus RequestedStatus, Guid DecisionBy)> Calls { get; } = [];
+        public List<(int ExpectedMissionId, int ActivityId, MissionActivityStatus RequestedStatus, Guid DecisionBy, string? ImageUrl)> Calls { get; } = [];
 
         public MissionActivityStatusExecutionResult NextResult { get; set; } = new()
         {
@@ -73,9 +78,10 @@ public class UpdateActivityStatusCommandHandlerTests
             int activityId,
             MissionActivityStatus requestedStatus,
             Guid decisionBy,
+            string? imageUrl = null,
             CancellationToken cancellationToken = default)
         {
-            Calls.Add((expectedMissionId, activityId, requestedStatus, decisionBy));
+            Calls.Add((expectedMissionId, activityId, requestedStatus, decisionBy, imageUrl));
             return Task.FromResult(NextResult);
         }
     }

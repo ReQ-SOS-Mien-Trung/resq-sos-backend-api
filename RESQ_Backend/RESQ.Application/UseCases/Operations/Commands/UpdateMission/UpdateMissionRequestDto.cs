@@ -17,6 +17,7 @@ public class UpdateMissionActivityRequestItemDto
     public int? Step { get; set; }
     public string? Description { get; set; }
     public string? Target { get; set; }
+    public int? AssemblyPointId { get; set; }
     public double? TargetLatitude { get; set; }
     public double? TargetLongitude { get; set; }
     public List<SupplyToCollectDto>? Items { get; set; }

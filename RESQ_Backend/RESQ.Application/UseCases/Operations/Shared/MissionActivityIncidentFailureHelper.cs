@@ -91,7 +91,7 @@ internal static class MissionActivityIncidentFailureHelper
                 $"Activity #{activity.Id} đang ở trạng thái '{activity.Status}' nên không thể chuyển sang Failed bằng incident.");
         }
 
-        await activityRepository.UpdateStatusAsync(activity.Id, MissionActivityStatus.Failed, decisionBy, cancellationToken);
+        await activityRepository.UpdateStatusAsync(activity.Id, MissionActivityStatus.Failed, decisionBy, cancellationToken: cancellationToken);
         activity.Status = MissionActivityStatus.Failed;
 
         await ReleaseReservedCollectSuppliesAsync(activity, depotInventoryRepository, logger, cancellationToken);
@@ -203,13 +203,19 @@ internal static class MissionActivityIncidentFailureHelper
         try
         {
             var missionId = failedActivity.MissionId ?? 0;
-            var existingActivities = await activityRepository.GetByMissionIdAsync(missionId, cancellationToken);
-            var maxStep = existingActivities.Any() ? existingActivities.Max(activity => activity.Step ?? 0) : 0;
+            var existingActivities = (await activityRepository.GetByMissionIdAsync(missionId, cancellationToken)).ToList();
+            var insertionStep = MissionReturnAssemblyPointStepHelper.ReserveStepBeforeReturnAssemblyPoint(
+                existingActivities,
+                failedActivity.MissionTeamId,
+                out var shiftedActivities);
+
+            foreach (var shiftedActivity in shiftedActivities)
+                await activityRepository.UpdateAsync(shiftedActivity, cancellationToken);
 
             var returnActivity = new MissionActivityModel
             {
                 MissionId = missionId,
-                Step = maxStep + 1,
+                Step = insertionStep,
                 ActivityType = "RETURN_SUPPLIES",
                 Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
                 Priority = failedActivity.Priority,

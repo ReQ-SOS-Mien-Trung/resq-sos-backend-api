@@ -191,6 +191,7 @@ public static class RescueMissionSuggestionReviewHelper
             Reason = string.IsNullOrWhiteSpace(suggestedTeam.Reason)
                 ? BuildDefaultTeamReason(canonicalTeam)
                 : suggestedTeam.Reason!.Trim(),
+            AssemblyPointId = canonicalTeam.AssemblyPointId,
             AssemblyPointName = canonicalTeam.AssemblyPointName,
             Latitude = canonicalTeam.Latitude,
             Longitude = canonicalTeam.Longitude,

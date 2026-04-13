@@ -18,6 +18,10 @@ internal static class MissionRouteCoordinateResolver
             || string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase))
         && activity.DepotId.HasValue;
 
+    public static bool UsesAssemblyPointCoordinates(MissionActivityModel activity) =>
+        string.Equals(activity.ActivityType, MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
+        && activity.AssemblyPointId.HasValue;
+
     public static bool RequiresDepotFallback(MissionActivityModel activity) =>
         UsesDepotCoordinates(activity)
         && !HasUsableTargetCoordinates(activity);
@@ -27,6 +31,12 @@ internal static class MissionRouteCoordinateResolver
         IDepotRepository depotRepository,
         CancellationToken cancellationToken)
     {
+        if (UsesAssemblyPointCoordinates(activity)
+            && HasUsableCoordinates(activity.AssemblyPointLatitude, activity.AssemblyPointLongitude))
+        {
+            return (activity.AssemblyPointLatitude!.Value, activity.AssemblyPointLongitude!.Value);
+        }
+
         if (UsesDepotCoordinates(activity))
         {
             var depotCoordinates = await ResolveDepotCoordinatesAsync(activity, depotRepository, cancellationToken);

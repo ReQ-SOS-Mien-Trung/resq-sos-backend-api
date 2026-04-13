@@ -103,6 +103,7 @@ public class SyncMissionActivitiesCommandHandler(
                 item,
                 MissionActivitySyncErrorCodes.ActivityNotFound,
                 $"Không tìm thấy activity với ID: {item.ActivityId}",
+                null,
                 null);
 
             await PersistSnapshotAsync(userId, item, notFoundResult, cancellationToken);
@@ -115,7 +116,8 @@ public class SyncMissionActivitiesCommandHandler(
                 item,
                 MissionActivitySyncErrorCodes.MissionActivityMismatch,
                 "Activity này không thuộc mission được chỉ định.",
-                activity.Status);
+                activity.Status,
+                activity.ImageUrl);
 
             await PersistSnapshotAsync(userId, item, mismatchResult, cancellationToken);
             return mismatchResult;
@@ -130,6 +132,7 @@ public class SyncMissionActivitiesCommandHandler(
                     item.ActivityId,
                     item.TargetStatus,
                     userId,
+                    item.ImageUrl,
                     cancellationToken);
 
                 var appliedResult = MissionActivitySyncResultMapper.CreateApplied(item, executionResult);
@@ -139,20 +142,20 @@ public class SyncMissionActivitiesCommandHandler(
             catch (NotFoundException ex)
             {
                 throw new DeferredMissionActivitySyncResultException(
-                    MissionActivitySyncResultMapper.CreateRejected(item, MissionActivitySyncErrorCodes.ActivityNotFound, ex.Message, null),
+                    MissionActivitySyncResultMapper.CreateRejected(item, MissionActivitySyncErrorCodes.ActivityNotFound, ex.Message, null, null),
                     ex);
             }
             catch (ForbiddenException ex)
             {
                 throw new DeferredMissionActivitySyncResultException(
-                    MissionActivitySyncResultMapper.CreateRejected(item, MissionActivitySyncErrorCodes.ForbiddenTeamMismatch, ex.Message, activity.Status),
+                    MissionActivitySyncResultMapper.CreateRejected(item, MissionActivitySyncErrorCodes.ForbiddenTeamMismatch, ex.Message, activity.Status, activity.ImageUrl),
                     ex);
             }
             catch (BadRequestException ex)
             {
                 var errorCode = MissionActivitySyncErrorCodes.TryGet(ex) ?? MissionActivitySyncErrorCodes.InvalidStatusTransition;
                 throw new DeferredMissionActivitySyncResultException(
-                    MissionActivitySyncResultMapper.CreateRejected(item, errorCode, ex.Message, activity.Status),
+                    MissionActivitySyncResultMapper.CreateRejected(item, errorCode, ex.Message, activity.Status, activity.ImageUrl),
                     ex);
             }
             catch (Exception ex)
@@ -163,14 +166,14 @@ public class SyncMissionActivitiesCommandHandler(
                     item.ActivityId);
 
                 throw new DeferredMissionActivitySyncResultException(
-                    MissionActivitySyncResultMapper.CreateFailed(item, "Đã xảy ra lỗi máy chủ khi đồng bộ activity.", activity.Status),
+                    MissionActivitySyncResultMapper.CreateFailed(item, "Đã xảy ra lỗi máy chủ khi đồng bộ activity.", activity.Status, activity.ImageUrl),
                     ex);
             }
         }
 
         var result = activity.Status == item.TargetStatus
-            ? MissionActivitySyncResultMapper.CreateDuplicate(item)
-            : MissionActivitySyncResultMapper.CreateConflict(item, activity.Status);
+            ? MissionActivitySyncResultMapper.CreateDuplicate(item, activity.ImageUrl)
+            : MissionActivitySyncResultMapper.CreateConflict(item, activity.Status, activity.ImageUrl);
 
         await PersistSnapshotAsync(userId, item, result, cancellationToken);
         return result;

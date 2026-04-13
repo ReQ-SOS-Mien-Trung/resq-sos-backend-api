@@ -750,6 +750,7 @@ public partial class RescueMissionSuggestionService
                     team_name = activity.SuggestedTeam.TeamName,
                     team_type = activity.SuggestedTeam.TeamType,
                     reason = activity.SuggestedTeam.Reason,
+                    assembly_point_id = activity.SuggestedTeam.AssemblyPointId,
                     assembly_point_name = activity.SuggestedTeam.AssemblyPointName,
                     latitude = activity.SuggestedTeam.Latitude,
                     longitude = activity.SuggestedTeam.Longitude,
@@ -769,6 +770,7 @@ public partial class RescueMissionSuggestionService
                 team_name = draftBody.SuggestedTeam.TeamName,
                 team_type = draftBody.SuggestedTeam.TeamType,
                 reason = draftBody.SuggestedTeam.Reason,
+                assembly_point_id = draftBody.SuggestedTeam.AssemblyPointId,
                 assembly_point_name = draftBody.SuggestedTeam.AssemblyPointName,
                 latitude = draftBody.SuggestedTeam.Latitude,
                 longitude = draftBody.SuggestedTeam.Longitude,
@@ -872,8 +874,9 @@ public partial class RescueMissionSuggestionService
         BackfillShortageItemIds(result.SupplyShortages, nearbyDepots ?? []);
         NormalizeSupplyShortages(result);
         ApplySingleDepotConstraint(result);
-        NormalizeEstimatedDurations(result);
         RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(result, nearbyTeams);
+        EnsureReturnAssemblyPointActivities(result);
+        NormalizeEstimatedDurations(result);
 
         if (result.ConfidenceScore < LowConfidenceThreshold)
         {

@@ -226,6 +226,8 @@ public class SuggestedTeamDto
     public string TeamName { get; set; } = string.Empty;
     public string? TeamType { get; set; }
     public string? Reason { get; set; }
+    /// <summary>ID điểm tập kết của đội (nếu có).</summary>
+    public int? AssemblyPointId { get; set; }
     /// <summary>Tên điểm tập kết của đội (nếu có).</summary>
     public string? AssemblyPointName { get; set; }
     /// <summary>Vĩ độ điểm tập kết / vị trí đội.</summary>
@@ -270,6 +272,8 @@ public class AgentTeamInfo
     public string Status { get; set; } = string.Empty;
     public bool IsAvailable { get; set; }
     public int MemberCount { get; set; }
+    /// <summary>ID điểm tập kết của đội.</summary>
+    public int? AssemblyPointId { get; set; }
     /// <summary>Tên điểm tập kết của đội.</summary>
     public string? AssemblyPointName { get; set; }
     /// <summary>Vĩ độ điểm tập kết.</summary>

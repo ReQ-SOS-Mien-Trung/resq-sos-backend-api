@@ -40,8 +40,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private const int AgentPageSize = 10;
     private const string CollectSuppliesActivityType = "COLLECT_SUPPLIES";
     private const string ReturnSuppliesActivityType = "RETURN_SUPPLIES";
+    private const string ReturnAssemblyPointActivityType = "RETURN_ASSEMBLY_POINT";
     private const string ReusableItemType = "Reusable";
     private const string SingleTeamExecutionMode = "SingleTeam";
+    private const string DefaultReturnAssemblyEstimatedTime = "20 phút";
 
     private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
     private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -328,6 +330,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     TeamName          = a.SuggestedTeam.TeamName ?? string.Empty,
                     TeamType          = a.SuggestedTeam.TeamType,
                     Reason            = a.SuggestedTeam.Reason,
+                    AssemblyPointId   = a.SuggestedTeam.AssemblyPointId,
                     AssemblyPointName = a.SuggestedTeam.AssemblyPointName,
                     Latitude          = a.SuggestedTeam.Latitude,
                     Longitude         = a.SuggestedTeam.Longitude,
@@ -347,6 +350,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 TeamName           = parsed.SuggestedTeam.TeamName ?? string.Empty,
                 TeamType           = parsed.SuggestedTeam.TeamType,
                 Reason             = parsed.SuggestedTeam.Reason,
+                AssemblyPointId    = parsed.SuggestedTeam.AssemblyPointId,
                 AssemblyPointName  = parsed.SuggestedTeam.AssemblyPointName,
                 Latitude           = parsed.SuggestedTeam.Latitude,
                 Longitude          = parsed.SuggestedTeam.Longitude,
@@ -426,6 +430,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     if (ast.TryGetProperty("team_name",           out var tn)   && tn.ValueKind  != JsonValueKind.Null)                                  teamDto.TeamName          = tn.GetString() ?? string.Empty;
                     if (ast.TryGetProperty("team_type",           out var tt)   && tt.ValueKind  != JsonValueKind.Null)                                  teamDto.TeamType          = tt.GetString();
                     if (ast.TryGetProperty("reason",              out var r)    && r.ValueKind   != JsonValueKind.Null)                                  teamDto.Reason            = r.GetString();
+                    if (ast.TryGetProperty("assembly_point_id",   out var apid) && apid.ValueKind != JsonValueKind.Null && apid.TryGetInt32(out var apidv)) teamDto.AssemblyPointId   = apidv;
                     if (ast.TryGetProperty("assembly_point_name", out var apn)  && apn.ValueKind != JsonValueKind.Null)                                  teamDto.AssemblyPointName = apn.GetString();
                     if (ast.TryGetProperty("latitude",            out var lat)  && lat.ValueKind != JsonValueKind.Null && lat.TryGetDouble(out var latv)) teamDto.Latitude          = latv;
                     if (ast.TryGetProperty("longitude",           out var lon)  && lon.ValueKind != JsonValueKind.Null && lon.TryGetDouble(out var lonv)) teamDto.Longitude         = lonv;
@@ -456,6 +461,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             if (st.TryGetProperty("team_name",          out var tn)  && tn.ValueKind  != JsonValueKind.Null)                                        teamDto.TeamName          = tn.GetString() ?? string.Empty;
             if (st.TryGetProperty("team_type",          out var tt)  && tt.ValueKind  != JsonValueKind.Null)                                        teamDto.TeamType          = tt.GetString();
             if (st.TryGetProperty("reason",             out var r)   && r.ValueKind   != JsonValueKind.Null)                                        teamDto.Reason            = r.GetString();
+            if (st.TryGetProperty("assembly_point_id",  out var apid) && apid.ValueKind != JsonValueKind.Null && apid.TryGetInt32(out var apidv))    teamDto.AssemblyPointId   = apidv;
             if (st.TryGetProperty("assembly_point_name",out var apn) && apn.ValueKind != JsonValueKind.Null)                                        teamDto.AssemblyPointName = apn.GetString();
             if (st.TryGetProperty("latitude",           out var lat) && lat.ValueKind != JsonValueKind.Null && lat.TryGetDouble(out var latv))       teamDto.Latitude          = latv;
             if (st.TryGetProperty("longitude",          out var lon) && lon.ValueKind != JsonValueKind.Null && lon.TryGetDouble(out var lonv))       teamDto.Longitude         = lonv;
@@ -788,6 +794,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private static bool IsReturnActivity(SuggestedActivityDto activity) =>
         string.Equals(activity.ActivityType, ReturnSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsReturnAssemblyPointActivity(SuggestedActivityDto activity) =>
+        string.Equals(activity.ActivityType, ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase);
+
     private static bool IsOnSiteActivity(SuggestedActivityDto activity) =>
         OnSiteActivityTypes.Contains(activity.ActivityType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
 
@@ -902,6 +911,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 TeamName = activity.SuggestedTeam.TeamName,
                 TeamType = activity.SuggestedTeam.TeamType,
                 Reason = activity.SuggestedTeam.Reason,
+                AssemblyPointId = activity.SuggestedTeam.AssemblyPointId,
                 AssemblyPointName = activity.SuggestedTeam.AssemblyPointName,
                 Latitude = activity.SuggestedTeam.Latitude,
                 Longitude = activity.SuggestedTeam.Longitude,
@@ -1115,6 +1125,114 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             activities.Count);
     }
 
+    private static void EnsureReturnAssemblyPointActivities(RescueMissionSuggestionResult result)
+    {
+        var activities = result.SuggestedActivities;
+        if (activities.Count == 0)
+            return;
+
+        var teamsById = new Dictionary<int, SuggestedTeamDto>();
+        void AddTeam(SuggestedTeamDto? team)
+        {
+            if (team is null || team.TeamId <= 0 || teamsById.ContainsKey(team.TeamId))
+                return;
+
+            teamsById[team.TeamId] = CloneSuggestedTeam(team)!;
+        }
+
+        AddTeam(result.SuggestedTeam);
+        foreach (var activity in activities)
+            AddTeam(activity.SuggestedTeam);
+
+        if (teamsById.Count == 0)
+            return;
+
+        var warnings = new List<string>();
+        var existingReturnActivities = activities
+            .Where(IsReturnAssemblyPointActivity)
+            .Where(activity => NormalizeTeamId(activity.SuggestedTeam?.TeamId).HasValue)
+            .GroupBy(activity => NormalizeTeamId(activity.SuggestedTeam?.TeamId)!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var ordered = group
+                        .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+                        .ToList();
+
+                    if (ordered.Count > 1)
+                        warnings.Add($"Mission suggestion đang có nhiều RETURN_ASSEMBLY_POINT cho team #{group.Key}; backend chỉ giữ một bước cuối.");
+
+                    return ordered.First();
+                });
+
+        var returnActivities = new List<SuggestedActivityDto>();
+        foreach (var team in teamsById.Values.OrderBy(team => team.TeamName).ThenBy(team => team.TeamId))
+        {
+            if (!team.AssemblyPointId.HasValue
+                || !team.Latitude.HasValue
+                || !team.Longitude.HasValue)
+            {
+                warnings.Add($"Team #{team.TeamId} thiếu assembly_point_id hoặc tọa độ điểm tập kết; chưa thể tự tạo RETURN_ASSEMBLY_POINT.");
+                continue;
+            }
+
+            existingReturnActivities.TryGetValue(team.TeamId, out var existingReturnActivity);
+            var returnActivity = existingReturnActivity ?? new SuggestedActivityDto();
+            ApplyReturnAssemblyPointActivity(returnActivity, team);
+            returnActivities.Add(returnActivity);
+        }
+
+        if (warnings.Count > 0)
+        {
+            result.NeedsManualReview = true;
+            result.SpecialNotes = AppendSpecialNote(result.SpecialNotes, string.Join(Environment.NewLine, warnings));
+        }
+
+        var nonReturnAssemblyActivities = activities
+            .Where(activity => !IsReturnAssemblyPointActivity(activity))
+            .ToList();
+
+        activities.Clear();
+        activities.AddRange(nonReturnAssemblyActivities);
+        activities.AddRange(returnActivities);
+
+        for (var index = 0; index < activities.Count; index++)
+            activities[index].Step = index + 1;
+    }
+
+    private static void ApplyReturnAssemblyPointActivity(
+        SuggestedActivityDto activity,
+        SuggestedTeamDto team)
+    {
+        var assemblyPointName = string.IsNullOrWhiteSpace(team.AssemblyPointName)
+            ? $"điểm tập kết #{team.AssemblyPointId}"
+            : team.AssemblyPointName!;
+
+        activity.Step = 0;
+        activity.ActivityType = ReturnAssemblyPointActivityType;
+        activity.Description = $"Hoàn tất nhiệm vụ, đội {team.TeamName} quay về điểm tập kết {assemblyPointName}.";
+        activity.Priority = "Low";
+        activity.EstimatedTime = DefaultReturnAssemblyEstimatedTime;
+        activity.ExecutionMode = SingleTeamExecutionMode;
+        activity.RequiredTeamCount = 1;
+        activity.CoordinationGroupKey = null;
+        activity.CoordinationNotes = "Đội quay về điểm tập kết ban đầu sau khi hoàn tất nhiệm vụ.";
+        activity.SosRequestId = null;
+        activity.DepotId = null;
+        activity.DepotName = null;
+        activity.DepotAddress = null;
+        activity.AssemblyPointId = team.AssemblyPointId;
+        activity.AssemblyPointName = team.AssemblyPointName;
+        activity.AssemblyPointLatitude = team.Latitude;
+        activity.AssemblyPointLongitude = team.Longitude;
+        activity.DestinationName = assemblyPointName;
+        activity.DestinationLatitude = team.Latitude;
+        activity.DestinationLongitude = team.Longitude;
+        activity.SuppliesToCollect = null;
+        activity.SuggestedTeam = CloneSuggestedTeam(team);
+    }
+
     private static Dictionary<(int DepotId, int? TeamId), RequiredReturnGroup> BuildRequiredReturnGroups(
         IEnumerable<SuggestedActivityDto> activities,
         IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup)
@@ -1286,6 +1404,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 TeamName = team.TeamName,
                 TeamType = team.TeamType,
                 Reason = team.Reason,
+                AssemblyPointId = team.AssemblyPointId,
                 AssemblyPointName = team.AssemblyPointName,
                 Latitude = team.Latitude,
                 Longitude = team.Longitude,
@@ -2171,6 +2290,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         [JsonPropertyName("reason")]
         public string? Reason { get; set; }
+
+        [JsonPropertyName("assembly_point_id")]
+        public int? AssemblyPointId { get; set; }
 
         [JsonPropertyName("assembly_point_name")]
         public string? AssemblyPointName { get; set; }

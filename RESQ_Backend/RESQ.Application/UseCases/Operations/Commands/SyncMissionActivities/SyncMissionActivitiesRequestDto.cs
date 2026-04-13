@@ -15,4 +15,5 @@ public class MissionActivitySyncItemDto
     public MissionActivityStatus TargetStatus { get; set; }
     public DateTimeOffset QueuedAt { get; set; }
     public MissionActivityStatus BaseServerStatus { get; set; }
+    public string? ImageUrl { get; set; }
 }

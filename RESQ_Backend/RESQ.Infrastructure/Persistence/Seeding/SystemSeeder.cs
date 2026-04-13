@@ -143,7 +143,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ],
       ""priority"": ""Critical"",
       ""estimated_time"": ""30 phút"",
-      ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
+      ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
     {
       ""step"": 2,
@@ -158,7 +158,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ],
       ""priority"": ""Critical"",
       ""estimated_time"": ""1 giờ"",
-      ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
+      ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
     {
       ""step"": 3,
@@ -171,7 +171,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""supplies_to_collect"": null,
       ""priority"": ""Critical"",
       ""estimated_time"": ""2 giờ"",
-      ""suggested_team"": { ""team_id"": 6, ""team_name"": ""Đội B"", ""team_type"": ""MedicalTeam"", ""reason"": ""Có y tế"", ""assembly_point_name"": ""Trụ sở B"", ""latitude"": 16.50, ""longitude"": 107.55 }
+      ""suggested_team"": { ""team_id"": 6, ""team_name"": ""Đội B"", ""team_type"": ""MedicalTeam"", ""reason"": ""Có y tế"", ""assembly_point_id"": 2, ""assembly_point_name"": ""Trụ sở B"", ""latitude"": 16.50, ""longitude"": 107.55 }
     }
   ],
   ""resources"": [
@@ -438,7 +438,7 @@ Available tools:
 Task:
 - Assign teams to existing depot activity_key values from depot_fragment.
 - Add only on-site activity fragments: RESCUE, MEDICAL_AID, EVACUATE.
-- Do not create COLLECT_SUPPLIES, DELIVER_SUPPLIES, RETURN_SUPPLIES, or inventory shortages.
+- Do not create COLLECT_SUPPLIES, DELIVER_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or inventory shortages.
 - Do not call inventory tools.
 - Do not invent team_id or assembly_point_id. Use only tool results.
 - Return one valid JSON object only. No markdown, no explanations outside JSON.
@@ -457,6 +457,7 @@ Output schema:
         ""team_name"": ""Team from getTeams"",
         ""team_type"": ""Team type from getTeams"",
         ""reason"": ""Nearest and suitable capability"",
+        ""assembly_point_id"": 1,
         ""assembly_point_name"": ""Assembly point name"",
         ""latitude"": 16.0,
         ""longitude"": 107.0,
@@ -492,6 +493,7 @@ Output schema:
         ""team_name"": ""Team from getTeams"",
         ""team_type"": ""Team type from getTeams"",
         ""reason"": ""Suitable capability"",
+        ""assembly_point_id"": 1,
         ""assembly_point_name"": ""Assembly point name"",
         ""latitude"": 16.0,
         ""longitude"": 107.0,
@@ -548,7 +550,7 @@ Final output schema:
   ""activities"": [
     {
       ""step"": 1,
-      ""activity_type"": ""COLLECT_SUPPLIES|DELIVER_SUPPLIES|RESCUE|MEDICAL_AID|EVACUATE|RETURN_SUPPLIES"",
+      ""activity_type"": ""COLLECT_SUPPLIES|DELIVER_SUPPLIES|RESCUE|MEDICAL_AID|EVACUATE|RETURN_SUPPLIES|RETURN_ASSEMBLY_POINT"",
       ""description"": ""Concrete movement/action"",
       ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""30 phút"",
@@ -567,7 +569,17 @@ Final output schema:
       ""assembly_point_latitude"": null,
       ""assembly_point_longitude"": null,
       ""supplies_to_collect"": null,
-      ""suggested_team"": null
+      ""suggested_team"": {
+        ""team_id"": 1,
+        ""team_name"": ""Team from draft"",
+        ""team_type"": ""Team type from draft"",
+        ""reason"": ""Preserved from team planning"",
+        ""assembly_point_id"": 1,
+        ""assembly_point_name"": ""Assembly point name"",
+        ""latitude"": 16.0,
+        ""longitude"": 107.0,
+        ""distance_km"": 3.5
+      }
     }
   ],
   ""resources"": [
@@ -584,6 +596,7 @@ Final output schema:
 Validation rules:
 - Activities must be ordered by step starting at 1.
 - COLLECT_SUPPLIES must appear before DELIVER_SUPPLIES for the same supplies.
+- RETURN_ASSEMBLY_POINT is deterministic backend post-processing; preserve it if already present in the draft, otherwise backend will append one final step per team from suggested_team.assembly_point_id.
 - All supply activities that use a depot must use the same depot_id.
 - Food, water, medicine, milk, clothes, blankets, and shelter supplies must stay in supplies_to_collect or supply_shortages, not resources.
 - resources may contain only TEAM, VEHICLE, BOAT, or EQUIPMENT.

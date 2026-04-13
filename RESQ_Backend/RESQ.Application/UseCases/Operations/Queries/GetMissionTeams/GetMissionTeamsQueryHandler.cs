@@ -20,6 +20,7 @@ public class GetMissionTeamsQueryHandler(
                 RescueTeamId = t.RescuerTeamId,
                 TeamName = t.TeamName,
                 TeamCode = t.TeamCode,
+                AssemblyPointId = t.AssemblyPointId,
                 AssemblyPointName = t.AssemblyPointName,
                 TeamType = t.TeamType,
                 Status = t.Status,
