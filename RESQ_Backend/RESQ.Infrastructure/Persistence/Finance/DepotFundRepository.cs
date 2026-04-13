@@ -194,7 +194,7 @@ public class DepotFundRepository : IDepotFundRepository
 
         if (transactionTypes is { Count: > 0 })
         {
-            var typeNames = transactionTypes.Select(x => x.ToString()).ToList();
+            var typeNames = DepotFundTransactionTypeAlias.Expand(transactionTypes);
             query = query.Where(x => typeNames.Contains(x.TransactionType));
         }
 
@@ -225,7 +225,7 @@ public class DepotFundRepository : IDepotFundRepository
 
         if (transactionTypes is { Count: > 0 })
         {
-            var typeNames = transactionTypes.Select(x => x.ToString()).ToList();
+            var typeNames = DepotFundTransactionTypeAlias.Expand(transactionTypes);
             query = query.Where(x => typeNames.Contains(x.TransactionType));
         }
 
@@ -251,14 +251,14 @@ public class DepotFundRepository : IDepotFundRepository
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var personalAdvanceType = DepotFundTransactionType.PersonalAdvance.ToString();
-        var repaymentType = DepotFundTransactionType.AdvanceRepayment.ToString();
+        var personalAdvanceTypes = DepotFundTransactionTypeAlias.GetNames(DepotFundTransactionType.PersonalAdvance);
+        var repaymentTypes = DepotFundTransactionTypeAlias.GetNames(DepotFundTransactionType.AdvanceRepayment);
 
         var query = _unitOfWork.Set<DepotFundTransaction>()
             .Where(x => x.DepotFund.DepotId == depotId
                         && x.ContributorName != null
                         && x.ContributorPhoneNumber != null
-                        && (x.TransactionType == personalAdvanceType || x.TransactionType == repaymentType))
+                        && (personalAdvanceTypes.Contains(x.TransactionType) || repaymentTypes.Contains(x.TransactionType)))
             .GroupBy(x => new
             {
                 x.ContributorName,
@@ -268,8 +268,8 @@ public class DepotFundRepository : IDepotFundRepository
             {
                 ContributorName = g.Key.ContributorName!,
                 ContributorPhoneNumber = g.Key.ContributorPhoneNumber!,
-                TotalAdvancedAmount = g.Sum(x => x.TransactionType == personalAdvanceType ? x.Amount : 0m),
-                TotalRepaidAmount = g.Sum(x => x.TransactionType == repaymentType ? x.Amount : 0m)
+                TotalAdvancedAmount = g.Sum(x => personalAdvanceTypes.Contains(x.TransactionType) ? x.Amount : 0m),
+                TotalRepaidAmount = g.Sum(x => repaymentTypes.Contains(x.TransactionType) ? x.Amount : 0m)
             })
             .Where(x => x.TotalAdvancedAmount > 0)
             .OrderByDescending(x => x.TotalAdvancedAmount - x.TotalRepaidAmount);
@@ -298,8 +298,8 @@ public class DepotFundRepository : IDepotFundRepository
         var lowerNames = contributorList.Select(x => x.ContributorName.ToLowerInvariant()).Distinct().ToList();
         var phones = contributorList.Select(x => x.ContributorPhoneNumber).Distinct().ToList();
 
-        var personalAdvanceType = DepotFundTransactionType.PersonalAdvance.ToString();
-        var repaymentType = DepotFundTransactionType.AdvanceRepayment.ToString();
+        var personalAdvanceTypes = DepotFundTransactionTypeAlias.GetNames(DepotFundTransactionType.PersonalAdvance);
+        var repaymentTypes = DepotFundTransactionTypeAlias.GetNames(DepotFundTransactionType.AdvanceRepayment);
 
         return await _unitOfWork.Set<DepotFundTransaction>()
             .Where(x => x.DepotFund.DepotId == depotId
@@ -307,7 +307,7 @@ public class DepotFundRepository : IDepotFundRepository
                         && x.ContributorPhoneNumber != null
                         && lowerNames.Contains(x.ContributorName.ToLower())
                         && phones.Contains(x.ContributorPhoneNumber)
-                        && (x.TransactionType == personalAdvanceType || x.TransactionType == repaymentType))
+                        && (personalAdvanceTypes.Contains(x.TransactionType) || repaymentTypes.Contains(x.TransactionType)))
             .GroupBy(x => new
             {
                 x.ContributorName,
@@ -317,8 +317,8 @@ public class DepotFundRepository : IDepotFundRepository
             {
                 ContributorName = g.Key.ContributorName!,
                 ContributorPhoneNumber = g.Key.ContributorPhoneNumber!,
-                TotalAdvancedAmount = g.Sum(x => x.TransactionType == personalAdvanceType ? x.Amount : 0m),
-                TotalRepaidAmount = g.Sum(x => x.TransactionType == repaymentType ? x.Amount : 0m)
+                TotalAdvancedAmount = g.Sum(x => personalAdvanceTypes.Contains(x.TransactionType) ? x.Amount : 0m),
+                TotalRepaidAmount = g.Sum(x => repaymentTypes.Contains(x.TransactionType) ? x.Amount : 0m)
             })
             .ToListAsync(cancellationToken);
     }
@@ -340,8 +340,8 @@ public class DepotFundRepository : IDepotFundRepository
         var lowerNames = contributorList.Select(x => x.ContributorName.ToLowerInvariant()).Distinct().ToList();
         var phones = contributorList.Select(x => x.ContributorPhoneNumber).Distinct().ToList();
 
-        var personalAdvanceType = DepotFundTransactionType.PersonalAdvance.ToString();
-        var repaymentType = DepotFundTransactionType.AdvanceRepayment.ToString();
+        var personalAdvanceTypes = DepotFundTransactionTypeAlias.GetNames(DepotFundTransactionType.PersonalAdvance);
+        var repaymentTypes = DepotFundTransactionTypeAlias.GetNames(DepotFundTransactionType.AdvanceRepayment);
 
         return await _unitOfWork.Set<DepotFundTransaction>()
             .Where(x => x.DepotFund.DepotId == depotId
@@ -350,7 +350,7 @@ public class DepotFundRepository : IDepotFundRepository
                         && x.ContributorPhoneNumber != null
                         && lowerNames.Contains(x.ContributorName.ToLower())
                         && phones.Contains(x.ContributorPhoneNumber)
-                        && (x.TransactionType == personalAdvanceType || x.TransactionType == repaymentType))
+                        && (personalAdvanceTypes.Contains(x.TransactionType) || repaymentTypes.Contains(x.TransactionType)))
             .GroupBy(x => new
             {
                 x.DepotFundId,
@@ -362,8 +362,8 @@ public class DepotFundRepository : IDepotFundRepository
                 DepotFundId = g.Key.DepotFundId,
                 ContributorName = g.Key.ContributorName!,
                 ContributorPhoneNumber = g.Key.ContributorPhoneNumber!,
-                TotalAdvancedAmount = g.Sum(x => x.TransactionType == personalAdvanceType ? x.Amount : 0m),
-                TotalRepaidAmount = g.Sum(x => x.TransactionType == repaymentType ? x.Amount : 0m)
+                TotalAdvancedAmount = g.Sum(x => personalAdvanceTypes.Contains(x.TransactionType) ? x.Amount : 0m),
+                TotalRepaidAmount = g.Sum(x => repaymentTypes.Contains(x.TransactionType) ? x.Amount : 0m)
             })
             .ToListAsync(cancellationToken);
     }

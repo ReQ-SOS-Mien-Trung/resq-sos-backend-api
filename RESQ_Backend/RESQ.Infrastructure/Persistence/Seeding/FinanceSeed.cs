@@ -9,6 +9,8 @@ public static class FinanceSeed
     public static void SeedFinance(this ModelBuilder modelBuilder)
     {
         var fundSeedTime = new DateTime(2026, 3, 25, 0, 0, 0, DateTimeKind.Utc);
+        var campaign1CreatedAt = new DateTime(2026, 2, 12, 9, 43, 42, 480, DateTimeKind.Utc).AddTicks(3636);
+        var campaign2CreatedAt = new DateTime(2025, 8, 13, 9, 43, 42, 480, DateTimeKind.Utc).AddTicks(3648);
 
         // 0.1 Depot Funds (ví kho)
         // Hạn mức ứng và dư nợ ứng được quản lý ở cấp Depot.
@@ -16,7 +18,7 @@ public static class FinanceSeed
         var depotFunds = new List<DepotFund>
         {
             new DepotFund { Id = 1, DepotId = 1, Balance = 120_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
-            new DepotFund { Id = 2, DepotId = 2, Balance = 90_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 2, DepotId = 2, Balance = 130_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
             new DepotFund { Id = 3, DepotId = 3, Balance = 70_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
             new DepotFund { Id = 4, DepotId = 4, Balance = 150_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
             new DepotFund { Id = 5, DepotId = 5, Balance = 18_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
@@ -69,7 +71,7 @@ public static class FinanceSeed
             {
                 Id = 4,
                 DepotFundId = 2,
-                TransactionType = DepotFundTransactionType.SelfAdvance.ToString(),
+                TransactionType = DepotFundTransactionType.PersonalAdvance.ToString(),
                 Amount = 30_000_000m,
                 ReferenceType = "VatInvoice",
                 ReferenceId = 2,
@@ -81,7 +83,7 @@ public static class FinanceSeed
             {
                 Id = 5,
                 DepotFundId = 2,
-                TransactionType = DepotFundTransactionType.DebtRepayment.ToString(),
+                TransactionType = DepotFundTransactionType.AdvanceRepayment.ToString(),
                 Amount = 20_000_000m,
                 ReferenceType = "FundingRequest",
                 ReferenceId = 1003,
@@ -180,7 +182,7 @@ public static class FinanceSeed
                 CurrentBalance = 7500000,  // Số dư hiện tại
                 Status = FundCampaignStatus.Active.ToString(),
                 CreatedBy = SeedConstants.AdminUserId,
-                CreatedAt = DateTime.UtcNow.AddDays(-60)
+                CreatedAt = campaign1CreatedAt
             },
             new FundCampaign
             {
@@ -195,7 +197,7 @@ public static class FinanceSeed
                 CurrentBalance = 520000000, // Số dư hiện tại
                 Status = FundCampaignStatus.Closed.ToString(),
                 CreatedBy = SeedConstants.AdminUserId,
-                CreatedAt = DateTime.UtcNow.AddMonths(-8)
+                CreatedAt = campaign2CreatedAt
             }
         };
 
