@@ -7,6 +7,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Operations;
 
@@ -16,6 +17,7 @@ public class ConfirmReturnSuppliesCommandHandler(
     IMissionActivityRepository activityRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
+    IMediator mediator,
     IUnitOfWork unitOfWork,
     ILogger<ConfirmReturnSuppliesCommandHandler> logger
 ) : IRequestHandler<ConfirmReturnSuppliesCommand, ConfirmReturnSuppliesResponse>
@@ -23,6 +25,7 @@ public class ConfirmReturnSuppliesCommandHandler(
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
+    private readonly IMediator _mediator = mediator;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ConfirmReturnSuppliesCommandHandler> _logger = logger;
 
@@ -250,9 +253,11 @@ public class ConfirmReturnSuppliesCommandHandler(
             _activityRepository,
             cancellationToken);
 
-        await _activityRepository.UpdateStatusAsync(request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy, cancellationToken: cancellationToken);
-
-        await _unitOfWork.SaveAsync();
+        // Dispatch through the full activity lifecycle pipeline so that
+        // auto-start of next activity, SOS sync, and team location update all fire.
+        await _mediator.Send(
+            new UpdateActivityStatusCommand(request.MissionId, request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy),
+            cancellationToken);
 
         _logger.LogInformation(
             "Depot manager confirmed RETURN_SUPPLIES ActivityId={activityId} DepotId={depotId}: {count} item type(s) restocked",
