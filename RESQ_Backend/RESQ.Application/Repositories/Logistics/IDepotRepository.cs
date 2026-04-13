@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Models;
+﻿using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -91,7 +91,7 @@ namespace RESQ.Application.Repositories.Logistics
 
         /// <summary>
         /// Lấy chi tiết tồn kho THEO TỪNG LÔ (consumable = per-lot, reusable = grouped).
-        /// Dùng cho file Excel template xử lý bên ngoài để chia vật tư theo lô.
+        /// Dùng cho file Excel template xử lý bên ngoài để chia vật phẩm theo lô.
         /// </summary>
         Task<List<ClosureInventoryLotItemDto>> GetLotDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default);
     }

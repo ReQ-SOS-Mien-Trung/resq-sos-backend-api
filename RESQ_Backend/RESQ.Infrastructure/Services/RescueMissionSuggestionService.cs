@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -173,7 +173,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
             Bạn có thể gọi ba công cụ để lấy dữ liệu thực trước khi lập kế hoạch:
 
-            - **searchInventory(category, type?, page)**: Tìm vật tư khả dụng trong **các kho hợp lệ của cluster hiện tại**. Kết quả chỉ chứa các kho backend đã cho phép trong phạm vi lập kế hoạch này. Mỗi dòng là một cặp (vật tư, kho) với item_id, item_name, item_type, available_quantity, depot_id, depot_name, depot_address, depot_latitude, depot_longitude.
+            - **searchInventory(category, type?, page)**: Tìm vật phẩm khả dụng trong **các kho hợp lệ của cluster hiện tại**. Kết quả chỉ chứa các kho backend đã cho phép trong phạm vi lập kế hoạch này. Mỗi dòng là một cặp (vật phẩm, kho) với item_id, item_name, item_type, available_quantity, depot_id, depot_name, depot_address, depot_latitude, depot_longitude.
             - **getTeams(ability?, available?, page)**: Trả về nearby teams đang Available trong bán kính cluster hiện tại.
             - **getAssemblyPoints(page)**: Trả về các assembly point đang hoạt động.
 
@@ -182,11 +182,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - Sau khi có kết quả, so sánh các `depot_id` xuất hiện và chọn **đúng một kho phù hợp nhất cho toàn bộ mission**.
             - Tiêu chí chọn kho: ưu tiên kho đáp ứng được nhiều nhu cầu SOS nhất và có tổng số lượng phù hợp cao nhất. Nếu tương đương, chọn kho có vị trí thuận lợi hơn trong kết quả đã trả về.
             - Toàn bộ activity có dùng kho trong mission này phải dùng cùng một `depot_id`, `depot_name`, `depot_address` của kho đã chọn.
-            - **TUYỆT ĐỐI KHÔNG** tạo kế hoạch lấy vật tư từ kho thứ hai, không chia vật tư giữa nhiều kho, không gộp nhiều kho.
+            - **TUYỆT ĐỐI KHÔNG** tạo kế hoạch lấy vật phẩm từ kho thứ hai, không chia vật phẩm giữa nhiều kho, không gộp nhiều kho.
             - Nếu kho đã chọn không đủ đồ, vẫn chỉ lấy những gì kho đó hiện có rồi báo thiếu. Không được chuyển sang kho khác.
 
-            ## BÁO CÁO THIẾU HỤT VẬT TƯ
-            - Nếu sau khi đối chiếu với kho đã chọn mà còn thiếu bất kỳ vật tư nào, đặt `needs_additional_depot = true`.
+            ## BÁO CÁO THIẾU HỤT vật phẩm
+            - Nếu sau khi đối chiếu với kho đã chọn mà còn thiếu bất kỳ vật phẩm nào, đặt `needs_additional_depot = true`.
             - Khi có thiếu hụt, điền `supply_shortages` với từng dòng thiếu theo format:
               - `sos_request_id`: SOS bị ảnh hưởng
               - `item_id`: nếu xác định được từ inventory; nếu không thì để null
@@ -196,7 +196,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
               - `notes`: mô tả ngắn gọn lý do thiếu nếu cần
             - Nếu kho đã chọn không có món đó, dùng `available_quantity = 0` và `missing_quantity = needed_quantity`.
             - Nếu kho chỉ có một phần, dùng `available_quantity < needed_quantity` và `missing_quantity = needed_quantity - available_quantity`.
-            - `special_notes` phải ghi rõ rằng coordinator cần bổ sung thêm kho/nguồn cấp phát vì đang thiếu vật tư nào và số lượng thiếu bao nhiêu.
+            - `special_notes` phải ghi rõ rằng coordinator cần bổ sung thêm kho/nguồn cấp phát vì đang thiếu vật phẩm nào và số lượng thiếu bao nhiêu.
             - Nếu không có thiếu hụt, đặt `needs_additional_depot = false` và `supply_shortages = []`.
 
             ## QUY TẮC ESTIMATE TIME
@@ -206,17 +206,17 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - Không để `estimated_time` hoặc `estimated_duration` mơ hồ kiểu `"nhanh"`, `"sớm"`, `"khoảng vài giờ"`.
 
             ## QUY TẮC THỨ TỰ ACTIVITY
-            - `COLLECT_SUPPLIES` phải đứng trước activity hiện trường sử dụng số vật tư đó.
+            - `COLLECT_SUPPLIES` phải đứng trước activity hiện trường sử dụng số vật phẩm đó.
             - Không được tạo thêm `COLLECT_SUPPLIES` cho cùng SOS sau khi đã bắt đầu `DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, hoặc `EVACUATE` của SOS đó.
-            - Nếu có vật tư reusable được lấy ở `COLLECT_SUPPLIES`, phải có `RETURN_SUPPLIES` ở cuối kế hoạch để trả đúng về cùng kho đã chọn.
+            - Nếu có vật phẩm reusable được lấy ở `COLLECT_SUPPLIES`, phải có `RETURN_SUPPLIES` ở cuối kế hoạch để trả đúng về cùng kho đã chọn.
             - Không tạo `COLLECT_SUPPLIES` ở cuối kế hoạch nếu phía sau không có activity nào dùng số hàng đó.
 
             ## QUY TẮC TỪNG LOẠI ACTIVITY
-            - `COLLECT_SUPPLIES`: chỉ tạo cho vật tư thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó.
-            - `DELIVER_SUPPLIES`: giao đúng các vật tư vừa lấy từ kho đã chọn cho SOS tương ứng.
+            - `COLLECT_SUPPLIES`: chỉ tạo cho vật phẩm thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó.
+            - `DELIVER_SUPPLIES`: giao đúng các vật phẩm vừa lấy từ kho đã chọn cho SOS tương ứng.
             - `RESCUE`: luôn tạo nếu hiện trường cần cứu người, kể cả khi thiết bị cứu hộ bị thiếu; thiếu gì thì ghi vào `supply_shortages` và `special_notes`.
-            - `MEDICAL_AID`: nếu thiếu vật tư y tế thì vẫn có thể tạo activity, nhưng phải ghi rõ thiếu hụt.
-            - `EVACUATE`: không lấy vật tư ở bước này; phải chọn `assembly_point_id` gần nạn nhân nhất.
+            - `MEDICAL_AID`: nếu thiếu vật phẩm y tế thì vẫn có thể tạo activity, nhưng phải ghi rõ thiếu hụt.
+            - `EVACUATE`: không lấy vật phẩm ở bước này; phải chọn `assembly_point_id` gần nạn nhân nhất.
 
             ## QUY TẮC TEAM VÀ ASSEMBLY POINT
             - Gọi `getTeams` để lấy `team_id`; không tự bịa team ngoài kết quả công cụ.
@@ -784,7 +784,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             .ToList();
 
         return details.Count == 0
-            ? "Coordinator cần bổ sung thêm kho/nguồn cấp phát vì kho đã chọn không đủ vật tư."
+            ? "Coordinator cần bổ sung thêm kho/nguồn cấp phát vì kho đã chọn không đủ vật phẩm."
             : "Coordinator cần bổ sung thêm kho/nguồn cấp phát. Thiếu: " + string.Join("; ", details) + ".";
     }
 
@@ -1327,7 +1327,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         activity.ExecutionMode = SingleTeamExecutionMode;
         activity.RequiredTeamCount = 1;
         activity.CoordinationGroupKey = null;
-        activity.CoordinationNotes = "Một đội trả vật tư tái sử dụng đã lấy trước đó về lại kho nguồn.";
+        activity.CoordinationNotes = "Một đội trả vật phẩm tái sử dụng đã lấy trước đó về lại kho nguồn.";
         activity.SosRequestId = null;
         activity.DepotId = requiredGroup.DepotId;
         activity.DepotName = requiredGroup.DepotName;
@@ -1362,8 +1362,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 }));
 
         return string.IsNullOrWhiteSpace(itemSummary)
-            ? $"Hoàn tất nhiệm vụ, đưa vật tư tái sử dụng về lại {depotLabel}."
-            : $"Hoàn tất nhiệm vụ, đưa vật tư tái sử dụng về lại {depotLabel}. Trả: {itemSummary}.";
+            ? $"Hoàn tất nhiệm vụ, đưa vật phẩm tái sử dụng về lại {depotLabel}."
+            : $"Hoàn tất nhiệm vụ, đưa vật phẩm tái sử dụng về lại {depotLabel}. Trả: {itemSummary}.";
     }
 
     private static SupplyToCollectDto CloneSupply(SupplyToCollectDto supply)
@@ -1833,7 +1833,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         var userMessage = (prompt.UserPromptTemplate ?? string.Empty)
             .Replace("{{sos_requests_data}}", sosDataJson)
             .Replace("{{total_count}}", sosRequests.Count.ToString())
-            .Replace("{{depots_data}}", "(Dữ liệu kho không được truyền trực tiếp. Hãy gọi công cụ searchInventory để tra cứu vật tư khả dụng trong các kho hợp lệ của cluster hiện tại, sau đó chọn đúng một kho phù hợp nhất cho toàn mission.)")
+            .Replace("{{depots_data}}", "(Dữ liệu kho không được truyền trực tiếp. Hãy gọi công cụ searchInventory để tra cứu vật phẩm khả dụng trong các kho hợp lệ của cluster hiện tại, sau đó chọn đúng một kho phù hợp nhất cho toàn mission.)")
             .TrimEnd();
 
         var nearbyTeamsNote = availableNearbyTeams.Count > 0
@@ -2146,14 +2146,14 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         new()
         {
             Name = "searchInventory",
-            Description = "Tìm kiếm vật tư đang khả dụng theo danh mục và loại trong các kho hợp lệ của cluster hiện tại. Trả về cả consumable lẫn reusable với item_id, tên, item_type, available_quantity, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude). Reusable còn có good_available_count, fair_available_count, poor_available_count.",
+            Description = "Tìm kiếm vật phẩm đang khả dụng theo danh mục và loại trong các kho hợp lệ của cluster hiện tại. Trả về cả consumable lẫn reusable với item_id, tên, item_type, available_quantity, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude). Reusable còn có good_available_count, fair_available_count, poor_available_count.",
             Parameters = ParseJson(
                 """
                 {
                   "type": "object",
                   "properties": {
-                    "category": { "type": "string", "description": "Tên danh mục vật tư, ví dụ: 'Nước', 'Thực phẩm', 'Y tế', 'Quần áo'" },
-                    "type": { "type": "string", "description": "Tên loại hoặc tên vật tư cụ thể trong danh mục (tuỳ chọn)" },
+                    "category": { "type": "string", "description": "Tên danh mục vật phẩm, ví dụ: 'Nước', 'Thực phẩm', 'Y tế', 'Quần áo'" },
+                    "type": { "type": "string", "description": "Tên loại hoặc tên vật phẩm cụ thể trong danh mục (tuỳ chọn)" },
                     "page": { "type": "integer", "description": "Số trang (bắt đầu từ 1)" }
                   },
                   "required": ["category"]

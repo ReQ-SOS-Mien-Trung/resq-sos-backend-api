@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
@@ -93,7 +93,7 @@ public class ConfirmReturnSuppliesCommandHandler(
         {
             var itemId = item.ItemId!.Value;
             if (!itemLookup.TryGetValue(itemId, out var itemRecord))
-                throw new BadRequestException($"Không tìm thấy metadata vật tư #{itemId}.");
+                throw new BadRequestException($"Không tìm thấy metadata vật phẩm #{itemId}.");
 
             if (IsReusableItem(itemRecord))
             {
@@ -268,7 +268,7 @@ public class ConfirmReturnSuppliesCommandHandler(
             ActivityId = request.ActivityId,
             MissionId = missionId,
             DepotId = depotId,
-            Message = "Xác nhận trả hàng thành công. Vật tư đã được nhập lại kho.",
+            Message = "Xác nhận trả hàng thành công. vật phẩm đã được nhập lại kho.",
             UsedLegacyFallback = executionResult.UsedLegacyFallback,
             DiscrepancyRecorded = discrepancyDetected,
             RestoredItems = executionResult.Items

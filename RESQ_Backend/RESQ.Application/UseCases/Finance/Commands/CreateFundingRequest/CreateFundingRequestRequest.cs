@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
@@ -7,7 +7,7 @@ public class CreateFundingRequestRequest
     public string? Description { get; set; }
 
     /// <summary>
-    /// Danh sách vật tư dự kiến mua. TotalAmount sẽ được tính tự động = sum(items[].totalPrice).
+    /// Danh sách vật phẩm dự kiến mua. TotalAmount sẽ được tính tự động = sum(items[].totalPrice).
     /// </summary>
     [Required]
     public List<FundingRequestItemRequest> Items { get; set; } = [];

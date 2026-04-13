@@ -616,6 +616,15 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// API kết hợp tính toán remaining capacity (thể tích/cân nặng) của kho target và thuật toán greedy để chia mảng.
         /// Front-end có thể dùng list TargetDepots để hiển thị không gian trống, và SuggestedTransfers để fill vào form phân bổ trước khi submit.
         /// </summary>
+                /// <summary>[Metadata] Lấy danh sách kho làm target cho việc đóng kho.</summary>
+        [HttpGet("metadata/closure-target-depots")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(List<RESQ.Application.UseCases.Logistics.Queries.GetClosureTargetDepots.TargetDepotKeyValueDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetClosureTargetDepotsMetadata()
+        {
+            var result = await _mediator.Send(new RESQ.Application.UseCases.Logistics.Queries.GetClosureTargetDepots.GetClosureTargetDepotsQuery());
+            return Ok(result);
+        }
         [HttpGet("{id}/close/transfer-suggestions")]
         [Authorize(Policy = PermissionConstants.PolicyDepotView)]
         [ProducesResponseType(typeof(RESQ.Application.UseCases.Logistics.Queries.GetClosureTransferSuggestions.ClosureTransferSuggestionsResponse), StatusCodes.Status200OK)]
@@ -627,3 +636,4 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
     }
 }
+

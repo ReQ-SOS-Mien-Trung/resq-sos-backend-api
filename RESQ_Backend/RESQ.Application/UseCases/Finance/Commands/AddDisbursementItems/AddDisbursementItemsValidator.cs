@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace RESQ.Application.UseCases.Finance.Commands.AddDisbursementItems;
 
@@ -10,12 +10,12 @@ public class AddDisbursementItemsValidator : AbstractValidator<AddDisbursementIt
             .GreaterThan(0).WithMessage("Mã giải ngân không hợp lệ.");
 
         RuleFor(x => x.Items)
-            .NotEmpty().WithMessage("Danh sách vật tư không được để trống.");
+            .NotEmpty().WithMessage("Danh sách vật phẩm không được để trống.");
 
         RuleForEach(x => x.Items).ChildRules(item =>
         {
             item.RuleFor(i => i.ItemName)
-                .NotEmpty().WithMessage("Tên vật tư không được để trống.");
+                .NotEmpty().WithMessage("Tên vật phẩm không được để trống.");
             item.RuleFor(i => i.Quantity)
                 .GreaterThan(0).WithMessage("Số lượng phải lớn hơn 0.");
             item.RuleFor(i => i.UnitPrice)

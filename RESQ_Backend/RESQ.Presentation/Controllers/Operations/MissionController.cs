@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -378,7 +378,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Depot manager xác nhận đã nhận lại vật tư từ đội cứu hộ (RETURN_SUPPLIES: PendingConfirmation → Succeed + restock kho).
+    /// Depot manager xác nhận đã nhận lại vật phẩm từ đội cứu hộ (RETURN_SUPPLIES: PendingConfirmation → Succeed + restock kho).
     /// </summary>
     [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-return")]
     [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -403,7 +403,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Team xác nhận đã giao vật tư kèm số lượng thực tế từng mặt hàng (DELIVER_SUPPLIES: OnGoing → Succeed).
+    /// Team xác nhận đã giao vật phẩm kèm số lượng thực tế từng mặt hàng (DELIVER_SUPPLIES: OnGoing → Succeed).
     /// Nếu giao thiếu, hệ thống tự động tạo RETURN_SUPPLIES activity cho số lượng thừa.
     /// </summary>
     [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-delivery")]

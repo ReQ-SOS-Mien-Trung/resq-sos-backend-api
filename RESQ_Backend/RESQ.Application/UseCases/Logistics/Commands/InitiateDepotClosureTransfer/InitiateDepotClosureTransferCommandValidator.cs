@@ -21,21 +21,21 @@ public class InitiateDepotClosureTransferCommandValidator
 
             assignment.RuleFor(x => x.Items)
                 .NotEmpty()
-                .WithMessage("Mỗi kho đích phải có ít nhất một vật tư được phân bổ.");
+                .WithMessage("Mỗi kho đích phải có ít nhất một vật phẩm được phân bổ.");
 
             assignment.RuleForEach(x => x.Items).ChildRules(item =>
             {
                 item.RuleFor(x => x.ItemModelId)
                     .GreaterThan(0)
-                    .WithMessage("Id vật tư không hợp lệ.");
+                    .WithMessage("Id vật phẩm không hợp lệ.");
 
                 item.RuleFor(x => x.ItemType)
                     .Must(type => type is "Consumable" or "Reusable")
-                    .WithMessage("Loại vật tư phải là Consumable hoặc Reusable.");
+                    .WithMessage("Loại vật phẩm phải là Consumable hoặc Reusable.");
 
                 item.RuleFor(x => x.Quantity)
                     .GreaterThan(0)
-                    .WithMessage("Số lượng vật tư phải lớn hơn 0.");
+                    .WithMessage("Số lượng vật phẩm phải lớn hơn 0.");
             });
         });
 
@@ -44,3 +44,4 @@ public class InitiateDepotClosureTransferCommandValidator
             .WithMessage("Kho đích không được trùng với kho nguồn.");
     }
 }
+

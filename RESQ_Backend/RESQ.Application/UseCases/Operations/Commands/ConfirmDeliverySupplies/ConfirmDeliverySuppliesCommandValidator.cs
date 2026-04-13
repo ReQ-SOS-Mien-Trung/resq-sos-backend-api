@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 
@@ -16,7 +16,7 @@ public class ConfirmDeliverySuppliesCommandValidator : AbstractValidator<Confirm
             .NotEmpty().WithMessage("ConfirmedBy không được để trống.");
 
         RuleFor(x => x.ActualDeliveredItems)
-            .NotEmpty().WithMessage("Phải cung cấp số lượng thực tế cho ít nhất một loại vật tư.");
+            .NotEmpty().WithMessage("Phải cung cấp số lượng thực tế cho ít nhất một loại vật phẩm.");
 
         RuleForEach(x => x.ActualDeliveredItems).ChildRules(item =>
         {
@@ -29,6 +29,6 @@ public class ConfirmDeliverySuppliesCommandValidator : AbstractValidator<Confirm
 
         RuleFor(x => x.ActualDeliveredItems)
             .Must(items => items == null || items.Select(i => i.ItemId).Distinct().Count() == items.Count)
-            .WithMessage("Danh sách vật tư không được chứa ItemId trùng lặp.");
+            .WithMessage("Danh sách vật phẩm không được chứa ItemId trùng lặp.");
     }
 }

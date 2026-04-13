@@ -1,35 +1,35 @@
-namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+﻿namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 
 /// <summary>
 /// Response wrapper gom summary + chart breakdowns + raw list - tối ưu cho frontend chart.
 /// </summary>
 public class LowStockChartResponseDto
 {
-    /// <summary>Tổng hợp toàn bộ vật tư cảnh báo.</summary>
+    /// <summary>Tổng hợp toàn bộ vật phẩm cảnh báo.</summary>
     public LowStockSummaryDto Summary { get; set; } = new();
 
     /// <summary>Phân tích theo kho - dùng cho bar/column chart.</summary>
     public List<LowStockByDepotDto> ByDepot { get; set; } = new();
 
-    /// <summary>Phân tích theo danh mục vật tư - dùng cho pie/donut chart.</summary>
+    /// <summary>Phân tích theo danh mục vật phẩm - dùng cho pie/donut chart.</summary>
     public List<LowStockByCategoryDto> ByCategory { get; set; } = new();
 
-    /// <summary>Danh sách chi tiết từng vật tư - dùng cho data table.</summary>
+    /// <summary>Danh sách chi tiết từng vật phẩm - dùng cho data table.</summary>
     public List<LowStockItemDto> Items { get; set; } = new();
 }
 
 public class LowStockSummaryDto
 {
-    /// <summary>Số vật tư ở mức 🔴 CRITICAL.</summary>
+    /// <summary>Số vật phẩm ở mức 🔴 CRITICAL.</summary>
     public int CriticalCount { get; set; }
 
-    /// <summary>Số vật tư ở mức 🟠 MEDIUM.</summary>
+    /// <summary>Số vật phẩm ở mức 🟠 MEDIUM.</summary>
     public int MediumCount { get; set; }
 
-    /// <summary>Số vật tư ở mức 🟡 LOW.</summary>
+    /// <summary>Số vật phẩm ở mức 🟡 LOW.</summary>
     public int LowCount { get; set; }
 
-    /// <summary>Số vật tư chưa được cấu hình threshold (UNCONFIGURED).</summary>
+    /// <summary>Số vật phẩm chưa được cấu hình threshold (UNCONFIGURED).</summary>
     public int UnconfiguredCount { get; set; }
 
     /// <summary>Tổng cộng (tất cả mức không phải OK).</summary>

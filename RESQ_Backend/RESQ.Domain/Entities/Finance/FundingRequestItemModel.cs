@@ -1,7 +1,7 @@
-namespace RESQ.Domain.Entities.Finance;
+﻿namespace RESQ.Domain.Entities.Finance;
 
 /// <summary>
-/// Chi tiết từng dòng vật tư trong FundingRequest - cùng cấu trúc với ImportPurchasedItemDto.
+/// Chi tiết từng dòng vật phẩm trong FundingRequest - cùng cấu trúc với ImportPurchasedItemDto.
 /// </summary>
 public class FundingRequestItemModel
 {

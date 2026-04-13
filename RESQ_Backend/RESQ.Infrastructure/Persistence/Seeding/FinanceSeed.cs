@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 
@@ -123,7 +123,7 @@ public static class FinanceSeed
                 Amount = 110_000_000m,
                 ReferenceType = "VatInvoice",
                 ReferenceId = 3,
-                Note = "Nhập vật tư y tế và cứu hộ",
+                Note = "Nhập vật phẩm y tế và cứu hộ",
                 CreatedBy = SeedConstants.Manager4UserId,
                 CreatedAt = new DateTime(2026, 2, 14, 3, 20, 0, DateTimeKind.Utc)
             },

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -8,7 +8,7 @@ using RESQ.Domain.Entities.Finance;
 namespace RESQ.Application.UseCases.Finance.Commands.AddDisbursementItems;
 
 /// <summary>
-/// DepotManager của chính depot đó mới được báo cáo vật tư đã mua.
+/// DepotManager của chính depot đó mới được báo cáo vật phẩm đã mua.
 /// Admin có thể thêm bất kỳ lúc nào.
 /// </summary>
 public class AddDisbursementItemsHandler : IRequestHandler<AddDisbursementItemsCommand, Unit>

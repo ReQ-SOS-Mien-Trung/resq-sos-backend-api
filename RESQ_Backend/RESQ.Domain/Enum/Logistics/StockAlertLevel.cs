@@ -1,7 +1,7 @@
-namespace RESQ.Domain.Enum.Logistics;
+﻿namespace RESQ.Domain.Enum.Logistics;
 
 /// <summary>
-/// Mức cảnh báo tồn kho vật tư.
+/// Mức cảnh báo tồn kho vật phẩm.
 /// </summary>
 public enum StockAlertLevel
 {

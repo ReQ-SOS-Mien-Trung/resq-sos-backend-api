@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Constants;
 using RESQ.Infrastructure.Entities.Identity;
 
@@ -15,9 +15,9 @@ public static class PermissionSeeder
         new(3, PermissionConstants.SystemUserView, "Xem Danh sách User & Role", "Chỉ được xem, không sửa"),
         new(4, PermissionConstants.InventoryGlobalManage, "Quản lý Kho Tổng", "Xuất/nhập/tồn, điều chuyển giữa các kho"),
         new(5, PermissionConstants.InventoryGlobalView, "Xem Tổng quan Tồn kho", "Xem inventory toàn bộ kho để ra quyết định"),
-        new(6, PermissionConstants.InventoryDepotManage, "Quản lý Kho Nhánh", "Xuất/nhập/kiểm kê kho được giao, duyệt yêu cầu vật tư"),
+        new(6, PermissionConstants.InventoryDepotManage, "Quản lý Kho Nhánh", "Xuất/nhập/kiểm kê kho được giao, duyệt yêu cầu vật phẩm"),
         new(7, PermissionConstants.InventoryDepotPointView, "Xem Tồn kho Điểm Tập kết", "Xem tồn kho tại điểm tập kết của mình"),
-        new(8, PermissionConstants.InventorySupplyRequestCreate, "Tạo Phiếu Yêu cầu Vật tư", "Tạo phiếu yêu cầu cấp phát vật tư cho đội"),
+        new(8, PermissionConstants.InventorySupplyRequestCreate, "Tạo Phiếu Yêu cầu vật phẩm", "Tạo phiếu yêu cầu cấp phát vật phẩm cho đội"),
         new(9, PermissionConstants.PersonnelDepotBranchManage, "Quản lý Thủ kho Nhánh", "Quản lý danh sách thủ kho nhánh"),
         new(10, PermissionConstants.PersonnelGlobalManage, "Quản lý Nhân sự Toàn cục", "Điều phối nhân sự, tạo Team, chỉ định Core/Volunteer"),
         new(11, PermissionConstants.PersonnelPointManage, "Quản lý Nhân sự Điểm", "Tạo Team và phân bổ lực lượng nội bộ điểm tập kết"),

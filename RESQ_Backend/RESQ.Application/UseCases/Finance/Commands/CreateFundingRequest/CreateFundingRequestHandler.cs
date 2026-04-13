@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -8,7 +8,7 @@ using RESQ.Domain.Entities.Finance;
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
 /// <summary>
-/// [Cách 2] Depot tạo FundingRequest kèm danh sách vật tư.
+/// [Cách 2] Depot tạo FundingRequest kèm danh sách vật phẩm.
 /// DepotId được tự động lấy từ manager đang đăng nhập.
 /// TotalAmount được tự tính từ sum(items[].TotalPrice).
 /// </summary>

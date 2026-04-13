@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 using System.Globalization;
@@ -6,9 +6,9 @@ using System.Globalization;
 namespace RESQ.Infrastructure.Services.Finance;
 
 /// <summary>
-/// Parse file Excel vật tư từ FundingRequest (dùng khi cần import hàng loạt).
+/// Parse file Excel vật phẩm từ FundingRequest (dùng khi cần import hàng loạt).
 /// Format Excel mong đợi:
-/// Row 1: Header (STT | Tên vật tư | Mã danh mục | Đơn vị | Số lượng | Đơn giá | Thành tiền | Loại | Nhóm đối tượng | Ghi chú)
+/// Row 1: Header (STT | Tên vật phẩm | Mã danh mục | Đơn vị | Số lượng | Đơn giá | Thành tiền | Loại | Nhóm đối tượng | Ghi chú)
 /// Row 2+: Data
 /// </summary>
 public class FundingRequestExcelParser : IFundingRequestExcelParser

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -232,8 +232,8 @@ public class MissionPendingActivityUpdateService(
                 continue;
 
             var errors = shortages.Select(shortage => shortage.NotFound
-                ? $"Kho {depot.Key}: Vật tư '{shortage.ItemName}' không có trong kho."
-                : $"Kho {depot.Key}: Vật tư '{shortage.ItemName}' không đủ số lượng bổ sung - cần thêm {shortage.RequestedQuantity}, khả dụng {shortage.AvailableQuantity}.");
+                ? $"Kho {depot.Key}: vật phẩm '{shortage.ItemName}' không có trong kho."
+                : $"Kho {depot.Key}: vật phẩm '{shortage.ItemName}' không đủ số lượng bổ sung - cần thêm {shortage.RequestedQuantity}, khả dụng {shortage.AvailableQuantity}.");
             throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", errors)}");
         }
     }

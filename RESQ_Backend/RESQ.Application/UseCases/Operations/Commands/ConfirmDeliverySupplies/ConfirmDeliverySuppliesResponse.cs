@@ -1,4 +1,4 @@
-namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
+﻿namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 
 public class ConfirmDeliverySuppliesResponse
 {
@@ -7,10 +7,10 @@ public class ConfirmDeliverySuppliesResponse
     public string Status { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 
-    /// <summary>ID của RETURN_SUPPLIES activity được tự động tạo nếu có vật tư giao thiếu, null nếu giao đủ hoặc nhiều hơn.</summary>
+    /// <summary>ID của RETURN_SUPPLIES activity được tự động tạo nếu có vật phẩm giao thiếu, null nếu giao đủ hoặc nhiều hơn.</summary>
     public int? SurplusReturnActivityId { get; set; }
 
-    /// <summary>Chi tiết số lượng kế hoạch và thực tế của từng loại vật tư.</summary>
+    /// <summary>Chi tiết số lượng kế hoạch và thực tế của từng loại vật phẩm.</summary>
     public List<DeliveryItemResultDto> DeliveredItems { get; set; } = [];
 }
 

@@ -1,11 +1,11 @@
-using RESQ.Domain.Entities.Finance;
+﻿using RESQ.Domain.Entities.Finance;
 
 namespace RESQ.Application.Services;
 
 public interface IFundingRequestExcelParser
 {
     /// <summary>
-    /// Parse file Excel vật tư từ FundingRequest.
+    /// Parse file Excel vật phẩm từ FundingRequest.
     /// Trả về danh sách items và tổng tiền.
     /// </summary>
     /// <param name="fileStream">Stream của file Excel (.xlsx).</param>

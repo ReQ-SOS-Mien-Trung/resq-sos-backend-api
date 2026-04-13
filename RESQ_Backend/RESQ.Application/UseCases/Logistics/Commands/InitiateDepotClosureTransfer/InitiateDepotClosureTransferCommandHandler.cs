@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -267,18 +267,18 @@ public class InitiateDepotClosureTransferCommandHandler(
             if (!inventoryLookup.TryGetValue(key, out var item))
             {
                 throw new ConflictException(
-                    $"Vật tư #{assignment.ItemModelId} ({assignment.ItemType}) không tồn tại trong tồn kho của kho nguồn.");
+                    $"vật phẩm #{assignment.ItemModelId} ({assignment.ItemType}) không tồn tại trong tồn kho của kho nguồn.");
             }
 
             if (assignment.TargetDepotId == sourceDepotId)
             {
-                throw new ConflictException($"Vật tư '{item.ItemName}' không được phân bổ về chính kho nguồn.");
+                throw new ConflictException($"vật phẩm '{item.ItemName}' không được phân bổ về chính kho nguồn.");
             }
 
             if (assignment.Quantity > item.TransferableQuantity)
             {
                 throw new ConflictException(
-                    $"Vật tư '{item.ItemName}' chỉ có thể chuyển {item.TransferableQuantity} đơn vị nhưng yêu cầu phân bổ {assignment.Quantity}.");
+                    $"vật phẩm '{item.ItemName}' chỉ có thể chuyển {item.TransferableQuantity} đơn vị nhưng yêu cầu phân bổ {assignment.Quantity}.");
             }
         }
 
@@ -292,7 +292,7 @@ public class InitiateDepotClosureTransferCommandHandler(
             if (assignedQuantity != item.TransferableQuantity)
             {
                 throw new ConflictException(
-                    $"Vật tư '{item.ItemName}' cần được phân bổ đủ {item.TransferableQuantity} đơn vị có thể chuyển. Hiện mới phân bổ {assignedQuantity}.");
+                    $"vật phẩm '{item.ItemName}' cần được phân bổ đủ {item.TransferableQuantity} đơn vị có thể chuyển. Hiện mới phân bổ {assignedQuantity}.");
             }
         }
     }

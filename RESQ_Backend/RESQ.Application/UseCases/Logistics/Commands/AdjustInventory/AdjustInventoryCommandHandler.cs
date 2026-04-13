@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -35,6 +35,6 @@ public class AdjustInventoryCommandHandler(
         var direction = request.QuantityChange > 0 ? "tăng" : "giảm";
         var absQty    = Math.Abs(request.QuantityChange);
         return new AdjustInventoryResponse(
-            $"Đã điều chỉnh {direction} {absQty} đơn vị vật tư #{request.ItemModelId} tại kho #{depotId}.");
+            $"Đã điều chỉnh {direction} {absQty} đơn vị vật phẩm #{request.ItemModelId} tại kho #{depotId}.");
     }
 }

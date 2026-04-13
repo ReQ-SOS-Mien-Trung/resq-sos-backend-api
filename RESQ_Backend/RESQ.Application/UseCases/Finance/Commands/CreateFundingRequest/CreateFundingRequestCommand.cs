@@ -1,9 +1,9 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
 /// <summary>
-/// [Cách 2] Depot gửi yêu cầu cấp thêm quỹ kèm danh sách vật tư.
+/// [Cách 2] Depot gửi yêu cầu cấp thêm quỹ kèm danh sách vật phẩm.
 /// DepotId được tự động lấy từ manager đang đăng nhập.
 /// TotalAmount được tính tự động = sum(items[].TotalPrice).
 /// </summary>

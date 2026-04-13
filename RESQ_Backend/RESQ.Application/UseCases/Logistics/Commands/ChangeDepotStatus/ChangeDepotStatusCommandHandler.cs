@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
@@ -72,7 +72,7 @@ public class ChangeDepotStatusCommandHandler(
             if (hasMissionCommitments)
             {
                 throw new ConflictException(
-                    "Kho đang có vật tư được đặt trước hoặc đang sử dụng trong nhiệm vụ cứu hộ đang diễn ra. " +
+                    "Kho đang có vật phẩm được đặt trước hoặc đang sử dụng trong nhiệm vụ cứu hộ đang diễn ra. " +
                     "Hãy hoàn thành hoặc huỷ nhiệm vụ trước khi chuyển trạng thái kho này.");
             }
         }

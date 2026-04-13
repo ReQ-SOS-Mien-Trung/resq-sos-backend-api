@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
@@ -25,12 +25,12 @@ public class CreateSupplyRequestCommandValidator : AbstractValidator<CreateSuppl
                 .WithMessage("Mức độ ưu tiên yêu cầu tiếp tế không hợp lệ.");
 
             group.RuleFor(g => g.Items)
-                .NotEmpty().WithMessage("Mỗi kho nguồn phải có ít nhất một vật tư yêu cầu.");
+                .NotEmpty().WithMessage("Mỗi kho nguồn phải có ít nhất một vật phẩm yêu cầu.");
 
             group.RuleForEach(g => g.Items).ChildRules(item =>
             {
                 item.RuleFor(i => i.ItemModelId)
-                    .GreaterThan(0).WithMessage("ID vật tư không hợp lệ.");
+                    .GreaterThan(0).WithMessage("ID vật phẩm không hợp lệ.");
 
                 item.RuleFor(i => i.Quantity)
                     .GreaterThan(0).WithMessage("Số lượng yêu cầu phải lớn hơn 0.");

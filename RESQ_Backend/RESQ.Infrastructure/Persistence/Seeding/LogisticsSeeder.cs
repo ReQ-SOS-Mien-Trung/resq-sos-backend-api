@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
@@ -34,7 +34,7 @@ public static class LogisticsSeeder
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        // Quantity = tổng vật tư theo danh mục của TẤT CẢ kho
+        // Quantity = tổng vật phẩm theo danh mục của TẤT CẢ kho
         // Consumable: baseQty × (1.0 + 0.8 + 0.6 + 0.9) = baseQty × 3.3
         // Reusable (phi xe): số item × 3 units/kho × 4 kho = × 12
         // Vehicle: tính từng xe theo depot factor

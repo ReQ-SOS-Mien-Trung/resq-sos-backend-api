@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
@@ -47,7 +47,7 @@ public class ReceiveClosureTransferCommandHandler(
 
         var transferItems = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
         if (transferItems.Count == 0)
-            throw new ConflictException("Transfer không có vật tư được cấu hình để nhận hàng.");
+            throw new ConflictException("Transfer không có vật phẩm được cấu hình để nhận hàng.");
 
         transfer.MarkReceived(request.UserId, request.Note);
         var completedAt = DateTime.UtcNow;

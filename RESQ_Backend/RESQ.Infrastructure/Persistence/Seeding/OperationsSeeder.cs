@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Operations;
@@ -57,7 +57,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 1, 7, 45, 0, DateTimeKind.Utc),
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 4: Relief Phong Điền - hoàn thành, có pickup vật tư tại kho Huế
+            // Mission 4: Relief Phong Điền - hoàn thành, có pickup vật phẩm tại kho Huế
             new Mission
             {
                 Id = 4,
@@ -87,7 +87,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 20, 8, 30, 0, DateTimeKind.Utc),
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 6: Relief Phong Điền - hoàn thành, có cả vật tư tiêu hao LẪN thiết bị tái sử dụng (áo phao)
+            // Mission 6: Relief Phong Điền - hoàn thành, có cả vật phẩm tiêu hao LẪN thiết bị tái sử dụng (áo phao)
             new Mission
             {
                 Id = 6,
@@ -121,7 +121,7 @@ public static class OperationsSeeder
             new { ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 160, Unit = "chai" },
             new { ItemId = 8, ItemName = "Lương khô", Quantity = 120, Unit = "thanh" }
         });
-        // Activity 8: RETURN_SUPPLIES - trả vật tư tiêu hao dư thừa về kho Huế sau Mission 5
+        // Activity 8: RETURN_SUPPLIES - trả vật phẩm tiêu hao dư thừa về kho Huế sau Mission 5
         // â–º Test endpoint: POST /operations/missions/5/activities/8/confirm-return
         // ► Đăng nhập: manager@resq.vn / Manager@123 (quản lý kho Huế - DepotId=1)
         // ► Chỉ consumable: mì tôm x60 + nước x80 + thuốc x120
@@ -131,7 +131,7 @@ public static class OperationsSeeder
             new { ItemId = 2, ItemName = "Nước tinh khiết",                 Quantity = 80,  Unit = "chai" },
             new { ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 120, Unit = "viên" }
         });
-        // Activity 9: RETURN_SUPPLIES hoàn thành - trả vật tư tiêu hao dư thừa về kho Huế sau Mission 4
+        // Activity 9: RETURN_SUPPLIES hoàn thành - trả vật phẩm tiêu hao dư thừa về kho Huế sau Mission 4
         var returnConsumableHistoryItems = JsonSerializer.Serialize(new[]
         {
             new { ItemId = 1, ItemName = "Mì tôm",                         Quantity = 50,  Unit = "gói"  },
@@ -243,7 +243,7 @@ public static class OperationsSeeder
                 MissionId = 4,
                 Step = 1,
                 ActivityType = "COLLECT_SUPPLIES",
-                Description = "Đội vận chuyển đến kho Huế để nhận vật tư cứu trợ trước khi đi phân phối.",
+                Description = "Đội vận chuyển đến kho Huế để nhận vật phẩm cứu trợ trước khi đi phân phối.",
                 Target = "{\"location\":\"Kho Huế\",\"purpose\":\"pickup_supplies\"}",
                 Items = pickupHistoryItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
@@ -289,7 +289,7 @@ public static class OperationsSeeder
                 MissionId = 5,
                 Step = 2,
                 ActivityType = "RETURN_SUPPLIES",
-                Description = "Hoàn tất nhiệm vụ, trả vật tư tiêu hao dư thừa về kho Huế. Trả: Mì tôm x60 + Nước x80 + Thuốc x120.",
+                Description = "Hoàn tất nhiệm vụ, trả vật phẩm tiêu hao dư thừa về kho Huế. Trả: Mì tôm x60 + Nước x80 + Thuốc x120.",
                 Target = "{\"location\":\"Kho Huế\",\"purpose\":\"return_supplies\"}",
                 Items = returnSuppliesItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
@@ -304,14 +304,14 @@ public static class OperationsSeeder
                 DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
             },
             // Activity 9: RETURN_SUPPLIES hoàn thành cho Mission 4 tại kho Huế (Succeed)
-            // → Lịch sử trả vật tư tiêu hao (consumable only) dư thừa sau phân phối Phong Điền
+            // → Lịch sử trả vật phẩm tiêu hao (consumable only) dư thừa sau phân phối Phong Điền
             new MissionActivity
             {
                 Id = 9,
                 MissionId = 4,
                 Step = 2,
                 ActivityType = "RETURN_SUPPLIES",
-                Description = "Trả lại vật tư tiêu hao dư thừa sau khi kết thúc phân phối tại Phong Điền. Trả: Mì tôm x50 + Thuốc hạ sốt x100.",
+                Description = "Trả lại vật phẩm tiêu hao dư thừa sau khi kết thúc phân phối tại Phong Điền. Trả: Mì tôm x50 + Thuốc hạ sốt x100.",
                 Target = "{\"location\":\"Kho Huế\",\"purpose\":\"return_supplies\"}",
                 Items = returnConsumableHistoryItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
@@ -335,7 +335,7 @@ public static class OperationsSeeder
                 MissionId = 6,
                 Step = 1,
                 ActivityType = "COLLECT_SUPPLIES",
-                Description = "Đội vận chuyển đến kho Huế nhận vật tư cứu trợ gồm: Mì tôm x100 + Chăn ấm x50 + Áo phao cứu sinh x3.",
+                Description = "Đội vận chuyển đến kho Huế nhận vật phẩm cứu trợ gồm: Mì tôm x100 + Chăn ấm x50 + Áo phao cứu sinh x3.",
                 Target = "{\"location\":\"Kho Huế\",\"purpose\":\"pickup_supplies\"}",
                 Items = mission6PickupItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
@@ -456,7 +456,7 @@ public static class OperationsSeeder
                 Status = "Reported",
                 AssignedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc),
                 CreatedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc),
-                Note = "Đội vận chuyển hoàn thành nhiệm vụ, đã trả đủ áo phao và vật tư dư thừa"
+                Note = "Đội vận chuyển hoàn thành nhiệm vụ, đã trả đủ áo phao và vật phẩm dư thừa"
             }
         );
     }
@@ -545,7 +545,7 @@ public static class OperationsSeeder
                 MissionTeamId = 5,
                 ReportStatus = "Submitted",
                 TeamSummary = "Đội vận chuyển hoàn thành nhiệm vụ Mission 6: nhận và trả đầy đủ mì tôm, chăn ấm và 3 áo phao cứu sinh.",
-                TeamNote = "Tất cả áo phao trả về đúng trạng thái, vật tư tiêu hao dư thừa được hoàn kho.",
+                TeamNote = "Tất cả áo phao trả về đúng trạng thái, vật phẩm tiêu hao dư thừa được hoàn kho.",
                 ResultJson = "{\"pickedUpItemTypes\":3,\"returnedReusableUnits\":3,\"pickupDepotId\":1}",
                 StartedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc),
                 LastEditedAt = new DateTime(2026, 3, 8, 13, 25, 0, DateTimeKind.Utc),
@@ -708,7 +708,7 @@ public static class OperationsSeeder
                 Id = 1,
                 ConversationId = 1,
                 SenderId = SeedConstants.RescuerUserId,
-                Content = "Đội đã tiếp cận được đầu làng. Đang sử dụng vật tư y tế để sơ cứu người bị thương.",
+                Content = "Đội đã tiếp cận được đầu làng. Đang sử dụng vật phẩm y tế để sơ cứu người bị thương.",
                 CreatedAt = now
             }
         );

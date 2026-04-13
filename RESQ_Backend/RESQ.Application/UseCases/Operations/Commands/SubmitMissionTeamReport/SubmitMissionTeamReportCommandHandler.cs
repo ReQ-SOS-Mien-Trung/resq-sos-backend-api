@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -198,7 +198,7 @@ public class SubmitMissionTeamReportCommandHandler(
                         MissionId = request.MissionId,
                         Step = insertionStep,
                         ActivityType = "RETURN_SUPPLIES",
-                        Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
+                        Description = $"Trả vật phẩm về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
                         Priority = failedActivity.Priority,
                         EstimatedTime = failedActivity.EstimatedTime,
                         SosRequestId = failedActivity.SosRequestId,

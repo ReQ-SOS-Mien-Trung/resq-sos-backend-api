@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Models;
+﻿using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.Finance;
 
 namespace RESQ.Application.Repositories.Finance;
@@ -23,6 +23,6 @@ public interface ICampaignDisbursementRepository
     /// <summary>Tạo mới disbursement, lưu ngay và trả về ID được sinh ra từ DB.</summary>
     Task<int> CreateAsync(CampaignDisbursementModel model, CancellationToken cancellationToken = default);
 
-    /// <summary>Thêm danh sách vật tư đã mua vào disbursement (cho donor xem).</summary>
+    /// <summary>Thêm danh sách vật phẩm đã mua vào disbursement (cho donor xem).</summary>
     Task AddItemsAsync(int disbursementId, List<DisbursementItemModel> items, CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -50,7 +50,7 @@ public class ShipSupplyRequestCommandHandler(
         // Notify requesting manager
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
-            "Vật tư đang được vận chuyển",
+            "vật phẩm đang được vận chuyển",
             $"Yêu cầu tiếp tế số {sr.Id}: hàng đã xuất kho và đang vận chuyển đến kho của bạn.",
             "supply_shipped",
             cancellationToken);

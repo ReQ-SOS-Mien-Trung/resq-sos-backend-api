@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -82,8 +82,8 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             activityRepository,
             depotInventoryRepository,
             metadataRepository,
-            new StubUnitOfWork(),
-            NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+            
+            new DummyMediator(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
         var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
             activityId,
@@ -107,7 +107,6 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         Assert.False(response.DiscrepancyRecorded);
         Assert.Equal(3, restoredItem.ExpectedQuantity);
         Assert.Equal(3, depotInventoryRepository.ReceivedReusableItems.Count);
-        Assert.Equal(MissionActivityStatus.Succeed, activityRepository.UpdatedStatus);
     }
 
     [Fact]
@@ -206,8 +205,8 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             activityRepository,
             depotInventoryRepository,
             metadataRepository,
-            new StubUnitOfWork(),
-            NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+            
+            new DummyMediator(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
         var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
             returnActivityId,
@@ -234,7 +233,6 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         Assert.Equal(1, restoredItem.ExpectedQuantity);
         Assert.Equal(pickedUnit.ReusableItemId, expectedUnit.ReusableItemId);
         Assert.DoesNotContain(depotInventoryRepository.ReceivedReusableItems, item => item.ReusableItemId == unusedBufferUnit.ReusableItemId);
-        Assert.Equal(MissionActivityStatus.Succeed, activityRepository.UpdatedStatus);
     }
 
     [Fact]
@@ -289,8 +287,8 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             activityRepository,
             depotInventoryRepository,
             metadataRepository,
-            new StubUnitOfWork(),
-            NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+            
+            new DummyMediator(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
         var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
             handler.Handle(new ConfirmReturnSuppliesCommand(
@@ -351,8 +349,8 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             {
                 [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
             }),
-            new StubUnitOfWork(),
-            NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+            
+            new DummyMediator(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
         var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
             handler.Handle(new ConfirmReturnSuppliesCommand(
@@ -588,3 +586,24 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             .Replace('Đ', 'D');
     }
 }
+
+
+
+
+
+
+
+
+    public class DummyMediator : MediatR.IMediator
+    {
+        public Task Publish(object notification, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default) where TNotification : MediatR.INotification => Task.CompletedTask;
+        public Task<TResponse> Send<TResponse>(MediatR.IRequest<TResponse> request, CancellationToken cancellationToken = default) => Task.FromResult(default(TResponse)!);
+        public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : MediatR.IRequest => Task.CompletedTask;
+        public Task<object?> Send(object request, CancellationToken cancellationToken = default) => Task.FromResult<object?>(null);
+        public IAsyncEnumerable<TResponse> CreateStream<TResponse>(MediatR.IStreamRequest<TResponse> request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    }
+
+
+

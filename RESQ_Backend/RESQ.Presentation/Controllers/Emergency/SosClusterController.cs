@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -99,7 +99,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Gợi ý top 3 kho thay thế để coordinator bổ sung thủ công khi kho chính không đủ vật tư.
+    /// Gợi ý top 3 kho thay thế để coordinator bổ sung thủ công khi kho chính không đủ vật phẩm.
     /// </summary>
     [HttpGet("{clusterId:int}/alternative-depots")]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]

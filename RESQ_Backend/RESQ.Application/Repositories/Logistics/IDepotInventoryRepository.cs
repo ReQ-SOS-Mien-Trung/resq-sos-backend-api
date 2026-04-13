@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Models;
+﻿using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
@@ -38,7 +38,7 @@ public interface IDepotInventoryRepository
     Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Tìm kiếm vật tư theo từ khoá danh mục/loại để agent AI dùng trong quá trình lập kế hoạch.
+    /// Tìm kiếm vật phẩm theo từ khoá danh mục/loại để agent AI dùng trong quá trình lập kế hoạch.
     /// Trả về cả Consumable lẫn Reusable; với Reusable, AvailableQuantity là số đơn vị Available.
     /// </summary>
     Task<(List<AgentInventoryItem> Items, int TotalCount)> SearchForAgentAsync(
@@ -55,7 +55,7 @@ public interface IDepotInventoryRepository
     Task<(double Latitude, double Longitude)?> GetDepotLocationAsync(int depotId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Tìm kiếm các kho cứu trợ có chứa vật tư theo danh sách mã vật tư.
+    /// Tìm kiếm các kho cứu trợ có chứa vật phẩm theo danh sách mã vật phẩm.
     /// Chỉ trả về kho có số lượng khả dụng >= quantity.
     /// Trả về danh sách phẳng (item, depot) để handler nhóm lại.
     /// </summary>
@@ -69,8 +69,8 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Kiểm tra tồn kho tại một kho cụ thể cho danh sách vật tư.
-    /// Trả về danh sách vật tư không đủ số lượng hoặc không có trong kho.
+    /// Kiểm tra tồn kho tại một kho cụ thể cho danh sách vật phẩm.
+    /// Trả về danh sách vật phẩm không đủ số lượng hoặc không có trong kho.
     /// Số lượng khả dụng = Quantity - ReservedQuantity.
     /// </summary>
     Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(
@@ -79,7 +79,7 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Đặt trước vật tư cho mission: tăng ReservedQuantity và trả về snapshot
+    /// Đặt trước vật phẩm cho mission: tăng ReservedQuantity và trả về snapshot
     /// các lô FEFO hoặc reusable units activity cần lấy.
     /// </summary>
     Task<MissionSupplyReservationResult> ReserveSuppliesAsync(
@@ -100,7 +100,7 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Depot manager xác nhận nhận lại vật tư từ mission và nhập kho theo dữ liệu thực tế.
+    /// Depot manager xác nhận nhận lại vật phẩm từ mission và nhập kho theo dữ liệu thực tế.
     /// Consumable được nhập lại theo quantity; Reusable được nhận lại theo từng unit id,
     /// hoặc quantity fallback cho legacy mission chưa có unit snapshot.
     /// Condition và Note của từng reusable unit sẽ được cập nhật nếu được cung cấp.
@@ -117,14 +117,14 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lấy dữ liệu thô vật tư tiêu hao để application/domain tự resolve threshold và phân loại mức tồn.
+    /// Lấy dữ liệu thô vật phẩm tiêu hao để application/domain tự resolve threshold và phân loại mức tồn.
     /// </summary>
     Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(
         int? depotId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Giải phóng vật tư đã đặt trước (ví dụ khi huỷ activity hoặc thay đổi items): giảm ReservedQuantity.
+    /// Giải phóng vật phẩm đã đặt trước (ví dụ khi huỷ activity hoặc thay đổi items): giảm ReservedQuantity.
     /// </summary>
     Task ReleaseReservedSuppliesAsync(
         int depotId,
