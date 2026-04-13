@@ -22,7 +22,7 @@ public class DashboardHub(IMediator mediator) : Hub
 
     public override async Task OnConnectedAsync()
     {
-        // Push dữ liệu ban đầu (6 tháng gần nhất, nhóm theo tháng) cho client vừa kết nối
+        await Groups.AddToGroupAsync(Context.ConnectionId, GroupName);
 
         // Push dữ liệu ban đầu (6 tháng gần nhất, nhóm theo tháng) cho client vừa kết nối
         var data = await _mediator.Send(new GetVictimsByPeriodQuery(null, null, null));

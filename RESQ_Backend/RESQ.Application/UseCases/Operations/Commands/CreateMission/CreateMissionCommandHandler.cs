@@ -60,6 +60,28 @@ public class CreateMissionCommandHandler(
         if (cluster is null)
             throw new NotFoundException($"Không tìm thấy cluster với ID: {request.ClusterId}");
 
+        // Validate assembly points
+        var requestedApIds = request.Activities
+            .Where(a => a.AssemblyPointId.HasValue)
+            .Select(a => a.AssemblyPointId!.Value)
+            .Distinct()
+            .ToList();
+        
+        if (requestedApIds.Count > 0)
+        {
+            var invalidAps = _unitOfWork.Set<RESQ.Domain.Entities.Personnel.AssemblyPointModel>()
+                .Where(ap => requestedApIds.Contains(ap.Id) && 
+                            (ap.Status == RESQ.Domain.Enum.Personnel.AssemblyPointStatus.Unavailable || 
+                             ap.Status == RESQ.Domain.Enum.Personnel.AssemblyPointStatus.Closed))
+                .Select(ap => ap.Id)
+                .ToList();
+
+            if (invalidAps.Count > 0)
+            {
+                throw new ValidationException($"Không thể điều phối đến các điểm tập kết sau do đang đóng hoặc không khả dụng: {string.Join(", ", invalidAps)}");
+            }
+        }
+
         // Validate depot inventory for each activity that specifies supplies
         await ValidateSuppliesAsync(request.Activities, cancellationToken);
         await ValidateReusableReturnActivitiesAsync(request.Activities, cancellationToken);

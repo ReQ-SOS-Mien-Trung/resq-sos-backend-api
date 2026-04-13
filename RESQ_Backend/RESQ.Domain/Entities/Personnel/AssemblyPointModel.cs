@@ -1,4 +1,4 @@
-using RESQ.Domain.Entities.Personnel.ValueObjects;
+﻿    using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Entities.Personnel.Exceptions;
 using RESQ.Domain.Enum.Personnel;
 
@@ -72,11 +72,10 @@ public class AssemblyPointModel
     /// <summary>
     /// Chuyển trạng thái theo state-flow được phép:
     /// <list type="bullet">
-    ///   <item>Created → Active</item>
-    ///   <item>Active → Overloaded | Unavailable | Closed</item>
-    ///   <item>Overloaded → Active | Unavailable (không thể Closed trực tiếp)</item>
-    ///   <item>Unavailable → Active (Complete maintenance)</item>
-    ///   <item>Closed → (không có chuyển đổi nào - viĩnh viễn)</item>
+    ///   <item>Created -> Active</item>
+    ///   <item>Active -> Unavailable | Closed</item>
+    ///   <item>Unavailable -> Active (Complete maintenance)</item>
+    ///   <item>Closed -> (không có chuyển đổi nào - vĩnh viễn)</item>
     /// </list>
     /// </summary>
     public void ChangeStatus(AssemblyPointStatus newStatus)
@@ -90,8 +89,7 @@ public class AssemblyPointModel
         var allowed = Status switch
         {
             AssemblyPointStatus.Created          => new[] { AssemblyPointStatus.Active },
-            AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Overloaded, AssemblyPointStatus.Unavailable, AssemblyPointStatus.Closed },
-            AssemblyPointStatus.Overloaded       => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.Unavailable },
+            AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Unavailable, AssemblyPointStatus.Closed },
             // Theo state diagram: Unavailable chỉ có thể chuyển về Active (Complete maintenance)
             AssemblyPointStatus.Unavailable => new[] { AssemblyPointStatus.Active },
             _                                    => Array.Empty<AssemblyPointStatus>()
@@ -106,41 +104,17 @@ public class AssemblyPointModel
     }
 
     /// <summary>
-    /// Kiểm tra sức chứa trước khi thêm <paramref name="additionalPersons"/> người vào điểm tập kết.
-    /// Throws nếu điểm tập kết không trong trạng thái Active/Overloaded hoặc vượt sức chứa.
-    /// Tự động chuyển sang <see cref="AssemblyPointStatus.Overloaded"/> khi đạt giới hạn.
+    /// Kiểm tra xem điểm tập kết có đang mở cửa để nhận thêm người không.
+    /// Giờ đây không văng Exception nếu quá MaxCapacity (chỉ tính toán tỷ lệ ở DTO/UI).
     /// </summary>
     public void ValidatePersonCapacity(int currentPersonCount, int additionalPersons)
     {
         if (Status == AssemblyPointStatus.Closed)
             throw new AssemblyPointClosedException();
 
-        if (Status is not (AssemblyPointStatus.Active or AssemblyPointStatus.Overloaded))
+        if (Status != AssemblyPointStatus.Active)
             throw new AssemblyPointUnavailableException();
-
-        if (currentPersonCount + additionalPersons > MaxCapacity)
-            throw new AssemblyPointCapacityExceededException(MaxCapacity, currentPersonCount, additionalPersons);
-
-        // Tự động chuyển sang Overloaded khi đạt giới hạn
-        if (currentPersonCount + additionalPersons == MaxCapacity && Status == AssemblyPointStatus.Active)
-        {
-            Status = AssemblyPointStatus.Overloaded;
-            UpdatedAt = DateTime.UtcNow;
-        }
-    }
-
-    /// <summary>
-    /// Giải phóng sức chứa sau khi có người rời đi.
-    /// Tự động chuyển <see cref="AssemblyPointStatus.Overloaded"/> → <see cref="AssemblyPointStatus.Active"/>
-    /// khi còn chỗ trống.
-    /// </summary>
-    public void NotifyPersonRemoved(int remainingPersonCount)
-    {
-        if (Status == AssemblyPointStatus.Overloaded && remainingPersonCount < MaxCapacity)
-        {
-            Status = AssemblyPointStatus.Active;
-            UpdatedAt = DateTime.UtcNow;
-        }
+            
+        // Removed hard block logic: no longer throw AssemblyPointCapacityExceededException
     }
 }
-

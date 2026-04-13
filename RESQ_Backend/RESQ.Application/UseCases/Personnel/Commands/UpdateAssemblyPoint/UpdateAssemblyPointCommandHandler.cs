@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Entities.Personnel.Exceptions;
 
@@ -11,11 +12,13 @@ namespace RESQ.Application.UseCases.Personnel.Commands.UpdateAssemblyPoint;
 public class UpdateAssemblyPointCommandHandler(
     IAssemblyPointRepository repository,
     IUnitOfWork unitOfWork,
+    IDashboardHubService dashboardHubService,
     ILogger<UpdateAssemblyPointCommandHandler> logger)
     : IRequestHandler<UpdateAssemblyPointCommand>
 {
     private readonly IAssemblyPointRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
     private readonly ILogger<UpdateAssemblyPointCommandHandler> _logger = logger;
 
     public async Task Handle(UpdateAssemblyPointCommand request, CancellationToken cancellationToken)
@@ -51,6 +54,11 @@ public class UpdateAssemblyPointCommandHandler(
 
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
         await _unitOfWork.SaveAsync();
+
+        await _dashboardHubService.PushAssemblyPointSnapshotAsync(
+            assemblyPoint.Id,
+            "Update",
+            cancellationToken);
 
         _logger.LogInformation("Updated AssemblyPoint successfully: Id={Id}", request.Id);
     }

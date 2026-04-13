@@ -341,6 +341,9 @@ public class UpdateMissionCommandHandlerTests
         public Task<IEnumerable<MissionActivityModel>> GetBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
             => Task.FromResult(Enumerable.Empty<MissionActivityModel>());
 
+        public Task<IReadOnlyList<MissionActivityModel>> GetOpenByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<MissionActivityModel>>([]);
+
         public Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default) => Task.FromResult(0);
 
         public Task UpdateAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)

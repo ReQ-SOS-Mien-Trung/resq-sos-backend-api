@@ -231,6 +231,9 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
         public Task<IEnumerable<MissionActivityModel>> GetBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<IReadOnlyList<MissionActivityModel>> GetOpenByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<MissionActivityModel>>(Activities.Where(activity => activity.AssemblyPointId == assemblyPointId).ToList());
+
         public Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
         {
             activity.Id = _nextActivityId++;

@@ -27,6 +27,12 @@ public class AssemblyParticipant
     [Column("check_in_time", TypeName = "timestamp with time zone")]
     public DateTime? CheckInTime { get; set; }
 
+    [Column("is_checked_out")]
+    public bool IsCheckedOut { get; set; }
+
+    [Column("check_out_time", TypeName = "timestamp with time zone")]
+    public DateTime? CheckOutTime { get; set; }
+
     [ForeignKey("AssemblyEventId")]
     [InverseProperty("Participants")]
     public virtual AssemblyEvent? AssemblyEvent { get; set; }

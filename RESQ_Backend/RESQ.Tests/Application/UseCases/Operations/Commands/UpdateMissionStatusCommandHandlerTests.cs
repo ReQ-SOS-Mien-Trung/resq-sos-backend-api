@@ -139,6 +139,7 @@ public class UpdateMissionStatusCommandHandlerTests
         public Task<MissionActivityModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult<MissionActivityModel?>(null);
         public Task<IEnumerable<MissionActivityModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<MissionActivityModel>());
         public Task<IEnumerable<MissionActivityModel>> GetBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<MissionActivityModel>());
+        public Task<IReadOnlyList<MissionActivityModel>> GetOpenByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MissionActivityModel>>([]);
         public Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task UpdateAsync(MissionActivityModel activity, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default) => Task.CompletedTask;

@@ -13,6 +13,7 @@ using RESQ.Application.UseCases.Personnel.Commands.AssignRescuerToAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.ScheduleGathering;
 using RESQ.Application.UseCases.Personnel.Commands.StartGathering;
 using RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
+using RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Queries.AssemblyPointStatusMetadata;
 using RESQ.Application.UseCases.Personnel.Queries.GetAllAssemblyPoints;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
@@ -212,16 +213,16 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(new { EventId = eventId });
         }
 
-        // [DEPRECATED] Không cần dùng nữa - event được tạo trực tiếp ở trạng thái Gathering khi schedule-gathering.
-        // /// <summary>Mở check-in cho sự kiện tập trung (Scheduled → Gathering).</summary>
-        // [HttpPost("events/{eventId}/start-gathering")]
-        // [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
-        // public async Task<IActionResult> StartGathering(int eventId)
-        // {
-        //     var command = new StartGatheringCommand(eventId);
-        //     await _mediator.Send(command);
-        //     return NoContent();
-        // }
+                // [UN-DEPRECATED] M? l?i endpoint d? test StartGathering
+        /// <summary>M? check-in cho s? ki?n t?p trung (Scheduled -> Gathering).</summary>
+        [HttpPost("events/{eventId}/start-gathering")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> StartGathering(int eventId)
+        {
+            var command = new StartGatheringCommand(eventId);
+            await _mediator.Send(command);
+            return NoContent();
+        }
 
         /// <summary>Rescuer check-in tại sự kiện tập trung (kèm GPS validation trong bán kính 200m).</summary>
         [HttpPost("events/{eventId}/check-in")]
@@ -233,6 +234,20 @@ namespace RESQ.Presentation.Controllers.Personnel
                 return Unauthorized();
 
             var command = new CheckInAtAssemblyPointCommand(eventId, userId, dto.Latitude, dto.Longitude);
+            await _mediator.Send(command);
+            return NoContent();
+        }
+
+        /// <summary>Rescuer check-out khỏi sự kiện tập trung.</summary>
+        [HttpPost("events/{eventId}/check-out")]
+        [Authorize(Policy = PermissionConstants.PersonnelAssemblyEventCheckIn)]
+        public async Task<IActionResult> CheckOut(int eventId, [FromBody] CheckInRequestDto dto)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var command = new CheckOutAtAssemblyPointCommand(eventId, userId, dto.Latitude, dto.Longitude);
             await _mediator.Send(command);
             return NoContent();
         }
@@ -272,4 +287,5 @@ namespace RESQ.Presentation.Controllers.Personnel
         }
     }
 }
+
 

@@ -82,7 +82,22 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         CancellationToken cancellationToken = default)
     {
         return await _unitOfWork.Set<AssemblyParticipant>()
-            .AnyAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId && p.IsCheckedIn, cancellationToken);
+            .AnyAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId && p.IsCheckedIn && !p.IsCheckedOut, cancellationToken);
+    }
+
+    public async Task<bool> CheckOutAsync(int eventId, Guid rescuerId,
+        CancellationToken cancellationToken = default)
+    {
+        var participant = await _unitOfWork.SetTracked<AssemblyParticipant>()
+            .FirstOrDefaultAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId, cancellationToken);
+
+        if (participant == null) return false;
+        if (!participant.IsCheckedIn) return false;
+        if (participant.IsCheckedOut) return true;
+
+        participant.IsCheckedOut = true;
+        participant.CheckOutTime = DateTime.UtcNow;
+        return true;
     }
 
     public async Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(
@@ -118,7 +133,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         }
 
         var joinedQuery = _unitOfWork.Set<AssemblyParticipant>()
-            .Where(p => p.AssemblyEventId == eventId && p.IsCheckedIn)
+            .Where(p => p.AssemblyEventId == eventId && p.IsCheckedIn && !p.IsCheckedOut)
             .Join(
                 _unitOfWork.Set<User>().Include(u => u.RescuerProfile),
                 p => p.RescuerId,
@@ -260,6 +275,14 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             evt.Status = status;
             evt.UpdatedAt = DateTime.UtcNow;
         }
+    }
+
+    public async Task<List<Guid>> GetParticipantIdsAsync(int eventId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<AssemblyParticipant>()
+            .Where(p => p.AssemblyEventId == eventId)
+            .Select(p => p.RescuerId)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default)

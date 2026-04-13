@@ -46,6 +46,26 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
             .Select(MissionActivityMapper.ToDomain);
     }
 
+    public async Task<IReadOnlyList<MissionActivityModel>> GetOpenByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+    {
+        var openStatuses = new[]
+        {
+            MissionActivityStatus.Planned.ToString(),
+            MissionActivityStatus.OnGoing.ToString(),
+            MissionActivityStatus.PendingConfirmation.ToString()
+        };
+
+        var entities = await _unitOfWork.Set<MissionActivity>()
+            .AsNoTracking()
+            .Where(x => x.AssemblyPointId == assemblyPointId && openStatuses.Contains(x.Status))
+            .Include(x => x.AssemblyPoint)
+            .OrderBy(x => x.Step)
+            .ThenBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(MissionActivityMapper.ToDomain).ToList();
+    }
+
     public async Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
     {
         var entity = MissionActivityMapper.ToEntity(activity);

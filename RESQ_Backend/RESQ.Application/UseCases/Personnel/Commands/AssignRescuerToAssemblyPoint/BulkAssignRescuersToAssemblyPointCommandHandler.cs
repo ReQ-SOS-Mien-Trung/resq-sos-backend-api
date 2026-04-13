@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -24,10 +24,21 @@ public class BulkAssignRescuersToAssemblyPointCommandHandler(
 
         // 1. Validate assembly point tồn tại (nếu gán mới)
         string? apName = null;
+
+        if (!request.AssemblyPointId.HasValue)
+        {
+            logger.LogInformation("Gỡ số lượng lớn {Count} rescuer khỏi điểm tập kết hiện tại (chiều OUT). Thao tác này luôn mở kể cả khi AssemblyPoint Unavailable.", request.UserIds.Count);
+        }
         if (request.AssemblyPointId.HasValue)
         {
             var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId.Value, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId.Value}");
+
+            if (ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Unavailable || ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Closed)
+            {
+                throw new BadRequestException($"Điểm tập kết {ap.Name} đang trạng thái ({ap.Status}), không thể nhận lượng lớn người lúc này.");
+            }
+
             apName = ap.Name;
         }
 
