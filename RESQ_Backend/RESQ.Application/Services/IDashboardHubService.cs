@@ -7,4 +7,10 @@ public interface IDashboardHubService
     /// tới tất cả admin đang kết nối dashboard hub.
     /// </summary>
     Task PushVictimsByPeriodAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Đẩy snapshot realtime của một điểm tập kết tới dashboard admin.
+    /// Dùng để cập nhật trạng thái, số mission activity đang hướng về AP và cảnh báo reroute.
+    /// </summary>
+    Task PushAssemblyPointSnapshotAsync(int assemblyPointId, string operation, CancellationToken cancellationToken = default);
 }

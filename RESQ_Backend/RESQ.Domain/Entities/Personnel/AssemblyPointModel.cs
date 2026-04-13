@@ -17,15 +17,15 @@ public class AssemblyPointModel
     public string? ImageUrl { get; set; }
 
     /// <summary>
-    /// True khi Ä‘iá»ƒm táº­p káº¿t Ä‘ang cÃ³ sá»± kiá»‡n triá»‡u táº­p (Scheduled hoáº·c Gathering).
-    /// GiÃ¡ trá»‹ nÃ y Ä‘Æ°á»£c tÃ­nh toÃ¡n khi query, khÃ´ng lÆ°u vÃ o DB.
+    /// True khi điểm tập kết đang có sự kiện triệu tập (Scheduled hoặc Gathering).
+    /// Giá trị này được tính toán khi query, không lưu vào DB.
     /// </summary>
     public bool HasActiveEvent { get; set; }
 
     public AssemblyPointModel() { }
 
     /// <summary>
-    /// Táº¡o Ä‘iá»ƒm táº­p káº¿t má»›i â€” tráº¡ng thÃ¡i khá»Ÿi Ä‘áº§u lÃ  <see cref="AssemblyPointStatus.Created"/>.
+    /// Tạo điểm tập kết mới - trạng thái khởi đầu là <see cref="AssemblyPointStatus.Created"/>.
     /// </summary>
     public static AssemblyPointModel Create(
         string code,
@@ -51,8 +51,8 @@ public class AssemblyPointModel
     }
 
     /// <summary>
-    /// Cáº­p nháº­t thÃ´ng tin Ä‘iá»ƒm táº­p káº¿t.
-    /// KhÃ´ng Ä‘Æ°á»£c cáº­p nháº­t khi Ä‘ang <see cref="AssemblyPointStatus.Closed"/>.
+    /// Cập nhật thông tin điểm tập kết.
+    /// Không được cập nhật khi đang <see cref="AssemblyPointStatus.Closed"/>.
     /// </summary>
     public void UpdateDetails(string name, int maxCapacity, GeoLocation location, string? imageUrl = null)
     {
@@ -70,20 +70,19 @@ public class AssemblyPointModel
     }
 
     /// <summary>
-    /// Chuyá»ƒn tráº¡ng thÃ¡i theo state-flow Ä‘Æ°á»£c phÃ©p:
+    /// Chuyển trạng thái theo state-flow được phép:
     /// <list type="bullet">
-    ///   <item>Created â†’ Active</item>
-    ///   <item>Active â†’ Overloaded | Unavailable | Closed</item>
-    ///   <item>Overloaded â†’ Active | Unavailable (khÃ´ng thá»ƒ Closed trá»±c tiáº¿p)</item>
-    ///   <item>Unavailable â†’ Active (Complete maintenance)</item>
-    ///   <item>Closed â†’ (khÃ´ng cÃ³ chuyá»ƒn Ä‘á»•i nÃ o â€” viÄ©nh viá»…n)</item>
+    ///   <item>Created -> Active</item>
+    ///   <item>Active -> Unavailable | Closed</item>
+    ///   <item>Unavailable -> Active (Complete maintenance)</item>
+    ///   <item>Closed -> (không có chuyển đổi nào - vĩnh viễn)</item>
     /// </list>
     /// </summary>
     public void ChangeStatus(AssemblyPointStatus newStatus)
     {
         if (Status == newStatus) return;
 
-        // Closed lÃ  tráº¡ng thÃ¡i cuá»‘i â€” khÃ´ng thá»ƒ thoÃ¡t ra
+        // Closed là trạng thái cuối - không thể thoát ra
         if (Status == AssemblyPointStatus.Closed)
             throw new AssemblyPointClosedException();
 
@@ -91,25 +90,20 @@ public class AssemblyPointModel
         {
             AssemblyPointStatus.Created          => new[] { AssemblyPointStatus.Active },
             AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Unavailable, AssemblyPointStatus.Closed },
-                        // Theo state diagram: Unavailable chá»‰ cÃ³ thá»ƒ chuyá»ƒn vá» Active (Complete maintenance)
+            // Theo state diagram: Unavailable chỉ có thể chuyển về Active (Complete maintenance)
             AssemblyPointStatus.Unavailable => new[] { AssemblyPointStatus.Active },
             _                                    => Array.Empty<AssemblyPointStatus>()
         };
 
         if (!allowed.Contains(newStatus))
             throw new InvalidAssemblyPointStatusTransitionException(Status, newStatus,
-                $"Tráº¡ng thÃ¡i cho phÃ©p tá»« {Status}: [{string.Join(", ", allowed)}].");
+                $"Trạng thái cho phép từ {Status}: [{string.Join(", ", allowed)}].");
 
         Status = newStatus;
         UpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>
-    /// Kiá»ƒm tra sá»©c chá»©a trÆ°á»›c khi thÃªm <paramref name="additionalPersons"/> ngÆ°á»i vÃ o Ä‘iá»ƒm táº­p káº¿t.
-    /// Throws náº¿u Ä‘iá»ƒm táº­p káº¿t khÃ´ng trong tráº¡ng thÃ¡i Active/Overloaded hoáº·c vÆ°á»£t sá»©c chá»©a.
-    /// Tá»± Ä‘á»™ng chuyá»ƒn sang <see cref="AssemblyPointStatus.Overloaded"/> khi Ä‘áº¡t giá»›i háº¡n.
-    /// </summary>
-        /// <summary>
     /// Kiểm tra xem điểm tập kết có đang mở cửa để nhận thêm người không.
     /// Giờ đây không văng Exception nếu quá MaxCapacity (chỉ tính toán tỷ lệ ở DTO/UI).
     /// </summary>

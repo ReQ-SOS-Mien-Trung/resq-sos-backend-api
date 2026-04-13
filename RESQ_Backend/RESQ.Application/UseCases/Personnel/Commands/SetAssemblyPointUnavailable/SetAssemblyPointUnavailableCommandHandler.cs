@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointUnavailable;
@@ -10,11 +11,13 @@ namespace RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointUnavailab
 public class SetAssemblyPointUnavailableCommandHandler(
     IAssemblyPointRepository repository,
     IUnitOfWork unitOfWork,
+    IDashboardHubService dashboardHubService,
     ILogger<SetAssemblyPointUnavailableCommandHandler> logger)
     : IRequestHandler<SetAssemblyPointUnavailableCommand, SetAssemblyPointUnavailableResponse>
 {
     private readonly IAssemblyPointRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
     private readonly ILogger<SetAssemblyPointUnavailableCommandHandler> _logger = logger;
 
     public async Task<SetAssemblyPointUnavailableResponse> Handle(SetAssemblyPointUnavailableCommand request, CancellationToken cancellationToken)
@@ -29,6 +32,11 @@ public class SetAssemblyPointUnavailableCommandHandler(
 
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
         await _unitOfWork.SaveAsync();
+
+        await _dashboardHubService.PushAssemblyPointSnapshotAsync(
+            assemblyPoint.Id,
+            "StartMaintenance",
+            cancellationToken);
 
         _logger.LogInformation("AssemblyPoint set to Unavailable: Id={Id}", request.Id);
 

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Personnel.Commands.CloseAssemblyPoint;
@@ -11,12 +12,14 @@ public class CloseAssemblyPointCommandHandler(
     IAssemblyPointRepository assemblyPointRepository,
     IRescueTeamRepository rescueTeamRepository,
     IUnitOfWork unitOfWork,
+    IDashboardHubService dashboardHubService,
     ILogger<CloseAssemblyPointCommandHandler> logger)
     : IRequestHandler<CloseAssemblyPointCommand, CloseAssemblyPointResponse>
 {
     private readonly IAssemblyPointRepository _assemblyPointRepository = assemblyPointRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
     private readonly ILogger<CloseAssemblyPointCommandHandler> _logger = logger;
 
     public async Task<CloseAssemblyPointResponse> Handle(CloseAssemblyPointCommand request, CancellationToken cancellationToken)
@@ -52,6 +55,11 @@ public class CloseAssemblyPointCommandHandler(
 
         await _assemblyPointRepository.UpdateAsync(assemblyPoint, cancellationToken);
         await _unitOfWork.SaveAsync();
+
+        await _dashboardHubService.PushAssemblyPointSnapshotAsync(
+            assemblyPoint.Id,
+            "Close",
+            cancellationToken);
 
         _logger.LogInformation("AssemblyPoint closed permanently: Id={Id}", request.Id);
 
