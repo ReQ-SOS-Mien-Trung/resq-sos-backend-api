@@ -1,11 +1,11 @@
-using RESQ.Domain.Entities.Finance.Exceptions;
+﻿using RESQ.Domain.Entities.Finance.Exceptions;
 using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Domain.Entities.Finance;
 
 /// <summary>
 /// Yêu cầu cấp thêm quỹ từ Depot → Admin (Cách 2).
-/// Depot đính kèm file Excel vật tư + giá tiền.
+/// Depot đính kèm file Excel vật phẩm + giá tiền.
 /// Admin duyệt → chọn campaign → hệ thống giải ngân.
 /// </summary>
 public class FundingRequestModel
@@ -16,7 +16,7 @@ public class FundingRequestModel
     public decimal TotalAmount { get; private set; }
     public string? Description { get; private set; }
     
-    /// <summary>URL file Excel đính kèm (vật tư + giá tiền).</summary>
+    /// <summary>URL file Excel đính kèm (vật phẩm + giá tiền).</summary>
     public string? AttachmentUrl { get; private set; }
     
     public FundingRequestStatus Status { get; private set; }

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
@@ -25,7 +25,7 @@ public class GetLowStockItemsHandler(
             var result = await _evaluatorService.EvaluateAsync(
                 raw.DepotId, raw.CategoryId, raw.ItemModelId, raw.AvailableQuantity, cancellationToken);
 
-            // Bỏ qua vật tư đang OK
+            // Bỏ qua vật phẩm đang OK
             if (result.Level == StockWarningLevel.Ok)
                 continue;
 

@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
@@ -7,12 +7,12 @@ public class CreateFundingRequestValidator : AbstractValidator<CreateFundingRequ
     public CreateFundingRequestValidator()
     {
         RuleFor(x => x.Items)
-            .NotEmpty().WithMessage("Danh sách vật tư không được để trống.");
+            .NotEmpty().WithMessage("Danh sách vật phẩm không được để trống.");
 
         RuleForEach(x => x.Items).ChildRules(item =>
         {
             item.RuleFor(i => i.ItemName)
-                .NotEmpty().WithMessage("Tên vật tư không được để trống.");
+                .NotEmpty().WithMessage("Tên vật phẩm không được để trống.");
             item.RuleFor(i => i.CategoryCode)
                 .NotEmpty().WithMessage("Mã danh mục không được để trống.");
             item.RuleFor(i => i.ItemType)

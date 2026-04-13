@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Models;
+﻿using RESQ.Application.Common.Models;
 
 namespace RESQ.Application.Services;
 
@@ -55,11 +55,11 @@ public class DepotSummary
     public decimal WeightCapacity { get; set; }
     public decimal CurrentWeightUtilization { get; set; }
     public string Status { get; set; } = string.Empty;
-    /// <summary>Danh sách vật tư còn khả dụng (quantity - reserved > 0) trong kho này.</summary>
+    /// <summary>Danh sách vật phẩm còn khả dụng (quantity - reserved > 0) trong kho này.</summary>
     public List<DepotInventoryItemDto> Inventories { get; set; } = [];
 }
 
-/// <summary>Một dòng vật tư khả dụng trong kho tiếp tế.</summary>
+/// <summary>Một dòng vật phẩm khả dụng trong kho tiếp tế.</summary>
 public class DepotInventoryItemDto
 {
     /// <summary>ID của relief item trong DB (dùng để AI trả về item_id trong supplies_to_collect).</summary>
@@ -104,7 +104,7 @@ public class RescueMissionSuggestionResult
     public string? SpecialNotes { get; set; }
     /// <summary>true khi coordinator cần bổ sung thêm kho/nguồn cấp phát vì kho được chọn chưa đủ đồ.</summary>
     public bool NeedsAdditionalDepot { get; set; }
-    /// <summary>Danh sách vật tư còn thiếu sau khi đối chiếu với kho phù hợp nhất mà AI đã chọn cho mission.</summary>
+    /// <summary>Danh sách vật phẩm còn thiếu sau khi đối chiếu với kho phù hợp nhất mà AI đã chọn cho mission.</summary>
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public double ConfidenceScore { get; set; }
     public string? RawAiResponse { get; set; }
@@ -124,7 +124,7 @@ public class SupplyShortageDto
 {
     /// <summary>ID SOS chịu ảnh hưởng trực tiếp bởi thiếu hụt này.</summary>
     public int? SosRequestId { get; set; }
-    /// <summary>ID vật tư nếu backend/AI xác định được từ inventory.</summary>
+    /// <summary>ID vật phẩm nếu backend/AI xác định được từ inventory.</summary>
     public int? ItemId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public string? Unit { get; set; }
@@ -205,7 +205,7 @@ public class SuggestedActivityDto
     public double? DestinationLatitude { get; set; }
     /// <summary>Kinh độ điểm đến của activity. Frontend dùng để hiển thị bản đồ.</summary>
     public double? DestinationLongitude { get; set; }
-    /// <summary>Danh sách vật tư cần lấy/giao</summary>
+    /// <summary>Danh sách vật phẩm cần lấy/giao</summary>
     public List<SupplyToCollectDto>? SuppliesToCollect { get; set; }
     /// <summary>Đội cứu hộ được AI giao thực hiện activity này.</summary>
     public SuggestedTeamDto? SuggestedTeam { get; set; }
@@ -238,7 +238,7 @@ public class SuggestedTeamDto
     public double? DistanceKm { get; set; }
 }
 
-/// <summary>Thông tin vật tư trong kho trả về bởi searchInventory tool.</summary>
+/// <summary>Thông tin vật phẩm trong kho trả về bởi searchInventory tool.</summary>
 public class AgentInventoryItem
 {
     public int ItemId { get; set; }

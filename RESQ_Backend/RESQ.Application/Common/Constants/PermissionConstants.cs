@@ -1,4 +1,4 @@
-namespace RESQ.Application.Common.Constants;
+﻿namespace RESQ.Application.Common.Constants;
 
 /// <summary>
 /// Mã quyền hệ thống. Mỗi const là một policy name dùng trong [Authorize(Policy = ...)].
@@ -51,20 +51,20 @@ public static class PermissionConstants
     /// <summary>Coordinator/Admin: Nhận phòng chờ và điều phối conversation hỗ trợ</summary>
     public const string ConversationCoordinatorManage = "conversation.coordinator.manage";
 
-    // -- Quản lý Kho & Vật tư (Inventory / Logistics) -----------------
+    // -- Quản lý Kho & vật phẩm (Inventory / Logistics) -----------------
     /// <summary>Admin + DepotManager_Global: Toàn quyền xuất/nhập/tồn, điều chuyển giữa các kho</summary>
     public const string InventoryGlobalManage = "inventory.global.manage";
 
     /// <summary>Admin + Coordinator_Global + DepotManager_Global: Xem tổng quan tồn kho</summary>
     public const string InventoryGlobalView = "inventory.global.view";
 
-    /// <summary>Admin + DepotManager_Depot: Thêm mới, xuất/nhập, kiểm kê kho được giao, duyệt yêu cầu vật tư</summary>
+    /// <summary>Admin + DepotManager_Depot: Thêm mới, xuất/nhập, kiểm kê kho được giao, duyệt yêu cầu vật phẩm</summary>
     public const string InventoryDepotManage = "inventory.depot.manage";
 
     /// <summary>Admin + Coordinator_Point: Xem tồn kho tại điểm tập kết của mình</summary>
     public const string InventoryDepotPointView = "inventory.depot_point.view";
 
-    /// <summary>Admin + Rescuer_Core: Tạo phiếu yêu cầu cấp phát vật tư cho đội</summary>
+    /// <summary>Admin + Rescuer_Core: Tạo phiếu yêu cầu cấp phát vật phẩm cho đội</summary>
     public const string InventorySupplyRequestCreate = "inventory.supply_request.create";
 
     // -- Quản lý Đội nhóm (Teams / Personnel) -------------------------

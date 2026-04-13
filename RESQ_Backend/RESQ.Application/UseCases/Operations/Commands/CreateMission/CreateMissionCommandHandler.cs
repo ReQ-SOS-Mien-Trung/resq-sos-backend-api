@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Extensions;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
@@ -18,13 +18,14 @@ using RESQ.Domain.Enum.Personnel;
 using System.Text.Json;
 
 namespace RESQ.Application.UseCases.Operations.Commands.CreateMission;
+using RESQ.Domain.Enum.Logistics;
 
 public class CreateMissionCommandHandler(
     IMissionRepository missionRepository,
     IMissionActivityRepository missionActivityRepository,
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
-    IDepotInventoryRepository depotInventoryRepository,
+    IDepotInventoryRepository depotInventoryRepository, IDepotRepository depotRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IRescueTeamRepository rescueTeamRepository,
     IAssemblyPointRepository assemblyPointRepository,
@@ -39,6 +40,7 @@ public class CreateMissionCommandHandler(
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IDepotRepository _depotRepository = depotRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
     private readonly IAssemblyPointRepository _assemblyPointRepository = assemblyPointRepository;
@@ -106,6 +108,24 @@ public class CreateMissionCommandHandler(
             .ToList();
 
         await ValidateReturnAssemblyPointActivitiesAsync(activities, cancellationToken);
+
+                // Validate that all depots used in activities are active
+        var depotIds = activities
+            .Where(a => a.DepotId.HasValue)
+            .Select(a => a.DepotId!.Value)
+            .Distinct();
+
+        foreach (var id in depotIds)
+        {
+            var status = await _depotRepository.GetStatusByIdAsync(id, cancellationToken);
+            if (status is null)
+                throw new NotFoundException($"Không tìm thấy kho có ID {id}.");
+                
+            if (status is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
+            {
+                throw new ConflictException($"Kho {id} đang ở trạng thái {status} và không thể sử dụng cho nhiệm vụ.");
+            }
+        }
 
         // Validate depot inventory for each activity that specifies supplies
         await ValidateSuppliesAsync(activities, cancellationToken);
@@ -400,8 +420,8 @@ public class CreateMissionCommandHandler(
             foreach (var s in shortages)
             {
                 allErrors.Add(s.NotFound
-                    ? $"Kho {depot.DepotId}: Vật tư '{s.ItemName}' (ID={s.ItemModelId}) không có trong kho."
-                    : $"Kho {depot.DepotId}: Vật tư '{s.ItemName}' (ID={s.ItemModelId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
+                    ? $"Kho {depot.DepotId}: vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không có trong kho."
+                    : $"Kho {depot.DepotId}: vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
             }
         }
 
@@ -449,7 +469,7 @@ public class CreateMissionCommandHandler(
             foreach (var returnActivity in returnActivities)
             {
                 orderingErrors.Add(
-                    $"RETURN_SUPPLIES step {returnActivity.Step ?? 0} phải có item_id hợp lệ cho vật tư reusable cần trả.");
+                    $"RETURN_SUPPLIES step {returnActivity.Step ?? 0} phải có item_id hợp lệ cho vật phẩm reusable cần trả.");
             }
 
             if (orderingErrors.Count > 0)
@@ -514,7 +534,7 @@ public class CreateMissionCommandHandler(
 
             if (activity.SuppliesToCollect is not { Count: > 0 })
             {
-                errors.Add($"RETURN_SUPPLIES step {stepLabel} phải có danh sách vật tư reusable cần trả.");
+                errors.Add($"RETURN_SUPPLIES step {stepLabel} phải có danh sách vật phẩm reusable cần trả.");
                 continue;
             }
 
@@ -524,14 +544,14 @@ public class CreateMissionCommandHandler(
             {
                 if (!supply.Id.HasValue || (supply.Quantity ?? 0) <= 0)
                 {
-                    errors.Add($"RETURN_SUPPLIES step {stepLabel} có vật tư thiếu item_id hoặc quantity không hợp lệ.");
+                    errors.Add($"RETURN_SUPPLIES step {stepLabel} có vật phẩm thiếu item_id hoặc quantity không hợp lệ.");
                     continue;
                 }
 
                 if (!IsReusableItem(supply.Id.Value, itemLookup))
                 {
                     errors.Add(
-                        $"RETURN_SUPPLIES step {stepLabel} chỉ được chứa vật tư reusable, nhưng item '{ResolveItemName(supply.Id.Value, itemLookup, supply.Name)}' không phải reusable.");
+                        $"RETURN_SUPPLIES step {stepLabel} chỉ được chứa vật phẩm reusable, nhưng item '{ResolveItemName(supply.Id.Value, itemLookup, supply.Name)}' không phải reusable.");
                     continue;
                 }
 
@@ -544,7 +564,7 @@ public class CreateMissionCommandHandler(
             if (!requiredReturnItems.TryGetValue(actualGroup.Key, out var expectedItems))
             {
                 errors.Add(
-                    $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, đội {actualGroup.Key.TeamId} không tương ứng với bất kỳ COLLECT_SUPPLIES nào có vật tư reusable.");
+                    $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, đội {actualGroup.Key.TeamId} không tương ứng với bất kỳ COLLECT_SUPPLIES nào có vật phẩm reusable.");
                 continue;
             }
 
@@ -570,7 +590,7 @@ public class CreateMissionCommandHandler(
             if (!actualReturnItems.TryGetValue(expectedGroup.Key, out var actualItems))
             {
                 errors.Add(
-                    $"Thiếu RETURN_SUPPLIES cuối kế hoạch cho kho {expectedGroup.Key.DepotId}, đội {expectedGroup.Key.TeamId} dù đã COLLECT_SUPPLIES vật tư reusable.");
+                    $"Thiếu RETURN_SUPPLIES cuối kế hoạch cho kho {expectedGroup.Key.DepotId}, đội {expectedGroup.Key.TeamId} dù đã COLLECT_SUPPLIES vật phẩm reusable.");
                 continue;
             }
 
@@ -586,7 +606,7 @@ public class CreateMissionCommandHandler(
 
         if (errors.Count > 0)
         {
-            throw new BadRequestException($"Kế hoạch mission chưa hợp lệ với vật tư reusable:\n{string.Join("\n", errors)}");
+            throw new BadRequestException($"Kế hoạch mission chưa hợp lệ với vật phẩm reusable:\n{string.Join("\n", errors)}");
         }
     }
 
@@ -685,12 +705,12 @@ public class CreateMissionCommandHandler(
                     : $"hoạt động #{persistedActivity.Id}";
 
                 throw new BadRequestException(
-                    $"Không thể tạo mission vì kho #{requestActivity.DepotId.Value} không đặt trước được vật tư cho {activityLabel}: {ex.Message}");
+                    $"Không thể tạo mission vì kho #{requestActivity.DepotId.Value} không đặt trước được vật phẩm cho {activityLabel}: {ex.Message}");
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
-                    "Không thể đặt trước vật tư tại kho {DepotId} cho activity #{ActivityId} khi tạo mission",
+                    "Không thể đặt trước vật phẩm tại kho {DepotId} cho activity #{ActivityId} khi tạo mission",
                     requestActivity.DepotId.Value,
                     persistedActivity.Id);
                 throw;
@@ -739,3 +759,5 @@ public class CreateMissionCommandHandler(
             : $"Item#{itemId}";
     }
 }
+
+

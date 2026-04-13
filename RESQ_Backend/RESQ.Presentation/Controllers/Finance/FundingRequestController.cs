@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +22,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>[Cách 2] Manager kho gửi yêu cầu cấp thêm quỹ kèm danh sách vật tư. DepotId được tự động lấy từ token.</summary>
+    /// <summary>[Cách 2] Manager kho gửi yêu cầu cấp thêm quỹ kèm danh sách vật phẩm. DepotId được tự động lấy từ token.</summary>
     [HttpPost]
     [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
@@ -124,7 +124,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Lấy danh sách dòng vật tư trong một yêu cầu cấp quỹ (phân trang).</summary>
+    /// <summary>Lấy danh sách dòng vật phẩm trong một yêu cầu cấp quỹ (phân trang).</summary>
     [HttpGet("{id}/items")]
     [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     [ProducesResponseType(typeof(PagedResult<FundingRequestItemListDto>), StatusCodes.Status200OK)]

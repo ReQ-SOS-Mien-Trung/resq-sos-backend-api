@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -14,13 +14,15 @@ using RESQ.Domain.Enum.Operations;
 using System.Text.Json;
 
 namespace RESQ.Application.UseCases.Operations.Commands.AddMissionActivity;
+using RESQ.Domain.Enum.Logistics;
+using RESQ.Application.Repositories.Logistics;
 
 public class AddMissionActivityCommandHandler(
     IMissionRepository missionRepository,
     IMissionActivityRepository activityRepository,
     IMissionTeamRepository missionTeamRepository,
     IRescueTeamRepository rescueTeamRepository,
-    IDepotInventoryRepository depotInventoryRepository,
+    IDepotInventoryRepository depotInventoryRepository, IDepotRepository depotRepository,
     IMediator mediator,
     IUnitOfWork unitOfWork,
     ILogger<AddMissionActivityCommandHandler> logger
@@ -31,6 +33,7 @@ public class AddMissionActivityCommandHandler(
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly IDepotRepository _depotRepository = depotRepository;
     private readonly IMediator _mediator = mediator;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<AddMissionActivityCommandHandler> _logger = logger;
@@ -44,6 +47,19 @@ public class AddMissionActivityCommandHandler(
         var mission = await _missionRepository.GetByIdAsync(request.MissionId, cancellationToken);
         if (mission is null)
             throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
+
+                // Validate depot status
+        if (request.DepotId.HasValue)
+        {
+            var status = await _depotRepository.GetStatusByIdAsync(request.DepotId.Value, cancellationToken);
+            if (status is null)
+                throw new NotFoundException($"Không tìm thấy kho có ID {request.DepotId.Value}.");
+                
+            if (status is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
+            {
+                throw new ConflictException($"Kho {request.DepotId.Value} đang ở trạng thái {status} và không thể sử dụng cho nhiệm vụ.");
+            }
+        }
 
         // Validate depot inventory if supplies are specified
         if (request.DepotId.HasValue && request.SuppliesToCollect is { Count: > 0 })
@@ -70,8 +86,8 @@ public class AddMissionActivityCommandHandler(
                 if (shortages.Count > 0)
                 {
                     var errors = shortages.Select(s => s.NotFound
-                        ? $"Vật tư '{s.ItemName}' (ID={s.ItemModelId}) không có trong kho {request.DepotId}."
-                        : $"Vật tư '{s.ItemName}' (ID={s.ItemModelId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
+                        ? $"vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không có trong kho {request.DepotId}."
+                        : $"vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
                     throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", errors)}");
                 }
             }
@@ -173,7 +189,7 @@ public class AddMissionActivityCommandHandler(
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Không thể đặt trước vật tư tại kho {DepotId} khi thêm lẻ activity", request.DepotId.Value);
+                    _logger.LogWarning(ex, "Không thể đặt trước vật phẩm tại kho {DepotId} khi thêm lẻ activity", request.DepotId.Value);
                 }
             }
         }
@@ -185,3 +201,4 @@ public class AddMissionActivityCommandHandler(
         return response;
     }
 }
+

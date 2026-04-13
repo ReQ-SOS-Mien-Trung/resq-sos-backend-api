@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -55,7 +55,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
             DepotId = depotId,
             Step = 7,
             ActivityType = "RETURN_SUPPLIES",
-            Description = "Hoàn tất nhiệm vụ, trả vật tư về kho.",
+            Description = "Hoàn tất nhiệm vụ, trả vật phẩm về kho.",
             Status = MissionActivityStatus.Planned,
             Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
             {
@@ -100,7 +100,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
         Assert.Equal(returnActivityId, response.SurplusReturnActivityId);
         Assert.Equal(10, surplusItem.Quantity);
         Assert.Equal(2, activityRepository.Activities.Count);
-        Assert.Contains("Bổ sung vật tư giao thiếu", returnActivity.Description);
+        Assert.Contains("Bổ sung vật phẩm giao thiếu", returnActivity.Description);
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
             DepotId = depotId,
             Step = 7,
             ActivityType = "RETURN_SUPPLIES",
-            Description = "Hoàn tất nhiệm vụ, trả vật tư về kho.",
+            Description = "Hoàn tất nhiệm vụ, trả vật phẩm về kho.",
             Status = MissionActivityStatus.Planned,
             Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
             {
@@ -180,7 +180,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
         Assert.Equal(2, activityRepository.Activities.Count);
         Assert.Equal(2, returnItem.Quantity);
         Assert.Equal(expectedUnits.Count, returnItem.ExpectedReturnUnits?.Count);
-        Assert.DoesNotContain("Bổ sung vật tư giao thiếu", returnActivity.Description);
+        Assert.DoesNotContain("Bổ sung vật phẩm giao thiếu", returnActivity.Description);
     }
 
     private static ConfirmDeliverySuppliesCommandHandler CreateHandler(

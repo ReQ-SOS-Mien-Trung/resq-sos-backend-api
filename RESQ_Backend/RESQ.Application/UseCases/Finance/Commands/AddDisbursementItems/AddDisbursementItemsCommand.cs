@@ -1,9 +1,9 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Finance.Commands.AddDisbursementItems;
 
 /// <summary>
-/// DepotManager báo cáo vật tư đã mua sau khi nhận tiền (Cách 1).
+/// DepotManager báo cáo vật phẩm đã mua sau khi nhận tiền (Cách 1).
 /// Admin cũng có quyền để override nếu cần.
 /// </summary>
 public record AddDisbursementItemsCommand(

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -30,6 +30,6 @@ public class ExportInventoryCommandHandler(
             request.Note,
             cancellationToken);
 
-        return new ExportInventoryResponse($"Đã xuất kho thành công {request.Quantity} đơn vị vật tư #{request.ItemModelId} tại kho #{depotId}.");
+        return new ExportInventoryResponse($"Đã xuất kho thành công {request.Quantity} đơn vị vật phẩm #{request.ItemModelId} tại kho #{depotId}.");
     }
 }

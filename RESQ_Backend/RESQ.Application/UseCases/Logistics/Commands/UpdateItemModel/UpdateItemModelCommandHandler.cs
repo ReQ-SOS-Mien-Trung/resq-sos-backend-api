@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
@@ -27,7 +27,7 @@ public class UpdateItemModelCommandHandler(IItemModelMetadataRepository itemMode
         {
             var hasTransactions = await _itemModelMetadataRepository.HasInventoryTransactionsAsync(request.Id, cancellationToken);
             if (hasTransactions)
-                throw new ConflictException("Không thể đổi categoryId vì vật tư đã phát sinh giao dịch kho. Điều này có thể làm lệch dữ liệu lịch sử.");
+                throw new ConflictException("Không thể đổi categoryId vì vật phẩm đã phát sinh giao dịch kho. Điều này có thể làm lệch dữ liệu lịch sử.");
         }
 
         var normalizedItemType = Enum.Parse<ItemType>(request.ItemType.Trim(), ignoreCase: true).ToString();

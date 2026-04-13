@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
@@ -60,7 +60,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
         {
             if (!supplyLookup.ContainsKey(deliveredItem.ItemId))
                 throw new BadRequestException(
-                    $"ItemId {deliveredItem.ItemId} không tồn tại trong danh sách vật tư của activity này.");
+                    $"ItemId {deliveredItem.ItemId} không tồn tại trong danh sách vật phẩm của activity này.");
         }
 
         // 4. Apply actual delivered quantities into Items JSON then persist
@@ -103,7 +103,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
             {
                 var itemId = supply.ItemId!.Value;
                 if (!itemMetadata.TryGetValue(itemId, out var metadata))
-                    throw new BadRequestException($"Không tìm thấy metadata vật tư #{itemId}.");
+                    throw new BadRequestException($"Không tìm thấy metadata vật phẩm #{itemId}.");
 
                 if (string.Equals(metadata.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -154,7 +154,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
             MissionId = request.MissionId,
             Status = MissionActivityStatus.Succeed.ToString(),
             Message = surplusReturnActivityId.HasValue
-                ? $"Xác nhận giao hàng thành công. Đã cập nhật activity trả hàng #{surplusReturnActivityId} cho vật tư giao thiếu."
+                ? $"Xác nhận giao hàng thành công. Đã cập nhật activity trả hàng #{surplusReturnActivityId} cho vật phẩm giao thiếu."
                 : "Xác nhận giao hàng thành công.",
             SurplusReturnActivityId = surplusReturnActivityId,
             DeliveredItems = resultItems
@@ -209,7 +209,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
             MissionId = missionId,
             Step = insertionStep,
             ActivityType = "RETURN_SUPPLIES",
-            Description = $"Trả vật tư về kho {deliverActivity.DepotName} do giao thiếu so với kế hoạch (Activity #{deliverActivity.Id})",
+            Description = $"Trả vật phẩm về kho {deliverActivity.DepotName} do giao thiếu so với kế hoạch (Activity #{deliverActivity.Id})",
             Priority = deliverActivity.Priority,
             EstimatedTime = deliverActivity.EstimatedTime,
             SosRequestId = deliverActivity.SosRequestId,
@@ -258,7 +258,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
 
         returnActivity.Items = JsonSerializer.Serialize(currentItems);
 
-        var note = $"Bổ sung vật tư giao thiếu từ activity #{deliverActivityId}.";
+        var note = $"Bổ sung vật phẩm giao thiếu từ activity #{deliverActivityId}.";
         if (string.IsNullOrWhiteSpace(returnActivity.Description))
         {
             returnActivity.Description = note;

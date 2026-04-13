@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Exceptions;
@@ -39,8 +39,8 @@ public class CreateSupplyRequestCommandHandler(
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var requestingDepotStatus = await _depotRepository.GetStatusByIdAsync(requestingDepotId.Value, cancellationToken);
-        if (requestingDepotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
-            throw new ConflictException("Kho của bạn ngưng hoạt động hoặc đã đóng. Không thể tạo yêu cầu tiếp tế.");
+        if (requestingDepotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
+            throw new ConflictException("Kho của bạn ngưng hoạt động, đang đóng hoặc đã đóng. Không thể tạo yêu cầu tiếp tế.");
 
         var requestingDepot = await _depotRepository.GetByIdAsync(requestingDepotId.Value, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy kho yêu cầu #{requestingDepotId.Value}.");
@@ -54,8 +54,8 @@ public class CreateSupplyRequestCommandHandler(
         foreach (var group in request.Requests)
         {
             var sourceStatus = await _depotRepository.GetStatusByIdAsync(group.SourceDepotId, cancellationToken);
-            if (sourceStatus is DepotStatus.Unavailable or DepotStatus.Closed)
-                throw new ConflictException($"Kho nguồn #{group.SourceDepotId} ngưng hoạt động hoặc đã đóng. Không thể gửi yêu cầu tiếp tế đến kho này.");
+            if (sourceStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
+                throw new ConflictException($"Kho nguồn #{group.SourceDepotId} ngưng hoạt động, đang đóng hoặc đã đóng. Không thể gửi yêu cầu tiếp tế đến kho này.");
         }
 
         // 4. Validate kho yêu cầu còn đủ sức chứa để nhận toàn bộ lượng hàng trong request
@@ -79,7 +79,7 @@ public class CreateSupplyRequestCommandHandler(
             .ToList();
 
         if (missingItemModelIds.Count > 0)
-            throw new NotFoundException($"Không tìm thấy metadata vật tư cho các itemModelId: {string.Join(", ", missingItemModelIds)}.");
+            throw new NotFoundException($"Không tìm thấy metadata vật phẩm cho các itemModelId: {string.Join(", ", missingItemModelIds)}.");
 
         var totalRequestedVolume = requestedItems.Sum(x =>
             x.Quantity * itemModelMap[x.ItemModelId].VolumePerUnit);
@@ -106,7 +106,7 @@ public class CreateSupplyRequestCommandHandler(
             }
 
             throw new ConflictException(
-                $"Kho yêu cầu không đủ sức chứa để nhận toàn bộ vật tư trong phiếu tiếp tế: {string.Join("; ", reasons)}.");
+                $"Kho yêu cầu không đủ sức chứa để nhận toàn bộ vật phẩm trong phiếu tiếp tế: {string.Join("; ", reasons)}.");
         }
 
         // 5. Xử lý từng kho nguồn trong transaction
@@ -157,10 +157,10 @@ public class CreateSupplyRequestCommandHandler(
             {
                 var createdGroup = request.Requests.First(x => x.SourceDepotId == created.SourceDepotId);
                 var isUrgent = createdGroup.PriorityLevel == SupplyRequestPriorityLevel.Urgent;
-                var notificationTitle = isUrgent ? "Yêu cầu tiếp tế khẩn cấp" : "Yêu cầu cung cấp vật tư mới";
+                var notificationTitle = isUrgent ? "Yêu cầu tiếp tế khẩn cấp" : "Yêu cầu cung cấp vật phẩm mới";
                 var notificationBody = isUrgent
                     ? $"Yêu cầu tiếp tế số {created.SupplyRequestId} đã vào mức khẩn cấp. Vui lòng ưu tiên xử lý ngay."
-                    : $"Kho của bạn vừa nhận được yêu cầu cung cấp vật tư số {created.SupplyRequestId}. Vui lòng kiểm tra và xử lý.";
+                    : $"Kho của bạn vừa nhận được yêu cầu cung cấp vật phẩm số {created.SupplyRequestId}. Vui lòng kiểm tra và xử lý.";
                 var notificationType = isUrgent ? "supply_request_urgent" : "supply_request";
 
                 await _firebaseService.SendNotificationToUserAsync(
@@ -182,8 +182,9 @@ public class CreateSupplyRequestCommandHandler(
         return new CreateSupplyRequestResponse
         {
             CreatedRequests = createdRequests,
-            Message         = $"Đã tạo {createdRequests.Count} yêu cầu cung cấp vật tư thành công.",
+            Message         = $"Đã tạo {createdRequests.Count} yêu cầu cung cấp vật phẩm thành công.",
             ServerTime      = DateTime.UtcNow.ToVietnamOffset()
         };
     }
 }
+

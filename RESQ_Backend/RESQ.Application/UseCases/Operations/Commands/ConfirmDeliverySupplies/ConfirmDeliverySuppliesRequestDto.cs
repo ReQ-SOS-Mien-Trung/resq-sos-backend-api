@@ -1,8 +1,8 @@
-namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
+﻿namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 
 public class ConfirmDeliverySuppliesRequestDto
 {
-    /// <summary>Danh sách số lượng thực tế đã giao cho từng loại vật tư trong activity.</summary>
+    /// <summary>Danh sách số lượng thực tế đã giao cho từng loại vật phẩm trong activity.</summary>
     public List<ActualDeliveredItemDto> ActualDeliveredItems { get; set; } = [];
 
     /// <summary>Ghi chú khi có chênh lệch giữa số lượng kế hoạch và thực tế.</summary>

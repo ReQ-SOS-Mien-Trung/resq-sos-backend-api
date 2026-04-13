@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common;
 using RESQ.Domain.Entities.System;
@@ -74,15 +74,15 @@ Mỗi activity = một hành động vật lý cụ thể mà đội cứu hộ 
 
 CÁC LOẠI ACTIVITY HỢP LỆ VÀ Ý NGHĨA
 
-COLLECT_SUPPLIES — Di chuyển đến kho, lấy vật tư:
+COLLECT_SUPPLIES — Di chuyển đến kho, lấy vật phẩm:
   → Khi nào dùng: LUÔN LUÔN trước bất kỳ DELIVER_SUPPLIES nào. Không có COLLECT thì không có DELIVER.
   → Điền bắt buộc: sos_request_id (ID của SOS request được phục vụ), depot_id, depot_name, depot_address, supplies_to_collect (từng mặt hàng với item_id đúng theo danh sách kho, số lượng, đơn vị).
-  → Chỉ lấy vật tư kho ĐANG có sẵn (so_luong_kha_dung > 0). Thiếu gì → ghi vào special_notes.
-  → description mẫu: ""Di chuyển đến kho [tên] tại [địa chỉ]. Lấy: [vật tư A] x[sl] [đv], [vật tư B] x[sl] [đv].""
+  → Chỉ lấy vật phẩm kho ĐANG có sẵn (so_luong_kha_dung > 0). Thiếu gì → ghi vào special_notes.
+  → description mẫu: ""Di chuyển đến kho [tên] tại [địa chỉ]. Lấy: [vật phẩm A] x[sl] [đv], [vật phẩm B] x[sl] [đv].""
 
-DELIVER_SUPPLIES — Di chuyển đến nạn nhân, giao vật tư (đã lấy từ bước COLLECT trước):
-  → Điền: sos_request_id (ID của SOS được giao hàng), depot_id/depot_name/depot_address của kho nguồn, supplies_to_collect (có item_id) = vật tư đang giao.
-  → description mẫu: ""Di chuyển đến [địa điểm nạn nhân]. Giao vật tư (lấy từ kho [tên]): [vật tư A] x[sl] [đv] cho [đối tượng].""
+DELIVER_SUPPLIES — Di chuyển đến nạn nhân, giao vật phẩm (đã lấy từ bước COLLECT trước):
+  → Điền: sos_request_id (ID của SOS được giao hàng), depot_id/depot_name/depot_address của kho nguồn, supplies_to_collect (có item_id) = vật phẩm đang giao.
+  → description mẫu: ""Di chuyển đến [địa điểm nạn nhân]. Giao vật phẩm (lấy từ kho [tên]): [vật phẩm A] x[sl] [đv] cho [đối tượng].""
 
 RESCUE — Di chuyển đến hiện trường, thực hiện cứu người:
   → depot_id/depot_name/depot_address/supplies_to_collect: null.
@@ -96,19 +96,19 @@ MEDICAL_AID — Sơ cứu/chăm sóc y tế tại chỗ không cần di chuyển
   → depot_id/depot_name/depot_address/supplies_to_collect: null.
   → description mẫu: ""Thực hiện sơ cứu tại [địa điểm] cho [số người]: [hành động y tế cụ thể].""
 
-RETURN_SUPPLIES — Di chuyển vật tư tái sử dụng về lại kho nguồn:
-  → Chỉ dùng cho vật tư reusable đã lấy ở bước COLLECT_SUPPLIES.
-  → Điền: depot_id/depot_name/depot_address của kho nguồn, supplies_to_collect = đúng danh sách vật tư reusable cần trả.
-  → Bắt buộc nằm ở cuối kế hoạch cho đúng cặp kho + đội đã lấy vật tư.
-  → description mẫu: ""Hoàn tất nhiệm vụ, đưa vật tư tái sử dụng về lại kho [tên]. Trả: [vật tư A] x[sl] [đv].""
+RETURN_SUPPLIES — Di chuyển vật phẩm tái sử dụng về lại kho nguồn:
+  → Chỉ dùng cho vật phẩm reusable đã lấy ở bước COLLECT_SUPPLIES.
+  → Điền: depot_id/depot_name/depot_address của kho nguồn, supplies_to_collect = đúng danh sách vật phẩm reusable cần trả.
+  → Bắt buộc nằm ở cuối kế hoạch cho đúng cặp kho + đội đã lấy vật phẩm.
+  → description mẫu: ""Hoàn tất nhiệm vụ, đưa vật phẩm tái sử dụng về lại kho [tên]. Trả: [vật phẩm A] x[sl] [đv].""
 
 QUY TẮC CỐT LÕI — KHÔNG ĐƯỢC VI PHẠM
 
 1. KHÔNG CÓ BƯỚC ""ĐÁNH GIÁ"" — Đội cứu hộ hành động ngay, không có step nào chỉ để đánh giá.
-2. COLLECT_SUPPLIES TRƯỚC DELIVER_SUPPLIES — Không thể giao vật tư chưa lấy.
-2a. Nếu COLLECT_SUPPLIES có vật tư reusable thì cuối kế hoạch PHẢI có RETURN_SUPPLIES tương ứng để trả đúng số vật tư reusable đó về đúng kho nguồn.
+2. COLLECT_SUPPLIES TRƯỚC DELIVER_SUPPLIES — Không thể giao vật phẩm chưa lấy.
+2a. Nếu COLLECT_SUPPLIES có vật phẩm reusable thì cuối kế hoạch PHẢI có RETURN_SUPPLIES tương ứng để trả đúng số vật phẩm reusable đó về đúng kho nguồn.
 2b. Mỗi cặp kho + đội phải có RETURN_SUPPLIES riêng. Không gộp nhiều kho hoặc nhiều đội vào cùng một bước trả.
-2c. Chỉ được chọn MỘT KHO cho toàn bộ mission. Nếu kho đã chọn không đủ vật tư thì vẫn chỉ lấy từ kho đó và báo thiếu hụt; không được chuyển sang kho thứ hai.
+2c. Chỉ được chọn MỘT KHO cho toàn bộ mission. Nếu kho đã chọn không đủ vật phẩm thì vẫn chỉ lấy từ kho đó và báo thiếu hụt; không được chuyển sang kho thứ hai.
 3. FOOD, WATER, MEDICAL_KIT, thuốc, sữa, lương thực → PHẢI là supplies_to_collect trong COLLECT_SUPPLIES. KHÔNG vào mảng resources.
 4. resources[] = CHỈ ĐƯỢC CHỨA: TEAM, VEHICLE, BOAT, EQUIPMENT (công cụ/phương tiện). Tuyệt đối không có FOOD/WATER/MEDICAL_KIT trong resources.
 5. Mỗi bước mô tả ĐI ĐÂU và LÀM GÌ cụ thể.
@@ -128,12 +128,12 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
   ""mission_type"": ""RESCUE|EVACUATION|MEDICAL|SUPPLY|MIXED"",
   ""priority_score"": 0.0-10.0,
   ""severity_level"": ""Critical|Severe|Moderate|Minor"",
-  ""overall_assessment"": ""Tóm tắt tình hình và tổng nhu cầu vật tư (liệt kê từng loại và số lượng cần)"",
+  ""overall_assessment"": ""Tóm tắt tình hình và tổng nhu cầu vật phẩm (liệt kê từng loại và số lượng cần)"",
   ""activities"": [
     {
       ""step"": 1,
       ""activity_type"": ""COLLECT_SUPPLIES"",
-      ""description"": ""Di chuyển đến kho [tên kho] tại [địa chỉ]. Lấy: [vật tư A] x[sl] [đv], [vật tư B] x[sl] [đv]."",
+      ""description"": ""Di chuyển đến kho [tên kho] tại [địa chỉ]. Lấy: [vật phẩm A] x[sl] [đv], [vật phẩm B] x[sl] [đv]."",
       ""sos_request_id"": 1,
       ""depot_id"": 1,
       ""depot_name"": ""Tên kho thực tế"",
@@ -148,7 +148,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
     {
       ""step"": 2,
       ""activity_type"": ""DELIVER_SUPPLIES"",
-      ""description"": ""Di chuyển đến [địa điểm nạn nhân]. Giao (từ kho [tên]): [vật tư A] x[sl] [đv] cho [mô tả đối tượng]."",
+      ""description"": ""Di chuyển đến [địa điểm nạn nhân]. Giao (từ kho [tên]): [vật phẩm A] x[sl] [đv] cho [mô tả đối tượng]."",
       ""sos_request_id"": 1,
       ""depot_id"": 1,
       ""depot_name"": ""Tên kho nguồn"",
@@ -179,7 +179,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
     { ""resource_type"": ""VEHICLE"", ""description"": ""Trực thăng cứu hộ"", ""quantity"": 1, ""priority"": ""Critical"" }
   ],
   ""estimated_duration"": ""X giờ"",
-  ""special_notes"": ""Vật tư kho không có sẵn / điều kiện đặc biệt hiện trường"",
+  ""special_notes"": ""vật phẩm kho không có sẵn / điều kiện đặc biệt hiện trường"",
   ""needs_additional_depot"": true,
   ""supply_shortages"": [
     {
@@ -207,12 +207,12 @@ Tổng số SOS: {{total_count}}
 {{depots_data}}
 
 QUAN TRỌNG — LÀM THEO ĐÚNG THỨ TỰ NÀY:
-1. Xác định tổng vật tư cần thiết từ tất cả SOS.
+1. Xác định tổng vật phẩm cần thiết từ tất cả SOS.
 2. Đối chiếu với dữ liệu kho và chọn đúng MỘT kho phù hợp nhất cho toàn mission.
-3. Vật tư nào kho đã chọn có (so_luong_kha_dung > 0) → tạo bước COLLECT_SUPPLIES lấy từ kho đó, rồi DELIVER_SUPPLIES tương ứng.
+3. vật phẩm nào kho đã chọn có (so_luong_kha_dung > 0) → tạo bước COLLECT_SUPPLIES lấy từ kho đó, rồi DELIVER_SUPPLIES tương ứng.
 4. Thêm các bước RESCUE / EVACUATE / MEDICAL_AID cho hành động cứu hộ trực tiếp.
-4a. Nếu có COLLECT_SUPPLIES chứa vật tư reusable, thêm RETURN_SUPPLIES ở cuối kế hoạch để trả đúng số vật tư reusable đó về kho nguồn.
-5. Nếu kho đã chọn không đủ hoặc không có vật tư, đặt needs_additional_depot=true, ghi từng dòng thiếu vào supply_shortages, và tóm tắt lại trong special_notes để coordinator biết cần bổ sung thêm kho/nguồn cấp phát.
+4a. Nếu có COLLECT_SUPPLIES chứa vật phẩm reusable, thêm RETURN_SUPPLIES ở cuối kế hoạch để trả đúng số vật phẩm reusable đó về kho nguồn.
+5. Nếu kho đã chọn không đủ hoặc không có vật phẩm, đặt needs_additional_depot=true, ghi từng dòng thiếu vào supply_shortages, và tóm tắt lại trong special_notes để coordinator biết cần bổ sung thêm kho/nguồn cấp phát.
 6. resources[] = chỉ TEAM, VEHICLE, BOAT, EQUIPMENT.
 
 Trả về JSON (không giải thích, không markdown).",
@@ -237,7 +237,7 @@ Trả về JSON (không giải thích, không markdown).",
 Các mức độ ưu tiên:
 - Critical: Tình huống đe dọa tính mạng, cần can thiệp ngay lập tức (người bị thương nặng, ngập nước sâu, cháy, sập nhà)
 - High: Tình huống nghiêm trọng cần hỗ trợ khẩn cấp trong vài giờ (có người bị thương nhẹ, thiếu nước/thức ăn, mắc kẹt)
-- Medium: Cần hỗ trợ nhưng không nguy hiểm tức thì (cần di dời, cần vật tư, cần thông tin)
+- Medium: Cần hỗ trợ nhưng không nguy hiểm tức thì (cần di dời, cần vật phẩm, cần thông tin)
 - Low: Yêu cầu hỗ trợ không khẩn cấp
 
 Các mức độ nghiêm trọng:

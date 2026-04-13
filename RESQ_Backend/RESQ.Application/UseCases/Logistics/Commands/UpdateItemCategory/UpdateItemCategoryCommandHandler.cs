@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
@@ -18,7 +18,7 @@ public class UpdateItemCategoryCommandHandler(
 
         if (category == null)
         {
-            throw new NotFoundException($"Không tìm thấy danh mục vật tư với ID = {request.Id}");
+            throw new NotFoundException($"Không tìm thấy danh mục vật phẩm với ID = {request.Id}");
         }
 
         // Preserve existing Code and update Name/Description

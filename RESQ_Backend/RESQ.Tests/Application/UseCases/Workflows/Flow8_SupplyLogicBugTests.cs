@@ -1,7 +1,7 @@
-namespace RESQ.Tests.Application.UseCases.Workflows;
+﻿namespace RESQ.Tests.Application.UseCases.Workflows;
 
 /// <summary>
-/// Luồng 8 – Lỗi logic vật tư (Supply bug): Buffer tính sai, thiếu hàng, nghiệp vụ reserve.
+/// Luồng 8 – Lỗi logic vật phẩm (Supply bug): Buffer tính sai, thiếu hàng, nghiệp vụ reserve.
 /// Validates buffer ratio calculations and supply availability concepts.
 /// </summary>
 public class Flow8_SupplyLogicBugTests

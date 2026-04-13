@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Logistics;
+﻿using RESQ.Application.Common.Logistics;
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Enum.Logistics;
 
@@ -32,7 +32,7 @@ public interface ISupplyRequestRepository
 
     /// <summary>
     /// <summary>
-    /// Đặt trữ (Reserve) vật tư tại kho nguồn khi Accept.<br/>
+    /// Đặt trữ (Reserve) vật phẩm tại kho nguồn khi Accept.<br/>
     /// • Consumable: tăng ReservedQuantity ở DepotSupplyInventory, log với DepotSupplyInventoryId.<br/>
     /// • Reusable: chọn N đơn vị Status=Available → Status=Reserved + SupplyRequestId, log một bản ghi per unit với ReusableItemId.<br/>
     /// Throws BadRequestException nếu không đủ hàng khả dụng.

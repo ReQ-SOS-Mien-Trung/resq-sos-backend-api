@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -50,7 +50,7 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
     }
 
     /// <summary>
-    /// [DepotManager] Báo cáo vật tư đã mua sau khi nhận tiền - công khai cho donor xem.
+    /// [DepotManager] Báo cáo vật phẩm đã mua sau khi nhận tiền - công khai cho donor xem.
     /// Admin cũng có thể thêm để hỗ trợ.
     /// </summary>
     [HttpPost("{id}/items")]
@@ -99,7 +99,7 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
         return Ok(result);
     }
 
-    /// <summary>[Công khai] Donor xem tiền campaign đã được dùng mua vật tư gì.</summary>
+    /// <summary>[Công khai] Donor xem tiền campaign đã được dùng mua vật phẩm gì.</summary>
     [HttpGet("public/campaigns/{campaignId}/spending")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(PublicCampaignSpendingDto), StatusCodes.Status200OK)]

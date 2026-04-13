@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using RESQ.Domain.Entities.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
@@ -34,7 +34,7 @@ public class SosRuleEvaluationDto
     public string PriorityLevel { get; set; } = string.Empty;
     /// <summary>Phiên bản bộ quy tắc được áp dụng</summary>
     public string RuleVersion { get; set; } = string.Empty;
-    /// <summary>Danh sách vật tư/thiết bị được đề xuất cần mang đến</summary>
+    /// <summary>Danh sách vật phẩm/thiết bị được đề xuất cần mang đến</summary>
     public List<string> ItemsNeeded { get; set; } = [];
     /// <summary>Breakdown đầy đủ theo config snapshot đã áp dụng.</summary>
     public SosPriorityEvaluationDetails? Breakdown { get; set; }

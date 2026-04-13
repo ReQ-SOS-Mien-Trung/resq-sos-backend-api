@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -286,7 +286,7 @@ public class GetAlternativeDepotsQueryHandler(
 
     private static string BuildFallbackItemName(int? itemId)
     {
-        return itemId.HasValue ? $"Vật tư #{itemId.Value}" : "Vật tư chưa rõ";
+        return itemId.HasValue ? $"vật phẩm #{itemId.Value}" : "vật phẩm chưa rõ";
     }
 
     private static string NormalizeText(string? value)

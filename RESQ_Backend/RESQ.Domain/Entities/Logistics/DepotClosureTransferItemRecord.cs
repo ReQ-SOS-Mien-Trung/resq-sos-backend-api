@@ -1,7 +1,7 @@
-namespace RESQ.Domain.Entities.Logistics;
+﻿namespace RESQ.Domain.Entities.Logistics;
 
 /// <summary>
-/// Snapshot một dòng vật tư được gán vào một transfer trong luồng đóng kho.
+/// Snapshot một dòng vật phẩm được gán vào một transfer trong luồng đóng kho.
 /// </summary>
 public class DepotClosureTransferItemRecord
 {

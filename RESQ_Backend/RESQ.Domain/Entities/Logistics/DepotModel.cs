@@ -350,7 +350,7 @@ public class DepotModel
 }
 
 /// <summary>
-/// Đại diện cho số lượng tồn kho khả dụng của một loại vật tư trong kho.
+/// Đại diện cho số lượng tồn kho khả dụng của một loại vật phẩm trong kho.
 /// AvailableQuantity = Quantity - ReservedQuantity.
 /// </summary>
 public record DepotInventoryLine(
@@ -359,4 +359,5 @@ public record DepotInventoryLine(
     string? Unit,
     int AvailableQuantity
 );
+
 

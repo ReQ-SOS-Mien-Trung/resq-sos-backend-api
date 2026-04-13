@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Enum.Logistics;
 
@@ -17,7 +17,7 @@ public class GetStockThresholdScopeTypesQueryHandler : IRequestHandler<GetStockT
                     StockThresholdScopeType.Global        => "Toàn hệ thống",
                     StockThresholdScopeType.Depot         => "Theo kho",
                     StockThresholdScopeType.DepotCategory => "Theo danh mục trong kho",
-                    StockThresholdScopeType.DepotItem     => "Theo vật tư trong kho",
+                    StockThresholdScopeType.DepotItem     => "Theo vật phẩm trong kho",
                     _                                     => e.ToString()
                 }
             }).ToList();

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -235,7 +235,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             // Determine item type to choose the correct tracking path
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
-                ?? throw new NotFoundException($"Vật tư #{itemModelId} không tồn tại trong hệ thống.");
+                ?? throw new NotFoundException($"vật phẩm #{itemModelId} không tồn tại trong hệ thống.");
 
             if (itemModel.ItemType == "Reusable")
             {
@@ -248,7 +248,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
                 if (availableUnits.Count < quantity)
                     throw new BadRequestException(
-                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): kho nguồn chỉ có {availableUnits.Count} đơn vị khả dụng, yêu cầu {quantity}.");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): kho nguồn chỉ có {availableUnits.Count} đơn vị khả dụng, yêu cầu {quantity}.");
 
                 // Reserve exactly 'quantity' units
                 var unitsToReserve = availableUnits.Take(quantity).ToList();
@@ -279,12 +279,12 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
                     .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
                     ?? throw new BadRequestException(
-                        $"Kho nguồn không có vật tư '{itemModel.Name}' (#{itemModelId}) trong tồn kho.");
+                        $"Kho nguồn không có vật phẩm '{itemModel.Name}' (#{itemModelId}) trong tồn kho.");
 
                 var available = (inventory.Quantity ?? 0) - (inventory.MissionReservedQuantity + inventory.TransferReservedQuantity);
                 if (available < quantity)
                     throw new BadRequestException(
-                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): tồn kho khả dụng ({available}) không đủ so với yêu cầu ({quantity}).");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tồn kho khả dụng ({available}) không đủ so với yêu cầu ({quantity}).");
 
                 inventory.TransferReservedQuantity += quantity;
                 inventory.LastStockedAt             = now;
@@ -322,7 +322,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         {
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
-                ?? throw new NotFoundException($"Vật tư #{itemModelId} không tồn tại trong hệ thống.");
+                ?? throw new NotFoundException($"vật phẩm #{itemModelId} không tồn tại trong hệ thống.");
 
             totalVolume += (itemModel.VolumePerUnit ?? 0m) * quantity;
             totalWeight += (itemModel.WeightPerUnit ?? 0m) * quantity;
@@ -338,7 +338,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
                 if (reservedUnits.Count != quantity)
                     throw new BadRequestException(
-                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): tìm thấy {reservedUnits.Count} đơn vị đặt trữ, " +
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tìm thấy {reservedUnits.Count} đơn vị đặt trữ, " +
                         $"không khớp với yêu cầu {quantity}. Quy trình có thể bị bỏ qua bước Accept.");
 
                 foreach (var unit in reservedUnits)
@@ -370,18 +370,18 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
                     .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
                     ?? throw new BadRequestException(
-                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): không tìm thấy tồn kho tại kho nguồn. " +
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): không tìm thấy tồn kho tại kho nguồn. " +
                         "Quy trình có thể bị bỏ qua bước Accept.");
 
                 var reserved = inventory.TransferReservedQuantity;
                 if (reserved < quantity)
                     throw new BadRequestException(
-                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): số lượng đặt trữ tiếp tế ({reserved}) không đủ so với yêu cầu ({quantity}). " +
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): số lượng đặt trữ tiếp tế ({reserved}) không đủ so với yêu cầu ({quantity}). " +
                         "Quy trình có thể bị bỏ qua bước Accept.");
 
                 if ((inventory.Quantity ?? 0) < quantity)
                     throw new BadRequestException(
-                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): tồn kho ({inventory.Quantity ?? 0}) không đủ so với yêu cầu ({quantity}).");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tồn kho ({inventory.Quantity ?? 0}) không đủ so với yêu cầu ({quantity}).");
 
                 inventory.Quantity                  = (inventory.Quantity ?? 0) - quantity;
                 inventory.TransferReservedQuantity  = reserved - quantity;
@@ -421,7 +421,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
                     if (remaining > 0)
                         throw new InvalidOperationException(
-                            $"Vật tư '{itemModel.Name}' (#{itemModelId}): không đủ lô để xuất tiếp tế {quantity} đơn vị.");
+                            $"vật phẩm '{itemModel.Name}' (#{itemModelId}): không đủ lô để xuất tiếp tế {quantity} đơn vị.");
                 }
                 else
                 {
@@ -495,7 +495,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         {
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
-                ?? throw new NotFoundException($"Vật tư #{itemModelId} không tồn tại trong hệ thống.");
+                ?? throw new NotFoundException($"vật phẩm #{itemModelId} không tồn tại trong hệ thống.");
 
             totalVolume += (itemModel.VolumePerUnit ?? 0m) * quantity;
             totalWeight += (itemModel.WeightPerUnit ?? 0m) * quantity;
@@ -511,7 +511,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
                 if (inTransitUnits.Count != quantity)
                     throw new BadRequestException(
-                        $"Vật tư '{itemModel.Name}' (#{itemModelId}): tìm thấy {inTransitUnits.Count} đơn vị đang vận chuyển, " +
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tìm thấy {inTransitUnits.Count} đơn vị đang vận chuyển, " +
                         $"không khớp với yêu cầu {quantity}. Quy trình có thể bị bỏ qua bước Ship.");
 
                 foreach (var unit in inTransitUnits)

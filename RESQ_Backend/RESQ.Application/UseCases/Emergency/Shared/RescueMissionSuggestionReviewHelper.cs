@@ -1,4 +1,4 @@
-using RESQ.Application.Services;
+﻿using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Emergency.Shared;
 
@@ -151,7 +151,7 @@ public static class RescueMissionSuggestionReviewHelper
                 if (!string.Equals(activity.ExecutionMode, SplitAcrossTeamsMode, StringComparison.OrdinalIgnoreCase))
                 {
                     warnings.Add(
-                        $"Activity step {activity.Step} được backend suy diễn là SplitAcrossTeams vì có nhiều đội cùng lấy vật tư tại depot #{group.Key.DepotId}.");
+                        $"Activity step {activity.Step} được backend suy diễn là SplitAcrossTeams vì có nhiều đội cùng lấy vật phẩm tại depot #{group.Key.DepotId}.");
                 }
 
                 activity.ExecutionMode = SplitAcrossTeamsMode;
@@ -254,7 +254,7 @@ public static class RescueMissionSuggestionReviewHelper
     {
         var depotLabel = activity.DepotName ?? $"#{activity.DepotId}";
         var teamLabel = activity.SuggestedTeam?.TeamName ?? $"team #{activity.SuggestedTeam?.TeamId}";
-        return $"Kho {depotLabel} đang được chia cho {teamCount} đội; activity này là phần lấy vật tư dành cho {teamLabel}.";
+        return $"Kho {depotLabel} đang được chia cho {teamCount} đội; activity này là phần lấy vật phẩm dành cho {teamLabel}.";
     }
 
     private static string BuildDefaultTeamReason(AgentTeamInfo team)

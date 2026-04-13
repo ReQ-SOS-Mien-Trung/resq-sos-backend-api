@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.UpdateItemModel;
@@ -11,17 +11,17 @@ public class UpdateItemModelCommandValidator : AbstractValidator<UpdateItemModel
     public UpdateItemModelCommandValidator()
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("Id vật tư không hợp lệ.");
+            .GreaterThan(0).WithMessage("Id vật phẩm không hợp lệ.");
 
         RuleFor(x => x.CategoryId)
             .GreaterThan(0).WithMessage("CategoryId phải lớn hơn 0.");
 
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Tên vật tư không được để trống.")
-            .MaximumLength(255).WithMessage("Tên vật tư không được vượt quá 255 ký tự.");
+            .NotEmpty().WithMessage("Tên vật phẩm không được để trống.")
+            .MaximumLength(255).WithMessage("Tên vật phẩm không được vượt quá 255 ký tự.");
 
         RuleFor(x => x.Description)
-            .MaximumLength(1000).WithMessage("Mô tả vật tư không được vượt quá 1000 ký tự.");
+            .MaximumLength(1000).WithMessage("Mô tả vật phẩm không được vượt quá 1000 ký tự.");
 
         RuleFor(x => x.Unit)
             .NotEmpty().WithMessage("Đơn vị tính không được để trống.")

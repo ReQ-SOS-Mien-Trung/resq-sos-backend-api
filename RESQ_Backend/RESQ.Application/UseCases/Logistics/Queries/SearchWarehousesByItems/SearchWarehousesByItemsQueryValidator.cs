@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 
@@ -8,17 +8,17 @@ public class SearchWarehousesByItemsQueryValidator : AbstractValidator<SearchWar
     {
         RuleFor(x => x.ItemModelIds)
             .NotNull().NotEmpty()
-            .WithMessage("Vui lòng cung cấp ít nhất một mã vật tư (itemModelIds).");
+            .WithMessage("Vui lòng cung cấp ít nhất một mã vật phẩm (itemModelIds).");
 
         When(x => x.ItemModelIds != null && x.ItemModelIds.Count > 0, () =>
         {
             RuleFor(x => x.ItemModelIds!.Count)
                 .LessThanOrEqualTo(50)
-                .WithMessage("Số lượng mã vật tư tìm kiếm không được vượt quá 50.");
+                .WithMessage("Số lượng mã vật phẩm tìm kiếm không được vượt quá 50.");
 
             RuleForEach(x => x.ItemModelIds)
                 .GreaterThan(0)
-                .WithMessage("Mã vật tư phải là số nguyên dương.");
+                .WithMessage("Mã vật phẩm phải là số nguyên dương.");
 
             RuleFor(x => x.ItemQuantities)
                 .Must((query, dict) =>

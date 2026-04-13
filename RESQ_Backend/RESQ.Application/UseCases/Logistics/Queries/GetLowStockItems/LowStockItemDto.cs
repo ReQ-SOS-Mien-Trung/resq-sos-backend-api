@@ -1,7 +1,7 @@
-namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+﻿namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 
 /// <summary>
-/// Một dòng vật tư tồn kho đang ở mức cảnh báo.
+/// Một dòng vật phẩm tồn kho đang ở mức cảnh báo.
 /// </summary>
 public class LowStockItemDto
 {

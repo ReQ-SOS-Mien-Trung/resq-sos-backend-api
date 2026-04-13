@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -217,7 +217,7 @@ internal static class MissionActivityIncidentFailureHelper
                 MissionId = missionId,
                 Step = insertionStep,
                 ActivityType = "RETURN_SUPPLIES",
-                Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
+                Description = $"Trả vật phẩm về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
                 Priority = failedActivity.Priority,
                 EstimatedTime = failedActivity.EstimatedTime,
                 SosRequestId = failedActivity.SosRequestId,
