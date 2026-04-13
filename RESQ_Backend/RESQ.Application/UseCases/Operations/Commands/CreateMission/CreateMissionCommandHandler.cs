@@ -197,7 +197,7 @@ public class CreateMissionCommandHandler(
     {
         // Only COLLECT_SUPPLIES steps actually draw from depot inventory.
         // DELIVER_SUPPLIES (and others) may carry suppliesToCollect metadata but do NOT
-        // represent a separate depot withdrawal — including them would double-count quantities.
+        // represent a separate depot withdrawal - including them would double-count quantities.
         var activitiesWithSupplies = activities
             .Where(a => IsCollectSuppliesActivity(a)
                 && a.DepotId.HasValue

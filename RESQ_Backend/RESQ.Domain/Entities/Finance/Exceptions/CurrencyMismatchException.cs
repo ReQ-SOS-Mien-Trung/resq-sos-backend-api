@@ -8,4 +8,4 @@ public class CurrencyMismatchException : DomainException
         : base($"Không thể thực hiện phép toán trên các loại tiền tệ khác nhau ({currencyA} và {currencyB}).")
     {
     }
-}
+}

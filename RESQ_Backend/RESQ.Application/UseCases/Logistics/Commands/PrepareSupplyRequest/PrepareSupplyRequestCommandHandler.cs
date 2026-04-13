@@ -9,7 +9,7 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 
 /// <summary>
-/// Kho nguồn bắt đầu đóng gói / picking — chuyển trạng thái Accepted → Preparing.
+/// Kho nguồn bắt đầu đóng gói / picking - chuyển trạng thái Accepted → Preparing.
 /// RequestingDepotStatus giữ nguyên Approved.
 /// </summary>
 public class PrepareSupplyRequestCommandHandler(

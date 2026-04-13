@@ -50,7 +50,7 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
             return false;
         }
 
-        // 1. Look up the donation first — if already succeeded, nothing to do
+        // 1. Look up the donation first - if already succeeded, nothing to do
         var donation = await _donationRepository.GetByOrderIdAsync(appTransId, cancellationToken);
         if (donation == null)
         {

@@ -76,7 +76,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
         // fetches a fresh entity with ActualDeliveredQuantity already persisted.
         await _unitOfWork.SaveAsync();
 
-        // 5. Dispatch UpdateActivityStatusCommand(Succeed) — reuses all side-effects:
+        // 5. Dispatch UpdateActivityStatusCommand(Succeed) - reuses all side-effects:
         //    team location update, SOS sync, auto-chain next activity.
         await _mediator.Send(
             new UpdateActivityStatusCommand(request.MissionId, request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy),

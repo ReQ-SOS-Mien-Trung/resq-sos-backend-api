@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Entities.Finance.Exceptions;
+using RESQ.Domain.Entities.Finance.Exceptions;
 using RESQ.Domain.Entities.Logistics.Exceptions;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Logistics;
@@ -110,7 +110,7 @@ public class DepotModel
     ///   UnderMaintenance → Available
     ///   Unavailable → Available
     /// Created, PendingAssignment, Closed không đi qua phương thức này.
-    /// Lưu ý: Không có trạng thái Full — hệ thống dùng CurrentUtilization vs Capacity để kiểm tra đầy kho.
+    /// Lưu ý: Không có trạng thái Full - hệ thống dùng CurrentUtilization vs Capacity để kiểm tra đầy kho.
     /// </summary>
     public void ChangeStatus(DepotStatus newStatus)
     {
@@ -160,7 +160,7 @@ public class DepotModel
         LastUpdatedAt = DateTime.UtcNow;
     }
 
-    // ── Depot Closure Methods ─────────────────────────────────────────
+    // -- Depot Closure Methods -----------------------------------------
 
     /// <summary>
     /// Bước 1 đóng kho: chuyển từ Unavailable → Closed.
@@ -175,7 +175,7 @@ public class DepotModel
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
                 "Kho phải ở trạng thái Closing trước khi đóng. Hãy chuyển sang Closing trước.");
 
-        // Không set Closing nữa — đi thẳng từ Unavailable.
+        // Không set Closing nữa - đi thẳng từ Unavailable.
         // Giữ phương thức để backward compat, CompleteClosing sẽ set Closed.
         LastUpdatedAt = DateTime.UtcNow;
     }
@@ -258,10 +258,10 @@ public class DepotModel
             throw new DepotClosedException();
 
         if (volumeAmount <= 0)
-            throw new InvalidDepotUtilizationAmountException(volumeAmount, "th? t�ch");
+            throw new InvalidDepotUtilizationAmountException(volumeAmount, "thể tích");
 
         if (weightAmount <= 0)
-            throw new InvalidDepotUtilizationAmountException(weightAmount, "c�n n?ng");
+            throw new InvalidDepotUtilizationAmountException(weightAmount, "cân nặng");
 
         CurrentUtilization = Math.Max(0, CurrentUtilization - volumeAmount);
         CurrentWeightUtilization = Math.Max(0, CurrentWeightUtilization - weightAmount);
@@ -306,7 +306,7 @@ public class DepotModel
         LastUpdatedAt = DateTime.UtcNow;
     }
 
-    // ── Inventory lines (item-level stock, loaded from DepotSupplyInventory) ──
+    // -- Inventory lines (item-level stock, loaded from DepotSupplyInventory) --
     private readonly List<DepotInventoryLine> _inventoryLines = [];
     public IReadOnlyList<DepotInventoryLine> InventoryLines => _inventoryLines.AsReadOnly();
 

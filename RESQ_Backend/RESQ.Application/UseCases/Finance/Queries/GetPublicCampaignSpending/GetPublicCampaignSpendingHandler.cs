@@ -33,7 +33,7 @@ public class GetPublicCampaignSpendingHandler : IRequestHandler<GetPublicCampaig
         // 2. Lấy tổng giải ngân
         var totalDisbursed = await _disbursementRepo.GetTotalDisbursedByCampaignAsync(request.CampaignId, cancellationToken);
 
-        // 3. Lấy danh sách disbursement (kèm items) — public view
+        // 3. Lấy danh sách disbursement (kèm items) - public view
         var pagedDisbursements = await _disbursementRepo.GetPublicByCampaignAsync(
             request.CampaignId, request.PageNumber, request.PageSize, cancellationToken);
 

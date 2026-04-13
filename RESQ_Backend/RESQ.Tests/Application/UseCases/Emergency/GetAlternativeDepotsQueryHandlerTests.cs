@@ -134,7 +134,7 @@ public class GetAlternativeDepotsQueryHandlerTests
                 Assert.True(depot.CoversAllShortages);
                 Assert.Equal(120, depot.CoveredQuantity);
                 Assert.Equal(1, depot.CoveragePercent);
-                Assert.Contains("cover toan bo shortage", depot.Reason, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains("đáp ứng toàn bộ phần thiếu hụt", depot.Reason, StringComparison.OrdinalIgnoreCase);
 
                 var water = Assert.Single(depot.ItemCoverageDetails, item => item.ItemId == 1);
                 Assert.Equal(100, water.NeededQuantity);

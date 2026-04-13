@@ -7,7 +7,7 @@ namespace RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 /// <summary>
 /// Handles <see cref="SearchWarehousesByItemsQuery"/>:
 /// 1. Resolves the requesting manager's depot location from the token.
-/// 2. Fetches flat (item, depot) rows filtered by quantity ≥ requested.
+/// 2. Fetches flat (item, depot) rows filtered by quantity â‰¥ requested.
 /// 3. Groups into item → depots hierarchy.
 /// 4. Sorts each item's depots by straight-line distance from the manager's depot (nearest first).
 /// </summary>
@@ -21,7 +21,7 @@ public class SearchWarehousesByItemsQueryHandler(
         SearchWarehousesByItemsQuery request,
         CancellationToken cancellationToken)
     {
-        // ── Resolve the manager's depot location ─────────────────────────────
+        // -- Resolve the manager's depot location -----------------------------
         (double Latitude, double Longitude)? managerLocation = null;
 
         var managerDepotId = await _depotInventoryRepository
@@ -33,7 +33,7 @@ public class SearchWarehousesByItemsQueryHandler(
                 .GetDepotLocationAsync(managerDepotId.Value, cancellationToken);
         }
 
-        // ── Fetch paged flat rows from the repository ─────────────────────────
+        // -- Fetch paged flat rows from the repository -------------------------
         var (flatRows, totalItemCount) = await _depotInventoryRepository.SearchWarehousesByItemsAsync(
             request.ItemModelIds,
             request.ItemQuantities,
@@ -43,7 +43,7 @@ public class SearchWarehousesByItemsQueryHandler(
             request.PageSize,
             cancellationToken);
 
-        // ── Group flat rows by relief item and sort depots by proximity ───────
+        // -- Group flat rows by relief item and sort depots by proximity -------
         var grouped = flatRows
             .GroupBy(r => r.ItemModelId)
             .Select(g =>
@@ -118,7 +118,7 @@ public class SearchWarehousesByItemsQueryHandler(
             request.PageSize);
     }
 
-    /// <summary>Haversine formula — returns straight-line distance in kilometres.</summary>
+    /// <summary>Haversine formula - returns straight-line distance in kilometres.</summary>
     private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
     {
         const double R = 6371;

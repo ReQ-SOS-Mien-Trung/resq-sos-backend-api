@@ -5,7 +5,7 @@ public class InitiateDepotClosureResponse
     public int DepotId { get; set; }
     public string DepotName { get; set; } = string.Empty;
 
-    /// <summary>ID bản ghi đóng kho — chỉ có khi đóng thành công (Success = true).</summary>
+    /// <summary>ID bản ghi đóng kho - chỉ có khi đóng thành công (Success = true).</summary>
     public int? ClosureId { get; set; }
 
     /// <summary>
@@ -17,7 +17,7 @@ public class InitiateDepotClosureResponse
     public string Message { get; set; } = string.Empty;
 
     /// <summary>
-    /// Danh sách hàng tồn kho còn trong kho — chỉ có khi Success = false.
+    /// Danh sách hàng tồn kho còn trong kho - chỉ có khi Success = false.
     /// Admin dùng để quyết định cách xử lý (chuyển kho hoặc xử lý bên ngoài).
     /// </summary>
     public List<ClosureInventoryItemDto> RemainingItems { get; set; } = [];
@@ -42,7 +42,7 @@ public class ClosureInventoryItemDto
 }
 
 /// <summary>
-/// DTO chi tiết tồn kho theo từng lô — dùng cho Excel template xử lý bên ngoài.
+/// DTO chi tiết tồn kho theo từng lô - dùng cho Excel template xử lý bên ngoài.
 /// Consumable items được chia theo lot (ngày nhập, hạn sử dụng).
 /// Reusable items được nhóm theo item model (không có lot).
 /// </summary>

@@ -9,4 +9,4 @@ public class InvalidCampaignDataException : DomainException
 {
     public InvalidCampaignDataException(string field) 
         : base($"{field} không được để trống.") { }
-}
+}

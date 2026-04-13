@@ -7,7 +7,7 @@ namespace RESQ.Tests.Application.UseCases.Operations.IncidentV2;
 
 public class TeamIncidentQueryDtoMapperTests
 {
-    // ── existing test (updated for new detail_json shape) ─────────────────────
+    // -- existing test (updated for new detail_json shape) ---------------------
 
     [Fact]
     public void ToDto_DerivesFallbackIncidentTypeAndInjuryFlags()
@@ -50,7 +50,7 @@ public class TeamIncidentQueryDtoMapperTests
         Assert.NotNull(dto.Detail);
     }
 
-    // ── incidentType fallback tests ────────────────────────────────────────────
+    // -- incidentType fallback tests --------------------------------------------
 
     [Fact]
     public void ToDto_IncidentType_ReturnsStoredSubtype_WhenNotGeneric()
@@ -98,7 +98,7 @@ public class TeamIncidentQueryDtoMapperTests
         Assert.Equal(IncidentV2Constants.ActivityIncidentType, dto.IncidentType);
     }
 
-    // ── hasInjuredMember tests ─────────────────────────────────────────────────
+    // -- hasInjuredMember tests -------------------------------------------------
 
     [Fact]
     public void ToDto_HasInjuredMember_True_FromNestedTeamStatusLightly()
@@ -144,7 +144,7 @@ public class TeamIncidentQueryDtoMapperTests
         Assert.False(dto.HasInjuredMember);
     }
 
-    // ── hasSupportRequest tests ────────────────────────────────────────────────
+    // -- hasSupportRequest tests ------------------------------------------------
 
     [Fact]
     public void ToDto_HasSupportRequest_True_WhenRescueRequestInDetailJson()
@@ -190,7 +190,7 @@ public class TeamIncidentQueryDtoMapperTests
         Assert.False(dto.HasSupportRequest);
     }
 
-    // ── helper ────────────────────────────────────────────────────────────────
+    // -- helper ----------------------------------------------------------------
 
     private static TeamIncidentModel BuildIncident(
         TeamIncidentScope scope,

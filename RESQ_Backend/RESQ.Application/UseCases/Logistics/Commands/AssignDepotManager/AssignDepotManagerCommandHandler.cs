@@ -40,7 +40,7 @@ public class AssignDepotManagerCommandHandler(
             throw new BadRequestException(
                 $"Người dùng {user.LastName} {user.FirstName} đang quản lý một kho khác. Vui lòng gỡ họ khỏi kho hiện tại trước khi gán vào kho này.");
 
-        // 4. Gọi domain method — unassign manager cũ + assign mới + status → Available
+        // 4. Gọi domain method - unassign manager cũ + assign mới + status → Available
         depot.AssignManager(request.ManagerId);
 
         // 5. Persist qua repository method chuyên biệt

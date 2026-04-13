@@ -10,4 +10,4 @@ public class ExtendCampaignValidator : AbstractValidator<ExtendCampaignCommand>
         RuleFor(x => x.NewEndDate).GreaterThan(DateOnly.FromDateTime(DateTime.UtcNow))
             .WithMessage("Ngày kết thúc mới phải lớn hơn ngày hiện tại.");
     }
-}
+}

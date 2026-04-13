@@ -1,7 +1,7 @@
 namespace RESQ.Application.UseCases.Finance.Queries.GetSystemFund;
 
 /// <summary>
-/// DTO quỹ hệ thống — trả về cho Admin.
+/// DTO quỹ hệ thống - trả về cho Admin.
 /// </summary>
 public class SystemFundDto
 {

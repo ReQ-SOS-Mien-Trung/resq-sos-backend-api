@@ -23,7 +23,7 @@ public class DepotClosureExternalItem
     [Column("closure_id")]
     public int? ClosureId { get; set; }
 
-    /// <summary>FK đến item_model — nullable nếu item không khớp model nào.</summary>
+    /// <summary>FK đến item_model - nullable nếu item không khớp model nào.</summary>
     [Column("item_model_id")]
     public int? ItemModelId { get; set; }
 

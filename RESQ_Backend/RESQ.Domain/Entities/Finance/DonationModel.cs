@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using RESQ.Domain.Entities.Finance.Exceptions;
 using RESQ.Domain.Entities.Finance.ValueObjects;
 using RESQ.Domain.Enum.Finance;
@@ -19,7 +19,7 @@ public class DonationModel
     public string? TransactionId { get; set; }
     public Status Status { get; private set; } // Private set to enforce logic
     
-    // Payment Method — stored as enum, persisted as VARCHAR(50)
+    // Payment Method - stored as enum, persisted as VARCHAR(50)
     public PaymentMethodCode? PaymentMethodCode { get; set; }
 
     public DateTime? PaidAt { get; set; }

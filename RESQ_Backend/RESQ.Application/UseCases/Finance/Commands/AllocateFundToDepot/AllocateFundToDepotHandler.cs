@@ -60,9 +60,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         };
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     //  Campaign → Depot (giữ nguyên luồng cũ, cộng quỹ vào depot fund gắn campaign)
-    // ═══════════════════════════════════════════════════════════════════════════
 
     private async Task<int> HandleCampaignAllocation(AllocateFundToDepotCommand request, CancellationToken cancellationToken)
     {
@@ -105,7 +103,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         depotFund.Credit(request.Amount);
         await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
-        // 5. Ghi log giao dịch quỹ kho — Allocation
+        // 5. Ghi log giao dịch quỹ kho - Allocation
         await _depotFundRepo.CreateTransactionAsync(new DepotFundTransactionModel
         {
             DepotFundId = depotFund.Id,
@@ -126,9 +124,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         return disbursementId;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     //  SystemFund → Depot
-    // ═══════════════════════════════════════════════════════════════════════════
 
     private async Task<int> HandleSystemFundAllocation(AllocateFundToDepotCommand request, CancellationToken cancellationToken)
     {
@@ -182,9 +178,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         return depotFund.Id;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     //  Helpers
-    // ═══════════════════════════════════════════════════════════════════════════
 
     private async Task NotifyDepotManager(int depotId, decimal amount, string sourceName, CancellationToken ct)
     {

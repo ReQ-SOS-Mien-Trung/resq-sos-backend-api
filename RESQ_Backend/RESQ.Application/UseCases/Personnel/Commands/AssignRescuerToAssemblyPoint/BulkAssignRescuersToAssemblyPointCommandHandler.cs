@@ -42,7 +42,7 @@ public class BulkAssignRescuersToAssemblyPointCommandHandler(
             apName = ap.Name;
         }
 
-        // 2. Validate tất cả user tồn tại và có role Rescuer — một lần query
+        // 2. Validate tất cả user tồn tại và có role Rescuer - một lần query
         var users = await userRepository.GetByIdsAsync(request.UserIds, cancellationToken);
 
         var missingIds = request.UserIds.Except(users.Select(u => u.Id)).ToList();
@@ -56,7 +56,7 @@ public class BulkAssignRescuersToAssemblyPointCommandHandler(
             throw new BadRequestException($"Người dùng sau không phải nhân sự cứu hộ: {names}");
         }
 
-        // 3. Bulk UPDATE assembly point — single SQL statement
+        // 3. Bulk UPDATE assembly point - single SQL statement
         var updatedIds = await assemblyPointRepository.BulkUpdateRescuerAssemblyPointAsync(
             request.UserIds, request.AssemblyPointId, cancellationToken);
 

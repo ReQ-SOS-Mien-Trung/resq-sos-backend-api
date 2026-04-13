@@ -54,7 +54,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { id }, id);
     }
 
-    /// <summary>Admin duyệt yêu cầu — chọn nguồn quỹ (Campaign hoặc SystemFund).</summary>
+    /// <summary>Admin duyệt yêu cầu - chọn nguồn quỹ (Campaign hoặc SystemFund).</summary>
     [HttpPatch("{id}/approve")]
     [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]

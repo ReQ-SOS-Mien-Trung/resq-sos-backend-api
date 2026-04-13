@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace RESQ.Infrastructure.Entities.Finance;
 
 /// <summary>
-/// Quỹ hệ thống (singleton) — chứa tiền thanh lý tài sản khi đóng kho.
+/// Quỹ hệ thống (singleton) - chứa tiền thanh lý tài sản khi đóng kho.
 /// Admin có thể cấp tiền từ quỹ này cho kho.
 /// </summary>
 [Table("system_funds")]

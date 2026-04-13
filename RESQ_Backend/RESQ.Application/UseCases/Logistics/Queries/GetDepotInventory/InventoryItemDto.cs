@@ -14,7 +14,7 @@ public class InventoryItemDto
     public decimal? VolumePerUnit { get; set; }
     public List<string> TargetGroups { get; set; } = new();
 
-    // ── Consumable only (null khi ItemType = Reusable) ────────────────────────────
+    // -- Consumable only (null khi ItemType = Reusable) ----------------------------
     /// <summary>Tổng số lượng. Chỉ có với Consumable.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Quantity { get; set; }
@@ -35,7 +35,7 @@ public class InventoryItemDto
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? AvailableQuantity { get; set; }
 
-    // ── Reusable only (null khi ItemType = Consumable) ────────────────────────────
+    // -- Reusable only (null khi ItemType = Consumable) ----------------------------
     /// <summary>Tổng số đơn vị. Chỉ có với Reusable.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Unit { get; set; }
@@ -58,7 +58,7 @@ public class InventoryItemDto
 
     public DateTime? LastStockedAt { get; set; }
 
-    // ── Lot summary (Consumable only, null khi Reusable) ──
+    // -- Lot summary (Consumable only, null khi Reusable) --
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateTime? NearestExpiryDate { get; set; }
 

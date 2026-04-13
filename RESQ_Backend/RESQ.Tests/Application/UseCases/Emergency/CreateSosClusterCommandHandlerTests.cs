@@ -36,12 +36,12 @@ public class CreateSosClusterCommandHandlerTests
             NullLogger<CreateSosClusterCommandHandler>.Instance);
     }
 
-    // ── Not Found ──────────────────────────────────────────────────────────────
+    // -- Not Found --------------------------------------------------------------
 
     [Fact]
     public async Task Handle_ThrowsNotFound_WhenAnySosRequestDoesNotExist()
     {
-        // ID 99 is unknown — repository will return null for it
+        // ID 99 is unknown - repository will return null for it
         var repo = new StubSosRequestRepository(new Dictionary<int, SosRequestModel>
         {
             [1] = BuildPendingSos(1, 10.762622, 106.660172)
@@ -53,7 +53,7 @@ public class CreateSosClusterCommandHandlerTests
             handler.Handle(new CreateSosClusterCommand([1, 99], CoordinatorId), CancellationToken.None));
     }
 
-    // ── Status validation ──────────────────────────────────────────────────────
+    // -- Status validation ------------------------------------------------------
 
     [Theory]
     [InlineData(SosRequestStatus.Assigned)]
@@ -87,7 +87,7 @@ public class CreateSosClusterCommandHandlerTests
         Assert.Equal(7, response.ClusterId);
     }
 
-    // ── Already clustered ──────────────────────────────────────────────────────
+    // -- Already clustered ------------------------------------------------------
 
     [Fact]
     public async Task Handle_ThrowsConflict_WhenSosAlreadyBelongsToAnotherCluster()
@@ -101,12 +101,12 @@ public class CreateSosClusterCommandHandlerTests
             handler.Handle(new CreateSosClusterCommand([1], CoordinatorId), CancellationToken.None));
     }
 
-    // ── Distance validation ────────────────────────────────────────────────────
+    // -- Distance validation ----------------------------------------------------
 
     [Fact]
     public async Task Handle_ThrowsBadRequest_WhenTwoSosRequestsAreTooFarApart()
     {
-        // ~16 km apart (0.15 degrees latitude ≈ 16.7 km) — exceeds default 10 km
+        // ~16 km apart (0.15 degrees latitude ≈ 16.7 km) - exceeds default 10 km
         var sos1 = BuildPendingSos(1, 10.0, 106.0);
         var sos2 = BuildPendingSos(2, 10.15, 106.0);
 
@@ -126,7 +126,7 @@ public class CreateSosClusterCommandHandlerTests
     [Fact]
     public async Task Handle_Succeeds_WhenSosRequestsAreWithinConfiguredDistance()
     {
-        // ~1.1 km apart — well within 10 km limit
+        // ~1.1 km apart - well within 10 km limit
         var sos1 = BuildPendingSos(1, 10.0, 106.0);
         var sos2 = BuildPendingSos(2, 10.01, 106.0);
 
@@ -146,7 +146,7 @@ public class CreateSosClusterCommandHandlerTests
         Assert.Contains(2, response.SosRequestIds);
     }
 
-    // ── Custom config distance ──────────────────────────────────────────────────
+    // -- Custom config distance --------------------------------------------------
 
     [Fact]
     public async Task Handle_ThrowsBadRequest_WhenDistanceExceedsCustomConfiguredLimit()
@@ -167,7 +167,7 @@ public class CreateSosClusterCommandHandlerTests
             handler.Handle(new CreateSosClusterCommand([1, 2], CoordinatorId), CancellationToken.None));
     }
 
-    // ── Response shape ─────────────────────────────────────────────────────────
+    // -- Response shape ---------------------------------------------------------
 
     [Fact]
     public async Task Handle_ReturnsCenterCoordinates_BasedOnAverageOfAllSosLocations()
@@ -191,7 +191,7 @@ public class CreateSosClusterCommandHandlerTests
         Assert.Equal(106.001, clusterRepo.LastCreatedCluster!.CenterLongitude!.Value, precision: 5);
     }
 
-    // ── Stubs ──────────────────────────────────────────────────────────────────
+    // -- Stubs ------------------------------------------------------------------
 
     private sealed class StubSosRequestRepository(Dictionary<int, SosRequestModel>? store = null) : ISosRequestRepository
     {

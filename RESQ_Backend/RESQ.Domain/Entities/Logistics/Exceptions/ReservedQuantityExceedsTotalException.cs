@@ -8,4 +8,4 @@ public sealed class ReservedQuantityExceedsTotalException : DomainException
         : base("Số lượng đặt trước không được vượt quá tổng số lượng tồn kho.") 
     { 
     }
-}
+}

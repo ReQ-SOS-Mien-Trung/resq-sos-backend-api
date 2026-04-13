@@ -54,7 +54,7 @@ public class ZaloPayService : IPaymentGatewayService
         var amount = (long)(donation.Amount?.Amount ?? 0);
         var appUser = string.IsNullOrEmpty(donation.Donor?.Name) ? "Unknown" : donation.Donor.Name;
         var item = "[]"; 
-        var description = $"RESQ - Ung ho chien dich {donation.FundCampaignCode}";
+        var description = $"RESQ - Ủng hộ chiến dịch {donation.FundCampaignCode}";
         
         // Redirect through backend so it can verify the payment before sending the user to the frontend.
         // ZaloPay will append ?appid=&apptransid=&pmcid=&bankcode=&amount=&discountamount=&status= to this URL.
@@ -81,7 +81,7 @@ public class ZaloPayService : IPaymentGatewayService
             embed_data = embedData,
             bank_code = "",
             mac = mac,
-            callback_url = ""  // IPN not needed — zalopay-return redirect handles verification
+            callback_url = ""  // IPN not needed - zalopay-return redirect handles verification
         };
 
         var client = _httpClientFactory.CreateClient();
@@ -192,7 +192,7 @@ public class ZaloPayService : IPaymentGatewayService
             var macData = $"{appId}|{appTransId}|{key1}";
             var mac = ComputeHmacSha256(macData, key1);
 
-            // app_id MUST be an integer in JSON — using Dictionary<string,string> would
+            // app_id MUST be an integer in JSON - using Dictionary<string,string> would
             // serialize it as "554" (string) which ZaloPay rejects.
             var requestData = new
             {

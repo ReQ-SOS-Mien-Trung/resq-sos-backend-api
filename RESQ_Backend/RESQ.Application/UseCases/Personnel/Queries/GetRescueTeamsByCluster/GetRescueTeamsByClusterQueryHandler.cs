@@ -73,7 +73,7 @@ public class GetRescueTeamsByClusterQueryHandler(
             .OrderBy(d => d.DistanceKm)];
     }
 
-    /// <summary>Haversine formula — returns straight-line distance in kilometres.</summary>
+    /// <summary>Haversine formula - returns straight-line distance in kilometres.</summary>
     private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
     {
         const double R = 6371;

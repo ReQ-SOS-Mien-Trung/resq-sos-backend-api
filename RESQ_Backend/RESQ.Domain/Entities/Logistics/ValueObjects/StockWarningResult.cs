@@ -23,7 +23,7 @@ public sealed record StockWarningResult(
         new(0m, StockWarningLevel.Unconfigured, ThresholdResolutionScope.None, null);
 }
 
-/// <summary>Các hằng tên level — tránh string literal rải rác trong code.</summary>
+/// <summary>Các hằng tên level - tránh string literal rải rác trong code.</summary>
 public static class StockWarningLevel
 {
     public const string Ok           = "OK";

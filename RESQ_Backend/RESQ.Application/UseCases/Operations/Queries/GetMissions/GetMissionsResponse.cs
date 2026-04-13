@@ -60,7 +60,7 @@ public class MissionActivityDto
     public Guid? CompletedBy { get; set; }
 }
 
-/// <summary>AI suggestion metadata attached to a mission response — mirrors GenerateRescueMissionSuggestionResponse.</summary>
+/// <summary>AI suggestion metadata attached to a mission response - mirrors GenerateRescueMissionSuggestionResponse.</summary>
 public class MissionAiSuggestionSection
 {
     public int Id { get; set; }

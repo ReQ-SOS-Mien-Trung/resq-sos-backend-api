@@ -24,4 +24,4 @@ public class DeleteItemCategoryCommandHandler(
         await _repository.DeleteAsync(request.Id, cancellationToken);
         await _unitOfWork.SaveAsync();
     }
-}
+}

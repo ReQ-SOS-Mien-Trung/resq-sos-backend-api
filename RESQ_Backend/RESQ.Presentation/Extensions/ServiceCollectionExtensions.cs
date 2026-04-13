@@ -12,7 +12,7 @@ public static class ServiceCollectionExtensions
 
         services.AddAuthorization(options =>
         {
-            // ── Single-permission policies ──────────────────────────────────────
+            // -- Single-permission policies --------------------------------------
             void AddSingle(string code) =>
                 options.AddPolicy(code, p => p.Requirements.Add(new PermissionRequirement(code)));
 
@@ -74,7 +74,7 @@ public static class ServiceCollectionExtensions
                 AddSingle(code);
             }
 
-            // ── Composite / OR-logic policies ──────────────────────────────────
+            // -- Composite / OR-logic policies ----------------------------------
             options.AddPolicy(PermissionConstants.PolicyMissionManage, p => p.Requirements.Add(
                 new PermissionRequirement(
                     PermissionConstants.MissionGlobalManage,

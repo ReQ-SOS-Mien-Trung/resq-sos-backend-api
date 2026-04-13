@@ -6,7 +6,7 @@ namespace RESQ.Application.Common.Constants;
 /// </summary>
 public static class PermissionConstants
 {
-    // ── Cấu hình & Hệ thống ──────────────────────────────────────────
+    // -- Cấu hình & Hệ thống ------------------------------------------
     /// <summary>Admin: Tạo/sửa/xóa Role, gán quyền động</summary>
     public const string SystemConfigManage = "system.config.manage";
 
@@ -16,7 +16,7 @@ public static class PermissionConstants
     /// <summary>Admin + Coordinator_Global: Chỉ xem danh sách Role/User</summary>
     public const string SystemUserView = "system.user.view";
 
-    // ── Identity / Self-service ──────────────────────────────────────
+    // -- Identity / Self-service --------------------------------------
     /// <summary>Người dùng đã đăng nhập: Xem hồ sơ và thông tin hiện tại của chính mình</summary>
     public const string IdentitySelfView = "identity.self.view";
 
@@ -35,7 +35,7 @@ public static class PermissionConstants
     /// <summary>Người dùng đã đăng nhập: Quản lý phiên đăng nhập của chính mình</summary>
     public const string IdentitySessionManage = "identity.session.manage";
 
-    // ── Notification / Chat self-service ─────────────────────────────
+    // -- Notification / Chat self-service -----------------------------
     /// <summary>Người dùng đã đăng nhập: Xem notification của chính mình</summary>
     public const string NotificationSelfView = "notification.self.view";
 
@@ -51,7 +51,7 @@ public static class PermissionConstants
     /// <summary>Coordinator/Admin: Nhận phòng chờ và điều phối conversation hỗ trợ</summary>
     public const string ConversationCoordinatorManage = "conversation.coordinator.manage";
 
-    // ── Quản lý Kho & Vật tư (Inventory / Logistics) ─────────────────
+    // -- Quản lý Kho & Vật tư (Inventory / Logistics) -----------------
     /// <summary>Admin + DepotManager_Global: Toàn quyền xuất/nhập/tồn, điều chuyển giữa các kho</summary>
     public const string InventoryGlobalManage = "inventory.global.manage";
 
@@ -67,7 +67,7 @@ public static class PermissionConstants
     /// <summary>Admin + Rescuer_Core: Tạo phiếu yêu cầu cấp phát vật tư cho đội</summary>
     public const string InventorySupplyRequestCreate = "inventory.supply_request.create";
 
-    // ── Quản lý Đội nhóm (Teams / Personnel) ─────────────────────────
+    // -- Quản lý Đội nhóm (Teams / Personnel) -------------------------
     /// <summary>Admin + DepotManager_Global: Quản lý danh sách thủ kho nhánh</summary>
     public const string PersonnelDepotBranchManage = "personnel.depot_branch.manage";
 
@@ -98,7 +98,7 @@ public static class PermissionConstants
     /// <summary>Admin + Coordinator + Rescuer: Check-in vào sự kiện tập trung của chính mình</summary>
     public const string PersonnelAssemblyEventCheckIn = "personnel.assembly_event.checkin";
 
-    // ── Điều phối Chiến dịch (Missions / Operations) ─────────────────
+    // -- Điều phối Chiến dịch (Missions / Operations) -----------------
     /// <summary>Admin + Coordinator_Global: Nhận yêu cầu cứu hộ, tạo và duyệt Mission tổng</summary>
     public const string MissionGlobalManage = "mission.global.manage";
 
@@ -114,7 +114,7 @@ public static class PermissionConstants
     /// <summary>Admin + Coordinator + Rescuer: Xem mission của đội hiện tại</summary>
     public const string MissionSelfView = "mission.self.view";
 
-    // ── Thực thi Thực địa (Activities) ───────────────────────────────
+    // -- Thực thi Thực địa (Activities) -------------------------------
     /// <summary>Admin + Coordinator_Global: Theo dõi tiến độ chung toàn hệ thống</summary>
     public const string ActivityGlobalView = "activity.global.view";
 
@@ -151,7 +151,7 @@ public static class PermissionConstants
     /// <summary>Admin + Coordinator + Rescuer: Quản lý trạng thái incident</summary>
     public const string MissionIncidentManage = "mission.incident.manage";
 
-    // ── SOS ───────────────────────────────────────────────────────────
+    // -- SOS -----------------------------------------------------------
     /// <summary>Admin + Coordinator_Global + Victim: Gửi yêu cầu cứu hộ khẩn cấp</summary>
     public const string SosRequestCreate = "sos.request.create";
 
@@ -161,7 +161,7 @@ public static class PermissionConstants
     /// <summary>Victim: Truy cập endpoint huỷ SOS của mình; domain vẫn kiểm tra owner/companion cụ thể</summary>
     public const string SosRequestCancelOwn = "sos.request.cancel.own";
 
-    // ── Combined / Composite policy names (OR logic) ─────────────────
+    // -- Combined / Composite policy names (OR logic) -----------------
     // Dùng khi một endpoint cần cho phép nhiều role khác nhau.
 
     /// <summary>MissionGlobalManage | MissionPointManage</summary>

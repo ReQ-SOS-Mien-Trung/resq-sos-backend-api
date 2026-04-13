@@ -97,7 +97,7 @@ public class RescueTeamModel
         UpdatedAt = DateTime.UtcNow;
     }
 
-    // ── Mission lifecycle ───────────────────────────────────────────
+    // -- Mission lifecycle -------------------------------------------
 
     public void AssignMission()
     {
@@ -158,7 +158,7 @@ public class RescueTeamModel
         UpdatedAt = DateTime.UtcNow;
     }
 
-    // ── Private ─────────────────────────────────────────────────────
+    // -- Private -----------------------------------------------------
 
     private void ChangeStatus(RescueTeamStatus expectedCurrent, RescueTeamStatus nextStatus)
     {

@@ -10,7 +10,7 @@ public class ExportInventoryMovementQueryValidator : AbstractValidator<ExportInv
 
     public ExportInventoryMovementQueryValidator()
     {
-        // ─── ByDateRange ──────────────────────────────────────────────────────
+        // --- ByDateRange ------------------------------------------------------
         When(x => x.PeriodType == ExportPeriodType.ByDateRange, () =>
         {
             RuleFor(x => x.FromDate)
@@ -30,7 +30,7 @@ public class ExportInventoryMovementQueryValidator : AbstractValidator<ExportInv
                 .WithMessage("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.");
         });
 
-        // ─── ByMonth ──────────────────────────────────────────────────────────
+        // --- ByMonth ----------------------------------------------------------
         When(x => x.PeriodType == ExportPeriodType.ByMonth, () =>
         {
             RuleFor(x => x.Month)

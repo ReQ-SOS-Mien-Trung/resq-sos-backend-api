@@ -4,7 +4,7 @@ using RESQ.Domain.Enum.Finance;
 namespace RESQ.Application.UseCases.Finance.Commands.ApproveFundingRequest;
 
 /// <summary>
-/// [Cách 2] Admin duyệt FundingRequest — chọn nguồn quỹ (Campaign hoặc SystemFund).
+/// [Cách 2] Admin duyệt FundingRequest - chọn nguồn quỹ (Campaign hoặc SystemFund).
 /// Nếu nguồn = Campaign → CampaignId bắt buộc.
 /// Nếu nguồn = SystemFund → CampaignId = null, trừ tiền quỹ hệ thống.
 /// </summary>

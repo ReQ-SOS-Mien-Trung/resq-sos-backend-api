@@ -9,17 +9,17 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransf
 /// </summary>
 public class MyIncomingClosureTransferResponse
 {
-    // ── IDs cần thiết để gọi action endpoints ─────────────────────────────
-    /// <summary>depotId của kho nguồn — dùng làm route param {id} trong các endpoint đóng kho.</summary>
+    // -- IDs cần thiết để gọi action endpoints -----------------------------
+    /// <summary>depotId của kho nguồn - dùng làm route param {id} trong các endpoint đóng kho.</summary>
     public int SourceDepotId { get; set; }
 
-    /// <summary>ID phiên đóng kho — thông tin audit, không cần dùng trong route.</summary>
+    /// <summary>ID phiên đóng kho - thông tin audit, không cần dùng trong route.</summary>
     public int ClosureId { get; set; }
 
-    /// <summary>ID bản ghi chuyển hàng — dùng làm route param {transferId}.</summary>
+    /// <summary>ID bản ghi chuyển hàng - dùng làm route param {transferId}.</summary>
     public int TransferId { get; set; }
 
-    // ── Thông tin hiển thị ────────────────────────────────────────────────
+    // -- Thông tin hiển thị ------------------------------------------------
     public string SourceDepotName { get; set; } = string.Empty;
 
     /// <summary>

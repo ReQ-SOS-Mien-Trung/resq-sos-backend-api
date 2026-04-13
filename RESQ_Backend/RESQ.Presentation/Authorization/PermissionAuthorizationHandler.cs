@@ -38,7 +38,7 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
         }
     }
 
-    // ── Cache + DB lookup ─────────────────────────────────────────────────
+    // -- Cache + DB lookup -------------------------------------------------
     private async Task<HashSet<string>> GetUserPermissionsAsync(Guid userId)
     {
         var cacheKey = $"perms:{userId}";

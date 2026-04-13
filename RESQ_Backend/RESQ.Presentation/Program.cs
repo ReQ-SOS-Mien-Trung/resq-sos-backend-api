@@ -27,7 +27,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpClient();
 builder.Services.AddTransient<GlobalExceptionMiddleware>();
 
-// Add CORS — AllowCredentials is required for SignalR WebSocket handshake
+// Add CORS - AllowCredentials is required for SignalR WebSocket handshake
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
@@ -104,12 +104,12 @@ builder.Services.AddSwaggerGen(c =>
 // Health check
 builder.Services.AddHealthChecks();
 
-// Firebase Admin SDK initialization — đọc từ appsettings section "Firebase"
+// Firebase Admin SDK initialization - đọc từ appsettings section "Firebase"
 if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 {
     var fb = builder.Configuration.GetSection("Firebase");
 
-    // Replace literal \n (2 chars) thành newline thật — phòng trường hợp configuration
+    // Replace literal \n (2 chars) thành newline thật - phòng trường hợp configuration
     // không unescape JSON escape sequences (xảy ra trên một số cloud platforms)
     var privateKey = (fb["PrivateKey"] ?? "").Replace("\\n", "\n");
 
@@ -144,10 +144,10 @@ if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
 
-// ── Memory cache (dùng bởi PermissionAuthorizationHandler) ──────────────
+// -- Memory cache (dùng bởi PermissionAuthorizationHandler) --------------
 builder.Services.AddMemoryCache();
 
-// ── Dynamic Permission Authorization ────────────────────────────────────
+// -- Dynamic Permission Authorization ------------------------------------
 builder.Services.AddPermissionAuthorization();
 
 

@@ -18,30 +18,30 @@ public class DepotClosureTransferRecord
 
     public DateTime CreatedAt { get; private set; }
 
-    // ── Source side ──
+    // -- Source side --
     public DateTime? ShippedAt { get; private set; }
     public Guid? ShippedBy { get; private set; }
     public string? ShipNote { get; private set; }
 
-    // ── Target side ──
+    // -- Target side --
     public DateTime? ReceivedAt { get; private set; }
     public Guid? ReceivedBy { get; private set; }
     public string? ReceiveNote { get; private set; }
 
-    // ── Snapshot ──
+    // -- Snapshot --
     public int SnapshotConsumableUnits { get; private set; }
     public int SnapshotReusableUnits { get; private set; }
 
-    // ── Cancel ──
+    // -- Cancel --
     public DateTime? CancelledAt { get; private set; }
     public Guid? CancelledBy { get; private set; }
     public string? CancellationReason { get; private set; }
 
     private DepotClosureTransferRecord() { }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
     // Factory
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
 
     public static DepotClosureTransferRecord Create(
         int closureId,
@@ -93,9 +93,9 @@ public class DepotClosureTransferRecord
         };
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
     // State transitions
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
 
     /// <summary>Kho nguồn xác nhận đang chuẩn bị hàng → Preparing.</summary>
     public void MarkPreparing(Guid preparedBy, string? note = null)

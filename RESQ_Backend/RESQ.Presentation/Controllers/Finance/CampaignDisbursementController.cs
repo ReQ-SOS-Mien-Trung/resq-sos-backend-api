@@ -50,7 +50,7 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
     }
 
     /// <summary>
-    /// [DepotManager] Báo cáo vật tư đã mua sau khi nhận tiền — công khai cho donor xem.
+    /// [DepotManager] Báo cáo vật tư đã mua sau khi nhận tiền - công khai cho donor xem.
     /// Admin cũng có thể thêm để hỗ trợ.
     /// </summary>
     [HttpPost("{id}/items")]

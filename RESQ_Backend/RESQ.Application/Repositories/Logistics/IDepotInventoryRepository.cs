@@ -157,7 +157,7 @@ public interface IDepotInventoryRepository
         DateTime? expiredDate,
         CancellationToken cancellationToken = default);
 
-    // ── Depot Closure helpers ────────────────────────────────────────────────
+    // -- Depot Closure helpers ------------------------------------------------
 
     /// <summary>
     /// Chuyển toàn bộ inventory từ kho đóng sang kho đích.

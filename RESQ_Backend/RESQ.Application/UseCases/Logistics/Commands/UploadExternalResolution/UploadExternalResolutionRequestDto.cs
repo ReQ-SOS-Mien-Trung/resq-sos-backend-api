@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
+namespace RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
 
 /// <summary>
 /// Body JSON cho endpoint xử lý tồn kho bên ngoài.

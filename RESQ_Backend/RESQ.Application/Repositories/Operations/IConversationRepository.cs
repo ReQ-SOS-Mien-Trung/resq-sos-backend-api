@@ -5,12 +5,12 @@ namespace RESQ.Application.Repositories.Operations;
 
 public interface IConversationRepository
 {
-    // ─── Victim conversation ───────────────────────────────────────────────────
+    // --- Victim conversation ---------------------------------------------------
 
     /// <summary>
     /// Lấy conversation đang ở trạng thái AiAssist của victim, hoặc tạo mới.
     /// Mỗi lần victim chọn chủ đề, conversation chuyển trạng thái và lần gọi tiếp theo
-    /// sẽ tạo ra một conversation mới — đảm bảo mỗi chủ đề là một đoạn chat riêng biệt.
+    /// sẽ tạo ra một conversation mới - đảm bảo mỗi chủ đề là một đoạn chat riêng biệt.
     /// </summary>
     Task<ConversationModel> GetOrCreateForVictimAsync(Guid victimId, CancellationToken cancellationToken = default);
 
@@ -23,7 +23,7 @@ public interface IConversationRepository
     /// <summary>Lấy conversation theo Id (kèm participants).</summary>
     Task<ConversationModel?> GetByIdAsync(int conversationId, CancellationToken cancellationToken = default);
 
-    // ─── Legacy: mission-based (coordinator xem danh sách) ───────────────────
+    // --- Legacy: mission-based (coordinator xem danh sách) -------------------
 
     /// <summary>
     /// Lấy tất cả conversations của một mission mà user này tham gia.
@@ -33,7 +33,7 @@ public interface IConversationRepository
     Task<IEnumerable<ConversationModel>> GetAllByMissionIdForUserAsync(
         int missionId, Guid userId, CancellationToken cancellationToken = default);
 
-    // ─── Status transitions ────────────────────────────────────────────────────
+    // --- Status transitions ----------------------------------------------------
 
     /// <summary>Cập nhật trạng thái, topic và linked SOS request của conversation.</summary>
     Task UpdateStatusAsync(
@@ -43,7 +43,7 @@ public interface IConversationRepository
         int? linkedSosRequestId = null,
         CancellationToken cancellationToken = default);
 
-    // ─── Participants ──────────────────────────────────────────────────────────
+    // --- Participants ----------------------------------------------------------
 
     /// <summary>Kiểm tra người dùng có phải là participant của conversation không.</summary>
     Task<bool> IsParticipantAsync(int conversationId, Guid userId, CancellationToken cancellationToken = default);
@@ -57,7 +57,7 @@ public interface IConversationRepository
     /// <summary>Lấy danh sách conversation đang ở trạng thái WaitingCoordinator.</summary>
     Task<IEnumerable<ConversationModel>> GetConversationsWaitingForCoordinatorAsync(CancellationToken cancellationToken = default);
 
-    // ─── Messages ─────────────────────────────────────────────────────────────
+    // --- Messages -------------------------------------------------------------
 
     /// <summary>Lấy danh sách tin nhắn của một conversation, sắp xếp cũ nhất trước.</summary>
     Task<IEnumerable<MessageModel>> GetMessagesAsync(int conversationId, int page, int pageSize, CancellationToken cancellationToken = default);

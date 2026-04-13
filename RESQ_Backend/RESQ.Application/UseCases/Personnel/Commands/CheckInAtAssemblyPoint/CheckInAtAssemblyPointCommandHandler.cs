@@ -51,7 +51,7 @@ public class CheckInAtAssemblyPointCommandHandler(
         //         $"Đã quá thời gian check-in. Check-in đóng lúc {checkInClosesAt:dd/MM/yyyy HH:mm} UTC " +
         //         $"(sau giờ triệu tập {CheckInCloseHoursAfter} tiếng).");
 
-        // 4. Validate vị trí GPS — rescuer phải nằm trong phạm vi điểm tập kết
+        // 4. Validate vị trí GPS - rescuer phải nằm trong phạm vi điểm tập kết
         var assemblyPoint = await assemblyPointRepository.GetByIdAsync(evt.AssemblyPointId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {evt.AssemblyPointId}");
 

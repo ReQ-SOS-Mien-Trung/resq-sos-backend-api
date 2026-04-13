@@ -158,7 +158,7 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork, ResQDbContex
         await repo.UpdateAsync(entity);
     }
 
-    // ── Mappers ──────────────────────────────────────────────────────────────
+    // -- Mappers --------------------------------------------------------------
 
     private static DepotClosureTransfer ToEntity(DepotClosureTransferRecord record)
     {

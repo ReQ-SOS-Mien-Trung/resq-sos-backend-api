@@ -22,7 +22,7 @@ public class ResolveDepotClosureCommandValidator : AbstractValidator<ResolveDepo
                 .WithMessage("Kho đích không được trùng với kho nguồn.");
         });
 
-        // Option 2: External — chỉ cần ghi chú mô tả cách xử lý
+        // Option 2: External - chỉ cần ghi chú mô tả cách xử lý
         When(x => x.ResolutionType == CloseResolutionType.ExternalResolution, () =>
         {
             RuleFor(x => x.ExternalNote)

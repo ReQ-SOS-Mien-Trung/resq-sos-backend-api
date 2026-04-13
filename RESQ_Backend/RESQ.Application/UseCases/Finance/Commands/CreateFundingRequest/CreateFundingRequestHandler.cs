@@ -67,7 +67,7 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
             });
         }
 
-        // 4. Persist — CreateAsync lưu ngay và trả về ID thực từ DB
+        // 4. Persist - CreateAsync lưu ngay và trả về ID thực từ DB
         var fundingRequestId = await _fundingRequestRepo.CreateAsync(fundingRequest, cancellationToken);
         await _unitOfWork.SaveAsync();
 

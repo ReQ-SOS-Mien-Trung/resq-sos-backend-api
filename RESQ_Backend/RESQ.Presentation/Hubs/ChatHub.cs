@@ -22,9 +22,9 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
     private readonly IMediator _mediator = mediator;
     private readonly IConversationRepository _conversationRepository = conversationRepository;
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
     // Join / Leave
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
 
     /// <summary>
     /// Client (Victim hoặc Coordinator) join vào group SignalR của conversation.
@@ -62,9 +62,9 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
         await Clients.Caller.SendAsync("LeftConversation", new { conversationId });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
     // Messaging
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
 
     /// <summary>
     /// Gửi tin nhắn text trong conversation.
@@ -103,9 +103,9 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
     // Coordinator join (real-time notification)
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
 
     /// <summary>
     /// Coordinator gọi để tham gia hỗ trợ Victim qua SignalR.
@@ -183,9 +183,9 @@ public class ChatHub(IMediator mediator, IConversationRepository conversationRep
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
     // Helpers
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
 
     private Guid GetUserId()
     {

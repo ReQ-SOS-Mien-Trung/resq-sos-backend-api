@@ -87,7 +87,7 @@ public class FundingRequestModel
         return model;
     }
 
-    /// <summary>Admin duyệt yêu cầu — chọn nguồn quỹ (campaign hoặc system fund).</summary>
+    /// <summary>Admin duyệt yêu cầu - chọn nguồn quỹ (campaign hoặc system fund).</summary>
     public void Approve(int? campaignId, Guid reviewerId)
     {
         if (Status != FundingRequestStatus.Pending)

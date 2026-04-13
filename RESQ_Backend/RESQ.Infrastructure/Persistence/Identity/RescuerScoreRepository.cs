@@ -117,7 +117,7 @@ public class RescuerScoreRepository(IUnitOfWork unitOfWork) : IRescuerScoreRepos
                     continue;
                 }
 
-                // First evaluation for this rescuer — create new record
+                // First evaluation for this rescuer - create new record
                 entity = new RescuerScore
                 {
                     UserId = newScore.RescuerId,

@@ -1,7 +1,7 @@
 namespace RESQ.Domain.Enum.Logistics;
 
 /// <summary>
-/// Hinh thuc xu ly hang ton kho ben ngoai khi dong kho.
+/// Hình thức xử lý hàng tồn kho bên ngoài khi đóng kho.
 /// </summary>
 public enum ExternalDispositionType
 {

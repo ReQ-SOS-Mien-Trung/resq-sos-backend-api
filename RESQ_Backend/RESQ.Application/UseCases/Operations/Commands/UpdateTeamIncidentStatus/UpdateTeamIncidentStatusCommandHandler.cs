@@ -45,7 +45,7 @@ public class UpdateTeamIncidentStatusCommandHandler(
                 }
                 catch
                 {
-                    // Team state may already be in correct state — non-blocking
+                    // Team state may already be in correct state - non-blocking
                 }
             }
         }

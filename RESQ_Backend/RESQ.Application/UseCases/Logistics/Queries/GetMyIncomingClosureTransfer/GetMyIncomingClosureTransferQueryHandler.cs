@@ -26,7 +26,7 @@ public class GetMyIncomingClosureTransferQueryHandler(
         if (transfer == null)
         {
             logger.LogDebug("No active incoming closure transfer for depot #{DepotId}", myDepotId);
-            return null; // 204 No Content — không có phiên nào đang chờ
+            return null; // 204 No Content - không có phiên nào đang chờ
         }
 
         var transferItems = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);

@@ -72,7 +72,7 @@ public class GoongRouteStep
     public string Polyline { get; set; } = string.Empty;
 }
 
-// ── Multi-waypoint result ─────────────────────────────────────────────────────
+// -- Multi-waypoint result -----------------------------------------------------
 
 public class MissionRouteResult
 {

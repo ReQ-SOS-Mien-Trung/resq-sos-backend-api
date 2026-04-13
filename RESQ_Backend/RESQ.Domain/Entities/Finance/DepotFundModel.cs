@@ -4,7 +4,7 @@ using RESQ.Domain.Enum.Finance;
 namespace RESQ.Domain.Entities.Finance;
 
 /// <summary>
-/// Quỹ của kho (depot). Mỗi kho có NHIỀU quỹ — mỗi quỹ gắn với 1 nguồn (chiến dịch hoặc quỹ hệ thống).
+/// Quỹ của kho (depot). Mỗi kho có NHIỀU quỹ - mỗi quỹ gắn với 1 nguồn (chiến dịch hoặc quỹ hệ thống).
 /// 
 /// === QUY TẮC TÀI CHÍNH MỚI ===
 /// 1. Balance KHÔNG BAO GIỜ được âm.
@@ -22,7 +22,7 @@ public class DepotFundModel
 
     public DateTime LastUpdatedAt { get; private set; }
 
-    // ── Nguồn quỹ (mỗi quỹ kho gắn với 1 nguồn cụ thể) ─────────────
+    // -- Nguồn quỹ (mỗi quỹ kho gắn với 1 nguồn cụ thể) -------------
 
     /// <summary>Loại nguồn quỹ: Campaign hoặc SystemFund.</summary>
     public FundSourceType? FundSourceType { get; private set; }
