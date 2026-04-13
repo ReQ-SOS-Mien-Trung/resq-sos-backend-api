@@ -6,7 +6,7 @@ namespace RESQ.Infrastructure.Mappers.Logistics;
 public static class ItemModelMapper
 {
     /// <summary>
-    /// Converts a domain record to an Infrastructure entity (without target groups navigation — caller must set those separately).
+    /// Converts a domain record to an Infrastructure entity (without target groups navigation - caller must set those separately).
     /// </summary>
     public static ItemModel ToEntity(ItemModelRecord model)
     {

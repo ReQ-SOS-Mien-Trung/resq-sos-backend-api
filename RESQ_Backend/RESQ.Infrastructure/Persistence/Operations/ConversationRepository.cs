@@ -12,7 +12,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
-    // ─── Victim conversation ─────────────────────────────────────────────────
+    // --- Victim conversation -------------------------------------------------
 
     public async Task<ConversationModel> GetOrCreateForVictimAsync(
         Guid victimId, CancellationToken cancellationToken = default)
@@ -95,7 +95,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
         return entity == null ? null : ToConversationModel(entity);
     }
 
-    // ─── Legacy: mission-based ───────────────────────────────────────────────
+    // --- Legacy: mission-based -----------------------------------------------
 
     public async Task<IEnumerable<ConversationModel>> GetAllByMissionIdForUserAsync(
         int missionId, Guid userId, CancellationToken cancellationToken = default)
@@ -110,7 +110,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
         return entities.Select(ToConversationModel);
     }
 
-    // ─── Status transitions ──────────────────────────────────────────────────
+    // --- Status transitions --------------------------------------------------
 
     public async Task UpdateStatusAsync(
         int conversationId,
@@ -136,7 +136,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
         await _unitOfWork.SaveAsync();
     }
 
-    // ─── Participants ────────────────────────────────────────────────────────
+    // --- Participants --------------------------------------------------------
 
     public async Task<bool> IsParticipantAsync(
         int conversationId, Guid userId, CancellationToken cancellationToken = default)
@@ -192,7 +192,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
         return entities.Select(ToConversationModel);
     }
 
-    // ─── Messages ────────────────────────────────────────────────────────────
+    // --- Messages ------------------------------------------------------------
 
     public async Task<IEnumerable<MessageModel>> GetMessagesAsync(
         int conversationId, int page, int pageSize, CancellationToken cancellationToken = default)
@@ -248,7 +248,7 @@ public class ConversationRepository(IUnitOfWork unitOfWork) : IConversationRepos
         };
     }
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
+    // --- Helpers -------------------------------------------------------------
 
     private static ConversationModel ToConversationModel(Conversation entity) => new()
     {

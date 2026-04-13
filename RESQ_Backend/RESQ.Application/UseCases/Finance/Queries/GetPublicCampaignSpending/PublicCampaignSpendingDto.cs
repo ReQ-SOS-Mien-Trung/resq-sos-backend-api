@@ -1,7 +1,7 @@
 namespace RESQ.Application.UseCases.Finance.Queries.GetPublicCampaignSpending;
 
 /// <summary>
-/// Tổng quan minh bạch chi tiêu campaign — công khai cho donor.
+/// Tổng quan minh bạch chi tiêu campaign - công khai cho donor.
 /// </summary>
 public class PublicCampaignSpendingDto
 {

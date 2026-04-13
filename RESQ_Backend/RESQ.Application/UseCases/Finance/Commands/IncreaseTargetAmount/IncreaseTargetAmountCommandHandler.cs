@@ -30,4 +30,4 @@ public class IncreaseTargetAmountCommandHandler : IRequestHandler<IncreaseTarget
         await _repository.UpdateAsync(campaign, cancellationToken);
         return await _unitOfWork.SaveAsync() > 0;
     }
-}
+}

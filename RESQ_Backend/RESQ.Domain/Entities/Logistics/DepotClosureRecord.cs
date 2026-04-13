@@ -181,7 +181,7 @@ public class DepotClosureRecord
         var consumableDrift = SnapshotConsumableUnits - actualConsumable;
         if (consumableDrift > 0)
         {
-            DriftNote = $"Mission da tieu thu {consumableDrift} don vi trong qua trinh dong kho.";
+            DriftNote = $"Mission đã tiêu thụ {consumableDrift} đơn vị trong quá trình đóng kho.";
         }
     }
 

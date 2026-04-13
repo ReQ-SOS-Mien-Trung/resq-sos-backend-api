@@ -4,7 +4,7 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.Repositories.Logistics;
 
 /// <summary>
-/// Repository quan ly ban ghi dong kho (depot_closures).
+/// Repository quản lý bản ghi đóng kho (depot_closures).
 /// </summary>
 public interface IDepotClosureRepository
 {

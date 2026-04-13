@@ -25,7 +25,7 @@ public class AssemblyPointModel
     public AssemblyPointModel() { }
 
     /// <summary>
-    /// Tạo điểm tập kết mới — trạng thái khởi đầu là <see cref="AssemblyPointStatus.Created"/>.
+    /// Tạo điểm tập kết mới - trạng thái khởi đầu là <see cref="AssemblyPointStatus.Created"/>.
     /// </summary>
     public static AssemblyPointModel Create(
         string code,
@@ -76,14 +76,14 @@ public class AssemblyPointModel
     ///   <item>Active → Overloaded | Unavailable | Closed</item>
     ///   <item>Overloaded → Active | Unavailable (không thể Closed trực tiếp)</item>
     ///   <item>Unavailable → Active (Complete maintenance)</item>
-    ///   <item>Closed → (không có chuyển đổi nào — viĩnh viễn)</item>
+    ///   <item>Closed → (không có chuyển đổi nào - viĩnh viễn)</item>
     /// </list>
     /// </summary>
     public void ChangeStatus(AssemblyPointStatus newStatus)
     {
         if (Status == newStatus) return;
 
-        // Closed là trạng thái cuối — không thể thoát ra
+        // Closed là trạng thái cuối - không thể thoát ra
         if (Status == AssemblyPointStatus.Closed)
             throw new AssemblyPointClosedException();
 

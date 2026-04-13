@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -65,7 +65,7 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
             return true;
         }
 
-        // Idempotency guard — webhook may fire more than once
+        // Idempotency guard - webhook may fire more than once
         if (donation.Status == Status.Succeed)
         {
             _logger.LogInformation("Donation {Id} already succeeded, ignoring duplicate webhook for OrderCode {OrderCode}.", donation.Id, orderCodeStr);
@@ -115,7 +115,7 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
             {
                 _ = _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
-                    donation.FundCampaignName ?? "Chiáº¿n dá»‹ch", donation.FundCampaignCode ?? "RESQ",
+                    donation.FundCampaignName ?? "Chiến dịch", donation.FundCampaignCode ?? "RESQ",
                     donation.Id, cancellationToken
                 );
             }

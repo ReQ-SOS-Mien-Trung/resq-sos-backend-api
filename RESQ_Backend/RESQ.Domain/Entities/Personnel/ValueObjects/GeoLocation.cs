@@ -18,4 +18,4 @@ public sealed class GeoLocation
         Latitude = latitude;
         Longitude = longitude;
     }
-}
+}

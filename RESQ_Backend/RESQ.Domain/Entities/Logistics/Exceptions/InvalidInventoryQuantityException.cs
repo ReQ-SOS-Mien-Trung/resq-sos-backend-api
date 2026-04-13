@@ -8,4 +8,4 @@ public sealed class InvalidInventoryQuantityException : DomainException
         : base("Số lượng tồn kho không được là số âm.") 
     { 
     }
-}
+}

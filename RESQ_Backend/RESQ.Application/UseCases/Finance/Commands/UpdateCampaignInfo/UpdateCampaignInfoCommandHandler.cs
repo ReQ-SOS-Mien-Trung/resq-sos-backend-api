@@ -31,4 +31,4 @@ public class UpdateCampaignInfoCommandHandler : IRequestHandler<UpdateCampaignIn
         await _repository.UpdateAsync(campaign, cancellationToken);
         return await _unitOfWork.SaveAsync() > 0;
     }
-}
+}

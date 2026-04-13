@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -212,7 +212,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(new { EventId = eventId });
         }
 
-        // [DEPRECATED] Không cần dùng nữa — event được tạo trực tiếp ở trạng thái Gathering khi schedule-gathering.
+        // [DEPRECATED] Không cần dùng nữa - event được tạo trực tiếp ở trạng thái Gathering khi schedule-gathering.
         // /// <summary>Mở check-in cho sự kiện tập trung (Scheduled → Gathering).</summary>
         // [HttpPost("events/{eventId}/start-gathering")]
         // [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]

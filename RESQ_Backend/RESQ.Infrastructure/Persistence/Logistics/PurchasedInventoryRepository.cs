@@ -249,7 +249,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                 CreatedAt     = DateTime.UtcNow
             });
 
-            // 3. Tạo VatInvoiceItem — lưu giá từng dòng trong hóa đơn VAT
+            // 3. Tạo VatInvoiceItem - lưu giá từng dòng trong hóa đơn VAT
             vatInvoiceItemEntities.Add(new VatInvoiceItem
             {
                 VatInvoiceId = model.VatInvoiceId,
@@ -260,7 +260,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
             });
         }
 
-        // ── Persist ──────────────────────────────────────────────────────────
+        // -- Persist ----------------------------------------------------------
 
         await vatInvoiceItemRepo.AddRangeAsync(vatInvoiceItemEntities);
         await _unitOfWork.SaveAsync();
@@ -327,7 +327,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
         await logRepo.AddRangeAsync(logEntities);
         await _unitOfWork.SaveAsync();
 
-        // ── Cập nhật Category.Quantity ────────────────────────────────────────
+        // -- Cập nhật Category.Quantity ----------------------------------------
         // Gom tổng quantity nhập theo ItemModelId, rồi tra CategoryId, rồi cộng vào Category.Quantity
         // Reuse itemModelRepo from capacity check above
         var categoryRepo  = _unitOfWork.GetRepository<Category>();

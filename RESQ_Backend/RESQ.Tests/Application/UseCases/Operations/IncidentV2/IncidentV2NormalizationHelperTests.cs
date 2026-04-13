@@ -5,7 +5,7 @@ namespace RESQ.Tests.Application.UseCases.Operations.IncidentV2;
 
 public class IncidentV2NormalizationHelperTests
 {
-    // ── helpers ────────────────────────────────────────────────────────────────
+    // -- helpers ----------------------------------------------------------------
 
     private static MissionIncidentReportRequest ValidMissionRequest(
         string decision = IncidentV2Constants.MissionDecisionCodes.ContinueMission,
@@ -43,7 +43,7 @@ public class IncidentV2NormalizationHelperTests
         }
     };
 
-    // ── contract binding / scope-mismatch tests ────────────────────────────────
+    // -- contract binding / scope-mismatch tests --------------------------------
 
     [Fact]
     public void NormalizeMissionRequest_ScopeMismatch_Returns400()
@@ -103,7 +103,7 @@ public class IncidentV2NormalizationHelperTests
             IncidentV2NormalizationHelper.NormalizeActivityRequest(1, 2, request));
     }
 
-    // ── mission decision validation tests ─────────────────────────────────────
+    // -- mission decision validation tests -------------------------------------
 
     [Fact]
     public void NormalizeMissionRequest_ContinueMission_WithRescueRequest_Returns400()
@@ -195,7 +195,7 @@ public class IncidentV2NormalizationHelperTests
         Assert.Equal("immediate", normalized.SosContext.EvacuationPriority);
     }
 
-    // ── mission incidentType preservation ─────────────────────────────────────
+    // -- mission incidentType preservation -------------------------------------
 
     [Fact]
     public void NormalizeMissionRequest_PreservesSubtypeIncidentType()
@@ -292,7 +292,7 @@ public class IncidentV2NormalizationHelperTests
         Assert.Contains("\"TeamName\"", normalized.DetailJson);
     }
 
-    // ── activity normalization tests ───────────────────────────────────────────
+    // -- activity normalization tests -------------------------------------------
 
     [Fact]
     public void NormalizeActivityRequest_AddsTakeoverSupport_WhenReassignRequested()

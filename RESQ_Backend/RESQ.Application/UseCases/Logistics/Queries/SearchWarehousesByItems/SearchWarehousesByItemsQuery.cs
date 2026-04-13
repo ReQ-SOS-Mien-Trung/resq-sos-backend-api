@@ -23,7 +23,7 @@ public record SearchWarehousesByItemsQuery : IRequest<PagedResult<ItemWarehouseA
     public Dictionary<int, int> ItemQuantities { get; set; } = new();
 
     /// <summary>
-    /// ID of the requesting manager — used to look up their depot's
+    /// ID of the requesting manager - used to look up their depot's
     /// location so results can be sorted by proximity.
     /// Populated server-side from the JWT token.
     /// </summary>

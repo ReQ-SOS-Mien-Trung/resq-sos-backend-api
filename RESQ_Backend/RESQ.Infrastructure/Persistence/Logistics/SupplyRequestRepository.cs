@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -239,7 +239,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
             if (itemModel.ItemType == "Reusable")
             {
-                // ── Reusable: per-unit asset tracking ──
+                // -- Reusable: per-unit asset tracking --
                 var availableUnits = await _unitOfWork.GetRepository<ReusableItem>()
                     .GetAllByPropertyAsync(x =>
                         x.DepotId == sourceDepotId &&
@@ -275,7 +275,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             }
             else
             {
-                // ── Consumable: quantity-based supply_inventory tracking ──
+                // -- Consumable: quantity-based supply_inventory tracking --
                 var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
                     .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
                     ?? throw new BadRequestException(
@@ -329,7 +329,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
             if (itemModel.ItemType == "Reusable")
             {
-                // ── Reusable: transition Reserved → InTransit per unit ──
+                // -- Reusable: transition Reserved → InTransit per unit --
                 var reservedUnits = await _unitOfWork.GetRepository<ReusableItem>()
                     .GetAllByPropertyAsync(x =>
                         x.SupplyRequestId == supplyRequestId &&
@@ -344,7 +344,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 foreach (var unit in reservedUnits)
                 {
                     unit.Status    = nameof(ReusableItemStatus.InTransit);
-                    unit.DepotId   = null;   // en route — not at any depot
+                    unit.DepotId   = null;   // en route - not at any depot
                     unit.UpdatedAt = now;
 
                     await _unitOfWork.GetRepository<ReusableItem>().UpdateAsync(unit);
@@ -366,7 +366,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             }
             else
             {
-                // ── Consumable: deduct Quantity + ReservedQuantity from supply_inventory ──
+                // -- Consumable: deduct Quantity + ReservedQuantity from supply_inventory --
                 var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
                     .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
                     ?? throw new BadRequestException(
@@ -387,7 +387,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 inventory.TransferReservedQuantity  = reserved - quantity;
                 inventory.LastStockedAt             = now;
 
-                // ── FEFO lot deduction ──────────────────────────────────────────
+                // -- FEFO lot deduction ------------------------------------------
                 var lots = await _unitOfWork.SetTracked<SupplyInventoryLot>()
                     .Where(l => l.SupplyInventoryId == inventory.Id && l.RemainingQuantity > 0)
                     .OrderBy(l => l.ExpiredDate == null ? 1 : 0)  // items WITH expiry first
@@ -425,7 +425,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 }
                 else
                 {
-                    // Fallback: no lots yet (legacy data) — single log
+                    // Fallback: no lots yet (legacy data) - single log
                     await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                     {
                         DepotSupplyInventoryId = inventory.Id,
@@ -502,7 +502,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
             if (itemModel.ItemType == "Reusable")
             {
-                // ── Reusable: transition InTransit → Available at destination depot ──
+                // -- Reusable: transition InTransit → Available at destination depot --
                 var inTransitUnits = await _unitOfWork.GetRepository<ReusableItem>()
                     .GetAllByPropertyAsync(x =>
                         x.SupplyRequestId == supplyRequestId &&
@@ -538,7 +538,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             }
             else
             {
-                // ── Consumable: increase Quantity at destination supply_inventory ──
+                // -- Consumable: increase Quantity at destination supply_inventory --
                 var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
                     .GetByPropertyAsync(x => x.DepotId == requestingDepotId && x.ItemModelId == itemModelId, tracked: true);
 

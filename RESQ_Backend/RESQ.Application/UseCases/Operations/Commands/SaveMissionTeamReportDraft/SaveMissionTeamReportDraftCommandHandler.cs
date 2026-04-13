@@ -17,23 +17,23 @@ public class SaveMissionTeamReportDraftCommandHandler(
     public async Task<MissionTeamReportResponse> Handle(SaveMissionTeamReportDraftCommand request, CancellationToken cancellationToken)
     {
         var mission = await missionRepository.GetByIdAsync(request.MissionId, cancellationToken)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y mission vá»›i ID: {request.MissionId}");
+            ?? throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
 
         var missionTeam = await missionTeamRepository.GetByIdAsync(request.MissionTeamId, cancellationToken)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y liÃªn káº¿t Ä‘á»™i-mission vá»›i ID: {request.MissionTeamId}");
+            ?? throw new NotFoundException($"Không tìm thấy liên kết đội-mission với ID: {request.MissionTeamId}");
 
         if (missionTeam.MissionId != request.MissionId)
-            throw new BadRequestException("Mission team khÃ´ng thuá»™c mission Ä‘Æ°á»£c yÃªu cáº§u.");
+            throw new BadRequestException("Mission team không thuộc mission được yêu cầu.");
 
         if (!missionTeam.RescueTeamMembers.Any(x => x.UserId == request.SavedBy))
-            throw new ForbiddenException("Báº¡n khÃ´ng pháº£i thÃ nh viÃªn cá»§a Ä‘á»™i cá»©u há»™ nÃ y.");
+            throw new ForbiddenException("Bạn không phải thành viên của đội cứu hộ này.");
 
         if (string.Equals(missionTeam.Status, MissionTeamExecutionStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("Äá»™i Ä‘Ã£ bá»‹ há»§y phÃ¢n cÃ´ng, khÃ´ng thá»ƒ lÆ°u bÃ¡o cÃ¡o.");
+            throw new BadRequestException("Đội đã bị hủy phân công, không thể lưu báo cáo.");
 
         if (string.Equals(missionTeam.ReportStatus, MissionTeamReportStatus.Submitted.ToString(), StringComparison.OrdinalIgnoreCase)
             || string.Equals(missionTeam.Status, MissionTeamExecutionStatus.Reported.ToString(), StringComparison.OrdinalIgnoreCase))
-            throw new ConflictException("BÃ¡o cÃ¡o cuá»‘i cÃ¹ng Ä‘Ã£ Ä‘Æ°á»£c ná»™p, khÃ´ng thá»ƒ lÆ°u nhÃ¡p ná»¯a.");
+            throw new ConflictException("Báo cáo cuối cùng đã được nộp, không thể lưu nháp nữa.");
 
         var assignedActivities = mission.Activities
             .Where(x => x.MissionTeamId == request.MissionTeamId)
@@ -44,7 +44,7 @@ public class SaveMissionTeamReportDraftCommandHandler(
             .FirstOrDefault(id => !assignedActivities.ContainsKey(id));
 
         if (invalidActivityId > 0)
-            throw new BadRequestException($"Activity #{invalidActivityId} khÃ´ng thuá»™c mission team nÃ y.");
+            throw new BadRequestException($"Activity #{invalidActivityId} không thuộc mission team này.");
 
         var memberEvaluations = request.MemberEvaluations
             .Select(x => new MissionTeamMemberEvaluationModel

@@ -4,7 +4,7 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Domain.Entities.Logistics.Services;
 
 /// <summary>
-/// Pure static evaluator — không query DB, không DI.
+/// Pure static evaluator - không query DB, không DI.
 /// Dễ unit test và tái sử dụng ở bất kỳ đâu.
 /// </summary>
 public static class StockWarningEvaluator

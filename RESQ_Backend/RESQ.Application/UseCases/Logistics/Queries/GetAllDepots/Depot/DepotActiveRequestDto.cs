@@ -13,7 +13,7 @@ public class DepotRequestDto
     public int SourceDepotId { get; set; }
     public string? SourceDepotName { get; set; }
 
-    /// <summary>"Requester" — kho này tạo yêu cầu | "Source" — kho này nhận yêu cầu tiếp tế.</summary>
+    /// <summary>"Requester" - kho này tạo yêu cầu | "Source" - kho này nhận yêu cầu tiếp tế.</summary>
     public string Role { get; set; } = string.Empty;
 
     public string PriorityLevel { get; set; } = string.Empty;

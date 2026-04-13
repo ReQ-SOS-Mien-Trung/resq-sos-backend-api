@@ -9,13 +9,13 @@ public class ResolveDepotClosureResponse
     public DateTime? CompletedAt { get; set; }
     public string Message { get; set; } = string.Empty;
 
-    /// <summary>True khi chọn hình thức chuyển kho — transfer đang chờ 2 bên xác nhận.</summary>
+    /// <summary>True khi chọn hình thức chuyển kho - transfer đang chờ 2 bên xác nhận.</summary>
     public bool TransferPending { get; set; }
 
     /// <summary>ID của bản ghi transfer được tạo (chỉ có khi TransferPending = true).</summary>
     public int? TransferId { get; set; }
 
-    /// <summary>Thông tin chi tiết transfer — chỉ có khi chuyển sang kho khác.</summary>
+    /// <summary>Thông tin chi tiết transfer - chỉ có khi chuyển sang kho khác.</summary>
     public TransferSummaryDto? TransferSummary { get; set; }
 }
 

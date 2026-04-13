@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
 
@@ -7,30 +7,31 @@ public class ProcessPayosPaymentReturnValidator : AbstractValidator<ProcessPayos
     public ProcessPayosPaymentReturnValidator()
     {
         RuleFor(x => x.WebhookData)
-            .NotNull().WithMessage("Dá»¯ liá»‡u webhook khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
+            .NotNull().WithMessage("Dữ liệu webhook không được để trống.");
 
         When(x => x.WebhookData != null, () =>
         {
             RuleFor(x => x.WebhookData!.Code)
-                .NotEmpty().WithMessage("MÃ£ pháº£n há»“i tá»« cá»•ng thanh toÃ¡n khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
+                .NotEmpty().WithMessage("Mã phản hồi từ cổng thanh toán không được để trống.");
 
             RuleFor(x => x.WebhookData!.Signature)
-                .NotEmpty().WithMessage("Chá»¯ kÃ½ xÃ¡c thá»±c (Signature) khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
+                .NotEmpty().WithMessage("Chữ ký xác thực (Signature) không được để trống.");
 
             RuleFor(x => x.WebhookData!.Data)
-                .NotNull().WithMessage("ThÃ´ng tin giao dá»‹ch chi tiáº¿t khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
+                .NotNull().WithMessage("Thông tin giao dịch chi tiết không được để trống.");
 
             When(x => x.WebhookData!.Data != null, () =>
             {
                 RuleFor(x => x.WebhookData!.Data!.OrderCode)
-                    .GreaterThan(0).WithMessage("MÃ£ Ä‘Æ¡n hÃ ng (OrderCode) khÃ´ng há»£p lá»‡.");
+                    .GreaterThan(0).WithMessage("Mã đơn hàng (OrderCode) không hợp lệ.");
 
                 RuleFor(x => x.WebhookData!.Data!.Amount)
-                    .GreaterThan(0).WithMessage("Sá»‘ tiá»n thanh toÃ¡n pháº£i lá»›n hÆ¡n 0.");
+                    .GreaterThan(0).WithMessage("Số tiền thanh toán phải lớn hơn 0.");
                 
                 RuleFor(x => x.WebhookData!.Data!.PaymentLinkId)
-                    .NotEmpty().WithMessage("MÃ£ liÃªn káº¿t thanh toÃ¡n (PaymentLinkId) khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
+                    .NotEmpty().WithMessage("Mã liên kết thanh toán (PaymentLinkId) không được để trống.");
             });
         });
     }
-}
+}
+

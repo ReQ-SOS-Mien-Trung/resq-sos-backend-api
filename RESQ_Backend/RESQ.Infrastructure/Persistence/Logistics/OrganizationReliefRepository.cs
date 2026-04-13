@@ -436,7 +436,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         await logRepo.AddRangeAsync(logEntities);
         await _unitOfWork.SaveAsync();
 
-        // ── Cập nhật Category.Quantity (tổng toàn hệ thống) ──────────────────
+        // -- Cập nhật Category.Quantity (tổng toàn hệ thống) ------------------
 
         var categoryRepo  = _unitOfWork.GetRepository<Category>();
 

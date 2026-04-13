@@ -25,7 +25,7 @@ public class UnassignDepotManagerCommandHandler(
         if (depot.CurrentManager == null)
             throw new BadRequestException("Kho này hiện không có quản lý nào được gán.");
 
-        // 3. Gọi domain method — unassign manager hiện tại + chuyển status về PendingAssignment
+        // 3. Gọi domain method - unassign manager hiện tại + chuyển status về PendingAssignment
         depot.UnassignManager();
 
         // 4. Persist

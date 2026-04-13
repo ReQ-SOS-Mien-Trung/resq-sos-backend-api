@@ -4,7 +4,7 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GenerateDonationImportTemp
 
 /// <summary>
 /// Tải file Excel mẫu nhập kho từ thiện.
-/// Không cần tham số — file template chứa danh mục & vật phẩm từ DB.
+/// Không cần tham số - file template chứa danh mục & vật phẩm từ DB.
 /// </summary>
 public class GenerateDonationImportTemplateQuery : IRequest<GenerateDonationImportTemplateResult>;
 

@@ -92,7 +92,7 @@ public class ImportReliefItemsCommandHandler(
         {
             existingItemModels = await _itemModelMetadataRepository.GetByIdsAsync(itemModelIds, cancellationToken);
 
-            // Detect missing IDs early — log once at batch level
+            // Detect missing IDs early - log once at batch level
             var missingIds = itemModelIds.Where(id => !existingItemModels.ContainsKey(id)).ToList();
             if (missingIds.Count > 0)
             {
@@ -117,7 +117,7 @@ public class ImportReliefItemsCommandHandler(
 
                 if (item.ItemModelId.HasValue)
                 {
-                    // ── Path A: Existing item by ID ──
+                    // -- Path A: Existing item by ID --
                     if (!existingItemModels.TryGetValue(item.ItemModelId.Value, out var existingRecord))
                     {
                         AddRowError(rowErrors, item.Row, $"Không tìm thấy item model có ID: {item.ItemModelId.Value}");
@@ -127,7 +127,7 @@ public class ImportReliefItemsCommandHandler(
                 }
                 else
                 {
-                    // ── Path B: Create new item from metadata ──
+                    // -- Path B: Create new item from metadata --
                     var normalizedName = item.ItemName?.Trim();
                     var normalizedUnit = item.Unit?.Trim();
                     var normalizedItemType = item.ItemType?.Trim();

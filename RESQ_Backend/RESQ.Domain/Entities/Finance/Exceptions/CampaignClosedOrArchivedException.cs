@@ -9,4 +9,4 @@ public class CampaignClosedOrArchivedException : DomainException
 {
     public CampaignClosedOrArchivedException(string status, string action) 
         : base($"Không thể {action} khi chiến dịch đang ở trạng thái {status}.") { }
-}
+}

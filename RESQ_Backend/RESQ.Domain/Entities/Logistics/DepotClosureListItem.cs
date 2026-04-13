@@ -4,7 +4,7 @@ namespace RESQ.Domain.Entities.Logistics;
 
 /// <summary>
 /// Projection dùng để trả về danh sách phiên đóng kho cho FE.
-/// Không phải full domain object — chỉ chứa dữ liệu cần thiết để render bảng.
+/// Không phải full domain object - chỉ chứa dữ liệu cần thiết để render bảng.
 /// </summary>
 public class DepotClosureListItem
 {

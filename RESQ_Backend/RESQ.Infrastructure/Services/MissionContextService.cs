@@ -98,7 +98,7 @@ public class MissionContextService(
         };
     }
 
-    // ─── Data Preparation Helpers ─────────────────────────────────────────────
+    // --- Data Preparation Helpers ---------------------------------------------
 
     private async Task<(List<DepotSummary> Depots, bool MultiDepotRecommended)> BuildNearbyDepotSummariesAsync(
         SosRequestSummary? anchorSos,
@@ -344,7 +344,7 @@ public class MissionContextService(
             .ThenBy(s => s.CreatedAt ?? DateTime.MaxValue)
             .FirstOrDefault();
 
-    // ─── Set Cover Algorithms ─────────────────────────────────────────────────
+    // --- Set Cover Algorithms -------------------------------------------------
 
     private static List<(DepotModel depot, double distKm, int mask)>? FindMinimumSetCover(
         List<(DepotModel depot, double distKm, int mask)> candidates, int fullMask)
@@ -416,7 +416,7 @@ public class MissionContextService(
         return chosen;
     }
 
-    // ─── Static Utilities ─────────────────────────────────────────────────────
+    // --- Static Utilities -----------------------------------------------------
 
     /// <summary>
     /// Returns true when other candidate depots collectively hold stock that is
@@ -424,7 +424,7 @@ public class MissionContextService(
     /// Threshold: other depots combined have >= 30% of the primary depot's
     /// total available quantity across all its inventory lines.
     /// This catches the case where one depot covers all supply TYPES (by bitmask)
-    /// but may not have sufficient QUANTITY — prompting multi-depot mode so the
+    /// but may not have sufficient QUANTITY - prompting multi-depot mode so the
     /// system exposes all candidates to the AI for quantity-aware planning.
     /// </summary>
     private static bool HasSignificantAlternativeStock(

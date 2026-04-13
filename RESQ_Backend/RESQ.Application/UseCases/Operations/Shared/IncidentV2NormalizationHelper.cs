@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using RESQ.Application.Exceptions;
 
 namespace RESQ.Application.UseCases.Operations.Shared;
@@ -234,10 +234,10 @@ internal static class IncidentV2NormalizationHelper
     private static string BuildMissionDescription(string missionDecision, string? incidentType, bool isRescue)
     {
         if (isRescue)
-            return "Äá»™i cá»©u há»™ yÃªu cáº§u giáº£i cá»©u kháº©n cáº¥p.";
+            return "Đội cứu hộ yêu cầu giải cứu khẩn cấp.";
 
         if (!string.IsNullOrWhiteSpace(incidentType))
-            return $"Incident: {incidentType} â€” quyáº¿t Ä‘á»‹nh: {missionDecision}.";
+            return $"Incident: {incidentType} — quyết định: {missionDecision}.";
 
         return missionDecision switch
         {

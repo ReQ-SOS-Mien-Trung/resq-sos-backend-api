@@ -7,17 +7,17 @@ namespace RESQ.Application.Common.StateMachines;
 /// Enforces valid state transitions for depot supply requests.
 ///
 /// Luồng chuẩn (Source side):
-///   Pending → Accepted  (Accept — kho nguồn chấp nhận)
-///   Pending → Rejected  (Reject — kho nguồn từ chối)
-///   Accepted → Preparing (Prepare — kho nguồn bắt đầu đóng gói)
-///   Preparing → Shipping (Ship   — kho nguồn xuất kho, bắt đầu vận chuyển)
-///   Shipping → Completed (Complete — kho nguồn xác nhận đã giao hàng)
+///   Pending → Accepted  (Accept - kho nguồn chấp nhận)
+///   Pending → Rejected  (Reject - kho nguồn từ chối)
+///   Accepted → Preparing (Prepare - kho nguồn bắt đầu đóng gói)
+///   Preparing → Shipping (Ship   - kho nguồn xuất kho, bắt đầu vận chuyển)
+///   Shipping → Completed (Complete - kho nguồn xác nhận đã giao hàng)
 ///
-/// Luồng chuẩn (Requesting side — driven bởi hành động của source):
+/// Luồng chuẩn (Requesting side - driven bởi hành động của source):
 ///   WaitingForApproval → Approved  (khi source Accept)
 ///   WaitingForApproval → Rejected  (khi source Reject)
 ///   Approved → InTransit           (khi source Ship)
-///   InTransit → Received           (khi requesting Confirm — CHỈ sau khi source đã Completed)
+///   InTransit → Received           (khi requesting Confirm - CHỈ sau khi source đã Completed)
 ///
 /// Trạng thái kết thúc: Completed (source) + Received (requesting) | Rejected (cả hai)
 /// </summary>
@@ -77,7 +77,7 @@ public static class SupplyRequestStateMachine
 
     /// <summary>
     /// Kho nguồn xác nhận đã hoàn tất giao hàng.
-    /// Source: Shipping → Completed | Requesting: không đổi (InTransit) — chờ kho yêu cầu confirm
+    /// Source: Shipping → Completed | Requesting: không đổi (InTransit) - chờ kho yêu cầu confirm
     /// </summary>
     public static void EnsureCanComplete(string sourceStatus)
     {
@@ -87,7 +87,7 @@ public static class SupplyRequestStateMachine
     }
 
     /// <summary>
-    /// Kho yêu cầu xác nhận đã nhận hàng — chỉ hợp lệ SAU KHI kho nguồn đã Completed.
+    /// Kho yêu cầu xác nhận đã nhận hàng - chỉ hợp lệ SAU KHI kho nguồn đã Completed.
     /// Source: không đổi (Completed) | Requesting: InTransit → Received
     /// </summary>
     public static void EnsureCanConfirmReceived(string sourceStatus, string requestingStatus)

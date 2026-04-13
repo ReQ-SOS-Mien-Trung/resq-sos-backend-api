@@ -27,4 +27,4 @@ public class GetItemCategoryByCodeQueryHandler(IItemCategoryRepository repositor
             Description = category.Description
         };
     }
-}
+}

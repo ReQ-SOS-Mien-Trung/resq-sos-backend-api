@@ -20,4 +20,4 @@ public class GetRescueTeamTypeMetadataQueryHandler : IRequestHandler<GetRescueTe
 
         return await Task.FromResult(result);
     }
-}
+}

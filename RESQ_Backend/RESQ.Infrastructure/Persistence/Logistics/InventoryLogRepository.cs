@@ -38,11 +38,11 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .Include(x => x.VatInvoice)
             .AsQueryable();
 
-        // Filter by depot — cover both Consumable (SupplyInventory) and Reusable (ReusableItem)
+        // Filter by depot - cover both Consumable (SupplyInventory) and Reusable (ReusableItem)
         // For Reusable items we CANNOT use ReusableItem.DepotId because it reflects the
         // CURRENT location of the item, not where it was at the time the log was created.
         // e.g. after TransferIn to depot 1, ReusableItem.DepotId = 1 for ALL historical logs
-        // (Reserve, TransferOut) that happened at depot 2 — causing them to leak into depot 1's view.
+        // (Reserve, TransferOut) that happened at depot 2 - causing them to leak into depot 1's view.
         if (depotId.HasValue)
         {
             var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
@@ -225,7 +225,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt!.Value) <= toDate.Value);
         }
 
-        // Load filtered logs into memory first — EF Core cannot translate GroupBy + g.ToList() to SQL
+        // Load filtered logs into memory first - EF Core cannot translate GroupBy + g.ToList() to SQL
         var rawLogs = await query
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);

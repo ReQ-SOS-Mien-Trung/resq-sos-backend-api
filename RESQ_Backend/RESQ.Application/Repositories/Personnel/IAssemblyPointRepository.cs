@@ -17,7 +17,7 @@ public interface IAssemblyPointRepository
     Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lấy tất cả điểm tập kết (không phân trang) — dùng cho metadata dropdown.
+    /// Lấy tất cả điểm tập kết (không phân trang) - dùng cho metadata dropdown.
     /// </summary>
     Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default);
 
@@ -32,7 +32,7 @@ public interface IAssemblyPointRepository
 
     /// <summary>
     /// Lấy danh sách rescuer tại điểm tập kết mà CHƯA thuộc bất kỳ đội cứu hộ nào đang hoạt động.
-    /// Dùng cho luồng triệu tập — chỉ triệu tập rescuer chưa có team để xếp nhóm.
+    /// Dùng cho luồng triệu tập - chỉ triệu tập rescuer chưa có team để xếp nhóm.
     /// </summary>
     Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default);
 

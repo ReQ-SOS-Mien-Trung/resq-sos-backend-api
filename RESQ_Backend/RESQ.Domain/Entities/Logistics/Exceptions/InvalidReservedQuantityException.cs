@@ -8,4 +8,4 @@ public sealed class InvalidReservedQuantityException : DomainException
         : base("Số lượng đặt trước không được là số âm.") 
     { 
     }
-}
+}

@@ -7,4 +7,4 @@ public class InvalidTeamTransitionException : DomainException
 {
     public InvalidTeamTransitionException(RescueTeamStatus current, RescueTeamStatus target) 
         : base($"Không thể chuyển trạng thái đội từ {current} sang {target}.") { }
-}
+}

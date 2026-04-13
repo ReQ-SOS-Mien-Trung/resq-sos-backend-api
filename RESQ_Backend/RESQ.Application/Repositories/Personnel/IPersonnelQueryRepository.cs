@@ -29,7 +29,7 @@ public interface IPersonnelQueryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lấy toàn bộ đội cứu hộ có trạng thái <c>Available</c> (không phân trang) — dùng khi cần so sánh khoảng cách để gán nhiệm vụ.
+    /// Lấy toàn bộ đội cứu hộ có trạng thái <c>Available</c> (không phân trang) - dùng khi cần so sánh khoảng cách để gán nhiệm vụ.
     /// </summary>
     Task<List<RescueTeamModel>> GetAllAvailableTeamsAsync(CancellationToken cancellationToken = default);
 

@@ -27,7 +27,7 @@ public class SupplyRequestDto
     public DateTime? ShippedAt         { get; set; }
     public DateTime? CompletedAt       { get; set; }
 
-    /// <summary>"Requester" — kho này tạo yêu cầu | "Source" — kho này nhận yêu cầu tiếp tế.</summary>
+    /// <summary>"Requester" - kho này tạo yêu cầu | "Source" - kho này nhận yêu cầu tiếp tế.</summary>
     public string Role { get; set; } = string.Empty;
 
     public List<SupplyRequestItemDto> Items { get; set; } = new();

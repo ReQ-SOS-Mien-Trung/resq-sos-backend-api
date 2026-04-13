@@ -29,7 +29,7 @@ public static class OperationsSeeder
         var now = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Mission>().HasData(
-            // Mission 1: Rescue in Dà Nẵng (Cluster 2) — Đang diễn ra (Scenario 3)
+            // Mission 1: Rescue in Dà Nẵng (Cluster 2) - Đang diễn ra (Scenario 3)
             new Mission
             {
                 Id = 1,
@@ -42,7 +42,7 @@ public static class OperationsSeeder
                 CreatedAt = now,
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 3: Rescue Phong Điền (Cluster 4) — Đã hoàn thành (Scenario 4)
+            // Mission 3: Rescue Phong Điền (Cluster 4) - Đã hoàn thành (Scenario 4)
             new Mission
             {
                 Id = 3,
@@ -57,7 +57,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 1, 7, 45, 0, DateTimeKind.Utc),
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 4: Relief Phong Điền — hoàn thành, có pickup vật tư tại kho Huế
+            // Mission 4: Relief Phong Điền - hoàn thành, có pickup vật tư tại kho Huế
             new Mission
             {
                 Id = 4,
@@ -73,7 +73,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 5, 6, 45, 0, DateTimeKind.Utc),
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 5: Relief Phong Điền — đang diễn ra, có pickup tại kho Huế để test upcoming pickups
+            // Mission 5: Relief Phong Điền - đang diễn ra, có pickup tại kho Huế để test upcoming pickups
             new Mission
             {
                 Id = 5,
@@ -87,7 +87,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 20, 8, 30, 0, DateTimeKind.Utc),
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 6: Relief Phong Điền — hoàn thành, có cả vật tư tiêu hao LẪN thiết bị tái sử dụng (áo phao)
+            // Mission 6: Relief Phong Điền - hoàn thành, có cả vật tư tiêu hao LẪN thiết bị tái sử dụng (áo phao)
             new Mission
             {
                 Id = 6,
@@ -121,8 +121,8 @@ public static class OperationsSeeder
             new { ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 160, Unit = "chai" },
             new { ItemId = 8, ItemName = "Lương khô", Quantity = 120, Unit = "thanh" }
         });
-        // Activity 8: RETURN_SUPPLIES — trả vật tư tiêu hao dư thừa về kho Huế sau Mission 5
-        // ► Test endpoint: POST /operations/missions/5/activities/8/confirm-return
+        // Activity 8: RETURN_SUPPLIES - trả vật tư tiêu hao dư thừa về kho Huế sau Mission 5
+        // â–º Test endpoint: POST /operations/missions/5/activities/8/confirm-return
         // ► Đăng nhập: manager@resq.vn / Manager@123 (quản lý kho Huế - DepotId=1)
         // ► Chỉ consumable: mì tôm x60 + nước x80 + thuốc x120
         var returnSuppliesItems = JsonSerializer.Serialize(new[]
@@ -131,13 +131,13 @@ public static class OperationsSeeder
             new { ItemId = 2, ItemName = "Nước tinh khiết",                 Quantity = 80,  Unit = "chai" },
             new { ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 120, Unit = "viên" }
         });
-        // Activity 9: RETURN_SUPPLIES hoàn thành — trả vật tư tiêu hao dư thừa về kho Huế sau Mission 4
+        // Activity 9: RETURN_SUPPLIES hoàn thành - trả vật tư tiêu hao dư thừa về kho Huế sau Mission 4
         var returnConsumableHistoryItems = JsonSerializer.Serialize(new[]
         {
             new { ItemId = 1, ItemName = "Mì tôm",                         Quantity = 50,  Unit = "gói"  },
             new { ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 100, Unit = "viên" }
         });
-        // Activity 10: COLLECT_SUPPLIES cho Mission 6 — consumable + reusable (áo phao)
+        // Activity 10: COLLECT_SUPPLIES cho Mission 6 - consumable + reusable (áo phao)
         var mission6PickupItems = JsonSerializer.Serialize(new object[]
         {
             new { ItemId = 1, ItemName = "Mì tôm",            Quantity = 100, Unit = "gói"   },
@@ -153,7 +153,7 @@ public static class OperationsSeeder
                 }
             }
         });
-        // Activity 11: RETURN_SUPPLIES cho Mission 6 — trả consumable dư thừa + toàn bộ áo phao
+        // Activity 11: RETURN_SUPPLIES cho Mission 6 - trả consumable dư thừa + toàn bộ áo phao
         var mission6ReturnItems = JsonSerializer.Serialize(new object[]
         {
             new { ItemId = 1, ItemName = "Mì tôm",            Quantity = 30, Unit = "gói"   },
@@ -400,7 +400,7 @@ public static class OperationsSeeder
         var now = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<MissionTeam>().HasData(
-            // MissionTeam 1: RescueTeam 4 (Biệt đội Ca nô Hà Tĩnh) — Mission 1 đang diễn ra
+            // MissionTeam 1: RescueTeam 4 (Biệt đội Ca nô Hà Tĩnh) - Mission 1 đang diễn ra
             new MissionTeam
             {
                 Id = 1,
@@ -412,7 +412,7 @@ public static class OperationsSeeder
                 CreatedAt = now,
                 Note = "Đội đang tiếp cận khu vực ngập sâu Lệ Thủy"
             },
-            // MissionTeam 2: RescueTeam 2 (Đội Y tế Huế) — Mission 3 đã hoàn thành và đã nộp báo cáo
+            // MissionTeam 2: RescueTeam 2 (Đội Y tế Huế) - Mission 3 đã hoàn thành và đã nộp báo cáo
             new MissionTeam
             {
                 Id = 2,
@@ -446,7 +446,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 20, 9, 0, 0, DateTimeKind.Utc),
                 Note = "Đội đang lấy hàng tại kho Huế cho đợt cứu trợ mới"
             },
-            // MissionTeam 5: RescueTeam 3 (Đội vận chuyển Huế) — Mission 6 đã hoàn thành có cả consumable + reusable
+            // MissionTeam 5: RescueTeam 3 (Đội vận chuyển Huế) - Mission 6 đã hoàn thành có cả consumable + reusable
             new MissionTeam
             {
                 Id = 5,
@@ -493,7 +493,7 @@ public static class OperationsSeeder
             new MissionTeamMember { Id = 22, MissionTeamId = 4, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330016"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 20, 9, 0, 0, DateTimeKind.Utc) },
             new MissionTeamMember { Id = 23, MissionTeamId = 4, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330017"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 20, 9, 0, 0, DateTimeKind.Utc) },
             new MissionTeamMember { Id = 24, MissionTeamId = 4, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330018"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 20, 9, 0, 0, DateTimeKind.Utc) },
-            // MissionTeam 5 members — cùng đội vận chuyển Huế (RescueTeam 3), Mission 6
+            // MissionTeam 5 members - cùng đội vận chuyển Huế (RescueTeam 3), Mission 6
             new MissionTeamMember { Id = 25, MissionTeamId = 5, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330013"), RoleInTeam = "Leader", JoinedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc) },
             new MissionTeamMember { Id = 26, MissionTeamId = 5, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330014"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc) },
             new MissionTeamMember { Id = 27, MissionTeamId = 5, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330015"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc) },
@@ -538,7 +538,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc),
                 UpdatedAt = new DateTime(2026, 3, 5, 8, 15, 0, DateTimeKind.Utc)
             },
-            // MissionTeamReport 3: Báo cáo cho MissionTeam 5 (Mission 6 — consumable + reusable)
+            // MissionTeamReport 3: Báo cáo cho MissionTeam 5 (Mission 6 - consumable + reusable)
             new MissionTeamReport
             {
                 Id = 3,
@@ -606,7 +606,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 5, 11, 35, 0, DateTimeKind.Utc),
                 UpdatedAt = new DateTime(2026, 3, 5, 11, 35, 0, DateTimeKind.Utc)
             },
-            // Reports 5 & 6: Mission 6 — COLLECT + RETURN có cả consumable và reusable
+            // Reports 5 & 6: Mission 6 - COLLECT + RETURN có cả consumable và reusable
             new MissionActivityReport
             {
                 Id = 5,

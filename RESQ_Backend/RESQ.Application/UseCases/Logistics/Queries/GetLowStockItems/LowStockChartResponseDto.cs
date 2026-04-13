@@ -1,20 +1,20 @@
 namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 
 /// <summary>
-/// Response wrapper gom summary + chart breakdowns + raw list — tối ưu cho frontend chart.
+/// Response wrapper gom summary + chart breakdowns + raw list - tối ưu cho frontend chart.
 /// </summary>
 public class LowStockChartResponseDto
 {
     /// <summary>Tổng hợp toàn bộ vật tư cảnh báo.</summary>
     public LowStockSummaryDto Summary { get; set; } = new();
 
-    /// <summary>Phân tích theo kho — dùng cho bar/column chart.</summary>
+    /// <summary>Phân tích theo kho - dùng cho bar/column chart.</summary>
     public List<LowStockByDepotDto> ByDepot { get; set; } = new();
 
-    /// <summary>Phân tích theo danh mục vật tư — dùng cho pie/donut chart.</summary>
+    /// <summary>Phân tích theo danh mục vật tư - dùng cho pie/donut chart.</summary>
     public List<LowStockByCategoryDto> ByCategory { get; set; } = new();
 
-    /// <summary>Danh sách chi tiết từng vật tư — dùng cho data table.</summary>
+    /// <summary>Danh sách chi tiết từng vật tư - dùng cho data table.</summary>
     public List<LowStockItemDto> Items { get; set; } = new();
 }
 

@@ -17,7 +17,7 @@ public class GetUsersQueryHandler(IUserRepository userRepository)
             request.RoleId,
             request.IsBanned,
             request.Search,
-            excludeRoleId: 3, // exclude Rescuers — use dedicated /rescuers endpoint
+            excludeRoleId: 3, // exclude Rescuers - use dedicated /rescuers endpoint
             cancellationToken: cancellationToken);
 
         var items = paged.Items.Select(u => new GetUsersItemResponse

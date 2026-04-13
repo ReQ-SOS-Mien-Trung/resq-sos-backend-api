@@ -1572,7 +1572,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             }
 
             // When the destination has a name, ensure the description shows the name rather
-            // than raw coordinate pairs — coordinates are still available on the DTO fields.
+            // than raw coordinate pairs - coordinates are still available on the DTO fields.
             if (!string.IsNullOrEmpty(activity.DestinationName)
                 && activity.DestinationLatitude.HasValue
                 && activity.DestinationLongitude.HasValue)
@@ -1616,7 +1616,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return Regex.Replace(result, @"  +", " ").Trim();
     }
 
-    // ─── SSE helpers ───────────────────────────────────────────────────────────
+    // --- SSE helpers -----------------------------------------------------------
 
     private static SseMissionEvent Status(string msg) =>
         new() { EventType = "status", Data = msg };
@@ -1624,7 +1624,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private static SseMissionEvent Error(string msg) =>
         new() { EventType = "error", Data = msg };
 
-    // ─── Streaming (SSE agent loop) ────────────────────────────────────────────
+    // --- Streaming (SSE agent loop) --------------------------------------------
 
     public async IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(
         List<SosRequestSummary> sosRequests,
@@ -1706,7 +1706,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 FallbackTemperature,
                 FallbackMaxTokens));
 
-        // Enforce minimum 32K tokens — mission plans with tool calls can be very long
+        // Enforce minimum 32K tokens - mission plans with tool calls can be very long
         var maxTokens = Math.Max(settings.MaxTokens, 32768);
 
         // Build the initial user message (no pre-loaded depot data; agent fetches via tools)
@@ -1921,7 +1921,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         yield return new SseMissionEvent { EventType = "result", Result = result };
     }
 
-    // ─── Tool execution ────────────────────────────────────────────────────────
+    // --- Tool execution --------------------------------------------------------
 
     private async Task<JsonElement> ExecuteToolAsync(
         string toolName,

@@ -13,20 +13,22 @@ namespace RESQ.Infrastructure.Services.Finance;
 /// </summary>
 public class FundingRequestExcelParser : IFundingRequestExcelParser
 {
-    private static readonly Dictionary<string, string> TargetGroupVietnameseToRaw = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Tre em"] = "Children",
-        ["Nguoi gia"] = "Elderly",
-        ["Phu nu mang thai"] = "Pregnant",
-        ["Nguoi lon"] = "Adult",
-        ["Luc luong cuu ho"] = "Rescuer"
-    };
+    private static readonly Dictionary<string, string> TargetGroupVietnameseToRaw = BuildNormalizedLookup(
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Trẻ em"] = "Children",
+            ["Người già"] = "Elderly",
+            ["Phụ nữ mang thai"] = "Pregnant",
+            ["Người lớn"] = "Adult",
+            ["Lực lượng cứu hộ"] = "Rescuer"
+        });
 
-    private static readonly Dictionary<string, string> ItemTypeVietnameseToRaw = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Tieu thu"] = "Consumable",
-        ["Tai su dung"] = "Reusable"
-    };
+    private static readonly Dictionary<string, string> ItemTypeVietnameseToRaw = BuildNormalizedLookup(
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Tiêu thụ"] = "Consumable",
+            ["Tái sử dụng"] = "Reusable"
+        });
 
     public List<FundingRequestItemModel> ParseSupplyItems(Stream fileStream)
     {
@@ -173,4 +175,10 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
             .Replace('đ', 'd')
             .Replace('Đ', 'D');
     }
+
+    private static Dictionary<string, string> BuildNormalizedLookup(Dictionary<string, string> source)
+        => source.ToDictionary(
+            pair => RemoveDiacritics(pair.Key),
+            pair => pair.Value,
+            StringComparer.OrdinalIgnoreCase);
 }

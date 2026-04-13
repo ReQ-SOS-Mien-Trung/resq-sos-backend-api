@@ -55,7 +55,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
             DepotId = depotId,
             Step = 7,
             ActivityType = "RETURN_SUPPLIES",
-            Description = "Hoan tat nhiem vu, tra vat tu ve kho.",
+            Description = "Hoàn tất nhiệm vụ, trả vật tư về kho.",
             Status = MissionActivityStatus.Planned,
             Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
             {
@@ -143,7 +143,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
             DepotId = depotId,
             Step = 7,
             ActivityType = "RETURN_SUPPLIES",
-            Description = "Hoan tat nhiem vu, tra vat tu ve kho.",
+            Description = "Hoàn tất nhiệm vụ, trả vật tư về kho.",
             Status = MissionActivityStatus.Planned,
             Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
             {

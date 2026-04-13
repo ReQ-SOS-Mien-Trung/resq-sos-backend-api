@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -68,7 +68,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
        return Ok(result);
     }
 
-    /// <summary>SSE streaming — AI đề xuất mission theo thời gian thực (event: status | chunk | result | error).</summary>
+    /// <summary>SSE streaming - AI đề xuất mission theo thời gian thực (event: status | chunk | result | error).</summary>
     [HttpGet("{clusterId:int}/rescue-suggestion/stream")]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
     public async Task StreamRescueMissionSuggestion([FromRoute] int clusterId, CancellationToken cancellationToken)
@@ -99,7 +99,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Goi y top 3 kho thay the de coordinator bo sung thu cong khi kho chinh khong du vat tu.
+    /// Gợi ý top 3 kho thay thế để coordinator bổ sung thủ công khi kho chính không đủ vật tư.
     /// </summary>
     [HttpGet("{clusterId:int}/alternative-depots")]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]

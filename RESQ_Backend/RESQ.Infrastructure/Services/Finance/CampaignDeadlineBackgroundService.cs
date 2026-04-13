@@ -17,7 +17,7 @@ public class CampaignDeadlineBackgroundService : BackgroundService
 
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(1);
 
-    // GUID đại diện cho "hệ thống" — dùng làm modifiedBy khi auto-close
+    // GUID đại diện cho "hệ thống" - dùng làm modifiedBy khi auto-close
     private static readonly Guid SystemUserId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     public CampaignDeadlineBackgroundService(

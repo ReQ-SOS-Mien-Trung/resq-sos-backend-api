@@ -39,7 +39,7 @@ public class LowStockItemDto
     public string ResolvedThresholdScope { get; set; } = string.Empty;
 
     /// <summary>
-    /// True khi không có config riêng cho item/category/depot — đang dùng ngưỡng mặc định toàn hệ thống.
+    /// True khi không có config riêng cho item/category/depot - đang dùng ngưỡng mặc định toàn hệ thống.
     /// FE có thể dùng để hiển thị badge "Dùng ngưỡng mặc định" hoặc lọc danh sách chưa cấu hình riêng.
     /// </summary>
     public bool IsUsingGlobalDefault { get; set; }

@@ -54,4 +54,4 @@ public record CampaignDuration
     {
         return currentDate >= StartDate;
     }
-}
+}
