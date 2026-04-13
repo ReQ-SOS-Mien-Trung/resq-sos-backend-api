@@ -10,6 +10,8 @@ public class AssemblyParticipantModel
     public AssemblyParticipantStatus Status { get; set; }
     public bool IsCheckedIn { get; set; }
     public DateTime? CheckInTime { get; set; }
+    public bool IsCheckedOut { get; set; }
+    public DateTime? CheckOutTime { get; set; }
 
     /// <summary>Rescuer check-in trước giờ triệu tập.</summary>
     public bool IsEarly => CheckInTime.HasValue && EventStartTime.HasValue && CheckInTime.Value < EventStartTime.Value;
@@ -32,7 +34,8 @@ public class AssemblyParticipantModel
             AssemblyEventId = eventId,
             RescuerId = rescuerId,
             Status = AssemblyParticipantStatus.Assigned,
-            IsCheckedIn = false
+            IsCheckedIn = false,
+            IsCheckedOut = false
         };
     }
 
@@ -46,5 +49,17 @@ public class AssemblyParticipantModel
         IsCheckedIn = true;
         CheckInTime = DateTime.UtcNow;
         Status = AssemblyParticipantStatus.CheckedIn;
+    }
+
+    /// <summary>
+    /// Check-out rescuer tại sự kiện tập trung. Chỉ áp dụng nếu đã check-in.
+    /// </summary>
+    public void CheckOut()
+    {
+        if (!IsCheckedIn) throw new global::System.InvalidOperationException("Cannot checkout. Rescuer hasn't checked in yet.");
+        if (IsCheckedOut) return;
+
+        IsCheckedOut = true;
+        CheckOutTime = DateTime.UtcNow;
     }
 }

@@ -11,15 +11,19 @@ namespace RESQ.Application.UseCases.Personnel.Commands.CloseAssemblyPoint;
 public class CloseAssemblyPointCommandHandler(
     IAssemblyPointRepository assemblyPointRepository,
     IRescueTeamRepository rescueTeamRepository,
+    IAssemblyEventRepository assemblyEventRepository,
     IUnitOfWork unitOfWork,
     IDashboardHubService dashboardHubService,
+    IFirebaseService firebaseService,
     ILogger<CloseAssemblyPointCommandHandler> logger)
     : IRequestHandler<CloseAssemblyPointCommand, CloseAssemblyPointResponse>
 {
     private readonly IAssemblyPointRepository _assemblyPointRepository = assemblyPointRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
+    private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
+    private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ILogger<CloseAssemblyPointCommandHandler> _logger = logger;
 
     public async Task<CloseAssemblyPointResponse> Handle(CloseAssemblyPointCommand request, CancellationToken cancellationToken)
@@ -48,6 +52,29 @@ public class CloseAssemblyPointCommandHandler(
             throw new ConflictException(
                 $"KhÃ´ng thá»ƒ Ä‘Ã³ng Ä‘iá»ƒm táº­p káº¿t khi váº«n cÃ²n {activeTeamCount} Ä‘á»™i cá»©u há»™ Ä‘ang hoáº¡t Ä‘á»™ng. " +
                 "Vui lÃ²ng giáº£i thá»ƒ hoáº·c chuyá»ƒn toÃ n bá»™ Ä‘á»™i sang Ä‘iá»ƒm táº­p káº¿t khÃ¡c trÆ°á»›c khi Ä‘Ã³ng.");
+        }
+
+        var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.Id, cancellationToken);
+        if (activeEvent != null)
+        {
+            await _assemblyEventRepository.UpdateEventStatusAsync(activeEvent.Value.EventId, AssemblyEventStatus.Completed.ToString(), cancellationToken);
+            var participants = await _assemblyEventRepository.GetParticipantIdsAsync(activeEvent.Value.EventId, cancellationToken);
+            foreach (var userId in participants)
+            {
+                try
+                {
+                    await _firebaseService.SendNotificationToUserAsync(
+                        userId, 
+                        "Sự kiện tập hợp đã bị hủy", 
+                        $"Điểm tập kết \"{assemblyPoint.Name}\" đã bị đóng. Sự kiện tập hợp đã kết thúc.", 
+                        "assembly_event_completed", 
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send notification to user {UserId}", userId);
+                }
+            }
         }
 
         // Domain enforces: chá»‰ Active hoáº·c Overloaded â†’ Closed

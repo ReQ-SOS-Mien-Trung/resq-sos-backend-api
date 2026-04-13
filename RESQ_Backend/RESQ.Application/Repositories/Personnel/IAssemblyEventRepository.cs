@@ -15,6 +15,7 @@ public interface IAssemblyEventRepository
 
     /// <summary>Check-in rescuer tại sự kiện. Trả về false nếu không tìm thấy participant.</summary>
     Task<bool> CheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
+    Task<bool> CheckOutAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
 
     /// <summary>Kiểm tra rescuer đã check-in tại sự kiện chưa.</summary>
     Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
@@ -38,6 +39,8 @@ public interface IAssemblyEventRepository
 
     /// <summary>Cập nhật trạng thái event.</summary>
     Task UpdateEventStatusAsync(int eventId, string status, CancellationToken cancellationToken = default);
+
+    Task<List<Guid>> GetParticipantIdsAsync(int eventId, CancellationToken cancellationToken = default);
 
     /// <summary>Chuyển trạng thái Scheduled → Gathering.</summary>
     Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default);
