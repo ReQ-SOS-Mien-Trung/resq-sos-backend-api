@@ -18,7 +18,8 @@ public class GetSosPriorityLevelMetadataQueryHandler : IRequestHandler<GetSosPri
                 SosPriorityLevel.Critical => "Rất Nghiêm trọng",
                 SosPriorityLevel.High     => "Nghiêm trọng",
                 SosPriorityLevel.Medium   => "Trung bình",
-                SosPriorityLevel.Low      => "Thấp"
+                SosPriorityLevel.Low      => "Thấp",
+                _                         => "Không xác định"
             }
         }).ToList();
 

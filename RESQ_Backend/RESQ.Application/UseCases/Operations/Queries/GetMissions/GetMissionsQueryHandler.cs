@@ -51,13 +51,13 @@ public class GetMissionsQueryHandler(
         var aiSuggestions = (await _aiSuggestionRepository.GetByClusterIdsAsync(clusterIds, cancellationToken))
             .Where(s => s.ClusterId.HasValue)
             .GroupBy(s => s.ClusterId!.Value)
-            .ToDictionary(g => (int?)g.Key, g => g.OrderByDescending(s => s.CreatedAt).First());
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.CreatedAt).First());
 
         var response = new GetMissionsResponse
         {
             Missions = missionList.Select(m =>
             {
-                aiSuggestions.TryGetValue(m.ClusterId, out var rawAi);
+                var rawAi = m.ClusterId.HasValue && aiSuggestions.TryGetValue(m.ClusterId.Value, out var ai) ? ai : null;
                 var aiModel = rawAi is not null ? MissionAiSuggestionSection.From(rawAi) : null;
                 return new MissionDto
                 {
