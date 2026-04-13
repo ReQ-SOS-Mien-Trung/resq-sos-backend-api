@@ -111,6 +111,133 @@ public class ConfirmReturnSuppliesCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_RebuildsExpectedReusableUnitsFromPickedCollectUnitsBeforeValidation()
+    {
+        const int collectActivityId = 12;
+        const int returnActivityId = 19;
+        const int missionId = 7;
+        const int depotId = 3;
+        const int missionTeamId = 6;
+        const int itemId = 74;
+        var userId = Guid.NewGuid();
+
+        var pickedUnit = new SupplyExecutionReusableUnitDto
+        {
+            ReusableItemId = 267,
+            ItemModelId = itemId,
+            ItemName = "Day thung cuu sinh 30m",
+            SerialNumber = "D3-R074-001"
+        };
+        var unusedBufferUnit = new SupplyExecutionReusableUnitDto
+        {
+            ReusableItemId = 268,
+            ItemModelId = itemId,
+            ItemName = "Day thung cuu sinh 30m",
+            SerialNumber = "D3-R074-002"
+        };
+
+        var collectActivity = new MissionActivityModel
+        {
+            Id = collectActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            ActivityType = "COLLECT_SUPPLIES",
+            Status = MissionActivityStatus.Succeed,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Day thung cuu sinh 30m",
+                    Quantity = 1,
+                    Unit = "cuon",
+                    PlannedPickupReusableUnits = [pickedUnit, unusedBufferUnit],
+                    PickedReusableUnits = [pickedUnit]
+                }
+            })
+        };
+
+        var returnActivity = new MissionActivityModel
+        {
+            Id = returnActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Day thung cuu sinh 30m",
+                    Quantity = 1,
+                    Unit = "cuon",
+                    ExpectedReturnUnits = [pickedUnit, unusedBufferUnit]
+                }
+            })
+        };
+
+        var activityRepository = new StubMissionActivityRepository([collectActivity, returnActivity]);
+        var depotInventoryRepository = new StubDepotInventoryRepository
+        {
+            ManagerDepotIds = [depotId],
+            ReturnResult = new MissionSupplyReturnExecutionResult
+            {
+                Items =
+                [
+                    new MissionSupplyReturnExecutionItemDto
+                    {
+                        ItemModelId = itemId,
+                        ItemName = "Day thung cuu sinh 30m",
+                        Unit = "cuon",
+                        ActualQuantity = 1,
+                        ReturnedReusableUnits = [pickedUnit]
+                    }
+                ]
+            }
+        };
+        var metadataRepository = new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
+        {
+            [itemId] = new() { Id = itemId, Name = "Day thung cuu sinh 30m", Unit = "cuon", ItemType = "Reusable" }
+        });
+        var handler = new ConfirmReturnSuppliesCommandHandler(
+            activityRepository,
+            depotInventoryRepository,
+            metadataRepository,
+            new StubUnitOfWork(),
+            NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+
+        var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
+            returnActivityId,
+            missionId,
+            userId,
+            [],
+            [
+                new ActualReturnedReusableItemDto
+                {
+                    ItemModelId = itemId,
+                    Units =
+                    [
+                        new ActualReturnedReusableUnitDto { ReusableItemId = pickedUnit.ReusableItemId }
+                    ]
+                }
+            ],
+            null), CancellationToken.None);
+
+        var restoredItem = Assert.Single(response.RestoredItems);
+        var returnItem = Assert.Single(JsonSerializer.Deserialize<List<SupplyToCollectDto>>(returnActivity.Items!) ?? []);
+        var expectedUnit = Assert.Single(returnItem.ExpectedReturnUnits!);
+
+        Assert.False(response.DiscrepancyRecorded);
+        Assert.Equal(1, restoredItem.ExpectedQuantity);
+        Assert.Equal(pickedUnit.ReusableItemId, expectedUnit.ReusableItemId);
+        Assert.DoesNotContain(depotInventoryRepository.ReceivedReusableItems, item => item.ReusableItemId == unusedBufferUnit.ReusableItemId);
+        Assert.Equal(MissionActivityStatus.Succeed, activityRepository.UpdatedStatus);
+    }
+
+    [Fact]
     public async Task Handle_MapsInventoryInvalidOperation_ToBadRequest()
     {
         const int activityId = 24;
@@ -246,15 +373,27 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         Assert.Contains("phai nhap ly do chenh lech", RemoveDiacritics(ex.Message), StringComparison.OrdinalIgnoreCase);
     }
 
-    private sealed class StubMissionActivityRepository(MissionActivityModel activity) : IMissionActivityRepository
+    private sealed class StubMissionActivityRepository : IMissionActivityRepository
     {
+        private readonly List<MissionActivityModel> _activities;
+
+        public StubMissionActivityRepository(MissionActivityModel activity)
+            : this([activity])
+        {
+        }
+
+        public StubMissionActivityRepository(IEnumerable<MissionActivityModel> activities)
+        {
+            _activities = activities.ToList();
+        }
+
         public MissionActivityStatus? UpdatedStatus { get; private set; }
 
         public Task<MissionActivityModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
-            => Task.FromResult<MissionActivityModel?>(activity);
+            => Task.FromResult(_activities.FirstOrDefault(activity => activity.Id == id));
 
         public Task<IEnumerable<MissionActivityModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default)
-            => Task.FromResult<IEnumerable<MissionActivityModel>>([activity]);
+            => Task.FromResult<IEnumerable<MissionActivityModel>>(_activities.Where(activity => activity.MissionId == missionId));
 
         public Task<IEnumerable<MissionActivityModel>> GetBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
@@ -264,15 +403,23 @@ public class ConfirmReturnSuppliesCommandHandlerTests
 
         public Task UpdateAsync(MissionActivityModel updatedActivity, CancellationToken cancellationToken = default)
         {
-            activity.Items = updatedActivity.Items;
-            activity.Description = updatedActivity.Description;
+            var activity = _activities.FirstOrDefault(item => item.Id == updatedActivity.Id);
+            if (activity is not null)
+            {
+                activity.Items = updatedActivity.Items;
+                activity.Description = updatedActivity.Description;
+            }
+
             return Task.CompletedTask;
         }
 
         public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default)
         {
             UpdatedStatus = status;
-            activity.Status = status;
+            var activity = _activities.FirstOrDefault(item => item.Id == activityId);
+            if (activity is not null)
+                activity.Status = status;
+
             return Task.CompletedTask;
         }
 

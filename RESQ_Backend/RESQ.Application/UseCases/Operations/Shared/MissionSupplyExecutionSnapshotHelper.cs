@@ -63,6 +63,16 @@ internal static class MissionSupplyExecutionSnapshotHelper
             return;
 
         var missionActivities = (await activityRepository.GetByMissionIdAsync(referenceActivity.MissionId.Value, cancellationToken)).ToList();
+        var referenceIndex = missionActivities.FindIndex(activity => activity.Id == referenceActivity.Id);
+        if (referenceIndex >= 0)
+        {
+            missionActivities[referenceIndex] = referenceActivity;
+        }
+        else
+        {
+            missionActivities.Add(referenceActivity);
+        }
+
         var returnActivity = missionActivities.FirstOrDefault(activity =>
             activity.MissionTeamId == referenceActivity.MissionTeamId
             && activity.DepotId == referenceActivity.DepotId
@@ -82,11 +92,7 @@ internal static class MissionSupplyExecutionSnapshotHelper
             .GroupBy(supply => supply.ItemId!.Value)
             .ToDictionary(
                 group => group.Key,
-                group => group.SelectMany(GetExpectedReturnSourceUnits)
-                    .GroupBy(unit => unit.ReusableItemId)
-                    .Select(unitGroup => CloneReusableUnit(unitGroup.First()))
-                    .OrderBy(unit => unit.ReusableItemId)
-                    .ToList());
+                BuildExpectedReturnUnits);
 
         var returnSupplies = DeserializeSupplies(returnActivity.Items!);
         var changed = false;
@@ -248,15 +254,18 @@ internal static class MissionSupplyExecutionSnapshotHelper
         }
     }
 
-    private static IEnumerable<SupplyExecutionReusableUnitDto> GetExpectedReturnSourceUnits(SupplyToCollectDto supply)
+    private static List<SupplyExecutionReusableUnitDto> BuildExpectedReturnUnits(IEnumerable<SupplyToCollectDto> supplies)
     {
-        if (supply.PickedReusableUnits is { Count: > 0 })
-            return supply.PickedReusableUnits.Select(CloneReusableUnit);
+        var supplyList = supplies.ToList();
+        var sourceUnits = supplyList.Any(supply => supply.PickedReusableUnits is not null)
+            ? supplyList.SelectMany(supply => supply.PickedReusableUnits ?? [])
+            : supplyList.SelectMany(supply => supply.PlannedPickupReusableUnits ?? []);
 
-        if (supply.PlannedPickupReusableUnits is { Count: > 0 })
-            return supply.PlannedPickupReusableUnits.Select(CloneReusableUnit);
-
-        return [];
+        return sourceUnits
+            .GroupBy(unit => unit.ReusableItemId)
+            .Select(unitGroup => CloneReusableUnit(unitGroup.First()))
+            .OrderBy(unit => unit.ReusableItemId)
+            .ToList();
     }
 
     private static bool AreSameUnits(
