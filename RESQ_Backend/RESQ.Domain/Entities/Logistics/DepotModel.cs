@@ -171,9 +171,9 @@ public class DepotModel
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
-        if (Status != DepotStatus.Closing)
+        if (Status is not (DepotStatus.Closing or DepotStatus.Unavailable))
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho phải ở trạng thái Closing trước khi đóng. Hãy chuyển sang Closing trước.");
+                "Kho phải ở trạng thái Closing hoặc Unavailable trước khi đóng.");
 
         // Không set Closing nữa - đi thẳng từ Unavailable.
         // Giữ phương thức để backward compat, CompleteClosing sẽ set Closed.
@@ -186,9 +186,9 @@ public class DepotModel
     /// </summary>
     public void CompleteClosing()
     {
-        if (Status != DepotStatus.Closing)
+        if (Status is not (DepotStatus.Closing or DepotStatus.Unavailable))
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho phải ở trạng thái Closing.trước khi đóng hoàn toàn.");
+                "Kho phải ở trạng thái Closing hoặc Unavailable trước khi đóng hoàn toàn.");
 
         Status = DepotStatus.Closed;
         var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
@@ -206,9 +206,9 @@ public class DepotModel
     /// </summary>
     public void RestoreFromClosing(DepotStatus previousStatus)
     {
-        if (Status != DepotStatus.Closing)
+        if (Status is not (DepotStatus.Closing or DepotStatus.Unavailable))
             throw new InvalidDepotStatusTransitionException(Status, previousStatus,
-                "Chỉ có thể Khôi phục kho từ trạng thái Closing.");
+                "Chỉ có thể khôi phục kho từ trạng thái Closing hoặc Unavailable.");
 
         if (previousStatus != DepotStatus.Available)
             throw new InvalidDepotStatusTransitionException(Status, previousStatus,
