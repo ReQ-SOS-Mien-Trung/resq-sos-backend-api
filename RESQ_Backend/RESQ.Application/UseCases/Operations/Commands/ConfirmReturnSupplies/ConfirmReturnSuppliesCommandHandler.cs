@@ -57,6 +57,13 @@ public class ConfirmReturnSuppliesCommandHandler(
         if (!managerDepotIds.Contains(activity.DepotId.Value))
             throw new ForbiddenException("Bạn không phải là quản lý kho của depot này. Chỉ quản lý kho mới có quyền xác nhận trả hàng.");
 
+        await MissionSupplyExecutionSnapshotHelper.RebuildExpectedReturnUnitsAsync(
+            activity,
+            _activityRepository,
+            _logger,
+            cancellationToken);
+        await _unitOfWork.SaveAsync();
+
         var supplies = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts) ?? [];
         var validItems = supplies
             .Where(s => s.ItemId.HasValue && s.Quantity > 0)

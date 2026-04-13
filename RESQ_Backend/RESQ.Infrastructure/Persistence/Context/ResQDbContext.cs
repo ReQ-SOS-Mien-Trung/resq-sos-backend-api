@@ -115,6 +115,10 @@ public partial class ResQDbContext : DbContext
     {
         modelBuilder.HasPostgresExtension("postgis");
         modelBuilder.HasSequence<long>("depot_realtime_version_seq");
+        modelBuilder.Entity<InventoryLog>()
+            .Property(e => e.Id)
+            .UseIdentityByDefaultColumn()
+            .HasIdentityOptions(startValue: 1000);
         
         modelBuilder.Entity<Ability>(entity =>
         {
