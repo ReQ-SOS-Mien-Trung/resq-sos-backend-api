@@ -244,46 +244,7 @@ public class DepotFundRepository : IDepotFundRepository
         return new PagedResult<DepotFundTransactionModel>(models, totalCount, pageNumber, pageSize);
     }
 
-    
-    public async Task<PagedResult<ContributorDebtModel>> GetPagedAdvancersByDepotIdAsync(
-        int depotId,
-        int pageNumber,
-        int pageSize,
-        CancellationToken cancellationToken = default)
-    {
-        var personalAdvanceType = DepotFundTransactionType.PersonalAdvance.ToString();
-        var repaymentType = DepotFundTransactionType.AdvanceRepayment.ToString();
-
-        var query = _unitOfWork.Set<DepotFundTransaction>()
-            .Where(x => x.DepotFund.DepotId == depotId
-                        && x.ContributorName != null
-                        && x.ContributorPhoneNumber != null
-                        && (x.TransactionType == personalAdvanceType || x.TransactionType == repaymentType))
-            .GroupBy(x => new
-            {
-                x.ContributorName,
-                x.ContributorPhoneNumber
-            })
-            .Select(g => new ContributorDebtModel
-            {
-                ContributorName = g.Key.ContributorName!,
-                ContributorPhoneNumber = g.Key.ContributorPhoneNumber!,
-                TotalAdvancedAmount = g.Sum(x => x.TransactionType == personalAdvanceType ? x.Amount : 0m),
-                TotalRepaidAmount = g.Sum(x => x.TransactionType == repaymentType ? x.Amount : 0m)
-            })
-            .Where(x => x.TotalAdvancedAmount > 0)
-            .OrderByDescending(x => x.TotalAdvancedAmount - x.TotalRepaidAmount);
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return new PagedResult<ContributorDebtModel>(items, totalCount, pageNumber, pageSize);
-    }
-public async Task<List<ContributorDebtModel>> GetContributorDebtsByDepotAsync(
+    public async Task<List<ContributorDebtModel>> GetContributorDebtsByDepotAsync(
         int depotId,
         IEnumerable<ContributorDebtModel> contributors,
         CancellationToken cancellationToken = default)
@@ -412,4 +373,3 @@ public async Task<List<ContributorDebtModel>> GetContributorDebtsByDepotAsync(
         }
     }
 }
-

@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Entities.Finance.Exceptions;
+using RESQ.Domain.Entities.Finance.Exceptions;
 using RESQ.Domain.Entities.Logistics.Exceptions;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Logistics;
@@ -129,7 +129,7 @@ public class DepotModel
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
                 "Kho đã đóng vĩnh viễn, không thể thay đổi trạng thái.");
 
-        if ((Status == DepotStatus.Unavailable || Status == DepotStatus.Closing) && newStatus != DepotStatus.Available && newStatus != DepotStatus.Closing)
+        if ((Status == DepotStatus.Unavailable || Status == DepotStatus.Closing) && newStatus != DepotStatus.Available)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
                 "Kho đang ngưng hoạt động/đóng kho. Chỉ có thể chuyển về Available hoặc đóng luôn.");
 
@@ -137,7 +137,7 @@ public class DepotModel
         var allowed = new Dictionary<DepotStatus, HashSet<DepotStatus>>
         {
             [DepotStatus.Available]   = [DepotStatus.Unavailable, DepotStatus.Closing],
-            [DepotStatus.Unavailable] = [DepotStatus.Available, DepotStatus.Closing], [DepotStatus.Closing] = [DepotStatus.Available],
+            [DepotStatus.Unavailable] = [DepotStatus.Available], [DepotStatus.Closing] = [DepotStatus.Available],
         };
 
         if (!allowed.TryGetValue(Status, out var validTargets) || !validTargets.Contains(newStatus))
@@ -171,9 +171,9 @@ public class DepotModel
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
-        if (Status is not (DepotStatus.Closing))
+        if (Status is not (DepotStatus.Closing or DepotStatus.Unavailable))
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho phải ở trạng thái Closing trước khi đóng.");
+                "Kho phải ở trạng thái Closing hoặc Unavailable trước khi đóng.");
 
         // Không set Closing nữa - đi thẳng từ Unavailable.
         // Giữ phương thức để backward compat, CompleteClosing sẽ set Closed.
@@ -186,9 +186,9 @@ public class DepotModel
     /// </summary>
     public void CompleteClosing()
     {
-        if (Status is not (DepotStatus.Closing))
+        if (Status is not (DepotStatus.Closing or DepotStatus.Unavailable))
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho phải ở trạng thái Closing trước khi đóng hoàn toàn.");
+                "Kho phải ở trạng thái Closing hoặc Unavailable trước khi đóng hoàn toàn.");
 
         Status = DepotStatus.Closed;
         var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());

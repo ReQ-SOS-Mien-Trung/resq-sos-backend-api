@@ -1,4 +1,3 @@
-﻿using RESQ.Application.UseCases.Finance.Queries.GetDepotAdvancers;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -82,7 +81,7 @@ public class DepotFundController(IMediator mediator) : ControllerBase
         var result = response.Funds.Select(f => new MetadataDto
         {
             Key = f.Id.ToString(),
-            Value = $"{f.FundSourceName ?? "Quá»¹ kho"} - {f.Balance:N0} VND"
+            Value = $"{f.FundSourceName ?? "Quỹ kho"} - {f.Balance:N0} VND"
         }).ToList();
         return Ok(result);
     }
@@ -160,18 +159,6 @@ public class DepotFundController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-
-    [HttpGet("my/advancers")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
-    [ProducesResponseType(typeof(PagedResult<DepotAdvancerDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetMyAdvancers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
-    {
-        var query = new GetDepotAdvancersQuery(GetUserId(), pageNumber, pageSize);
-        var result = await _mediator.Send(query);
-        return Ok(result);
-    }
-
     [HttpPost("{depotFundId:int}/advance")]
     [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -215,8 +202,6 @@ public class DepotFundController(IMediator mediator) : ControllerBase
             return userId;
         }
 
-        throw new UnauthorizedAccessException("Token ngÆ°á»i dÃ¹ng khÃ´ng há»£p lá»‡.");
+        throw new UnauthorizedAccessException("Token người dùng không hợp lệ.");
     }
 }
-
-

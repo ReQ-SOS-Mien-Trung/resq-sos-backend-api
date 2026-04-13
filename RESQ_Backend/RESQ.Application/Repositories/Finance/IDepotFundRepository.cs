@@ -1,4 +1,4 @@
-﻿using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 
@@ -37,8 +37,6 @@ public interface IDepotFundRepository
         IReadOnlyCollection<DepotFundTransactionType>? transactionTypes = null,
         CancellationToken cancellationToken = default);
 
-    Task<PagedResult<ContributorDebtModel>> GetPagedAdvancersByDepotIdAsync(int depotId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
-
     Task<List<ContributorDebtModel>> GetContributorDebtsByDepotAsync(
         int depotId,
         IEnumerable<ContributorDebtModel> contributors,
@@ -50,4 +48,3 @@ public interface IDepotFundRepository
         IEnumerable<ContributorDebtModel> contributors,
         CancellationToken cancellationToken = default);
 }
-
