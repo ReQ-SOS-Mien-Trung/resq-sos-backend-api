@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -104,7 +104,7 @@ public class InitiateDepotClosureCommandHandlerTests
         {
             Id = 6,
             Name = "Depot 6",
-            Status = DepotStatus.Unavailable
+            Status = DepotStatus.Closing
         };
 
         depot.AddHistory(
@@ -272,3 +272,4 @@ public class InitiateDepotClosureCommandHandlerTests
         }
     }
 }
+
