@@ -40,6 +40,7 @@ public class MissionActivityDto
     public int? Step { get; set; }
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
     public string? Priority { get; set; }
     public int? EstimatedTime { get; set; }
     public int? SosRequestId { get; set; }
@@ -151,6 +152,7 @@ public class AssignedTeamDto
     public int RescueTeamId { get; set; }
     public string? TeamName { get; set; }
     public string? TeamCode { get; set; }
+    public int? AssemblyPointId { get; set; }
     public string? AssemblyPointName { get; set; }
     public string? TeamType { get; set; }
     /// <summary>MissionTeam assignment status (Assigned, Cancelled, etc.)</summary>

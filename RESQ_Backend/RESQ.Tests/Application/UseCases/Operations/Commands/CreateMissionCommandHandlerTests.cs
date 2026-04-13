@@ -12,14 +12,17 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Application.UseCases.Operations.Commands.CreateMission;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Entities.Personnel;
+using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Operations.Commands;
@@ -97,6 +100,108 @@ public class CreateMissionCommandHandlerTests
         Assert.Single(depotInventoryRepository.AvailabilityChecks);
     }
 
+    [Fact]
+    public async Task Handle_ThrowsBadRequest_WhenAssignedTeamMissingReturnAssemblyPoint()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository();
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork);
+
+        var collect = CreateCollectActivity(quantity: 10);
+        collect.RescueTeamId = 12;
+        var deliver = CreateDeliverActivity(quantity: 10);
+        deliver.RescueTeamId = 12;
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(BuildCommand(collect, deliver), CancellationToken.None));
+
+        Assert.Contains("Thieu RETURN_ASSEMBLY_POINT", ex.Message);
+        Assert.Null(missionRepository.CreatedMission);
+    }
+
+    [Fact]
+    public async Task Handle_PersistsProvidedReturnAssemblyPoint_WithoutAutoAppending()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository();
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork,
+            assemblyPointRepository: new StubAssemblyPointRepository(CreateAssemblyPoint(3)));
+
+        var collect = CreateCollectActivity(quantity: 10);
+        collect.RescueTeamId = 12;
+        var deliver = CreateDeliverActivity(quantity: 10);
+        deliver.RescueTeamId = 12;
+        var returnAssembly = CreateReturnAssemblyPointActivity(step: 3, assemblyPointId: 3, rescueTeamId: 12);
+
+        var response = await handler.Handle(BuildCommand(collect, deliver, returnAssembly), CancellationToken.None);
+
+        Assert.Equal(3, response.ActivityCount);
+        var persistedReturnAssembly = Assert.Single(missionRepository.CreatedMission!.Activities, activity =>
+            string.Equals(activity.ActivityType, "RETURN_ASSEMBLY_POINT", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(3, persistedReturnAssembly.Step);
+        Assert.Equal(3, persistedReturnAssembly.AssemblyPointId);
+        Assert.Null(persistedReturnAssembly.DepotId);
+        Assert.Null(persistedReturnAssembly.Items);
+        Assert.Null(persistedReturnAssembly.TargetLatitude);
+        Assert.Null(persistedReturnAssembly.TargetLongitude);
+    }
+
+    [Fact]
+    public async Task Handle_ThrowsBadRequest_WhenReturnAssemblyPointDoesNotExist()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository();
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork,
+            assemblyPointRepository: new StubAssemblyPointRepository());
+
+        var collect = CreateCollectActivity(quantity: 10);
+        collect.RescueTeamId = 12;
+        var deliver = CreateDeliverActivity(quantity: 10);
+        deliver.RescueTeamId = 12;
+        var returnAssembly = CreateReturnAssemblyPointActivity(step: 3, assemblyPointId: 999, rescueTeamId: 12);
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(BuildCommand(collect, deliver, returnAssembly), CancellationToken.None));
+
+        Assert.Contains("Khong tim thay diem tap ket #999.", ex.Message);
+    }
+
     private static CreateMissionCommandHandler BuildHandler(
         IMissionRepository missionRepository,
         IMissionActivityRepository missionActivityRepository,
@@ -104,7 +209,9 @@ public class CreateMissionCommandHandlerTests
         ISosRequestRepository sosRequestRepository,
         IDepotInventoryRepository depotInventoryRepository,
         IItemModelMetadataRepository itemModelMetadataRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IRescueTeamRepository? rescueTeamRepository = null,
+        IAssemblyPointRepository? assemblyPointRepository = null)
     {
         return new CreateMissionCommandHandler(
             missionRepository,
@@ -113,7 +220,8 @@ public class CreateMissionCommandHandlerTests
             sosRequestRepository,
             depotInventoryRepository,
             itemModelMetadataRepository,
-            new StubRescueTeamRepository(),
+            rescueTeamRepository ?? new StubRescueTeamRepository(),
+            assemblyPointRepository ?? new StubAssemblyPointRepository(),
             unitOfWork,
             new RecordingMediator(),
             new StubFirebaseService(),
@@ -164,6 +272,29 @@ public class CreateMissionCommandHandlerTests
                 Unit = "chai"
             }
         ]
+    };
+
+    private static CreateActivityItemDto CreateReturnAssemblyPointActivity(int step, int assemblyPointId, int rescueTeamId) => new()
+    {
+        Step = step,
+        ActivityType = "RETURN_ASSEMBLY_POINT",
+        Description = "Quay ve diem tap ket",
+        Priority = "Low",
+        EstimatedTime = 20,
+        AssemblyPointId = assemblyPointId,
+        RescueTeamId = rescueTeamId
+    };
+
+    private static AssemblyPointModel CreateAssemblyPoint(
+        int id,
+        AssemblyPointStatus status = AssemblyPointStatus.Active,
+        GeoLocation? location = null) => new()
+    {
+        Id = id,
+        Code = $"AP{id}",
+        Name = $"Assembly Point {id}",
+        Status = status,
+        Location = location ?? new GeoLocation(16.46, 107.59)
     };
 
     private sealed class StubMissionRepository : IMissionRepository
@@ -231,7 +362,7 @@ public class CreateMissionCommandHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default)
+        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, string? imageUrl = null, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
         public Task AssignTeamAsync(int activityId, int missionTeamId, CancellationToken cancellationToken = default)
@@ -431,10 +562,12 @@ public class CreateMissionCommandHandlerTests
             => Task.FromResult(true);
     }
 
-    private sealed class StubRescueTeamRepository : IRescueTeamRepository
+    private sealed class StubRescueTeamRepository(params RescueTeamModel[] teams) : IRescueTeamRepository
     {
+        private readonly Dictionary<int, RescueTeamModel> _teams = teams.ToDictionary(team => team.Id);
+
         public Task<RescueTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
-            => Task.FromResult<RescueTeamModel?>(null);
+            => Task.FromResult(_teams.GetValueOrDefault(id));
 
         public Task<RescueTeamModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
             => Task.FromResult<RescueTeamModel?>(null);
@@ -462,6 +595,27 @@ public class CreateMissionCommandHandlerTests
 
         public Task<(List<AgentTeamInfo> Teams, int TotalCount)> GetTeamsForAgentAsync(string? abilityKeyword, bool? available, int page, int pageSize, CancellationToken ct = default)
             => throw new NotImplementedException();
+    }
+
+    private sealed class StubAssemblyPointRepository(params AssemblyPointModel[] assemblyPoints) : IAssemblyPointRepository
+    {
+        private readonly Dictionary<int, AssemblyPointModel> _assemblyPoints = assemblyPoints.ToDictionary(assemblyPoint => assemblyPoint.Id);
+
+        public Task CreateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<AssemblyPointModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult(_assemblyPoints.GetValueOrDefault(id));
+        public Task<AssemblyPointModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(_assemblyPoints.Values.ToList());
+        public Task<Dictionary<int, List<AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> HasActiveTeamAsync(Guid rescuerUserId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(IReadOnlyList<Guid> userIds, int? assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(IReadOnlyList<Guid> userIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class TrackingUnitOfWork : IUnitOfWork

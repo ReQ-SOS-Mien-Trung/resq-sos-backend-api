@@ -100,6 +100,22 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         return true;
     }
 
+    public async Task<bool> ReturnCheckInAsync(int eventId, Guid rescuerId,
+        CancellationToken cancellationToken = default)
+    {
+        var participant = await _unitOfWork.SetTracked<AssemblyParticipant>()
+            .FirstOrDefaultAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId, cancellationToken);
+
+        if (participant == null) return false;
+
+        participant.IsCheckedIn = true;
+        participant.CheckInTime ??= DateTime.UtcNow;
+        participant.IsCheckedOut = false;
+        participant.CheckOutTime = null;
+        participant.Status = AssemblyParticipantStatus.CheckedIn.ToString();
+        return true;
+    }
+
     public async Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(
         int eventId, int pageNumber, int pageSize,
         RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,

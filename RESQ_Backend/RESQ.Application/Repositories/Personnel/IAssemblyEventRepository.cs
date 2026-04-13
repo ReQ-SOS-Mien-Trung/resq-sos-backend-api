@@ -17,6 +17,13 @@ public interface IAssemblyEventRepository
     Task<bool> CheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
     Task<bool> CheckOutAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Check-in rescuer khi trở về điểm tập kết sau nhiệm vụ.
+    /// Khác <see cref="CheckInAsync"/>: nếu participant đã checkout thì reset IsCheckedOut về false.
+    /// Tự động thêm rescuer vào participant nếu chưa có. Trả về false nếu event không tồn tại.
+    /// </summary>
+    Task<bool> ReturnCheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
+
     /// <summary>Kiểm tra rescuer đã check-in tại sự kiện chưa.</summary>
     Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
 

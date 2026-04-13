@@ -14,6 +14,7 @@ using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 using System.Text.Json;
 
 namespace RESQ.Application.UseCases.Operations.Commands.CreateMission;
@@ -26,6 +27,7 @@ public class CreateMissionCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IRescueTeamRepository rescueTeamRepository,
+    IAssemblyPointRepository assemblyPointRepository,
     IUnitOfWork unitOfWork,
     IMediator mediator,
     IFirebaseService firebaseService,
@@ -39,6 +41,7 @@ public class CreateMissionCommandHandler(
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
+    private readonly IAssemblyPointRepository _assemblyPointRepository = assemblyPointRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IMediator _mediator = mediator;
     private readonly IFirebaseService _firebaseService = firebaseService;
@@ -46,9 +49,9 @@ public class CreateMissionCommandHandler(
 
     private const string CollectSuppliesActivityType = "COLLECT_SUPPLIES";
     private const string ReturnSuppliesActivityType = "RETURN_SUPPLIES";
+    private const string ReturnAssemblyPointActivityType = "RETURN_ASSEMBLY_POINT";
     private const string ReusableItemType = "Reusable";
     private const double DefaultBufferRatio = 0.10;
-
     public async Task<CreateMissionResponse> Handle(CreateMissionCommand request, CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -61,7 +64,7 @@ public class CreateMissionCommandHandler(
             throw new NotFoundException($"Không tìm thấy cluster với ID: {request.ClusterId}");
 
         // Validate assembly points
-        var requestedApIds = request.Activities
+        var requestedApIds = (request.Activities ?? [])
             .Where(a => a.AssemblyPointId.HasValue)
             .Select(a => a.AssemblyPointId!.Value)
             .Distinct()
@@ -69,22 +72,44 @@ public class CreateMissionCommandHandler(
         
         if (requestedApIds.Count > 0)
         {
-            var invalidAps = _unitOfWork.Set<RESQ.Domain.Entities.Personnel.AssemblyPointModel>()
-                .Where(ap => requestedApIds.Contains(ap.Id) && 
-                            (ap.Status == RESQ.Domain.Enum.Personnel.AssemblyPointStatus.Unavailable || 
-                             ap.Status == RESQ.Domain.Enum.Personnel.AssemblyPointStatus.Closed))
-                .Select(ap => ap.Id)
-                .ToList();
+            var assemblyPointErrors = new List<string>();
 
-            if (invalidAps.Count > 0)
+            foreach (var assemblyPointId in requestedApIds)
             {
-                throw new ValidationException($"Không thể điều phối đến các điểm tập kết sau do đang đóng hoặc không khả dụng: {string.Join(", ", invalidAps)}");
+                var assemblyPoint = await _assemblyPointRepository.GetByIdAsync(assemblyPointId, cancellationToken);
+                if (assemblyPoint is null)
+                {
+                    assemblyPointErrors.Add($"Khong tim thay diem tap ket #{assemblyPointId}.");
+                    continue;
+                }
+
+                if (assemblyPoint.Status == AssemblyPointStatus.Unavailable
+                    || assemblyPoint.Status == AssemblyPointStatus.Closed)
+                {
+                    assemblyPointErrors.Add($"Khong the dieu phoi den diem tap ket #{assemblyPointId} vi dang dong hoac khong kha dung.");
+                }
+
+                if (assemblyPoint.Location is null)
+                {
+                    assemblyPointErrors.Add($"Diem tap ket #{assemblyPointId} chua co toa do hop le.");
+                }
+            }
+
+            if (assemblyPointErrors.Count > 0)
+            {
+                throw new BadRequestException($"Ke hoach mission chua hop le voi diem tap ket:\n{string.Join("\n", assemblyPointErrors)}");
             }
         }
+        var activities = (request.Activities ?? [])
+            .Select(CloneActivity)
+            .OrderBy(activity => activity.Step ?? int.MaxValue)
+            .ToList();
+
+        await ValidateReturnAssemblyPointActivitiesAsync(activities, cancellationToken);
 
         // Validate depot inventory for each activity that specifies supplies
-        await ValidateSuppliesAsync(request.Activities, cancellationToken);
-        await ValidateReusableReturnActivitiesAsync(request.Activities, cancellationToken);
+        await ValidateSuppliesAsync(activities, cancellationToken);
+        await ValidateReusableReturnActivitiesAsync(activities, cancellationToken);
 
         // Build domain model
         var mission = new MissionModel
@@ -98,7 +123,7 @@ public class CreateMissionCommandHandler(
             IsCompleted = false,
             CreatedById = request.CreatedById,
             CreatedAt = DateTime.UtcNow,
-            Activities = request.Activities.Select((a, idx) => new MissionActivityModel
+            Activities = activities.Select((a, idx) => new MissionActivityModel
             {
                 Step = a.Step ?? (idx + 1),
                 ActivityType = a.ActivityType,
@@ -156,7 +181,7 @@ public class CreateMissionCommandHandler(
                     .OrderBy(a => a.Step)
                     .ToList();
 
-                var requestActivities = request.Activities
+                var requestActivities = activities
                     .OrderBy(a => a.Step ?? int.MaxValue)
                     .ToList();
 
@@ -191,7 +216,7 @@ public class CreateMissionCommandHandler(
                     .OrderBy(a => a.Step ?? int.MaxValue)
                     .ThenBy(a => a.Id)
                     .ToList();
-                var requestActivities = request.Activities
+                var requestActivities = activities
                     .OrderBy(a => a.Step ?? int.MaxValue)
                     .ToList();
 
@@ -202,7 +227,7 @@ public class CreateMissionCommandHandler(
         _logger.LogInformation("Mission created: MissionId={missionId}", missionId);
 
         // Notify team members about the new mission assignment
-        await NotifyTeamMembersAsync(request.Activities, missionId, cancellationToken);
+        await NotifyTeamMembersAsync(activities, missionId, cancellationToken);
 
         return new CreateMissionResponse
         {
@@ -210,9 +235,122 @@ public class CreateMissionCommandHandler(
             ClusterId = request.ClusterId,
             MissionType = request.MissionType,
             Status = "planned",
-            ActivityCount = request.Activities.Count,
+            ActivityCount = activities.Count,
             CreatedAt = mission.CreatedAt
         };
+    }
+
+    private static CreateActivityItemDto CloneActivity(CreateActivityItemDto activity) => new()
+    {
+        Step = activity.Step,
+        ActivityType = activity.ActivityType,
+        Description = activity.Description,
+        Priority = activity.Priority,
+        EstimatedTime = activity.EstimatedTime,
+        SosRequestId = activity.SosRequestId,
+        DepotId = activity.DepotId,
+        DepotName = activity.DepotName,
+        DepotAddress = activity.DepotAddress,
+        AssemblyPointId = activity.AssemblyPointId,
+        SuppliesToCollect = activity.SuppliesToCollect?.Select(supply => new SuggestedSupplyItemDto
+        {
+            Id = supply.Id,
+            Name = supply.Name,
+            Quantity = supply.Quantity,
+            Unit = supply.Unit,
+            BufferRatio = supply.BufferRatio
+        }).ToList(),
+        Target = activity.Target,
+        TargetLatitude = activity.TargetLatitude,
+        TargetLongitude = activity.TargetLongitude,
+        RescueTeamId = activity.RescueTeamId
+    };
+
+    private Task ValidateReturnAssemblyPointActivitiesAsync(
+        List<CreateActivityItemDto> activities,
+        CancellationToken cancellationToken)
+    {
+        var teamIds = activities
+            .Where(activity => activity.RescueTeamId.HasValue)
+            .Select(activity => activity.RescueTeamId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (teamIds.Count == 0)
+            return Task.CompletedTask;
+
+        var errors = new List<string>();
+        var orderedActivities = activities
+            .OrderBy(activity => activity.Step ?? int.MaxValue)
+            .ToList();
+
+        var seenReturnAssemblyActivity = false;
+        foreach (var activity in orderedActivities)
+        {
+            if (IsReturnAssemblyPointActivity(activity))
+            {
+                seenReturnAssemblyActivity = true;
+                continue;
+            }
+
+            if (seenReturnAssemblyActivity)
+            {
+                errors.Add(
+                    $"RETURN_ASSEMBLY_POINT phai nam o cuoi ke hoach, nhung phat hien activity '{activity.ActivityType}' sau buoc nay (step {activity.Step ?? 0}).");
+            }
+        }
+
+        var returnActivities = activities
+            .Where(IsReturnAssemblyPointActivity)
+            .ToList();
+
+        if (returnActivities.Count == 0)
+            errors.Add("Mission phai co RETURN_ASSEMBLY_POINT o cuoi ke hoach.");
+
+        foreach (var group in returnActivities.GroupBy(activity => activity.RescueTeamId))
+        {
+            if (!group.Key.HasValue)
+            {
+                var stepLabel = group.First().Step?.ToString() ?? "?";
+                errors.Add($"RETURN_ASSEMBLY_POINT step {stepLabel} phai co RescueTeamId.");
+                continue;
+            }
+
+            if (group.Count() > 1)
+                errors.Add($"Mission chi duoc co mot RETURN_ASSEMBLY_POINT cho doi #{group.Key.Value}.");
+        }
+
+        var returnTeamIds = returnActivities
+            .Where(activity => activity.RescueTeamId.HasValue)
+            .Select(activity => activity.RescueTeamId!.Value)
+            .ToHashSet();
+
+        foreach (var teamId in teamIds)
+        {
+            if (!returnTeamIds.Contains(teamId))
+                errors.Add($"Thieu RETURN_ASSEMBLY_POINT o cuoi ke hoach cho doi #{teamId}.");
+        }
+
+        foreach (var activity in returnActivities)
+        {
+            if (!activity.AssemblyPointId.HasValue || activity.AssemblyPointId.Value <= 0)
+            {
+                errors.Add($"RETURN_ASSEMBLY_POINT step {activity.Step ?? 0} phai co AssemblyPointId hop le.");
+            }
+
+            if (activity.DepotId.HasValue)
+                errors.Add($"RETURN_ASSEMBLY_POINT step {activity.Step ?? 0} khong duoc co DepotId.");
+
+            if (activity.SuppliesToCollect is { Count: > 0 })
+                errors.Add($"RETURN_ASSEMBLY_POINT step {activity.Step ?? 0} khong duoc co SuppliesToCollect.");
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new BadRequestException($"Ke hoach mission chua hop le voi RETURN_ASSEMBLY_POINT:\n{string.Join("\n", errors)}");
+        }
+
+        return Task.CompletedTask;
     }
 
     private async Task ValidateSuppliesAsync(List<CreateActivityItemDto> activities, CancellationToken cancellationToken)
@@ -292,7 +430,7 @@ public class CreateMissionCommandHandler(
                 continue;
             }
 
-            if (seenReturnActivity)
+            if (seenReturnActivity && !IsReturnAssemblyPointActivity(activity))
             {
                 orderingErrors.Add(
                     $"RETURN_SUPPLIES phải nằm ở cuối kế hoạch, nhưng phát hiện activity '{activity.ActivityType}' sau bước trả kho (step {activity.Step ?? 0}).");
@@ -565,6 +703,9 @@ public class CreateMissionCommandHandler(
 
     private static bool IsReturnSuppliesActivity(CreateActivityItemDto activity) =>
         string.Equals(activity.ActivityType, ReturnSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsReturnAssemblyPointActivity(CreateActivityItemDto activity) =>
+        string.Equals(activity.ActivityType, ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsReusableItem(
         int itemId,

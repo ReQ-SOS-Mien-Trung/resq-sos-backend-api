@@ -166,7 +166,7 @@ public class MissionSupplyExecutionSnapshotHelperTests
             => throw new NotImplementedException();
 
         public Task<IReadOnlyList<MissionActivityModel>> GetOpenByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
-            => throw new NotImplementedException();
+            => Task.FromResult<IReadOnlyList<MissionActivityModel>>([]);
 
         public Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
@@ -184,7 +184,7 @@ public class MissionSupplyExecutionSnapshotHelperTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default)
+        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, string? imageUrl = null, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task AssignTeamAsync(int activityId, int missionTeamId, CancellationToken cancellationToken = default)

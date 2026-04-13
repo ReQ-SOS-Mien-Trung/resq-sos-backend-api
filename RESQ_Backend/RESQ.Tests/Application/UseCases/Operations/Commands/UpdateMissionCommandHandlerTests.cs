@@ -6,6 +6,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
@@ -14,9 +15,11 @@ using RESQ.Application.UseCases.Operations.Commands.UpdateMission;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 using RESQ.Application.UseCases.Operations.Shared;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Domain.Enum.Operations;
 
@@ -272,6 +275,7 @@ public class UpdateMissionCommandHandlerTests
         var pendingActivityUpdateService = new MissionPendingActivityUpdateService(
             activityRepository,
             inventoryRepository,
+            new StubAssemblyPointRepository(),
             unitOfWork,
             NullLogger<MissionPendingActivityUpdateService>.Instance);
 
@@ -352,7 +356,7 @@ public class UpdateMissionCommandHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, string? imageUrl = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AssignTeamAsync(int activityId, int missionTeamId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ResetAssignmentsToPlannedAsync(IEnumerable<int> activityIds, Guid decisionBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -429,6 +433,25 @@ public class UpdateMissionCommandHandlerTests
             ExecuteInTransactionCalls++;
             return action();
         }
+    }
+
+    private sealed class StubAssemblyPointRepository : IAssemblyPointRepository
+    {
+        public Task CreateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<AssemblyPointModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<AssemblyPointModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<AssemblyPointModel>());
+        public Task<Dictionary<int, List<AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> HasActiveTeamAsync(Guid rescuerUserId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(IReadOnlyList<Guid> userIds, int? assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(IReadOnlyList<Guid> userIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class StubSender(MissionDto response) : ISender

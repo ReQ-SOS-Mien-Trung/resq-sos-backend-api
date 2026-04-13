@@ -416,7 +416,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default)
+        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, string? imageUrl = null, CancellationToken cancellationToken = default)
         {
             UpdatedStatus = status;
             var activity = _activities.FirstOrDefault(item => item.Id == activityId);

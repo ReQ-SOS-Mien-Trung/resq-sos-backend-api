@@ -9,6 +9,7 @@ using RESQ.Application.Services;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
+using RESQ.Application.UseCases.Operations.Shared;
 
 namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 
@@ -195,12 +196,18 @@ public class ConfirmDeliverySuppliesCommandHandler(
             return existingReturnActivity.Id;
         }
 
-        var maxStep = existingActivities.Any() ? existingActivities.Max(a => a.Step ?? 0) : 0;
+        var insertionStep = MissionReturnAssemblyPointStepHelper.ReserveStepBeforeReturnAssemblyPoint(
+            existingActivities,
+            deliverActivity.MissionTeamId,
+            out var shiftedActivities);
+
+        foreach (var shiftedActivity in shiftedActivities)
+            await _activityRepository.UpdateAsync(shiftedActivity, cancellationToken);
 
         var returnActivity = new MissionActivityModel
         {
             MissionId = missionId,
-            Step = maxStep + 1,
+            Step = insertionStep,
             ActivityType = "RETURN_SUPPLIES",
             Description = $"Trả vật tư về kho {deliverActivity.DepotName} do giao thiếu so với kế hoạch (Activity #{deliverActivity.Id})",
             Priority = deliverActivity.Priority,

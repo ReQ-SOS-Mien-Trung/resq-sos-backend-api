@@ -16,7 +16,9 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     public async Task<RescueTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.Set<RescueTeam>().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var entity = await _unitOfWork.Set<RescueTeam>()
+            .Include(x => x.AssemblyPoint)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (entity == null) return null;
 
         var members = await _unitOfWork.Set<RescueTeamMember>().Where(m => m.TeamId == id).ToListAsync(cancellationToken);
@@ -168,6 +170,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
                 t.Name,
                 t.TeamType,
                 t.Status,
+                t.AssemblyPointId,
                 AssemblyPointName = t.AssemblyPoint != null ? t.AssemblyPoint.Name : null,
                 AssemblyPointLocation = t.AssemblyPoint != null ? t.AssemblyPoint.Location : null
             })
@@ -188,6 +191,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
             Status             = t.Status ?? string.Empty,
             IsAvailable        = availableStatuses.Contains(t.Status ?? string.Empty),
             MemberCount        = memberCounts.TryGetValue(t.Id, out var mc) ? mc : 0,
+            AssemblyPointId    = t.AssemblyPointId,
             AssemblyPointName  = t.AssemblyPointName,
             Latitude           = t.AssemblyPointLocation?.Y,
             Longitude          = t.AssemblyPointLocation?.X

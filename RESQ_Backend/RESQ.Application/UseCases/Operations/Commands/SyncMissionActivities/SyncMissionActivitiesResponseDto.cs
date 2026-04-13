@@ -31,5 +31,6 @@ public class MissionActivitySyncResultDto
     public MissionActivityStatus? CurrentServerStatus { get; set; }
     public string? ErrorCode { get; set; }
     public string? Message { get; set; }
+    public string? ImageUrl { get; set; }
     public List<SupplyExecutionItemDto> ConsumedItems { get; set; } = [];
 }

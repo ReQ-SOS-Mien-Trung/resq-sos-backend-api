@@ -19,6 +19,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Commands.SyncMissionActivities;
 using RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
+using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Infrastructure.Services;
 using RESQ.Presentation.Authorization;
 using RESQ.Presentation.Middlewares;
@@ -90,6 +91,94 @@ public class MissionControllerIntegrationTests
         Assert.Equal(111, factory.State.LastUpdateActivityStatusCommand.ActivityId);
     }
 
+    [Fact]
+    public async Task UpdateActivityStatus_AcceptsPendingConfirmationAndForwardsCommand()
+    {
+        await using var factory = new MissionApiFactory();
+        factory.State.SetPermissions(PermissionConstants.ActivityOwnManage);
+
+        using var client = factory.CreateHttpsClient();
+        var response = await client.PatchAsJsonAsync(
+            "/operations/missions/77/activities/88/status",
+            new { status = "pendingconfirmation" });
+
+        var body = await response.Content.ReadFromJsonAsync<UpdateActivityStatusResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(factory.State.LastUpdateActivityStatusCommand);
+        Assert.Equal(77, factory.State.LastUpdateActivityStatusCommand!.MissionId);
+        Assert.Equal(88, factory.State.LastUpdateActivityStatusCommand.ActivityId);
+        Assert.Equal(MissionActivityStatus.PendingConfirmation, factory.State.LastUpdateActivityStatusCommand.Status);
+        Assert.Equal(Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"), factory.State.LastUpdateActivityStatusCommand.DecisionBy);
+        Assert.NotNull(body);
+        Assert.Equal("PendingConfirmation", body!.Status);
+    }
+
+    [Fact]
+    public async Task UpdateActivityStatus_AcceptsImageUrlAndForwardsCommand()
+    {
+        const string imageUrl = "https://cdn.example.com/activity-proof.jpg";
+
+        await using var factory = new MissionApiFactory();
+        factory.State.SetPermissions(PermissionConstants.ActivityOwnManage);
+
+        using var client = factory.CreateHttpsClient();
+        var response = await client.PatchAsJsonAsync(
+            "/operations/missions/77/activities/88/status",
+            new { status = "Succeed", imageUrl });
+
+        var body = await response.Content.ReadFromJsonAsync<UpdateActivityStatusResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(factory.State.LastUpdateActivityStatusCommand);
+        Assert.Equal(imageUrl, factory.State.LastUpdateActivityStatusCommand!.ImageUrl);
+        Assert.NotNull(body);
+        Assert.Equal(imageUrl, body!.ImageUrl);
+    }
+
+    [Fact]
+    public async Task UpdateActivityStatus_ReturnsBadRequest_WhenStatusIsNotDefined()
+    {
+        await using var factory = new MissionApiFactory();
+        factory.State.SetPermissions(PermissionConstants.ActivityOwnManage);
+
+        using var client = factory.CreateHttpsClient();
+        var response = await client.PatchAsJsonAsync(
+            "/operations/missions/77/activities/88/status",
+            new { status = "999" });
+
+        var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.NotNull(error);
+        Assert.Contains("999", error!.Message, StringComparison.Ordinal);
+        Assert.Null(factory.State.LastUpdateActivityStatusCommand);
+    }
+
+    [Fact]
+    public async Task UpdateMissionStatus_ForwardsOnGoingCommand_WhenPermissionAllows()
+    {
+        await using var factory = new MissionApiFactory();
+        factory.State.SetPermissions(PermissionConstants.ActivityTeamManage);
+
+        using var client = factory.CreateHttpsClient();
+        var response = await client.PatchAsJsonAsync(
+            "/operations/missions/321/status",
+            new { status = "OnGoing" });
+
+        var body = await response.Content.ReadFromJsonAsync<UpdateMissionStatusResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(factory.State.LastUpdateMissionStatusCommand);
+        Assert.Equal(321, factory.State.LastUpdateMissionStatusCommand!.MissionId);
+        Assert.Equal(MissionStatus.OnGoing, factory.State.LastUpdateMissionStatusCommand.Status);
+        Assert.Equal(Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"), factory.State.LastUpdateMissionStatusCommand.DecisionBy);
+        Assert.NotNull(body);
+        Assert.Equal(321, body!.MissionId);
+        Assert.Equal("OnGoing", body.Status);
+        Assert.False(body.IsCompleted);
+    }
+
     private static MissionActivitySyncItemDto CreateSyncItem() => new()
     {
         ClientMutationId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"),
@@ -113,6 +202,7 @@ public class MissionControllerIntegrationTests
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Testing");
+            builder.ConfigureLogging(logging => logging.ClearProviders());
 
             builder.ConfigureAppConfiguration((_, config) =>
             {
@@ -141,6 +231,10 @@ public class MissionControllerIntegrationTests
                 services.RemoveAll(typeof(IRequestHandler<UpdateActivityStatusCommand, UpdateActivityStatusResponse>));
                 services.AddScoped<IRequestHandler<UpdateActivityStatusCommand, UpdateActivityStatusResponse>>(_ =>
                     new StubUpdateActivityStatusHandler(State));
+
+                services.RemoveAll(typeof(IRequestHandler<UpdateMissionStatusCommand, UpdateMissionStatusResponse>));
+                services.AddScoped<IRequestHandler<UpdateMissionStatusCommand, UpdateMissionStatusResponse>>(_ =>
+                    new StubUpdateMissionStatusHandler(State));
 
                 services.AddAuthentication(options =>
                 {
@@ -175,6 +269,8 @@ public class MissionControllerIntegrationTests
 
         public UpdateActivityStatusCommand? LastUpdateActivityStatusCommand { get; set; }
 
+        public UpdateMissionStatusCommand? LastUpdateMissionStatusCommand { get; set; }
+
         public Exception? UpdateActivityStatusException { get; set; }
 
         public void SetPermissions(params string[] permissions)
@@ -187,6 +283,7 @@ public class MissionControllerIntegrationTests
 
             LastSyncCommand = null;
             LastUpdateActivityStatusCommand = null;
+            LastUpdateMissionStatusCommand = null;
             UpdateActivityStatusException = null;
         }
     }
@@ -224,7 +321,8 @@ public class MissionControllerIntegrationTests
                     BaseServerStatus = item.BaseServerStatus,
                     Outcome = "applied",
                     EffectiveStatus = item.TargetStatus,
-                    CurrentServerStatus = item.TargetStatus
+                    CurrentServerStatus = item.TargetStatus,
+                    ImageUrl = item.ImageUrl
                 }).ToList()
             });
         }
@@ -248,7 +346,26 @@ public class MissionControllerIntegrationTests
             {
                 ActivityId = request.ActivityId,
                 Status = request.Status.ToString(),
-                DecisionBy = request.DecisionBy
+                DecisionBy = request.DecisionBy,
+                ImageUrl = request.ImageUrl
+            });
+        }
+    }
+
+    private sealed class StubUpdateMissionStatusHandler(MissionApiFactoryState state)
+        : IRequestHandler<UpdateMissionStatusCommand, UpdateMissionStatusResponse>
+    {
+        private readonly MissionApiFactoryState _state = state;
+
+        public Task<UpdateMissionStatusResponse> Handle(UpdateMissionStatusCommand request, CancellationToken cancellationToken)
+        {
+            _state.LastUpdateMissionStatusCommand = request;
+
+            return Task.FromResult(new UpdateMissionStatusResponse
+            {
+                MissionId = request.MissionId,
+                Status = request.Status.ToString(),
+                IsCompleted = request.Status is MissionStatus.Completed or MissionStatus.Incompleted
             });
         }
     }

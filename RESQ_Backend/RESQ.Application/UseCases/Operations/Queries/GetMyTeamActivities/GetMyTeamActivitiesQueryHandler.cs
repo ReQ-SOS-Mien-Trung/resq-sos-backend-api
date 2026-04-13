@@ -40,6 +40,7 @@ public class GetMyTeamActivitiesQueryHandler(
                 Step = a.Step,
                 ActivityType = a.ActivityType,
                 Description = a.Description,
+                ImageUrl = a.ImageUrl,
                 Priority = a.Priority,
                 EstimatedTime = a.EstimatedTime,
                 SosRequestId = a.SosRequestId,

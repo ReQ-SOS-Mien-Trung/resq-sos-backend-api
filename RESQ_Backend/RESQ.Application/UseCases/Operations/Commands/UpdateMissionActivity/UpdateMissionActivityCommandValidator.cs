@@ -16,5 +16,13 @@ public class UpdateMissionActivityCommandValidator : AbstractValidator<UpdateMis
         RuleFor(x => x.Step)
             .GreaterThan(0).WithMessage("Step phải lớn hơn 0")
             .When(x => x.Step.HasValue);
+
+        RuleFor(x => x.AssemblyPointId)
+            .GreaterThan(0).WithMessage("AssemblyPointId phai lon hon 0")
+            .When(x => x.AssemblyPointId.HasValue);
+
+        RuleFor(x => x)
+            .Must(x => !x.AssemblyPointId.HasValue || (!x.TargetLatitude.HasValue && !x.TargetLongitude.HasValue))
+            .WithMessage("Khong duoc gui TargetLatitude/TargetLongitude khi cap nhat AssemblyPointId.");
     }
 }

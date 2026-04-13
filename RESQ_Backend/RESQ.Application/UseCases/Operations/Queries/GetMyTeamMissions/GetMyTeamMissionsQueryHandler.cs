@@ -74,6 +74,7 @@ public class GetMyTeamMissionsQueryHandler(
                 RescueTeamId = t.RescuerTeamId,
                 TeamName = t.TeamName,
                 TeamCode = t.TeamCode,
+                AssemblyPointId = t.AssemblyPointId,
                 AssemblyPointName = t.AssemblyPointName,
                 TeamType = t.TeamType,
                 Status = t.Status,
@@ -104,19 +105,25 @@ public class GetMyTeamMissionsQueryHandler(
                 Step = a.Step,
                 ActivityType = a.ActivityType,
                 Description = a.Description,
+                ImageUrl = a.ImageUrl,
                 Priority = a.Priority,
                 EstimatedTime = a.EstimatedTime,
                 SosRequestId = a.SosRequestId,
                 DepotId = a.DepotId,
                 DepotName = a.DepotName,
                 DepotAddress = a.DepotAddress,
+                AssemblyPointId = a.AssemblyPointId,
+                AssemblyPointName = a.AssemblyPointName,
+                AssemblyPointLatitude = a.AssemblyPointLatitude,
+                AssemblyPointLongitude = a.AssemblyPointLongitude,
                 SuppliesToCollect = MissionActivityDtoHelper.ParseSupplies(a.Items),
                 TargetLatitude = a.TargetLatitude,
                 TargetLongitude = a.TargetLongitude,
                 Status = a.Status.ToString(),
                 MissionTeamId = a.MissionTeamId,
                 AssignedAt = a.AssignedAt,
-                CompletedAt = a.CompletedAt
+                CompletedAt = a.CompletedAt,
+                CompletedBy = a.CompletedBy
             }).ToList()
         };
     }

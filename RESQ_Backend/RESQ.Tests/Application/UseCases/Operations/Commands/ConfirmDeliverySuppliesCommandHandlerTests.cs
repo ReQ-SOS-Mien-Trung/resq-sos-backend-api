@@ -253,7 +253,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, CancellationToken cancellationToken = default)
+        public Task UpdateStatusAsync(int activityId, MissionActivityStatus status, Guid decisionBy, string? imageUrl = null, CancellationToken cancellationToken = default)
         {
             SetStatus(activityId, status);
             return Task.CompletedTask;

@@ -11,6 +11,7 @@ using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Operations.Shared;
 
@@ -23,7 +24,8 @@ public class MissionActivityStatusExecutionService(
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     ITeamIncidentRepository teamIncidentRepository,
     IUnitOfWork unitOfWork,
-    ILogger<MissionActivityStatusExecutionService> logger
+    ILogger<MissionActivityStatusExecutionService> logger,
+    IAssemblyEventRepository? assemblyEventRepository = null
 ) : IMissionActivityStatusExecutionService
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
@@ -35,6 +37,7 @@ public class MissionActivityStatusExecutionService(
     private readonly ITeamIncidentRepository _teamIncidentRepository = teamIncidentRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<MissionActivityStatusExecutionService> _logger = logger;
+    private readonly IAssemblyEventRepository? _assemblyEventRepository = assemblyEventRepository;
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
@@ -43,6 +46,7 @@ public class MissionActivityStatusExecutionService(
         int activityId,
         MissionActivityStatus requestedStatus,
         Guid decisionBy,
+        string? imageUrl = null,
         CancellationToken cancellationToken = default)
     {
         var activity = await _activityRepository.GetByIdAsync(activityId, cancellationToken);
@@ -128,8 +132,16 @@ public class MissionActivityStatusExecutionService(
             throw MissionActivitySyncErrorCodes.WithCode(ex, MissionActivitySyncErrorCodes.InvalidStatusTransition);
         }
 
-        await _activityRepository.UpdateStatusAsync(activityId, effectiveStatus, decisionBy, cancellationToken);
+        var persistedImageUrl = ShouldPersistEvidenceImage(requestedStatus) && !string.IsNullOrWhiteSpace(imageUrl)
+            ? imageUrl.Trim()
+            : null;
+
+        await _activityRepository.UpdateStatusAsync(activityId, effectiveStatus, decisionBy, persistedImageUrl, cancellationToken);
         activity.Status = effectiveStatus;
+        if (persistedImageUrl is not null)
+        {
+            activity.ImageUrl = persistedImageUrl;
+        }
 
         if (assignedMissionTeam is not null
             && string.Equals(assignedMissionTeam.Status, MissionTeamExecutionStatus.Assigned.ToString(), StringComparison.OrdinalIgnoreCase)
@@ -311,16 +323,101 @@ public class MissionActivityStatusExecutionService(
             }
         }
 
+        if (effectiveStatus == MissionActivityStatus.Succeed
+            && string.Equals(activity.ActivityType, MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
+            && assignedMissionTeam?.AssemblyPointId.HasValue == true)
+        {
+            await AutoReturnCheckInMissionTeamAsync(assignedMissionTeam, cancellationToken);
+        }
+
         return new MissionActivityStatusExecutionResult
         {
             EffectiveStatus = effectiveStatus,
             CurrentServerStatus = activity.Status,
+            ImageUrl = activity.ImageUrl,
             ConsumedItems = pickupExecution.Items
         };
     }
 
+    private static bool ShouldPersistEvidenceImage(MissionActivityStatus requestedStatus) =>
+        requestedStatus is MissionActivityStatus.Succeed or MissionActivityStatus.Failed;
+
+    /// <summary>
+    /// Tự động check-in lại tất cả thành viên của team vào sự kiện tập kết khi RETURN_ASSEMBLY_POINT hoàn thành.
+    /// </summary>
+    private async Task AutoReturnCheckInMissionTeamAsync(
+        MissionTeamModel team,
+        CancellationToken cancellationToken)
+    {
+        if (_assemblyEventRepository is null) return;
+
+        try
+        {
+            var assemblyPointId = team.AssemblyPointId!.Value;
+            var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(
+                assemblyPointId, cancellationToken);
+
+            if (activeEvent is null)
+            {
+                _logger.LogInformation(
+                    "AutoReturnCheckIn: no active assembly event at AssemblyPointId={AssemblyPointId} for MissionTeamId={TeamId}. Skipping.",
+                    assemblyPointId, team.Id);
+                return;
+            }
+
+            var eventId = activeEvent.Value.EventId;
+
+            var acceptedMemberIds = team.RescueTeamMembers
+                .Where(m => string.Equals(m.Status, TeamMemberStatus.Accepted.ToString(), StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.UserId)
+                .ToList();
+
+            if (acceptedMemberIds.Count > 0)
+            {
+                // Ensure all members are participants (idempotent)
+                await _assemblyEventRepository.AssignParticipantsAsync(eventId, acceptedMemberIds, cancellationToken);
+                await _unitOfWork.SaveAsync();
+
+                foreach (var userId in acceptedMemberIds)
+                {
+                    try
+                    {
+                        await _assemblyEventRepository.ReturnCheckInAsync(eventId, userId, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "AutoReturnCheckIn failed for UserId={UserId} EventId={EventId} TeamId={TeamId}",
+                            userId, eventId, team.Id);
+                    }
+                }
+
+                await _unitOfWork.SaveAsync();
+
+                _logger.LogInformation(
+                    "AutoReturnCheckIn MissionTeamId={TeamId} EventId={EventId}: {Count} member(s) checked in at AssemblyPointId={AssemblyPointId}",
+                    team.Id, eventId, acceptedMemberIds.Count, assemblyPointId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "AutoReturnCheckIn failed for MissionTeamId={TeamId}. Activity flow continues.", team.Id);
+        }
+    }
+
     private static bool TryGetActivityLocation(MissionActivityModel activity, out double latitude, out double longitude, out string locationSource)
     {
+        if (string.Equals(activity.ActivityType, MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
+            && activity.AssemblyPointLatitude.HasValue
+            && activity.AssemblyPointLongitude.HasValue)
+        {
+            latitude = activity.AssemblyPointLatitude.Value;
+            longitude = activity.AssemblyPointLongitude.Value;
+            locationSource = "MissionActivity.AssemblyPoint";
+            return true;
+        }
+
         if (activity.TargetLatitude.HasValue && activity.TargetLongitude.HasValue)
         {
             latitude = activity.TargetLatitude.Value;
@@ -348,13 +445,19 @@ public class MissionActivityStatusExecutionService(
         try
         {
             var missionId = failedActivity.MissionId ?? 0;
-            var existingActivities = await _activityRepository.GetByMissionIdAsync(missionId, cancellationToken);
-            var maxStep = existingActivities.Any() ? existingActivities.Max(activity => activity.Step ?? 0) : 0;
+            var existingActivities = (await _activityRepository.GetByMissionIdAsync(missionId, cancellationToken)).ToList();
+            var insertionStep = MissionReturnAssemblyPointStepHelper.ReserveStepBeforeReturnAssemblyPoint(
+                existingActivities,
+                failedActivity.MissionTeamId,
+                out var shiftedActivities);
+
+            foreach (var shiftedActivity in shiftedActivities)
+                await _activityRepository.UpdateAsync(shiftedActivity, cancellationToken);
 
             var returnActivity = new MissionActivityModel
             {
                 MissionId = missionId,
-                Step = maxStep + 1,
+                Step = insertionStep,
                 ActivityType = "RETURN_SUPPLIES",
                 Description = $"Trả vật tư về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
                 Priority = failedActivity.Priority,

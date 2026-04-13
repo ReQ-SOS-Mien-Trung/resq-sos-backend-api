@@ -137,6 +137,7 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
         ReportSubmittedAt = entity.MissionTeamReport?.SubmittedAt,
         TeamName = entity.RescuerTeam?.Name,
         TeamCode = entity.RescuerTeam?.Code,
+        AssemblyPointId = entity.RescuerTeam?.AssemblyPointId,
         AssemblyPointName = entity.RescuerTeam?.AssemblyPoint?.Name,
         TeamStatus = entity.RescuerTeam?.Status,
         MaxMembers = entity.RescuerTeam?.MaxMembers,

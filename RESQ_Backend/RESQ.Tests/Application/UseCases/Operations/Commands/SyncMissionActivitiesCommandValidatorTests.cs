@@ -1,4 +1,3 @@
-using FluentValidation;
 using RESQ.Application.UseCases.Operations.Commands.SyncMissionActivities;
 using RESQ.Domain.Enum.Operations;
 
@@ -74,13 +73,31 @@ public class SyncMissionActivitiesCommandValidatorTests
         Assert.Contains(result.Errors, error => error.PropertyName.EndsWith("TargetStatus", StringComparison.Ordinal));
     }
 
-    private static MissionActivitySyncItemDto CreateItem(int activityId, Guid clientMutationId) => new()
+    [Fact]
+    public void Validate_Passes_WhenImageUrlIsNull()
+    {
+        var result = _validator.Validate(new SyncMissionActivitiesCommand(Guid.NewGuid(), [CreateItem(1, Guid.NewGuid(), null)]));
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void Validate_Fails_WhenImageUrlIsNotAbsolute()
+    {
+        var result = _validator.Validate(new SyncMissionActivitiesCommand(Guid.NewGuid(), [CreateItem(1, Guid.NewGuid(), "/proof.png")]));
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName.EndsWith(nameof(MissionActivitySyncItemDto.ImageUrl), StringComparison.Ordinal));
+    }
+
+    private static MissionActivitySyncItemDto CreateItem(int activityId, Guid clientMutationId, string? imageUrl = "https://cdn.example.com/proof.jpg") => new()
     {
         ClientMutationId = clientMutationId,
         MissionId = 77,
         ActivityId = activityId,
         TargetStatus = MissionActivityStatus.OnGoing,
         BaseServerStatus = MissionActivityStatus.Planned,
-        QueuedAt = new DateTimeOffset(2026, 4, 10, 9, 0, 0, TimeSpan.Zero).AddMinutes(activityId)
+        QueuedAt = new DateTimeOffset(2026, 4, 10, 9, 0, 0, TimeSpan.Zero).AddMinutes(activityId),
+        ImageUrl = imageUrl
     };
 }

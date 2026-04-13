@@ -5,9 +5,11 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 
@@ -17,7 +19,8 @@ public class UpdateMissionStatusCommandHandler(
     IMissionTeamRepository missionTeamRepository,
     ISosRequestRepository sosRequestRepository,
     IUnitOfWork unitOfWork,
-    ILogger<UpdateMissionStatusCommandHandler> logger
+    ILogger<UpdateMissionStatusCommandHandler> logger,
+    IAssemblyEventRepository? assemblyEventRepository = null
 ) : IRequestHandler<UpdateMissionStatusCommand, UpdateMissionStatusResponse>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
@@ -26,6 +29,7 @@ public class UpdateMissionStatusCommandHandler(
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<UpdateMissionStatusCommandHandler> _logger = logger;
+    private readonly IAssemblyEventRepository? _assemblyEventRepository = assemblyEventRepository;
 
     public async Task<UpdateMissionStatusResponse> Handle(UpdateMissionStatusCommand request, CancellationToken cancellationToken)
     {
@@ -70,6 +74,8 @@ public class UpdateMissionStatusCommandHandler(
                     autoStartedActivityIds.Count,
                     string.Join(", ", autoStartedActivityIds));
             }
+
+            await AutoCheckOutMissionTeamsAsync(request.MissionId, cancellationToken);
         }
 
         await _unitOfWork.SaveAsync();
@@ -80,5 +86,57 @@ public class UpdateMissionStatusCommandHandler(
             Status = request.Status.ToString(),
             IsCompleted = isCompleted
         };
+    }
+
+    /// <summary>
+    /// Tự động checkout tất cả thành viên của các team thuộc mission khỏi sự kiện tập kết đang hoạt động.
+    /// Gọi khi mission chuyển sang OnGoing (đội xuất phát làm nhiệm vụ).
+    /// </summary>
+    private async Task AutoCheckOutMissionTeamsAsync(int missionId, CancellationToken cancellationToken)
+    {
+        if (_assemblyEventRepository is null) return;
+
+        try
+        {
+            var missionTeams = await _missionTeamRepository.GetByMissionIdAsync(missionId, cancellationToken);
+
+            foreach (var team in missionTeams)
+            {
+                if (!team.AssemblyPointId.HasValue) continue;
+
+                var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(
+                    team.AssemblyPointId.Value, cancellationToken);
+
+                if (activeEvent is null) continue;
+
+                var eventId = activeEvent.Value.EventId;
+                var acceptedMembers = team.RescueTeamMembers
+                    .Where(m => string.Equals(m.Status, TeamMemberStatus.Accepted.ToString(), StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                foreach (var member in acceptedMembers)
+                {
+                    try
+                    {
+                        await _assemblyEventRepository.CheckOutAsync(eventId, member.UserId, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "Auto-checkout failed for UserId={UserId} EventId={EventId} MissionId={MissionId}",
+                            member.UserId, eventId, missionId);
+                    }
+                }
+
+                _logger.LogInformation(
+                    "Auto-checkout MissionId={MissionId} TeamId={TeamId} EventId={EventId}: {Count} member(s) checked out",
+                    missionId, team.Id, eventId, acceptedMembers.Count);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Auto-checkout failed for MissionId={MissionId}. Mission flow continues.", missionId);
+        }
     }
 }
