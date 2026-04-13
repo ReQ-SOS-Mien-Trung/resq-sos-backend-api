@@ -14,18 +14,18 @@ public class ImportReliefItemDtoValidator : AbstractValidator<ImportReliefItemDt
         RuleFor(x => x.Row)
             .GreaterThan(0).WithMessage("Số dòng phải lớn hơn 0.");
 
-        // ── Priority rule: if ItemModelId exists, import uses ID-path and ignores lookup metadata.
-        // Otherwise, ItemName/metadata path is required to create a new item model. ──
+        // -- Priority rule: if ItemModelId exists, import uses ID-path and ignores lookup metadata.
+        // Otherwise, ItemName/metadata path is required to create a new item model. --
         RuleFor(x => x)
             .Must(x => x.ItemModelId.HasValue || !string.IsNullOrWhiteSpace(x.ItemName))
             .WithMessage("Phải cung cấp ItemModelId hoặc ItemName.");
 
-        // ── Path A: Existing item by ID ──
+        // -- Path A: Existing item by ID --
         RuleFor(x => x.ItemModelId)
             .GreaterThan(0).WithMessage("ItemModelId phải lớn hơn 0.")
             .When(x => x.ItemModelId.HasValue);
 
-        // ── Path B: New item by metadata (only when ItemModelId is not provided) ──
+        // -- Path B: New item by metadata (only when ItemModelId is not provided) --
         When(x => !x.ItemModelId.HasValue, () =>
         {
             RuleFor(x => x.ItemName)
@@ -73,7 +73,7 @@ public class ImportReliefItemDtoValidator : AbstractValidator<ImportReliefItemDt
             .When(x => x.ReceivedDate.HasValue)
             .WithMessage("Ngày nhận không được là ngày trong tương lai.");
 
-        // Rule: ExpiredDate > ReceivedDate (DateOnly vs DateTime — compare by date part)
+        // Rule: ExpiredDate > ReceivedDate (DateOnly vs DateTime - compare by date part)
         RuleFor(x => x.ExpiredDate)
             .Must((dto, expiredDate) => expiredDate!.Value > DateOnly.FromDateTime(dto.ReceivedDate!.Value))
             .When(x => x.ExpiredDate.HasValue && x.ReceivedDate.HasValue)

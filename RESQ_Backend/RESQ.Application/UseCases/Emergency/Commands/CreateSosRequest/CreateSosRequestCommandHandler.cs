@@ -120,7 +120,7 @@ public class CreateSosRequestCommandHandler(
 
         _logger.LogInformation("Queued AI analysis task for SOS Request Id={sosRequestId}", created.Id);
 
-        // ── Companion linking: extract person_phone from structured_data.victims ──
+        // -- Companion linking: extract person_phone from structured_data.victims --
         var linkedCompanions = new List<CompanionLinkedResult>();
         try
         {

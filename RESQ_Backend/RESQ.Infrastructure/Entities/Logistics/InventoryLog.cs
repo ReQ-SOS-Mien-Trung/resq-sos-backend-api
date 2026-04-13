@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -18,7 +18,7 @@ public partial class InventoryLog
     public int? DepotSupplyInventoryId { get; set; }
 
     /// <summary>
-    /// Set for Reusable item log entries — one log row per individual unit.
+    /// Set for Reusable item log entries - one log row per individual unit.
     /// Null for Consumable log entries (which use DepotSupplyInventoryId instead).
     /// </summary>
     [Column("reusable_item_id")]

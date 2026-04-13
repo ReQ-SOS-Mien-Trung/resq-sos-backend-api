@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
@@ -65,7 +65,7 @@ public class ChangeDepotStatusCommandHandler(
                 throw new ConflictException(
                     $"Kho hiện có {asSource + asRequester} đơn tiếp tế chưa hoàn tất " +
                     $"({asSource} là kho nguồn, {asRequester} là kho yêu cầu). " +
-                    "Hãy hoàn thành hoặc hủy tất cả đơn tiếp tế trước khi chuyển khối sang trạng thái này.");
+                    "Hãy hoàn thành hoặc huỷ tất cả đơn tiếp tế trước khi chuyển khỏi trạng thái này.");
             }
 
             var hasMissionCommitments = await _depotInventoryRepository.HasActiveInventoryCommitmentsAsync(request.Id, cancellationToken);
@@ -73,7 +73,7 @@ public class ChangeDepotStatusCommandHandler(
             {
                 throw new ConflictException(
                     "Kho đang có vật tư được đặt trước hoặc đang sử dụng trong nhiệm vụ cứu hộ đang diễn ra. " +
-                    "Hãy hoàn thành hoặc hủy nhiệm vụ trước khi chuyển trạng thái kho này.");
+                    "Hãy hoàn thành hoặc huỷ nhiệm vụ trước khi chuyển trạng thái kho này.");
             }
         }
 

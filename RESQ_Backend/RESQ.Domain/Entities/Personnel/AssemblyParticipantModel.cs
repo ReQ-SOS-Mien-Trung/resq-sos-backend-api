@@ -37,7 +37,7 @@ public class AssemblyParticipantModel
     }
 
     /// <summary>
-    /// Check-in rescuer tại sự kiện tập trung. Idempotent — nếu đã check-in thì bỏ qua.
+    /// Check-in rescuer tại sự kiện tập trung. Idempotent - nếu đã check-in thì bỏ qua.
     /// </summary>
     public void CheckIn()
     {

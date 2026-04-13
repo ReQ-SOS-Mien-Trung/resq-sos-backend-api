@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -129,9 +129,9 @@ namespace RESQ.Presentation.Controllers.Identity
             return Ok(new { message = "FCM token unregistered successfully." });
         }
 
-        // ─────────────────────────────────────────────────────────────────────
+        // ---------------------------------------------------------------------
         // Relative Profiles
-        // ─────────────────────────────────────────────────────────────────────
+        // ---------------------------------------------------------------------
 
         /// <summary>Lấy danh sách hồ sơ người thân của user hiện tại.</summary>
         [HttpGet("me/relative-profiles")]

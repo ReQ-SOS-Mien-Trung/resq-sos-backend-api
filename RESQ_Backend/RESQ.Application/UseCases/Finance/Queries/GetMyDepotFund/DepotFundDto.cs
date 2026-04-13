@@ -1,7 +1,7 @@
 namespace RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 
 /// <summary>
-/// DTO quỹ kho — dùng cho cả Manager xem quỹ mình và Admin xem từng kho.
+/// DTO quỹ kho - dùng cho cả Manager xem quỹ mình và Admin xem từng kho.
 /// </summary>
 public class DepotFundDto
 {

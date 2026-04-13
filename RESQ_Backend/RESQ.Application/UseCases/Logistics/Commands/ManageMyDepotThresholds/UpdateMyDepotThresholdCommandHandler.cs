@@ -22,7 +22,7 @@ public class UpdateMyDepotThresholdCommandHandler(
 
         if (request.CanManageGlobalThresholds)
         {
-            // Caller có quyền toàn cục chỉ được cấu hình Global — depotId bị bỏ qua bởi UpsertAsync khi scope=Global
+            // Caller có quyền toàn cục chỉ được cấu hình Global - depotId bị bỏ qua bởi UpsertAsync khi scope=Global
             depotId = 0;
         }
         else

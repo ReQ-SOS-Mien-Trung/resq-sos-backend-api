@@ -275,7 +275,7 @@ public partial class ResQDbContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("depot_closures_pkey");
 
-            // Chỉ 1 closure InProgress/Processing per depot — database-level guard
+            // Chỉ 1 closure InProgress/Processing per depot - database-level guard
             entity.HasIndex(e => e.DepotId)
                   .HasDatabaseName("uix_depot_closures_active")
                   .HasFilter("status IN ('InProgress', 'Processing')")
@@ -831,12 +831,12 @@ public partial class ResQDbContext : DbContext
 
     /// <summary>
     /// Returns all depot IDs affected by a ReusableItem change.
-    /// — For Reserve/InUse/status-only changes: just the current DepotId (unchanged).
-    /// — For TransferIn (null → depotId): the new depot.
-    /// — For TransferOut (depotId → null): the original depot (captured before null-out, see note below).
+    /// - For Reserve/InUse/status-only changes: just the current DepotId (unchanged).
+    /// - For TransferIn (null → depotId): the new depot.
+    /// - For TransferOut (depotId → null): the original depot (captured before null-out, see note below).
     /// NOTE: When UpdateAsync is called AFTER setting DepotId=null (TransferOut path), both
     /// Entity.DepotId and OriginalValues[DepotId] are null because EF attached the detached
-    /// entity with null; in that case no depot can be resolved here — the Ship step is handled
+    /// entity with null; in that case no depot can be resolved here - the Ship step is handled
     /// by a separate explicit outbox entry in TransferOutAsync.
     /// </summary>
     private static IEnumerable<int> ResolveAffectedDepotIds(EntityEntry<ReusableItem> entry)

@@ -76,7 +76,7 @@ public class PayOSService : IPaymentGatewayService
             ExpiredAt = expiredAt,
             BuyerName = donation.Donor?.Name,
             BuyerEmail = donation.Donor?.Email,
-            Items = [ new PayOSItem { Name = $"Ung ho {campaignCode}", Quantity = 1, Price = amount } ]
+            Items = [ new PayOSItem { Name = $"Ủng hộ {campaignCode}", Quantity = 1, Price = amount } ]
         };
 
         var client = _httpClientFactory.CreateClient();

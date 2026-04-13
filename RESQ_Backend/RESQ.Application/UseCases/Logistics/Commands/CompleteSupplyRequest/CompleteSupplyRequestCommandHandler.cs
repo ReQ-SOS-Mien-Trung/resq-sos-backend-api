@@ -9,8 +9,8 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 
 /// <summary>
-/// Kho nguồn xác nhận đã hoàn tất giao hàng — chuyển SourceStatus: Shipping → Completed.
-/// RequestingDepotStatus vẫn giữ InTransit — đợi kho yêu cầu xác nhận nhận hàng sau.
+/// Kho nguồn xác nhận đã hoàn tất giao hàng - chuyển SourceStatus: Shipping → Completed.
+/// RequestingDepotStatus vẫn giữ InTransit - đợi kho yêu cầu xác nhận nhận hàng sau.
 /// </summary>
 public class CompleteSupplyRequestCommandHandler(
     ISupplyRequestRepository supplyRequestRepository,

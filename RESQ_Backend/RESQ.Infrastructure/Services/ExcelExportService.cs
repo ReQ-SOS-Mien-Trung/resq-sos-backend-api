@@ -1,4 +1,4 @@
-﻿using ClosedXML.Excel;
+using ClosedXML.Excel;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
@@ -9,9 +9,9 @@ namespace RESQ.Infrastructure.Services;
 
 public class ExcelExportService : IExcelExportService
 {
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ---------------------------------------------------------------------------
     //  Constants for the inventory movement report (existing)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ---------------------------------------------------------------------------
 
     private static readonly string[] Headers =
     [
@@ -20,19 +20,19 @@ public class ExcelExportService : IExcelExportService
         "Loại Hành động", "Nguồn", "Tên nhiệm vụ"
     ];
 
-    // ── Palette ──────────────────────────────────────────────────────────────
+    // -- Palette --------------------------------------------------------------
     private static readonly XLColor OrangeDark     = XLColor.FromHtml("#E65100");
     private static readonly XLColor OrangeMid      = XLColor.FromHtml("#FF8F00");
     private static readonly XLColor OrangeLight    = XLColor.FromHtml("#FFF3E0");
     private static readonly XLColor OrangeSummary  = XLColor.FromHtml("#FFE0B2");
     private static readonly XLColor Black          = XLColor.FromHtml("#212121");
     private static readonly XLColor White          = XLColor.White;
-    private static readonly XLColor LockedCellColor   = XLColor.FromHtml("#ECEFF1"); // light blue-gray — VLOOKUP read-only cells
-    private static readonly XLColor LockedHeaderColor = XLColor.FromHtml("#546E7A"); // dark blue-gray — locked column headers
+    private static readonly XLColor LockedCellColor   = XLColor.FromHtml("#ECEFF1"); // light blue-gray - VLOOKUP read-only cells
+    private static readonly XLColor LockedHeaderColor = XLColor.FromHtml("#546E7A"); // dark blue-gray - locked column headers
 
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ---------------------------------------------------------------------------
     //  Constants for the donation import template
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ---------------------------------------------------------------------------
 
     private static readonly string[] TemplateHeaders =
     [
@@ -64,7 +64,7 @@ public class ExcelExportService : IExcelExportService
 
         int col = Headers.Length;
 
-        // ─── Row 1: Depot name banner ─────────────────────────────────────────
+        // --- Row 1: Depot name banner -----------------------------------------
         ws.Cell(1, 1).Value = $"KHO: {depotName.ToUpper()}";
         var depotRange = ws.Range(1, 1, 1, col);
         depotRange.Merge();
@@ -77,7 +77,7 @@ public class ExcelExportService : IExcelExportService
             .Font.SetFontColor(White);
         ws.Row(1).Height = 22;
 
-        // ─── Row 2: Report title ──────────────────────────────────────────────
+        // --- Row 2: Report title ----------------------------------------------
         ws.Cell(2, 1).Value = $"BÁO CÁO BIẾN ĐỘNG KHO – {title.ToUpper()}";
         var titleRange = ws.Range(2, 1, 2, col);
         titleRange.Merge();
@@ -90,7 +90,7 @@ public class ExcelExportService : IExcelExportService
             .Font.SetFontColor(White);
         ws.Row(2).Height = 30;
 
-        // ─── Row 3: Export timestamp ──────────────────────────────────────────
+        // --- Row 3: Export timestamp ------------------------------------------
         ws.Cell(3, 1).Value = $"Ngày xuất: {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm}";
         var tsRange = ws.Range(3, 1, 3, col);
         tsRange.Merge();
@@ -100,7 +100,7 @@ public class ExcelExportService : IExcelExportService
             .Font.SetFontColor(Black)
             .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
 
-        // ─── Row 4: Header ────────────────────────────────────────────────────
+        // --- Row 4: Header ----------------------------------------------------
         int headerRow = 4;
         for (int i = 0; i < Headers.Length; i++)
             ws.Cell(headerRow, i + 1).Value = Headers[i];
@@ -119,7 +119,7 @@ public class ExcelExportService : IExcelExportService
         headerRange.Style.Border.InsideBorderColor  = Black;
         ws.Row(headerRow).Height = 22;
 
-        // ─── Data rows ────────────────────────────────────────────────────────
+        // --- Data rows --------------------------------------------------------
         int dataStartRow = headerRow + 1;
         for (int i = 0; i < rows.Count; i++)
         {
@@ -167,7 +167,7 @@ public class ExcelExportService : IExcelExportService
             rowRange.Style.Border.InsideBorderColor  = Black;
         }
 
-        // ─── Summary row ──────────────────────────────────────────────────────
+        // --- Summary row ------------------------------------------------------
         int summaryRow = dataStartRow + rows.Count;
         ws.Cell(summaryRow, 1).Value = "Tổng số dòng:";
         ws.Cell(summaryRow, 2).Value = rows.Count;
@@ -179,7 +179,7 @@ public class ExcelExportService : IExcelExportService
         summaryRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
         summaryRange.Style.Border.OutsideBorderColor = Black;
 
-        // ─── Auto-fit & freeze ────────────────────────────────────────────────
+        // --- Auto-fit & freeze ------------------------------------------------
         ws.Columns().AdjustToContents();
         ws.SheetView.FreezeRows(headerRow);
 
@@ -193,9 +193,9 @@ public class ExcelExportService : IExcelExportService
         return ms.ToArray();
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    //  Donation Import Template — Excel file with dependent dropdowns
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ---------------------------------------------------------------------------
+    //  Donation Import Template - Excel file with dependent dropdowns
+    // ---------------------------------------------------------------------------
 
     public byte[] GenerateDonationImportTemplate(
         IReadOnlyList<DonationImportCategoryInfo> categories,
@@ -204,7 +204,7 @@ public class ExcelExportService : IExcelExportService
     {
         using var workbook = new XLWorkbook();
 
-        // ── 1. Build hidden reference sheets ──────────────────────────────────
+        // -- 1. Build hidden reference sheets ----------------------------------
         var wsDanhMuc = workbook.Worksheets.Add("DM_DanhMuc");
         var wsVatPham = workbook.Worksheets.Add("DM_VatPham");
         var wsLookup  = workbook.Worksheets.Add("DM_Lookup");
@@ -220,7 +220,7 @@ public class ExcelExportService : IExcelExportService
         wsLookup.Visibility  = XLWorksheetVisibility.VeryHidden;
         wsMeta.Visibility    = XLWorksheetVisibility.VeryHidden;
 
-        // ── 2. Build main entry sheet ─────────────────────────────────────────
+        // -- 2. Build main entry sheet -----------------------------------------
         var ws = workbook.Worksheets.Add("Nhập kho từ thiện");
         ws.SetTabActive();
 
@@ -231,7 +231,7 @@ public class ExcelExportService : IExcelExportService
         return ms.ToArray();
     }
 
-    // ─── DM_DanhMuc: Category list → named range "Categories" ─────────────────
+    // --- DM_DanhMuc: Category list → named range "Categories" -----------------
     private static void BuildCategorySheet(
         IXLWorksheet ws,
         IReadOnlyList<DonationImportCategoryInfo> categories,
@@ -249,7 +249,7 @@ public class ExcelExportService : IExcelExportService
         workbook.NamedRanges.Add("Categories", ws.Range(2, 1, lastRow, 1));
     }
 
-    // ─── DM_VatPham: One column per category code → named ranges Cat_Food, Cat_Water... ─
+    // --- DM_VatPham: One column per category code → named ranges Cat_Food, Cat_Water... -
     private static void BuildItemSheet(
         IXLWorksheet ws,
         IReadOnlyList<DonationImportCategoryInfo> categories,
@@ -282,7 +282,7 @@ public class ExcelExportService : IExcelExportService
             }
             else
             {
-                // Empty category — still create named range pointing to a single blank cell
+                // Empty category - still create named range pointing to a single blank cell
                 var rangeName = $"Cat_{cat.Code}";
                 workbook.NamedRanges.Add(rangeName, ws.Range(2, col, 2, col));
             }
@@ -291,7 +291,7 @@ public class ExcelExportService : IExcelExportService
         }
     }
 
-    // ─── DM_Lookup: Flat table for VLOOKUP (display name → TargetGroup, ItemType, Unit)
+    // --- DM_Lookup: Flat table for VLOOKUP (display name → TargetGroup, ItemType, Unit)
     private static void BuildLookupSheet(
         IXLWorksheet ws,
         IReadOnlyList<DonationImportItemInfo> items)
@@ -319,7 +319,7 @@ public class ExcelExportService : IExcelExportService
         }
     }
 
-    // ─── DM_Metadata: Dropdown sources for manual input columns (TargetGroup, ItemType) ───
+    // --- DM_Metadata: Dropdown sources for manual input columns (TargetGroup, ItemType) ---
     private static void BuildMetadataSheet(
         IXLWorksheet ws,
         IReadOnlyList<DonationImportItemInfo> items,
@@ -394,12 +394,12 @@ public class ExcelExportService : IExcelExportService
         validation.ShowErrorMessage = false;
     }
 
-    // ─── Main entry sheet: headers, STT, dropdowns, VLOOKUP formulas ──────────
+    // --- Main entry sheet: headers, STT, dropdowns, VLOOKUP formulas ----------
     private static void BuildMainSheet(
         IXLWorksheet ws,
         IReadOnlyList<DonationImportCategoryInfo> categories)
     {
-        // ── Header row styling ────────────────────────────────────────────────
+        // -- Header row styling ------------------------------------------------
         for (int c = 0; c < TemplateHeaders.Length; c++)
             ws.Cell(1, c + 1).Value = TemplateHeaders[c];
 
@@ -416,7 +416,7 @@ public class ExcelExportService : IExcelExportService
         headerRange.Style.Border.InsideBorder  = XLBorderStyleValues.Thin;
         ws.Row(1).Height = 24;
 
-        // ── Column widths ─────────────────────────────────────────────────────
+        // -- Column widths -----------------------------------------------------
         ws.Column(1).Width  = 5;   // STT
         ws.Column(2).Width  = 30;  // Tên vật phẩm
         ws.Column(3).Width  = 25;  // Danh mục
@@ -430,7 +430,7 @@ public class ExcelExportService : IExcelExportService
         ws.Column(11).Width = 16;  // Ngày hết hạn
         ws.Column(12).Width = 16;  // Ngày nhận
 
-        // ── Data rows (2..102) ─────────────────────────────────────────────────
+        // -- Data rows (2..102) -------------------------------------------------
         for (int r = TemplateDataStartRow; r <= TemplateDataEndRow; r++)
         {
             int rowNum = r - TemplateDataStartRow + 1;
@@ -441,7 +441,7 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 1).Value = rowNum;
             ws.Cell(r, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
-            // Col C: Danh mục — dropdown from named range "Categories"
+            // Col C: Danh mục - dropdown from named range "Categories"
             var dvCategory = ws.Cell(r, 3).GetDataValidation();
             dvCategory.List("=Categories");
             dvCategory.IgnoreBlanks = true;
@@ -449,7 +449,7 @@ public class ExcelExportService : IExcelExportService
             dvCategory.ErrorTitle = "Lỗi";
             dvCategory.ErrorMessage = "Vui lòng chọn danh mục từ danh sách.";
 
-            // Col B: Tên vật phẩm — dependent dropdown via INDIRECT
+            // Col B: Tên vật phẩm - dependent dropdown via INDIRECT
             // Formula: =INDIRECT("Cat_" & RIGHT(C2, LEN(C2) - FIND(" - ", C2) - 2))
             // This extracts the code part after " - " in the category dropdown value
             var dvItem = ws.Cell(r, 2).GetDataValidation();
@@ -460,7 +460,7 @@ public class ExcelExportService : IExcelExportService
             dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Đối tượng — VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
+            // Col D: Đối tượng - VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
             //         Dropdown guidance for new items (overrides formula when user types)
             ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$B,2,FALSE),\"\")";
             var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
@@ -471,7 +471,7 @@ public class ExcelExportService : IExcelExportService
             dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
             dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loại vật phẩm — VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
+            // Col E: Loại vật phẩm - VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
             //         Dropdown guidance for new items
             ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$C,3,FALSE),\"\")";
             var dvItemType = ws.Cell(r, 5).GetDataValidation();
@@ -482,24 +482,24 @@ public class ExcelExportService : IExcelExportService
             dvItemType.InputMessage = "Nếu vật phẩm mới, chọn loại vật phẩm theo mẫu: tên - code hoặc id.";
             dvItemType.ShowErrorMessage = false;
 
-            // Col F: Đơn vị — VLOOKUP auto-fill (editable)
+            // Col F: Đơn vị - VLOOKUP auto-fill (editable)
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 6),
                 "Đơn vị",
                 "Nếu chọn vật phẩm có sẵn, hệ thống tự điền đơn vị.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col G: Mô tả vật phẩm — VLOOKUP auto-fill (editable)
+            // Col G: Mô tả vật phẩm - VLOOKUP auto-fill (editable)
             ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 7),
                 "Mô tả vật phẩm",
                 "Nếu chọn vật phẩm có sẵn, hệ thống tự điền mô tả.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col H: Số lượng — number format
+            // Col H: Số lượng - number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
 
-            // Col I: Thể tích (dm³) — VLOOKUP auto-fill from DM_Lookup col 6 (existing item), editable for new items
+            // Col I: Thể tích (dm³) - VLOOKUP auto-fill from DM_Lookup col 6 (existing item), editable for new items
             ws.Cell(r, 9).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,6,FALSE),\"\")";
             ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0.000";
             var dvVolume = ws.Cell(r, 9).GetDataValidation();
@@ -508,7 +508,7 @@ public class ExcelExportService : IExcelExportService
             dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvVolume.ShowErrorMessage = false;
 
-            // Col J: Cân nặng (kg) — VLOOKUP auto-fill from DM_Lookup col 7 (existing item), editable for new items
+            // Col J: Cân nặng (kg) - VLOOKUP auto-fill from DM_Lookup col 7 (existing item), editable for new items
             ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
             ws.Cell(r, 10).Style.NumberFormat.Format = "#,##0.000";
             var dvWeight = ws.Cell(r, 10).GetDataValidation();
@@ -517,7 +517,7 @@ public class ExcelExportService : IExcelExportService
             dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvWeight.ShowErrorMessage = false;
 
-            // Col K: Ngày hết hạn — DateOnly (dd/MM/yyyy)
+            // Col K: Ngày hết hạn - DateOnly (dd/MM/yyyy)
             ws.Cell(r, 11).Style.NumberFormat.Format = "dd/MM/yyyy";
             var dvExpiryDate = ws.Cell(r, 11).GetDataValidation();
             dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
@@ -530,7 +530,7 @@ public class ExcelExportService : IExcelExportService
             dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
             dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col L: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
+            // Col L: Ngày nhận - DateTime (dd/MM/yyyy HH:mm)
             ws.Cell(r, 12).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
             var dvReceivedDate = ws.Cell(r, 12).GetDataValidation();
             dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
@@ -558,14 +558,14 @@ public class ExcelExportService : IExcelExportService
             dataRow.Style.Border.InsideBorderColor  = XLColor.FromHtml("#E0E0E0");
         }
 
-        // ── Freeze header row ─────────────────────────────────────────────────
+        // -- Freeze header row -------------------------------------------------
         ws.SheetView.FreezeRows(1);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    //  Purchase Import Template — Excel file with item columns + unit price
+    // ---------------------------------------------------------------------------
+    //  Purchase Import Template - Excel file with item columns + unit price
     //  (VAT invoice info is handled by the frontend, not in this template)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ---------------------------------------------------------------------------
 
     private static readonly string[] PurchaseTemplateHeaders =
     [
@@ -595,7 +595,7 @@ public class ExcelExportService : IExcelExportService
     {
         using var workbook = new XLWorkbook();
 
-        // ── 1. Build hidden reference sheets (reuse same helpers as donation) ─
+        // -- 1. Build hidden reference sheets (reuse same helpers as donation) -
         var wsDanhMuc = workbook.Worksheets.Add("DM_DanhMuc");
         var wsVatPham = workbook.Worksheets.Add("DM_VatPham");
         var wsLookup  = workbook.Worksheets.Add("DM_Lookup");
@@ -611,7 +611,7 @@ public class ExcelExportService : IExcelExportService
         wsLookup.Visibility  = XLWorksheetVisibility.VeryHidden;
         wsMeta.Visibility    = XLWorksheetVisibility.VeryHidden;
 
-        // ── 2. Build main entry sheet ─────────────────────────────────────────
+        // -- 2. Build main entry sheet -----------------------------------------
         var ws = workbook.Worksheets.Add("Nhập kho mua sắm");
         ws.SetTabActive();
 
@@ -622,10 +622,10 @@ public class ExcelExportService : IExcelExportService
         return ms.ToArray();
     }
 
-    // ─── Purchase main entry sheet ────────────────────────────────────────────
+    // --- Purchase main entry sheet --------------------------------------------
     private static void BuildPurchaseMainSheet(IXLWorksheet ws)
     {
-        // ── Header row styling ────────────────────────────────────────────────
+        // -- Header row styling ------------------------------------------------
         for (int c = 0; c < PurchaseTemplateHeaders.Length; c++)
             ws.Cell(1, c + 1).Value = PurchaseTemplateHeaders[c];
 
@@ -642,7 +642,7 @@ public class ExcelExportService : IExcelExportService
         headerRange.Style.Border.InsideBorder  = XLBorderStyleValues.Thin;
         ws.Row(1).Height = 24;
 
-        // ── Column widths ─────────────────────────────────────────────────────
+        // -- Column widths -----------------------------------------------------
         ws.Column(1).Width  = 5;   // A: STT
         ws.Column(2).Width  = 30;  // B: Tên vật phẩm
         ws.Column(3).Width  = 25;  // C: Danh mục
@@ -657,7 +657,7 @@ public class ExcelExportService : IExcelExportService
         ws.Column(12).Width = 16;  // L: Ngày hết hạn
         ws.Column(13).Width = 18;  // M: Ngày nhận
 
-        // ── Data rows (2..102) ─────────────────────────────────────────────────
+        // -- Data rows (2..102) -------------------------------------------------
         for (int r = PurchaseDataStartRow; r <= PurchaseDataEndRow; r++)
         {
             int rowNum = r - PurchaseDataStartRow + 1;
@@ -668,7 +668,7 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 1).Value = rowNum;
             ws.Cell(r, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
-            // Col C: Danh mục — dropdown from named range "Categories"
+            // Col C: Danh mục - dropdown from named range "Categories"
             var dvCategory = ws.Cell(r, 3).GetDataValidation();
             dvCategory.List("=Categories");
             dvCategory.IgnoreBlanks = true;
@@ -676,7 +676,7 @@ public class ExcelExportService : IExcelExportService
             dvCategory.ErrorTitle = "Lỗi";
             dvCategory.ErrorMessage = "Vui lòng chọn danh mục từ danh sách.";
 
-            // Col B: Tên vật phẩm — dependent dropdown via INDIRECT on col C
+            // Col B: Tên vật phẩm - dependent dropdown via INDIRECT on col C
             var dvItem = ws.Cell(r, 2).GetDataValidation();
             dvItem.List($"=INDIRECT(\"Cat_\"&RIGHT(C{r},LEN(C{r})-FIND(\" - \",C{r})-2))");
             dvItem.IgnoreBlanks = true;
@@ -685,7 +685,7 @@ public class ExcelExportService : IExcelExportService
             dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Đối tượng — VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
+            // Col D: Đối tượng - VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
             //         Dropdown guidance for new items
             ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$B,2,FALSE),\"\")";
             var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
@@ -696,7 +696,7 @@ public class ExcelExportService : IExcelExportService
             dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
             dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loại vật phẩm — VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
+            // Col E: Loại vật phẩm - VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
             //         Dropdown guidance for new items
             ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$C,3,FALSE),\"\")";
             var dvItemType = ws.Cell(r, 5).GetDataValidation();
@@ -707,24 +707,24 @@ public class ExcelExportService : IExcelExportService
             dvItemType.InputMessage = "Nếu vật phẩm mới, chọn loại vật phẩm theo mẫu: tên - code hoặc id.";
             dvItemType.ShowErrorMessage = false;
 
-            // Col F: Đơn vị — VLOOKUP auto-fill
+            // Col F: Đơn vị - VLOOKUP auto-fill
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 6),
                 "Đơn vị",
                 "Nếu chọn vật phẩm có sẵn, hệ thống tự điền đơn vị.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col G: Mô tả vật phẩm — VLOOKUP auto-fill
+            // Col G: Mô tả vật phẩm - VLOOKUP auto-fill
             ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 7),
                 "Mô tả vật phẩm",
                 "Nếu chọn vật phẩm có sẵn, hệ thống tự điền mô tả.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col H: Số lượng (*) — number format
+            // Col H: Số lượng (*) - number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
 
-            // Col I: Thể tích (dm³) — VLOOKUP auto-fill from DM_Lookup col 6, editable for new items
+            // Col I: Thể tích (dm³) - VLOOKUP auto-fill from DM_Lookup col 6, editable for new items
             ws.Cell(r, 9).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,6,FALSE),\"\")";
             ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0.000";
             var dvVolume = ws.Cell(r, 9).GetDataValidation();
@@ -733,7 +733,7 @@ public class ExcelExportService : IExcelExportService
             dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvVolume.ShowErrorMessage = false;
 
-            // Col J: Cân nặng (kg) — VLOOKUP auto-fill from DM_Lookup col 7, editable for new items
+            // Col J: Cân nặng (kg) - VLOOKUP auto-fill from DM_Lookup col 7, editable for new items
             ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
             ws.Cell(r, 10).Style.NumberFormat.Format = "#,##0.000";
             var dvWeight = ws.Cell(r, 10).GetDataValidation();
@@ -742,14 +742,14 @@ public class ExcelExportService : IExcelExportService
             dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvWeight.ShowErrorMessage = false;
 
-            // Col K: Đơn giá (VNĐ) — currency format (purchase-specific)
+            // Col K: Đơn giá (VNĐ) - currency format (purchase-specific)
             ws.Cell(r, 11).Style.NumberFormat.Format = "#,##0";
             var dvUnitPrice = ws.Cell(r, 11).GetDataValidation();
             dvUnitPrice.ShowInputMessage = true;
             dvUnitPrice.InputTitle = "Đơn giá";
             dvUnitPrice.InputMessage = "Giá mua mỗi đơn vị (VNĐ).\nĐể trống nếu không có.";
 
-            // Col L: Ngày hết hạn — DateOnly (dd/MM/yyyy)
+            // Col L: Ngày hết hạn - DateOnly (dd/MM/yyyy)
             ws.Cell(r, 12).Style.NumberFormat.Format = "dd/MM/yyyy";
             var dvExpiryDate = ws.Cell(r, 12).GetDataValidation();
             dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
@@ -762,7 +762,7 @@ public class ExcelExportService : IExcelExportService
             dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
             dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col M: Ngày nhận — DateTime (dd/MM/yyyy HH:mm)
+            // Col M: Ngày nhận - DateTime (dd/MM/yyyy HH:mm)
             ws.Cell(r, 13).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
             var dvReceivedDate = ws.Cell(r, 13).GetDataValidation();
             dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
@@ -775,7 +775,7 @@ public class ExcelExportService : IExcelExportService
             dvReceivedDate.ErrorMessage = "Vui lòng nhập ngày giờ hợp lệ (dd/MM/yyyy HH:mm).";
             dvReceivedDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // ── Row styling ───────────────────────────────────────────────────
+            // -- Row styling ---------------------------------------------------
             if (rowNum % 2 == 0)
             {
                 var rowRange = ws.Range(r, 1, r, PurchaseCols);
@@ -790,17 +790,17 @@ public class ExcelExportService : IExcelExportService
             dataRow.Style.Border.InsideBorderColor  = XLColor.FromHtml("#E0E0E0");
         }
 
-        // ── Freeze header row ─────────────────────────────────────────────────
+        // -- Freeze header row -------------------------------------------------
         ws.SheetView.FreezeRows(1);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    //  Funding Request Template — like purchase but without expiry/received date
+    // ---------------------------------------------------------------------------
+    //  Funding Request Template - like purchase but without expiry/received date
     //  Cols: STT (A), Tên vật phẩm (B), Danh mục (C), Đối tượng (D),
     //        Loại vật phẩm (E), Đơn vị (F), Mô tả vật phẩm (G),
     //        Số lượng (*) (H), Đơn giá (VNĐ) (I),
-    //        Thể tích (dm³) (J), Cân nặng (kg) (K) — 11 cols total
-    // ═══════════════════════════════════════════════════════════════════════════
+    //        Thể tích (dm³) (J), Cân nặng (kg) (K) - 11 cols total
+    // ---------------------------------------------------------------------------
 
     private static readonly string[] FundingRequestTemplateHeaders =
     [
@@ -813,8 +813,8 @@ public class ExcelExportService : IExcelExportService
         "Mô tả vật phẩm",   // G  (7)
         "Số lượng (*)",     // H  (8)
         "Đơn giá (VNĐ)",   // I  (9)
-        "Thể tích (dm³)",  // J  (10) — VLOOKUP auto-fill
-        "Cân nặng (kg)",   // K  (11) — VLOOKUP auto-fill
+        "Thể tích (dm³)",  // J  (10) - VLOOKUP auto-fill
+        "Cân nặng (kg)",   // K  (11) - VLOOKUP auto-fill
     ];
 
     private const int FundingRequestDataStartRow = 2;
@@ -828,7 +828,7 @@ public class ExcelExportService : IExcelExportService
     {
         using var workbook = new XLWorkbook();
 
-        // ── 1. Build hidden reference sheets (reuse same helpers as donation/purchase) ─
+        // -- 1. Build hidden reference sheets (reuse same helpers as donation/purchase) -
         var wsDanhMuc = workbook.Worksheets.Add("DM_DanhMuc");
         var wsVatPham = workbook.Worksheets.Add("DM_VatPham");
         var wsLookup  = workbook.Worksheets.Add("DM_Lookup");
@@ -844,7 +844,7 @@ public class ExcelExportService : IExcelExportService
         wsLookup.Visibility  = XLWorksheetVisibility.VeryHidden;
         wsMeta.Visibility    = XLWorksheetVisibility.VeryHidden;
 
-        // ── 2. Build main entry sheet ─────────────────────────────────────────
+        // -- 2. Build main entry sheet -----------------------------------------
         var ws = workbook.Worksheets.Add("Yêu cầu cấp tiền");
         ws.SetTabActive();
 
@@ -855,10 +855,10 @@ public class ExcelExportService : IExcelExportService
         return ms.ToArray();
     }
 
-    // ─── Funding Request main entry sheet ────────────────────────────────────
+    // --- Funding Request main entry sheet ------------------------------------
     private static void BuildFundingRequestMainSheet(IXLWorksheet ws)
     {
-        // ── Header row styling ────────────────────────────────────────────────
+        // -- Header row styling ------------------------------------------------
         for (int c = 0; c < FundingRequestTemplateHeaders.Length; c++)
             ws.Cell(1, c + 1).Value = FundingRequestTemplateHeaders[c];
 
@@ -875,7 +875,7 @@ public class ExcelExportService : IExcelExportService
         headerRange.Style.Border.InsideBorder  = XLBorderStyleValues.Thin;
         ws.Row(1).Height = 24;
 
-        // ── Column widths ─────────────────────────────────────────────────────
+        // -- Column widths -----------------------------------------------------
         ws.Column(1).Width  = 5;   // A: STT
         ws.Column(2).Width  = 30;  // B: Tên vật phẩm
         ws.Column(3).Width  = 25;  // C: Danh mục
@@ -886,7 +886,7 @@ public class ExcelExportService : IExcelExportService
         ws.Column(8).Width  = 12;  // H: Số lượng
         ws.Column(9).Width  = 16;  // I: Đơn giá
 
-        // ── Data rows (2..102) ─────────────────────────────────────────────────
+        // -- Data rows (2..102) -------------------------------------------------
         ws.Column(10).Width = 20;  // J: The tich / don vi
         ws.Column(11).Width = 22;  // K: Can nang / don vi
 
@@ -900,7 +900,7 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 1).Value = rowNum;
             ws.Cell(r, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
-            // Col C: Danh mục — dropdown from named range "Categories"
+            // Col C: Danh mục - dropdown from named range "Categories"
             var dvCategory = ws.Cell(r, 3).GetDataValidation();
             dvCategory.List("=Categories");
             dvCategory.IgnoreBlanks = true;
@@ -908,7 +908,7 @@ public class ExcelExportService : IExcelExportService
             dvCategory.ErrorTitle = "Lỗi";
             dvCategory.ErrorMessage = "Vui lòng chọn danh mục từ danh sách.";
 
-            // Col B: Tên vật phẩm — dependent dropdown via INDIRECT on col C
+            // Col B: Tên vật phẩm - dependent dropdown via INDIRECT on col C
             var dvItem = ws.Cell(r, 2).GetDataValidation();
             dvItem.List($"=INDIRECT(\"Cat_\"&RIGHT(C{r},LEN(C{r})-FIND(\" - \",C{r})-2))");
             dvItem.IgnoreBlanks = true;
@@ -917,7 +917,7 @@ public class ExcelExportService : IExcelExportService
             dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Đối tượng — VLOOKUP auto-fill from DM_Lookup col 2
+            // Col D: Đối tượng - VLOOKUP auto-fill from DM_Lookup col 2
             ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$B,2,FALSE),\"\")";
             var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
             dvTargetGroup.List("=TargetGroupOptions");
@@ -927,7 +927,7 @@ public class ExcelExportService : IExcelExportService
             dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
             dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loại vật phẩm — VLOOKUP auto-fill from DM_Lookup col 3
+            // Col E: Loại vật phẩm - VLOOKUP auto-fill from DM_Lookup col 3
             ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$C,3,FALSE),\"\")";
             var dvItemType = ws.Cell(r, 5).GetDataValidation();
             dvItemType.List("=ItemTypeOptions");
@@ -937,31 +937,31 @@ public class ExcelExportService : IExcelExportService
             dvItemType.InputMessage = "Nếu vật phẩm mới, chọn loại vật phẩm theo mẫu: tên - code hoặc id.";
             dvItemType.ShowErrorMessage = false;
 
-            // Col F: Đơn vị — VLOOKUP auto-fill
+            // Col F: Đơn vị - VLOOKUP auto-fill
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 6),
                 "Đơn vị",
                 "Nếu chọn vật phẩm có sẵn, hệ thống tự điền đơn vị.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col G: Mô tả vật phẩm — VLOOKUP auto-fill
+            // Col G: Mô tả vật phẩm - VLOOKUP auto-fill
             ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 7),
                 "Mô tả vật phẩm",
                 "Nếu chọn vật phẩm có sẵn, hệ thống tự điền mô tả.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col H: Số lượng (*) — number format
+            // Col H: Số lượng (*) - number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
 
-            // Col I: Đơn giá (VNĐ) — currency format
+            // Col I: Đơn giá (VNĐ) - currency format
             ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0";
             var dvUnitPrice = ws.Cell(r, 9).GetDataValidation();
             dvUnitPrice.ShowInputMessage = true;
             dvUnitPrice.InputTitle = "Đơn giá";
             dvUnitPrice.InputMessage = "Giá dự kiến mỗi đơn vị (VNĐ).\nĐể trống nếu chưa xác định.";
 
-            // ── Row styling ───────────────────────────────────────────────────
+            // -- Row styling ---------------------------------------------------
             if (rowNum % 2 == 0)
             {
                 var rowRange = ws.Range(r, 1, r, FundingRequestCols);
@@ -992,13 +992,13 @@ public class ExcelExportService : IExcelExportService
             dataRow.Style.Border.InsideBorderColor  = XLColor.FromHtml("#E0E0E0");
         }
 
-        // ── Freeze header row ─────────────────────────────────────────────────
+        // -- Freeze header row -------------------------------------------------
         ws.SheetView.FreezeRows(1);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    //  Depot Closure — External Resolution Template
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ---------------------------------------------------------------------------
+    //  Depot Closure - External Resolution Template
+    // ---------------------------------------------------------------------------
 
     private static readonly string[] ClosureTemplateHeaders =
     [
@@ -1028,9 +1028,9 @@ public class ExcelExportService : IExcelExportService
     public byte[] GenerateClosureExternalTemplate(string depotName, IReadOnlyList<ClosureInventoryLotItemDto> items)
     {
         using var workbook = new XLWorkbook();
-        var ws = workbook.Worksheets.Add("Xu ly dong kho");
+        var ws = workbook.Worksheets.Add("Xử lý đóng kho");
 
-        // ─── Row 1: Title banner ─────────────────────────────────────────────
+        // --- Row 1: Title banner ---------------------------------------------
         ws.Cell(1, 1).Value = $"MẪU XỬ LÝ HÀNG TỒN KHI ĐÓNG KHO — {depotName.ToUpper()}";
         var titleRange = ws.Range(1, 1, 1, ClosureCols);
         titleRange.Merge();
@@ -1043,7 +1043,7 @@ public class ExcelExportService : IExcelExportService
             .Font.SetFontColor(White);
         ws.Row(1).Height = 28;
 
-        // ─── Row 2: Export timestamp ──────────────────────────────────────────
+        // --- Row 2: Export timestamp ------------------------------------------
         ws.Cell(2, 1).Value = $"Ngày xuất: {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm}";
         var tsRange = ws.Range(2, 1, 2, ClosureCols);
         tsRange.Merge();
@@ -1053,7 +1053,7 @@ public class ExcelExportService : IExcelExportService
             .Font.SetFontColor(Black)
             .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
 
-        // ─── Row 3: Header ────────────────────────────────────────────────────
+        // --- Row 3: Header ----------------------------------------------------
         int headerRow = 3;
         for (int c = 0; c < ClosureTemplateHeaders.Length; c++)
         {
@@ -1072,7 +1072,7 @@ public class ExcelExportService : IExcelExportService
         }
         ws.Row(headerRow).Height = 24;
 
-        // ─── Data rows ───────────────────────────────────────────────────────
+        // --- Data rows -------------------------------------------------------
         int dataStartRow = 4;
         for (int i = 0; i < items.Count; i++)
         {
@@ -1097,7 +1097,7 @@ public class ExcelExportService : IExcelExportService
             }
             ws.Cell(r, 9).Value = item.Quantity;                // I: Số lượng
 
-            // J: Đơn giá (editable — manager điền)
+            // J: Đơn giá (editable - manager điền)
             // K: Thành tiền = Số lượng × Đơn giá (formula)
             ws.Cell(r, 11).FormulaA1 = $"I{r}*J{r}";
             ws.Cell(r, 11).Style.NumberFormat.Format = "#,##0";
@@ -1132,7 +1132,7 @@ public class ExcelExportService : IExcelExportService
             dataRow.Style.Border.InsideBorderColor = XLColor.FromHtml("#E0E0E0");
         }
 
-        // ─── Column widths ───────────────────────────────────────────────────
+        // --- Column widths ---------------------------------------------------
         ws.Column(1).Width = 6;    // STT
         ws.Column(2).Width = 30;   // Tên vật phẩm
         ws.Column(3).Width = 20;   // Danh mục
@@ -1148,7 +1148,7 @@ public class ExcelExportService : IExcelExportService
         ws.Column(13).Width = 25;  // Người nhận
         ws.Column(14).Width = 30;  // Ghi chú
 
-        // ─── Protect pre-filled columns ──────────────────────────────────────
+        // --- Protect pre-filled columns --------------------------------------
         ws.SheetView.FreezeRows(headerRow);
 
         using var stream = new MemoryStream();

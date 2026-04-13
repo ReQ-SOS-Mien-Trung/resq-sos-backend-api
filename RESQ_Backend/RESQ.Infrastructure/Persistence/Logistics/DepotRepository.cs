@@ -143,7 +143,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         return entities.Select(DepotMapper.ToDomain);
     }
 
-    // ─── Closure helpers ──────────────────────────────────────────────────────
+    // --- Closure helpers ------------------------------------------------------
 
     public async Task<int> GetActiveDepotCountExcludingAsync(int depotId, CancellationToken cancellationToken = default)
     {
@@ -209,7 +209,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
     {
         var now = DateTime.UtcNow;
 
-        // Unassign manager cũ (nếu có) — set UnassignedAt trực tiếp trên entity
+        // Unassign manager cũ (nếu có) - set UnassignedAt trực tiếp trên entity
         // Phải dùng SetTracked để EF Core theo dõi thay đổi và lưu khi SaveChangesAsync được gọi
         var existingManagers = await _unitOfWork.SetTracked<DepotManager>()
             .Where(dm => dm.DepotId == depot.Id && dm.UnassignedAt == null)

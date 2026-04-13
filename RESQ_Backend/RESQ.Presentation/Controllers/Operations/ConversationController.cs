@@ -23,7 +23,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    // ─── Victim ───────────────────────────────────────────────────────────────
+    // --- Victim ---------------------------------------------------------------
 
     /// <summary>
     /// Victim mở màn hình chat → lấy hoặc tạo phòng chat của mình.
@@ -86,7 +86,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    // ─── Coordinator ──────────────────────────────────────────────────────────
+    // --- Coordinator ----------------------------------------------------------
 
     /// <summary>
     /// Coordinator xem danh sách phòng chat đang chờ hỗ trợ.
@@ -127,7 +127,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    // ─── Shared ───────────────────────────────────────────────────────────────
+    // --- Shared ---------------------------------------------------------------
 
     /// <summary>
     /// Lấy lịch sử tin nhắn của một conversation (phân trang, cũ nhất trước).
@@ -157,7 +157,7 @@ public class ConversationController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
+    // --- Helpers --------------------------------------------------------------
 
     private Guid GetUserId()
     {

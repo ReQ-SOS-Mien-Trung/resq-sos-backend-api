@@ -62,6 +62,6 @@ public class MissionPickupBufferUsageDto
     public int ItemId { get; set; }
     /// <summary>Số lượng buffer thực tế đã lấy cho item này. Phải ≥ 0 và ≤ BufferQuantity trong snapshot.</summary>
     public int BufferQuantityUsed { get; set; }
-    /// <summary>Lý do sử dụng buffer — bắt buộc khi BufferQuantityUsed > 0.</summary>
+    /// <summary>Lý do sử dụng buffer - bắt buộc khi BufferQuantityUsed > 0.</summary>
     public string? BufferUsedReason { get; set; }
 }

@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Enum.Finance;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateDonation
 {

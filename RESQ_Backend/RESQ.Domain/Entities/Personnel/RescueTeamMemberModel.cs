@@ -18,7 +18,7 @@ public class RescueTeamMemberModel
     protected RescueTeamMemberModel() { }
 
     /// <summary>
-    /// Tạo member mới — đã check-in tại AP, trạng thái Accepted ngay lập tức.
+    /// Tạo member mới - đã check-in tại AP, trạng thái Accepted ngay lập tức.
     /// </summary>
     internal static RescueTeamMemberModel Create(Guid userId, bool isLeader, string rescuerType, string? roleInTeam)
     {

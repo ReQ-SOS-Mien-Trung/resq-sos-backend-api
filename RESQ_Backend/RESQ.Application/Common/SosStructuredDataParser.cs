@@ -30,11 +30,11 @@ public static class SosStructuredDataParser
 
             if (root.TryGetProperty("incident", out _))
             {
-                // New nested format — deserialize directly
+                // New nested format - deserialize directly
                 return JsonSerializer.Deserialize<SosStructuredDataDto>(json, JsonOptions);
             }
 
-            // Old flat format — map to nested shape
+            // Old flat format - map to nested shape
             return MapFlatToNested(root, json);
         }
         catch

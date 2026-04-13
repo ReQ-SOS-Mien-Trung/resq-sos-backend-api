@@ -8,7 +8,7 @@ using RESQ.Domain.Enum.Finance;
 namespace RESQ.Application.UseCases.Finance.Commands.ApproveFundingRequest;
 
 /// <summary>
-/// Admin duyệt FundingRequest — chọn nguồn quỹ:
+/// Admin duyệt FundingRequest - chọn nguồn quỹ:
 /// (A) Campaign  → validate campaign, trừ campaign, tạo CampaignDisbursement, cộng depot fund
 /// (B) SystemFund → validate system fund, trừ system fund, cộng depot fund
 /// </summary>
@@ -58,9 +58,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         };
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     //  Campaign → Depot (luồng cũ)
-    // ═══════════════════════════════════════════════════════════════════════════
 
     private async Task<int> HandleCampaignApproval(
         ApproveFundingRequestCommand request,
@@ -135,9 +133,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         return disbursementId;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     //  SystemFund → Depot
-    // ═══════════════════════════════════════════════════════════════════════════
 
     private async Task<int> HandleSystemFundApproval(
         ApproveFundingRequestCommand request,

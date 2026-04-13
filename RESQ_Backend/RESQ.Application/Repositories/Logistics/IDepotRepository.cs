@@ -37,7 +37,7 @@ namespace RESQ.Application.Repositories.Logistics
         Task<DepotModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
         Task<DepotModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
 
-        // ── Depot Closure helpers ──────────────────────────────────────────────
+        // -- Depot Closure helpers ----------------------------------------------
 
         /// <summary>
         /// Đếm số kho đang hoạt động (Available/Full/Closing) ngoại trừ kho cần đóng.

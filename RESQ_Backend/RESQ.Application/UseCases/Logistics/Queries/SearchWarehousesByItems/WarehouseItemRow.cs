@@ -1,7 +1,7 @@
 namespace RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 
 /// <summary>
-/// Flat row returned by the repository — one row per (item, depot) combination.
+/// Flat row returned by the repository - one row per (item, depot) combination.
 /// The handler groups these into the hierarchical DTO.
 /// </summary>
 public class WarehouseItemRow
@@ -23,7 +23,7 @@ public class WarehouseItemRow
     public int AvailableQuantity { get; set; }
     public DateTime? LastStockedAt { get; set; }
 
-    // ── Reusable-only fields (0 for Consumable) ──────────────────────────────
+    // -- Reusable-only fields (0 for Consumable) ------------------------------
     /// <summary>Available units with Condition = "Good". Only populated for Reusable items.</summary>
     public int GoodAvailableCount { get; set; }
     /// <summary>Available units with Condition = "Fair". Only populated for Reusable items.</summary>

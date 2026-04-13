@@ -8,12 +8,12 @@ public enum AssemblyPointStatus
     /// <summary>Đang hoạt động bình thường.</summary>
     Active,
 
-    /// <summary>Đã đầy — không thể gán thêm đội.</summary>
+    /// <summary>Đã đầy - không thể gán thêm đội.</summary>
     Overloaded,
 
     /// <summary>Không khả dụng (không sử dụng được).</summary>
     Unavailable,
 
-    /// <summary>Đã đóng vĩnh viễn — không thể chuyển sang bất kỳ trạng thái nào khác.</summary>
+    /// <summary>Đã đóng vĩnh viễn - không thể chuyển sang bất kỳ trạng thái nào khác.</summary>
     Closed
 }

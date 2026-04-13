@@ -15,6 +15,6 @@ public record ResolveDepotClosureCommand(
     // Option 1: Chuyển sang kho khác
     int? TargetDepotId,
 
-    // Option 2: Xử lý bên ngoài — chỉ cần ghi chú mô tả cách xử lý
+    // Option 2: Xử lý bên ngoài - chỉ cần ghi chú mô tả cách xử lý
     string? ExternalNote
 ) : IRequest<ResolveDepotClosureResponse>;

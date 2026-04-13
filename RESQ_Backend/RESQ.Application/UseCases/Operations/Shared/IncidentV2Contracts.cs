@@ -32,7 +32,7 @@ public static class IncidentV2Constants
     }
 }
 
-// ── shared primitives ─────────────────────────────────────────────────────────
+// -- shared primitives ---------------------------------------------------------
 
 public class GeoLocationDto
 {
@@ -47,7 +47,7 @@ public class CiviliansWithTeamDto
     public string? CivilianCondition { get; set; }
 }
 
-// ── mission incident ──────────────────────────────────────────────────────────
+// -- mission incident ----------------------------------------------------------
 
 public class MissionIncidentReportRequest
 {
@@ -119,7 +119,7 @@ public class MissionHandoverDto
     public string? SafeHandoverPoint { get; set; }
 }
 
-// ── activity incident ─────────────────────────────────────────────────────────
+// -- activity incident ---------------------------------------------------------
 
 public class ActivityIncidentReportRequest
 {

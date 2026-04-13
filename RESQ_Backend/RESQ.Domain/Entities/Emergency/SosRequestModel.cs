@@ -85,7 +85,7 @@ public class SosRequestModel
             // Ưu tiên dùng thời điểm từ thiết bị (clientCreatedAt) để bảo toàn thời gian thực tế
             // khi thiết bị gửi offline rồi sync sau. Nếu không có thì dùng giờ server.
             CreatedAt = clientCreatedAt?.ToUniversalTime() ?? now,
-            // ReceivedAt luôn là giờ server — ghi lại đúng lúc backend nhận được request.
+            // ReceivedAt luôn là giờ server - ghi lại đúng lúc backend nhận được request.
             ReceivedAt = now,
             LastUpdatedAt = now
         };

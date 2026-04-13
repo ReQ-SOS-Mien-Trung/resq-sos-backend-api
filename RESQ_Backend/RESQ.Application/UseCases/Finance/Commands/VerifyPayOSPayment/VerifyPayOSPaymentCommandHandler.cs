@@ -46,7 +46,7 @@ public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPayme
     {
         var orderId = request.OrderId;
 
-        // 1. Look up the donation — if already succeeded, nothing to do
+        // 1. Look up the donation - if already succeeded, nothing to do
         var donation = await _donationRepository.GetByOrderIdAsync(orderId, cancellationToken);
         if (donation == null)
         {
@@ -89,11 +89,11 @@ public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPayme
             return false;
         }
 
-        // 4. Update donation — deliberately keep existing TransactionId (paymentLinkId)
+        // 4. Update donation - deliberately keep existing TransactionId (paymentLinkId)
         try
         {
             donation.UpdatePaymentStatus(Status.Succeed);
-            // TransactionId already holds paymentLinkId set during CreateDonation — do not overwrite.
+            // TransactionId already holds paymentLinkId set during CreateDonation - do not overwrite.
             donation.PaymentAuditInfo = $"[PayOS:status=PAID][Source=QueryAPI][LinkId={donation.TransactionId}]";
             donation.PaidAt = DateTime.UtcNow;
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 
@@ -26,7 +26,7 @@ public static class FinanceSeed
         };
         modelBuilder.Entity<DepotFund>().HasData(depotFunds);
 
-        // 0.2 Depot Fund Transactions — dữ liệu mẫu lịch sử ví kho
+        // 0.2 Depot Fund Transactions - dữ liệu mẫu lịch sử ví kho
         var depotFundTransactions = new List<DepotFundTransaction>
         {
             new DepotFundTransaction

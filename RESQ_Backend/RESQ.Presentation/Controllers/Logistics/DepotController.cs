@@ -169,7 +169,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>Thay d?i tr?ng th�i kho (Available / Unavailable). Admin c� th? d?i b?t k? kho, Manager ch? d?i kho m�nh qu?n l�.</summary>
+        /// <summary>Thay đổi trạng thái kho (Available / Unavailable / Closing). Admin có thể đổi bất kỳ kho nào, Manager chỉ đổi kho mình quản lý.</summary>
         [HttpPatch("{id}/status")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         public async Task<IActionResult> ChangeStatus(int id, [FromQuery] ChangeDepotStatusRequestDto dto)
@@ -188,7 +188,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>[Metadata] Danh s�ch tr?ng th�i c� th? set qua PATCH /{id}/status (Available / Unavailable).</summary>
+        /// <summary>[Metadata] Danh sách trạng thái có thể set qua PATCH /{id}/status (Available / Unavailable / Closing).</summary>
         [HttpGet("metadata/changeable-statuses")]
         [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
         public IActionResult GetChangeableStatuses()
@@ -221,7 +221,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Metadata] Danh s�ch Manager (RoleId=4) chua qu?n l� kho n�o � d�ng cho dropdown g�n manager.
+        /// [Metadata] Danh sách Manager (RoleId=4) chưa quản lý kho nào, dùng cho dropdown gán manager.
         /// </summary>
         [HttpGet("metadata/available-managers")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
@@ -258,9 +258,9 @@ namespace RESQ.Presentation.Controllers.Logistics
         // --- Depot Closure endpoints ------------------------------------------
 
         /// <summary>
-        /// [Manager kho d�ch] T? kh�m ph� phi�n nh?n h�ng t? kho ngu?n dang d�ng c?a.
-        /// Kh�ng c?n truy?n b?t k? ID n�o � h? th?ng t? x�c d?nh kho t? token.
-        /// Tr? v? d? SourceDepotId + ClosureId + TransferId d? g?i c�c action ti?p theo.
+        /// [Manager kho đích] Tự động khám phá phiên nhận hàng từ kho nguồn đang đóng cửa.
+        /// Không cần truyền bất kỳ ID nào, hệ thống tự xác định kho từ token.
+        /// Trả về đủ SourceDepotId + ClosureId + TransferId để gọi các action tiếp theo.
         /// Trả 204 nếu hiện không có phiên chuyển hàng nào đang chờ.
         /// </summary>
         [HttpGet("my-incoming-closure-transfer")]
@@ -276,7 +276,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return result is null ? NoContent() : Ok(result);
         }
 
-        /// <summary>[Manager] Lay toan bo lich su phien dong kho cua kho dang quan ly. DepotId duoc suy ra tu token.</summary>
+        /// <summary>[Manager] Lấy toàn bộ lịch sử phiên đóng kho của kho đang quản lý. DepotId được suy ra từ token.</summary>
         [HttpGet("closures")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(List<DepotClosureDto>), StatusCodes.Status200OK)]
@@ -289,7 +289,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>[Admin] Lay toan bo lich su phien dong kho cua mot kho cu the.</summary>
+        /// <summary>[Admin] Lấy toàn bộ lịch sử phiên đóng kho của một kho cụ thể.</summary>
         [HttpGet("{depotId}/closures")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(List<DepotClosureDto>), StatusCodes.Status200OK)]
@@ -302,7 +302,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>[Manager] Xem chi tiet mot phien dong kho cua kho dang quan ly. DepotId duoc suy ra tu token.</summary>
+        /// <summary>[Manager] Xem chi tiết một phiên đóng kho của kho đang quản lý. DepotId được suy ra từ token.</summary>
         [HttpGet("closures/{closureId}")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(DepotClosureDetailResponse), StatusCodes.Status200OK)]
@@ -329,8 +329,8 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Manager kho ngu?n/kho d�ch] L?y to�n b? transfer d�ng kho m� kho hi?n t?i c� tham gia.
-        /// H? th?ng t? x�c d?nh depotId t? token v� tr? v? c? transfer ph�a ngu?n l?n ph�a d�ch.
+        /// [Manager kho nguồn/kho đích] Lấy toàn bộ transfer đóng kho mà kho hiện tại có tham gia.
+        /// Hệ thống tự xác định depotId từ token và trả về cả transfer phía nguồn lẫn phía đích.
         /// </summary>
         [HttpGet("transfer")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -343,7 +343,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>[Metadata] Danh s�ch resolutionType cho quy tr�nh d�ng kho (TransferToDepot / ExternalResolution).</summary>
+        /// <summary>[Metadata] Danh sách resolutionType cho quy trình đóng kho (TransferToDepot / ExternalResolution).</summary>
         [HttpGet("metadata/closure")]
         [ProducesResponseType(typeof(DepotClosureMetadataResponse), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetClosureMetadata()
@@ -353,15 +353,15 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] ��ng kho � bu?c kh?i t?o.
-        /// - Kho ph?i ? tr?ng th�i Unavailable.
-        /// - Kho tr?ng v� chua c� phi�n x? l� h�ng t?n tru?c d� ? d�ng ngay (200 OK).
-        /// - Kho d� du?c x? l� h�ng t?n xong t? tru?c (external resolution ho?c transfer receive), admin g?i l?i endpoint n�y d? finalize:
-        ///   chuy?n qu? kho v? qu? h? th?ng, chuy?n kho sang Closed v� g? manager kh?i kho.
-        /// - C�n h�ng ? 409 Conflict k�m danh s�ch h�ng t?n.
-        ///   Admin ch?n 1 trong 2 c�ch x? l�:
-        ///   (1) X? l� b�n ngo�i: GET /close/export-template ? POST /close/external-resolution.
-        ///   (2) Chuy?n kho: POST /{id}/close/transfer { targetDepotId, reason }.
+        /// [Admin] Đóng kho - bước khởi tạo.
+        /// - Kho phải ở trạng thái Unavailable.
+        /// - Kho trống và chưa có phiên xử lý hàng tồn trước đó thì đóng ngay (200 OK).
+        /// - Kho đã được xử lý hàng tồn xong từ trước (external resolution hoặc transfer receive), admin gọi lại endpoint này để finalize:
+        ///   chuyển quỹ kho về quỹ hệ thống, chuyển kho sang Closed và gỡ manager khỏi kho.
+        /// - Còn hàng thì trả 409 Conflict kèm danh sách hàng tồn.
+        ///   Admin chọn 1 trong 2 cách xử lý:
+        ///   (1) Xử lý bên ngoài: GET /close/export-template -> POST /close/external-resolution.
+        ///   (2) Chuyển kho: POST /{id}/close/transfer { targetDepotId, reason }.
         /// </summary>
         [HttpPost("{id}/close")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
@@ -377,9 +377,9 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Manager] T?i file Excel template li?t k� h�ng t?n kho c?a kho m�nh dang qu?n l�.
-        /// H? th?ng t? l?y depotId t? token ngu?i d�ng qua b?ng depot manager v?i di?u ki?n UnassignedAt == null.
-        /// Kho ch? c?n c�n h�ng t?n d? xu?t m?u x? l�.
+        /// [Manager] Tải file Excel template liệt kê hàng tồn kho của kho mình đang quản lý.
+        /// Hệ thống tự lấy depotId từ token người dùng qua bảng depot manager với điều kiện UnassignedAt == null.
+        /// Kho chỉ cần còn hàng tồn để xuất mẫu xử lý.
         /// </summary>
         [HttpGet("close/export-template")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -395,8 +395,8 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] ��nh d?u v� th�ng b�o cho manager kho d? h? x? l� b�n ngo�i.
-        /// Kho ph?i ? tr?ng th�i Unavailable v� dang c� phi�n d�ng kho du?c t?o (chua x�c d?nh h�nh th?c).
+        /// [Admin] Đánh dấu và thông báo cho manager kho để họ xử lý bên ngoài.
+        /// Kho phải ở trạng thái Unavailable và đang có phiên đóng kho được tạo (chưa xác định hình thức).
         /// </summary>
         [HttpPost("{id}/close/mark-external")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
@@ -412,11 +412,11 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] G?i k?t qu? x? l� t?n kho b�n ngo�i d?ng JSON.
-        /// Frontend convert file Excel template th�nh JSON r?i g?i l�n.
-        /// Kho ph?i ? tr?ng th�i Unavailable v� c�n h�ng (kh�ng c� transfer dang di?n ra).
-        /// Server t?o b?n ghi ki?m to�n n?i b? v� xo� to�n b? inventory.
-        /// Sau bu?c n�y kho v?n gi? tr?ng th�i Unavailable; admin ph?i g?i l?i POST /{id}/close d? finalize d�ng kho.
+        /// [Admin] Gửi kết quả xử lý tồn kho bên ngoài dạng JSON.
+        /// Frontend convert file Excel template thành JSON rồi gửi lên.
+        /// Kho phải ở trạng thái Unavailable và còn hàng (không có transfer đang diễn ra).
+        /// Server tạo bản ghi kiểm toán nội bộ và xoá toàn bộ inventory.
+        /// Sau bước này kho vẫn giữ trạng thái Unavailable; admin phải gọi lại POST /{id}/close để finalize đóng kho.
         /// </summary>
         [HttpPost("close/external-resolution")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -433,9 +433,9 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] Kh?i t?o quy tr�nh chuy?n to�n b? h�ng t?n sang kho kh�c d? d�ng kho ngu?n.
-        /// Kho ngu?n ph?i ? tr?ng th�i Unavailable v� c�n h�ng.
-        /// Tr? v? transferId � d�ng cho t?t c? c�c bu?c ti?p theo (prepare ? ship ? complete ? receive).
+        /// [Admin] Khởi tạo quy trình chuyển toàn bộ hàng tồn sang kho khác để đóng kho nguồn.
+        /// Kho nguồn phải ở trạng thái Unavailable và còn hàng.
+        /// Trả về transferId để dùng cho tất cả các bước tiếp theo (prepare -> ship -> complete -> receive).
         /// </summary>
         [HttpPost("{id}/close/transfer")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
@@ -463,8 +463,8 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] Hu? transfer dang ch? x? l� � kho ngu?n gi? tr?ng th�i Unavailable.
-        /// Ch? hu? du?c khi transfer ? tr?ng th�i Initiated ho?c Preparing.
+        /// [Admin] Huỷ transfer đang chờ xử lý; kho nguồn giữ trạng thái Unavailable.
+        /// Chỉ huỷ được khi transfer ở trạng thái Initiated hoặc Preparing.
         /// </summary>
         [HttpDelete("{id}/close/transfer/{transferId}")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
@@ -480,7 +480,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] Hu? quy tr�nh d�ng kho dang ch? x? l� (legacy � d�ng DELETE /{id}/close/transfer/{transferId}).
+        /// [Admin] Huỷ quy trình đóng kho đang chờ xử lý (legacy - dùng DELETE /{id}/close/transfer/{transferId}).
         /// </summary>
         [ApiExplorerSettings(IgnoreApi = true)]
         [HttpDelete("{id}/close/{closureId}")]
@@ -497,8 +497,8 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Manager kho ngu?n] X�c nh?n dang chu?n b? h�ng � chuy?n transfer sang Preparing.
-        /// D�ng transferId t? POST /close/transfer.
+        /// [Manager kho nguồn] Xác nhận đang chuẩn bị hàng -> chuyển transfer sang Preparing.
+        /// Dùng transferId từ POST /close/transfer.
         /// </summary>
         [HttpPost("transfer/{transferId}/prepare")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -517,8 +517,8 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Manager kho ngu?n] X�c nh?n d� xu?t h�ng � chuy?n transfer sang Shipping.
-        /// D�ng transferId t? POST /close/transfer.
+        /// [Manager kho nguồn] Xác nhận đã xuất hàng -> chuyển transfer sang Shipping.
+        /// Dùng transferId từ POST /close/transfer.
         /// </summary>
         [HttpPost("transfer/{transferId}/ship")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -537,8 +537,8 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Manager kho ngu?n] X�c nh?n d� giao to�n b? h�ng � chuy?n transfer sang Completed.
-        /// D�ng transferId t? POST /close/transfer.
+        /// [Manager kho nguồn] Xác nhận đã giao toàn bộ hàng -> chuyển transfer sang Completed.
+        /// Dùng transferId từ POST /close/transfer.
         /// </summary>
         [HttpPost("transfer/{transferId}/complete")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -557,9 +557,9 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Manager kho d�ch] X�c nh?n d� nh?n h�ng � k�ch ho?t bulk transfer inventory v� ho�n t?t bu?c x? l� h�ng t?n.
-        /// Sau bu?c n�y kho ngu?n v?n gi? tr?ng th�i Unavailable; admin ph?i g?i l?i POST /{id}/close d? finalize d�ng kho.
-        /// D�ng transferId t? GET /my-incoming-closure-transfer.
+        /// [Manager kho đích] Xác nhận đã nhận hàng -> kích hoạt bulk transfer inventory và hoàn tất bước xử lý hàng tồn.
+        /// Sau bước này kho nguồn vẫn giữ trạng thái Unavailable; admin phải gọi lại POST /{id}/close để finalize đóng kho.
+        /// Dùng transferId từ GET /my-incoming-closure-transfer.
         /// </summary>
         [HttpPost("transfer/{transferId}/receive")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -577,7 +577,7 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>L?y UserId t? access token hi?n t?i.</summary>
+        /// <summary>Lấy UserId từ access token hiện tại.</summary>
         private Guid GetUserId()
         {
             var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -585,20 +585,20 @@ namespace RESQ.Presentation.Controllers.Logistics
             {
                 return userId;
             }
-            throw new Application.Exceptions.UnauthorizedException("Token kh�ng h?p l? ho?c thi?u th�ng tin ngu?i d�ng.");
+            throw new Application.Exceptions.UnauthorizedException("Token không hợp lệ hoặc thiếu thông tin người dùng.");
         }
 
         private async Task<int> GetRequiredManagerDepotIdAsync(Guid userId)
         {
             var user = await _userRepository.GetByIdAsync(userId)
-                ?? throw new UnauthorizedException("Kh�ng t�m th?y th�ng tin ngu?i d�ng t? token.");
+                ?? throw new UnauthorizedException("Không tìm thấy thông tin người dùng từ token.");
 
             if (user.RoleId != 4)
-                throw new ForbiddenException("Endpoint nay chi danh cho manager kho.");
+                throw new ForbiddenException("Endpoint này chỉ dành cho manager kho.");
 
             return await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(userId)
                 ?? throw ExceptionCodes.WithCode(
-                    new NotFoundException("Ban hien kh�ng ph? tr�ch kho n�o."),
+                    new NotFoundException("Bạn hiện không phụ trách kho nào."),
                     LogisticsErrorCodes.DepotManagerNotAssigned);
         }
 

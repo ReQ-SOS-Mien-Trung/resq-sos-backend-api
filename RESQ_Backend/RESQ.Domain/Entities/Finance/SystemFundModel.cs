@@ -3,7 +3,7 @@ using RESQ.Domain.Entities.Finance.Exceptions;
 namespace RESQ.Domain.Entities.Finance;
 
 /// <summary>
-/// Quỹ hệ thống — singleton entity chứa tiền thu được từ thanh lý tài sản đóng kho.
+/// Quỹ hệ thống - singleton entity chứa tiền thu được từ thanh lý tài sản đóng kho.
 /// Admin có thể dùng quỹ này để cấp tiền cho kho (thay vì rút từ chiến dịch).
 /// </summary>
 public class SystemFundModel
@@ -15,7 +15,7 @@ public class SystemFundModel
 
     private SystemFundModel() { }
 
-    /// <summary>Tạo quỹ hệ thống mới (singleton — chỉ gọi 1 lần khi init DB).</summary>
+    /// <summary>Tạo quỹ hệ thống mới (singleton - chỉ gọi 1 lần khi init DB).</summary>
     public static SystemFundModel Create(string name = "Quỹ hệ thống")
     {
         return new SystemFundModel
@@ -50,7 +50,7 @@ public class SystemFundModel
 
     /// <summary>
     /// Trừ tiền từ quỹ hệ thống (ví dụ: cấp tiền cho kho).
-    /// Không cho phép balance âm — quỹ hệ thống không có cơ chế tự ứng.
+    /// Không cho phép balance âm - quỹ hệ thống không có cơ chế tự ứng.
     /// </summary>
     public void Debit(decimal amount)
     {

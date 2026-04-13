@@ -7,4 +7,4 @@ public class InvalidDonorEmailException : DomainException
     public InvalidDonorEmailException() : base("Email người ủng hộ không hợp lệ.")
     {
     }
-}
+}

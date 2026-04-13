@@ -8,4 +8,4 @@ public class InvalidCampaignStatusTransitionException : DomainException
         : base($"Không thể chuyển trạng thái chiến dịch từ '{currentStatus}' sang '{newStatus}'.")
     {
     }
-}
+}

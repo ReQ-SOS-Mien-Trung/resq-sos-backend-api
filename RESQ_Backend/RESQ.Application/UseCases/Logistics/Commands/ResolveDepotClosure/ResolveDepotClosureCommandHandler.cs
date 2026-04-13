@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -74,7 +74,7 @@ public class ResolveDepotClosureCommandHandler(
         }
         catch (Exception ex) when (ex is ConflictException or NotFoundException or BadRequestException)
         {
-            // Lỗi validation nghiệp vụ — hoàn tác claim để user có thể thử lại
+            // Lỗi validation nghiệp vụ - hoàn tác claim để user có thể thử lại
             await closureRepository.ResetProcessingToInProgressAsync(request.ClosureId, cancellationToken);
             throw;
         }
@@ -144,7 +144,7 @@ public class ResolveDepotClosureCommandHandler(
                     "Kho của bạn sắp tiếp nhận hàng chuyển kho",
                     $"Admin đã chỉ định '{targetDepot.Name}' tiếp nhận hàng từ kho '{depot.Name}' đang đóng cửa. Cần chuẩn bị {consumableVolume:N0} đơn vị tiêu hao.",
                     "depot_closure_transfer_assigned",
-                    // Deep-link params — mobile app dùng để navigate thẳng đến màn hình xác nhận nhận hàng.
+                    // Deep-link params - mobile app dùng để navigate thẳng đến màn hình xác nhận nhận hàng.
                     // sourceDepotId = {id} trong route /logistics/depot/{id}/close/{closureId}/transfer/{transferId}/receive
                     new Dictionary<string, string>
                     {

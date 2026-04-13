@@ -11,4 +11,4 @@ public class UpdateCampaignInfoValidator : AbstractValidator<UpdateCampaignInfoC
         RuleFor(x => x.Region).NotEmpty().MaximumLength(255).WithMessage("Khu vực không hợp lệ.");
         RuleFor(x => x.ModifiedBy).NotEmpty().WithMessage("Người thực hiện không hợp lệ.");
     }
-}
+}

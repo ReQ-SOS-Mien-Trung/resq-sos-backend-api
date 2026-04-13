@@ -142,7 +142,7 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
             );
     }
 
-    // ── Rescuer assigned to AP ──────────────────────────────────────
+    // -- Rescuer assigned to AP --------------------------------------
 
     public async Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default)
     {

@@ -31,7 +31,7 @@ public class FundingRequestItemRequest
 
     public string? Unit { get; set; }
 
-    /// <summary>Mô tả vật phẩm — tương ứng cột G trong template Excel.</summary>
+    /// <summary>Mô tả vật phẩm - tương ứng cột G trong template Excel.</summary>
     public string? Description { get; set; }
 
     /// <summary>URL ảnh vật phẩm (optional). Chỉ áp dụng khi tạo item model mới (theo tên).</summary>

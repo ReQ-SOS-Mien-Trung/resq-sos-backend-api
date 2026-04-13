@@ -3,7 +3,7 @@ using MediatR;
 namespace RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
 
 /// <summary>
-/// Quản lý kho nguồn xác nhận xuất hàng — chuyển transfer từ AwaitingShipment → Shipping.
+/// Quản lý kho nguồn xác nhận xuất hàng - chuyển transfer từ AwaitingShipment → Shipping.
 /// </summary>
 /// <param name="DepotId">Kho nguồn (route param)</param>
 /// <param name="TransferId">Bản ghi transfer</param>

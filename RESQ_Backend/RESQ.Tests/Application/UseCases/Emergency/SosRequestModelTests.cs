@@ -9,7 +9,7 @@ public class SosRequestModelTests
 {
     private static readonly GeoLocation ValidLocation = new(10.762622, 106.660172);
 
-    // ── Create factory ─────────────────────────────────────────────────────────
+    // -- Create factory ---------------------------------------------------------
 
     [Fact]
     public void Create_WithEmptyUserId_ThrowsInvalidUserException()
@@ -77,7 +77,7 @@ public class SosRequestModelTests
         Assert.True(model.ReceivedAt >= before);
     }
 
-    // ── SetPriorityLevel / SetStatus helpers ────────────────────────────────────
+    // -- SetPriorityLevel / SetStatus helpers ------------------------------------
 
     [Fact]
     public void SetPriorityLevel_UpdatesPriorityLevel()

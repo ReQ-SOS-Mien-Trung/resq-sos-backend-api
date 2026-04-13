@@ -55,9 +55,7 @@ public interface IExcelExportService
         IReadOnlyList<DonationImportItemInfo> items,
         IReadOnlyList<DonationImportTargetGroupInfo> targetGroups);
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    //  Depot Closure — External Resolution
-    // ═══════════════════════════════════════════════════════════════════════════
+    //  Depot Closure - External Resolution
 
     /// <summary>
     /// Tạo file Excel template để depot manager ghi nhận cách xử lý tồn kho bên ngoài hệ thống.

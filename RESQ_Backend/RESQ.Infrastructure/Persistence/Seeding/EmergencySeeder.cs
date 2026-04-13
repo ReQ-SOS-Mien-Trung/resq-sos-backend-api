@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
@@ -20,8 +20,8 @@ public static class EmergencySeeder
         var now = new DateTime(2025, 10, 15, 8, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<SosCluster>().HasData(
-            // Cluster 1: Thừa Thiên Huế — Lũ lụt nghiêm trọng
-            // Tâm cụm gần cặp SOS A (Id=1, Id=2) — PENDING: chờ coordinator gom SOS và tạo mission
+            // Cluster 1: Thừa Thiên Huế - Lũ lụt nghiêm trọng
+            // Tâm cụm gần cặp SOS A (Id=1, Id=2) - PENDING: chờ coordinator gom SOS và tạo mission
             new SosCluster
             {
                 Id = 1,
@@ -37,7 +37,7 @@ public static class EmergencySeeder
                 LastUpdatedAt = now,
                 IsMissionCreated = false
             },
-            // Cluster 2: Đà Nẵng — Sử dụng cho AI analysis, không có SOS request gắn trực tiếp
+            // Cluster 2: Đà Nẵng - Sử dụng cho AI analysis, không có SOS request gắn trực tiếp
             new SosCluster
             {
                 Id = 2,
@@ -53,8 +53,8 @@ public static class EmergencySeeder
                 LastUpdatedAt = now,
                 IsMissionCreated = true
             },
-            // Cluster 3: Hà Tĩnh — Sạt lở + cô lập
-            // Tâm cụm gần cặp SOS B (Id=3, Id=4) — PENDING: chờ coordinator gom SOS và tạo mission
+            // Cluster 3: Hà Tĩnh - Sạt lở + cô lập
+            // Tâm cụm gần cặp SOS B (Id=3, Id=4) - PENDING: chờ coordinator gom SOS và tạo mission
             new SosCluster
             {
                 Id = 3,
@@ -69,7 +69,7 @@ public static class EmergencySeeder
                 CreatedAt = now,
                 LastUpdatedAt = now
             },
-            // Cluster 4: Phong Điền, Thừa Thiên Huế — Đã có Mission #3 Completed
+            // Cluster 4: Phong Điền, Thừa Thiên Huế - đã có Mission #3 Completed
             // Tâm cụm gần SOS G (Id=7, Id=8)
             new SosCluster
             {
@@ -94,11 +94,11 @@ public static class EmergencySeeder
         modelBuilder.Entity<SosRequest>().HasData(
 
             // ============================================================
-            // CẶP A — 2 yêu cầu gần nhau (~700m), TP. Huế
+            // CẶP A - 2 yêu cầu gần nhau (~700m), TP. Huế
             // ============================================================
 
             // A-1: Nhà bị ngập tầng 2, có cụ bà 82t bị liệt
-            // Người gửi: Hoàng Văn (victim) — 0945678901
+            // Người gửi: Hoàng Văn (victim) - 0945678901
             new SosRequest
             {
                 Id = 1,
@@ -160,8 +160,8 @@ public static class EmergencySeeder
                 AiAnalysis = """{"urgency":"critical","suggested_severity":"Critical","confidence":0.96,"risk_factors":["deep_flooding","elderly_paralyzed","water_rising"],"needs":["boat_rescue","medical_team"]}"""
             },
 
-            // A-2: Phụ nữ mang thai tháng 8 + 3 trẻ nhỏ, đang trú trên mái — ~700m từ A-1
-            // Người gửi: Nguyễn Thanh Tùng (applicant1) — 0961111111
+            // A-2: Phụ nữ mang thai tháng 8 + 3 trẻ nhỏ, đang trú trên mái - ~700m từ A-1
+            // Người gửi: Nguyễn Thanh Tùng (applicant1) - 0961111111
             new SosRequest
             {
                 Id = 2,
@@ -224,12 +224,12 @@ public static class EmergencySeeder
             },
 
             // ============================================================
-            // CẶP B — 2 yêu cầu gần nhau (~800m), TP. Hà Tĩnh
+            // CẶP B - 2 yêu cầu gần nhau (~800m), TP. Hà Tĩnh
             // Cách cặp A khoảng 160km về phía bắc
             // ============================================================
 
             // B-1: Sạt lở đường, xe tải bị chặn, 2 người bị thương (gãy tay + chảy máu đầu)
-            // Người gửi: Trần Minh Đức (applicant2) — 0962222222
+            // Người gửi: Trần Minh Đức (applicant2) - 0962222222
             new SosRequest
             {
                 Id = 3,
@@ -309,8 +309,8 @@ public static class EmergencySeeder
                 AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.89,"risk_factors":["landslide","bleeding_injury","road_blocked"],"needs":["medical_evacuation","helicopter"]}"""
             },
 
-            // B-2: Cầu bị ngập, cả thôn cô lập 3 ngày, thiếu sữa + thuốc — ~800m từ B-1
-            // Người gửi: Lê Thị Hương (applicant3) — 0963333333
+            // B-2: Cầu bị ngập, cả thôn cô lập 3 ngày, thiếu sữa + thuốc - ~800m từ B-1
+            // Người gửi: Lê Thị Hương (applicant3) - 0963333333
             new SosRequest
             {
                 Id = 4,
@@ -382,11 +382,11 @@ public static class EmergencySeeder
                 AiAnalysis = """{"urgency":"high","suggested_severity":"High","confidence":0.91,"risk_factors":["prolonged_isolation","infant_malnutrition","medication_shortage"],"needs":["food_drop","water","medicine"]}"""
             },
 
-            // YÊU CẦU ĐƠN LẺ — TP. Đà Nẵng
+            // YÊU CẦU ĐƠN LẺ - TP. Đà Nẵng
             // Không thuộc cluster nào
 
             // Người đi rừng bị lạc, gãy chân trái, điện thoại sắp hết pin
-            // Người gửi: Phạm Văn Hải (applicant4) — 0964444444
+            // Người gửi: Phạm Văn Hải (applicant4) - 0964444444
             new SosRequest
             {
                 Id = 5,
@@ -397,7 +397,7 @@ public static class EmergencySeeder
                 LocationAccuracy = 5,
                 SosType = "RESCUE",
                 OriginId = "D1C00005-0000-4A8A-B0BF-000000000005",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 1 | Bị thương: Người lớn 1: Gãy chân (Nghiêm trọng) | Ghi chú: Lạc trong rừng Hòa Phú, gãy chân trái không đi được, điện thoại sắp hết pin 8%",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 1 | Bị thương: Người lớn 1: Gãy chân (Nghiêm trọng) | Ghi chú: Lạc trong rừng Hòa Phú, gãy chân trái không di được, điện thoại sắp hết pin 8%",
                 StructuredData = """
                     {
                       "incident": {
@@ -407,7 +407,7 @@ public static class EmergencySeeder
                         "need_medical": true,
                         "others_are_stable": true,
                         "people_count": { "adult": 1, "child": 0, "elderly": 0 },
-                        "additional_description": "Lạc trong rừng Hòa Phú từ sáng, gãy chân trái không tự đi được, điện thoại còn 8% pin, tọa độ GPS 16.0240N 108.0100E"
+                        "additional_description": "Lạc trong rừng Hòa Phú từ sáng, gãy chân trái không tự di được, điện thoại còn 8% pin, tọa độ GPS 16.0240N 108.0100E"
                       },
                       "group_needs": {
                         "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
@@ -459,8 +459,8 @@ public static class EmergencySeeder
             },
 
             // ============================================================
-            // SOS #6 — Huế (Cluster chưa có): Scenario 1 "SOS mới đến"
-            // Người gửi: victim (55555555) — mới nhất, xuất hiện đầu dashboard
+            // SOS #6 - Huế (Cluster chưa có): Scenario 1 "SOS mới đến"
+            // Người gửi: victim (55555555) - mới nhất, xuất hiện đầu dashboard
             // ============================================================
             new SosRequest
             {
@@ -519,8 +519,8 @@ public static class EmergencySeeder
             },
 
             // ============================================================
-            // SOS #7 — Phong Điền, Huế (Cluster 4): Scenario 4 "Đã hoàn thành"
-            // Người gửi: applicant3 (66666666-...-6663) — 0963333333
+            // SOS #7 - Phong Điền, Huế (Cluster 4): Scenario 4 "Đã hoàn thành"
+            // Người gửi: applicant3 (66666666-...-6663) - 0963333333
             // ============================================================
             new SosRequest
             {
@@ -532,7 +532,7 @@ public static class EmergencySeeder
                 LocationAccuracy = 8,
                 SosType = "RESCUE",
                 OriginId = "D1G00007-0000-4A8A-B0BF-000000000007",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 7 | Trẻ em: 3 | Người già: 1 | Ghi chú: Nuoc lu ngang mat nen, can xuong cuu nguoi va hang cu tro can thiet",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 7 | Trẻ em: 3 | Người già: 1 | Ghi chú: Nước lũ ngang mặt nền, cần xuồng cứu người và hàng cứu trợ cần thiết",
                 StructuredData = """
                     {
                       "incident": {
@@ -542,7 +542,7 @@ public static class EmergencySeeder
                         "need_medical": false,
                         "others_are_stable": false,
                         "people_count": { "adult": 3, "child": 3, "elderly": 1 },
-                        "additional_description": "Nuoc lu ngang mat nen, can xuong cuu nguoi va hang cu tro can thiet"
+                        "additional_description": "Nước lũ ngang mặt nền, cần xuồng cứu người và hàng cứu trợ cần thiết"
                       },
                       "group_needs": {
                         "supplies": ["FOOD", "WATER", "TRANSPORTATION"]
@@ -579,8 +579,8 @@ public static class EmergencySeeder
             },
 
             // ============================================================
-            // SOS #8 — Phong Điền, Huế (Cluster 4): Scenario 4 "Đã hoàn thành"
-            // Người gửi: applicant4 (66666666-...-6664) — 0964444444
+            // SOS #8 - Phong Điền, Huế (Cluster 4): Scenario 4 "Đã hoàn thành"
+            // Người gửi: applicant4 (66666666-...-6664) - 0964444444
             // ============================================================
             new SosRequest
             {
@@ -687,7 +687,7 @@ public static class EmergencySeeder
                 ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
                 CreatedAt = now.AddSeconds(30)
             },
-            // SOS 3: Sạt lở, 2 người thương nặng (gãy tay + chảy máu đầu) → High (68.5)
+            // SOS 3: Sạt lở, 2 người thương nặng (gãy tay + chảy máu đầu) -> High (68.5)
             new SosRuleEvaluation
             {
                 Id = 3,
@@ -719,7 +719,7 @@ public static class EmergencySeeder
                 ItemsNeeded = "[\"FIRST_AID_KIT\",\"MEDICAL_SUPPLIES\",\"LIFE_JACKET\",\"RESCUE_BOAT\",\"ROPE\",\"FOOD_RATIONS\",\"WATER\",\"BLANKETS\"]",
                 CreatedAt = now.AddMinutes(1).AddSeconds(30)
             },
-            // SOS 5: Tai nạn rừng, gãy chân, điện thoại 8% pin → High (50.0)
+            // SOS 5: Tai nạn rừng, gãy chân, điện thoại 8% pin -> High (50.0)
             new SosRuleEvaluation
             {
                 Id = 5,

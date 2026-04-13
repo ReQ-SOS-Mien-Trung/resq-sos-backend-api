@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Entities.Finance;
+using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Finance.ValueObjects;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;

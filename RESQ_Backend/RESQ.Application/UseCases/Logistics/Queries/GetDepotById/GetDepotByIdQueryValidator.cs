@@ -9,4 +9,4 @@ public class GetDepotByIdQueryValidator : AbstractValidator<GetDepotByIdQuery>
         RuleFor(x => x.Id)
             .GreaterThan(0).WithMessage("Id kho phải lớn hơn 0.");
     }
-}
+}

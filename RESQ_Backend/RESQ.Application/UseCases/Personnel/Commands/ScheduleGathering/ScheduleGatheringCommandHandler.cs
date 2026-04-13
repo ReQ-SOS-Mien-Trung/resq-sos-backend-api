@@ -25,7 +25,7 @@ public class ScheduleGatheringCommandHandler(
         // 2. Normalize ve UTC de luu tru.
         var assemblyDateUtc = request.AssemblyDate.ToUtcForStorage();
 
-        // 3. Kh�ng cho ph�p l?p l?ch v�o ng�y qu� kh? theo gi? Vi?t Nam.
+        // 3. Không cho phép l?p l?ch vào ngày quá kh? theo gi? Vi?t Nam.
         var assemblyDateInVietnam = assemblyDateUtc.ToVietnamTime().Date;
         var todayInVietnam = DateTime.UtcNow.ToVietnamTime().Date;
         if (assemblyDateInVietnam < todayInVietnam)
@@ -49,7 +49,7 @@ public class ScheduleGatheringCommandHandler(
 
         await unitOfWork.SaveAsync();
 
-        // 6. Gui thong bao Firebase cho tat ca rescuer duoc gan vao su kien.
+        // 6. Gửi thông báo Firebase cho tất cả rescuer được gán vào sự kiện.
         var vnTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
         var vnAssemblyDate = TimeZoneInfo.ConvertTimeFromUtc(assemblyDateUtc, vnTimeZone);
 

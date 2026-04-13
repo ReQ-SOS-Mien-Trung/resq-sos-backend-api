@@ -3,7 +3,7 @@ using MediatR;
 namespace RESQ.Application.UseCases.Logistics.Commands.PrepareClosureTransfer;
 
 /// <summary>
-/// Quản lý kho nguồn xác nhận đang chuẩn bị hàng — chuyển transfer từ AwaitingPreparation → Preparing.
+/// Quản lý kho nguồn xác nhận đang chuẩn bị hàng - chuyển transfer từ AwaitingPreparation → Preparing.
 /// </summary>
 /// <param name="DepotId">Kho nguồn (route param)</param>
 /// <param name="TransferId">Bản ghi transfer</param>

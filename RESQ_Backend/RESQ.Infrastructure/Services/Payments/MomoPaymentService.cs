@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Models.Finance.Momo;
@@ -70,7 +70,7 @@ public class MomoPaymentService : IPaymentGatewayService
             throw new Exception("Số tiền không hợp lệ. MoMo yêu cầu từ 1,000 đến 50,000,000 VND.");
         }
 
-        var orderInfo = $"Ung ho {donation.FundCampaignCode ?? "RESQ"}";
+        var orderInfo = $"Ủng hộ {donation.FundCampaignCode ?? "RESQ"}";
         // Must be base64 encoded JSON string. e30= is base64 for "{}"
         var extraData = "e30=";
         

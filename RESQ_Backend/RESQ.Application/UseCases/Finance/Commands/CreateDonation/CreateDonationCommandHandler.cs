@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -47,7 +47,7 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
         if (campaign.Status != FundCampaignStatus.Active)
             throw new InvalidCampaignStatusException(campaign.Id, campaign.Status.ToString(), "Nhận ủng hộ");
 
-        // 3. Create Donation (dùng enum paymentCode — không quay lại dùng string)
+        // 3. Create Donation (dùng enum paymentCode - không quay lại dùng string)
         long orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         var donationModel = new DonationModel

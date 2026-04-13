@@ -31,4 +31,4 @@ public class DeleteAssemblyPointCommandHandler(
 
         _logger.LogInformation("Deleted AssemblyPoint successfully: Id={Id}", request.Id);
     }
-}
+}

@@ -40,7 +40,7 @@ public class AssignTeamToActivityCommandHandler(
         }
         else
         {
-            // Team not assigned to the mission yet — assign it first
+            // Team not assigned to the mission yet - assign it first
             var assignResult = await mediator.Send(
                 new AssignTeamToMissionCommand(request.MissionId, request.RescueTeamId, request.AssignedById),
                 cancellationToken);

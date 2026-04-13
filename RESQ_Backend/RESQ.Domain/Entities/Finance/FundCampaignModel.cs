@@ -23,7 +23,7 @@ public class FundCampaignModel
     
     public FundCampaignStatus Status { get; private set; }
 
-    /// <summary>Lý do tạm dừng chiến dịch — chỉ có giá trị khi Status = Suspended.</summary>
+    /// <summary>Lý do tạm dừng chiến dịch - chỉ có giá trị khi Status = Suspended.</summary>
     public string? SuspendReason { get; private set; }
 
     public Guid? CreatedBy { get; private set; }
@@ -97,7 +97,7 @@ public class FundCampaignModel
     }
 
     // =================================================================
-    // DOMAIN BUSINESS RULES — STATE TRANSITIONS
+    // DOMAIN BUSINESS RULES - STATE TRANSITIONS
     // =================================================================
 
     /// <summary>

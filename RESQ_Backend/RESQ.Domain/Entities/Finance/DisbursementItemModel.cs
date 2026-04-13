@@ -1,7 +1,7 @@
 namespace RESQ.Domain.Entities.Finance;
 
 /// <summary>
-/// Chi tiết vật tư đã mua từ tiền giải ngân — công khai cho donor xem.
+/// Chi tiết vật tư đã mua từ tiền giải ngân - công khai cho donor xem.
 /// </summary>
 public class DisbursementItemModel
 {

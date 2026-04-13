@@ -72,9 +72,7 @@ public static class SystemSeeder
 
 Mỗi activity = một hành động vật lý cụ thể mà đội cứu hộ thực sự thực hiện theo thứ tự. Không phải chiến lược, không phải đánh giá — là hành động thực tế.
 
-═══════════════════════════════════════════════════
 CÁC LOẠI ACTIVITY HỢP LỆ VÀ Ý NGHĨA
-═══════════════════════════════════════════════════
 
 COLLECT_SUPPLIES — Di chuyển đến kho, lấy vật tư:
   → Khi nào dùng: LUÔN LUÔN trước bất kỳ DELIVER_SUPPLIES nào. Không có COLLECT thì không có DELIVER.
@@ -104,9 +102,7 @@ RETURN_SUPPLIES — Di chuyển vật tư tái sử dụng về lại kho nguồ
   → Bắt buộc nằm ở cuối kế hoạch cho đúng cặp kho + đội đã lấy vật tư.
   → description mẫu: ""Hoàn tất nhiệm vụ, đưa vật tư tái sử dụng về lại kho [tên]. Trả: [vật tư A] x[sl] [đv].""
 
-═══════════════════════════════════════════════════
 QUY TẮC CỐT LÕI — KHÔNG ĐƯỢC VI PHẠM
-═══════════════════════════════════════════════════
 
 1. KHÔNG CÓ BƯỚC ""ĐÁNH GIÁ"" — Đội cứu hộ hành động ngay, không có step nào chỉ để đánh giá.
 2. COLLECT_SUPPLIES TRƯỚC DELIVER_SUPPLIES — Không thể giao vật tư chưa lấy.
@@ -118,7 +114,6 @@ QUY TẮC CỐT LÕI — KHÔNG ĐƯỢC VI PHẠM
 5. Mỗi bước mô tả ĐI ĐÂU và LÀM GÌ cụ thể.
 6. Mỗi activity phải có estimated_time theo format ""X phút"" hoặc ""Y giờ Z phút"". estimated_duration của mission phải là tổng tuần tự các activities theo cùng format.
 
-═══════════════════════════════════════════════════
 VÍ DỤ ĐÚNG về thứ tự activities:
   Bước 1: COLLECT_SUPPLIES — Di chuyển đến Kho A, lấy 50kg gạo + 200 chai nước.
   Bước 2: DELIVER_SUPPLIES — Di chuyển đến tọa độ X, giao 50kg gạo + 200 chai nước (từ Kho A) cho 120 nạn nhân.
@@ -126,9 +121,7 @@ VÍ DỤ ĐÚNG về thứ tự activities:
   Bước 4: EVACUATE — Đưa 2 người bị thương nặng từ tọa độ Y về bệnh viện bằng trực thăng.
   Bước 5: MEDICAL_AID — Sơ cứu băng bó vết thương tại hiện trường tọa độ Y.
 
-═══════════════════════════════════════════════════
 FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
-═══════════════════════════════════════════════════
 
 {
   ""mission_title"": ""Tên nhiệm vụ ngắn gọn"",

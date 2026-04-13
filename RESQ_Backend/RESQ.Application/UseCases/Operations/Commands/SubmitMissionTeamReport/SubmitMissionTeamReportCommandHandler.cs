@@ -29,41 +29,41 @@ public class SubmitMissionTeamReportCommandHandler(
     public async Task<MissionTeamReportResponse> Handle(SubmitMissionTeamReportCommand request, CancellationToken cancellationToken)
     {
         var mission = await missionRepository.GetByIdAsync(request.MissionId, cancellationToken)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y mission vá»›i ID: {request.MissionId}");
+            ?? throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
 
         var missionTeam = await missionTeamRepository.GetByIdAsync(request.MissionTeamId, cancellationToken)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y liÃªn káº¿t Ä‘á»™i-mission vá»›i ID: {request.MissionTeamId}");
+            ?? throw new NotFoundException($"Không tìm thấy liên kết đội-mission với ID: {request.MissionTeamId}");
 
         if (missionTeam.MissionId != request.MissionId)
-            throw new BadRequestException("Mission team khÃ´ng thuá»™c mission Ä‘Æ°á»£c yÃªu cáº§u.");
+            throw new BadRequestException("Mission team không thuộc mission được yêu cầu.");
 
         var leader = missionTeam.RescueTeamMembers.FirstOrDefault(x => x.UserId == request.SubmittedBy && x.IsLeader);
         if (leader is null)
-            throw new ForbiddenException("Chá»‰ Ä‘á»™i trÆ°á»Ÿng má»›i cÃ³ quyá»n ná»™p bÃ¡o cÃ¡o cuá»‘i cÃ¹ng.");
+            throw new ForbiddenException("Chỉ đội trưởng mới có quyền nộp báo cáo cuối cùng.");
 
         if (string.Equals(missionTeam.Status, MissionTeamExecutionStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("Äá»™i Ä‘Ã£ bá»‹ há»§y phÃ¢n cÃ´ng, khÃ´ng thá»ƒ ná»™p bÃ¡o cÃ¡o.");
+            throw new BadRequestException("Đội đã bị hủy phân công, không thể nộp báo cáo.");
 
         if (!string.Equals(missionTeam.Status, MissionTeamExecutionStatus.CompletedWaitingReport.ToString(), StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("Äá»™i pháº£i hoÃ n táº¥t thá»±c thi trÆ°á»›c khi ná»™p bÃ¡o cÃ¡o cuá»‘i cÃ¹ng.");
+            throw new BadRequestException("Đội phải hoàn tất thực thi trước khi nộp báo cáo cuối cùng.");
 
         if (string.Equals(missionTeam.ReportStatus, MissionTeamReportStatus.Submitted.ToString(), StringComparison.OrdinalIgnoreCase)
             || string.Equals(missionTeam.Status, MissionTeamExecutionStatus.Reported.ToString(), StringComparison.OrdinalIgnoreCase))
-            throw new ConflictException("BÃ¡o cÃ¡o cuá»‘i cÃ¹ng Ä‘Ã£ Ä‘Æ°á»£c ná»™p trÆ°á»›c Ä‘Ã³.");
+            throw new ConflictException("Báo cáo cuối cùng đã được nộp trước đó.");
 
         var assignedActivities = mission.Activities
             .Where(x => x.MissionTeamId == request.MissionTeamId)
             .ToDictionary(x => x.Id);
 
         if (assignedActivities.Count == 0)
-            throw new BadRequestException("Äá»™i nÃ y chÆ°a Ä‘Æ°á»£c giao activity nÃ o Ä‘á»ƒ bÃ¡o cÃ¡o.");
+            throw new BadRequestException("Đội này chưa được giao activity nào để báo cáo.");
 
         var invalidActivityId = request.Activities
             .Select(x => x.MissionActivityId)
             .FirstOrDefault(id => !assignedActivities.ContainsKey(id));
 
         if (invalidActivityId > 0)
-            throw new BadRequestException($"Activity #{invalidActivityId} khÃ´ng thuá»™c mission team nÃ y.");
+            throw new BadRequestException($"Activity #{invalidActivityId} không thuộc mission team này.");
 
         var memberEvaluations = request.MemberEvaluations
             .Select(x => new MissionTeamMemberEvaluationModel
@@ -90,7 +90,7 @@ public class SubmitMissionTeamReportCommandHandler(
             if (!TryMapExecutionStatus(item.ExecutionStatus, out var mappedStatus))
             {
                 throw new BadRequestException(
-                    $"ExecutionStatus '{item.ExecutionStatus}' cá»§a activity #{item.MissionActivityId} khÃ´ng há»£p lá»‡.");
+                    $"ExecutionStatus '{item.ExecutionStatus}' của activity #{item.MissionActivityId} không hợp lệ.");
             }
 
             activityStatusUpdates.Add((item.MissionActivityId, mappedStatus));
@@ -278,7 +278,7 @@ public class SubmitMissionTeamReportCommandHandler(
         });
 
         var refreshedMissionTeam = await missionTeamRepository.GetByIdAsync(request.MissionTeamId, cancellationToken)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y liÃªn káº¿t Ä‘á»™i-mission vá»›i ID: {request.MissionTeamId}");
+            ?? throw new NotFoundException($"Không tìm thấy liên kết đội-mission với ID: {request.MissionTeamId}");
         var report = await missionTeamReportRepository.GetByMissionTeamIdAsync(request.MissionTeamId, cancellationToken);
 
         return MissionTeamReportResponseFactory.Create(request.MissionId, refreshedMissionTeam, report, assignedActivities.Values, request.SubmittedBy);

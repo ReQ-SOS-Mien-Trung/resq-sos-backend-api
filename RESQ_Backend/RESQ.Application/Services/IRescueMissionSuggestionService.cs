@@ -109,11 +109,11 @@ public class RescueMissionSuggestionResult
     public double ConfidenceScore { get; set; }
     public string? RawAiResponse { get; set; }
 
-    /// <summary>true khi AI có độ tự tin thấp — cần người điều phối xem xét thủ công.</summary>
+    /// <summary>true khi AI có độ tự tin thấp - cần người điều phối xem xét thủ công.</summary>
     public bool NeedsManualReview { get; set; }
     /// <summary>Thông báo giải thích lý do cần xem xét thủ công (chỉ set khi NeedsManualReview = true).</summary>
     public string? LowConfidenceWarning { get; set; }
-    /// <summary>true khi không có kho nào đủ đa dạng hàng để cấp phát trong một lần — AI sẽ được nhắc lấy từ nhiều kho.</summary>
+    /// <summary>true khi không có kho nào đủ đa dạng hàng để cấp phát trong một lần - AI sẽ được nhắc lấy từ nhiều kho.</summary>
     public bool MultiDepotRecommended { get; set; }
 
     /// <summary>Đội cứu hộ được AI đề xuất cho sứ mệnh này (populated khi agent tìm được đội phù hợp).</summary>
@@ -165,7 +165,7 @@ public class SupplyToCollectDto
     public int? BufferQuantity { get; set; }
     /// <summary>Số lượng buffer thực tế đã sử dụng khi lấy hàng. Chỉ set khi gọi confirm-pickup với buffer usage.</summary>
     public int? BufferUsedQuantity { get; set; }
-    /// <summary>Lý do sử dụng buffer — bắt buộc khi BufferUsedQuantity > 0.</summary>
+    /// <summary>Lý do sử dụng buffer - bắt buộc khi BufferUsedQuantity > 0.</summary>
     public string? BufferUsedReason { get; set; }
     /// <summary>Chỉ có sau khi team confirm delivery: số lượng thực tế đã giao tới điểm đích cho item này.</summary>
     public int? ActualDeliveredQuantity { get; set; }
@@ -199,7 +199,7 @@ public class SuggestedActivityDto
     public string? AssemblyPointName { get; set; }
     public double? AssemblyPointLatitude { get; set; }
     public double? AssemblyPointLongitude { get; set; }
-    /// <summary>Tên điểm đến (kho hoặc điểm tập kết) — ưu tiên hiển thị thay cho tọa độ thô.</summary>
+    /// <summary>Tên điểm đến (kho hoặc điểm tập kết) - ưu tiên hiển thị thay cho tọa độ thô.</summary>
     public string? DestinationName { get; set; }
     /// <summary>Vĩ độ điểm đến của activity (kho, vị trí SOS, hoặc điểm tập kết). Frontend dùng để hiển thị bản đồ.</summary>
     public double? DestinationLatitude { get; set; }

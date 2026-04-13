@@ -199,7 +199,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 filter: u =>
                     // Loại trừ user bị ban
                     !u.IsBanned &&
-                    // Loại trừ rescuer (RoleId=3) chưa được kích hoạt — các role khác không cần profile
+                    // Loại trừ rescuer (RoleId=3) chưa được kích hoạt - các role khác không cần profile
                     (u.RoleId != 3 || (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer)) &&
                     (roleId == null || u.RoleId == roleId) &&
                     (search == null ||

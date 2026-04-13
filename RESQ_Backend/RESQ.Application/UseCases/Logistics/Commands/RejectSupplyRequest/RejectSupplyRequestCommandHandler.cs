@@ -28,7 +28,7 @@ public class RejectSupplyRequestCommandHandler(
 
         await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Rejected", "Rejected", request.Reason, cancellationToken);
 
-        // Notify requesting manager — kèm lý do từ chối
+        // Notify requesting manager - kèm lý do từ chối
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "Yêu cầu tiếp tế bị từ chối",

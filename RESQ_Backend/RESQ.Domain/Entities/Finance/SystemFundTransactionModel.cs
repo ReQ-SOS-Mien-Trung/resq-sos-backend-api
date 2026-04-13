@@ -3,7 +3,7 @@ using RESQ.Domain.Enum.Finance;
 namespace RESQ.Domain.Entities.Finance;
 
 /// <summary>
-/// Giao dịch trên quỹ hệ thống — ghi lại mỗi lần tiền vào/ra quỹ hệ thống.
+/// Giao dịch trên quỹ hệ thống - ghi lại mỗi lần tiền vào/ra quỹ hệ thống.
 /// </summary>
 public class SystemFundTransactionModel
 {

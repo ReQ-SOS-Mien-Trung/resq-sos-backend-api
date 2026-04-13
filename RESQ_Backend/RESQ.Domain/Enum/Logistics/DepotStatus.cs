@@ -1,4 +1,4 @@
-﻿namespace RESQ.Domain.Enum.Logistics
+namespace RESQ.Domain.Enum.Logistics
 {
     public enum DepotStatus
     {

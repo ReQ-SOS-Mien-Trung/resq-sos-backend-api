@@ -9,4 +9,4 @@ public class CampaignArchivedException : DomainException
 {
     public CampaignArchivedException() 
         : base("Không thể cập nhật thông tin khi chiến dịch đã được Lưu trữ (Archived).") { }
-}
+}

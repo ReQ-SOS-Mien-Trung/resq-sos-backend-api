@@ -9,7 +9,7 @@ public class AllocateFundToDepotRequest
     [Required]
     public FundSourceType SourceType { get; set; }
 
-    /// <summary>ID chiến dịch — bắt buộc khi SourceType = Campaign, null khi SystemFund.</summary>
+    /// <summary>ID chiến dịch - bắt buộc khi SourceType = Campaign, null khi SystemFund.</summary>
     public int? FundCampaignId { get; set; }
 
     [Required]
