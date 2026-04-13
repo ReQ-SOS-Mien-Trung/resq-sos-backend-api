@@ -24,7 +24,7 @@ No,Requirement Name,Class Name,Function Name,Function Code(Optional),Sheet Name,
 8,REQ-LOGISTICS-RETURN-HISTORY-001,ReturnSupplyActivity,GetMyReturnHistoryActivities,FC08,GetMyReturnHistoryActivities,"Depot manager retrieves return history with paging, date-range validation and enriched item images.","- User is assigned to an active depot
 - Page number is greater than 0
 - Page size is from 1 to 50
-- FromDate is not later than ToDate"
+- FromDate must be before ToDate"
 9,REQ-OPERATIONS-ADD-MISSION-ACTIVITY-001,MissionActivity,AddMissionActivity,FC09,AddMissionActivity,"Validate inputs before adding a mission activity to an existing mission.","- MissionId is greater than 0
 - ActivityType is provided
 - Step is positive when sent
@@ -58,5 +58,153 @@ No,Requirement Name,Class Name,Function Name,Function Code(Optional),Sheet Name,
 - Request scope is Activity
 - Context contains at least one affected activity"
 19,REQ-OPERATIONS-MAP-TEAM-INCIDENT-QUERY-001,TeamIncident,MapTeamIncidentQueryDto,FC19,MapTeamIncidentQueryDto,"Map team incident entities to response DTOs with fallback incident type, injury/support flags and affected activities.","- Team incident data exists
+- Incident sub-type may be generic and requires fallback to detail JSON"
+20,REQ-IDENTITY-ADMIN-USER-MGMT-001,User,AdminUserManagement,FC20,AdminUserManagement,"Admin creates or updates users with hashed passwords, duplicate detection for phone/email/username and role handling.","- Admin is authenticated
+- User phone, email or username must be unique
+- Password is hashed before storage"
+21,REQ-IDENTITY-AUTH-FLOW-001,User,AuthFlow,FC21,AuthFlow,"Register rescuer with hashed password and email verification, then login by username or phone returning tokens and permissions.","- Email is unique
+- Username or phone is provided for login
+- Password is hashed before storage"
+22,REQ-IDENTITY-BAN-UNBAN-001,User,BanUnbanUser,FC22,BanUnbanUser,"Admin bans a user clearing their refresh token or unbans a previously banned user.","- User exists
+- User is not already banned (for ban)
+- User is currently banned (for unban)"
+23,REQ-IDENTITY-REGISTER-VERIFY-EMAIL-001,User,RegisterVerifyEmail,FC23,RegisterVerifyEmail,"Rescuer registers with email verification token, then verifies email to activate account.","- Email verification token is valid
+- User exists and is not yet verified"
+24,REQ-IDENTITY-RELATIVE-PROFILE-001,RelativeProfile,RelativeProfile,FC24,RelativeProfile,"Create, update and retrieve relative profiles with normalization and optional client-provided IDs.","- User exists
+- Profile data is normalized before storage"
+25,REQ-IDENTITY-RESCUER-AUTH-SESSION-001,User,RescuerAuthSession,FC25,RescuerAuthSession,"Rescuer login returns tokens and permissions, refresh rotates tokens, logout clears refresh token, and get current user returns full profile.","- Rescuer credentials are valid
+- Refresh token is valid and not expired"
+26,REQ-IDENTITY-ROLE-AVATAR-PERMS-001,User,RoleAvatarPermissions,FC26,RoleAvatarPermissions,"Assign role to user, set avatar URL, and manage user permissions.","- User exists
+- Role exists (for role assignment)
+- Avatar URL is valid"
+27,REQ-IDENTITY-USER-PROFILE-001,User,UserProfile,FC27,UserProfile,"Rescuer updates profile fields and submits consent for eligibility step.","- User exists
+- All consent flags must be true for step advancement"
+28,REQ-EMERGENCY-CREATE-SOS-REQUEST-001,SosRequest,CreateSosRequest,FC28,CreateSosRequest,"Create SOS request with priority evaluation, AI analysis queuing and GPS coordinate preservation.","- User exists
+- GPS coordinates are provided
+- Priority is evaluated and assigned"
+29,REQ-EMERGENCY-GEN-MISSION-SUGGESTION-001,SosCluster,GenMissionSuggestion,FC29,GenMissionSuggestion,"Generate rescue mission suggestion via AI for a cluster and mark cluster as mission-created on success.","- Cluster exists
+- AI service is available
+- Cluster is updated on success"
+30,REQ-EMERGENCY-GEN-MISSION-SUGG-VALID-001,SosCluster,GenMissionSuggestionValidator,FC30,GenMissionSuggValidat,"Validate generate-mission-suggestion command inputs including cluster ID and user ID.","- ClusterId is greater than 0
+- UserId is not empty GUID"
+31,REQ-EMERGENCY-GET-ALT-DEPOTS-001,SosCluster,GetAlternativeDepots,FC31,GetAlternativeDepots,"Return ranked top-three alternative depots for a given SOS cluster.","- Cluster exists
+- Depots are ranked by distance and availability"
+32,REQ-EMERGENCY-GET-MISSION-SUGGEST-001,SosCluster,GetMissionSuggestions,FC32,GetMissionSuggestions,"Parse snake-case suggested activities from AI response into structured mission suggestion DTOs.","- Cluster has AI-generated suggestion data"
+33,REQ-EMERGENCY-GET-MY-SOS-001,SosRequest,GetMySosRequests,FC33,GetMySosRequests,"Merge owner and companion SOS requests with deduplication, sorting and latest victim update overlay.","- User exists
+- Results are sorted by CreatedAt descending
+- Companion flag is set correctly"
+34,REQ-EMERGENCY-GET-SOS-CLUSTERS-001,SosCluster,GetSosClusters,FC34,GetSosClusters,"Return list of SOS clusters with correct SOS request counts and field mapping.","- Clusters may or may not exist"
+35,REQ-EMERGENCY-GET-SOS-EVAL-001,SosRequest,GetSosEvaluation,FC35,GetSosEvaluation,"Owner, companion or privileged user views SOS evaluation; strangers are forbidden.","- SOS request exists
+- Requester is owner, companion or privileged user"
+36,REQ-EMERGENCY-GET-SOS-REQUEST-001,SosRequest,GetSosRequest,FC36,GetSosRequest,"Owner, companion or privileged user views SOS request detail with latest victim update overlay.","- SOS request exists
+- Requester is owner, companion or privileged user"
+37,REQ-LOGISTICS-ADJUST-INVENTORY-001,DepotInventory,AdjustInventory,FC37,AdjustInventory,"Validate adjust-inventory command inputs for item ID, quantity change, reason and note constraints.","- ItemModelId is greater than 0
+- QuantityChange is not zero
+- Reason is not empty and within 500 characters"
+38,REQ-LOGISTICS-CREATE-DEPOT-001,Depot,CreateDepot,FC38,CreateDepot,"Validate create-depot command inputs for name, address, coordinates, capacity and weight capacity.","- Name and address are not empty
+- Latitude is between -90 and 90
+- Longitude is between -180 and 180
+- Capacity and weight capacity are positive"
+39,REQ-LOGISTICS-CREATE-SUPPLY-REQ-001,SupplyRequest,CreateSupplyRequest,FC39,CreateSupplyRequest,"Validate create-supply-request inputs for non-empty requests, unique depot IDs and positive item quantities.","- Requests list is not empty
+- Source depot IDs are unique
+- Item quantities are positive"
+40,REQ-LOGISTICS-DEPOT-CLOSURE-001,Depot,InitiateDepotClosure,FC40,InitiateDepotClosure,"Initiate or finalize depot closure by creating closure records or saving tracked changes for completed closures.","- Depot exists
+- Depot may have an existing closure record"
+41,REQ-OPS-ADD-MISSION-ACTIVITY-HANDLER-001,MissionActivity,AddMissionActivityHandler,FC41,AddMissionActHandler,"Handle adding a mission activity checking mission existence, supply availability and rescue team assignment.","- Mission exists
+- Supplies are sufficient
+- Activity is created with Planned status"
+42,REQ-OPS-ASSIGN-TEAM-TO-ACTIVITY-001,MissionActivity,AssignTeamToActivity,FC42,AssignTeamToActivity,"Assign a rescue team to a specific mission activity, creating mission team if not already present.","- Activity exists
+- Team may or may not already be in mission"
+43,REQ-OPS-CONFIRM-DELIVERY-001,MissionActivity,ConfirmDeliverySupplies,FC43,ConfirmDeliverySupp,"Confirm delivery of supplies and merge consumable surplus into existing return activity.","- Activity exists with delivery items
+- Consumable surplus is merged into return activity"
+44,REQ-OPS-CONFIRM-SUPPLY-PICKUP-001,MissionActivity,ConfirmMissionSupplyPickup,FC44,ConfirmSupplyPickup,"Confirm mission supply pickup with buffer usage validation and item existence checks.","- Activity exists with items
+- Buffer usage requires a reason
+- Items must exist in activity"
+45,REQ-OPS-CONFIRM-RETURN-SUPPLIES-001,MissionActivity,ConfirmReturnSupplies,FC45,ConfirmReturnSupplies,"Confirm return of supplies using expected reusable unit count from quantity snapshot.","- Activity exists with return items
+- Quantity snapshot determines expected reusable units"
+46,REQ-OPS-CREATE-MISSION-HANDLER-001,Mission,CreateMissionHandler,FC46,CreateMissionHandler,"Handle mission creation with supply reservation for collect-supplies activities.","- Cluster exists
+- Supply reservation must succeed
+- Only collect-supplies activities trigger reservation"
+47,REQ-OPS-REPORT-ACTIVITY-INCIDENT-001,MissionActivity,ReportActivityIncident,FC47,ReportActivityIncident,"Report incident on a specific mission activity with mission status, team membership and activity existence checks.","- Mission exists and is OnGoing
+- Reporter is a member of the assigned team
+- Activity belongs to the mission"
+48,REQ-OPS-REPORT-TEAM-INCIDENT-001,MissionTeam,ReportTeamIncident,FC48,ReportTeamIncident,"Report incident on a mission team with mission status, team existence and reporter membership checks.","- Mission exists and is OnGoing
+- Mission team exists and belongs to mission
+- Reporter is a member of the team"
+49,REQ-OPS-SEND-MESSAGE-001,Message,SendMessage,FC49,SendMessage,"Send a message in a conversation after validating participant membership and non-empty content.","- Sender is a participant in the conversation
+- Content is not empty or whitespace"
+50,REQ-OPS-SYNC-MISSION-ACTIVITIES-001,MissionActivity,SyncMissionActivities,FC50,SyncMissionActivities,"Sync batch of mission activity updates with snapshot replay, mixed outcome reporting and batch validation.","- Batch is not empty and within 100 items
+- ClientMutationIds and MissionActivity pairs are unique
+- QueuedAt is valid and enum is in range"
+51,REQ-OPS-UPDATE-ACTIVITY-STATUS-001,MissionActivity,UpdateActivityStatus,FC51,UpdateActivityStatus,"Update mission activity status within a transaction and validate command inputs including IDs, status enum and image URL.","- Activity and mission IDs are positive
+- Status is a valid enum value
+- DecisionBy is not empty
+- ImageUrl is absolute when provided"
+52,REQ-OPS-UPDATE-MISSION-ACTIVITY-001,MissionActivity,UpdateMissionActivity,FC52,UpdateMissionActivity,"Update mission activity details including assembly point changes, step immutability for ongoing activities and supply re-validation.","- Activity exists
+- Activity status determines which fields can change
+- Old reservations are released before new validation"
+53,REQ-OPS-UPDATE-MISSION-VALIDATOR-001,Mission,UpdateMissionValidator,FC53,UpdateMissionValidator,"Validate update-mission command for duplicate activities, required updatedBy field, change presence and valid item payloads.","- Activity IDs are unique
+- UpdatedBy is required when activities are provided
+- Each activity has at least one changed field"
+54,REQ-OPS-UPDATE-MISSION-STATUS-VALID-001,Mission,UpdateMissionStatusValidator,FC54,UpdateMissionStatValid,"Validate update-mission-status command inputs including mission ID, status enum and decision-by ID.","- MissionId is positive
+- Status is a valid enum value
+- DecisionBy is not empty"
+55,REQ-OPS-GET-MISSION-ACTIVITIES-001,MissionActivity,GetMissionActivities,FC55,GetMissionActivities,"Query mission activities and map image URL from activity model.","- Mission exists with activities"
+56,REQ-OPS-MISSION-AI-SUGGESTION-001,Mission,MissionAiSuggestionSection,FC56,MissionAiSuggestion,"Build AI suggestion section preferring validated activities over draft, with snake-case metadata mapping.","- Suggestion blob data may or may not exist
+- Validated activities take precedence over draft"
+57,REQ-OPS-ACTIVITY-STATUS-EXEC-001,MissionActivity,ActivityStatusExecution,FC57,ActivityStatusExec,"Execute activity status changes persisting image URL for terminal statuses and intercepting return-supplies to pending confirmation.","- Activity status change is valid
+- Image URL is persisted for Succeed and Failed statuses"
+58,REQ-OPS-SUPPLY-EXEC-SNAPSHOT-001,MissionActivity,SupplyExecSnapshot,FC58,SupplyExecSnapshot,"Rebuild expected return units using picked snapshot without falling back to planned units.","- Picked snapshot exists for the activity"
+59,REQ-PERSONNEL-CREATE-TEAM-001,RescueTeam,CreateRescueTeam,FC59,CreateRescueTeam,"Validate rescue team creation inputs including name, type, assembly point, member count and leader requirements.","- Name is not empty and within 255 characters
+- Type is a valid enum
+- MaxMembers is between 6 and 8
+- Exactly one leader is in member list"
+60,REQ-DOMAIN-DEPOT-MODEL-001,DepotModel,DepotDomainRules,FC60,DepotDomainRules,"Apply depot domain rules for creation, manager assignment, utilization updates, status transitions and manager removal.","- Capacity and weight capacity are positive
+- Manager ID is not empty for assignment
+- Utilization does not exceed capacity
+- Status transitions follow allowed rules"
+61,REQ-DOMAIN-DEPOT-FUND-001,DepotFundModel,DepotFundRules,FC61,DepotFundRules,"Apply depot fund rules for credit, debit, advance and repay operations with balance and amount validations.","- Amount must be positive for credit, advance and repay
+- Sufficient balance is required for debit and repay"
+62,REQ-DOMAIN-FUND-TRANSACTION-001,FundTransactionModel,FundTransaction,FC62,FundTransaction,"Validate fund transaction creation and state management rules.","- Transaction data is provided
+- Amount and type are valid"
+63,REQ-DOMAIN-RESCUE-TEAM-001,RescueTeamModel,RescueTeamDomain,FC63,RescueTeamDomain,"Apply rescue team domain rules for creation, code generation, member management and max-members validation.","- MaxMembers is between 6 and 8
+- Members cannot exceed max
+- Duplicate users are not allowed"
+64,REQ-INFRA-AI-SETTINGS-RESOLVER-001,AiPromptExecutionSettingsResolver,AiSettingsResolver,FC64,AiSettingsResolver,"Resolve AI prompt execution settings using provider defaults or encrypted prompt API key overrides.","- Prompt configuration exists
+- Provider defaults are used when no override"
+65,REQ-INFRA-GEMINI-CLIENT-001,GeminiAiProviderClient,GeminiAiClient,FC65,GeminiAiClient,"Format Gemini API requests preserving native function call parts, replaying stored signatures and multi-step tool use patterns.","- API key is configured
+- Function call parts and signatures are present"
+66,REQ-INFRA-OPENROUTER-CLIENT-001,OpenRouterAiProviderClient,OpenRouterClient,FC66,OpenRouterClient,"Send OpenAI-compatible payloads via OpenRouter and map tool call responses.","- API key is configured
+- Request follows OpenAI format"
+67,REQ-INFRA-PROMPT-SECRET-001,PromptSecretProtector,PromptSecretProtector,FC67,PromptSecretProtector,"Protect and unprotect prompt secrets with master key, handling missing keys and plaintext passthrough.","- Master key may or may not be configured
+- Protected values round-trip correctly"
+68,REQ-INFRA-DEPOT-INVENTORY-001,DepotInventoryRepository,DepotInventoryRepo,FC68,DepotInventoryRepo,"Consume reserved supplies for consumable items without requiring reusable unit tracking.","- Reserved supply exists
+- Consumable items do not require reusable units"
+69,REQ-INFRA-PROMPT-MAPPER-001,PromptMapper,PromptMapper,FC69,PromptMapper,"Map prompt entities to domain defaulting provider to Gemini when stored provider is missing or invalid.","- Prompt entity exists
+- Provider field may be null or invalid"
+70,REQ-INFRA-AI-MODEL-TEST-001,AiModelTestService,AiModelTestService,FC70,AiModelTestService,"Route AI model test requests to the correct provider based on prompt configuration.","- Prompt configuration specifies a provider"
+71,REQ-INFRA-RESCUE-SUGGESTION-001,RescueMissionSuggestionService,RescueSuggestionSvc,FC71,RescueSuggestionSvc,"Parse mission suggestions, normalize supply shortages, enforce single-depot constraint and format estimated durations.","- AI response contains suggestion JSON
+- Supply shortages may reference multiple depots"
+72,REQ-COMMON-SECRET-MASKER-001,SecretMasker,SecretMasker,FC72,SecretMasker,"Mask secrets by hiding middle characters for long secrets and fully masking short secrets.","- Secret may be null, short or long"
+73,REQ-COMMON-STATE-MACHINES-001,StateMachine,StatusStateMachines,FC73,StatusStateMachines,"Validate mission and mission-activity status transitions using allowed and invalid transition rules.","- Current status and target status are provided
+- Transitions follow defined state machine rules"
+74,REQ-WORKFLOW-HAPPY-PATH-001,Workflow,Flow1HappyPath,FC74,Flow1HappyPath,"End-to-end happy path from SOS creation through clustering and mission planning with valid state transitions.","- SOS request is created with Pending status
+- Cluster is initialized
+- Mission starts as Planned"
+75,REQ-WORKFLOW-ACTIVITY-INCIDENT-001,Workflow,Flow2ActivityIncident,FC75,Flow2ActivityIncident,"Activity failure and continuation: OnGoing to Failed is valid, Failed is terminal, next activity can start after failure.","- Activity is OnGoing
+- Team incident follows Reported to Resolved cycle"
+76,REQ-WORKFLOW-MISSION-INCIDENT-001,Workflow,Flow3MissionIncident,FC76,Flow3MissionIncident,"Mission-level incident handling: OnGoing mission can become Incompleted (terminal), rescue team becomes stuck.","- Mission is OnGoing
+- Rescue team is on mission"
+77,REQ-WORKFLOW-SOS-SPAM-001,Workflow,Flow4SosDuplicateSpam,FC77,Flow4SosDuplicateSpam,"Reject duplicate and empty SOS IDs, accept unique IDs for cluster creation.","- SOS request IDs are provided"
+78,REQ-WORKFLOW-CLUSTER-FAIL-001,Workflow,Flow5ClusterFail,FC78,Flow5ClusterFail,"Reject empty and duplicate IDs for cluster creation, accept single SOS.","- SOS request IDs are provided"
+79,REQ-WORKFLOW-NO-RESCUER-001,Workflow,Flow6NoRescuer,FC79,Flow6NoRescuer,"Available team can be assigned; Gathering, Assigned and OnMission teams cannot accept new mission assignment.","- Rescue team exists with a known status"
+80,REQ-WORKFLOW-REDISPATCH-001,Workflow,Flow7Redispatch,FC80,Flow7Redispatch,"Cancel mission assignment returns team to Available; handover decision is processed for team incidents.","- Rescue team is Assigned
+- Team incident exists for handover"
+81,REQ-WORKFLOW-SUPPLY-BUG-001,Workflow,Flow8SupplyLogicBug,FC81,Flow8SupplyLogicBug,"Buffer calculation matches handler logic with configurable ratio, total-with-buffer and negative-ratio clamping.","- Quantity and buffer ratio are provided
+- Default buffer ratio is 10%"
+82,REQ-WORKFLOW-ROUTING-FAIL-001,Workflow,Flow9RoutingFail,FC82,Flow9RoutingFail,"Haversine distance calculations for same point, long distance, nearby points and cross-equator scenarios.","- GPS coordinates are provided for two points"
+83,REQ-WORKFLOW-SOS-REDIRECT-001,Workflow,Flow10SosRedirect,FC83,Flow10SosRedirect,"SOS status transitions for incident redirect: InProgress to Incident, Incident can be reclustered or go back to Assigned.","- SOS request is InProgress"
+84,REQ-PRESENTATION-SOS-CLUSTER-ROUTE-001,SosClusterController,SosClusterRoute,FC84,SosClusterRoute,"SOS cluster controller exposes alternative-depots route with correct HTTP method and path template.","- Controller is registered"
+85,REQ-PRESENTATION-MISSION-CTRL-001,MissionController,MissionController,FC85,MissionController,"Mission controller integration tests for route registration and endpoint behavior.","- Controller is registered"
 - DetailJson may contain subtype, injury or support fields
 - Affected activities are loaded when available"
