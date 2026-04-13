@@ -165,6 +165,9 @@ public class MissionSupplyExecutionSnapshotHelperTests
         public Task<IEnumerable<MissionActivityModel>> GetBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<IReadOnlyList<MissionActivityModel>> GetOpenByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         public Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 

@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
@@ -15,10 +15,7 @@ public class ChangeDepotStatusCommandValidator : AbstractValidator<ChangeDepotSt
 
         RuleFor(x => x.Status)
             .IsInEnum().WithMessage("Trạng thái kho không hợp lệ.")
-            .Must(s => s == DepotStatus.Available || s == DepotStatus.Unavailable)
-            .WithMessage("Trạng thái đưa vào không hợp lệ. " +
-                         "Các trạng thái được phép: Available, Unavailable. " +
-                         "Dùng POST /logistics/depot/{id}/close để đóng kho.");
+            .Must(s => s == DepotStatus.Available || s == DepotStatus.Unavailable || s == DepotStatus.Closing)
+            .WithMessage("Trạng thái đưa vào không hợp lệ. Các trạng thái được phép: Available, Unavailable, Closing.");
     }
 }
-

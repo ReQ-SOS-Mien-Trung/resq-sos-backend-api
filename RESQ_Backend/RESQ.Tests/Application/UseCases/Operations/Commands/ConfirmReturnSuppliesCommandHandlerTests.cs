@@ -399,7 +399,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             => throw new NotImplementedException();
 
         public Task<IReadOnlyList<MissionActivityModel>> GetOpenByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<MissionActivityModel>>([activity]);
+            => Task.FromResult<IReadOnlyList<MissionActivityModel>>([]);
 
         public Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
