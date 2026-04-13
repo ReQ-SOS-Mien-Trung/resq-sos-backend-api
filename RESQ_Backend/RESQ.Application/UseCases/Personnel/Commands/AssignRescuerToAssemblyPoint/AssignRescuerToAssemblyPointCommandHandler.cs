@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -28,11 +28,21 @@ public class AssignRescuerToAssemblyPointCommandHandler(
 
         string? apName = null;
 
+        if (!request.AssemblyPointId.HasValue)
+        {
+            logger.LogInformation("Thực hiện gỡ rescuer {UserId} khỏi điểm tập kết hiện tại (chiều OUT). Thao tác này luôn được phép thực hiện để giải phóng nhân sự dù điểm tập kết có đang Unavailable hay không.", request.RescuerUserId);
+        }
+
         // 2. Validate điểm tập kết tồn tại (nếu gán mới)
         if (request.AssemblyPointId.HasValue)
         {
             var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId.Value, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId.Value}");
+
+            if (ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Unavailable || ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Closed)
+            {
+                throw new BadRequestException($"Điểm tập kết {ap.Name} đang ({ap.Status}), không thể nhận người lúc này.");
+            }
 
             apName = ap.Name;
         }

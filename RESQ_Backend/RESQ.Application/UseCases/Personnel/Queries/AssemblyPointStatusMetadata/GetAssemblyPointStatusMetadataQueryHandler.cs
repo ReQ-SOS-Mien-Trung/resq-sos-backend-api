@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Enum.Personnel;
 
@@ -16,7 +16,6 @@ public class GetAssemblyPointStatusMetadataQueryHandler
         {
             new() { Key = AssemblyPointStatus.Created.ToString(),          Value = "Mới tạo" },
             new() { Key = AssemblyPointStatus.Active.ToString(),           Value = "Đang hoạt động" },
-            new() { Key = AssemblyPointStatus.Overloaded.ToString(),       Value = "Quá tải" },
             new() { Key = AssemblyPointStatus.Unavailable.ToString(), Value = "Đang bảo trì" },
             new() { Key = AssemblyPointStatus.Closed.ToString(),           Value = "Đã đóng" }
         };
@@ -24,4 +23,3 @@ public class GetAssemblyPointStatusMetadataQueryHandler
         return await Task.FromResult(result);
     }
 }
-

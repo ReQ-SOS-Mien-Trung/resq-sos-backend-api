@@ -55,6 +55,9 @@ public class CheckInAtAssemblyPointCommandHandler(
         var assemblyPoint = await assemblyPointRepository.GetByIdAsync(evt.AssemblyPointId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {evt.AssemblyPointId}");
 
+        if (assemblyPoint.Status == AssemblyPointStatus.Unavailable || assemblyPoint.Status == AssemblyPointStatus.Closed)
+            throw new BadRequestException($"Điểm tập kết {assemblyPoint.Name} đang bảo trì hoặc đã đóng ({assemblyPoint.Status}), không thể check-in lúc này.");
+
         if (assemblyPoint.Location == null)
             throw new BadRequestException("Điểm tập kết chưa có tọa độ GPS. Vui lòng liên hệ quản trị viên.");
 

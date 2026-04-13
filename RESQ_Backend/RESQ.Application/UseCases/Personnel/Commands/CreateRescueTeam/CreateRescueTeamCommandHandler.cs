@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -28,6 +28,9 @@ public class CreateRescueTeamCommandHandler(
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {request.AssemblyPointId}");
 
         // Tự động tìm event đang Gathering tại AP để validate check-in
+        if (ap.Status == AssemblyPointStatus.Unavailable || ap.Status == AssemblyPointStatus.Closed)
+            throw new BadRequestException($"�i?m t?p k?t {ap.Name} đang ({ap.Status}), kh�ng th? t?o d?i m?i t?i d�y.");
+
         var activeEvent = await assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.AssemblyPointId, ct)
             ?? throw new BadRequestException($"Điểm tập kết id = {request.AssemblyPointId} hiện không có sự kiện tập trung đang diễn ra.");
         var resolvedEventId = activeEvent.EventId;

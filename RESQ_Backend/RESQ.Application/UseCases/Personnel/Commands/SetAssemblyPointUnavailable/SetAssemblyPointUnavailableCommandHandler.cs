@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -22,9 +22,9 @@ public class SetAssemblyPointUnavailableCommandHandler(
         _logger.LogInformation("SetAssemblyPointUnavailable: Id={Id}", request.Id);
 
         var assemblyPoint = await _repository.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException("Không tìm thấy điểm tập kết");
+            ?? throw new NotFoundException("KhÃ´ng tÃ¬m tháº¥y Ä‘iá»ƒm táº­p káº¿t");
 
-        // Domain enforces: chỉ Active hoặc Overloaded → Unavailable
+        // Domain enforces: chá»‰ Active hoáº·c Overloaded â†’ Unavailable
         assemblyPoint.ChangeStatus(AssemblyPointStatus.Unavailable);
 
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
@@ -36,7 +36,7 @@ public class SetAssemblyPointUnavailableCommandHandler(
         {
             Id = assemblyPoint.Id,
             Status = assemblyPoint.Status.ToString(),
-            Message = "Điểm tập kết đang trong trạng thái bảo trì."
+            Message = "Äiá»ƒm táº­p káº¿t Ä‘ang trong tráº¡ng thÃ¡i báº£o trÃ¬."
         };
     }
 }

@@ -1,4 +1,4 @@
-using RESQ.Domain.Entities.Personnel.ValueObjects;
+﻿using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Entities.Personnel.Exceptions;
 using RESQ.Domain.Enum.Personnel;
 
@@ -17,15 +17,15 @@ public class AssemblyPointModel
     public string? ImageUrl { get; set; }
 
     /// <summary>
-    /// True khi điểm tập kết đang có sự kiện triệu tập (Scheduled hoặc Gathering).
-    /// Giá trị này được tính toán khi query, không lưu vào DB.
+    /// True khi Ä‘iá»ƒm táº­p káº¿t Ä‘ang cÃ³ sá»± kiá»‡n triá»‡u táº­p (Scheduled hoáº·c Gathering).
+    /// GiÃ¡ trá»‹ nÃ y Ä‘Æ°á»£c tÃ­nh toÃ¡n khi query, khÃ´ng lÆ°u vÃ o DB.
     /// </summary>
     public bool HasActiveEvent { get; set; }
 
     public AssemblyPointModel() { }
 
     /// <summary>
-    /// Tạo điểm tập kết mới — trạng thái khởi đầu là <see cref="AssemblyPointStatus.Created"/>.
+    /// Táº¡o Ä‘iá»ƒm táº­p káº¿t má»›i â€” tráº¡ng thÃ¡i khá»Ÿi Ä‘áº§u lÃ  <see cref="AssemblyPointStatus.Created"/>.
     /// </summary>
     public static AssemblyPointModel Create(
         string code,
@@ -51,8 +51,8 @@ public class AssemblyPointModel
     }
 
     /// <summary>
-    /// Cập nhật thông tin điểm tập kết.
-    /// Không được cập nhật khi đang <see cref="AssemblyPointStatus.Closed"/>.
+    /// Cáº­p nháº­t thÃ´ng tin Ä‘iá»ƒm táº­p káº¿t.
+    /// KhÃ´ng Ä‘Æ°á»£c cáº­p nháº­t khi Ä‘ang <see cref="AssemblyPointStatus.Closed"/>.
     /// </summary>
     public void UpdateDetails(string name, int maxCapacity, GeoLocation location, string? imageUrl = null)
     {
@@ -70,77 +70,57 @@ public class AssemblyPointModel
     }
 
     /// <summary>
-    /// Chuyển trạng thái theo state-flow được phép:
+    /// Chuyá»ƒn tráº¡ng thÃ¡i theo state-flow Ä‘Æ°á»£c phÃ©p:
     /// <list type="bullet">
-    ///   <item>Created → Active</item>
-    ///   <item>Active → Overloaded | Unavailable | Closed</item>
-    ///   <item>Overloaded → Active | Unavailable (không thể Closed trực tiếp)</item>
-    ///   <item>Unavailable → Active (Complete maintenance)</item>
-    ///   <item>Closed → (không có chuyển đổi nào — viĩnh viễn)</item>
+    ///   <item>Created â†’ Active</item>
+    ///   <item>Active â†’ Overloaded | Unavailable | Closed</item>
+    ///   <item>Overloaded â†’ Active | Unavailable (khÃ´ng thá»ƒ Closed trá»±c tiáº¿p)</item>
+    ///   <item>Unavailable â†’ Active (Complete maintenance)</item>
+    ///   <item>Closed â†’ (khÃ´ng cÃ³ chuyá»ƒn Ä‘á»•i nÃ o â€” viÄ©nh viá»…n)</item>
     /// </list>
     /// </summary>
     public void ChangeStatus(AssemblyPointStatus newStatus)
     {
         if (Status == newStatus) return;
 
-        // Closed là trạng thái cuối — không thể thoát ra
+        // Closed lÃ  tráº¡ng thÃ¡i cuá»‘i â€” khÃ´ng thá»ƒ thoÃ¡t ra
         if (Status == AssemblyPointStatus.Closed)
             throw new AssemblyPointClosedException();
 
         var allowed = Status switch
         {
             AssemblyPointStatus.Created          => new[] { AssemblyPointStatus.Active },
-            AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Overloaded, AssemblyPointStatus.Unavailable, AssemblyPointStatus.Closed },
-            AssemblyPointStatus.Overloaded       => new[] { AssemblyPointStatus.Active, AssemblyPointStatus.Unavailable },
-            // Theo state diagram: Unavailable chỉ có thể chuyển về Active (Complete maintenance)
+            AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Unavailable, AssemblyPointStatus.Closed },
+                        // Theo state diagram: Unavailable chá»‰ cÃ³ thá»ƒ chuyá»ƒn vá» Active (Complete maintenance)
             AssemblyPointStatus.Unavailable => new[] { AssemblyPointStatus.Active },
             _                                    => Array.Empty<AssemblyPointStatus>()
         };
 
         if (!allowed.Contains(newStatus))
             throw new InvalidAssemblyPointStatusTransitionException(Status, newStatus,
-                $"Trạng thái cho phép từ {Status}: [{string.Join(", ", allowed)}].");
+                $"Tráº¡ng thÃ¡i cho phÃ©p tá»« {Status}: [{string.Join(", ", allowed)}].");
 
         Status = newStatus;
         UpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>
-    /// Kiểm tra sức chứa trước khi thêm <paramref name="additionalPersons"/> người vào điểm tập kết.
-    /// Throws nếu điểm tập kết không trong trạng thái Active/Overloaded hoặc vượt sức chứa.
-    /// Tự động chuyển sang <see cref="AssemblyPointStatus.Overloaded"/> khi đạt giới hạn.
+    /// Kiá»ƒm tra sá»©c chá»©a trÆ°á»›c khi thÃªm <paramref name="additionalPersons"/> ngÆ°á»i vÃ o Ä‘iá»ƒm táº­p káº¿t.
+    /// Throws náº¿u Ä‘iá»ƒm táº­p káº¿t khÃ´ng trong tráº¡ng thÃ¡i Active/Overloaded hoáº·c vÆ°á»£t sá»©c chá»©a.
+    /// Tá»± Ä‘á»™ng chuyá»ƒn sang <see cref="AssemblyPointStatus.Overloaded"/> khi Ä‘áº¡t giá»›i háº¡n.
+    /// </summary>
+        /// <summary>
+    /// Kiểm tra xem điểm tập kết có đang mở cửa để nhận thêm người không.
+    /// Giờ đây không văng Exception nếu quá MaxCapacity (chỉ tính toán tỷ lệ ở DTO/UI).
     /// </summary>
     public void ValidatePersonCapacity(int currentPersonCount, int additionalPersons)
     {
         if (Status == AssemblyPointStatus.Closed)
             throw new AssemblyPointClosedException();
 
-        if (Status is not (AssemblyPointStatus.Active or AssemblyPointStatus.Overloaded))
+        if (Status != AssemblyPointStatus.Active)
             throw new AssemblyPointUnavailableException();
-
-        if (currentPersonCount + additionalPersons > MaxCapacity)
-            throw new AssemblyPointCapacityExceededException(MaxCapacity, currentPersonCount, additionalPersons);
-
-        // Tự động chuyển sang Overloaded khi đạt giới hạn
-        if (currentPersonCount + additionalPersons == MaxCapacity && Status == AssemblyPointStatus.Active)
-        {
-            Status = AssemblyPointStatus.Overloaded;
-            UpdatedAt = DateTime.UtcNow;
-        }
-    }
-
-    /// <summary>
-    /// Giải phóng sức chứa sau khi có người rời đi.
-    /// Tự động chuyển <see cref="AssemblyPointStatus.Overloaded"/> → <see cref="AssemblyPointStatus.Active"/>
-    /// khi còn chỗ trống.
-    /// </summary>
-    public void NotifyPersonRemoved(int remainingPersonCount)
-    {
-        if (Status == AssemblyPointStatus.Overloaded && remainingPersonCount < MaxCapacity)
-        {
-            Status = AssemblyPointStatus.Active;
-            UpdatedAt = DateTime.UtcNow;
-        }
+            
+        // Removed hard block logic: no longer throw AssemblyPointCapacityExceededException
     }
 }
-
