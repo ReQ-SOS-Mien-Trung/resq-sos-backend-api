@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -46,18 +46,18 @@ public class AddMissionActivityCommandHandler(
 
         var mission = await _missionRepository.GetByIdAsync(request.MissionId, cancellationToken);
         if (mission is null)
-            throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
+            throw new NotFoundException($"Kh�ng t�m th?y mission v?i ID: {request.MissionId}");
 
                 // Validate depot status
         if (request.DepotId.HasValue)
         {
             var status = await _depotRepository.GetStatusByIdAsync(request.DepotId.Value, cancellationToken);
             if (status is null)
-                throw new NotFoundException($"Không tìm thấy kho có ID {request.DepotId.Value}.");
+                throw new NotFoundException($"Kh�ng t�m th?y kho c� ID {request.DepotId.Value}.");
                 
             if (status is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             {
-                throw new ConflictException($"Kho {request.DepotId.Value} đang ở trạng thái {status} và không thể sử dụng cho nhiệm vụ.");
+                throw new ConflictException($"Kho {request.DepotId.Value} dang ? tr?ng th�i {status} v� kh�ng th? s? d?ng cho nhi?m v?.");
             }
         }
 
@@ -86,9 +86,9 @@ public class AddMissionActivityCommandHandler(
                 if (shortages.Count > 0)
                 {
                     var errors = shortages.Select(s => s.NotFound
-                        ? $"vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không có trong kho {request.DepotId}."
-                        : $"vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
-                    throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", errors)}");
+                        ? $"v?t ph?m '{s.ItemName}' (ID={s.ItemModelId}) kh�ng c� trong kho {request.DepotId}."
+                        : $"v?t ph?m '{s.ItemName}' (ID={s.ItemModelId}) kh�ng d? s? lu?ng � y�u c?u {s.RequestedQuantity}, kh? d?ng {s.AvailableQuantity}.");
+                    throw new BadRequestException($"Ki?m tra t?n kho th?t b?i:\n{string.Join("\n", errors)}");
                 }
             }
         }
@@ -189,7 +189,7 @@ public class AddMissionActivityCommandHandler(
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Không thể đặt trước vật phẩm tại kho {DepotId} khi thêm lẻ activity", request.DepotId.Value);
+                    _logger.LogWarning(ex, "Kh�ng th? d?t tru?c v?t ph?m t?i kho {DepotId} khi th�m l? activity", request.DepotId.Value);
                 }
             }
         }

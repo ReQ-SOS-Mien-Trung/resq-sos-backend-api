@@ -167,7 +167,8 @@ public class RescuerAuthSessionAndProfileHandlerTests
             new StubDepotInventoryRepository { ActiveDepotId = 5 },
             new StubDepotRepository(new DepotModel { Id = 5, Name = "Kho Da Nang" }),
             new StubRescuerScoreRepository(score),
-            new StubRescuerScoreVisibilityConfigRepository(3));
+            new StubRescuerScoreVisibilityConfigRepository(3),
+            new StubManagerDepotAccessService(new List<RESQ.Application.Services.ManagedDepotDto> { new() { DepotId = 5, DepotName = "Kho Da Nang" } }));
 
         var response = await handler.Handle(new GetCurrentUserQuery(user.Id), CancellationToken.None);
 
@@ -180,8 +181,9 @@ public class RescuerAuthSessionAndProfileHandlerTests
         Assert.True(response.IsEligibleRescuer);
         Assert.Equal(2, response.RescuerStep);
         Assert.Equal(["IdentitySelfView", "MissionView"], response.Permissions);
-        Assert.Equal(5, response.DepotId);
-        Assert.Equal("Kho Da Nang", response.DepotName);
+        var managedDepot = Assert.Single(response.ManagedDepots);
+        Assert.Equal(5, managedDepot.DepotId);
+        Assert.Equal("Kho Da Nang", managedDepot.DepotName);
 
         var responseDocument = Assert.Single(response.RescuerApplicationDocuments);
         Assert.Equal(100, responseDocument.Id);
@@ -544,5 +546,17 @@ public class RescuerAuthSessionAndProfileHandlerTests
                 UpdatedBy = updatedBy,
                 UpdatedAt = DateTime.UtcNow
             });
+    }
+
+    private sealed class StubManagerDepotAccessService(List<RESQ.Application.Services.ManagedDepotDto>? managedDepots = null) : IManagerDepotAccessService
+    {
+        public Task<List<RESQ.Application.Services.ManagedDepotDto>> GetManagedDepotsAsync(Guid userId, CancellationToken cancellationToken = default)
+            => Task.FromResult(managedDepots ?? new List<RESQ.Application.Services.ManagedDepotDto>());
+
+        public Task<int> ResolveAccessibleDepotIdAsync(Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default)
+            => Task.FromResult(requestedDepotId ?? managedDepots?.FirstOrDefault()?.DepotId ?? throw new Exception("Forbidden"));
+
+        public Task EnsureDepotAccessAsync(Guid userId, int depotId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }

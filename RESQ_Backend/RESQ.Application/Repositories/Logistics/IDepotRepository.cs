@@ -1,4 +1,4 @@
-﻿using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -11,14 +11,14 @@ namespace RESQ.Application.Repositories.Logistics
         Task UpdateAsync(DepotModel depotModel, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Gán / đổi manager cho kho: unassign manager cũ (nếu có), thêm bản ghi manager mới,
-        /// cập nhật status kho → Available.
+        /// G�n / d?i manager cho kho: unassign manager cu (n?u c�), th�m b?n ghi manager m?i,
+        /// c?p nh?t status kho ? Available.
         /// </summary>
         Task AssignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Gỡ manager hiện tại khỏi kho (soft-unassign): set UnassignedAt cho bản ghi manager đang active,
-        /// cập nhật status kho → PendingAssignment. Lịch sử vẫn được giữ lại.
+        /// G? manager hi?n t?i kh?i kho (soft-unassign): set UnassignedAt cho b?n ghi manager dang active,
+        /// c?p nh?t status kho ? PendingAssignment. L?ch s? v?n du?c gi? l?i.
         /// </summary>
         Task UnassignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
         
@@ -29,8 +29,8 @@ namespace RESQ.Application.Repositories.Logistics
         Task<IEnumerable<DepotModel>> GetAllAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Truy vấn tất cả kho đang hoạt động (Status = Available) và còn hàng (CurrentUtilization > 0)
-        /// để tính khoảng cách và cung cấp thông tin cho AI lập kế hoạch cứu hộ.
+        /// Truy v?n t?t c? kho dang ho?t d?ng (Status = Available) v� c�n h�ng (CurrentUtilization > 0)
+        /// d? t�nh kho?ng c�ch v� cung c?p th�ng tin cho AI l?p k? ho?ch c?u h?.
         /// </summary>
         Task<IEnumerable<DepotModel>> GetAvailableDepotsAsync(CancellationToken cancellationToken = default);
         
@@ -40,58 +40,58 @@ namespace RESQ.Application.Repositories.Logistics
         // -- Depot Closure helpers ----------------------------------------------
 
         /// <summary>
-        /// Đếm số kho đang hoạt động (Available/Full/Closing) ngoại trừ kho cần đóng.
-        /// Dùng để ngăn đóng kho duy nhất còn lại trong hệ thống.
+        /// �?m s? kho dang ho?t d?ng (Available/Full/Closing) ngo?i tr? kho c?n d�ng.
+        /// D�ng d? ngan d�ng kho duy nh?t c�n l?i trong h? th?ng.
         /// </summary>
         Task<int> GetActiveDepotCountExcludingAsync(int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Kiểm tra xem kho có yêu cầu tiếp tế nào chưa kết thúc (chưa Completed/Rejected) không.
-        /// Kiểm tra cả vai trò source_depot và requesting_depot.
+        /// Ki?m tra xem kho c� y�u c?u ti?p t? n�o chua k?t th�c (chua Completed/Rejected) kh�ng.
+        /// Ki?m tra c? vai tr� source_depot v� requesting_depot.
         /// </summary>
         Task<(int AsSourceCount, int AsRequesterCount)> GetNonTerminalSupplyRequestCountsAsync(
             int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Tính tổng số lượng consumable còn trong kho (sum of supply_inventory.quantity).
-        /// Dùng cho snapshot và capacity check khi chuyển kho.
+        /// T�nh t?ng s? lu?ng consumable c�n trong kho (sum of supply_inventory.quantity).
+        /// D�ng cho snapshot v� capacity check khi chuy?n kho.
         /// </summary>
         Task<decimal> GetConsumableTransferVolumeAsync(int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Đếm số reusable items còn trong kho (không tính Decommissioned).
-        /// Phân biệt Available và InUse để phát hiện items đang ngoài nhiệm vụ.
+        /// �?m s? reusable items c�n trong kho (kh�ng t�nh Decommissioned).
+        /// Ph�n bi?t Available v� InUse d? ph�t hi?n items dang ngo�i nhi?m v?.
         /// </summary>
         Task<(int AvailableCount, int InUseCount)> GetReusableItemCountsAsync(
             int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Đếm số supply_inventory rows có quantity > 0 (dùng cho TotalConsumableRows).
+        /// �?m s? supply_inventory rows c� quantity > 0 (d�ng cho TotalConsumableRows).
         /// </summary>
         Task<int> GetConsumableInventoryRowCountAsync(int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Lấy trạng thái hiện tại của kho theo ID.
-        /// Dùng để kiểm tra kho có đang Closing/Closed trước khi cho phép import/export/transfer.
-        /// Trả về null nếu không tìm thấy kho.
+        /// L?y tr?ng th�i hi?n t?i c?a kho theo ID.
+        /// D�ng d? ki?m tra kho c� dang Closing/Closed tru?c khi cho ph�p import/export/transfer.
+        /// Tr? v? null n?u kh�ng t�m th?y kho.
         /// </summary>
         Task<DepotStatus?> GetStatusByIdAsync(int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Kiểm tra manager có đang active (UnassignedAt == null) ở một kho khác không.
-        /// Dùng để ngăn gán một manager đang quản lý kho khác vào kho mới.
+        /// Ki?m tra manager c� dang active (UnassignedAt == null) ? m?t kho kh�c kh�ng.
+        /// D�ng d? ngan g�n m?t manager dang qu?n l� kho kh�c v�o kho m?i.
         /// </summary>
         Task<bool> IsManagerActiveElsewhereAsync(Guid managerId, int excludeDepotId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Lấy chi tiết tồn kho của kho (consumable + reusable) cho quy trình đóng kho.
-        /// Dùng để hiển thị danh sách hàng còn trong kho khi admin muốn đóng.
+        /// L?y chi ti?t t?n kho c?a kho (consumable + reusable) cho quy tr�nh d�ng kho.
+        /// D�ng d? hi?n th? danh s�ch h�ng c�n trong kho khi admin mu?n d�ng.
         /// </summary>
         Task<List<ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Lấy chi tiết tồn kho THEO TỪNG LÔ (consumable = per-lot, reusable = grouped).
-        /// Dùng cho file Excel template xử lý bên ngoài để chia vật phẩm theo lô.
+        /// L?y chi ti?t t?n kho THEO T?NG L� (consumable = per-lot, reusable = grouped).
+        /// D�ng cho file Excel template x? l� b�n ngo�i d? chia v?t ph?m theo l�.
         /// </summary>
         Task<List<ClosureInventoryLotItemDto>> GetLotDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default);
     }

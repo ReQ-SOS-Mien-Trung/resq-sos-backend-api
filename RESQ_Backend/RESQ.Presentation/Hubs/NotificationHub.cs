@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using RESQ.Application.Common.Constants;
@@ -7,10 +7,10 @@ using RESQ.Application.Common.Models;
 namespace RESQ.Presentation.Hubs;
 
 /// <summary>
-/// Hub thông báo thời gian thực.
-/// Mỗi user tự động join group "notification_user_{userId}" khi kết nối.
-/// Server push event "ReceiveNotification" khi có notification mới.
-/// Client kết nối với JWT Bearer token qua query string ?access_token=...
+/// Hub th�ng b�o th?i gian th?c.
+/// M?i user t? d?ng join group "notification_user_{userId}" khi k?t n?i.
+/// Server push event "ReceiveNotification" khi c� notification m?i.
+/// Client k?t n?i v?i JWT Bearer token qua query string ?access_token=...
 /// </summary>
 [Authorize(Policy = PermissionConstants.NotificationSelfView)]
 public class NotificationHub : Hub
@@ -34,7 +34,7 @@ public class NotificationHub : Hub
     }
 
     /// <summary>
-    /// Join group realtime theo mission + depot để nhận DepotUpdated event.
+    /// Join group realtime theo mission + depot d? nh?n DepotUpdated event.
     /// </summary>
     public Task JoinDepotGroup(int? missionId, int depotId)
     {

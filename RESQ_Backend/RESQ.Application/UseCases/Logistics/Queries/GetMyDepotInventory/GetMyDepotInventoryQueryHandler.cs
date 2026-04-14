@@ -7,14 +7,16 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventory;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 
-public class GetMyDepotInventoryQueryHandler(IDepotInventoryRepository depotInventoryRepository) 
+public class GetMyDepotInventoryQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,IDepotInventoryRepository depotInventoryRepository) 
     : IRequestHandler<GetMyDepotInventoryQuery, PagedResult<InventoryItemDto>>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<InventoryItemDto>> Handle(GetMyDepotInventoryQuery request, CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken);
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
         
         if (!depotId.HasValue)
         {

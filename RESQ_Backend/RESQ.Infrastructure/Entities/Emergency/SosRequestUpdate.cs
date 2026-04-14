@@ -33,4 +33,4 @@ public partial class SosRequestUpdate
     [ForeignKey("SosRequestId")]
     [InverseProperty("SosRequestUpdates")]
     public virtual SosRequest? SosRequest { get; set; }
-}
+}

@@ -1,26 +1,29 @@
-﻿using MediatR;
+using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
+
+using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ExportInventory;
 
 public class ExportInventoryCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
-    IDepotRepository depotRepository)
+    IDepotRepository depotRepository,
+    IManagerDepotAccessService managerDepotAccessService)
     : IRequestHandler<ExportInventoryCommand, ExportInventoryResponse>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IDepotRepository _depotRepository = depotRepository;
+    private readonly IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<ExportInventoryResponse> Handle(ExportInventoryCommand request, CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
-            ?? throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
-            throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể xuất hàng khỏi kho này.");
+            throw new ConflictException("Kho ngung ho?t d?ng ho?c d� d�ng. Kh�ng th? xu?t h�ng kh?i kho n�y.");
 
         await _depotInventoryRepository.ExportInventoryAsync(
             depotId,
@@ -30,6 +33,6 @@ public class ExportInventoryCommandHandler(
             request.Note,
             cancellationToken);
 
-        return new ExportInventoryResponse($"Đã xuất kho thành công {request.Quantity} đơn vị vật phẩm #{request.ItemModelId} tại kho #{depotId}.");
+        return new ExportInventoryResponse($"�� xu?t kho th�nh c�ng {request.Quantity} don v? v?t ph?m #{request.ItemModelId} t?i kho #{depotId}.");
     }
 }

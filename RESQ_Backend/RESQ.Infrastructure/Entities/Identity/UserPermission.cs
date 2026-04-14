@@ -34,4 +34,4 @@ public partial class UserPermission
     [ForeignKey("UserId")]
     [InverseProperty("UserPermissions")]
     public virtual User User { get; set; } = null!;
-}
+}

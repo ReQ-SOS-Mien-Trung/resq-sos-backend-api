@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Entities.Exceptions;
+using RESQ.Domain.Entities.Exceptions;
 
 namespace RESQ.Domain.Entities.Logistics.ValueObjects;
 
@@ -19,7 +19,7 @@ public sealed class WarningBandSet
     public static string? ValidateFixedBandDefinition(IReadOnlyList<WarningBand>? bands)
     {
         if (bands == null || bands.Count != FixedBandNames.Length)
-            return $"Warning bands phải gồm đúng {FixedBandNames.Length} mức: {string.Join(", ", FixedBandNames)}.";
+            return $"Warning bands ph?i g?m d�ng {FixedBandNames.Length} m?c: {string.Join(", ", FixedBandNames)}.";
 
         var sorted = bands.OrderBy(b => b.From).ToList();
 
@@ -29,7 +29,7 @@ public sealed class WarningBandSet
             var expected = FixedBandNames[i];
 
             if (!string.Equals(actual.Name, expected, StringComparison.Ordinal))
-                return $"Band tại vị trí {i + 1} phải là '{expected}'.";
+                return $"Band t?i v? tr� {i + 1} ph?i l� '{expected}'.";
         }
 
         return null;
@@ -38,27 +38,27 @@ public sealed class WarningBandSet
     public WarningBandSet(IReadOnlyList<WarningBand> bands)
     {
         if (bands == null || bands.Count == 0)
-            throw new InvalidWarningBandSetException("Danh sách warning bands không được rỗng.");
+            throw new InvalidWarningBandSetException("Danh s�ch warning bands kh�ng du?c r?ng.");
 
         foreach (var band in bands)
         {
             if (string.IsNullOrWhiteSpace(band.Name))
-                throw new InvalidWarningBandSetException("Mỗi band phải có tên.");
+                throw new InvalidWarningBandSetException("M?i band ph?i c� t�n.");
 
             if (band.From < 0)
-                throw new InvalidWarningBandSetException($"Band '{band.Name}': From phải >= 0.");
+                throw new InvalidWarningBandSetException($"Band '{band.Name}': From ph?i >= 0.");
 
             if (band.To.HasValue && band.To.Value <= band.From)
-                throw new InvalidWarningBandSetException($"Band '{band.Name}': To phải > From.");
+                throw new InvalidWarningBandSetException($"Band '{band.Name}': To ph?i > From.");
         }
 
         var sorted = bands.OrderBy(b => b.From).ToList();
 
         if (sorted[0].From != 0m)
-            throw new InvalidWarningBandSetException("Band đầu tiên phải bắt đầu từ 0.");
+            throw new InvalidWarningBandSetException("Band d?u ti�n ph?i b?t d?u t? 0.");
 
         if (sorted[^1].To.HasValue)
-            throw new InvalidWarningBandSetException("Band cuối cùng phải có To = null.");
+            throw new InvalidWarningBandSetException("Band cu?i c�ng ph?i c� To = null.");
 
         for (var i = 0; i < sorted.Count - 1; i++)
         {
@@ -67,11 +67,11 @@ public sealed class WarningBandSet
 
             if (!current.To.HasValue)
                 throw new InvalidWarningBandSetException(
-                    $"Band '{current.Name}': chỉ band cuối cùng mới được có To = null.");
+                    $"Band '{current.Name}': ch? band cu?i c�ng m?i du?c c� To = null.");
 
             if (current.To.Value != next.From)
                 throw new InvalidWarningBandSetException(
-                    $"Gap hoặc overlap giữa band '{current.Name}' (to={current.To}) và '{next.Name}' (from={next.From}).");
+                    $"Gap ho?c overlap gi?a band '{current.Name}' (to={current.To}) v� '{next.Name}' (from={next.From}).");
         }
 
         var fixedBandValidationError = ValidateFixedBandDefinition(sorted);

@@ -8,6 +8,7 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
 
 public class ExportInventoryMovementQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IInventoryMovementExportRepository exportRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
@@ -16,17 +17,22 @@ public class ExportInventoryMovementQueryHandler(
     : IRequestHandler<ExportInventoryMovementQuery, ExportInventoryMovementResult>
 {
     private readonly IInventoryMovementExportRepository _exportRepository = exportRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotRepository _depotRepository = depotRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IExcelExportService _excelExportService = excelExportService;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly ILogger<ExportInventoryMovementQueryHandler> _logger = logger;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<ExportInventoryMovementResult> Handle(
         ExportInventoryMovementQuery request,
         CancellationToken cancellationToken)
     {
         // 1. Resolve kho của người dùng
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken);
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
 
         // Lấy tên kho (dùng cho tiêu đề file Excel)
         var depotName = "Toàn hệ thống";

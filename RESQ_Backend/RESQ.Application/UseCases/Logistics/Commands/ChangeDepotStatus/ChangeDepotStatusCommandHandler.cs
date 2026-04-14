@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
@@ -11,6 +11,7 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
 
 public class ChangeDepotStatusCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotRepository depotRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IUserPermissionResolver permissionResolver,
@@ -19,10 +20,15 @@ public class ChangeDepotStatusCommandHandler(
     : IRequestHandler<ChangeDepotStatusCommand, ChangeDepotStatusResponse>
 {
     private readonly IDepotRepository _depotRepository = depotRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IUserPermissionResolver _permissionResolver = permissionResolver;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly ILogger<ChangeDepotStatusCommandHandler> _logger = logger;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<ChangeDepotStatusResponse> Handle(ChangeDepotStatusCommand request, CancellationToken cancellationToken)
     {
@@ -39,23 +45,23 @@ public class ChangeDepotStatusCommandHandler(
         {
             if (request.Status == DepotStatus.Closing)
             {
-                throw new ForbiddenException("Chỉ Admin mới có quyền chuyển kho sang trạng thái Closing (Đang đóng kho).");
+                throw new ForbiddenException("Ch? Admin m?i c� quy?n chuy?n kho sang tr?ng th�i Closing (�ang d�ng kho).");
             }
 
-            var managedDepotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.RequestedBy, cancellationToken);
+            var managedDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.RequestedBy, request.DepotId, cancellationToken);
             if (!managedDepotId.HasValue)
             {
                 throw ExceptionCodes.WithCode(
-                    new ForbiddenException("Tài khoản quản lý kho chưa được gán kho phụ trách."),
+                    new ForbiddenException("T�i kho?n qu?n l� kho chua du?c g�n kho ph? tr�ch."),
                     LogisticsErrorCodes.DepotManagerNotAssigned);
             }
 
             if (managedDepotId.Value != request.Id)
-                throw new ForbiddenException("Bạn chỉ có thể thay đổi trạng thái kho mình đang quản lý.");
+                throw new ForbiddenException("B?n ch? c� th? thay d?i tr?ng th�i kho m�nh dang qu?n l�.");
         }
 
         var depot = await _depotRepository.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
+            ?? throw new NotFoundException("Kh�ng t�m th?y kho c?u tr?.");
 
         if (request.Status == DepotStatus.Unavailable || request.Status == DepotStatus.Closing)
         {
@@ -63,17 +69,17 @@ public class ChangeDepotStatusCommandHandler(
             if (asSource + asRequester > 0)
             {
                 throw new ConflictException(
-                    $"Kho hiện có {asSource + asRequester} đơn tiếp tế chưa hoàn tất " +
-                    $"({asSource} là kho nguồn, {asRequester} là kho yêu cầu). " +
-                    "Hãy hoàn thành hoặc huỷ tất cả đơn tiếp tế trước khi chuyển khỏi trạng thái này.");
+                    $"Kho hi?n c� {asSource + asRequester} don ti?p t? chua ho�n t?t " +
+                    $"({asSource} l� kho ngu?n, {asRequester} l� kho y�u c?u). " +
+                    "H�y ho�n th�nh ho?c hu? t?t c? don ti?p t? tru?c khi chuy?n kh?i tr?ng th�i n�y.");
             }
 
             var hasMissionCommitments = await _depotInventoryRepository.HasActiveInventoryCommitmentsAsync(request.Id, cancellationToken);
             if (hasMissionCommitments)
             {
                 throw new ConflictException(
-                    "Kho đang có vật phẩm được đặt trước hoặc đang sử dụng trong nhiệm vụ cứu hộ đang diễn ra. " +
-                    "Hãy hoàn thành hoặc huỷ nhiệm vụ trước khi chuyển trạng thái kho này.");
+                    "Kho dang c� v?t ph?m du?c d?t tru?c ho?c dang s? d?ng trong nhi?m v? c?u h? dang di?n ra. " +
+                    "H�y ho�n th�nh ho?c hu? nhi?m v? tru?c khi chuy?n tr?ng th�i kho n�y.");
             }
         }
 
@@ -88,7 +94,7 @@ public class ChangeDepotStatusCommandHandler(
         {
             Id = depot.Id,
             Status = depot.Status.ToString(),
-            Message = "Cập nhật trạng thái kho thành công."
+            Message = "C?p nh?t tr?ng th�i kho th�nh c�ng."
         };
     }
 }

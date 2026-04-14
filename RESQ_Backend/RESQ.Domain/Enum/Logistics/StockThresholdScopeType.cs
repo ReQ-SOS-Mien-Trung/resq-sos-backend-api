@@ -1,18 +1,18 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 
 namespace RESQ.Domain.Enum.Logistics;
 
 public enum StockThresholdScopeType
 {
-    [Description("Toàn hệ thống")]
+    [Description("To�n h? th?ng")]
     Global = 0,
 
     [Description("Theo kho")]
     Depot = 1,
 
-    [Description("Theo danh mục trong kho")]
+    [Description("Theo danh m?c trong kho")]
     DepotCategory = 2,
 
-    [Description("Theo vật phẩm trong kho")]
+    [Description("Theo v?t ph?m trong kho")]
     DepotItem = 3
 }

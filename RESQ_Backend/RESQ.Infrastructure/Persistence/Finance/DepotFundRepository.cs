@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -387,7 +387,7 @@ public class DepotFundRepository : IDepotFundRepository
         var systemFundName = await _unitOfWork.Set<SystemFund>()
             .OrderBy(x => x.Id)
             .Select(x => x.Name)
-            .FirstOrDefaultAsync(cancellationToken) ?? "Quỹ hệ thống";
+            .FirstOrDefaultAsync(cancellationToken) ?? "Qu? h? th?ng";
 
         foreach (var fund in funds)
         {

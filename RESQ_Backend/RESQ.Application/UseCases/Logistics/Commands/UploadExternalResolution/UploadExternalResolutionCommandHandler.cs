@@ -12,6 +12,7 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
 
 public class UploadExternalResolutionCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotRepository depotRepository,
     IDepotClosureRepository closureRepository,
     IDepotClosureExternalItemRepository externalItemRepository,
@@ -29,7 +30,7 @@ public class UploadExternalResolutionCommandHandler(
             "UploadExternalResolution | ManagerUserId={By}",
             request.ManagerUserId);
 
-        var depotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.ManagerUserId, cancellationToken)
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.ManagerUserId, request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Bạn hiện không phụ trách kho nào.");
 
         var depot = await depotRepository.GetByIdAsync(depotId, cancellationToken)

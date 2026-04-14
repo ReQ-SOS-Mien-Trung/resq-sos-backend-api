@@ -1,4 +1,4 @@
-﻿using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.Finance;
 
 namespace RESQ.Application.Repositories.Finance;

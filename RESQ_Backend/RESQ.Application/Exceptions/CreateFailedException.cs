@@ -1,8 +1,8 @@
-﻿namespace RESQ.Application.Exceptions
+namespace RESQ.Application.Exceptions
 {
     public class CreateFailedException : Exception
     {
-        public CreateFailedException(string input) : base($"Không thể tạo {input}")
+        public CreateFailedException(string input) : base($"Kh�ng th? t?o {input}")
         {
         }
 

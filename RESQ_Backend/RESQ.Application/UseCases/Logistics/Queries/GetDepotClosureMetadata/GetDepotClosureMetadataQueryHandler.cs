@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Enum.Logistics;
@@ -16,8 +16,8 @@ public class GetDepotClosureMetadataQueryHandler
         {
             ResolutionTypes =
             [
-                new MetadataDto { Key = CloseResolutionType.TransferToDepot.ToString(), Value = "Phân bổ hàng tồn sang một hoặc nhiều kho khác" },
-                new MetadataDto { Key = CloseResolutionType.ExternalResolution.ToString(), Value = "Tự xử lý bên ngoài (admin ghi chú cách xử lý)" }
+                new MetadataDto { Key = CloseResolutionType.TransferToDepot.ToString(), Value = "Ph�n b? h�ng t?n sang m?t ho?c nhi?u kho kh�c" },
+                new MetadataDto { Key = CloseResolutionType.ExternalResolution.ToString(), Value = "T? x? l� b�n ngo�i (admin ghi ch� c�ch x? l�)" }
             ],
             HandlingMethods = Enum.GetValues<ExternalDispositionType>()
                 .Select(method => new MetadataDto

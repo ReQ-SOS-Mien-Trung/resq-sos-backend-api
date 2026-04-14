@@ -1,4 +1,4 @@
-﻿using RESQ.Infrastructure.Entities.Logistics;
+using RESQ.Infrastructure.Entities.Logistics;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 

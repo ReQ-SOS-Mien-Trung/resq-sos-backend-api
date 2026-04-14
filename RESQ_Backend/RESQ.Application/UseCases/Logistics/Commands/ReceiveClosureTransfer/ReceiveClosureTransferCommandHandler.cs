@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
@@ -10,11 +10,12 @@ using RESQ.Application.Services;
 namespace RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 
 /// <summary>
-/// Manager kho đích xác nhận nhận hàng.
-/// Sau đó hệ thống bulk-transfer inventory và đánh dấu phiên xử lý hàng tồn đã xong,
-/// nhưng vẫn chờ admin gọi POST /logistics/depot/{id}/close để đóng kho thật sự.
+/// Manager kho d�ch x�c nh?n nh?n h�ng.
+/// Sau d� h? th?ng bulk-transfer inventory v� d�nh d?u phi�n x? l� h�ng t?n d� xong,
+/// nhung v?n ch? admin g?i POST /logistics/depot/{id}/close d? d�ng kho th?t s?.
 /// </summary>
 public class ReceiveClosureTransferCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotClosureTransferRepository transferRepository,
     IDepotClosureRepository closureRepository,
     IDepotRepository depotRepository,
@@ -29,25 +30,25 @@ public class ReceiveClosureTransferCommandHandler(
         CancellationToken cancellationToken)
     {
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
+            ?? throw new NotFoundException($"Kh�ng t�m th?y b?n ghi chuy?n kho #{request.TransferId}.");
 
-        var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw ExceptionCodes.WithCode(
-                new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động."),
+                new BadRequestException("T�i kho?n kh�ng qu?n l� kho n�o dang ho?t d?ng."),
                 LogisticsErrorCodes.DepotManagerNotAssigned);
 
         if (managerDepotId != transfer.TargetDepotId)
-            throw new ForbiddenException("Bạn không phải là manager của kho đích trong quá trình nhận hàng này.");
+            throw new ForbiddenException("B?n kh�ng ph?i l� manager c?a kho d�ch trong qu� tr�nh nh?n h�ng n�y.");
 
         var closure = await closureRepository.GetByIdAsync(transfer.ClosureId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy bản ghi đóng kho #{transfer.ClosureId}.");
+            ?? throw new NotFoundException($"Kh�ng t�m th?y b?n ghi d�ng kho #{transfer.ClosureId}.");
 
         var sourceDepot = await depotRepository.GetByIdAsync(transfer.SourceDepotId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy kho nguồn #{transfer.SourceDepotId}.");
+            ?? throw new NotFoundException($"Kh�ng t�m th?y kho ngu?n #{transfer.SourceDepotId}.");
 
         var transferItems = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
         if (transferItems.Count == 0)
-            throw new ConflictException("Transfer không có vật phẩm được cấu hình để nhận hàng.");
+            throw new ConflictException("Transfer kh�ng c� v?t ph?m du?c c?u h�nh d? nh?n h�ng.");
 
         transfer.MarkReceived(request.UserId, request.Note);
         var completedAt = DateTime.UtcNow;
@@ -92,10 +93,10 @@ public class ReceiveClosureTransferCommandHandler(
         {
             await firebaseService.SendNotificationToUserAsync(
                 closure.InitiatedBy,
-                closure.CompletedAt.HasValue ? "Xử lý hàng tồn đã hoàn tất" : "Đã hoàn tất một đợt chuyển kho",
+                closure.CompletedAt.HasValue ? "X? l� h�ng t?n d� ho�n t?t" : "�� ho�n t?t m?t d?t chuy?n kho",
                 closure.CompletedAt.HasValue
-                    ? $"Toàn bộ hàng tồn của kho '{sourceDepot.Name}' đã được chuyển xong theo kế hoạch. Kho vẫn ở trạng thái Unavailable và chờ admin xác nhận đóng kho."
-                    : $"Transfer #{transfer.Id} từ kho '{sourceDepot.Name}' đã được nhận thành công. Vẫn còn các transfer khác chờ hoàn tất.",
+                    ? $"To�n b? h�ng t?n c?a kho '{sourceDepot.Name}' d� du?c chuy?n xong theo k? ho?ch. Kho v?n ? tr?ng th�i Unavailable v� ch? admin x�c nh?n d�ng kho."
+                    : $"Transfer #{transfer.Id} t? kho '{sourceDepot.Name}' d� du?c nh?n th�nh c�ng. V?n c�n c�c transfer kh�c ch? ho�n t?t.",
                 "depot_closure_completed",
                 cancellationToken);
         }
@@ -113,8 +114,8 @@ public class ReceiveClosureTransferCommandHandler(
             ReusableItemsMoved = transfer.SnapshotReusableUnits,
             CompletedAt = completedAt,
             Message = closure.CompletedAt.HasValue
-                ? "Đã xác nhận nhận hàng. Toàn bộ kế hoạch phân bổ hàng tồn đã hoàn tất, kho nguồn vẫn giữ trạng thái Unavailable và chờ admin xác nhận đóng kho."
-                : "Đã xác nhận nhận hàng cho transfer này. Các transfer còn lại của phiên đóng kho vẫn tiếp tục được xử lý."
+                ? "�� x�c nh?n nh?n h�ng. To�n b? k? ho?ch ph�n b? h�ng t?n d� ho�n t?t, kho ngu?n v?n gi? tr?ng th�i Unavailable v� ch? admin x�c nh?n d�ng kho."
+                : "�� x�c nh?n nh?n h�ng cho transfer n�y. C�c transfer c�n l?i c?a phi�n d�ng kho v?n ti?p t?c du?c x? l�."
         };
     }
 }

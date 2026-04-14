@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.UseCases.Logistics.Commands.CreateDepot;
+namespace RESQ.Application.UseCases.Logistics.Commands.CreateDepot;
 
 public class CreateDepotRequestDto
 {
@@ -7,10 +7,10 @@ public class CreateDepotRequestDto
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public decimal Capacity { get; set; }
-    /// <summary>Sức chứa tối đa theo cân nặng (kg).</summary>
+    /// <summary>S?c ch?a t?i da theo c�n n?ng (kg).</summary>
     public decimal WeightCapacity { get; set; }
-    /// <summary>Optional: gán manager ngay khi tạo kho. Nếu không có, kho ở trạng thái PendingAssignment.</summary>
+    /// <summary>Optional: g�n manager ngay khi t?o kho. N?u kh�ng c�, kho ? tr?ng th�i PendingAssignment.</summary>
     public Guid? ManagerId { get; set; }
-    /// <summary>URL ảnh đại diện kho (tuỳ chọn).</summary>
+    /// <summary>URL ?nh d?i di?n kho (tu? ch?n).</summary>
     public string? ImageUrl { get; set; }
 }

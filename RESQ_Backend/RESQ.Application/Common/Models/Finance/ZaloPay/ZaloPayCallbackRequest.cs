@@ -12,4 +12,4 @@ public class ZaloPayCallbackRequest
 
     [JsonPropertyName("type")]
     public int Type { get; set; }
-}
+}

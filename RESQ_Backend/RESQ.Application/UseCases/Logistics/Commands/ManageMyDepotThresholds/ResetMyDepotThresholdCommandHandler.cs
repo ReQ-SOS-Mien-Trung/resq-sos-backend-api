@@ -6,18 +6,22 @@ using RESQ.Application.Services;
 namespace RESQ.Application.UseCases.Logistics.Commands.ManageMyDepotThresholds;
 
 public class ResetMyDepotThresholdCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository depotInventoryRepository,
     IStockThresholdConfigRepository stockThresholdConfigRepository,
     IStockThresholdResolver stockThresholdResolver)
     : IRequestHandler<ResetMyDepotThresholdCommand, StockThresholdCommandResponse>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IStockThresholdConfigRepository _stockThresholdConfigRepository = stockThresholdConfigRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IStockThresholdResolver _stockThresholdResolver = stockThresholdResolver;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<StockThresholdCommandResponse> Handle(ResetMyDepotThresholdCommand request, CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var reset = await _stockThresholdConfigRepository.ResetAsync(

@@ -1,4 +1,4 @@
-﻿using RESQ.Application.UseCases.Finance.Queries.GetDepotAdvancers;
+using RESQ.Application.UseCases.Finance.Queries.GetDepotAdvancers;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -73,7 +73,7 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("my/funds-metadata")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyFundsMetadata()
@@ -82,7 +82,7 @@ public class DepotFundController(IMediator mediator) : ControllerBase
         var result = response.Funds.Select(f => new MetadataDto
         {
             Key = f.Id.ToString(),
-            Value = $"{f.FundSourceName ?? "Quá»¹ kho"} - {f.Balance:N0} VND"
+            Value = $"{f.FundSourceName ?? "Quỹ kho"} - {f.Balance:N0} VND"
         }).ToList();
         return Ok(result);
     }
@@ -103,7 +103,7 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("my")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(MyDepotFundsResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMy()
@@ -126,7 +126,7 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("my/transactions")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(PagedResult<DepotFundTransactionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyTransactions(
@@ -139,7 +139,7 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("my/advance-transactions")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(PagedResult<DepotFundTransactionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyAdvanceTransactions(
@@ -161,7 +161,7 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{depotFundId:int}/advance")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Advance(int depotFundId, [FromBody] List<CreateAdvanceTransactionItemRequest> request)
     {
@@ -179,7 +179,7 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("repayment")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Repay([FromBody] CreateRepaymentTransactionRequest request)
     {
@@ -203,11 +203,11 @@ public class DepotFundController(IMediator mediator) : ControllerBase
             return userId;
         }
 
-        throw new UnauthorizedAccessException("Token ngÆ°á»i dÃ¹ng khÃ´ng há»£p lá»‡.");
+        throw new UnauthorizedAccessException("Token người dùng không hợp lệ.");
     }
 
     [HttpGet("my/advancers")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> GetDepotAdvancers(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,

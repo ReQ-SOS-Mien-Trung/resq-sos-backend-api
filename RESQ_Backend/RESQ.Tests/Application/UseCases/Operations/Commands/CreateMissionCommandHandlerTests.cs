@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;

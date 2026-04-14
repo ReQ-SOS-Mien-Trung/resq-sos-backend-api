@@ -8,20 +8,24 @@ using RESQ.Application.UseCases.Logistics.Queries.Shared;
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingReturnActivities;
 
 public class GetMyUpcomingReturnActivitiesQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository depotInventoryRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IReturnSupplyActivityRepository returnSupplyActivityRepository)
     : IRequestHandler<GetMyUpcomingReturnActivitiesQuery, PagedResult<UpcomingReturnActivityDto>>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IReturnSupplyActivityRepository _returnSupplyActivityRepository = returnSupplyActivityRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<UpcomingReturnActivityDto>> Handle(
         GetMyUpcomingReturnActivitiesQuery request,
         CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;

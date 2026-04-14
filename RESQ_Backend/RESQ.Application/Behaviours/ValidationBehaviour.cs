@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MediatR;
 
 namespace RESQ.Application.Behaviours;
@@ -23,7 +23,7 @@ public class ValidationBehaviour<TRequest, TResponse> : IPipelineBehavior<TReque
 
             if (failures.Count != 0)
             {
-                // Sử dụng ValidationException của bạn, hoặc FluentValidation.ValidationException nếu muốn
+                // S? d?ng ValidationException c?a b?n, ho?c FluentValidation.ValidationException n?u mu?n
                 throw new Exceptions.ValidationException(failures);
             }
         }

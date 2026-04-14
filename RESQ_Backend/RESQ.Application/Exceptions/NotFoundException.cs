@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.Exceptions;
+namespace RESQ.Application.Exceptions;
 
 public class NotFoundException : Exception
 {
@@ -14,7 +14,7 @@ public class NotFoundException : Exception
     {
     }
 
-    public NotFoundException(string name, object key) : base($"Không tìm thấy thực thể \"{name}\" ({key}).")
+    public NotFoundException(string name, object key) : base($"Kh�ng t�m th?y th?c th? \"{name}\" ({key}).")
     {
     }
 }

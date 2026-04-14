@@ -54,4 +54,4 @@ public partial class RescueTeamAiSuggestion
     [ForeignKey("ClusterId")]
     [InverseProperty("RescueTeamAiSuggestions")]
     public virtual SosCluster? Cluster { get; set; }
-}
+}

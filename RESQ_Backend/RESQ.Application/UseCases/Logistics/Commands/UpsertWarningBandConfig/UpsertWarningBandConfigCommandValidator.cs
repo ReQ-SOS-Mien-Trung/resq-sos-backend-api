@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.UpsertWarningBandConfig;
 
@@ -7,22 +7,22 @@ public class UpsertWarningBandConfigCommandValidator : AbstractValidator<UpsertW
     public UpsertWarningBandConfigCommandValidator()
     {
         RuleFor(x => x.Request)
-            .NotNull().WithMessage("Request không được null.");
+            .NotNull().WithMessage("Request kh�ng du?c null.");
 
         RuleFor(x => x.Request.Critical)
             .GreaterThan(0m)
-                .WithMessage("Critical phải > 0.")
+                .WithMessage("Critical ph?i > 0.")
             .LessThan(x => x.Request.Medium)
-                .WithMessage("Critical phải nhỏ hơn Medium.");
+                .WithMessage("Critical ph?i nh? hon Medium.");
 
         RuleFor(x => x.Request.Medium)
             .GreaterThan(x => x.Request.Critical)
-                .WithMessage("Medium phải lớn hơn Critical.")
+                .WithMessage("Medium ph?i l?n hon Critical.")
             .LessThan(x => x.Request.Low)
-                .WithMessage("Medium phải nhỏ hơn Low.");
+                .WithMessage("Medium ph?i nh? hon Low.");
 
         RuleFor(x => x.Request.Low)
             .GreaterThan(x => x.Request.Medium)
-                .WithMessage("Low phải lớn hơn Medium.");
+                .WithMessage("Low ph?i l?n hon Medium.");
     }
 }

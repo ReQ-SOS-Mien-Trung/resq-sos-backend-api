@@ -1,8 +1,8 @@
-﻿namespace RESQ.Application.Exceptions;
+namespace RESQ.Application.Exceptions;
 
 public class BadRequestException : Exception
 {
-    public BadRequestException() : base("Yêu cầu không hợp lệ")
+    public BadRequestException() : base("Y�u c?u kh�ng h?p l?")
     {
     }
 

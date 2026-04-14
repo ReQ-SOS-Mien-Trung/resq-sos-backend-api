@@ -48,4 +48,4 @@ public partial class FundTransaction
     [ForeignKey("FundCampaignId")]
     [InverseProperty("FundTransactions")]
     public virtual FundCampaign? FundCampaign { get; set; }
-}
+}

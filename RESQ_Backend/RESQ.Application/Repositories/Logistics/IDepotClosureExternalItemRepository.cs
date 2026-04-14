@@ -1,6 +1,6 @@
-﻿namespace RESQ.Application.Repositories.Logistics;
+namespace RESQ.Application.Repositories.Logistics;
 
-/// <summary>DTO dùng để tạo bản ghi xử lý tồn kho bên ngoài.</summary>
+/// <summary>DTO d�ng d? t?o b?n ghi x? l� t?n kho b�n ngo�i.</summary>
 public record CreateClosureExternalItemDto(
     int DepotId,
     int? ClosureId,

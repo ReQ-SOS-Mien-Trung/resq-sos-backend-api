@@ -34,7 +34,7 @@ public static class ServiceCollectionExtensions
                 PermissionConstants.ConversationCoordinatorManage,
                 PermissionConstants.InventoryGlobalManage,
                 PermissionConstants.InventoryGlobalView,
-                PermissionConstants.InventoryDepotManage,
+                PermissionConstants.InventoryGlobalManage,
                 PermissionConstants.InventoryDepotPointView,
                 PermissionConstants.InventorySupplyRequestCreate,
                 PermissionConstants.PersonnelDepotBranchManage,
@@ -111,13 +111,13 @@ public static class ServiceCollectionExtensions
                 new PermissionRequirement(
                     PermissionConstants.InventoryGlobalManage,
                     PermissionConstants.InventoryGlobalView,
-                    PermissionConstants.InventoryDepotManage,
+                    PermissionConstants.InventoryGlobalManage,
                     PermissionConstants.InventoryDepotPointView)));
 
             options.AddPolicy(PermissionConstants.PolicyInventoryWrite, p => p.Requirements.Add(
                 new PermissionRequirement(
                     PermissionConstants.InventoryGlobalManage,
-                    PermissionConstants.InventoryDepotManage)));
+                    PermissionConstants.InventoryGlobalManage)));
 
             options.AddPolicy(PermissionConstants.PolicyPersonnelManage, p => p.Requirements.Add(
                 new PermissionRequirement(

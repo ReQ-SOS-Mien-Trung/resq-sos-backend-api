@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using RESQ.Application.Common.Constants;
@@ -8,11 +8,11 @@ namespace RESQ.Presentation.Hubs;
 
 /// <summary>
 /// Hub SignalR cho dashboard admin.
-/// - Admin kết nối → tự động join group "admin_dashboard" và nhận dữ liệu ban đầu.
-/// - Server push "ReceiveVictimsByPeriod" khi có SOS mới tạo.
-/// - Client có thể gọi GetVictimsByPeriod(from, to, granularity, statuses) để refresh on-demand.
+/// - Admin k?t n?i ? t? d?ng join group "admin_dashboard" v� nh?n d? li?u ban d?u.
+/// - Server push "ReceiveVictimsByPeriod" khi c� SOS m?i t?o.
+/// - Client c� th? g?i GetVictimsByPeriod(from, to, granularity, statuses) d? refresh on-demand.
 /// 
-/// Kết nối: /hubs/dashboard?access_token={jwt}
+/// K?t n?i: /hubs/dashboard?access_token={jwt}
 /// </summary>
 [Authorize(Policy = PermissionConstants.SystemConfigManage)]
 public class DashboardHub(IMediator mediator) : Hub
@@ -24,7 +24,7 @@ public class DashboardHub(IMediator mediator) : Hub
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName);
 
-        // Push dữ liệu ban đầu (6 tháng gần nhất, nhóm theo tháng) cho client vừa kết nối
+        // Push d? li?u ban d?u (6 th�ng g?n nh?t, nh�m theo th�ng) cho client v?a k?t n?i
         var data = await _mediator.Send(new GetVictimsByPeriodQuery(null, null, null));
         await Clients.Caller.SendAsync("ReceiveVictimsByPeriod", data);
 
@@ -38,11 +38,11 @@ public class DashboardHub(IMediator mediator) : Hub
     }
 
     /// <summary>
-    /// Client gọi để lấy lại dữ liệu chart với tuỳ chọn filter.
+    /// Client g?i d? l?y l?i d? li?u chart v?i tu? ch?n filter.
     /// </summary>
-    /// <param name="from">ISO 8601 string (có thể null → 6 tháng trước).</param>
-    /// <param name="to">ISO 8601 string (có thể null → hôm nay).</param>
-    /// <param name="granularity">"day" | "month" (null → "month").</param>
+    /// <param name="from">ISO 8601 string (c� th? null ? 6 th�ng tru?c).</param>
+    /// <param name="to">ISO 8601 string (c� th? null ? h�m nay).</param>
+    /// <param name="granularity">"day" | "month" (null ? "month").</param>
     public async Task GetVictimsByPeriod(
         string? from,
         string? to,

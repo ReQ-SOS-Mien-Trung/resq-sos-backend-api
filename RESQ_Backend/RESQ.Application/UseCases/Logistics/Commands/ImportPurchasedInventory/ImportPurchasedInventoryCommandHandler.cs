@@ -15,6 +15,7 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 
 public class ImportPurchasedInventoryCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IItemCategoryRepository categoryRepository,
     IPurchasedInventoryRepository purchasedInventoryRepository,
     IDepotInventoryRepository depotInventoryRepository,
@@ -29,23 +30,34 @@ public class ImportPurchasedInventoryCommandHandler(
     : IRequestHandler<ImportPurchasedInventoryCommand, ImportPurchasedInventoryResponse>
 {
     private readonly IItemCategoryRepository _categoryRepository = categoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IPurchasedInventoryRepository _purchasedInventoryRepository = purchasedInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotRepository _depotRepository = depotRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly ICampaignDisbursementRepository _disbursementRepo = campaignDisbursementRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotFundRepository _depotFundRepo = depotFundRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IUserRepository _userRepository = userRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IFirebaseService _firebaseService = firebaseService;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly ILogger<ImportPurchasedInventoryCommandHandler> _logger = logger;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<ImportPurchasedInventoryResponse> Handle(ImportPurchasedInventoryCommand request, CancellationToken cancellationToken)
     {
         var response = new ImportPurchasedInventoryResponse();
 
         // 1. Lấy kho đang hoạt động mà người dùng quản lý
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken);
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
         if (depotId == null)
         {
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động. Không thể nhập hàng.");

@@ -12,4 +12,4 @@ public class RescueTeamDto
     public int MaxMembers { get; set; }
     public int CurrentMemberCount { get; set; }
     public DateTime CreatedAt { get; set; }
-}
+}

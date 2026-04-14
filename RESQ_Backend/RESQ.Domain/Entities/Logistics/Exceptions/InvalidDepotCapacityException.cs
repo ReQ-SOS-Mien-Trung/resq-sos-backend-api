@@ -1,11 +1,11 @@
-﻿using RESQ.Domain.Entities.Exceptions;
+using RESQ.Domain.Entities.Exceptions;
 
 namespace RESQ.Domain.Entities.Logistics.Exceptions;
 
 public class InvalidDepotCapacityException : DomainException
 {
-    public InvalidDepotCapacityException(int capacity) : base($"Sức chứa kho không hợp lệ: {capacity}. Sức chứa phải lớn hơn 0.") { }
+    public InvalidDepotCapacityException(int capacity) : base($"S?c ch?a kho kh�ng h?p l?: {capacity}. S?c ch?a ph?i l?n hon 0.") { }
 
     public InvalidDepotCapacityException(decimal capacity, string label) 
-        : base($"Sức chứa kho ({label}) không hợp lệ: {capacity}. Sức chứa phải lớn hơn 0.") { }
+        : base($"S?c ch?a kho ({label}) kh�ng h?p l?: {capacity}. S?c ch?a ph?i l?n hon 0.") { }
 }

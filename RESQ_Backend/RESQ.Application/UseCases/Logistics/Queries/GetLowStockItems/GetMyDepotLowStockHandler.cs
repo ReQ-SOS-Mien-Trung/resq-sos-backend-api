@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -7,19 +7,22 @@ using RESQ.Domain.Entities.Logistics.ValueObjects;
 namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 
 public class GetMyDepotLowStockHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository depotInventoryRepo,
     IStockWarningEvaluatorService evaluatorService)
     : IRequestHandler<GetMyDepotLowStockQuery, LowStockChartResponseDto>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepo = depotInventoryRepo;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IStockWarningEvaluatorService _evaluatorService = evaluatorService;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<LowStockChartResponseDto> Handle(
         GetMyDepotLowStockQuery request,
         CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepo.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
-            ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
+            ?? throw new NotFoundException("T�i kho?n hi?n t?i kh�ng du?c ch? d?nh qu?n l� b?t k? kho n�o dang ho?t d?ng.");
 
         var rawItems = await _depotInventoryRepo.GetLowStockRawItemsAsync(depotId, cancellationToken);
         var items = new List<LowStockItemDto>();
@@ -29,15 +32,15 @@ public class GetMyDepotLowStockHandler(
             var result = await _evaluatorService.EvaluateAsync(
                 raw.DepotId, raw.CategoryId, raw.ItemModelId, raw.AvailableQuantity, cancellationToken);
 
-            // Bỏ qua vật phẩm đang OK
+            // B? qua v?t ph?m dang OK
             if (result.Level == StockWarningLevel.Ok)
                 continue;
 
-            // Bỏ qua UNCONFIGURED nếu không yêu cầu
+            // B? qua UNCONFIGURED n?u kh�ng y�u c?u
             if (result.Level == StockWarningLevel.Unconfigured && !request.IncludeUnconfigured)
                 continue;
 
-            // Lọc theo level nếu có
+            // L?c theo level n?u c�
             if (request.WarningLevel != null &&
                 !string.Equals(result.Level, request.WarningLevel, StringComparison.OrdinalIgnoreCase))
                 continue;

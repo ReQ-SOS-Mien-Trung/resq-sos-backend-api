@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.Repositories.Base;
+namespace RESQ.Application.Repositories.Base;
 
 public interface IUnitOfWork
 {
@@ -6,13 +6,13 @@ public interface IUnitOfWork
 
     /// <summary>
     /// Shorthand cho GetRepository&lt;T&gt;().AsQueryable(tracked: false).
-    /// Dùng cho read-only queries, tương đương _dbContext.Set&lt;T&gt;().AsNoTracking().
+    /// D�ng cho read-only queries, tuong duong _dbContext.Set&lt;T&gt;().AsNoTracking().
     /// </summary>
     IQueryable<T> Set<T>() where T : class;
 
     /// <summary>
     /// Shorthand cho GetRepository&lt;T&gt;().AsQueryable(tracked: true).
-    /// Dùng khi cần track entity để update/delete, tương đương _dbContext.Set&lt;T&gt;().
+    /// D�ng khi c?n track entity d? update/delete, tuong duong _dbContext.Set&lt;T&gt;().
     /// </summary>
     IQueryable<T> SetTracked<T>() where T : class;
     int SaveChangesWithTransaction();
@@ -25,9 +25,9 @@ public interface IUnitOfWork
     }
 
     /// <summary>
-    /// Thực thi một hành động trong transaction scope.
-    /// Nếu exception xảy ra, toàn bộ thay đổi sẽ rollback.
-    /// Tất cả SaveAsync() bên trong action đều nằm trong transaction.
+    /// Th?c thi m?t h�nh d?ng trong transaction scope.
+    /// N?u exception x?y ra, to�n b? thay d?i s? rollback.
+    /// T?t c? SaveAsync() b�n trong action d?u n?m trong transaction.
     /// </summary>
     Task ExecuteInTransactionAsync(Func<Task> action);
 }

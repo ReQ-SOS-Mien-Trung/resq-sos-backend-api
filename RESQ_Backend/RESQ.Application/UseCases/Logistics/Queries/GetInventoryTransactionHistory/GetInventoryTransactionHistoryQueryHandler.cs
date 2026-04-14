@@ -5,16 +5,19 @@ using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 
-public class GetInventoryTransactionHistoryQueryHandler(IInventoryLogRepository inventoryLogRepository, IDepotInventoryRepository depotInventoryRepository) 
+public class GetInventoryTransactionHistoryQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,IInventoryLogRepository inventoryLogRepository, IDepotInventoryRepository depotInventoryRepository) 
     : IRequestHandler<GetInventoryTransactionHistoryQuery, PagedResult<InventoryTransactionDto>>
 {
     private readonly IInventoryLogRepository _inventoryLogRepository = inventoryLogRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<InventoryTransactionDto>> Handle(GetInventoryTransactionHistoryQuery request, CancellationToken cancellationToken)
     {
         // Get depot ID managed by this user
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
         
         // Convert enums to strings for repository

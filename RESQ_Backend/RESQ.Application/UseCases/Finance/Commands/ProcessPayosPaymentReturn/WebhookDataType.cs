@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using System.Collections.Generic;
 
 namespace RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn

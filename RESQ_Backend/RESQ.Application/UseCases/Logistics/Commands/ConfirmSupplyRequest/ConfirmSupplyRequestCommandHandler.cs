@@ -14,6 +14,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 /// Inventory kho yêu cầu tăng tương ứng → RequestingStatus chuyển sang Received.
 /// </summary>
 public class ConfirmSupplyRequestCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
@@ -28,7 +29,7 @@ public class ConfirmSupplyRequestCommandHandler(
         SupplyRequestStateMachine.EnsureCanConfirmReceived(sr.SourceStatus, sr.RequestingStatus);
 
         // Chỉ manager của kho yêu cầu (requesting depot) mới được confirm
-        var managerDepotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         if (managerDepotId != sr.RequestingDepotId)

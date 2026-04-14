@@ -159,6 +159,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMissionContextService, MissionContextService>();
         services.AddScoped<IChatSupportAiService, ChatSupportAiService>();
         services.AddScoped<IUserPermissionResolver, UserPermissionResolver>();
+        services.AddScoped<IManagerDepotAccessService, ManagerDepotAccessService>();
         services.AddScoped<IDepotRealtimeOutboxAdminService, DepotRealtimeOutboxAdminService>();
 
         services.AddScoped<IGoongMapService, GoongMapService>();

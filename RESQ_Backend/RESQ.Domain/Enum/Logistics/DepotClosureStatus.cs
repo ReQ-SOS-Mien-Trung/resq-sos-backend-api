@@ -1,4 +1,4 @@
-﻿namespace RESQ.Domain.Enum.Logistics;
+namespace RESQ.Domain.Enum.Logistics;
 
 /// <summary>
 /// Status of a depot closure record.

@@ -5,6 +5,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
+using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 
@@ -16,7 +17,8 @@ public class ImportReliefItemsCommandHandler(
     IDepotRepository depotRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IUnitOfWork unitOfWork,
-    ILogger<ImportReliefItemsCommandHandler> logger)
+    ILogger<ImportReliefItemsCommandHandler> logger,
+    IManagerDepotAccessService managerDepotAccessService)
     : IRequestHandler<ImportReliefItemsCommand, ImportReliefItemsResponse>
 {
     private readonly IItemCategoryRepository _categoryRepository = categoryRepository;
@@ -27,19 +29,20 @@ public class ImportReliefItemsCommandHandler(
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ImportReliefItemsCommandHandler> _logger = logger;
+    private readonly IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<ImportReliefItemsResponse> Handle(ImportReliefItemsCommand request, CancellationToken cancellationToken)
     {
         var response = new ImportReliefItemsResponse();
 
         // 1. Get the active depot managed by this user
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken);
-        if (depotId == null)
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
+        if (depotId == 0) // Cannot happen if ResolveAccessible throws on forbidden, but mapping requires it
         {
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động. Không thể nhập hàng.");
         }
 
-        var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId.Value, cancellationToken);
+        var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
             throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể nhập hàng vào kho này.");
 
@@ -216,7 +219,7 @@ public class ImportReliefItemsCommandHandler(
                     expiredDateUtc,
                     batchNote,
                     request.UserId,
-                    depotId.Value,
+                    depotId,
                     batchNote,
                     null
                 );

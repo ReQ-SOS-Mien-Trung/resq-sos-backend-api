@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Logistics.Commands.CreateItemCategory;
@@ -19,7 +19,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
 {
     private readonly ISender _sender = sender;
 
-    /// <summary>Lấy danh sách danh mục vật phẩm có phân trang.</summary>
+    /// <summary>L?y danh s�ch danh m?c v?t ph?m c� ph�n trang.</summary>
     [HttpGet]
     public async Task<ActionResult<GetItemCategoriesResponse>> GetAllPaged([FromQuery] GetItemCategoriesQuery query)
     {
@@ -27,7 +27,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Lấy toàn bộ danh mục vật phẩm (không phân trang, dùng cho dropdown).</summary>
+    /// <summary>L?y to�n b? danh m?c v?t ph?m (kh�ng ph�n trang, d�ng cho dropdown).</summary>
     [HttpGet("all")]
     public async Task<ActionResult<List<ItemCategoryDto>>> GetAll()
     {
@@ -35,7 +35,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>[Metadata] Danh sách mã danh mục vật phẩm.</summary>
+    /// <summary>[Metadata] Danh s�ch m� danh m?c v?t ph?m.</summary>
     [HttpGet("codes")]
     public async Task<ActionResult<List<MetadataDto>>> GetCodes()
     {
@@ -43,7 +43,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Xem chi tiết danh mục vật phẩm theo ID.</summary>
+    /// <summary>Xem chi ti?t danh m?c v?t ph?m theo ID.</summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<ItemCategoryDto>> GetById(int id)
     {
@@ -51,7 +51,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Xem chi tiết danh mục vật phẩm theo mã code.</summary>
+    /// <summary>Xem chi ti?t danh m?c v?t ph?m theo m� code.</summary>
     [HttpGet("code/{code}")]
     public async Task<ActionResult<ItemCategoryDto>> GetByCode(ItemCategoryCode code)
     {
@@ -59,7 +59,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Tạo danh mục vật phẩm mới.</summary>
+    /// <summary>T?o danh m?c v?t ph?m m?i.</summary>
     [HttpPost]
     public async Task<ActionResult<CreateItemCategoryResponse>> Create([FromBody] CreateItemCategoryCommand command)
     {
@@ -67,7 +67,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    /// <summary>Cập nhật danh mục vật phẩm.</summary>
+    /// <summary>C?p nh?t danh m?c v?t ph?m.</summary>
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateItemCategoryCommand command)
     {
@@ -76,7 +76,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Xóa danh mục vật phẩm.</summary>
+    /// <summary>X�a danh m?c v?t ph?m.</summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {

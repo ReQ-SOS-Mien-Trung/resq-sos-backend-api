@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -32,7 +32,7 @@ public class GetAlternativeDepotsQueryHandler(
         CancellationToken cancellationToken)
     {
         if (request.SelectedDepotId <= 0)
-            throw new BadRequestException("selectedDepotId phải lớn hơn 0.");
+            throw new BadRequestException("selectedDepotId ph?i l?n hon 0.");
 
         _logger.LogInformation(
             "Getting alternative depots for ClusterId={clusterId}, SelectedDepotId={selectedDepotId}",
@@ -40,10 +40,10 @@ public class GetAlternativeDepotsQueryHandler(
             request.SelectedDepotId);
 
         var cluster = await _sosClusterRepository.GetByIdAsync(request.ClusterId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy cụm với ID: {request.ClusterId}");
+            ?? throw new NotFoundException($"Kh�ng t�m th?y c?m v?i ID: {request.ClusterId}");
 
         if (!cluster.CenterLatitude.HasValue || !cluster.CenterLongitude.HasValue)
-            throw new BadRequestException($"Cụm {request.ClusterId} không có tọa độ tâm để xếp hạng kho thay thế.");
+            throw new BadRequestException($"C?m {request.ClusterId} kh�ng c� t?a d? t�m d? x?p h?ng kho thay th?.");
 
         var latestSuggestion = (await _missionAiSuggestionRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken))
             .OrderByDescending(suggestion => suggestion.CreatedAt ?? DateTime.MinValue)
@@ -51,7 +51,7 @@ public class GetAlternativeDepotsQueryHandler(
             .FirstOrDefault();
 
         if (latestSuggestion is null)
-            throw new NotFoundException($"Cụm {request.ClusterId} chưa có gợi ý nhiệm vụ từ AI.");
+            throw new NotFoundException($"C?m {request.ClusterId} chua c� g?i � nhi?m v? t? AI.");
 
         var metadata = MissionAiSuggestionJsonHelper.ParseMetadata(latestSuggestion.Metadata);
         var rawShortages = metadata?.SupplyShortages ?? [];
@@ -61,7 +61,7 @@ public class GetAlternativeDepotsQueryHandler(
                 && shortage.SelectedDepotId.Value != request.SelectedDepotId))
         {
             throw new BadRequestException(
-                $"selectedDepotId={request.SelectedDepotId} không khớp với kho chính trong gợi ý AI mới nhất của cụm {request.ClusterId}.");
+                $"selectedDepotId={request.SelectedDepotId} kh�ng kh?p v?i kho ch�nh trong g?i � AI m?i nh?t c?a c?m {request.ClusterId}.");
         }
 
         var aggregatedShortages = AggregateShortages(rawShortages);
@@ -255,7 +255,7 @@ public class GetAlternativeDepotsQueryHandler(
         var distanceLabel = distanceKm.ToString("0.##", CultureInfo.InvariantCulture);
         if (coversAllShortages)
         {
-            return $"Kho này đáp ứng toàn bộ phần thiếu hụt ({coveredQuantity}/{totalMissingQuantity} đơn vị), cách tâm cụm {distanceLabel} km.";
+            return $"Kho n�y d�p ?ng to�n b? ph?n thi?u h?t ({coveredQuantity}/{totalMissingQuantity} don v?), c�ch t�m c?m {distanceLabel} km.";
         }
 
         var remainingItems = itemCoverageDetails
@@ -267,10 +267,10 @@ public class GetAlternativeDepotsQueryHandler(
             .ToList();
 
         var missingLabel = remainingItems.Count == 0
-            ? "một số mặt hàng"
+            ? "m?t s? m?t h�ng"
             : JoinWithAnd(remainingItems);
 
-        return $"Kho này đáp ứng một phần {coveredQuantity}/{totalMissingQuantity} đơn vị, còn thiếu {missingLabel}, cách tâm cụm {distanceLabel} km.";
+        return $"Kho n�y d�p ?ng m?t ph?n {coveredQuantity}/{totalMissingQuantity} don v?, c�n thi?u {missingLabel}, c�ch t�m c?m {distanceLabel} km.";
     }
 
     private static string JoinWithAnd(IReadOnlyList<string> values)
@@ -279,14 +279,14 @@ public class GetAlternativeDepotsQueryHandler(
         {
             0 => string.Empty,
             1 => values[0],
-            2 => $"{values[0]} và {values[1]}",
-            _ => $"{string.Join(", ", values.Take(values.Count - 1))} và {values[^1]}"
+            2 => $"{values[0]} v� {values[1]}",
+            _ => $"{string.Join(", ", values.Take(values.Count - 1))} v� {values[^1]}"
         };
     }
 
     private static string BuildFallbackItemName(int? itemId)
     {
-        return itemId.HasValue ? $"vật phẩm #{itemId.Value}" : "vật phẩm chưa rõ";
+        return itemId.HasValue ? $"v?t ph?m #{itemId.Value}" : "v?t ph?m chua r�";
     }
 
     private static string NormalizeText(string? value)

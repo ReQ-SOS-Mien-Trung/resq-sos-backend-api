@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
@@ -81,7 +81,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var hasTargetGroupFilter = targetGroupSet.Count > 0;
 
         // Determine which tables to query based on the ItemType filter.
-        // No filter (null/empty/all-types) → include both; explicit filter → include only matching types.
+        // No filter (null/empty/all-types) ? include both; explicit filter ? include only matching types.
         bool includeConsumable = !hasItemTypeFilter || itemTypeSet!.Contains(ItemType.Consumable);
         bool includeReusable   = !hasItemTypeFilter || itemTypeSet!.Contains(ItemType.Reusable);
 
@@ -240,7 +240,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var totalCount = combined.Count;
         var pagedItems = combined
             .OrderByDescending(x => x.LastStockedAt)
-            .ThenBy(x => x.ItemModelId)   // stable tiebreaker: giữ thứ tự cố định khi LastStockedAt bằng nhau
+            .ThenBy(x => x.ItemModelId)   // stable tiebreaker: gi? th? t? c? d?nh khi LastStockedAt b?ng nhau
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToList();
@@ -640,10 +640,10 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             })
             .ToListAsync(cancellationToken);
 
-        // Aggregate individual units → one row per (ItemModelId, DepotId) in memory
+        // Aggregate individual units ? one row per (ItemModelId, DepotId) in memory
         var reusableRaw = reusableUnits
             .GroupBy(x => new { x.ItemModelId, x.DepotId })
-            .Where(g => g.Any(x => x.IsAvailable)) // only depots that have â‰¥ 1 available unit
+            .Where(g => g.Any(x => x.IsAvailable)) // only depots that have ≥ 1 available unit
             .Select(g =>
             {
                 var f         = g.First();
@@ -743,7 +743,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             .ToListAsync(cancellationToken))
             .ToHashSet();
 
-        // Consumable: net available = storedQty âˆ’ missionReserved âˆ’ transferReserved
+        // Consumable: net available = storedQty − missionReserved − transferReserved
         var consumableAvailability = await (
             from inv in _unitOfWork.Set<SupplyInventory>().AsNoTracking()
             join im in _unitOfWork.Set<ItemModel>().AsNoTracking() on inv.ItemModelId equals im.Id
@@ -850,7 +850,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         foreach (var (itemModelId, quantity) in items)
         {
             if (!itemLookup.TryGetValue(itemModelId, out var itemModel))
-                throw new InvalidOperationException($"Không tìm thấy metadata vật phẩm #{itemModelId}.");
+                throw new InvalidOperationException($"Kh�ng t�m th?y metadata v?t ph?m #{itemModelId}.");
 
             var isReusable = string.Equals(itemModel.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
             var reservationItem = new SupplyExecutionItemDto
@@ -886,7 +886,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 continue;
             }
 
-            // Reusable items: Available → Reserved (mission - no SupplyRequestId)
+            // Reusable items: Available ? Reserved (mission - no SupplyRequestId)
             var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
                 .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId && r.Status == nameof(ReusableItemStatus.Available))
                 .OrderBy(r => r.Id)
@@ -895,7 +895,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             if (isReusable && reusableUnits.Count < quantity)
                 throw new InvalidOperationException(
-                    $"vật phẩm reusable #{itemModelId}: chỉ còn {reusableUnits.Count} đơn vị Available trong khi cần reserve {quantity}.");
+                    $"v?t ph?m reusable #{itemModelId}: ch? c�n {reusableUnits.Count} don v? Available trong khi c?n reserve {quantity}.");
 
             foreach (var unit in reusableUnits)
             {
@@ -941,7 +941,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         foreach (var (itemModelId, quantity) in items)
         {
             if (!itemLookup.TryGetValue(itemModelId, out var itemModel))
-                throw new InvalidOperationException($"Không tìm thấy metadata vật phẩm #{itemModelId}.");
+                throw new InvalidOperationException($"Kh�ng t�m th?y metadata v?t ph?m #{itemModelId}.");
 
             var isReusable = string.Equals(itemModel.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
             var executionItem = new SupplyExecutionItemDto
@@ -959,18 +959,18 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                         x => x.DepotId == depotId && x.ItemModelId == itemModelId,
                         cancellationToken)
                     ?? throw new InvalidOperationException(
-                        $"Không tìm thấy tồn kho vật phẩm #{itemModelId} tại kho #{depotId}.");
+                        $"Kh�ng t�m th?y t?n kho v?t ph?m #{itemModelId} t?i kho #{depotId}.");
 
                 var currentQty      = inventory.Quantity             ?? 0;
                 var currentReserved = inventory.MissionReservedQuantity;
 
                 if (currentReserved < quantity)
                     throw new InvalidOperationException(
-                        $"vật phẩm #{itemModelId}: số lượng đặt trước nhiệm vụ ({currentReserved}) không đủ so với yêu cầu ({quantity}).");
+                        $"v?t ph?m #{itemModelId}: s? lu?ng d?t tru?c nhi?m v? ({currentReserved}) kh�ng d? so v?i y�u c?u ({quantity}).");
 
                 if (currentQty < quantity)
                     throw new InvalidOperationException(
-                        $"vật phẩm #{itemModelId}: tồn kho thực ({currentQty}) không đủ so với yêu cầu ({quantity}).");
+                        $"v?t ph?m #{itemModelId}: t?n kho th?c ({currentQty}) kh�ng d? so v?i y�u c?u ({quantity}).");
 
                 inventory.Quantity                = currentQty      - quantity;
                 inventory.MissionReservedQuantity = currentReserved - quantity;
@@ -1006,7 +1006,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                             SourceId               = activityId,
                             MissionId              = missionId,
                             PerformedBy            = performedBy,
-                            Note                   = $"Xuất FEFO lô #{lot.Id} vật phẩm #{itemModelId} SL {deduct} cho activity #{activityId} (mission #{missionId})",
+                            Note                   = $"Xu?t FEFO l� #{lot.Id} v?t ph?m #{itemModelId} SL {deduct} cho activity #{activityId} (mission #{missionId})",
                             CreatedAt              = now
                         });
 
@@ -1022,7 +1022,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                     if (remaining > 0)
                         throw new InvalidOperationException(
-                            $"vật phẩm #{itemModelId}: không đủ lô chưa hết hạn để xuất {quantity} đơn vị.");
+                            $"v?t ph?m #{itemModelId}: kh�ng d? l� chua h?t h?n d? xu?t {quantity} don v?.");
                 }
                 else
                 {
@@ -1036,13 +1036,13 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                         SourceId               = activityId,
                         MissionId              = missionId,
                         PerformedBy            = performedBy,
-                        Note                   = $"Team xác nhận lấy hàng vật phẩm #{itemModelId} số lượng {quantity} cho activity #{activityId} (mission #{missionId})",
+                        Note                   = $"Team x�c nh?n l?y h�ng v?t ph?m #{itemModelId} s? lu?ng {quantity} cho activity #{activityId} (mission #{missionId})",
                         CreatedAt              = now
                     });
                 }
             }
 
-            // Reusable items: Reserved → InUse
+            // Reusable items: Reserved ? InUse
             if (isReusable)
             {
                 var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
@@ -1053,7 +1053,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             if (reusableUnits.Count < quantity)
                 throw new InvalidOperationException(
-                    $"vật phẩm reusable #{itemModelId}: chỉ tìm thấy {reusableUnits.Count} đơn vị Reserved trong khi cần {quantity}.");
+                    $"v?t ph?m reusable #{itemModelId}: ch? t�m th?y {reusableUnits.Count} don v? Reserved trong khi c?n {quantity}.");
 
             foreach (var unit in reusableUnits)
             {
@@ -1069,7 +1069,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     SourceId       = activityId,
                     MissionId      = missionId,
                     PerformedBy    = performedBy,
-                    Note           = $"Team xác nhận lấy {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) cho activity #{activityId} (mission #{missionId})",
+                    Note           = $"Team x�c nh?n l?y {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) cho activity #{activityId} (mission #{missionId})",
                     CreatedAt      = now
                 });
 
@@ -1123,8 +1123,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 {
                     if (inventory.MissionReservedQuantity < quantity)
                         throw new InvalidOperationException(
-                            $"vật phẩm #{itemModelId}: không thể giải phóng {quantity} đơn vị, " +
-                            $"mission_reserved_quantity hiện là {inventory.MissionReservedQuantity}.");
+                            $"v?t ph?m #{itemModelId}: kh�ng th? gi?i ph�ng {quantity} don v?, " +
+                            $"mission_reserved_quantity hi?n l� {inventory.MissionReservedQuantity}.");
 
                     inventory.MissionReservedQuantity -= quantity;
                 }
@@ -1132,7 +1132,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 continue;
             }
 
-            // Reusable items: Reserved → Available
+            // Reusable items: Reserved ? Available
             var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
                 .Where(r => r.DepotId == depotId && r.ItemModelId == itemModelId
                             && r.Status == nameof(ReusableItemStatus.Reserved)
@@ -1217,12 +1217,12 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
             .FirstOrDefaultAsync(x => x.DepotId == depotId && x.ItemModelId == itemModelId, cancellationToken)
             ?? throw new InvalidOperationException(
-                $"Không tìm thấy tồn kho vật phẩm #{itemModelId} tại kho #{depotId}.");
+                $"Kh�ng t�m th?y t?n kho v?t ph?m #{itemModelId} t?i kho #{depotId}.");
 
         var available = (inventory.Quantity ?? 0) - (inventory.MissionReservedQuantity + inventory.TransferReservedQuantity);
         if (available < quantity)
             throw new InvalidOperationException(
-                $"vật phẩm #{itemModelId}: số lượng khả dụng ({available}) không đủ so với yêu cầu xuất ({quantity}).");
+                $"v?t ph?m #{itemModelId}: s? lu?ng kh? d?ng ({available}) kh�ng d? so v?i y�u c?u xu?t ({quantity}).");
 
         inventory.Quantity      = (inventory.Quantity ?? 0) - quantity;
         inventory.LastStockedAt = now;
@@ -1255,14 +1255,14 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     PerformedBy            = performedBy,
                     Note                   = !string.IsNullOrWhiteSpace(note)
                         ? note
-                        : $"Xuất kho FEFO lô #{lot.Id} vật phẩm #{itemModelId} SL {deduct}",
+                        : $"Xu?t kho FEFO l� #{lot.Id} v?t ph?m #{itemModelId} SL {deduct}",
                     CreatedAt              = now
                 });
             }
 
             if (remaining > 0)
                 throw new InvalidOperationException(
-                    $"vật phẩm #{itemModelId}: không đủ lô để xuất {quantity} đơn vị.");
+                    $"v?t ph?m #{itemModelId}: kh�ng d? l� d? xu?t {quantity} don v?.");
         }
         else
         {
@@ -1276,7 +1276,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 PerformedBy            = performedBy,
                 Note                   = !string.IsNullOrWhiteSpace(note)
                     ? note
-                    : $"Xuất kho vật phẩm #{itemModelId} SL {quantity} (legacy – không có lô)",
+                    : $"Xu?t kho v?t ph?m #{itemModelId} SL {quantity} (legacy � kh�ng c� l�)",
                 CreatedAt              = now
             });
         }
@@ -1299,7 +1299,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
             .FirstOrDefaultAsync(x => x.DepotId == depotId && x.ItemModelId == itemModelId, cancellationToken)
             ?? throw new InvalidOperationException(
-                $"Không tìm thấy tồn kho vật phẩm #{itemModelId} tại kho #{depotId}.");
+                $"Kh�ng t�m th?y t?n kho v?t ph?m #{itemModelId} t?i kho #{depotId}.");
 
         if (quantityChange < 0)
         {
@@ -1308,7 +1308,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             var available = (inventory.Quantity ?? 0) - (inventory.MissionReservedQuantity + inventory.TransferReservedQuantity);
             if (available < decrease)
                 throw new InvalidOperationException(
-                    $"vật phẩm #{itemModelId}: số lượng khả dụng ({available}) không đủ để điều chỉnh giảm {decrease}.");
+                    $"v?t ph?m #{itemModelId}: s? lu?ng kh? d?ng ({available}) kh�ng d? d? di?u ch?nh gi?m {decrease}.");
 
             inventory.Quantity      = (inventory.Quantity ?? 0) - decrease;
             inventory.LastStockedAt = now;
@@ -1339,15 +1339,15 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                         SourceType             = InventorySourceType.Adjustment.ToString(),
                         PerformedBy            = performedBy,
                         Note                   = !string.IsNullOrWhiteSpace(note)
-                            ? $"{note} [lô #{lot.Id}, SL -{deduct}]"
-                            : $"Điều chỉnh giảm FEFO lô #{lot.Id} vật phẩm #{itemModelId} SL {deduct}: {reason}",
+                            ? $"{note} [l� #{lot.Id}, SL -{deduct}]"
+                            : $"�i?u ch?nh gi?m FEFO l� #{lot.Id} v?t ph?m #{itemModelId} SL {deduct}: {reason}",
                         CreatedAt              = now
                     });
                 }
 
                 if (remaining > 0)
                     throw new InvalidOperationException(
-                        $"vật phẩm #{itemModelId}: không đủ lô để điều chỉnh giảm {decrease}.");
+                        $"v?t ph?m #{itemModelId}: kh�ng d? l� d? di?u ch?nh gi?m {decrease}.");
             }
             else
             {
@@ -1361,7 +1361,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     PerformedBy            = performedBy,
                     Note                   = !string.IsNullOrWhiteSpace(note)
                         ? note
-                        : $"Điều chỉnh giảm vật phẩm #{itemModelId} SL {decrease}: {reason} (legacy – không có lô)",
+                        : $"�i?u ch?nh gi?m v?t ph?m #{itemModelId} SL {decrease}: {reason} (legacy � kh�ng c� l�)",
                     CreatedAt              = now
                 });
             }
@@ -1396,7 +1396,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 PerformedBy            = performedBy,
                 Note                   = !string.IsNullOrWhiteSpace(note)
                     ? note
-                    : $"Điều chỉnh tăng vật phẩm #{itemModelId} SL {quantityChange}: {reason}",
+                    : $"�i?u ch?nh tang v?t ph?m #{itemModelId} SL {quantityChange}: {reason}",
                 CreatedAt              = now
             });
         }
@@ -1457,12 +1457,12 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         foreach (var (itemModelId, quantity) in normalizedConsumables)
         {
             if (!itemLookup.TryGetValue(itemModelId, out var itemModel))
-                throw new InvalidOperationException($"Không tìm thấy metadata vật phẩm #{itemModelId}.");
+                throw new InvalidOperationException($"Kh�ng t�m th?y metadata v?t ph?m #{itemModelId}.");
 
             var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
                 .FirstOrDefaultAsync(x => x.DepotId == depotId && x.ItemModelId == itemModelId, cancellationToken)
                 ?? throw new InvalidOperationException(
-                    $"Không tìm thấy tồn kho vật phẩm #{itemModelId} tại kho #{depotId} để nhập lại từ mission.");
+                    $"Kh�ng t�m th?y t?n kho v?t ph?m #{itemModelId} t?i kho #{depotId} d? nh?p l?i t? mission.");
 
             var lot = new SupplyInventoryLot
             {
@@ -1492,7 +1492,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 MissionId = missionId,
                 PerformedBy = performedBy,
                 Note = BuildMissionReturnNote(
-                    $"Nhập lại {itemModel.Name} từ activity #{activityId}, mission #{missionId}",
+                    $"Nh?p l?i {itemModel.Name} t? activity #{activityId}, mission #{missionId}",
                     discrepancyNote),
                 CreatedAt = now
             });
@@ -1512,19 +1512,19 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         {
             var foundIds = explicitReusableUnits.Select(x => x.Id).ToHashSet();
             var missingIds = normalizedReusableIds.Where(id => !foundIds.Contains(id));
-            throw new InvalidOperationException($"Không tìm thấy reusable units: {string.Join(", ", missingIds)}.");
+            throw new InvalidOperationException($"Kh�ng t�m th?y reusable units: {string.Join(", ", missingIds)}.");
         }
 
         foreach (var unit in explicitReusableUnits)
         {
             if (!string.Equals(unit.Status, nameof(ReusableItemStatus.InUse), StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"Reusable unit #{unit.Id} không ở trạng thái InUse.");
+                throw new InvalidOperationException($"Reusable unit #{unit.Id} kh�ng ? tr?ng th�i InUse.");
 
             if (unit.DepotId != depotId)
-                throw new InvalidOperationException($"Reusable unit #{unit.Id} không thuộc kho #{depotId}.");
+                throw new InvalidOperationException($"Reusable unit #{unit.Id} kh�ng thu?c kho #{depotId}.");
 
             var itemModel = unit.ItemModel
-                ?? throw new InvalidOperationException($"Reusable unit #{unit.Id} không có metadata vật phẩm.");
+                ?? throw new InvalidOperationException($"Reusable unit #{unit.Id} kh�ng c� metadata v?t ph?m.");
 
             unit.DepotId = depotId;
             unit.Status = nameof(ReusableItemStatus.Available);
@@ -1549,7 +1549,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 MissionId = missionId,
                 PerformedBy = performedBy,
                 Note = BuildMissionReturnNote(
-                    $"Nhận lại {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) từ activity #{activityId}, mission #{missionId}",
+                    $"Nh?n l?i {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) t? activity #{activityId}, mission #{missionId}",
                     discrepancyNote),
                 CreatedAt = now
             });
@@ -1570,7 +1570,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         foreach (var (itemModelId, quantity) in normalizedLegacyReusable)
         {
             if (!itemLookup.TryGetValue(itemModelId, out var itemModel))
-                throw new InvalidOperationException($"Không tìm thấy metadata vật phẩm reusable #{itemModelId}.");
+                throw new InvalidOperationException($"Kh�ng t�m th?y metadata v?t ph?m reusable #{itemModelId}.");
 
             var legacyUnits = await _unitOfWork.SetTracked<ReusableItem>()
                 .Where(r => r.DepotId == depotId
@@ -1585,7 +1585,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             if (legacyUnits.Count != quantity)
                 throw new InvalidOperationException(
-                    $"vật phẩm reusable #{itemModelId}: chỉ tìm thấy {legacyUnits.Count} đơn vị InUse để nhập lại theo legacy fallback, yêu cầu {quantity}.");
+                    $"v?t ph?m reusable #{itemModelId}: ch? t�m th?y {legacyUnits.Count} don v? InUse d? nh?p l?i theo legacy fallback, y�u c?u {quantity}.");
 
             foreach (var unit in legacyUnits)
             {
@@ -1604,7 +1604,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     MissionId = missionId,
                     PerformedBy = performedBy,
                     Note = BuildMissionReturnNote(
-                        $"Nhận lại {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) theo legacy fallback từ activity #{activityId}, mission #{missionId}",
+                        $"Nh?n l?i {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) theo legacy fallback t? activity #{activityId}, mission #{missionId}",
                         discrepancyNote),
                     CreatedAt = now
                 });
@@ -1636,7 +1636,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (string.IsNullOrWhiteSpace(discrepancyNote))
             return baseNote;
 
-        return $"{baseNote}. Ghi chú chênh lệch: {discrepancyNote}";
+        return $"{baseNote}. Ghi ch� ch�nh l?ch: {discrepancyNote}";
     }
 
     private static MissionSupplyReturnExecutionItemDto GetOrCreateReturnResultItem(
@@ -1798,7 +1798,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     SourceType             = "DepotClosure",
                     SourceId               = closureId,
                     PerformedBy            = performedBy,
-                    Note                   = $"Đóng kho #{sourceDepotId}: chuyển lô #{srcLot.Id} vật phẩm #{itemModelId} SL {qty} sang kho #{targetDepotId}",
+                    Note                   = $"��ng kho #{sourceDepotId}: chuy?n l� #{srcLot.Id} v?t ph?m #{itemModelId} SL {qty} sang kho #{targetDepotId}",
                     ExpiredDate            = srcLot.ExpiredDate,
                     ReceivedDate           = srcLot.ReceivedDate,
                     CreatedAt              = now
@@ -1829,7 +1829,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     SourceType             = "DepotClosure",
                     SourceId               = closureId,
                     PerformedBy            = performedBy,
-                    Note                   = $"Đóng kho #{sourceDepotId}: nhận lô từ kho nguồn, vật phẩm #{itemModelId} SL {qty}",
+                    Note                   = $"��ng kho #{sourceDepotId}: nh?n l� t? kho ngu?n, v?t ph?m #{itemModelId} SL {qty}",
                     ExpiredDate            = srcLot.ExpiredDate,
                     ReceivedDate           = srcLot.ReceivedDate,
                     CreatedAt              = now
@@ -1874,7 +1874,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     SourceType     = "DepotClosure",
                     SourceId       = closureId,
                     PerformedBy    = performedBy,
-                    Note           = $"Đóng kho #{oldDepotId}: di chuyển thiết bị #{unit.Id} sang kho #{targetDepotId}",
+                    Note           = $"��ng kho #{oldDepotId}: di chuy?n thi?t b? #{unit.Id} sang kho #{targetDepotId}",
                     CreatedAt      = now
                 });
             }
@@ -1928,7 +1928,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     SourceType             = "DepotClosure",
                     SourceId               = closureId,
                     PerformedBy            = performedBy,
-                    Note                   = $"Đóng kho #{depotId} (xử lý bên ngoài): xuất lô #{lot.Id} vật phẩm #{inv.ItemModelId} SL {qty}. {note}",
+                    Note                   = $"��ng kho #{depotId} (x? l� b�n ngo�i): xu?t l� #{lot.Id} v?t ph?m #{inv.ItemModelId} SL {qty}. {note}",
                     ExpiredDate            = lot.ExpiredDate,
                     ReceivedDate           = lot.ReceivedDate,
                     CreatedAt              = now
@@ -1952,7 +1952,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         {
             unit.Status    = nameof(ReusableItemStatus.Decommissioned);
             unit.UpdatedAt = now;
-            unit.Note      = $"Đóng kho #{depotId} (xử lý bên ngoài) — closureId #{closureId}. {note}";
+            unit.Note      = $"��ng kho #{depotId} (x? l� b�n ngo�i) � closureId #{closureId}. {note}";
             unit.IsDeleted = true;
 
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
@@ -1963,7 +1963,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 SourceType     = "DepotClosure",
                 SourceId       = closureId,
                 PerformedBy    = performedBy,
-                Note           = $"Đóng kho #{depotId} (xử lý bên ngoài): thanh lý thiết bị #{unit.Id}. {note}",
+                Note           = $"��ng kho #{depotId} (x? l� b�n ngo�i): thanh l� thi?t b? #{unit.Id}. {note}",
                 CreatedAt      = now
             });
         }
@@ -2081,12 +2081,12 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             foreach (var assignment in consumableAssignments)
             {
                 var srcInv = sourceInventories.FirstOrDefault(x => x.ItemModelId == assignment.ItemModelId)
-                    ?? throw new InvalidOperationException($"Không tìm thấy tồn kho vật phẩm #{assignment.ItemModelId} tại kho nguồn để chuyển theo kế hoạch đóng kho.");
+                    ?? throw new InvalidOperationException($"Kh�ng t�m th?y t?n kho v?t ph?m #{assignment.ItemModelId} t?i kho ngu?n d? chuy?n theo k? ho?ch d�ng kho.");
 
                 var remainingToMove = assignment.Quantity;
                 if ((srcInv.Quantity ?? 0) < remainingToMove)
                 {
-                    throw new InvalidOperationException($"Số lượng vật phẩm #{assignment.ItemModelId} còn lại tại kho nguồn không đủ để chuyển theo kế hoạch đóng kho.");
+                    throw new InvalidOperationException($"S? lu?ng v?t ph?m #{assignment.ItemModelId} c�n l?i t?i kho ngu?n kh�ng d? d? chuy?n theo k? ho?ch d�ng kho.");
                 }
 
                 var dstInv = targetInventories.FirstOrDefault(inv => inv.ItemModelId == assignment.ItemModelId);
@@ -2129,7 +2129,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                         SourceType = "DepotClosure",
                         SourceId = closureId,
                         PerformedBy = performedBy,
-                        Note = $"Đóng kho #{sourceDepotId}: chuyển theo transfer #{transferId} lô #{srcLot.Id} vật phẩm #{assignment.ItemModelId} SL {qty} sang kho #{targetDepotId}",
+                        Note = $"��ng kho #{sourceDepotId}: chuy?n theo transfer #{transferId} l� #{srcLot.Id} v?t ph?m #{assignment.ItemModelId} SL {qty} sang kho #{targetDepotId}",
                         ExpiredDate = srcLot.ExpiredDate,
                         ReceivedDate = srcLot.ReceivedDate,
                         CreatedAt = now
@@ -2158,7 +2158,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                         SourceType = "DepotClosure",
                         SourceId = closureId,
                         PerformedBy = performedBy,
-                        Note = $"Đóng kho #{sourceDepotId}: nhận theo transfer #{transferId} vật phẩm #{assignment.ItemModelId} SL {qty} từ kho nguồn",
+                        Note = $"��ng kho #{sourceDepotId}: nh?n theo transfer #{transferId} v?t ph?m #{assignment.ItemModelId} SL {qty} t? kho ngu?n",
                         ExpiredDate = srcLot.ExpiredDate,
                         ReceivedDate = srcLot.ReceivedDate,
                         CreatedAt = now
@@ -2171,7 +2171,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                 if (remainingToMove > 0)
                 {
-                    throw new InvalidOperationException($"Không đủ lô khả dụng để chuyển vật phẩm #{assignment.ItemModelId} theo kế hoạch đóng kho.");
+                    throw new InvalidOperationException($"Kh�ng d? l� kh? d?ng d? chuy?n v?t ph?m #{assignment.ItemModelId} theo k? ho?ch d�ng kho.");
                 }
 
                 srcInv.Quantity = (srcInv.Quantity ?? 0) - assignment.Quantity;
@@ -2210,7 +2210,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                 if (units.Count < assignment.Quantity)
                 {
-                    throw new InvalidOperationException($"Thiết bị tái sử dụng #{assignment.ItemModelId} khả dụng tại kho nguồn không đủ để chuyển theo kế hoạch đóng kho.");
+                    throw new InvalidOperationException($"Thi?t b? t�i s? d?ng #{assignment.ItemModelId} kh? d?ng t?i kho ngu?n kh�ng d? d? chuy?n theo k? ho?ch d�ng kho.");
                 }
 
                 foreach (var unit in units)
@@ -2227,7 +2227,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                         SourceType = "DepotClosure",
                         SourceId = closureId,
                         PerformedBy = performedBy,
-                        Note = $"Đóng kho #{oldDepotId}: di chuyển theo transfer #{transferId} thiết bị #{unit.Id} sang kho #{targetDepotId}",
+                        Note = $"��ng kho #{oldDepotId}: di chuy?n theo transfer #{transferId} thi?t b? #{unit.Id} sang kho #{targetDepotId}",
                         CreatedAt = now
                     });
                 }

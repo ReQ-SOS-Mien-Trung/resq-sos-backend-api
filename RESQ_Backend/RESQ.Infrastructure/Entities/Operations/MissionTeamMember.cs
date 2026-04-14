@@ -37,4 +37,4 @@ public partial class MissionTeamMember
     [ForeignKey("RescuerId")]
     [InverseProperty("MissionTeamMembers")]
     public virtual User? Rescuer { get; set; }
-}
+}

@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Enum.Finance;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Domain.Entities.Finance.ValueObjects;
 
@@ -28,4 +28,5 @@ public record PayOSPaymentInfo
             TransactionId = transactionId ?? this.TransactionId 
         };
     }
-}
+}
+

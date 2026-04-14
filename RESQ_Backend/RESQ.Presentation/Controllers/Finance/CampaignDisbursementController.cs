@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +19,7 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>[Metadata] Danh sách loại nguồn quỹ dùng cho dropdown cấp tiền cho kho.</summary>
+    /// <summary>[Metadata] Danh s�ch lo?i ngu?n qu? d�ng cho dropdown c?p ti?n cho kho.</summary>
     [HttpGet("metadata/source-types")]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetFundSourceTypeMetadata()
@@ -28,7 +28,7 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
         return Ok(result);
     }
 
-    /// <summary>[Cách 1] Admin chủ động cấp tiền từ Campaign → Depot.</summary>
+    /// <summary>[C�ch 1] Admin ch? d?ng c?p ti?n t? Campaign ? Depot.</summary>
     [HttpPost("allocate")]
     [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
@@ -50,8 +50,8 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
     }
 
     /// <summary>
-    /// [DepotManager] Báo cáo vật phẩm đã mua sau khi nhận tiền - công khai cho donor xem.
-    /// Admin cũng có thể thêm để hỗ trợ.
+    /// [DepotManager] B�o c�o v?t ph?m d� mua sau khi nh?n ti?n - c�ng khai cho donor xem.
+    /// Admin cung c� th? th�m d? h? tr?.
     /// </summary>
     [HttpPost("{id}/items")]
     [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -84,7 +84,7 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
         return NoContent();
     }
 
-    /// <summary>Lấy danh sách giải ngân (có phân trang, filter theo campaign/depot).</summary>
+    /// <summary>L?y danh s�ch gi?i ng�n (c� ph�n trang, filter theo campaign/depot).</summary>
     [HttpGet]
     [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(PagedResult<CampaignDisbursementListDto>), StatusCodes.Status200OK)]
@@ -99,7 +99,7 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
         return Ok(result);
     }
 
-    /// <summary>[Công khai] Donor xem tiền campaign đã được dùng mua vật phẩm gì.</summary>
+    /// <summary>[C�ng khai] Donor xem ti?n campaign d� du?c d�ng mua v?t ph?m g�.</summary>
     [HttpGet("public/campaigns/{campaignId}/spending")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(PublicCampaignSpendingDto), StatusCodes.Status200OK)]

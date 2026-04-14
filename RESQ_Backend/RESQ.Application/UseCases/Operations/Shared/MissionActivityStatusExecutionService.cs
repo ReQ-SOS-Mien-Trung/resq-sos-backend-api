@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.StateMachines;
@@ -52,12 +52,12 @@ public class MissionActivityStatusExecutionService(
         var activity = await _activityRepository.GetByIdAsync(activityId, cancellationToken);
         if (activity is null)
             throw MissionActivitySyncErrorCodes.WithCode(
-                new NotFoundException($"Không tìm thấy activity với ID: {activityId}"),
+                new NotFoundException($"Kh�ng t�m th?y activity v?i ID: {activityId}"),
                 MissionActivitySyncErrorCodes.ActivityNotFound);
 
         if (activity.MissionId != expectedMissionId)
             throw MissionActivitySyncErrorCodes.WithCode(
-                new BadRequestException("Activity này không thuộc mission được chỉ định."),
+                new BadRequestException("Activity n�y kh�ng thu?c mission du?c ch? d?nh."),
                 MissionActivitySyncErrorCodes.MissionActivityMismatch);
 
         if (activity.MissionTeamId.HasValue)
@@ -68,7 +68,7 @@ public class MissionActivityStatusExecutionService(
                 var missionTeam = await _missionTeamRepository.GetByIdAsync(activity.MissionTeamId.Value, cancellationToken);
                 if (missionTeam is not null && missionTeam.RescuerTeamId != userTeam.Id)
                     throw MissionActivitySyncErrorCodes.WithCode(
-                        new ForbiddenException("Bạn không có quyền cập nhật trạng thái activity này. Activity được giao cho đội khác."),
+                        new ForbiddenException("B?n kh�ng c� quy?n c?p nh?t tr?ng th�i activity n�y. Activity du?c giao cho d?i kh�c."),
                         MissionActivitySyncErrorCodes.ForbiddenTeamMismatch);
             }
         }
@@ -105,8 +105,8 @@ public class MissionActivityStatusExecutionService(
             {
                 throw MissionActivitySyncErrorCodes.WithCode(
                     new BadRequestException(
-                        "Đội cứu hộ đang có activity khác ở trạng thái đang thực hiện hoặc chờ xác nhận. " +
-                        "Vui lòng hoàn thành activity hiện tại trước khi bắt đầu activity tiếp theo."),
+                        "�?i c?u h? dang c� activity kh�c ? tr?ng th�i dang th?c hi?n ho?c ch? x�c nh?n. " +
+                        "Vui l�ng ho�n th�nh activity hi?n t?i tru?c khi b?t d?u activity ti?p theo."),
                     MissionActivitySyncErrorCodes.ActivitySequenceBlocked);
             }
 
@@ -117,8 +117,8 @@ public class MissionActivityStatusExecutionService(
             {
                 throw MissionActivitySyncErrorCodes.WithCode(
                     new BadRequestException(
-                        $"Không thể bắt đầu activity #{activity.Id}. " +
-                        $"Đội cứu hộ phải hoàn thành activity #{earliestUnfinishedActivity.Id} trước khi thao tác activity tiếp theo."),
+                        $"Kh�ng th? b?t d?u activity #{activity.Id}. " +
+                        $"�?i c?u h? ph?i ho�n th�nh activity #{earliestUnfinishedActivity.Id} tru?c khi thao t�c activity ti?p theo."),
                     MissionActivitySyncErrorCodes.ActivitySequenceBlocked);
             }
         }
@@ -343,7 +343,7 @@ public class MissionActivityStatusExecutionService(
         requestedStatus is MissionActivityStatus.Succeed or MissionActivityStatus.Failed;
 
     /// <summary>
-    /// Tự động check-in lại tất cả thành viên của team vào sự kiện tập kết khi RETURN_ASSEMBLY_POINT hoàn thành.
+    /// T? d?ng check-in l?i t?t c? th�nh vi�n c?a team v�o s? ki?n t?p k?t khi RETURN_ASSEMBLY_POINT ho�n th�nh.
     /// </summary>
     private async Task AutoReturnCheckInMissionTeamAsync(
         MissionTeamModel team,
@@ -459,7 +459,7 @@ public class MissionActivityStatusExecutionService(
                 MissionId = missionId,
                 Step = insertionStep,
                 ActivityType = "RETURN_SUPPLIES",
-                Description = $"Trả vật phẩm về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
+                Description = $"Tr? v?t ph?m v? kho {failedActivity.DepotName} do giao h�ng th?t b?i (Activity #{failedActivity.Id})",
                 Priority = failedActivity.Priority,
                 EstimatedTime = failedActivity.EstimatedTime,
                 SosRequestId = failedActivity.SosRequestId,

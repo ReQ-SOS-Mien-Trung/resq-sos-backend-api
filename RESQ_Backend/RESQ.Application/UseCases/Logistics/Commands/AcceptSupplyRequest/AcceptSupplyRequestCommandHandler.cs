@@ -10,6 +10,7 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.AcceptSupplyRequest;
 
 public class AcceptSupplyRequestCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
@@ -25,7 +26,7 @@ public class AcceptSupplyRequestCommandHandler(
         SupplyRequestStateMachine.EnsureCanAccept(sr.SourceStatus, sr.RequestingStatus);
 
         // Chỉ manager của kho nguồn mới được accept
-        var managerDepotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         if (managerDepotId != sr.SourceDepotId)

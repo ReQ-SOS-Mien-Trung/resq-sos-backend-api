@@ -1,13 +1,13 @@
-﻿namespace RESQ.Domain.Enum.Logistics;
+namespace RESQ.Domain.Enum.Logistics;
 
 /// <summary>
-/// Mức cảnh báo tồn kho vật phẩm.
+/// M?c c?nh b�o t?n kho v?t ph?m.
 /// </summary>
 public enum StockAlertLevel
 {
-    /// <summary>Cảnh báo: tỉ lệ khả dụng thấp hơn ngưỡng warning và chưa chạm ngưỡng danger.</summary>
+    /// <summary>C?nh b�o: t? l? kh? d?ng th?p hon ngu?ng warning v� chua ch?m ngu?ng danger.</summary>
     Warning,
 
-    /// <summary>Nguy hiểm: tỉ lệ khả dụng thấp hơn ngưỡng danger cấu hình.</summary>
+    /// <summary>Nguy hi?m: t? l? kh? d?ng th?p hon ngu?ng danger c?u h�nh.</summary>
     Danger
 }

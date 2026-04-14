@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -18,7 +18,7 @@ public class AddMissionActivityCommandHandlerTests
 {
     private static readonly Guid CoordinatorId = Guid.Parse("dddddddd-0000-0000-0000-000000000004");
 
-    // ─── Mission not found ────────────────────────────────────────
+    // --- Mission not found ----------------------------------------
 
     [Fact]
     public async Task Handle_ThrowsNotFound_WhenMissionDoesNotExist()
@@ -29,7 +29,7 @@ public class AddMissionActivityCommandHandlerTests
             handler.Handle(BuildCommand(), CancellationToken.None));
     }
 
-    // ─── Check inventory with buffer, shortage throws BadRequest ──
+    // --- Check inventory with buffer, shortage throws BadRequest --
 
     [Fact]
     public async Task Handle_ThrowsBadRequest_WhenSupplyShortage()
@@ -49,10 +49,10 @@ public class AddMissionActivityCommandHandlerTests
         var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(command, CancellationToken.None));
 
-        Assert.Contains("tồn kho", ex.Message);
+        Assert.Contains("t?n kho", ex.Message);
     }
 
-    // ─── Creates activity as Planned ──────────────────────────────
+    // --- Creates activity as Planned ------------------------------
 
     [Fact]
     public async Task Handle_CreatesActivityWithPlannedStatus()
@@ -66,7 +66,7 @@ public class AddMissionActivityCommandHandlerTests
         Assert.Equal(10, result.MissionId);
     }
 
-    // ─── With RescueTeamId, calls assign team ─────────────────────
+    // --- With RescueTeamId, calls assign team ---------------------
 
     [Fact]
     public async Task Handle_WithRescueTeamId_CallsMediator()
@@ -92,7 +92,7 @@ public class AddMissionActivityCommandHandlerTests
         Assert.Contains(mediator.SentRequests, r => r is AssignTeamToActivityCommand);
     }
 
-    // ─── Reserve supplies success syncs snapshot ──────────────────
+    // --- Reserve supplies success syncs snapshot ------------------
 
     [Fact]
     public async Task Handle_ReserveSuppliesSuccess_SyncsSnapshot()
@@ -117,7 +117,7 @@ public class AddMissionActivityCommandHandlerTests
         Assert.True(uow.SaveCalls >= 2); // initial save + reserve sync
     }
 
-    // ─── Reserve fail does not crash ──────────────────────────────
+    // --- Reserve fail does not crash ------------------------------
 
     [Fact]
     public async Task Handle_ReserveFail_DoesNotCrash()
@@ -135,7 +135,7 @@ public class AddMissionActivityCommandHandlerTests
         Assert.Equal(1, result.ActivityId); // still succeeds
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────
+    // --- Helpers --------------------------------------------------
 
     private static AddMissionActivityCommand BuildCommand(
         int missionId = 10,
@@ -153,7 +153,7 @@ public class AddMissionActivityCommandHandlerTests
         DepotName: depotId.HasValue ? "Kho 1" : null,
         DepotAddress: null,
         SuppliesToCollect: supplies,
-        Target: "Khu vực ngập",
+        Target: "Khu v?c ng?p",
         TargetLatitude: 10.76,
         TargetLongitude: 106.66,
         RescueTeamId: rescueTeamId,
@@ -178,7 +178,7 @@ public class AddMissionActivityCommandHandlerTests
             NullLogger<AddMissionActivityCommandHandler>.Instance);
     }
 
-    // ─── Stubs ────────────────────────────────────────────────────
+    // --- Stubs ----------------------------------------------------
 
     private sealed class StubMissionRepository(MissionModel? mission) : IMissionRepository
     {

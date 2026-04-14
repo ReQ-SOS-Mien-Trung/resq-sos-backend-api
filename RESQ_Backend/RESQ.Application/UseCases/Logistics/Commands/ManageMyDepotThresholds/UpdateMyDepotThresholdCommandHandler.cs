@@ -7,14 +7,18 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.ManageMyDepotThresholds;
 
 public class UpdateMyDepotThresholdCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository depotInventoryRepository,
     IStockThresholdConfigRepository stockThresholdConfigRepository,
     IStockThresholdResolver stockThresholdResolver)
     : IRequestHandler<UpdateMyDepotThresholdCommand, StockThresholdCommandResponse>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IStockThresholdConfigRepository _stockThresholdConfigRepository = stockThresholdConfigRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IStockThresholdResolver _stockThresholdResolver = stockThresholdResolver;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<StockThresholdCommandResponse> Handle(UpdateMyDepotThresholdCommand request, CancellationToken cancellationToken)
     {
@@ -28,7 +32,7 @@ public class UpdateMyDepotThresholdCommandHandler(
         else
         {
             // Caller quản lý kho: tìm kho đang quản lý
-            depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+            depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
                 ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
         }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -37,11 +37,11 @@ public partial class Depot
     [Column("current_utilization", TypeName = "numeric(14,3)")]
     public decimal? CurrentUtilization { get; set; }
 
-    /// <summary>Sức chứa tối đa theo cân nặng (kg).</summary>
+    /// <summary>S?c ch?a t?i da theo c�n n?ng (kg).</summary>
     [Column("weight_capacity", TypeName = "numeric(14,3)")]
     public decimal? WeightCapacity { get; set; }
 
-    /// <summary>Cân nặng hiện tại đang sử dụng (kg).</summary>
+    /// <summary>C�n n?ng hi?n t?i dang s? d?ng (kg).</summary>
     [Column("current_weight_utilization", TypeName = "numeric(14,3)")]
     public decimal? CurrentWeightUtilization { get; set; }
 

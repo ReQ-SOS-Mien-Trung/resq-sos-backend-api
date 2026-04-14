@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.UseCases.Finance.Queries.GetDepotAdvancers;
+namespace RESQ.Application.UseCases.Finance.Queries.GetDepotAdvancers;
 
 public class DepotAdvancerDto
 {

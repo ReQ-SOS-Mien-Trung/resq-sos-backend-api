@@ -9,4 +9,4 @@ public class UpdateCampaignInfoRequest
     
     [Required]
     public string Region { get; set; } = string.Empty;
-}
+}
