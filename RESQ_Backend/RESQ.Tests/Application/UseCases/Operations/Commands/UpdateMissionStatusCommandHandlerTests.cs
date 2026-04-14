@@ -3,11 +3,16 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
+using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
+using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Operations.Commands;
@@ -94,19 +99,86 @@ public class UpdateMissionStatusCommandHandlerTests
         Assert.False(response.IsCompleted);
     }
 
+    [Fact]
+    public async Task Handle_ChecksOutAcceptedTeamMembers_WhenMissionStarts()
+    {
+        var acceptedMemberId = Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111");
+        var removedMemberId = Guid.Parse("aaaaaaaa-2222-2222-2222-222222222222");
+        var assemblyEventRepository = new StubAssemblyEventRepository();
+        assemblyEventRepository.SetActiveEvent(assemblyPointId: 5, eventId: 50);
+
+        var missionTeamRepository = new StubMissionTeamRepository(new MissionTeamModel
+        {
+            Id = 21,
+            AssemblyPointId = 5,
+            RescueTeamMembers =
+            [
+                new MissionTeamMemberInfo { UserId = acceptedMemberId, Status = TeamMemberStatus.Accepted.ToString() },
+                new MissionTeamMemberInfo { UserId = removedMemberId, Status = TeamMemberStatus.Removed.ToString() }
+            ]
+        });
+
+        var handler = BuildHandler(
+            new StubMissionRepository(new MissionModel { Id = 15, Status = MissionStatus.Planned }),
+            new StubMissionActivityRepository(),
+            missionTeamRepository,
+            new StubSosRequestRepository(),
+            new StubUnitOfWork(),
+            assemblyEventRepository);
+
+        await handler.Handle(new UpdateMissionStatusCommand(15, MissionStatus.OnGoing, DecisionById), CancellationToken.None);
+
+        var checkout = Assert.Single(assemblyEventRepository.CheckOutCalls);
+        Assert.Equal(50, checkout.EventId);
+        Assert.Equal(acceptedMemberId, checkout.RescuerId);
+    }
+
+    [Fact]
+    public async Task Handle_SkipsCheckout_WhenTeamHasNoActiveAssemblyEvent()
+    {
+        var assemblyEventRepository = new StubAssemblyEventRepository();
+        var missionTeamRepository = new StubMissionTeamRepository(new MissionTeamModel
+        {
+            Id = 21,
+            AssemblyPointId = 5,
+            RescueTeamMembers =
+            [
+                new MissionTeamMemberInfo
+                {
+                    UserId = Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"),
+                    Status = TeamMemberStatus.Accepted.ToString()
+                }
+            ]
+        });
+
+        var handler = BuildHandler(
+            new StubMissionRepository(new MissionModel { Id = 15, Status = MissionStatus.Planned }),
+            new StubMissionActivityRepository(),
+            missionTeamRepository,
+            new StubSosRequestRepository(),
+            new StubUnitOfWork(),
+            assemblyEventRepository);
+
+        await handler.Handle(new UpdateMissionStatusCommand(15, MissionStatus.OnGoing, DecisionById), CancellationToken.None);
+
+        Assert.Empty(assemblyEventRepository.CheckOutCalls);
+    }
+
     private static UpdateMissionStatusCommandHandler BuildHandler(
         IMissionRepository missionRepository,
         IMissionActivityRepository missionActivityRepository,
         IMissionTeamRepository missionTeamRepository,
         ISosRequestRepository sosRequestRepository,
-        StubUnitOfWork unitOfWork)
+        StubUnitOfWork unitOfWork,
+        IAssemblyEventRepository? assemblyEventRepository = null)
         => new(
             missionRepository,
             missionActivityRepository,
             missionTeamRepository,
             sosRequestRepository,
             unitOfWork,
-            NullLogger<UpdateMissionStatusCommandHandler>.Instance);
+            NullLogger<UpdateMissionStatusCommandHandler>.Instance,
+            assemblyEventRepository ?? new StubAssemblyEventRepository());
 
     private sealed class StubMissionRepository(MissionModel? mission) : IMissionRepository
     {
@@ -148,10 +220,10 @@ public class UpdateMissionStatusCommandHandlerTests
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class StubMissionTeamRepository : IMissionTeamRepository
+    private sealed class StubMissionTeamRepository(params MissionTeamModel[] missionTeams) : IMissionTeamRepository
     {
         public Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult<MissionTeamModel?>(null);
-        public Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<MissionTeamModel>());
+        public Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default) => Task.FromResult(missionTeams.AsEnumerable());
         public Task<int> CreateAsync(MissionTeamModel model, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task UpdateStatusAsync(int id, string status, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateStatusAsync(int id, string status, string? note, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -182,5 +254,37 @@ public class UpdateMissionStatusCommandHandlerTests
         public Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
         public Task UpdateStatusAsync(int id, SosRequestStatus status, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IEnumerable<SosRequestModel>> GetByCompanionUserIdAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
+    }
+
+    private sealed class StubAssemblyEventRepository : IAssemblyEventRepository
+    {
+        private readonly Dictionary<int, (int EventId, string Status)> _activeEvents = [];
+
+        public List<(int EventId, Guid RescuerId)> CheckOutCalls { get; } = [];
+
+        public void SetActiveEvent(int assemblyPointId, int eventId)
+            => _activeEvents[assemblyPointId] = (eventId, AssemblyEventStatus.Gathering.ToString());
+
+        public Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+            => Task.FromResult(_activeEvents.TryGetValue(assemblyPointId, out var value) ? value : ((int EventId, string Status)?)null);
+
+        public Task<bool> CheckOutAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default)
+        {
+            CheckOutCalls.Add((eventId, rescuerId));
+            return Task.FromResult(true);
+        }
+
+        public Task<int> CreateEventAsync(int assemblyPointId, DateTime assemblyDate, Guid createdBy, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task AssignParticipantsAsync(int eventId, List<Guid> rescuerIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> CheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> ReturnCheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(int eventId, int pageNumber, int pageSize, RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null, string? abilitySubgroupCode = null, string? abilityCategoryCode = null, string? search = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateEventStatusAsync(int eventId, string status, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> GetParticipantIdsAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 }

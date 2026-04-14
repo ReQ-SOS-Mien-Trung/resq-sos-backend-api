@@ -23,9 +23,10 @@ public class MissionActivityStatusExecutionService(
     ISosRequestRepository sosRequestRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     ITeamIncidentRepository teamIncidentRepository,
+    IRescueTeamRepository rescueTeamRepository,
     IUnitOfWork unitOfWork,
     ILogger<MissionActivityStatusExecutionService> logger,
-    IAssemblyEventRepository? assemblyEventRepository = null
+    IAssemblyEventRepository assemblyEventRepository
 ) : IMissionActivityStatusExecutionService
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
@@ -35,9 +36,10 @@ public class MissionActivityStatusExecutionService(
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly ITeamIncidentRepository _teamIncidentRepository = teamIncidentRepository;
+    private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<MissionActivityStatusExecutionService> _logger = logger;
-    private readonly IAssemblyEventRepository? _assemblyEventRepository = assemblyEventRepository;
+    private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
@@ -325,9 +327,10 @@ public class MissionActivityStatusExecutionService(
 
         if (effectiveStatus == MissionActivityStatus.Succeed
             && string.Equals(activity.ActivityType, MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
-            && assignedMissionTeam?.AssemblyPointId.HasValue == true)
+            && assignedMissionTeam is not null
+            && activity.AssemblyPointId.HasValue)
         {
-            await AutoReturnCheckInMissionTeamAsync(assignedMissionTeam, cancellationToken);
+            await AutoReturnCheckInMissionTeamAsync(activity, assignedMissionTeam, cancellationToken);
         }
 
         return new MissionActivityStatusExecutionResult
@@ -346,14 +349,22 @@ public class MissionActivityStatusExecutionService(
     /// T? d?ng check-in l?i t?t c? thành viên c?a team vào s? ki?n t?p k?t khi RETURN_ASSEMBLY_POINT hoàn thành.
     /// </summary>
     private async Task AutoReturnCheckInMissionTeamAsync(
+        MissionActivityModel activity,
         MissionTeamModel team,
         CancellationToken cancellationToken)
     {
-        if (_assemblyEventRepository is null) return;
-
         try
         {
-            var assemblyPointId = team.AssemblyPointId!.Value;
+            if (!activity.AssemblyPointId.HasValue)
+            {
+                _logger.LogInformation(
+                    "AutoReturnCheckIn: RETURN_ASSEMBLY_POINT ActivityId={ActivityId} has no AssemblyPointId. Skipping.",
+                    activity.Id);
+                return;
+            }
+
+            var assemblyPointId = activity.AssemblyPointId.Value;
+            var shouldSave = await MoveRescueTeamToAssemblyPointAsync(team, assemblyPointId, cancellationToken);
             var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(
                 assemblyPointId, cancellationToken);
 
@@ -362,6 +373,10 @@ public class MissionActivityStatusExecutionService(
                 _logger.LogInformation(
                     "AutoReturnCheckIn: no active assembly event at AssemblyPointId={AssemblyPointId} for MissionTeamId={TeamId}. Skipping.",
                     assemblyPointId, team.Id);
+                if (shouldSave)
+                {
+                    await _unitOfWork.SaveAsync();
+                }
                 return;
             }
 
@@ -374,15 +389,12 @@ public class MissionActivityStatusExecutionService(
 
             if (acceptedMemberIds.Count > 0)
             {
-                // Ensure all members are participants (idempotent)
-                await _assemblyEventRepository.AssignParticipantsAsync(eventId, acceptedMemberIds, cancellationToken);
-                await _unitOfWork.SaveAsync();
-
                 foreach (var userId in acceptedMemberIds)
                 {
                     try
                     {
-                        await _assemblyEventRepository.ReturnCheckInAsync(eventId, userId, cancellationToken);
+                        var checkedIn = await _assemblyEventRepository.ReturnCheckInAsync(eventId, userId, cancellationToken);
+                        shouldSave |= checkedIn;
                     }
                     catch (Exception ex)
                     {
@@ -392,11 +404,14 @@ public class MissionActivityStatusExecutionService(
                     }
                 }
 
-                await _unitOfWork.SaveAsync();
-
                 _logger.LogInformation(
                     "AutoReturnCheckIn MissionTeamId={TeamId} EventId={EventId}: {Count} member(s) checked in at AssemblyPointId={AssemblyPointId}",
                     team.Id, eventId, acceptedMemberIds.Count, assemblyPointId);
+            }
+
+            if (shouldSave)
+            {
+                await _unitOfWork.SaveAsync();
             }
         }
         catch (Exception ex)
@@ -404,6 +419,36 @@ public class MissionActivityStatusExecutionService(
             _logger.LogWarning(ex,
                 "AutoReturnCheckIn failed for MissionTeamId={TeamId}. Activity flow continues.", team.Id);
         }
+    }
+
+    private async Task<bool> MoveRescueTeamToAssemblyPointAsync(
+        MissionTeamModel missionTeam,
+        int assemblyPointId,
+        CancellationToken cancellationToken)
+    {
+        if (missionTeam.RescuerTeamId <= 0)
+        {
+            return false;
+        }
+
+        var rescueTeam = await _rescueTeamRepository.GetByIdAsync(missionTeam.RescuerTeamId, cancellationToken);
+        if (rescueTeam is null)
+        {
+            _logger.LogInformation(
+                "AutoReturnCheckIn: rescue team not found for MissionTeamId={MissionTeamId}, RescuerTeamId={RescuerTeamId}.",
+                missionTeam.Id,
+                missionTeam.RescuerTeamId);
+            return false;
+        }
+
+        if (rescueTeam.AssemblyPointId == assemblyPointId)
+        {
+            return false;
+        }
+
+        rescueTeam.AssignToAssemblyPoint(assemblyPointId);
+        await _rescueTeamRepository.UpdateAsync(rescueTeam, cancellationToken);
+        return true;
     }
 
     private static bool TryGetActivityLocation(MissionActivityModel activity, out double latitude, out double longitude, out string locationSource)

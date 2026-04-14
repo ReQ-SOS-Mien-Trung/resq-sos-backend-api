@@ -70,11 +70,9 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             .FirstOrDefaultAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId, cancellationToken);
 
         if (participant == null) return false;
-        if (participant.IsCheckedIn) return true; // idempotent
 
-        participant.IsCheckedIn = true;
-        participant.CheckInTime = DateTime.UtcNow;
-        participant.Status = AssemblyParticipantStatus.CheckedIn.ToString();
+        MarkCheckedIn(participant);
+        await MirrorActiveTeamMemberCheckedInAsync(rescuerId, checkedIn: true, cancellationToken);
         return true;
     }
 
@@ -93,27 +91,76 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
 
         if (participant == null) return false;
         if (!participant.IsCheckedIn) return false;
-        if (participant.IsCheckedOut) return true;
 
-        participant.IsCheckedOut = true;
-        participant.CheckOutTime = DateTime.UtcNow;
+        if (!participant.IsCheckedOut)
+        {
+            participant.IsCheckedOut = true;
+            participant.CheckOutTime = DateTime.UtcNow;
+        }
+
+        await MirrorActiveTeamMemberCheckedInAsync(rescuerId, checkedIn: false, cancellationToken);
         return true;
     }
 
     public async Task<bool> ReturnCheckInAsync(int eventId, Guid rescuerId,
         CancellationToken cancellationToken = default)
     {
+        var eventExists = await _unitOfWork.Set<AssemblyEvent>()
+            .AnyAsync(e => e.Id == eventId, cancellationToken);
+
+        if (!eventExists) return false;
+
         var participant = await _unitOfWork.SetTracked<AssemblyParticipant>()
             .FirstOrDefaultAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId, cancellationToken);
 
-        if (participant == null) return false;
+        if (participant == null)
+        {
+            participant = new AssemblyParticipant
+            {
+                AssemblyEventId = eventId,
+                RescuerId = rescuerId
+            };
+            await _unitOfWork.GetRepository<AssemblyParticipant>().AddAsync(participant);
+        }
+
+        MarkCheckedIn(participant);
+        await MirrorActiveTeamMemberCheckedInAsync(rescuerId, checkedIn: true, cancellationToken);
+        return true;
+    }
+
+    private static void MarkCheckedIn(AssemblyParticipant participant)
+    {
+        if (!participant.IsCheckedIn || participant.IsCheckedOut)
+        {
+            participant.CheckInTime = DateTime.UtcNow;
+        }
 
         participant.IsCheckedIn = true;
-        participant.CheckInTime ??= DateTime.UtcNow;
         participant.IsCheckedOut = false;
         participant.CheckOutTime = null;
         participant.Status = AssemblyParticipantStatus.CheckedIn.ToString();
-        return true;
+    }
+
+    private async Task MirrorActiveTeamMemberCheckedInAsync(
+        Guid rescuerId,
+        bool checkedIn,
+        CancellationToken cancellationToken)
+    {
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString();
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
+
+        var teamMembers = await _unitOfWork.SetTracked<RescueTeamMember>()
+            .Include(m => m.Team)
+            .Where(m => m.UserId == rescuerId
+                && m.Status == acceptedStatus
+                && m.Team != null
+                && m.Team.Status != disbandedStatus)
+            .ToListAsync(cancellationToken);
+
+        foreach (var member in teamMembers)
+        {
+            member.CheckedIn = checkedIn;
+        }
     }
 
     public async Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(
@@ -259,7 +306,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 CreatedAt = e.CreatedAt,
                 UpdatedAt = e.UpdatedAt,
                 ParticipantCount = e.Participants.Count,
-                CheckedInCount = e.Participants.Count(p => p.IsCheckedIn)
+                CheckedInCount = e.Participants.Count(p => p.IsCheckedIn && !p.IsCheckedOut)
             })
             .ToListAsync(cancellationToken);
 
@@ -350,6 +397,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             .Select(x => new
             {
                 x.Participant.IsCheckedIn,
+                x.Participant.IsCheckedOut,
                 x.Participant.CheckInTime,
                 x.Event.Id,
                 x.Event.AssemblyPointId,
@@ -385,7 +433,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 AssemblyPointLongitude = ap?.Location != null ? ap.Location.X : null,
                 AssemblyDate = x.AssemblyDate,
                 EventStatus = x.Status,
-                IsCheckedIn = x.IsCheckedIn,
+                IsCheckedIn = x.IsCheckedIn && !x.IsCheckedOut,
                 CheckInTime = x.CheckInTime,
                 CreatedAt = x.CreatedAt
             };
