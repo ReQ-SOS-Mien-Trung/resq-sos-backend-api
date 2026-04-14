@@ -9,5 +9,6 @@ public record CreateDepotCommand (
     decimal Capacity,
     decimal WeightCapacity,
     Guid? ManagerId = null,
-    string? ImageUrl = null
+    string? ImageUrl = null,
+    Guid? RequestedBy = null
     ) : IRequest<CreateDepotResponse>;

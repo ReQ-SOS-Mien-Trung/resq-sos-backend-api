@@ -72,6 +72,30 @@ public partial class DepotSupplyRequest
     [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>Người chấp nhận yêu cầu (source manager).</summary>
+    [Column("accepted_by")]
+    public Guid? AcceptedBy { get; set; }
+
+    /// <summary>Người từ chối yêu cầu (source manager).</summary>
+    [Column("rejected_by")]
+    public Guid? RejectedBy { get; set; }
+
+    /// <summary>Người xác nhận chuẩn bị hàng (source manager).</summary>
+    [Column("prepared_by")]
+    public Guid? PreparedBy { get; set; }
+
+    /// <summary>Người xuất kho / bắt đầu vận chuyển (source manager).</summary>
+    [Column("shipped_by")]
+    public Guid? ShippedBy { get; set; }
+
+    /// <summary>Người xác nhận đã giao hàng hoàn tất (source manager).</summary>
+    [Column("completed_by")]
+    public Guid? CompletedBy { get; set; }
+
+    /// <summary>Người xác nhận nhận hàng (requesting manager).</summary>
+    [Column("confirmed_by")]
+    public Guid? ConfirmedBy { get; set; }
+
     [ForeignKey("RequestingDepotId")]
     [InverseProperty("SupplyRequestsAsRequester")]
     public virtual Depot RequestingDepot { get; set; } = null!;

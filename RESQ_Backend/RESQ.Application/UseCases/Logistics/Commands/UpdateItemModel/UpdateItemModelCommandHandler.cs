@@ -50,7 +50,8 @@ public class UpdateItemModelCommandHandler(IItemModelMetadataRepository itemMode
                 WeightPerUnit = request.WeightPerUnit,
                 TargetGroups = normalizedTargetGroups,
                 ImageUrl = string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl.Trim(),
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                UpdatedBy = request.RequestedBy
             },
             cancellationToken);
 

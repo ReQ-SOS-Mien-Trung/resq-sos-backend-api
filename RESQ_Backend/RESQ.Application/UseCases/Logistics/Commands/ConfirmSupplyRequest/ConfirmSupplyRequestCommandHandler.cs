@@ -46,7 +46,7 @@ public class ConfirmSupplyRequestCommandHandler(
             await supplyRequestRepository.TransferInAsync(
                 sr.RequestingDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
 
-            await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Completed", "Received", null, cancellationToken);
+            await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Completed", "Received", null, request.UserId, cancellationToken);
         });
 
         return new ConfirmSupplyRequestResponse { Message = $"Đã xác nhận nhận hàng yêu cầu #{sr.Id}. Quy trình hoàn tất." };

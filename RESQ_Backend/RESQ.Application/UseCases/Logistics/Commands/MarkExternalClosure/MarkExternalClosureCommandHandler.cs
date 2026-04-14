@@ -27,7 +27,7 @@ public class MarkExternalClosureCommandHandler(
             throw new BadRequestException("Phiên đóng kho không ở trạng thái cần đánh dấu hình thức hoặc đã được chỉ định hình thức khác.");
         }
 
-        closure.SetExternalResolution(request.ExternalNote);
+        closure.SetExternalResolution(request.ExternalNote, request.AdminUserId);
 
         await closureRepository.UpdateAsync(closure, cancellationToken);
 

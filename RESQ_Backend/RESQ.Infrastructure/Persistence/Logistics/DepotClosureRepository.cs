@@ -64,6 +64,7 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
         entity.ResolutionType = record.ResolutionType?.ToString();
         entity.TargetDepotId = record.TargetDepotId;
         entity.ExternalNote = record.ExternalNote;
+        entity.ExternalMarkedBy = record.ExternalMarkedBy;
         entity.ActualConsumableUnits = record.ActualConsumableUnits;
         entity.ActualReusableUnits = record.ActualReusableUnits;
         entity.DriftNote = record.DriftNote;
@@ -287,6 +288,7 @@ public class DepotClosureRepository(IUnitOfWork unitOfWork, ResQDbContext dbCont
             resolutionType: entity.ResolutionType != null ? resolutionType : null,
             targetDepotId: entity.TargetDepotId,
             externalNote: entity.ExternalNote,
+            externalMarkedBy: entity.ExternalMarkedBy,
             consumableZeroed: entity.ConsumableZeroed,
             reusableZeroed: entity.ReusableZeroed,
             retryCount: entity.RetryCount,

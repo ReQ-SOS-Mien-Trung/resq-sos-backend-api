@@ -99,6 +99,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         [FromQuery] List<ItemType>? itemTypes,
         [FromQuery] List<TargetGroup>? targetGroups,
         [FromQuery] string? itemName,
+        [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         var userId = GetCurrentUserId();
@@ -108,6 +109,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var query = new GetMyDepotInventoryQuery
         {
             UserId = userId,
+            DepotId = depotId,
             CategoryIds = categoryIds,
             ItemTypes = itemTypes,
             TargetGroups = targetGroups,
@@ -126,11 +128,12 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [ProducesResponseType(typeof(PagedResult<UpcomingPickupActivityDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyUpcomingPickups(
+        [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
         var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new GetMyUpcomingPickupActivitiesQuery(userId)
+        var result = await _mediator.Send(new GetMyUpcomingPickupActivitiesQuery(userId, depotId)
         {
             PageNumber = pageNumber,
             PageSize = pageSize
@@ -145,13 +148,14 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [ProducesResponseType(typeof(PagedResult<PickupHistoryActivityDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyPickupHistory(
-        [FromQuery] DateOnly? fromDate,
-        [FromQuery] DateOnly? toDate,
+        [FromQuery] int depotId,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
         var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new GetMyPickupHistoryActivitiesQuery(userId)
+        var result = await _mediator.Send(new GetMyPickupHistoryActivitiesQuery(userId, depotId)
         {
             FromDate = fromDate,
             ToDate = toDate,
@@ -170,11 +174,12 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyUpcomingReturns(
         [FromQuery] MissionActivityStatus status,
+        [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
         var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new GetMyUpcomingReturnActivitiesQuery(userId)
+        var result = await _mediator.Send(new GetMyUpcomingReturnActivitiesQuery(userId, depotId)
         {
             Status = status,
             PageNumber = pageNumber,
@@ -190,13 +195,14 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [ProducesResponseType(typeof(PagedResult<ReturnHistoryActivityDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyReturnHistory(
-        [FromQuery] DateOnly? fromDate,
-        [FromQuery] DateOnly? toDate,
+        [FromQuery] int depotId,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
         var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new GetMyReturnHistoryActivitiesQuery(userId)
+        var result = await _mediator.Send(new GetMyReturnHistoryActivitiesQuery(userId, depotId)
         {
             FromDate = fromDate,
             ToDate = toDate,
@@ -257,11 +263,12 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [ProducesResponseType(typeof(LowStockChartResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyDepotLowStockItems(
+        [FromQuery] int depotId,
         [FromQuery] string? warningLevel = null,
         [FromQuery] bool includeUnconfigured = false)
     {
         var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new GetMyDepotLowStockQuery(userId, warningLevel, includeUnconfigured));
+        var result = await _mediator.Send(new GetMyDepotLowStockQuery(userId, warningLevel, includeUnconfigured, depotId));
         return Ok(result);
     }
 
@@ -270,10 +277,10 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(GetMyDepotThresholdsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetMyDepotThresholds()
+    public async Task<IActionResult> GetMyDepotThresholds([FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new GetMyDepotThresholdsQuery(userId));
+        var result = await _mediator.Send(new GetMyDepotThresholdsQuery(userId, depotId));
         return Ok(result);
     }
 
@@ -289,7 +296,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> UpdateMyDepotThreshold([FromBody] UpdateMyDepotThresholdRequest request)
+    public async Task<IActionResult> UpdateMyDepotThreshold([FromBody] UpdateMyDepotThresholdRequest request, [FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
         var canManageGlobalThresholds = (await _authorizationService
@@ -299,6 +306,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var result = await _mediator.Send(new UpdateMyDepotThresholdCommand
         {
             UserId = userId,
+            DepotId = depotId,
             CanManageGlobalThresholds = canManageGlobalThresholds,
             ScopeType = request.ScopeType,
             CategoryId = request.CategoryId,
@@ -317,12 +325,13 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [ProducesResponseType(typeof(StockThresholdCommandResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> ResetMyDepotThreshold([FromBody] ResetMyDepotThresholdRequest request)
+    public async Task<IActionResult> ResetMyDepotThreshold([FromBody] ResetMyDepotThresholdRequest request, [FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new ResetMyDepotThresholdCommand
         {
             UserId = userId,
+            DepotId = depotId,
             ScopeType = request.ScopeType,
             CategoryId = request.CategoryId,
             ItemModelId = request.ItemModelId,
@@ -414,7 +423,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetInventoryLots(
         int itemModelId,
-        [FromQuery] int? depotId,
+        [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -445,11 +454,11 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     /// <summary>Xem tổng số lượng tồn kho theo danh mục của kho do người dùng hiện tại quản lý.</summary>
     [HttpGet("my-depot/quantity-by-category")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
-    public async Task<IActionResult> GetMyDepotInventoryByCategory()
+    public async Task<IActionResult> GetMyDepotInventoryByCategory([FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
 
-        var result = await _mediator.Send(new GetMyDepotInventoryByCategoryQuery(userId));
+        var result = await _mediator.Send(new GetMyDepotInventoryByCategoryQuery(userId, depotId));
         return Ok(result);
     }
 
@@ -597,6 +606,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         [FromQuery] List<InventorySourceType>? sourceTypes,
         [FromQuery] DateOnly? fromDate,
         [FromQuery] DateOnly? toDate,
+        [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -605,6 +615,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var query = new GetInventoryTransactionHistoryQuery
         {
             UserId = userId,
+            DepotId = depotId,
             ActionTypes = actionTypes,
             SourceTypes = sourceTypes,
             FromDate = fromDate,
@@ -660,6 +671,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [HttpGet("export/movements")]
     public async Task<IActionResult> ExportMovements(
         [FromQuery] ExportPeriodType periodType,
+        [FromQuery] int depotId,
         [FromQuery] int? month = null,
         [FromQuery] int? year = null,
         [FromQuery] DateOnly? fromDate = null,
@@ -670,6 +682,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var query = new ExportInventoryMovementQuery
         {
             UserId = userId,
+            DepotId = depotId,
             PeriodType = periodType,
             Month = month,
             Year = year,
@@ -768,7 +781,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     [ProducesResponseType(typeof(AdjustInventoryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> AdjustInventory([FromBody] AdjustInventoryRequest request)
+    public async Task<IActionResult> AdjustInventory([FromBody] AdjustInventoryRequest request, [FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new AdjustInventoryCommand(
@@ -777,7 +790,8 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             request.QuantityChange,
             request.Reason,
             request.Note,
-            request.ExpiredDate));
+            request.ExpiredDate,
+            depotId));
         return Ok(result);
     }
 
@@ -812,6 +826,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var command = new ImportPurchasedInventoryCommand
         {
             UserId = userId,
+            DepotId = request.DepotId,
             DepotFundId = request.DepotFundId,
             Invoices = request.Invoices
         };
@@ -830,6 +845,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var command = new CreateSupplyRequestCommand
         {
             RequestingUserId = userId,
+            DepotId = request.DepotId,
             Requests = request.Requests
         };
 
@@ -868,29 +884,29 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     /// <summary>Manager kho nguồn bắt đầu đóng gói / picking (Accepted -> Preparing).</summary>
     [HttpPut("supply-requests/{id:int}/prepare")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
-    public async Task<IActionResult> PrepareSupplyRequest(int id)
+    public async Task<IActionResult> PrepareSupplyRequest(int id, [FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
 
-        var result = await _mediator.Send(new PrepareSupplyRequestCommand(id, userId));
+        var result = await _mediator.Send(new PrepareSupplyRequestCommand(id, userId, depotId));
         return Ok(result);
     }
 
     /// <summary>Manager kho nguồn chấp nhận yêu cầu tiếp tế.</summary>
     [HttpPut("supply-requests/{id:int}/accept")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
-    public async Task<IActionResult> AcceptSupplyRequest(int id)
+    public async Task<IActionResult> AcceptSupplyRequest(int id, [FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
 
-        var result = await _mediator.Send(new AcceptSupplyRequestCommand(id, userId));
+        var result = await _mediator.Send(new AcceptSupplyRequestCommand(id, userId, depotId));
         return Ok(result);
     }
 
     /// <summary>Manager kho nguồn từ chối yêu cầu tiếp tế (bắt buộc ghi lý do).</summary>
     [HttpPut("supply-requests/{id:int}/reject")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
-    public async Task<IActionResult> RejectSupplyRequest(int id, [FromBody] RejectSupplyRequestRequest request)
+    public async Task<IActionResult> RejectSupplyRequest(int id, [FromBody] RejectSupplyRequestRequest request, [FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
 
@@ -898,6 +914,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         {
             SupplyRequestId = id,
             UserId = userId,
+            DepotId = depotId,
             Reason = request.Reason
         };
 
@@ -908,33 +925,33 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     /// <summary>Manager kho nguồn xuất hàng và vận chuyển đến kho yêu cầu.</summary>
     [HttpPut("supply-requests/{id:int}/ship")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
-    public async Task<IActionResult> ShipSupplyRequest(int id)
+    public async Task<IActionResult> ShipSupplyRequest(int id, [FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
 
-        var result = await _mediator.Send(new ShipSupplyRequestCommand(id, userId));
+        var result = await _mediator.Send(new ShipSupplyRequestCommand(id, userId, depotId));
         return Ok(result);
     }
 
     /// <summary>Manager kho nguồn xác nhận đã hoàn tất giao hàng (Shipping -> Completed).</summary>
     [HttpPut("supply-requests/{id:int}/complete")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
-    public async Task<IActionResult> CompleteSupplyRequest(int id)
+    public async Task<IActionResult> CompleteSupplyRequest(int id, [FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
 
-        var result = await _mediator.Send(new CompleteSupplyRequestCommand(id, userId));
+        var result = await _mediator.Send(new CompleteSupplyRequestCommand(id, userId, depotId));
         return Ok(result);
     }
 
     /// <summary>Manager kho yêu cầu xác nhận đã nhận hàng tiếp tế.</summary>
     [HttpPut("supply-requests/{id:int}/confirm")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
-    public async Task<IActionResult> ConfirmSupplyRequest(int id)
+    public async Task<IActionResult> ConfirmSupplyRequest(int id, [FromQuery] int depotId)
     {
         var userId = GetCurrentUserId();
 
-        var result = await _mediator.Send(new ConfirmSupplyRequestCommand(id, userId));
+        var result = await _mediator.Send(new ConfirmSupplyRequestCommand(id, userId, depotId));
         return Ok(result);
     }
 

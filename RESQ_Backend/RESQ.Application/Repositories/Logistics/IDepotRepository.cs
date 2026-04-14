@@ -14,13 +14,13 @@ namespace RESQ.Application.Repositories.Logistics
         /// Gán / đổi manager cho kho: unassign manager cũ (nếu có), thêm bản ghi manager mới,
         /// cập nhật status kho → Available.
         /// </summary>
-        Task AssignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
+        Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gỡ manager hiện tại khỏi kho (soft-unassign): set UnassignedAt cho bản ghi manager đang active,
         /// cập nhật status kho → PendingAssignment. Lịch sử vẫn được giữ lại.
         /// </summary>
-        Task UnassignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default);
+        Task UnassignManagerAsync(DepotModel depot, Guid? unassignedBy = null, CancellationToken cancellationToken = default);
         
         // NEW: Pagination with optional status filter and full-text search
         Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default);

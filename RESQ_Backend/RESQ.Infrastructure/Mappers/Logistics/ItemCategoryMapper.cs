@@ -16,7 +16,9 @@ public static class ItemCategoryMapper
             Description = model.Description,
             Quantity = model.Quantity,
             CreatedAt = model.CreatedAt,
-            UpdatedAt = model.UpdatedAt
+            UpdatedAt = model.UpdatedAt,
+            CreatedBy = model.CreatedBy,
+            UpdatedBy = model.UpdatedBy
         };
     }
 
@@ -26,6 +28,7 @@ public static class ItemCategoryMapper
         entity.Name = model.Name;
         entity.Description = model.Description;
         entity.UpdatedAt = model.UpdatedAt;
+        entity.UpdatedBy = model.UpdatedBy;
     }
 
     public static ItemCategoryModel ToDomain(Category entity)
@@ -44,7 +47,9 @@ public static class ItemCategoryMapper
             Quantity = entity.Quantity ?? 0,
             Description = entity.Description ?? string.Empty,
             CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt
+            UpdatedAt = entity.UpdatedAt,
+            CreatedBy = entity.CreatedBy,
+            UpdatedBy = entity.UpdatedBy
         };
     }
 }

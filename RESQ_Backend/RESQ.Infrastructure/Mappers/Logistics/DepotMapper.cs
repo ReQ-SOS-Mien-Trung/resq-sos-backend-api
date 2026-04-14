@@ -23,6 +23,9 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 OutstandingAdvanceAmount = model.OutstandingAdvanceAmount,
                 Status = model.Status.ToString(),
                 LastUpdatedAt = model.LastUpdatedAt,
+                LastStatusChangedBy = model.LastStatusChangedBy,
+                CreatedBy = model.CreatedBy,
+                LastUpdatedBy = model.LastUpdatedBy,
                 ImageUrl = model.ImageUrl
             };
 
@@ -64,6 +67,9 @@ namespace RESQ.Infrastructure.Mappers.Resources
             entity.OutstandingAdvanceAmount = model.OutstandingAdvanceAmount;
             entity.Status = model.Status.ToString();
             entity.LastUpdatedAt = model.LastUpdatedAt;
+            entity.LastStatusChangedBy = model.LastStatusChangedBy;
+            entity.CreatedBy = model.CreatedBy;
+            entity.LastUpdatedBy = model.LastUpdatedBy;
             entity.ImageUrl = model.ImageUrl;
 
             if (model.Location != null)
@@ -97,6 +103,9 @@ namespace RESQ.Infrastructure.Mappers.Resources
                 CurrentWeightUtilization = entity.CurrentWeightUtilization ?? 0m,
                 Status = status,
                 LastUpdatedAt = entity.LastUpdatedAt,
+                LastStatusChangedBy = entity.LastStatusChangedBy,
+                CreatedBy = entity.CreatedBy,
+                LastUpdatedBy = entity.LastUpdatedBy,
                 ImageUrl = entity.ImageUrl
             };
 

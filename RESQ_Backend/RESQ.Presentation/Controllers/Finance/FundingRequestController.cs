@@ -28,7 +28,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Create([FromBody] CreateFundingRequestRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateFundingRequestRequest request, [FromQuery] int depotId)
     {
         var command = new CreateFundingRequestCommand(
             request.Description,
@@ -47,7 +47,8 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
                 VolumePerUnit = i.VolumePerUnit,
                 WeightPerUnit = i.WeightPerUnit
             }).ToList(),
-            GetUserId()
+            GetUserId(),
+            depotId
         );
 
         var id = await _mediator.Send(command);

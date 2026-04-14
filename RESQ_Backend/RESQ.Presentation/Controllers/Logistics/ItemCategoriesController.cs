@@ -63,7 +63,8 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<CreateItemCategoryResponse>> Create([FromBody] CreateItemCategoryCommand command)
     {
-        var result = await _sender.Send(command);
+        var cmd = command with { RequestedBy = GetUserId() };
+        var result = await _sender.Send(cmd);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -72,6 +73,7 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
     public async Task<IActionResult> Update(int id, [FromBody] UpdateItemCategoryCommand command)
     {
         command.Id = id;
+        command.RequestedBy = GetUserId();
         await _sender.Send(command);
         return NoContent();
     }
@@ -82,5 +84,12 @@ public class ItemCategoriesController(ISender sender) : ControllerBase
     {
         await _sender.Send(new DeleteItemCategoryCommand(id));
         return NoContent();
+    }
+
+    private Guid GetUserId()
+    {
+        var userIdString = User.FindFirst(global::System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(userIdString, out var userId)) return userId;
+        throw new UnauthorizedAccessException("Token không hợp lệ hoặc thiếu thông tin người dùng.");
     }
 }

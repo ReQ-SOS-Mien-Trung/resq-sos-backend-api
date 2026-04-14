@@ -2,6 +2,8 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 
 public class ImportPurchasedInventoryRequest
 {
+    public int DepotId { get; set; }
+
     /// <summary>
     /// ID quỹ kho được chọn để chi tiêu cho lần nhập hàng này.
     /// Lấy Id từ GET /finance/depot-funds/my.

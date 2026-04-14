@@ -94,10 +94,11 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetFundTransactions(
         int fundId,
+        [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
-        var query = new GetFundTransactionsByFundIdQuery(fundId, pageNumber, pageSize, GetUserId());
+        var query = new GetFundTransactionsByFundIdQuery(fundId, pageNumber, pageSize, GetUserId(), depotId);
         var result = await _mediator.Send(query);
         return Ok(result);
     }
@@ -130,10 +131,11 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(PagedResult<DepotFundTransactionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyTransactions(
+        [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
-        var query = new GetMyDepotFundTransactionsQuery(GetUserId(), pageNumber, pageSize);
+        var query = new GetMyDepotFundTransactionsQuery(GetUserId(), pageNumber, pageSize, depotId);
         var result = await _mediator.Send(query);
         return Ok(result);
     }
@@ -143,10 +145,11 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(PagedResult<DepotFundTransactionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyAdvanceTransactions(
+        [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
-        var query = new GetMyDepotAdvanceTransactionsQuery(GetUserId(), pageNumber, pageSize);
+        var query = new GetMyDepotAdvanceTransactionsQuery(GetUserId(), pageNumber, pageSize, depotId);
         var result = await _mediator.Send(query);
         return Ok(result);
     }
@@ -209,12 +212,13 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     [HttpGet("my/advancers")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> GetDepotAdvancers(
+        [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var query = new GetDepotAdvancersQuery(userId, pageNumber, pageSize);
+        var query = new GetDepotAdvancersQuery(userId, pageNumber, pageSize, depotId);
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }

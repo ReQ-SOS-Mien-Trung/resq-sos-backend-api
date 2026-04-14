@@ -38,7 +38,7 @@ public class CompleteSupplyRequestCommandHandler(
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
             throw new ConflictException("Kho nguồn ngưng hoạt động hoặc đã đóng. Không thể xác nhận hoàn tất giao hàng.");
 
-        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Completed", "InTransit", null, cancellationToken);
+        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Completed", "InTransit", null, request.UserId, cancellationToken);
 
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,

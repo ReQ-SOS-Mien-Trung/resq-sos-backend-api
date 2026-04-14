@@ -15,6 +15,9 @@ public class ItemModelRecord
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>Người cập nhật item model gần nhất.</summary>
+    public Guid? UpdatedBy { get; set; }
+
     public static ItemModelRecord Create(int categoryId, string name, string unit, string itemType, List<string> targetGroups, decimal volumePerUnit = 0, decimal weightPerUnit = 0, string? description = null)
     {
         return new ItemModelRecord

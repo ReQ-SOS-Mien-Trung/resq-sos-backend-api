@@ -46,7 +46,7 @@ public class ShipSupplyRequestCommandHandler(
             await supplyRequestRepository.TransferOutAsync(
                 sr.SourceDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
 
-            await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Shipping", "InTransit", null, cancellationToken);
+            await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Shipping", "InTransit", null, request.UserId, cancellationToken);
         });
 
         // Notify requesting manager

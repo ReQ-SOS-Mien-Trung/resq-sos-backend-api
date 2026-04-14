@@ -21,4 +21,7 @@ public class UpdateItemModelCommand : IRequest<Unit>
 
     /// <summary>Cân nặng mỗi đơn vị (kg).</summary>
     public decimal WeightPerUnit { get; set; }
+
+    [JsonIgnore]
+    public Guid? RequestedBy { get; set; }
 }

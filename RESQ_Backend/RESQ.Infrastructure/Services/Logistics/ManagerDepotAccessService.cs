@@ -26,7 +26,14 @@ namespace RESQ.Infrastructure.Services.Logistics
                 var depot = await _depotRepository.GetByIdAsync(id, cancellationToken);
                 if (depot != null)
                 {
-                    managedDepots.Add(new ManagedDepotDto { DepotId = depot.Id, DepotName = depot.Name ?? string.Empty });
+                    managedDepots.Add(new ManagedDepotDto
+                    {
+                        DepotId = depot.Id,
+                        DepotName = depot.Name ?? string.Empty,
+                        Status = depot.Status.ToString(),
+                        Address = depot.Address ?? string.Empty,
+                        ImageUrl = depot.ImageUrl
+                    });
                 }
             }
 
