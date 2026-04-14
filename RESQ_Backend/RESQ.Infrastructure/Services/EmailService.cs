@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Services;
 using System.Globalization;
 using System.Net.Http.Headers;
+using System.Net;
+using System.Net.Mail;
 using System.Text;
 using System.Text.Json;
 
@@ -411,13 +413,47 @@ namespace RESQ.Infrastructure.Services
         private async Task SendEmailAsync(string toEmail, string subject, string body, CancellationToken cancellationToken)
         {
             var emailSettings = _configuration.GetSection("EmailSettings");
-            var apiBaseUrl = emailSettings["ApiBaseUrl"] ?? "https://api.sendgrid.com/v3/mail/send";
-            var apiKey = emailSettings["ApiKey"] ?? Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
-            var fromEmail = emailSettings["FromEmail"] ?? Environment.GetEnvironmentVariable("SENDGRID_FROM_EMAIL");
-            var fromName = emailSettings["FromName"] ?? "RESQ System";
-            var timeoutSecondsRaw = emailSettings["SendTimeoutSeconds"] ?? "15";
+            var provider = FirstConfigured(emailSettings["Provider"], "SendGrid") ?? "SendGrid";
 
-            if (string.IsNullOrWhiteSpace(apiKey))
+            if (provider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
+            {
+                await SendEmailWithSmtpAsync(emailSettings, toEmail, subject, body, cancellationToken);
+                return;
+            }
+
+            if (!provider.Equals("SendGrid", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "Unknown email provider {provider}. Falling back to SendGrid for email to {email}",
+                    provider,
+                    toEmail);
+            }
+
+            await SendEmailWithSendGridAsync(emailSettings, toEmail, subject, body, cancellationToken);
+        }
+
+        private async Task SendEmailWithSendGridAsync(
+            IConfigurationSection emailSettings,
+            string toEmail,
+            string subject,
+            string body,
+            CancellationToken cancellationToken)
+        {
+            var apiBaseUrl = ResolveSendGridApiBaseUrl(FirstConfigured(
+                Environment.GetEnvironmentVariable("SENDGRID_API_BASE_URL"),
+                emailSettings["ApiBaseUrl"]));
+            var apiKey = FirstConfigured(
+                Environment.GetEnvironmentVariable("SENDGRID_API_KEY"),
+                emailSettings["ApiKey"]);
+            var fromEmail = FirstConfigured(
+                Environment.GetEnvironmentVariable("SENDGRID_FROM_EMAIL"),
+                emailSettings["FromEmail"]);
+            var fromName = FirstConfigured(
+                Environment.GetEnvironmentVariable("SENDGRID_FROM_NAME"),
+                emailSettings["FromName"]) ?? "RESQ System";
+            var timeoutSecondsRaw = FirstConfigured(emailSettings["SendTimeoutSeconds"], "15") ?? "15";
+
+            if (string.IsNullOrWhiteSpace(apiKey) || !LooksLikeSendGridApiKey(apiKey))
             {
                 _logger.LogWarning("SendGrid API key is not configured. Skipping email send to {email}", toEmail);
                 return;
@@ -500,6 +536,92 @@ namespace RESQ.Infrastructure.Services
                 _logger.LogError(ex, "Failed to send email to {email}", toEmail);
                 // Do not throw to interrupt flow if email fails
             }
+        }
+
+        private async Task SendEmailWithSmtpAsync(
+            IConfigurationSection emailSettings,
+            string toEmail,
+            string subject,
+            string body,
+            CancellationToken cancellationToken)
+        {
+            var smtpHost = FirstConfigured(emailSettings["SmtpHost"], "smtp.gmail.com") ?? "smtp.gmail.com";
+            var smtpPortRaw = FirstConfigured(emailSettings["SmtpPort"], "587") ?? "587";
+            var smtpUsername = emailSettings["SmtpUsername"];
+            var smtpPassword = emailSettings["SmtpPassword"];
+            var fromEmail = FirstConfigured(emailSettings["FromEmail"], smtpUsername);
+            var fromName = FirstConfigured(emailSettings["FromName"], "RESQ System") ?? "RESQ System";
+            var enableSslRaw = FirstConfigured(emailSettings["EnableSsl"], "true") ?? "true";
+
+            if (string.IsNullOrWhiteSpace(smtpUsername) || string.IsNullOrWhiteSpace(smtpPassword))
+            {
+                _logger.LogWarning("SMTP credentials are not configured. Skipping email send to {email}", toEmail);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(fromEmail) ||
+                fromEmail.Equals("verified-sender@example.com", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("SMTP FromEmail is not configured. Skipping email send to {email}", toEmail);
+                return;
+            }
+
+            if (!int.TryParse(smtpPortRaw, out var smtpPort) || smtpPort <= 0)
+            {
+                smtpPort = 587;
+            }
+
+            if (!bool.TryParse(enableSslRaw, out var enableSsl))
+            {
+                enableSsl = true;
+            }
+
+            try
+            {
+                using var client = new SmtpClient(smtpHost, smtpPort)
+                {
+                    Credentials = new NetworkCredential(smtpUsername, smtpPassword),
+                    EnableSsl = enableSsl
+                };
+
+                using var mailMessage = new MailMessage
+                {
+                    From = new MailAddress(fromEmail, fromName),
+                    Subject = subject,
+                    Body = body,
+                    IsBodyHtml = true
+                };
+                mailMessage.To.Add(toEmail);
+
+                await client.SendMailAsync(mailMessage, cancellationToken);
+                _logger.LogInformation("Email sent successfully to {email} via SMTP", toEmail);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send email to {email} via SMTP", toEmail);
+                // Do not throw to interrupt flow if email fails
+            }
+        }
+
+        private static string? FirstConfigured(params string?[] values)
+        {
+            return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+        }
+
+        private static string ResolveSendGridApiBaseUrl(string? apiBaseUrl)
+        {
+            if (string.IsNullOrWhiteSpace(apiBaseUrl) ||
+                apiBaseUrl.Contains("mailgun", StringComparison.OrdinalIgnoreCase))
+            {
+                return "https://api.sendgrid.com/v3/mail/send";
+            }
+
+            return apiBaseUrl;
+        }
+
+        private static bool LooksLikeSendGridApiKey(string apiKey)
+        {
+            return apiKey.StartsWith("SG.", StringComparison.OrdinalIgnoreCase);
         }
     }
 }
