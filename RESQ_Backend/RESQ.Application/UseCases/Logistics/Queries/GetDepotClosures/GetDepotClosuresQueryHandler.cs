@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -16,11 +16,8 @@ public class GetDepotClosuresQueryHandler(
     private readonly IDepotRepository _depotRepository = depotRepository;
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotClosureRepository _closureRepository = closureRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _inventoryRepository = inventoryRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly ILogger<GetDepotClosuresQueryHandler> _logger = logger;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<List<DepotClosureDto>> Handle(GetDepotClosuresQuery request, CancellationToken cancellationToken)
     {
@@ -28,7 +25,7 @@ public class GetDepotClosuresQueryHandler(
 
         var depot = await _depotRepository.GetByIdAsync(request.DepotId, cancellationToken);
         if (depot == null)
-            throw new NotFoundException("Kh�ng t�m th?y kho c?u tr?.");
+            throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
         if (request.RequestingUserId.HasValue)
         {
@@ -36,7 +33,7 @@ public class GetDepotClosuresQueryHandler(
                 request.RequestingUserId.Value, cancellationToken);
 
             if (managerDepotId.HasValue && managerDepotId.Value != request.DepotId)
-                throw new ForbiddenException("B?n ch? c� th? xem danh s�ch phi�n d�ng c?a kho m�nh qu?n l�.");
+                throw new ForbiddenException("Bạn chỉ có thể xem danh sách phiên đóng của kho mình quản lý.");
         }
 
         var items = await _closureRepository.GetClosuresByDepotIdAsync(request.DepotId, cancellationToken);

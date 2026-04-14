@@ -1,8 +1,8 @@
-namespace RESQ.Application.Exceptions;
+﻿namespace RESQ.Application.Exceptions;
 
 public class UnauthorizedException : Exception
 {
-    public UnauthorizedException() : base("Truy c?p kh�ng du?c ph�p")
+    public UnauthorizedException() : base("Truy cập không được phép")
     {
     }
 

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
 
@@ -12,4 +12,5 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
 public record ShipClosureTransferCommand(
     int TransferId,
     Guid UserId,
-    string? Note) : IRequest<ShipClosureTransferResponse>;
+    string? Note,
+    int? DepotId = null) : IRequest<ShipClosureTransferResponse>;

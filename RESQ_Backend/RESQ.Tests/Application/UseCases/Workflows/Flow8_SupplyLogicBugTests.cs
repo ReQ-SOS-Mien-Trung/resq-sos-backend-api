@@ -1,7 +1,7 @@
-namespace RESQ.Tests.Application.UseCases.Workflows;
+﻿namespace RESQ.Tests.Application.UseCases.Workflows;
 
 /// <summary>
-/// Lu?ng 8 � L?i logic v?t ph?m (Supply bug): Buffer t�nh sai, thi?u h�ng, nghi?p v? reserve.
+/// Luồng 8 – Lỗi logic vật phẩm (Supply bug): Buffer tính sai, thiếu hàng, nghiệp vụ reserve.
 /// Validates buffer ratio calculations and supply availability concepts.
 /// </summary>
 public class Flow8_SupplyLogicBugTests
@@ -13,8 +13,8 @@ public class Flow8_SupplyLogicBugTests
     [Theory]
     [InlineData(100, 0.10, 10)]   // 100 * 10% = 10
     [InlineData(50, 0.10, 5)]     // 50 * 10% = 5
-    [InlineData(7, 0.10, 1)]      // 7 * 10% = 0.7 ? Ceiling = 1
-    [InlineData(1, 0.10, 1)]      // 1 * 10% = 0.1 ? Ceiling = 1
+    [InlineData(7, 0.10, 1)]      // 7 * 10% = 0.7 → Ceiling = 1
+    [InlineData(1, 0.10, 1)]      // 1 * 10% = 0.1 → Ceiling = 1
     [InlineData(100, 0.20, 20)]   // 100 * 20% = 20
     [InlineData(100, 0.0, 0)]     // No buffer
     public void BufferCalculation_MatchesHandlerLogic(int quantity, double bufferRatio, int expectedBuffer)
@@ -96,7 +96,7 @@ public class Flow8_SupplyLogicBugTests
     [Fact]
     public void SupplyAvailability_WithBuffer_MayExceedStock()
     {
-        // Khi t�nh buffer, t?ng c?n l?y c� th? vu?t available
+        // Khi tính buffer, tổng cần lấy có thể vượt available
         int totalQuantity = 100;
         int reservedQuantity = 0;
         int requestedBase = 95;
@@ -106,7 +106,7 @@ public class Flow8_SupplyLogicBugTests
         int available = totalQuantity - reservedQuantity; // 100
         bool isSufficient = available >= totalNeeded;
 
-        Assert.False(isSufficient); // 100 < 105, thi?u 5
+        Assert.False(isSufficient); // 100 < 105, thiếu 5
     }
 
     [Fact]
@@ -131,15 +131,15 @@ public class Flow8_SupplyLogicBugTests
     {
         var items = new[]
         {
-            new { Name = "G?o", Requested = 100, Available = 200 },
-            new { Name = "Nu?c", Requested = 50, Available = 30 },  // thi?u
-            new { Name = "Chan", Requested = 20, Available = 25 }
+            new { Name = "Gạo", Requested = 100, Available = 200 },
+            new { Name = "Nước", Requested = 50, Available = 30 },  // thiếu
+            new { Name = "Chăn", Requested = 20, Available = 25 }
         };
 
         var shortages = items.Where(i => i.Available < i.Requested).ToList();
 
         Assert.Single(shortages);
-        Assert.Equal("Nu?c", shortages[0].Name);
+        Assert.Equal("Nước", shortages[0].Name);
     }
 
     // ---------- Reserve then consume ----------
@@ -173,7 +173,7 @@ public class Flow8_SupplyLogicBugTests
     public void BufferCalculation_VerySmallQuantity()
     {
         int quantity = 1;
-        int buffer = (int)Math.Ceiling(quantity * DefaultBufferRatio); // 0.1 ? 1
+        int buffer = (int)Math.Ceiling(quantity * DefaultBufferRatio); // 0.1 → 1
         Assert.Equal(1, buffer);
     }
 

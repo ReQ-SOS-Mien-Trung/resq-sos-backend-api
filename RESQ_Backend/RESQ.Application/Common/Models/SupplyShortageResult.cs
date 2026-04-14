@@ -1,6 +1,6 @@
-namespace RESQ.Application.Common.Models;
+﻿namespace RESQ.Application.Common.Models;
 
-/// <summary>K?t qu? tr? v? khi m?t v?t ph?m kh�ng d? t?n kho ho?c kh�ng c� trong kho.</summary>
+/// <summary>Kết quả trả về khi một vật phẩm không đủ tồn kho hoặc không có trong kho.</summary>
 public class SupplyShortageResult
 {
     public int ItemModelId { get; set; }

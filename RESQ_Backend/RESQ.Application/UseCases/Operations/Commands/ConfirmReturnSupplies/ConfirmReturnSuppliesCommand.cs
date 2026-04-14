@@ -1,10 +1,10 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Operations.Commands.ConfirmReturnSupplies;
 
 /// <summary>
-/// Depot manager x�c nh?n d� nh?n l?i v?t ph?m t? d?i c?u h?.
-/// Chuy?n RETURN_SUPPLIES activity t? PendingConfirmation ? Succeed v� restock kho.
+/// Depot manager xác nhận đã nhận lại vật phẩm từ đội cứu hộ.
+/// Chuyển RETURN_SUPPLIES activity từ PendingConfirmation → Succeed và restock kho.
 /// </summary>
 public record ConfirmReturnSuppliesCommand(
     int ActivityId,

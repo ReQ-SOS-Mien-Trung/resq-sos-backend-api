@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Models;
+﻿using RESQ.Application.Common.Models;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -24,7 +24,7 @@ namespace RESQ.Application.Services
         /// Nếu user không quản lý kho đó, ném lỗi ForbiddenException.
         /// Trả về DepotId hợp lệ. Nếu requestedDepotId = null và user chỉ quản lý 1 kho, trả về kho đó.
         /// </summary>
-        Task<int> ResolveAccessibleDepotIdAsync(Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default);
+        Task<int?> ResolveAccessibleDepotIdAsync(Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Đảm bảo user có quyền quản lý kho này. Nếu không, ném lỗi ForbiddenException.

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -26,7 +26,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     };
 
     /// <summary>
-    /// Coordinator gom c?m c�c SOS request th�nh m?t cluster d? ph�n t�ch.
+    /// Coordinator gom cụm các SOS request thành một cluster để phân tích.
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
@@ -42,7 +42,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// L?y danh s�ch t?t c? cluster hi?n c�.
+    /// Lấy danh sách tất cả cluster hiện có.
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
@@ -53,7 +53,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Ch?n m?t cluster d? AI ph�n t�ch v� d? xu?t k? ho?ch nhi?m v? gi?i c?u (blocking).
+    /// Chọn một cluster để AI phân tích và đề xuất kế hoạch nhiệm vụ giải cứu (blocking).
     /// </summary>
     [HttpPost("{clusterId:int}/rescue-suggestion")]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
@@ -68,7 +68,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
        return Ok(result);
     }
 
-    /// <summary>SSE streaming - AI d? xu?t mission theo th?i gian th?c (event: status | chunk | result | error).</summary>
+    /// <summary>SSE streaming - AI đề xuất mission theo thời gian thực (event: status | chunk | result | error).</summary>
     [HttpGet("{clusterId:int}/rescue-suggestion/stream")]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
     public async Task StreamRescueMissionSuggestion([FromRoute] int clusterId, CancellationToken cancellationToken)
@@ -88,7 +88,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Xem l?i to�n b? mission v� activity suggestions m� AI d� d? xu?t cho m?t cluster.
+    /// Xem lại toàn bộ mission và activity suggestions mà AI đã đề xuất cho một cluster.
     /// </summary>
     [HttpGet("{clusterId:int}/mission-suggestions")]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
@@ -99,7 +99,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// G?i � top 3 kho thay th? d? coordinator b? sung th? c�ng khi kho ch�nh kh�ng d? v?t ph?m.
+    /// Gợi ý top 3 kho thay thế để coordinator bổ sung thủ công khi kho chính không đủ vật phẩm.
     /// </summary>
     [HttpGet("{clusterId:int}/alternative-depots")]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]

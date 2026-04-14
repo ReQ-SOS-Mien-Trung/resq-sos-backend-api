@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Enum.Personnel;
 
@@ -14,10 +14,10 @@ public class GetAssemblyPointStatusMetadataQueryHandler
         // Define metadata for UI dropdowns
         var result = new List<MetadataDto>
         {
-            new() { Key = AssemblyPointStatus.Created.ToString(),          Value = "M?i t?o" },
-            new() { Key = AssemblyPointStatus.Active.ToString(),           Value = "�ang ho?t d?ng" },
-            new() { Key = AssemblyPointStatus.Unavailable.ToString(), Value = "�ang b?o tr�" },
-            new() { Key = AssemblyPointStatus.Closed.ToString(),           Value = "�� d�ng" }
+            new() { Key = AssemblyPointStatus.Created.ToString(),          Value = "Mới tạo" },
+            new() { Key = AssemblyPointStatus.Active.ToString(),           Value = "Đang hoạt động" },
+            new() { Key = AssemblyPointStatus.Unavailable.ToString(), Value = "Đang bảo trì" },
+            new() { Key = AssemblyPointStatus.Closed.ToString(),           Value = "Đã đóng" }
         };
 
         return await Task.FromResult(result);

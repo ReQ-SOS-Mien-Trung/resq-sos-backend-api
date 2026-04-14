@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -13,19 +13,20 @@ public class ExportClosureTemplateQueryHandler(
     ILogger<ExportClosureTemplateQueryHandler> logger)
     : IRequestHandler<ExportClosureTemplateQuery, ExportClosureTemplateResponse>
 {
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     public async Task<ExportClosureTemplateResponse> Handle(
         ExportClosureTemplateQuery request,
         CancellationToken cancellationToken)
     {
         var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
-            ?? throw new BadRequestException("T�i kho?n kh�ng qu?n l� kho n�o dang ho?t d?ng.");
+            ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         var depot = await depotRepository.GetByIdAsync(depotId, cancellationToken)
-            ?? throw new NotFoundException("Kh�ng t�m th?y kho c?u tr?.");
+            ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
         var items = await depotRepository.GetLotDetailedInventoryForClosureAsync(depotId, cancellationToken);
         if (items.Count == 0)
-            throw new ConflictException("Kho kh�ng c�n h�ng t?n, kh�ng c?n xu?t m?u x? l�.");
+            throw new ConflictException("Kho không còn hàng tồn, không cần xuất mẫu xử lý.");
 
         var fileContent = excelExportService.GenerateClosureExternalTemplate(depot.Name, items);
         var safeDepotName = depot.Name.Replace(" ", "_");

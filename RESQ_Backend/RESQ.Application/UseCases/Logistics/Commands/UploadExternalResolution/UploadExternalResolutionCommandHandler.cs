@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
@@ -22,6 +22,7 @@ public class UploadExternalResolutionCommandHandler(
     ILogger<UploadExternalResolutionCommandHandler> logger)
     : IRequestHandler<UploadExternalResolutionCommand, UploadExternalResolutionResponse>
 {
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     public async Task<UploadExternalResolutionResponse> Handle(
         UploadExternalResolutionCommand request,
         CancellationToken cancellationToken)
@@ -151,7 +152,7 @@ public class UploadExternalResolutionCommandHandler(
             "UploadExternalResolution completed | DepotId={DepotId} Items={Count} ClosureId={ClosureId}",
             depotId, items.Count, closureRecord.Id);
 
-        var (_, reusableInUse) = await depotRepository.GetReusableItemCountsAsync(depotId, cancellationToken);
+        (int _, var reusableInUse) = await depotRepository.GetReusableItemCountsAsync(depotId, cancellationToken);
 
         return new UploadExternalResolutionResponse
         {

@@ -1,4 +1,4 @@
-using RESQ.Domain.Entities.Finance.Exceptions;
+﻿using RESQ.Domain.Entities.Finance.Exceptions;
 using RESQ.Domain.Entities.Logistics.Exceptions;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Logistics;
@@ -12,13 +12,13 @@ public class DepotModel
     public string Address { get; set; } = string.Empty;
     public GeoLocation? Location { get; set; }
 
-    /// <summary>S?c ch?a t?i da theo th? t�ch (dm).</summary>
+    /// <summary>Sức chứa tối đa theo thể tích (dm).</summary>
     public decimal Capacity { get; set; }
-    /// <summary>Th? t�ch hi?n t?i dang s? d?ng (dm).</summary>
+    /// <summary>Thể tích hiện tại đang sử dụng (dm).</summary>
     public decimal CurrentUtilization { get; set; }
-    /// <summary>S?c ch?a t?i da theo c�n n?ng (kg).</summary>
+    /// <summary>Sức chứa tối đa theo cân nặng (kg).</summary>
     public decimal WeightCapacity { get; set; }
-    /// <summary>C�n n?ng hi?n t?i dang s? d?ng (kg).</summary>
+    /// <summary>Cân nặng hiện tại đang sử dụng (kg).</summary>
     public decimal CurrentWeightUtilization { get; set; }
     public DepotStatus Status { get; set; }
 
@@ -50,9 +50,9 @@ public class DepotModel
         string? imageUrl = null)
     {
         if (capacity <= 0)
-            throw new InvalidDepotCapacityException(capacity, "th? t�ch");
+            throw new InvalidDepotCapacityException(capacity, "thể tích");
         if (weightCapacity <= 0)
-            throw new InvalidDepotCapacityException(weightCapacity, "c�n n?ng");
+            throw new InvalidDepotCapacityException(weightCapacity, "cân nặng");
 
         var depot = new DepotModel
         {
@@ -71,7 +71,7 @@ public class DepotModel
         if (managerId.HasValue && managerId.Value != Guid.Empty)
         {
             depot.AssignManager(managerId.Value);
-            // G�n manager ngay l�c t?o  PendingAssignment (chua ho?t d?ng ch�nh th?c)
+            // Gán manager ngay lúc tạo  PendingAssignment (chưa hoạt động chính thức)
             depot.Status = DepotStatus.PendingAssignment;
         }
 
@@ -84,16 +84,16 @@ public class DepotModel
             throw new DepotClosedException();
 
         if (capacity <= 0)
-            throw new InvalidDepotCapacityException(capacity, "th? t�ch");
+            throw new InvalidDepotCapacityException(capacity, "thể tích");
 
         if (weightCapacity <= 0)
-            throw new InvalidDepotCapacityException(weightCapacity, "c�n n?ng");
+            throw new InvalidDepotCapacityException(weightCapacity, "cân nặng");
 
         if (capacity < CurrentUtilization)
-            throw new DepotCapacityExceededException("S?c ch?a th? t�ch m?i th?p hon th? t�ch h�ng hi?n t?i trong kho.");
+            throw new DepotCapacityExceededException("Sức chứa thể tích mới thấp hơn thể tích hàng hiện tại trong kho.");
 
         if (weightCapacity < CurrentWeightUtilization)
-            throw new DepotCapacityExceededException("S?c ch?a c�n n?ng m?i th?p hon c�n n?ng h�ng hi?n t?i trong kho.");
+            throw new DepotCapacityExceededException("Sức chứa cân nặng mới thấp hơn cân nặng hàng hiện tại trong kho.");
 
         Name = name;
         Address = address;
@@ -109,34 +109,34 @@ public class DepotModel
     ///   Available  UnderMaintenance, Unavailable
     ///   UnderMaintenance  Available
     ///   Unavailable  Available
-    /// Created, PendingAssignment, Closed kh�ng di qua phuong th?c n�y.
-    /// Luu �: Kh�ng c� tr?ng th�i Full - h? th?ng d�ng CurrentUtilization vs Capacity d? ki?m tra d?y kho.
+    /// Created, PendingAssignment, Closed không đi qua phương thức này.
+    /// Lưu ý: Không có trạng thái Full - hệ thống dùng CurrentUtilization vs Capacity để kiểm tra đầy kho.
     /// </summary>
     public void ChangeStatus(DepotStatus newStatus)
     {
         if (Status == newStatus) return;
 
-        // Tr?ng th�i ngu?n kh�ng th? thay d?i qua endpoint ChangeStatus
+        // Trạng thái nguồn không thể thay đổi qua endpoint ChangeStatus
         if (Status == DepotStatus.Created)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                "Kho v?a du?c t?o, chua c� qu?n l�. H�y ch? d?nh qu?n l� tru?c.");
+                "Kho vừa được tạo, chưa có quản lý. Hãy chỉ định quản lý trước.");
 
         if (Status == DepotStatus.PendingAssignment)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                "Kho chua c� qu?n l�. H�y ch? d?nh qu?n l� tru?c.");
+                "Kho chưa có quản lý. Hãy chỉ định quản lý trước.");
 
         if (Status == DepotStatus.Closed)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                "Kho d� d�ng vinh vi?n, kh�ng th? thay d?i tr?ng th�i.");
+                "Kho đã đóng vĩnh viễn, không thể thay đổi trạng thái.");
 
         if ((Status == DepotStatus.Unavailable || Status == DepotStatus.Closing) && newStatus != DepotStatus.Available && newStatus != DepotStatus.Closing)
         {
-            string statusText = Status == DepotStatus.Unavailable ? "dang ngung ho?t d?ng" : "dang d�ng kho";
+            string statusText = Status == DepotStatus.Unavailable ? "đang ngưng hoạt động" : "đang đóng kho";
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                $"Kho {statusText}. Ch? c� th? chuy?n v? Available ho?c ti?n h�nh d�ng kho lu�n.");
+                $"Kho {statusText}. Chỉ có thể chuyển về Available hoặc tiến hành đóng kho luôn.");
         }
 
-        // Transition matrix kh?p v?i state diagram
+        // Transition matrix khớp với state diagram
         var allowed = new Dictionary<DepotStatus, HashSet<DepotStatus>>
         {
             [DepotStatus.Available]   = [DepotStatus.Unavailable, DepotStatus.Closing],
@@ -145,19 +145,19 @@ public class DepotModel
 
         if (!allowed.TryGetValue(Status, out var validTargets) || !validTargets.Contains(newStatus))
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                $"Chuy?n tr?ng th�i t? {Status} sang {newStatus} kh�ng du?c ph�p.");
+                $"Chuyển trạng thái từ {Status} sang {newStatus} không được phép.");
 
         if (newStatus == DepotStatus.Available && CurrentManagerId == null)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                "Kho chua c� qu?n l� du?c ch? d?nh.");
+                "Kho chưa có quản lý được chỉ định.");
 
         if (newStatus == DepotStatus.Available && CurrentUtilization > Capacity)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                "Kho dang vu?t qu� s?c ch?a th? t�ch.");
+                "Kho đang vượt quá sức chứa thể tích.");
 
         if (newStatus == DepotStatus.Available && CurrentWeightUtilization > WeightCapacity)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                "Kho dang vu?t qu� s?c ch?a c�n n?ng.");
+                "Kho đang vượt quá sức chứa cân nặng.");
 
         Status = newStatus;
         LastUpdatedAt = DateTime.UtcNow;
@@ -166,8 +166,8 @@ public class DepotModel
     // -- Depot Closure Methods -----------------------------------------
 
     /// <summary>
-    /// Bu?c 1 d�ng kho: chuy?n t? Unavailable  Closed.
-    /// Admin ph?i set Closing tru?c, v� kho ph?i tr?ng (kh�ng c�n h�ng) m?i du?c d�ng.
+    /// Bước 1 đóng kho: chuyển từ Unavailable  Closed.
+    /// Admin phải set Closing trước, và kho phải trống (không còn hàng) mới được đóng.
     /// </summary>
     public void InitiateClosing()
     {
@@ -176,22 +176,22 @@ public class DepotModel
 
         if (Status is not (DepotStatus.Closing or DepotStatus.Unavailable))
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho ph?i ? tr?ng th�i Closing ho?c Unavailable tru?c khi d�ng.");
+                "Kho phải ở trạng thái Closing hoặc Unavailable trước khi đóng.");
 
-        // Kh�ng set Closing n?a - di th?ng t? Unavailable.
-        // Gi? phuong th?c d? backward compat, CompleteClosing s? set Closed.
+        // Không set Closing nữa - đi thẳng từ Unavailable.
+        // Giữ phương thức để backward compat, CompleteClosing sẽ set Closed.
         LastUpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>
-    /// Bu?c 2 d�ng kho: ho�n t?t d�ng kho sau khi d� x? l� h�ng t?n.
-    /// Kho ph?i ? tr?ng th�i Closing.
+    /// Bước 2 đóng kho: hoàn tất đóng kho sau khi đã xử lý hàng tồn.
+    /// Kho phải ở trạng thái Closing.
     /// </summary>
     public void CompleteClosing()
     {
         if (Status != DepotStatus.Closing)
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho ph?i ? tr?ng th�i Closing tru?c khi d�ng ho�n to�n.");
+                "Kho phải ở trạng thái Closing trước khi đóng hoàn toàn.");
 
         Status = DepotStatus.Closed;
         var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
@@ -205,17 +205,17 @@ public class DepotModel
     }
 
     /// <summary>
-    /// Kh�i ph?c kho v? tr?ng th�i cu khi hu? ho?c timeout.
+    /// Khôi phục kho về trạng thái cũ khi huỷ hoặc timeout.
     /// </summary>
     public void RestoreFromClosing(DepotStatus previousStatus)
     {
         if (Status is not (DepotStatus.Closing or DepotStatus.Unavailable))
             throw new InvalidDepotStatusTransitionException(Status, previousStatus,
-                "Ch? c� th? kh�i ph?c kho t? tr?ng th�i Closing ho?c Unavailable.");
+                "Chỉ có thể khôi phục kho từ trạng thái Closing hoặc Unavailable.");
 
         if (previousStatus != DepotStatus.Available)
             throw new InvalidDepotStatusTransitionException(Status, previousStatus,
-                "Tr?ng th�i kh�i ph?c kh�ng h?p l?. Ch? c� th? kh�i ph?c v? Available.");
+                "Trạng thái khôi phục không hợp lệ. Chỉ có thể khôi phục về Available.");
 
         Status = previousStatus;
         LastUpdatedAt = DateTime.UtcNow;
@@ -227,10 +227,10 @@ public class DepotModel
     }
 
     /// <summary>
-    /// C?p nh?t m?c s? d?ng kho d?a tr�n th? t�ch v� c�n n?ng.
+    /// Cập nhật mức sử dụng kho dựa trên thể tích và cân nặng.
     /// </summary>
-    /// <param name="volumeAmount">T?ng th? t�ch c?n th�m (dm). Ph?i > 0.</param>
-    /// <param name="weightAmount">T?ng c�n n?ng c?n th�m (kg). Ph?i > 0.</param>
+    /// <param name="volumeAmount">Tổng thể tích cần thêm (dm). Phải > 0.</param>
+    /// <param name="weightAmount">Tổng cân nặng cần thêm (kg). Phải > 0.</param>
     public void UpdateUtilization(decimal volumeAmount, decimal weightAmount)
     {
         if (Status == DepotStatus.Closed)
@@ -238,21 +238,21 @@ public class DepotModel
 
         if (Status == DepotStatus.Unavailable || Status == DepotStatus.Closing)
         {
-            string statusText = Status == DepotStatus.Unavailable ? "dang ngung ho?t d?ng" : "dang d�ng kho";
-            throw new DepotClosingException($"Kho {statusText}, kh�ng th? th?c hi?n thao t�c n�y.");
+            string statusText = Status == DepotStatus.Unavailable ? "đang ngưng hoạt động" : "đang đóng kho";
+            throw new DepotClosingException($"Kho {statusText}, không thể thực hiện thao tác này.");
         }
 
         if (volumeAmount <= 0)
-            throw new InvalidDepotUtilizationAmountException(volumeAmount, "th? t�ch");
+            throw new InvalidDepotUtilizationAmountException(volumeAmount, "thể tích");
 
         if (weightAmount <= 0)
-            throw new InvalidDepotUtilizationAmountException(weightAmount, "c�n n?ng");
+            throw new InvalidDepotUtilizationAmountException(weightAmount, "cân nặng");
 
         if (CurrentUtilization + volumeAmount > Capacity)
-            throw new DepotCapacityExceededException("Th? t�ch kho kh�ng d? ch?a lu?ng h�ng nh?p v�o.");
+            throw new DepotCapacityExceededException("Thể tích kho không đủ chứa lượng hàng nhập vào.");
 
         if (CurrentWeightUtilization + weightAmount > WeightCapacity)
-            throw new DepotCapacityExceededException("C�n n?ng kho kh�ng d? ch?a lu?ng h�ng nh?p v�o.");
+            throw new DepotCapacityExceededException("Cân nặng kho không đủ chứa lượng hàng nhập vào.");
 
         CurrentUtilization += volumeAmount;
         CurrentWeightUtilization += weightAmount;
@@ -264,10 +264,10 @@ public class DepotModel
             throw new DepotClosedException();
 
         if (volumeAmount <= 0)
-            throw new InvalidDepotUtilizationAmountException(volumeAmount, "th? t�ch");
+            throw new InvalidDepotUtilizationAmountException(volumeAmount, "thể tích");
 
         if (weightAmount <= 0)
-            throw new InvalidDepotUtilizationAmountException(weightAmount, "c�n n?ng");
+            throw new InvalidDepotUtilizationAmountException(weightAmount, "cân nặng");
 
         CurrentUtilization = Math.Max(0, CurrentUtilization - volumeAmount);
         CurrentWeightUtilization = Math.Max(0, CurrentWeightUtilization - weightAmount);
@@ -292,9 +292,9 @@ public class DepotModel
     }
 
     /// <summary>
-    /// G? manager dang active (soft-unassign): set UnassignedAt, gi? l?ch s?.
-    /// Ch? cho ph�p khi kho ? tr?ng th�i Available.
-    /// Sau khi g?, status chuy?n v? PendingAssignment.
+    /// Gỡ manager đang active (soft-unassign): set UnassignedAt, giữ lịch sử.
+    /// Chỉ cho phép khi kho ở trạng thái Available.
+    /// Sau khi gỡ, status chuyển về PendingAssignment.
     /// </summary>
     public void UnassignManager()
     {
@@ -303,8 +303,8 @@ public class DepotModel
 
         if (Status == DepotStatus.Unavailable || Status == DepotStatus.Closing)
         {
-            string statusText = Status == DepotStatus.Unavailable ? "dang ngung ho?t d?ng" : "dang d�ng kho";
-            throw new DepotClosingException($"Kho {statusText}, kh�ng th? g? qu?n l�.");
+            string statusText = Status == DepotStatus.Unavailable ? "đang ngưng hoạt động" : "đang đóng kho";
+            throw new DepotClosingException($"Kho {statusText}, không thể gỡ quản lý.");
         }
 
         var activeAssignment = _managerHistory.FirstOrDefault(x => x.IsActive());
@@ -350,7 +350,7 @@ public class DepotModel
 }
 
 /// <summary>
-/// �?i di?n cho s? lu?ng t?n kho kh? d?ng c?a m?t lo?i v?t ph?m trong kho.
+/// Đại diện cho số lượng tồn kho khả dụng của một loại vật phẩm trong kho.
 /// AvailableQuantity = Quantity - ReservedQuantity.
 /// </summary>
 public record DepotInventoryLine(

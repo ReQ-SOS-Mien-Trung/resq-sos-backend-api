@@ -1,11 +1,11 @@
-using RESQ.Domain.Entities.Exceptions;
+﻿using RESQ.Domain.Entities.Exceptions;
 
 namespace RESQ.Domain.Entities.Logistics.Exceptions;
 
 public sealed class InvalidDepotUtilizationAmountException : DomainException
 {
-    public InvalidDepotUtilizationAmountException(int amount) : base($"S? lu?ng s? d?ng kh�ng h?p l?: {amount}. S? lu?ng ph?i l?n hon 0.") { }
+    public InvalidDepotUtilizationAmountException(int amount) : base($"Số lượng sử dụng không hợp lệ: {amount}. Số lượng phải lớn hơn 0.") { }
 
     public InvalidDepotUtilizationAmountException(decimal amount, string label) 
-        : base($"S? lu?ng s? d?ng ({label}) kh�ng h?p l?: {amount}. S? lu?ng ph?i l?n hon 0.") { }
+        : base($"Số lượng sử dụng ({label}) không hợp lệ: {amount}. Số lượng phải lớn hơn 0.") { }
 }

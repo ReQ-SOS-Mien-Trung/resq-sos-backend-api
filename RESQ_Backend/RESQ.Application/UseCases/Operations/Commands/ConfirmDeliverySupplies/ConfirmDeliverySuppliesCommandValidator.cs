@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 
@@ -7,28 +7,28 @@ public class ConfirmDeliverySuppliesCommandValidator : AbstractValidator<Confirm
     public ConfirmDeliverySuppliesCommandValidator()
     {
         RuleFor(x => x.ActivityId)
-            .GreaterThan(0).WithMessage("ActivityId ph?i l?n hon 0.");
+            .GreaterThan(0).WithMessage("ActivityId phải lớn hơn 0.");
 
         RuleFor(x => x.MissionId)
-            .GreaterThan(0).WithMessage("MissionId ph?i l?n hon 0.");
+            .GreaterThan(0).WithMessage("MissionId phải lớn hơn 0.");
 
         RuleFor(x => x.ConfirmedBy)
-            .NotEmpty().WithMessage("ConfirmedBy kh�ng du?c d? tr?ng.");
+            .NotEmpty().WithMessage("ConfirmedBy không được để trống.");
 
         RuleFor(x => x.ActualDeliveredItems)
-            .NotEmpty().WithMessage("Ph?i cung c?p s? lu?ng th?c t? cho �t nh?t m?t lo?i v?t ph?m.");
+            .NotEmpty().WithMessage("Phải cung cấp số lượng thực tế cho ít nhất một loại vật phẩm.");
 
         RuleForEach(x => x.ActualDeliveredItems).ChildRules(item =>
         {
             item.RuleFor(i => i.ItemId)
-                .GreaterThan(0).WithMessage("ItemId ph?i l?n hon 0.");
+                .GreaterThan(0).WithMessage("ItemId phải lớn hơn 0.");
 
             item.RuleFor(i => i.ActualQuantity)
-                .GreaterThanOrEqualTo(0).WithMessage("ActualQuantity ph?i >= 0.");
+                .GreaterThanOrEqualTo(0).WithMessage("ActualQuantity phải >= 0.");
         });
 
         RuleFor(x => x.ActualDeliveredItems)
             .Must(items => items == null || items.Select(i => i.ItemId).Distinct().Count() == items.Count)
-            .WithMessage("Danh s�ch v?t ph?m kh�ng du?c ch?a ItemId tr�ng l?p.");
+            .WithMessage("Danh sách vật phẩm không được chứa ItemId trùng lặp.");
     }
 }

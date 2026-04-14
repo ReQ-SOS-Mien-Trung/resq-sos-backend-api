@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;

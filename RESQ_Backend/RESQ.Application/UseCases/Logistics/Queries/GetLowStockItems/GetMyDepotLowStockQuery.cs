@@ -1,13 +1,13 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 
-/// <param name="UserId">Manager user ID - depot s? du?c t? d?ng resolve.</param>
-/// <param name="WarningLevel">L?c theo level c? th? (CRITICAL/MEDIUM/LOW/UNCONFIGURED). Null = t?t c? m?c kh�ng ph?i OK.</param>
-/// <param name="IncludeUnconfigured">C� bao g?m v?t ph?m chua c?u h�nh threshold kh�ng (UNCONFIGURED).</param>
+/// <param name="UserId">Manager user ID - depot sẽ được tự động resolve.</param>
+/// <param name="WarningLevel">Lọc theo level cụ thể (CRITICAL/MEDIUM/LOW/UNCONFIGURED). Null = tất cả mức không phải OK.</param>
+/// <param name="IncludeUnconfigured">Có bao gồm vật phẩm chưa cấu hình threshold không (UNCONFIGURED).</param>
 public record GetMyDepotLowStockQuery(
     Guid UserId,
     string? WarningLevel = null,
     bool IncludeUnconfigured = false
-) : IRequest<LowStockChartResponseDto>;
+, int? DepotId = null) : IRequest<LowStockChartResponseDto>;
 

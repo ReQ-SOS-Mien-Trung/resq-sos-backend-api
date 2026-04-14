@@ -1,38 +1,38 @@
-namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+﻿namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 
 /// <summary>
-/// Response wrapper gom summary + chart breakdowns + raw list - t?i uu cho frontend chart.
+/// Response wrapper gom summary + chart breakdowns + raw list - tối ưu cho frontend chart.
 /// </summary>
 public class LowStockChartResponseDto
 {
-    /// <summary>T?ng h?p to�n b? v?t ph?m c?nh b�o.</summary>
+    /// <summary>Tổng hợp toàn bộ vật phẩm cảnh báo.</summary>
     public LowStockSummaryDto Summary { get; set; } = new();
 
-    /// <summary>Ph�n t�ch theo kho - d�ng cho bar/column chart.</summary>
+    /// <summary>Phân tích theo kho - dùng cho bar/column chart.</summary>
     public List<LowStockByDepotDto> ByDepot { get; set; } = new();
 
-    /// <summary>Ph�n t�ch theo danh m?c v?t ph?m - d�ng cho pie/donut chart.</summary>
+    /// <summary>Phân tích theo danh mục vật phẩm - dùng cho pie/donut chart.</summary>
     public List<LowStockByCategoryDto> ByCategory { get; set; } = new();
 
-    /// <summary>Danh s�ch chi ti?t t?ng v?t ph?m - d�ng cho data table.</summary>
+    /// <summary>Danh sách chi tiết từng vật phẩm - dùng cho data table.</summary>
     public List<LowStockItemDto> Items { get; set; } = new();
 }
 
 public class LowStockSummaryDto
 {
-    /// <summary>S? v?t ph?m ? m?c ?? CRITICAL.</summary>
+    /// <summary>Số vật phẩm ở mức 🔴 CRITICAL.</summary>
     public int CriticalCount { get; set; }
 
-    /// <summary>S? v?t ph?m ? m?c ?? MEDIUM.</summary>
+    /// <summary>Số vật phẩm ở mức 🟠 MEDIUM.</summary>
     public int MediumCount { get; set; }
 
-    /// <summary>S? v?t ph?m ? m?c ?? LOW.</summary>
+    /// <summary>Số vật phẩm ở mức 🟡 LOW.</summary>
     public int LowCount { get; set; }
 
-    /// <summary>S? v?t ph?m chua du?c c?u h�nh threshold (UNCONFIGURED).</summary>
+    /// <summary>Số vật phẩm chưa được cấu hình threshold (UNCONFIGURED).</summary>
     public int UnconfiguredCount { get; set; }
 
-    /// <summary>T?ng c?ng (t?t c? m?c kh�ng ph?i OK).</summary>
+    /// <summary>Tổng cộng (tất cả mức không phải OK).</summary>
     public int TotalCount { get; set; }
 }
 
@@ -54,7 +54,7 @@ public class LowStockByCategoryDto
     public int LowCount { get; set; }
 }
 
-/// <summary>Helper t?ng h?p flat list th�nh chart response.</summary>
+/// <summary>Helper tổng hợp flat list thành chart response.</summary>
 internal static class LowStockChartBuilder
 {
     internal static LowStockChartResponseDto Build(List<LowStockItemDto> items)

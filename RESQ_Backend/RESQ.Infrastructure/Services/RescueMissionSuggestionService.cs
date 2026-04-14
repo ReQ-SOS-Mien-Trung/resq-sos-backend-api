@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -43,7 +43,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private const string ReturnAssemblyPointActivityType = "RETURN_ASSEMBLY_POINT";
     private const string ReusableItemType = "Reusable";
     private const string SingleTeamExecutionMode = "SingleTeam";
-    private const string DefaultReturnAssemblyEstimatedTime = "20 ph�t";
+    private const string DefaultReturnAssemblyEstimatedTime = "20 phút";
 
     private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
     private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -115,7 +115,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             return new RescueMissionSuggestionResult
             {
                 IsSuccess = false,
-                ErrorMessage = $"L?i khi g?i AI: {ex.Message}",
+                ErrorMessage = $"Lỗi khi gọi AI: {ex.Message}",
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds
             };
         }
@@ -130,7 +130,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return new RescueMissionSuggestionResult
         {
             IsSuccess = false,
-            ErrorMessage = "AI kh�ng ph?n h?i. Vui l�ng th? l?i sau.",
+            ErrorMessage = "AI không phản hồi. Vui lòng thử lại sau.",
             ResponseTimeMs = stopwatch.ElapsedMilliseconds
         };
     }
@@ -142,16 +142,16 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         {
             stt = index + 1,
             id = sos.Id,
-            loai_sos = sos.SosType ?? "Kh�ng x�c d?nh",
+            loai_sos = sos.SosType ?? "Không xác định",
             tin_nhan = sos.RawMessage,
-            du_lieu_chi_tiet = sos.StructuredData ?? "Kh�ng c�",
-            muc_uu_tien = sos.PriorityLevel ?? "Chua d�nh gi�",
-            trang_thai = sos.Status ?? "Kh�ng r�",
+            du_lieu_chi_tiet = sos.StructuredData ?? "Không có",
+            muc_uu_tien = sos.PriorityLevel ?? "Chưa đánh giá",
+            trang_thai = sos.Status ?? "Không rõ",
             ghi_chu_su_co_moi_nhat = sos.LatestIncidentNote,
             lich_su_su_co = sos.IncidentNotes,
             vi_tri = sos.Latitude.HasValue && sos.Longitude.HasValue
                 ? $"{sos.Latitude}, {sos.Longitude}"
-                : "Kh�ng x�c d?nh",
+                : "Không xác định",
             thoi_gian_cho_doi_phut = sos.CreatedAt.HasValue
                 ? (int)(now - sos.CreatedAt.Value).TotalMinutes
                 : (int?)null,
@@ -170,66 +170,66 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         _ = isMultiDepotRecommended;
 
         return """
-            ## HU?NG D?N S? D?NG C�NG C?
-            B?n c� th? g?i ba c�ng c? d? l?y d? li?u th?c tru?c khi l?p k? ho?ch:
+            ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
+            Bạn có thể gọi ba công cụ để lấy dữ liệu thực trước khi lập kế hoạch:
 
-            - **searchInventory(category, type?, page)**: T�m v?t ph?m kh? d?ng trong **c�c kho h?p l? c?a cluster hi?n t?i**. K?t qu? ch? ch?a c�c kho backend d� cho ph�p trong ph?m vi l?p k? ho?ch n�y. M?i d�ng l� m?t c?p (v?t ph?m, kho) v?i item_id, item_name, item_type, available_quantity, depot_id, depot_name, depot_address, depot_latitude, depot_longitude.
-            - **getTeams(ability?, available?, page)**: Tr? v? nearby teams dang Available trong b�n k�nh cluster hi?n t?i.
-            - **getAssemblyPoints(page)**: Tr? v? c�c assembly point dang ho?t d?ng.
+            - **searchInventory(category, type?, page)**: Tìm vật phẩm khả dụng trong **các kho hợp lệ của cluster hiện tại**. Kết quả chỉ chứa các kho backend đã cho phép trong phạm vi lập kế hoạch này. Mỗi dòng là một cặp (vật phẩm, kho) với item_id, item_name, item_type, available_quantity, depot_id, depot_name, depot_address, depot_latitude, depot_longitude.
+            - **getTeams(ability?, available?, page)**: Trả về nearby teams đang Available trong bán kính cluster hiện tại.
+            - **getAssemblyPoints(page)**: Trả về các assembly point đang hoạt động.
 
-            ## QUY T?C KHO � CH? CH?N M?T KHO CHO TO�N B? MISSION
-            - B?T BU?C g?i **searchInventory** cho t?ng danh m?c ph� h?p: Th?c ph?m, Nu?c, Y t?, C?u h?, Qu?n �o, noi tr� ?n... Kh�ng b? s�t danh m?c li�n quan.
-            - Sau khi c� k?t qu?, so s�nh c�c `depot_id` xu?t hi?n v� ch?n **d�ng m?t kho ph� h?p nh?t cho to�n b? mission**.
-            - Ti�u ch� ch?n kho: uu ti�n kho d�p ?ng du?c nhi?u nhu c?u SOS nh?t v� c� t?ng s? lu?ng ph� h?p cao nh?t. N?u tuong duong, ch?n kho c� v? tr� thu?n l?i hon trong k?t qu? d� tr? v?.
-            - To�n b? activity c� d�ng kho trong mission n�y ph?i d�ng c�ng m?t `depot_id`, `depot_name`, `depot_address` c?a kho d� ch?n.
-            - **TUY?T �?I KH�NG** t?o k? ho?ch l?y v?t ph?m t? kho th? hai, kh�ng chia v?t ph?m gi?a nhi?u kho, kh�ng g?p nhi?u kho.
-            - N?u kho d� ch?n kh�ng d? d?, v?n ch? l?y nh?ng g� kho d� hi?n c� r?i b�o thi?u. Kh�ng du?c chuy?n sang kho kh�c.
+            ## QUY TẮC KHO — CHỈ CHỌN MỘT KHO CHO TOÀN BỘ MISSION
+            - BẮT BUỘC gọi **searchInventory** cho từng danh mục phù hợp: Thực phẩm, Nước, Y tế, Cứu hộ, Quần áo, nơi trú ẩn... Không bỏ sót danh mục liên quan.
+            - Sau khi có kết quả, so sánh các `depot_id` xuất hiện và chọn **đúng một kho phù hợp nhất cho toàn bộ mission**.
+            - Tiêu chí chọn kho: ưu tiên kho đáp ứng được nhiều nhu cầu SOS nhất và có tổng số lượng phù hợp cao nhất. Nếu tương đương, chọn kho có vị trí thuận lợi hơn trong kết quả đã trả về.
+            - Toàn bộ activity có dùng kho trong mission này phải dùng cùng một `depot_id`, `depot_name`, `depot_address` của kho đã chọn.
+            - **TUYỆT ĐỐI KHÔNG** tạo kế hoạch lấy vật phẩm từ kho thứ hai, không chia vật phẩm giữa nhiều kho, không gộp nhiều kho.
+            - Nếu kho đã chọn không đủ đồ, vẫn chỉ lấy những gì kho đó hiện có rồi báo thiếu. Không được chuyển sang kho khác.
 
-            ## B�O C�O THI?U H?T v?t ph?m
-            - N?u sau khi d?i chi?u v?i kho d� ch?n m� c�n thi?u b?t k? v?t ph?m n�o, d?t `needs_additional_depot = true`.
-            - Khi c� thi?u h?t, di?n `supply_shortages` v?i t?ng d�ng thi?u theo format:
-              - `sos_request_id`: SOS b? ?nh hu?ng
-              - `item_id`: n?u x�c d?nh du?c t? inventory; n?u kh�ng th� d? null
+            ## BÁO CÁO THIẾU HỤT vật phẩm
+            - Nếu sau khi đối chiếu với kho đã chọn mà còn thiếu bất kỳ vật phẩm nào, đặt `needs_additional_depot = true`.
+            - Khi có thiếu hụt, điền `supply_shortages` với từng dòng thiếu theo format:
+              - `sos_request_id`: SOS bị ảnh hưởng
+              - `item_id`: nếu xác định được từ inventory; nếu không thì để null
               - `item_name`, `unit`
-              - `selected_depot_id`, `selected_depot_name`: ch�nh l� kho duy nh?t d� ch?n
+              - `selected_depot_id`, `selected_depot_name`: chính là kho duy nhất đã chọn
               - `needed_quantity`, `available_quantity`, `missing_quantity`
-              - `notes`: m� t? ng?n g?n l� do thi?u n?u c?n
-            - N?u kho d� ch?n kh�ng c� m�n d�, d�ng `available_quantity = 0` v� `missing_quantity = needed_quantity`.
-            - N?u kho ch? c� m?t ph?n, d�ng `available_quantity < needed_quantity` v� `missing_quantity = needed_quantity - available_quantity`.
-            - `special_notes` ph?i ghi r� r?ng coordinator c?n b? sung th�m kho/ngu?n c?p ph�t v� dang thi?u v?t ph?m n�o v� s? lu?ng thi?u bao nhi�u.
-            - N?u kh�ng c� thi?u h?t, d?t `needs_additional_depot = false` v� `supply_shortages = []`.
+              - `notes`: mô tả ngắn gọn lý do thiếu nếu cần
+            - Nếu kho đã chọn không có món đó, dùng `available_quantity = 0` và `missing_quantity = needed_quantity`.
+            - Nếu kho chỉ có một phần, dùng `available_quantity < needed_quantity` và `missing_quantity = needed_quantity - available_quantity`.
+            - `special_notes` phải ghi rõ rằng coordinator cần bổ sung thêm kho/nguồn cấp phát vì đang thiếu vật phẩm nào và số lượng thiếu bao nhiêu.
+            - Nếu không có thiếu hụt, đặt `needs_additional_depot = false` và `supply_shortages = []`.
 
-            ## QUY T?C ESTIMATE TIME
-            - M?i activity ph?i c� `estimated_time` theo d�ng m?t trong hai format: `"X ph�t"` ho?c `"Y gi? Z ph�t"`.
-            - `estimated_time` ph?i bao g?m th?i gian di chuy?n th?c d?a + th?i gian l?y h�ng/giao h�ng + th?i gian x? l� t?i hi?n tru?ng tuong ?ng v?i activity d�.
-            - `estimated_duration` l� t?ng th?i gian tu?n t? c?a to�n b? activities theo d�ng th? t? step trong mission, cung d�ng format `"X ph�t"` ho?c `"Y gi? Z ph�t"`.
-            - Kh�ng d? `estimated_time` ho?c `estimated_duration` mo h? ki?u `"nhanh"`, `"s?m"`, `"kho?ng v�i gi?"`.
+            ## QUY TẮC ESTIMATE TIME
+            - Mỗi activity phải có `estimated_time` theo đúng một trong hai format: `"X phút"` hoặc `"Y giờ Z phút"`.
+            - `estimated_time` phải bao gồm thời gian di chuyển thực địa + thời gian lấy hàng/giao hàng + thời gian xử lý tại hiện trường tương ứng với activity đó.
+            - `estimated_duration` là tổng thời gian tuần tự của toàn bộ activities theo đúng thứ tự step trong mission, cũng dùng format `"X phút"` hoặc `"Y giờ Z phút"`.
+            - Không để `estimated_time` hoặc `estimated_duration` mơ hồ kiểu `"nhanh"`, `"sớm"`, `"khoảng vài giờ"`.
 
-            ## QUY T?C TH? T? ACTIVITY
-            - `COLLECT_SUPPLIES` ph?i d?ng tru?c activity hi?n tru?ng s? d?ng s? v?t ph?m d�.
-            - Kh�ng du?c t?o th�m `COLLECT_SUPPLIES` cho c�ng SOS sau khi d� b?t d?u `DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, ho?c `EVACUATE` c?a SOS d�.
-            - N?u c� v?t ph?m reusable du?c l?y ? `COLLECT_SUPPLIES`, ph?i c� `RETURN_SUPPLIES` ? cu?i k? ho?ch d? tr? d�ng v? c�ng kho d� ch?n.
-            - Kh�ng t?o `COLLECT_SUPPLIES` ? cu?i k? ho?ch n?u ph�a sau kh�ng c� activity n�o d�ng s? h�ng d�.
+            ## QUY TẮC THỨ TỰ ACTIVITY
+            - `COLLECT_SUPPLIES` phải đứng trước activity hiện trường sử dụng số vật phẩm đó.
+            - Không được tạo thêm `COLLECT_SUPPLIES` cho cùng SOS sau khi đã bắt đầu `DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, hoặc `EVACUATE` của SOS đó.
+            - Nếu có vật phẩm reusable được lấy ở `COLLECT_SUPPLIES`, phải có `RETURN_SUPPLIES` ở cuối kế hoạch để trả đúng về cùng kho đã chọn.
+            - Không tạo `COLLECT_SUPPLIES` ở cuối kế hoạch nếu phía sau không có activity nào dùng số hàng đó.
 
-            ## QUY T?C T?NG LO?I ACTIVITY
-            - `COLLECT_SUPPLIES`: ch? t?o cho v?t ph?m th?t s? l?y t? kho d� ch?n; `supplies_to_collect` ch? ch?a c�c item c� trong kho d�.
-            - `DELIVER_SUPPLIES`: giao d�ng c�c v?t ph?m v?a l?y t? kho d� ch?n cho SOS tuong ?ng.
-            - `RESCUE`: lu�n t?o n?u hi?n tru?ng c?n c?u ngu?i, k? c? khi thi?t b? c?u h? b? thi?u; thi?u g� th� ghi v�o `supply_shortages` v� `special_notes`.
-            - `MEDICAL_AID`: n?u thi?u v?t ph?m y t? th� v?n c� th? t?o activity, nhung ph?i ghi r� thi?u h?t.
-            - `EVACUATE`: kh�ng l?y v?t ph?m ? bu?c n�y; ph?i ch?n `assembly_point_id` g?n n?n nh�n nh?t.
+            ## QUY TẮC TỪNG LOẠI ACTIVITY
+            - `COLLECT_SUPPLIES`: chỉ tạo cho vật phẩm thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó.
+            - `DELIVER_SUPPLIES`: giao đúng các vật phẩm vừa lấy từ kho đã chọn cho SOS tương ứng.
+            - `RESCUE`: luôn tạo nếu hiện trường cần cứu người, kể cả khi thiết bị cứu hộ bị thiếu; thiếu gì thì ghi vào `supply_shortages` và `special_notes`.
+            - `MEDICAL_AID`: nếu thiếu vật phẩm y tế thì vẫn có thể tạo activity, nhưng phải ghi rõ thiếu hụt.
+            - `EVACUATE`: không lấy vật phẩm ở bước này; phải chọn `assembly_point_id` gần nạn nhân nhất.
 
-            ## QUY T?C TEAM V� ASSEMBLY POINT
-            - G?i `getTeams` d? l?y `team_id`; kh�ng t? b?a team ngo�i k?t qu? c�ng c?.
-            - N?u l?c theo `ability` m� kh�ng th?y team, g?i l?i `getTeams` kh�ng truy?n ability tru?c khi ch?p nh?n `suggested_team = null`.
-            - V?i `RESCUE` ho?c `EVACUATE`, b?t bu?c g?i `getAssemblyPoints` v� ch?n `assembly_point_id` g?n n?n nh�n nh?t.
+            ## QUY TẮC TEAM VÀ ASSEMBLY POINT
+            - Gọi `getTeams` để lấy `team_id`; không tự bịa team ngoài kết quả công cụ.
+            - Nếu lọc theo `ability` mà không thấy team, gọi lại `getTeams` không truyền ability trước khi chấp nhận `suggested_team = null`.
+            - Với `RESCUE` hoặc `EVACUATE`, bắt buộc gọi `getAssemblyPoints` và chọn `assembly_point_id` gần nạn nhân nhất.
 
-            ## �?NH D?NG overall_assessment
-            - To�n b? n?i dung ph?i n?m tr�n m?t d�ng duy nh?t.
-            - Khi nh?c t?i SOS, d�ng format `[SOS ID X]: ...`.
+            ## ĐỊNH DẠNG overall_assessment
+            - Toàn bộ nội dung phải nằm trên một dòng duy nhất.
+            - Khi nhắc tới SOS, dùng format `[SOS ID X]: ...`.
 
-            ## JSON B?T BU?C
-            - Tr? v? JSON thu?n, kh�ng markdown.
-            - Ngo�i c�c field mission hi?n c�, lu�n tr? th�m:
+            ## JSON BẮT BUỘC
+            - Trả về JSON thuần, không markdown.
+            - Ngoài các field mission hiện có, luôn trả thêm:
               - `needs_additional_depot`: boolean
               - `supply_shortages`: array
             """;
@@ -539,7 +539,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         return new RescueMissionSuggestionResult
         {
-            SuggestedMissionTitle = ExtractStr(text, "mission_title") ?? "Nhi?m v? gi?i c?u",
+            SuggestedMissionTitle = ExtractStr(text, "mission_title") ?? "Nhiệm vụ giải cứu",
             SuggestedMissionType = ExtractStr(text, "mission_type"),
             SuggestedPriorityScore = ExtractNum(text, "priority_score"),
             SuggestedSeverityLevel = ExtractStr(text, "severity_level"),
@@ -673,7 +673,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         result.NeedsManualReview = true;
         result.SpecialNotes = AppendSpecialNote(
             result.SpecialNotes,
-            $"Plan hi?n dang d�ng nhi?u kho: {depotLabel}. Backend y�u c?u AI ch? ch?n m?t kho ph� h?p nh?t cho to�n mission.");
+            $"Plan hiện đang dùng nhiều kho: {depotLabel}. Backend yêu cầu AI chỉ chọn một kho phù hợp nhất cho toàn mission.");
     }
 
     private static void NormalizeEstimatedDurations(RescueMissionSuggestionResult result)
@@ -688,7 +688,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 result.NeedsManualReview = true;
                 result.SpecialNotes = AppendSpecialNote(
                     result.SpecialNotes,
-                    $"Activity step {activity.Step} ({activity.ActivityType}) chua c� estimated_time h?p l?.");
+                    $"Activity step {activity.Step} ({activity.ActivityType}) chưa có estimated_time hợp lệ.");
                 continue;
             }
 
@@ -697,7 +697,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 result.NeedsManualReview = true;
                 result.SpecialNotes = AppendSpecialNote(
                     result.SpecialNotes,
-                    $"Activity step {activity.Step} ({activity.ActivityType}) c� estimated_time kh� hi?u: '{activity.EstimatedTime}'.");
+                    $"Activity step {activity.Step} ({activity.ActivityType}) có estimated_time khó hiểu: '{activity.EstimatedTime}'.");
                 continue;
             }
 
@@ -723,7 +723,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             result.NeedsManualReview = true;
             result.SpecialNotes = AppendSpecialNote(
                 result.SpecialNotes,
-                "Mission chua c� estimated_duration h?p l? d? coordinator ki?m tra.");
+                "Mission chưa có estimated_duration hợp lệ để coordinator kiểm tra.");
         }
     }
 
@@ -742,8 +742,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             return numericMinutes > 0;
         }
 
-        var hourMatch = Regex.Match(text, @"(?<value>\d+)\s*(gi?|gio|hour|hours|hr|hrs|h)");
-        var minuteMatch = Regex.Match(text, @"(?<value>\d+)\s*(ph�t|phut|minute|minutes|min|mins|m)");
+        var hourMatch = Regex.Match(text, @"(?<value>\d+)\s*(giờ|gio|hour|hours|hr|hrs|h)");
+        var minuteMatch = Regex.Match(text, @"(?<value>\d+)\s*(phút|phut|minute|minutes|min|mins|m)");
 
         if (!hourMatch.Success && !minuteMatch.Success)
             return false;
@@ -764,11 +764,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         var minutes = safeMinutes % 60;
 
         if (hours <= 0)
-            return $"{safeMinutes} ph�t";
+            return $"{safeMinutes} phút";
 
         return minutes == 0
-            ? $"{hours} gi?"
-            : $"{hours} gi? {minutes} ph�t";
+            ? $"{hours} giờ"
+            : $"{hours} giờ {minutes} phút";
     }
 
     private static string BuildShortageCoordinatorNote(IReadOnlyCollection<SupplyShortageDto> shortages)
@@ -778,14 +778,14 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             {
                 var sosPrefix = shortage.SosRequestId.HasValue ? $"[SOS ID {shortage.SosRequestId.Value}] " : string.Empty;
                 var unitSuffix = string.IsNullOrWhiteSpace(shortage.Unit) ? string.Empty : $" {shortage.Unit}";
-                return $"{sosPrefix}{shortage.ItemName} thi?u x{shortage.MissingQuantity}{unitSuffix}";
+                return $"{sosPrefix}{shortage.ItemName} thiếu x{shortage.MissingQuantity}{unitSuffix}";
             })
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
         return details.Count == 0
-            ? "Coordinator c?n b? sung th�m kho/ngu?n c?p ph�t v� kho d� ch?n kh�ng d? v?t ph?m."
-            : "Coordinator c?n b? sung th�m kho/ngu?n c?p ph�t. Thi?u: " + string.Join("; ", details) + ".";
+            ? "Coordinator cần bổ sung thêm kho/nguồn cấp phát vì kho đã chọn không đủ vật phẩm."
+            : "Coordinator cần bổ sung thêm kho/nguồn cấp phát. Thiếu: " + string.Join("; ", details) + ".";
     }
 
     private static bool IsCollectActivity(SuggestedActivityDto activity) =>
@@ -953,11 +953,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     && sos.Latitude.HasValue
                     && sos.Longitude.HasValue)
                 {
-                    splitActivity.Description = $"�ua n?n nh�n t? {sos.Latitude.Value}, {sos.Longitude.Value} (SOS ID {sosId}) d?n {splitActivity.AssemblyPointName ?? "di?m t?p k?t an to�n"}.";
+                    splitActivity.Description = $"Đưa nạn nhân từ {sos.Latitude.Value}, {sos.Longitude.Value} (SOS ID {sosId}) đến {splitActivity.AssemblyPointName ?? "điểm tập kết an toàn"}.";
                 }
                 else
                 {
-                    splitActivity.Description = $"�ua n?n nh�n c?a SOS ID {sosId} d?n {splitActivity.AssemblyPointName ?? "di?m t?p k?t an to�n"}.";
+                    splitActivity.Description = $"Đưa nạn nhân của SOS ID {sosId} đến {splitActivity.AssemblyPointName ?? "điểm tập kết an toàn"}.";
                 }
 
                 expanded.Add(splitActivity);
@@ -1161,7 +1161,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                         .ToList();
 
                     if (ordered.Count > 1)
-                        warnings.Add($"Mission suggestion dang c� nhi?u RETURN_ASSEMBLY_POINT cho team #{group.Key}; backend ch? gi? m?t bu?c cu?i.");
+                        warnings.Add($"Mission suggestion đang có nhiều RETURN_ASSEMBLY_POINT cho team #{group.Key}; backend chỉ giữ một bước cuối.");
 
                     return ordered.First();
                 });
@@ -1173,7 +1173,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 || !team.Latitude.HasValue
                 || !team.Longitude.HasValue)
             {
-                warnings.Add($"Team #{team.TeamId} thi?u assembly_point_id ho?c t?a d? di?m t?p k?t; chua th? t? t?o RETURN_ASSEMBLY_POINT.");
+                warnings.Add($"Team #{team.TeamId} thiếu assembly_point_id hoặc tọa độ điểm tập kết; chưa thể tự tạo RETURN_ASSEMBLY_POINT.");
                 continue;
             }
 
@@ -1206,18 +1206,18 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         SuggestedTeamDto team)
     {
         var assemblyPointName = string.IsNullOrWhiteSpace(team.AssemblyPointName)
-            ? $"di?m t?p k?t #{team.AssemblyPointId}"
+            ? $"điểm tập kết #{team.AssemblyPointId}"
             : team.AssemblyPointName!;
 
         activity.Step = 0;
         activity.ActivityType = ReturnAssemblyPointActivityType;
-        activity.Description = $"Ho�n t?t nhi?m v?, d?i {team.TeamName} quay v? di?m t?p k?t {assemblyPointName}.";
+        activity.Description = $"Hoàn tất nhiệm vụ, đội {team.TeamName} quay về điểm tập kết {assemblyPointName}.";
         activity.Priority = "Low";
         activity.EstimatedTime = DefaultReturnAssemblyEstimatedTime;
         activity.ExecutionMode = SingleTeamExecutionMode;
         activity.RequiredTeamCount = 1;
         activity.CoordinationGroupKey = null;
-        activity.CoordinationNotes = "�?i quay v? di?m t?p k?t ban d?u sau khi ho�n t?t nhi?m v?.";
+        activity.CoordinationNotes = "Đội quay về điểm tập kết ban đầu sau khi hoàn tất nhiệm vụ.";
         activity.SosRequestId = null;
         activity.DepotId = null;
         activity.DepotName = null;
@@ -1327,7 +1327,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         activity.ExecutionMode = SingleTeamExecutionMode;
         activity.RequiredTeamCount = 1;
         activity.CoordinationGroupKey = null;
-        activity.CoordinationNotes = "M?t d?i tr? v?t ph?m t�i s? d?ng d� l?y tru?c d� v? l?i kho ngu?n.";
+        activity.CoordinationNotes = "Một đội trả vật phẩm tái sử dụng đã lấy trước đó về lại kho nguồn.";
         activity.SosRequestId = null;
         activity.DepotId = requiredGroup.DepotId;
         activity.DepotName = requiredGroup.DepotName;
@@ -1362,8 +1362,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 }));
 
         return string.IsNullOrWhiteSpace(itemSummary)
-            ? $"Ho�n t?t nhi?m v?, dua v?t ph?m t�i s? d?ng v? l?i {depotLabel}."
-            : $"Ho�n t?t nhi?m v?, dua v?t ph?m t�i s? d?ng v? l?i {depotLabel}. Tr?: {itemSummary}.";
+            ? $"Hoàn tất nhiệm vụ, đưa vật phẩm tái sử dụng về lại {depotLabel}."
+            : $"Hoàn tất nhiệm vụ, đưa vật phẩm tái sử dụng về lại {depotLabel}. Trả: {itemSummary}.";
     }
 
     private static SupplyToCollectDto CloneSupply(SupplyToCollectDto supply)
@@ -1722,12 +1722,12 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 || !double.TryParse(m.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var mLon))
                 return m.Value;
 
-            // Only replace when these coordinates are close enough to the destination (~1 km / ~0.01�)
+            // Only replace when these coordinates are close enough to the destination (~1 km / ~0.01°)
             if (Math.Abs(mLat - lat) > 0.01 || Math.Abs(mLon - lon) > 0.01)
                 return m.Value;
 
-            // If name is already in the description ? just remove the duplicate coordinates.
-            // Otherwise ? replace the coordinate pair with the name.
+            // If name is already in the description → just remove the duplicate coordinates.
+            // Otherwise → replace the coordinate pair with the name.
             return nameAlreadyPresent ? string.Empty : name;
         });
 
@@ -1808,12 +1808,12 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             }
         }
 
-        yield return Status("�ang t?i c?u h�nh AI agent...");
+        yield return Status("Đang tải cấu hình AI agent...");
 
         var prompt = await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
         if (prompt == null)
         {
-            yield return Error("Chua c� prompt 'MissionPlanning' dang du?c k�ch ho?t. Vui l�ng c?u h�nh trong qu?n tr? h? th?ng.");
+            yield return Error("Chưa có prompt 'MissionPlanning' đang được kích hoạt. Vui lòng cấu hình trong quản trị hệ thống.");
             yield break;
         }
 
@@ -1833,19 +1833,19 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         var userMessage = (prompt.UserPromptTemplate ?? string.Empty)
             .Replace("{{sos_requests_data}}", sosDataJson)
             .Replace("{{total_count}}", sosRequests.Count.ToString())
-            .Replace("{{depots_data}}", "(D? li?u kho kh�ng du?c truy?n tr?c ti?p. H�y g?i c�ng c? searchInventory d? tra c?u v?t ph?m kh? d?ng trong c�c kho h?p l? c?a cluster hi?n t?i, sau d� ch?n d�ng m?t kho ph� h?p nh?t cho to�n mission.)")
+            .Replace("{{depots_data}}", "(Dữ liệu kho không được truyền trực tiếp. Hãy gọi công cụ searchInventory để tra cứu vật phẩm khả dụng trong các kho hợp lệ của cluster hiện tại, sau đó chọn đúng một kho phù hợp nhất cho toàn mission.)")
             .TrimEnd();
 
         var nearbyTeamsNote = availableNearbyTeams.Count > 0
-            ? $"\n\nD? li?u d?i c?u h? kh�ng du?c truy?n tr?c ti?p. H�y g?i c�ng c? getTeams d? xem {availableNearbyTeams.Count} d?i nearby currently available trong b�n k�nh cluster. C�ng c? n�y ch? tr? v? c�c d?i g?n nh?t trong pool d�, kh�ng bao gi? m? r?ng ra team xa hon."
-            : "\n\nHi?n kh�ng c� d?i Available n�o trong b�n k�nh cluster. N?u c�ng c? getTeams tr? v? r?ng, kh�ng du?c t? b?a team ngo�i v�ng; h�y d? suggested_team = null v� ghi r� c?n manual review.";
+            ? $"\n\nDữ liệu đội cứu hộ không được truyền trực tiếp. Hãy gọi công cụ getTeams để xem {availableNearbyTeams.Count} đội nearby currently available trong bán kính cluster. Công cụ này chỉ trả về các đội gần nhất trong pool đó, không bao giờ mở rộng ra team xa hơn."
+            : "\n\nHiện không có đội Available nào trong bán kính cluster. Nếu công cụ getTeams trả về rỗng, không được tự bịa team ngoài vùng; hãy để suggested_team = null và ghi rõ cần manual review.";
 
         userMessage += nearbyTeamsNote;
 
         var systemPrompt = (prompt.SystemPrompt ?? string.Empty).TrimEnd()
             + "\n\n" + BuildAgentInstructions(isMultiDepotRecommended);
 
-        yield return Status($"AI agent ({settings.Provider}/{settings.Model}) dang ph�n t�ch {sosRequests.Count} SOS request...");
+        yield return Status($"AI agent ({settings.Provider}/{settings.Model}) đang phân tích {sosRequests.Count} SOS request...");
 
         var messages = new List<AiChatMessage>
         {
@@ -1903,13 +1903,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
             if (sendError != null)
             {
-                yield return Error($"L?i k?t n?i t?i AI: {sendError}");
+                yield return Error($"Lỗi kết nối tới AI: {sendError}");
                 yield break;
             }
 
             if (response == null)
             {
-                yield return Error("AI kh�ng ph?n h?i. Vui l�ng th? l?i sau.");
+                yield return Error("AI không phản hồi. Vui lòng thử lại sau.");
                 yield break;
             }
 
@@ -1931,7 +1931,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     settings.Provider,
                     response.HttpStatusCode,
                     response.ErrorBody);
-                yield return Error($"AI tr? v? l?i ({response.HttpStatusCode}). Vui l�ng th? l?i sau.");
+                yield return Error($"AI trả về lỗi ({response.HttpStatusCode}). Vui lòng thử lại sau.");
                 yield break;
             }
 
@@ -1943,7 +1943,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     turn,
                     settings.Provider,
                     response.BlockReason);
-                yield return Error($"Y�u c?u b? ch?n b?i b? l?c AI ({response.BlockReason}). Vui l�ng th? l?i ho?c di?u ch?nh n?i dung SOS.");
+                yield return Error($"Yêu cầu bị chặn bởi bộ lọc AI ({response.BlockReason}). Vui lòng thử lại hoặc điều chỉnh nội dung SOS.");
                 yield break;
             }
 
@@ -1959,16 +1959,16 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 // Retry once on transient failures, otherwise surface the error
                 if (finishReason is "SAFETY" or "RECITATION" or "OTHER" or "BLOCKLIST" or "PROHIBITED_CONTENT" or "content_filter")
                 {
-                    yield return Error($"N?i dung b? l?c b?i AI ({finishReason}). Vui l�ng th? l?i sau.");
+                    yield return Error($"Nội dung bị lọc bởi AI ({finishReason}). Vui lòng thử lại sau.");
                     yield break;
                 }
                 if (turn == 0 && finishReason is "MAX_TOKENS")
                 {
-                    yield return Error("AI vu?t gi?i h?n token ? lu?t d?u. Vui l�ng th? l?i.");
+                    yield return Error("AI vượt giới hạn token ở lượt đầu. Vui lòng thử lại.");
                     yield break;
                 }
 
-                yield return Error($"AI kh�ng tr? v? n?i dung (finishReason={finishReason}). Vui l�ng th? l?i.");
+                yield return Error($"AI không trả về nội dung (finishReason={finishReason}). Vui lòng thử lại.");
                 yield break;
             }
 
@@ -1976,7 +1976,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
             if (response.ToolCalls.Count == 0)
             {
-                // No function calls ? final answer
+                // No function calls → final answer
                 finalText = response.Text;
                 break;
             }
@@ -1984,7 +1984,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             // Execute each function call
             foreach (var toolCall in response.ToolCalls)
             {
-                yield return Status($"Agent dang g?i c�ng c?: {toolCall.Name}(...)");
+                yield return Status($"Agent đang gọi công cụ: {toolCall.Name}(...)");
 
                 JsonElement toolResult;
                 try
@@ -1997,18 +1997,18 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     toolResult = JsonSerializer.SerializeToElement(new { error = ex.Message });
                 }
 
-                yield return Status($"C�ng c? {toolCall.Name}() d� tr? v? k?t qu?.");
+                yield return Status($"Công cụ {toolCall.Name}() đã trả về kết quả.");
                 messages.Add(AiChatMessage.Tool(toolCall.Id, toolCall.Name, toolResult));
             }
         }
 
         if (string.IsNullOrWhiteSpace(finalText))
         {
-            yield return Error("AI agent kh�ng dua ra ph?n h?i cu?i c�ng sau t?i da s? v�ng l?p cho ph�p.");
+            yield return Error("AI agent không đưa ra phản hồi cuối cùng sau tối đa số vòng lặp cho phép.");
             yield break;
         }
 
-        yield return Status("�ang x? l� k?t qu?...");
+        yield return Status("Đang xử lý kết quả...");
 
         _logger.LogDebug("Raw AI response (final turn):\n{raw}", finalText);
 
@@ -2146,15 +2146,15 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         new()
         {
             Name = "searchInventory",
-            Description = "T�m ki?m v?t ph?m dang kh? d?ng theo danh m?c v� lo?i trong c�c kho h?p l? c?a cluster hi?n t?i. Tr? v? c? consumable l?n reusable v?i item_id, t�n, item_type, available_quantity, kho ch?a v� t?a d? v? tr� kho (depot_latitude, depot_longitude). Reusable c�n c� good_available_count, fair_available_count, poor_available_count.",
+            Description = "Tìm kiếm vật phẩm đang khả dụng theo danh mục và loại trong các kho hợp lệ của cluster hiện tại. Trả về cả consumable lẫn reusable với item_id, tên, item_type, available_quantity, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude). Reusable còn có good_available_count, fair_available_count, poor_available_count.",
             Parameters = ParseJson(
                 """
                 {
                   "type": "object",
                   "properties": {
-                    "category": { "type": "string", "description": "T�n danh m?c v?t ph?m, v� d?: 'Nu?c', 'Th?c ph?m', 'Y t?', 'Qu?n �o'" },
-                    "type": { "type": "string", "description": "T�n lo?i ho?c t�n v?t ph?m c? th? trong danh m?c (tu? ch?n)" },
-                    "page": { "type": "integer", "description": "S? trang (b?t d?u t? 1)" }
+                    "category": { "type": "string", "description": "Tên danh mục vật phẩm, ví dụ: 'Nước', 'Thực phẩm', 'Y tế', 'Quần áo'" },
+                    "type": { "type": "string", "description": "Tên loại hoặc tên vật phẩm cụ thể trong danh mục (tuỳ chọn)" },
+                    "page": { "type": "integer", "description": "Số trang (bắt đầu từ 1)" }
                   },
                   "required": ["category"]
                 }
@@ -2163,15 +2163,15 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         new()
         {
             Name = "getTeams",
-            Description = "T�m ki?m d?i c?u h? trong pool nearby teams c?a cluster hi?n t?i. C� th? l?c theo lo?i k? nang/team_type. Tr? v? team_id, t�n, lo?i, tr?ng th�i, s? th�nh vi�n, v? tr� di?m t?p k?t (assembly_point_name, latitude, longitude) v� distance_km.",
+            Description = "Tìm kiếm đội cứu hộ trong pool nearby teams của cluster hiện tại. Có thể lọc theo loại kỹ năng/team_type. Trả về team_id, tên, loại, trạng thái, số thành viên, vị trí điểm tập kết (assembly_point_name, latitude, longitude) và distance_km.",
             Parameters = ParseJson(
                 """
                 {
                   "type": "object",
                   "properties": {
-                    "ability": { "type": "string", "description": "L?c theo lo?i k? nang/team_type (tu? ch?n)" },
-                    "available": { "type": "boolean", "description": "Ch? mang t�nh tuong th�ch. C�ng c? n�y lu�n ch? tr? v? nearby teams dang Available; truy?n false cung kh�ng m? r?ng ph?m vi." },
-                    "page": { "type": "integer", "description": "S? trang (b?t d?u t? 1)" }
+                    "ability": { "type": "string", "description": "Lọc theo loại kỹ năng/team_type (tuỳ chọn)" },
+                    "available": { "type": "boolean", "description": "Chỉ mang tính tương thích. Công cụ này luôn chỉ trả về nearby teams đang Available; truyền false cũng không mở rộng phạm vi." },
+                    "page": { "type": "integer", "description": "Số trang (bắt đầu từ 1)" }
                   },
                   "required": []
                 }
@@ -2180,13 +2180,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         new()
         {
             Name = "getAssemblyPoints",
-            Description = "L?y danh s�ch di?m t?p k?t dang ho?t d?ng d? ch?n noi t?p k?t g?n nh?t cho activity RESCUE ho?c EVACUATE. Tr? v? assembly_point_id, t�n, s?c ch?a t?i da v� t?a d?.",
+            Description = "Lấy danh sách điểm tập kết đang hoạt động để chọn nơi tập kết gần nhất cho activity RESCUE hoặc EVACUATE. Trả về assembly_point_id, tên, sức chứa tối đa và tọa độ.",
             Parameters = ParseJson(
                 """
                 {
                   "type": "object",
                   "properties": {
-                    "page": { "type": "integer", "description": "S? trang (b?t d?u t? 1)" }
+                    "page": { "type": "integer", "description": "Số trang (bắt đầu từ 1)" }
                   },
                   "required": []
                 }

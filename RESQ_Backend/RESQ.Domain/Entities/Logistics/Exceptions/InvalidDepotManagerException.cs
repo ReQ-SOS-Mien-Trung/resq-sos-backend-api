@@ -1,11 +1,11 @@
-using RESQ.Domain.Entities.Exceptions;
+﻿using RESQ.Domain.Entities.Exceptions;
 
 namespace RESQ.Domain.Entities.Logistics.Exceptions
 {
     public sealed class InvalidDepotManagerException : DomainException
     {
         public InvalidDepotManagerException()
-            : base("Qu?n l� kho kh�ng h?p l?. Kho ph?i du?c giao cho m?t qu?n l� h?p l?.")
+            : base("Quản lý kho không hợp lệ. Kho phải được giao cho một quản lý hợp lệ.")
         {
         }
     }

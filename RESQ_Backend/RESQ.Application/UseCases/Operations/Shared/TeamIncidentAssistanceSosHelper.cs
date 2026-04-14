@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
@@ -32,7 +32,7 @@ internal static class TeamIncidentAssistanceSosHelper
 
         if (sosContext.Latitude.HasValue != sosContext.Longitude.HasValue)
         {
-            throw new BadRequestException("Latitude v� Longitude c?a SOS context ph?i c�ng c� gi� tr? ho?c c�ng d? tr?ng.");
+            throw new BadRequestException("Latitude và Longitude của SOS context phải cùng có giá trị hoặc cùng để trống.");
         }
 
         var latitude = sosContext.Latitude ?? incidentLatitude ?? missionTeam.Latitude;
@@ -40,7 +40,7 @@ internal static class TeamIncidentAssistanceSosHelper
 
         if (!latitude.HasValue || !longitude.HasValue)
         {
-            throw new BadRequestException("Kh�ng x�c d?nh du?c v? tr� d? t?o support SOS cho incident.");
+            throw new BadRequestException("Không xác định được vị trí để tạo support SOS cho incident.");
         }
 
         var reporter = missionTeam.RescueTeamMembers.FirstOrDefault(member => member.UserId == reportedBy);

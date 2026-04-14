@@ -553,8 +553,8 @@ public class RescuerAuthSessionAndProfileHandlerTests
         public Task<List<RESQ.Application.Services.ManagedDepotDto>> GetManagedDepotsAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult(managedDepots ?? new List<RESQ.Application.Services.ManagedDepotDto>());
 
-        public Task<int> ResolveAccessibleDepotIdAsync(Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default)
-            => Task.FromResult(requestedDepotId ?? managedDepots?.FirstOrDefault()?.DepotId ?? throw new Exception("Forbidden"));
+        public Task<int?> ResolveAccessibleDepotIdAsync(Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default)
+            => Task.FromResult<int?>(requestedDepotId ?? managedDepots?.FirstOrDefault()?.DepotId);
 
         public Task EnsureDepotAccessAsync(Guid userId, int depotId, CancellationToken cancellationToken = default)
             => Task.CompletedTask;

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -20,6 +20,7 @@ public class CompleteClosureTransferCommandHandler(
     ILogger<CompleteClosureTransferCommandHandler> logger)
     : IRequestHandler<CompleteClosureTransferCommand, CompleteClosureTransferResponse>
 {
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     public async Task<CompleteClosureTransferResponse> Handle(
         CompleteClosureTransferCommand request,
         CancellationToken cancellationToken)

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Finance.Queries.GetDepotFundTransactions;
 
@@ -12,4 +12,4 @@ public record GetFundTransactionsByFundIdQuery(
     int FundId,
     int PageNumber,
     int PageSize,
-    Guid RequestedBy) : IRequest<PagedResult<DepotFundTransactionDto>>;
+    Guid RequestedBy, int? DepotId = null) : IRequest<PagedResult<DepotFundTransactionDto>>;

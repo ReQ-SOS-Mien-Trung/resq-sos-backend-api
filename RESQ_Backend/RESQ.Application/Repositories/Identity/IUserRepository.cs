@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Models;
+﻿using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.Identity;
 
 namespace RESQ.Application.Repositories.Identity
@@ -17,19 +17,19 @@ namespace RESQ.Application.Repositories.Identity
         Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// L?y user cho trang ph�n quy?n admin: lo?i tr? user b? ban v� nh?ng
-        /// volunteer chua k�ch ho?t (IsEligibleRescuer = false).
+        /// Lấy user cho trang phân quyền admin: loại trừ user bị ban và những
+        /// volunteer chưa kích hoạt (IsEligibleRescuer = false).
         /// </summary>
         Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pageNumber, int pageSize, int? roleId = null, string? search = null, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// L?y danh s�ch Id c?a t?t c? admin dang ho?t d?ng (kh�ng b? ban), d�ng d? g?i th�ng b�o h? th?ng.
+        /// Lấy danh sách Id của tất cả admin đang hoạt động (không bị ban), dùng để gửi thông báo hệ thống.
         /// </summary>
         Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// L?y danh s�ch Manager (RoleId=4, kh�ng b? ban) chua du?c g�n qu?n l� kho n�o (kh�ng c� b?n ghi
-        /// depot_managers v?i UnassignedAt = null). D�ng cho dropdown ch?n manager khi t?o/g�n kho.
+        /// Lấy danh sách Manager (RoleId=4, không bị ban) chưa được gán quản lý kho nào (không có bản ghi
+        /// depot_managers với UnassignedAt = null). Dùng cho dropdown chọn manager khi tạo/gán kho.
         /// </summary>
         Task<List<AvailableManagerDto>> GetAvailableManagersAsync(CancellationToken cancellationToken = default);
     }

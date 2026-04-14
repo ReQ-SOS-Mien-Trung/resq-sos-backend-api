@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
@@ -34,20 +34,20 @@ public class ConfirmDeliverySuppliesCommandHandler(
     {
         // 1. Fetch and validate activity
         var activity = await _activityRepository.GetByIdAsync(request.ActivityId, cancellationToken)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y activity v?i ID {request.ActivityId}.");
+            ?? throw new NotFoundException($"Không tìm thấy activity với ID {request.ActivityId}.");
 
         if (activity.MissionId != request.MissionId)
-            throw new BadRequestException("Activity n�y kh�ng thu?c mission du?c ch? d?nh.");
+            throw new BadRequestException("Activity này không thuộc mission được chỉ định.");
 
         if (!string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("Ch? c� th? x�c nh?n giao h�ng cho activity lo?i DELIVER_SUPPLIES.");
+            throw new BadRequestException("Chỉ có thể xác nhận giao hàng cho activity loại DELIVER_SUPPLIES.");
 
         if (activity.Status != MissionActivityStatus.OnGoing)
             throw new BadRequestException(
-                $"Activity ph?i ? tr?ng th�i OnGoing d? x�c nh?n giao h�ng. Tr?ng th�i hi?n t?i: {activity.Status}.");
+                $"Activity phải ở trạng thái OnGoing để xác nhận giao hàng. Trạng thái hiện tại: {activity.Status}.");
 
         if (string.IsNullOrWhiteSpace(activity.Items))
-            throw new BadRequestException("Activity n�y kh�ng c� danh s�ch h�ng h�a.");
+            throw new BadRequestException("Activity này không có danh sách hàng hóa.");
 
         // 2. Deserialize current items JSON
         var supplies = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts) ?? [];
@@ -60,7 +60,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
         {
             if (!supplyLookup.ContainsKey(deliveredItem.ItemId))
                 throw new BadRequestException(
-                    $"ItemId {deliveredItem.ItemId} kh�ng t?n t?i trong danh s�ch v?t ph?m c?a activity n�y.");
+                    $"ItemId {deliveredItem.ItemId} không tồn tại trong danh sách vật phẩm của activity này.");
         }
 
         // 4. Apply actual delivered quantities into Items JSON then persist
@@ -103,7 +103,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
             {
                 var itemId = supply.ItemId!.Value;
                 if (!itemMetadata.TryGetValue(itemId, out var metadata))
-                    throw new BadRequestException($"Kh�ng t�m th?y metadata v?t ph?m #{itemId}.");
+                    throw new BadRequestException($"Không tìm thấy metadata vật phẩm #{itemId}.");
 
                 if (string.Equals(metadata.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -154,8 +154,8 @@ public class ConfirmDeliverySuppliesCommandHandler(
             MissionId = request.MissionId,
             Status = MissionActivityStatus.Succeed.ToString(),
             Message = surplusReturnActivityId.HasValue
-                ? $"X�c nh?n giao h�ng th�nh c�ng. �� c?p nh?t activity tr? h�ng #{surplusReturnActivityId} cho v?t ph?m giao thi?u."
-                : "X�c nh?n giao h�ng th�nh c�ng.",
+                ? $"Xác nhận giao hàng thành công. Đã cập nhật activity trả hàng #{surplusReturnActivityId} cho vật phẩm giao thiếu."
+                : "Xác nhận giao hàng thành công.",
             SurplusReturnActivityId = surplusReturnActivityId,
             DeliveredItems = resultItems
         };
@@ -209,7 +209,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
             MissionId = missionId,
             Step = insertionStep,
             ActivityType = "RETURN_SUPPLIES",
-            Description = $"Tr? v?t ph?m v? kho {deliverActivity.DepotName} do giao thi?u so v?i k? ho?ch (Activity #{deliverActivity.Id})",
+            Description = $"Trả vật phẩm về kho {deliverActivity.DepotName} do giao thiếu so với kế hoạch (Activity #{deliverActivity.Id})",
             Priority = deliverActivity.Priority,
             EstimatedTime = deliverActivity.EstimatedTime,
             SosRequestId = deliverActivity.SosRequestId,
@@ -258,7 +258,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
 
         returnActivity.Items = JsonSerializer.Serialize(currentItems);
 
-        var note = $"B? sung v?t ph?m giao thi?u t? activity #{deliverActivityId}.";
+        var note = $"Bổ sung vật phẩm giao thiếu từ activity #{deliverActivityId}.";
         if (string.IsNullOrWhiteSpace(returnActivity.Description))
         {
             returnActivity.Description = note;

@@ -1,8 +1,8 @@
-namespace RESQ.Application.Exceptions;
+﻿namespace RESQ.Application.Exceptions;
 
 public class UnprocessableEntityException : Exception
 {
-    public UnprocessableEntityException() : base("Kh�ng th? x? l� th?c th?")
+    public UnprocessableEntityException() : base("Không thể xử lý thực thể")
     {
     }
 

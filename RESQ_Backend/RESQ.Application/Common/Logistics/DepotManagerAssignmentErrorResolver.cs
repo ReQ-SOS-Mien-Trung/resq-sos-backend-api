@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using RESQ.Application.Common.Constants;
 
@@ -8,14 +8,14 @@ public static class DepotManagerAssignmentErrorResolver
 {
     private static readonly string[] KnownMessageFragments =
     [
-        "kh�ng ph? tr�ch kho n�o",
-        "kh�ng qu?n l� kho n�o dang ho?t d?ng",
-        "kh�ng du?c ch? d?nh qu?n l� b?t k? kho n�o dang ho?t d?ng",
-        "b?n hi?n kh�ng ph? tr�ch kho n�o",
-        "b?n kh�ng c� kho dang ho?t d?ng",
-        "t�i kho?n hi?n t?i kh�ng du?c ch? d?nh qu?n l� b?t k? kho n�o dang ho?t d?ng",
-        "t�i kho?n kh�ng qu?n l� kho n�o dang ho?t d?ng",
-        "t�i kho?n qu?n l� kho chua du?c g�n kho ph? tr�ch"
+        "không phụ trách kho nào",
+        "không quản lý kho nào đang hoạt động",
+        "không được chỉ định quản lý bất kỳ kho nào đang hoạt động",
+        "bạn hiện không phụ trách kho nào",
+        "bạn không có kho đang hoạt động",
+        "tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động",
+        "tài khoản không quản lý kho nào đang hoạt động",
+        "tài khoản quản lý kho chưa được gán kho phụ trách"
     ];
 
     public static string? Resolve(Exception exception)

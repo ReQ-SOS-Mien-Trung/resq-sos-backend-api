@@ -1,4 +1,4 @@
-using RESQ.Application.Services;
+﻿using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Emergency.Shared;
 
@@ -19,7 +19,7 @@ public static class RescueMissionSuggestionReviewHelper
 
         if (nearbyTeamLookup.Count == 0)
         {
-            warnings.Add("Kh�ng c� d?i Available n�o n?m trong b�n k�nh cluster hi?n t?i; di?u ph?i vi�n c?n g�n d?i th? c�ng.");
+            warnings.Add("Không có đội Available nào nằm trong bán kính cluster hiện tại; điều phối viên cần gán đội thủ công.");
         }
 
         NormalizeExecutionMetadata(result.SuggestedActivities, warnings);
@@ -27,7 +27,7 @@ public static class RescueMissionSuggestionReviewHelper
         result.SuggestedTeam = SanitizeSuggestedTeam(
             result.SuggestedTeam,
             nearbyTeamLookup,
-            "�?i t?ng th? c?a mission suggestion",
+            "Đội tổng thể của mission suggestion",
             warnings);
 
         foreach (var activity in result.SuggestedActivities.OrderBy(activity => activity.Step))
@@ -40,7 +40,7 @@ public static class RescueMissionSuggestionReviewHelper
 
             if (activity.SuggestedTeam is null && nearbyTeamLookup.Count > 0)
             {
-                warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) chua du?c g�n d?i trong pool nearby teams.");
+                warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) chưa được gán đội trong pool nearby teams.");
             }
         }
 
@@ -77,7 +77,7 @@ public static class RescueMissionSuggestionReviewHelper
                 activity.RequiredTeamCount = 1;
                 activity.CoordinationGroupKey = null;
                 activity.CoordinationNotes = string.IsNullOrWhiteSpace(activity.CoordinationNotes)
-                    ? "M?t d?i c� th? ho�n th�nh activity n�y d?c l?p."
+                    ? "Một đội có thể hoàn thành activity này độc lập."
                     : activity.CoordinationNotes.Trim();
             }
         }
@@ -114,7 +114,7 @@ public static class RescueMissionSuggestionReviewHelper
             if (assignedTeamCount <= 1)
             {
                 warnings.Add(
-                    $"Nh�m ph?i h?p '{group.Key}' dang du?c d�nh d?u SplitAcrossTeams nhung m?i c� {assignedTeamCount} d?i du?c g�n.");
+                    $"Nhóm phối hợp '{group.Key}' đang được đánh dấu SplitAcrossTeams nhưng mới có {assignedTeamCount} đội được gán.");
             }
         }
     }
@@ -151,7 +151,7 @@ public static class RescueMissionSuggestionReviewHelper
                 if (!string.Equals(activity.ExecutionMode, SplitAcrossTeamsMode, StringComparison.OrdinalIgnoreCase))
                 {
                     warnings.Add(
-                        $"Activity step {activity.Step} du?c backend suy di?n l� SplitAcrossTeams v� c� nhi?u d?i c�ng l?y v?t ph?m t?i depot #{group.Key.DepotId}.");
+                        $"Activity step {activity.Step} được backend suy diễn là SplitAcrossTeams vì có nhiều đội cùng lấy vật phẩm tại depot #{group.Key.DepotId}.");
                 }
 
                 activity.ExecutionMode = SplitAcrossTeamsMode;
@@ -173,13 +173,13 @@ public static class RescueMissionSuggestionReviewHelper
 
         if (suggestedTeam.TeamId <= 0)
         {
-            warnings.Add($"{contextLabel} thi?u team_id h?p l?.");
+            warnings.Add($"{contextLabel} thiếu team_id hợp lệ.");
             return null;
         }
 
         if (!nearbyTeamLookup.TryGetValue(suggestedTeam.TeamId, out var canonicalTeam))
         {
-            warnings.Add($"{contextLabel} dang tham chi?u team_id={suggestedTeam.TeamId} n?m ngo�i pool nearby teams.");
+            warnings.Add($"{contextLabel} đang tham chiếu team_id={suggestedTeam.TeamId} nằm ngoài pool nearby teams.");
             return null;
         }
 
@@ -239,29 +239,29 @@ public static class RescueMissionSuggestionReviewHelper
     {
         if (activity.DepotId.HasValue)
         {
-            return $"Activity n�y l� m?t ph?n c?a k? ho?ch nhi?u d?i t?i depot {(activity.DepotName ?? $"#{activity.DepotId}")}.";
+            return $"Activity này là một phần của kế hoạch nhiều đội tại depot {(activity.DepotName ?? $"#{activity.DepotId}")}.";
         }
 
         if (activity.SosRequestId.HasValue)
         {
-            return $"Activity n�y l� m?t nh�nh trong k? ho?ch nhi?u d?i d? x? l� SOS #{activity.SosRequestId}.";
+            return $"Activity này là một nhánh trong kế hoạch nhiều đội để xử lý SOS #{activity.SosRequestId}.";
         }
 
-        return "Activity n�y l� m?t ph?n c?a k? ho?ch nhi?u d?i v� c?n di?u ph?i c�ng c�c activity kh�c trong c�ng coordination_group_key.";
+        return "Activity này là một phần của kế hoạch nhiều đội và cần điều phối cùng các activity khác trong cùng coordination_group_key.";
     }
 
     private static string BuildSameDepotSplitNotes(SuggestedActivityDto activity, int teamCount)
     {
         var depotLabel = activity.DepotName ?? $"#{activity.DepotId}";
         var teamLabel = activity.SuggestedTeam?.TeamName ?? $"team #{activity.SuggestedTeam?.TeamId}";
-        return $"Kho {depotLabel} dang du?c chia cho {teamCount} d?i; activity n�y l� ph?n l?y v?t ph?m d�nh cho {teamLabel}.";
+        return $"Kho {depotLabel} đang được chia cho {teamCount} đội; activity này là phần lấy vật phẩm dành cho {teamLabel}.";
     }
 
     private static string BuildDefaultTeamReason(AgentTeamInfo team)
     {
         return team.DistanceKm.HasValue
-            ? $"�?i n?m trong pool nearby teams c?a cluster, c�ch t�m cluster kho?ng {team.DistanceKm.Value:0.##} km."
-            : "�?i n?m trong pool nearby teams c?a cluster hi?n t?i.";
+            ? $"Đội nằm trong pool nearby teams của cluster, cách tâm cluster khoảng {team.DistanceKm.Value:0.##} km."
+            : "Đội nằm trong pool nearby teams của cluster hiện tại.";
     }
 
     private static string AppendWarnings(string? existingNotes, IEnumerable<string> warnings)
@@ -274,7 +274,7 @@ public static class RescueMissionSuggestionReviewHelper
         if (distinctWarnings.Count == 0)
             return existingNotes ?? string.Empty;
 
-        var reviewSection = "[C?N REVIEW TH? C�NG] " + string.Join(" | ", distinctWarnings);
+        var reviewSection = "[CẦN REVIEW THỦ CÔNG] " + string.Join(" | ", distinctWarnings);
         if (string.IsNullOrWhiteSpace(existingNotes))
             return reviewSection;
 

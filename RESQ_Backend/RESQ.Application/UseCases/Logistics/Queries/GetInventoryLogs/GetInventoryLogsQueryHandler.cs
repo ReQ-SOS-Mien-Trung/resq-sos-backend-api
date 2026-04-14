@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Extensions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -16,7 +16,6 @@ public class GetInventoryLogsQueryHandler(
     private readonly IInventoryLogRepository _inventoryLogRepository = inventoryLogRepository;
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<InventoryLogDto>> Handle(GetInventoryLogsQuery request, CancellationToken cancellationToken)
     {

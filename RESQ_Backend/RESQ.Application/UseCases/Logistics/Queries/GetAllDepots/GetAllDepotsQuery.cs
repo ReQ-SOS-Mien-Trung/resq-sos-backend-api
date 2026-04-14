@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
@@ -8,10 +8,10 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
 
-        /// <summary>L?c theo m?t ho?c nhi?u tr?ng th�i kho. B? tr?ng = l?y t?t c?.</summary>
+        /// <summary>Lọc theo một hoặc nhiều trạng thái kho. Bỏ trống = lấy tất cả.</summary>
         public List<DepotStatus>? Statuses { get; set; }
 
-        /// <summary>T�m ki?m theo t�n kho ho?c t�n ngu?i qu?n kho hi?n t?i (LastName / FirstName).</summary>
+        /// <summary>Tìm kiếm theo tên kho hoặc tên người quản kho hiện tại (LastName / FirstName).</summary>
         public string? Search { get; set; }
     }
 }

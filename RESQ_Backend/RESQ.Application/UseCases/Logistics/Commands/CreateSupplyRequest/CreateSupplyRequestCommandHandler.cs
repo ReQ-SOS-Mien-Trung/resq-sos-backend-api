@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Exceptions;
@@ -26,48 +26,41 @@ public class CreateSupplyRequestCommandHandler(
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotRepository _depotRepository = depotRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly ISupplyRequestRepository _supplyRequestRepository = supplyRequestRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly ISupplyRequestPriorityConfigRepository _supplyRequestPriorityConfigRepository = supplyRequestPriorityConfigRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IFirebaseService _firebaseService = firebaseService;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly ILogger<CreateSupplyRequestCommandHandler> _logger = logger;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<CreateSupplyRequestResponse> Handle(CreateSupplyRequestCommand request, CancellationToken cancellationToken)
     {
         // 1. L?y kho c?a manager dang dang nh?p
         var requestingDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.RequestingUserId, request.DepotId, cancellationToken);
         if (requestingDepotId == null)
-            throw new BadRequestException("T�i kho?n hi?n t?i kh�ng du?c ch? d?nh qu?n l� b?t k? kho n�o dang ho?t d?ng.");
+            throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var requestingDepotStatus = await _depotRepository.GetStatusByIdAsync(requestingDepotId.Value, cancellationToken);
         if (requestingDepotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
-            throw new ConflictException("Kho c?a b?n ngung ho?t d?ng, dang d�ng ho?c d� d�ng. Kh�ng th? t?o y�u c?u ti?p t?.");
+            throw new ConflictException("Kho của bạn ngưng hoạt động, đang đóng hoặc đã đóng. Không thể tạo yêu cầu tiếp tế.");
 
         var requestingDepot = await _depotRepository.GetByIdAsync(requestingDepotId.Value, cancellationToken)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y kho y�u c?u #{requestingDepotId.Value}.");
+            ?? throw new NotFoundException($"Không tìm thấy kho yêu cầu #{requestingDepotId.Value}.");
 
-        // 2. Validate kh�ng c� group n�o tr? v? ch�nh kho c?a manager
+        // 2. Validate không có group nào trỏ về chính kho của manager
         var selfRequest = request.Requests.FirstOrDefault(r => r.SourceDepotId == requestingDepotId.Value);
         if (selfRequest != null)
-            throw new InvalidSupplyRequestException("Kh�ng th? t?o y�u c?u cung c?p t? ch�nh kho c?a b?n.");
+            throw new InvalidSupplyRequestException("Không thể tạo yêu cầu cung cấp từ chính kho của bạn.");
 
-        // 3. Ki?m tra c�c kho ngu?n kh�ng dang d�ng
+        // 3. Kiểm tra các kho nguồn không đang đóng
         foreach (var group in request.Requests)
         {
             var sourceStatus = await _depotRepository.GetStatusByIdAsync(group.SourceDepotId, cancellationToken);
             if (sourceStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
-                throw new ConflictException($"Kho ngu?n #{group.SourceDepotId} ngung ho?t d?ng, dang d�ng ho?c d� d�ng. Kh�ng th? g?i y�u c?u ti?p t? d?n kho n�y.");
+                throw new ConflictException($"Kho nguồn #{group.SourceDepotId} ngưng hoạt động, đang đóng hoặc đã đóng. Không thể gửi yêu cầu tiếp tế đến kho này.");
         }
 
-        // 4. Validate kho y�u c?u c�n d? s?c ch?a d? nh?n to�n b? lu?ng h�ng trong request
+        // 4. Validate kho yêu cầu còn đủ sức chứa để nhận toàn bộ lượng hàng trong request
         var requestedItems = request.Requests
             .SelectMany(group => group.Items)
             .GroupBy(item => item.ItemModelId)
@@ -88,7 +81,7 @@ public class CreateSupplyRequestCommandHandler(
             .ToList();
 
         if (missingItemModelIds.Count > 0)
-            throw new NotFoundException($"Kh�ng t�m th?y metadata v?t ph?m cho c�c itemModelId: {string.Join(", ", missingItemModelIds)}.");
+            throw new NotFoundException($"Không tìm thấy metadata vật phẩm cho các itemModelId: {string.Join(", ", missingItemModelIds)}.");
 
         var totalRequestedVolume = requestedItems.Sum(x =>
             x.Quantity * itemModelMap[x.ItemModelId].VolumePerUnit);
@@ -105,20 +98,20 @@ public class CreateSupplyRequestCommandHandler(
             if (totalRequestedVolume > remainingVolumeCapacity)
             {
                 reasons.Add(
-                    $"th? t�ch c?n {totalRequestedVolume:N2} dm� nhung kho ch? c�n {remainingVolumeCapacity:N2} dm�");
+                    $"thể tích cần {totalRequestedVolume:N2} dm³ nhưng kho chỉ còn {remainingVolumeCapacity:N2} dm³");
             }
 
             if (totalRequestedWeight > remainingWeightCapacity)
             {
                 reasons.Add(
-                    $"c�n n?ng c?n {totalRequestedWeight:N2} kg nhung kho ch? c�n {remainingWeightCapacity:N2} kg");
+                    $"cân nặng cần {totalRequestedWeight:N2} kg nhưng kho chỉ còn {remainingWeightCapacity:N2} kg");
             }
 
             throw new ConflictException(
-                $"Kho y�u c?u kh�ng d? s?c ch?a d? nh?n to�n b? v?t ph?m trong phi?u ti?p t?: {string.Join("; ", reasons)}.");
+                $"Kho yêu cầu không đủ sức chứa để nhận toàn bộ vật phẩm trong phiếu tiếp tế: {string.Join("; ", reasons)}.");
         }
 
-        // 5. X? l� t?ng kho ngu?n trong transaction
+        // 5. Xử lý từng kho nguồn trong transaction
         var config = await _supplyRequestPriorityConfigRepository.GetAsync(cancellationToken);
         var timing = config == null
             ? SupplyRequestPriorityPolicy.DefaultTiming
@@ -166,10 +159,10 @@ public class CreateSupplyRequestCommandHandler(
             {
                 var createdGroup = request.Requests.First(x => x.SourceDepotId == created.SourceDepotId);
                 var isUrgent = createdGroup.PriorityLevel == SupplyRequestPriorityLevel.Urgent;
-                var notificationTitle = isUrgent ? "Y�u c?u ti?p t? kh?n c?p" : "Y�u c?u cung c?p v?t ph?m m?i";
+                var notificationTitle = isUrgent ? "Yêu cầu tiếp tế khẩn cấp" : "Yêu cầu cung cấp vật phẩm mới";
                 var notificationBody = isUrgent
-                    ? $"Y�u c?u ti?p t? s? {created.SupplyRequestId} d� v�o m?c kh?n c?p. Vui l�ng uu ti�n x? l� ngay."
-                    : $"Kho c?a b?n v?a nh?n du?c y�u c?u cung c?p v?t ph?m s? {created.SupplyRequestId}. Vui l�ng ki?m tra v� x? l�.";
+                    ? $"Yêu cầu tiếp tế số {created.SupplyRequestId} đã vào mức khẩn cấp. Vui lòng ưu tiên xử lý ngay."
+                    : $"Kho của bạn vừa nhận được yêu cầu cung cấp vật phẩm số {created.SupplyRequestId}. Vui lòng kiểm tra và xử lý.";
                 var notificationType = isUrgent ? "supply_request_urgent" : "supply_request";
 
                 await _firebaseService.SendNotificationToUserAsync(
@@ -184,14 +177,14 @@ public class CreateSupplyRequestCommandHandler(
             }
             else
             {
-                _logger.LogWarning("Kho ngu?n {SourceDepotId} kh�ng c� manager active. Kh�ng th? g?i th�ng b�o.", created.SourceDepotId);
+                _logger.LogWarning("Kho nguồn {SourceDepotId} không có manager active. Không thể gửi thông báo.", created.SourceDepotId);
             }
         }
 
         return new CreateSupplyRequestResponse
         {
             CreatedRequests = createdRequests,
-            Message         = $"�� t?o {createdRequests.Count} y�u c?u cung c?p v?t ph?m th�nh c�ng.",
+            Message         = $"Đã tạo {createdRequests.Count} yêu cầu cung cấp vật phẩm thành công.",
             ServerTime      = DateTime.UtcNow.ToVietnamOffset()
         };
     }

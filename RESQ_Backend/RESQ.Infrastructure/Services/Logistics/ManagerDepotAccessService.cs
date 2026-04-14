@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -33,13 +33,13 @@ namespace RESQ.Infrastructure.Services.Logistics
             return managedDepots;
         }
 
-        public async Task<int> ResolveAccessibleDepotIdAsync(Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default)
+        public async Task<int?> ResolveAccessibleDepotIdAsync(Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default)
         {
             var depotIds = await _depotInventoryRepository.GetActiveDepotIdsByManagerAsync(userId, cancellationToken);
 
             if (depotIds == null || depotIds.Count == 0)
             {
-                throw new ForbiddenException("Người dùng chưa được phân công quản lý kho nào.");
+                return null;
             }
 
             if (requestedDepotId.HasValue)

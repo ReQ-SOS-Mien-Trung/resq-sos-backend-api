@@ -1,4 +1,4 @@
-    using RESQ.Domain.Entities.Personnel.ValueObjects;
+﻿    using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Entities.Personnel.Exceptions;
 using RESQ.Domain.Enum.Personnel;
 
@@ -17,15 +17,15 @@ public class AssemblyPointModel
     public string? ImageUrl { get; set; }
 
     /// <summary>
-    /// True khi di?m t?p k?t dang c� s? ki?n tri?u t?p (Scheduled ho?c Gathering).
-    /// Gi� tr? n�y du?c t�nh to�n khi query, kh�ng luu v�o DB.
+    /// True khi điểm tập kết đang có sự kiện triệu tập (Scheduled hoặc Gathering).
+    /// Giá trị này được tính toán khi query, không lưu vào DB.
     /// </summary>
     public bool HasActiveEvent { get; set; }
 
     public AssemblyPointModel() { }
 
     /// <summary>
-    /// T?o di?m t?p k?t m?i - tr?ng th�i kh?i d?u l� <see cref="AssemblyPointStatus.Created"/>.
+    /// Tạo điểm tập kết mới - trạng thái khởi đầu là <see cref="AssemblyPointStatus.Created"/>.
     /// </summary>
     public static AssemblyPointModel Create(
         string code,
@@ -51,8 +51,8 @@ public class AssemblyPointModel
     }
 
     /// <summary>
-    /// C?p nh?t th�ng tin di?m t?p k?t.
-    /// Kh�ng du?c c?p nh?t khi dang <see cref="AssemblyPointStatus.Closed"/>.
+    /// Cập nhật thông tin điểm tập kết.
+    /// Không được cập nhật khi đang <see cref="AssemblyPointStatus.Closed"/>.
     /// </summary>
     public void UpdateDetails(string name, int maxCapacity, GeoLocation location, string? imageUrl = null)
     {
@@ -70,19 +70,19 @@ public class AssemblyPointModel
     }
 
     /// <summary>
-    /// Chuy?n tr?ng th�i theo state-flow du?c ph�p:
+    /// Chuyển trạng thái theo state-flow được phép:
     /// <list type="bullet">
     ///   <item>Created -> Active</item>
     ///   <item>Active -> Unavailable | Closed</item>
     ///   <item>Unavailable -> Active (Complete maintenance)</item>
-    ///   <item>Closed -> (kh�ng c� chuy?n d?i n�o - vinh vi?n)</item>
+    ///   <item>Closed -> (không có chuyển đổi nào - vĩnh viễn)</item>
     /// </list>
     /// </summary>
     public void ChangeStatus(AssemblyPointStatus newStatus)
     {
         if (Status == newStatus) return;
 
-        // Closed l� tr?ng th�i cu?i - kh�ng th? tho�t ra
+        // Closed là trạng thái cuối - không thể thoát ra
         if (Status == AssemblyPointStatus.Closed)
             throw new AssemblyPointClosedException();
 
@@ -90,22 +90,22 @@ public class AssemblyPointModel
         {
             AssemblyPointStatus.Created          => new[] { AssemblyPointStatus.Active },
             AssemblyPointStatus.Active           => new[] { AssemblyPointStatus.Unavailable, AssemblyPointStatus.Closed },
-            // Theo state diagram: Unavailable ch? c� th? chuy?n v? Active (Complete maintenance)
+            // Theo state diagram: Unavailable chỉ có thể chuyển về Active (Complete maintenance)
             AssemblyPointStatus.Unavailable => new[] { AssemblyPointStatus.Active },
             _                                    => Array.Empty<AssemblyPointStatus>()
         };
 
         if (!allowed.Contains(newStatus))
             throw new InvalidAssemblyPointStatusTransitionException(Status, newStatus,
-                $"Tr?ng th�i cho ph�p t? {Status}: [{string.Join(", ", allowed)}].");
+                $"Trạng thái cho phép từ {Status}: [{string.Join(", ", allowed)}].");
 
         Status = newStatus;
         UpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>
-    /// Ki?m tra xem di?m t?p k?t c� dang m? c?a d? nh?n th�m ngu?i kh�ng.
-    /// Gi? d�y kh�ng vang Exception n?u qu� MaxCapacity (ch? t�nh to�n t? l? ? DTO/UI).
+    /// Kiểm tra xem điểm tập kết có đang mở cửa để nhận thêm người không.
+    /// Giờ đây không văng Exception nếu quá MaxCapacity (chỉ tính toán tỷ lệ ở DTO/UI).
     /// </summary>
     public void ValidatePersonCapacity(int currentPersonCount, int additionalPersons)
     {

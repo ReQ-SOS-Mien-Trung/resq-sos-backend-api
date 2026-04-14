@@ -1,9 +1,9 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyPickupHistoryActivities;
 
-public record GetMyPickupHistoryActivitiesQuery(Guid UserId) : IRequest<PagedResult<PickupHistoryActivityDto>>
+public record GetMyPickupHistoryActivitiesQuery(Guid UserId, int? DepotId = null) : IRequest<PagedResult<PickupHistoryActivityDto>>
 {
     public DateOnly? FromDate { get; init; }
     public DateOnly? ToDate { get; init; }

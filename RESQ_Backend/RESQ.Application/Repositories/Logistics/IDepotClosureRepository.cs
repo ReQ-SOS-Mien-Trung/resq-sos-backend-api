@@ -1,10 +1,10 @@
-using RESQ.Domain.Entities.Logistics;
+﻿using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Repositories.Logistics;
 
 /// <summary>
-/// Repository qu?n l� b?n ghi d�ng kho (depot_closures).
+/// Repository quản lý bản ghi đóng kho (depot_closures).
 /// </summary>
 public interface IDepotClosureRepository
 {

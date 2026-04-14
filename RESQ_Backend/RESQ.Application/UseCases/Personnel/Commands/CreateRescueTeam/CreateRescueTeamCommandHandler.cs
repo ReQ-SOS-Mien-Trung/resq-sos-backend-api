@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -23,19 +23,19 @@ public class CreateRescueTeamCommandHandler(
 {
     public async Task<int> Handle(CreateRescueTeamCommand request, CancellationToken ct)
     {
-        // Validate AP t?n t?i
+        // Validate AP tồn tại
         var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, ct)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y di?m t?p k?t id = {request.AssemblyPointId}");
+            ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {request.AssemblyPointId}");
 
-        // T? d?ng t�m event dang Gathering t?i AP d? validate check-in
+        // Tự động tìm event đang Gathering tại AP để validate check-in
         if (ap.Status == AssemblyPointStatus.Unavailable || ap.Status == AssemblyPointStatus.Closed)
-            throw new BadRequestException($"?i?m t?p k?t {ap.Name} dang ({ap.Status}), kh?ng th? t?o d?i m?i t?i d?y.");
+            throw new BadRequestException($"Điểm tập kết {ap.Name} đang ({ap.Status}), không thể tạo đội mới tại đây.");
 
         var activeEvent = await assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.AssemblyPointId, ct)
-            ?? throw new BadRequestException($"�i?m t?p k?t id = {request.AssemblyPointId} hi?n kh�ng c� s? ki?n t?p trung dang di?n ra.");
+            ?? throw new BadRequestException($"Điểm tập kết id = {request.AssemblyPointId} hiện không có sự kiện tập trung đang diễn ra.");
         var resolvedEventId = activeEvent.EventId;
 
-        // T?o d?i ? tr?ng th�i Gathering (rescuer d� c� m?t t?i AP)
+        // Tạo đội ở trạng thái Gathering (rescuer đã có mặt tại AP)
         var team = RescueTeamModel.Create(
             request.Name, request.Type, request.AssemblyPointId, request.ManagedBy, request.MaxMembers);
 
@@ -46,23 +46,23 @@ public class CreateRescueTeamCommandHandler(
             foreach (var mem in request.Members)
             {
                 var user = await userRepository.GetByIdAsync(mem.UserId, ct)
-                    ?? throw new NotFoundException($"Kh�ng t�m th?y th�nh vi�n c� ID {mem.UserId}");
+                    ?? throw new NotFoundException($"Không tìm thấy thành viên có ID {mem.UserId}");
 
                 // Validate Role ID = 3 (Rescuer)
                 if (user.RoleId != 3)
-                    throw new BadRequestException($"Ngu?i d�ng {user.LastName} {user.FirstName} kh�ng ph?i l� nh�n s? c?u h? (Role Rescuer).");
+                    throw new BadRequestException($"Người dùng {user.LastName} {user.FirstName} không phải là nhân sự cứu hộ (Role Rescuer).");
 
                 // Validate Leader must be Core
                 if (mem.IsLeader && !string.Equals(user.RescuerType?.ToString(), RescuerType.Core.ToString(), StringComparison.OrdinalIgnoreCase))
-                    throw new BadRequestException($"Th�nh vi�n {user.LastName} {user.FirstName} kh�ng th? l�m d?i tru?ng v� kh�ng ph?i l� nh�n s? n�ng c?t (Core Rescuer).");
+                    throw new BadRequestException($"Thành viên {user.LastName} {user.FirstName} không thể làm đội trưởng vì không phải là nhân sự nòng cốt (Core Rescuer).");
 
                 if (await teamRepository.IsUserInActiveTeamAsync(mem.UserId, ct))
-                    throw new ConflictException($"Nh�n s? {user.LastName} {user.FirstName} d� tham gia m?t d?i c?u h? kh�c.");
+                    throw new ConflictException($"Nhân sự {user.LastName} {user.FirstName} đã tham gia một đội cứu hộ khác.");
 
-                // Validate rescuer d� check-in t?i s? ki?n t?p trung
+                // Validate rescuer đã check-in tại sự kiện tập trung
                 var isCheckedIn = await assemblyEventRepository.IsParticipantCheckedInAsync(resolvedEventId, mem.UserId, ct);
                 if (!isCheckedIn)
-                    throw new BadRequestException($"Nh�n s? {user.LastName} {user.FirstName} chua check-in t?i di?m t?p k?t.");
+                    throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} chưa check-in tại điểm tập kết.");
 
                 string? roleInTeam = null;
 
@@ -80,7 +80,7 @@ public class CreateRescueTeamCommandHandler(
                     {
                         bool hasRequired = await teamRepository.HasRequiredAbilityCategoryAsync(mem.UserId, requiredCategory, ct);
                         if (!hasRequired)
-                            throw new BadRequestException($"Th�nh vi�n {user.LastName} {user.FirstName} kh�ng c� k? nang thu?c nh�m {requiredCategory} d? tham gia d?i {request.Type}.");
+                            throw new BadRequestException($"Thành viên {user.LastName} {user.FirstName} không có kỹ năng thuộc nhóm {requiredCategory} để tham gia đội {request.Type}.");
 
                         roleInTeam = requiredCategory;
                     }
@@ -90,8 +90,8 @@ public class CreateRescueTeamCommandHandler(
                     roleInTeam = await teamRepository.GetTopAbilityCategoryAsync(mem.UserId, ct);
                 }
 
-                // Th�m member ? tr?ng th�i Accepted (d� c� m?t t?i AP)
-                team.AddMember(mem.UserId, mem.IsLeader, user.RescuerType?.ToString() ?? "Volunteer", roleInTeam ?? "Th�nh vi�n");
+                // Thêm member ở trạng thái Accepted (đã có mặt tại AP)
+                team.AddMember(mem.UserId, mem.IsLeader, user.RescuerType?.ToString() ?? "Volunteer", roleInTeam ?? "Thành viên");
             }
         }
 
@@ -101,13 +101,13 @@ public class CreateRescueTeamCommandHandler(
         var createdTeam = await teamRepository.GetByCodeAsync(team.Code, ct);
         var teamId = createdTeam?.Id ?? 0;
 
-        // G?i th�ng b�o cho t?t c? rescuer trong d?i
+        // Gửi thông báo cho tất cả rescuer trong đội
         var memberIds = request.Members?.Select(m => m.UserId).ToList() ?? [];
         if (memberIds.Count > 0)
         {
-            var title = "Th�ng b�o d?i c?u h?";
-            var body = $"B?n d� du?c ph�n c�ng v�o d?i c?u h? \"{request.Name}\". " +
-                       "Vui l�ng t?p h?p theo hu?ng d?n c?a d?i tru?ng.";
+            var title = "Thông báo đội cứu hộ";
+            var body = $"Bạn đã được phân công vào đội cứu hộ \"{request.Name}\". " +
+                       "Vui lòng tập hợp theo hướng dẫn của đội trưởng.";
 
             foreach (var userId in memberIds)
             {
@@ -118,7 +118,7 @@ public class CreateRescueTeamCommandHandler(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Kh�ng th? g?i th�ng b�o cho rescuer {UserId}", userId);
+                    logger.LogWarning(ex, "Không thể gửi thông báo cho rescuer {UserId}", userId);
                 }
             }
         }
