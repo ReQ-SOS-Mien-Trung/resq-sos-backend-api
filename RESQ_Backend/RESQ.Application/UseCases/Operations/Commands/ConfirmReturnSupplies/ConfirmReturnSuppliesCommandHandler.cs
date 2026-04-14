@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
@@ -40,25 +40,25 @@ public class ConfirmReturnSuppliesCommandHandler(
         var reusableItems = request.ReusableItems ?? [];
 
         var activity = await _activityRepository.GetByIdAsync(request.ActivityId, cancellationToken)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y activity v?i ID {request.ActivityId}.");
+            ?? throw new NotFoundException($"Không tìm thấy activity với ID {request.ActivityId}.");
 
         if (!string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("Ch? c� th? x�c nh?n tr? h�ng cho activity lo?i RETURN_SUPPLIES.");
+            throw new BadRequestException("Chỉ có thể xác nhận trả hàng cho activity loại RETURN_SUPPLIES.");
 
         if (activity.Status != MissionActivityStatus.PendingConfirmation)
             throw new BadRequestException(
-                $"Activity ph?i ? tr?ng th�i PendingConfirmation d? x�c nh?n. Tr?ng th�i hi?n t?i: {activity.Status}.");
+                $"Activity phải ở trạng thái PendingConfirmation để xác nhận. Trạng thái hiện tại: {activity.Status}.");
 
         if (!activity.DepotId.HasValue)
-            throw new BadRequestException("Activity n�y kh�ng c� kho li�n k?t.");
+            throw new BadRequestException("Activity này không có kho liên kết.");
 
         if (string.IsNullOrWhiteSpace(activity.Items))
-            throw new BadRequestException("Activity n�y kh�ng c� danh s�ch h�ng h�a.");
+            throw new BadRequestException("Activity này không có danh sách hàng hóa.");
 
         // Validate caller is depot manager of this depot
         var managerDepotIds = await _depotInventoryRepository.GetActiveDepotIdsByManagerAsync(request.ConfirmedBy, cancellationToken);
         if (!managerDepotIds.Contains(activity.DepotId.Value))
-            throw new ForbiddenException("B?n kh�ng ph?i l� qu?n l� kho c?a depot n�y. Ch? qu?n l� kho m?i c� quy?n x�c nh?n tr? h�ng.");
+            throw new ForbiddenException("Bạn không phải là quản lý kho của depot này. Chỉ quản lý kho mới có quyền xác nhận trả hàng.");
 
         await MissionSupplyExecutionSnapshotHelper.RebuildExpectedReturnUnitsAsync(
             activity,
@@ -73,7 +73,7 @@ public class ConfirmReturnSuppliesCommandHandler(
             .ToList();
 
         if (validItems.Count == 0)
-            throw new BadRequestException("Kh�ng c� h�ng h�a h?p l? trong activity d? x�c nh?n tr?.");
+            throw new BadRequestException("Không có hàng hóa hợp lệ trong activity để xác nhận trả.");
 
         var depotId = activity.DepotId.Value;
         var missionId = activity.MissionId ?? request.MissionId;
@@ -93,7 +93,7 @@ public class ConfirmReturnSuppliesCommandHandler(
         {
             var itemId = item.ItemId!.Value;
             if (!itemLookup.TryGetValue(itemId, out var itemRecord))
-                throw new BadRequestException($"Kh�ng t�m th?y metadata v?t ph?m #{itemId}.");
+                throw new BadRequestException($"Không tìm thấy metadata vật phẩm #{itemId}.");
 
             if (IsReusableItem(itemRecord))
             {
@@ -137,7 +137,7 @@ public class ConfirmReturnSuppliesCommandHandler(
         foreach (var actualConsumable in actualConsumables)
         {
             if (!plannedConsumableQuantities.ContainsKey(actualConsumable.ItemModelId))
-                throw new BadRequestException($"Item consumable #{actualConsumable.ItemModelId} kh�ng thu?c k? ho?ch RETURN_SUPPLIES n�y.");
+                throw new BadRequestException($"Item consumable #{actualConsumable.ItemModelId} không thuộc kế hoạch RETURN_SUPPLIES này.");
         }
 
         var explicitReusableItems = new List<(int ReusableItemId, string? Condition, string? Note)>();
@@ -148,37 +148,37 @@ public class ConfirmReturnSuppliesCommandHandler(
         foreach (var reusableItem in reusableItems)
         {
             if (!plannedReusableQuantities.ContainsKey(reusableItem.ItemModelId))
-                throw new BadRequestException($"Item reusable #{reusableItem.ItemModelId} kh�ng thu?c k? ho?ch RETURN_SUPPLIES n�y.");
+                throw new BadRequestException($"Item reusable #{reusableItem.ItemModelId} không thuộc kế hoạch RETURN_SUPPLIES này.");
 
             var explicitUnits = (reusableItem.Units ?? [])
                 .Where(unit => unit.ReusableItemId > 0)
                 .ToList();
 
             if (reusableItem.Quantity.HasValue && reusableItem.Quantity.Value < 0)
-                throw new BadRequestException($"S? lu?ng reusable fallback cho item #{reusableItem.ItemModelId} kh�ng h?p l?.");
+                throw new BadRequestException($"Số lượng reusable fallback cho item #{reusableItem.ItemModelId} không hợp lệ.");
 
             if (!hasExpectedReusableSnapshot && explicitUnits.Count > 0 && reusableItem.Quantity.HasValue && reusableItem.Quantity.Value != explicitUnits.Count)
                 throw new BadRequestException(
-                    $"Item reusable #{reusableItem.ItemModelId}: quantity kh�ng kh?p s? lu?ng units th?c t? du?c g?i l�n.");
+                    $"Item reusable #{reusableItem.ItemModelId}: quantity không khớp số lượng units thực tế được gửi lên.");
 
             if (hasExpectedReusableSnapshot && explicitUnits.Count == 0 && (reusableItem.Quantity ?? 0) > 0)
                 throw new BadRequestException(
-                    $"Item reusable #{reusableItem.ItemModelId}: mission n�y y�u c?u x�c nh?n tr? theo t?ng unit ho?c serial, kh�ng cho quantity fallback.");
+                    $"Item reusable #{reusableItem.ItemModelId}: mission này yêu cầu xác nhận trả theo từng unit hoặc serial, không cho quantity fallback.");
 
             foreach (var unit in explicitUnits)
             {
                 if (!explicitReusableIdsSet.Add(unit.ReusableItemId))
-                    throw new BadRequestException($"Reusable unit #{unit.ReusableItemId} b? g?i tr�ng trong payload confirm return.");
+                    throw new BadRequestException($"Reusable unit #{unit.ReusableItemId} bị gửi trùng trong payload confirm return.");
 
                 if (hasExpectedReusableSnapshot)
                 {
                     if (!expectedReusableUnitById.TryGetValue(unit.ReusableItemId, out var expectedUnit))
                         throw new BadRequestException(
-                            $"Reusable unit #{unit.ReusableItemId} kh�ng n?m trong danh s�ch expected return c?a activity n�y.");
+                            $"Reusable unit #{unit.ReusableItemId} không nằm trong danh sách expected return của activity này.");
 
                     if (expectedUnit.ItemModelId != reusableItem.ItemModelId)
                         throw new BadRequestException(
-                            $"Reusable unit #{unit.ReusableItemId} kh�ng kh?p item model #{reusableItem.ItemModelId}.");
+                            $"Reusable unit #{unit.ReusableItemId} không khớp item model #{reusableItem.ItemModelId}.");
                 }
 
                 explicitReusableItems.Add((unit.ReusableItemId, unit.Condition, unit.Note));
@@ -223,7 +223,7 @@ public class ConfirmReturnSuppliesCommandHandler(
         }
 
         if (discrepancyDetected && string.IsNullOrWhiteSpace(request.DiscrepancyNote))
-            throw new BadRequestException("Khi s? lu?ng tr? th?c t? thi?u ho?c du so v?i k? ho?ch, ph?i nh?p l� do ch�nh l?ch.");
+            throw new BadRequestException("Khi số lượng trả thực tế thiếu hoặc dư so với kế hoạch, phải nhập lý do chênh lệch.");
 
         MissionSupplyReturnExecutionResult executionResult;
         try
@@ -268,7 +268,7 @@ public class ConfirmReturnSuppliesCommandHandler(
             ActivityId = request.ActivityId,
             MissionId = missionId,
             DepotId = depotId,
-            Message = "X�c nh?n tr? h�ng th�nh c�ng. v?t ph?m d� du?c nh?p l?i kho.",
+            Message = "Xác nhận trả hàng thành công. vật phẩm đã được nhập lại kho.",
             UsedLegacyFallback = executionResult.UsedLegacyFallback,
             DiscrepancyRecorded = discrepancyDetected,
             RestoredItems = executionResult.Items

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Finance;
@@ -19,14 +19,13 @@ public class GetDepotAdvancersHandler(
     private readonly IDepotInventoryRepository _depotInventoryRepo = depotInventoryRepo;
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotFundRepository _depotFundRepo = depotFundRepo;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<DepotAdvancerDto>> Handle(
         GetDepotAdvancersQuery request,
         CancellationToken cancellationToken)
     {
         var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
-            ?? throw new NotFoundException("T�i kho?n hi?n t?i chua du?c ph�n c�ng qu?n l� kho dang ho?t d?ng.");
+            ?? throw new NotFoundException("Tài khoản hiện tại chưa được phân công quản lý kho đang hoạt động.");
 
         var pagedDebts = await _depotFundRepo.GetPagedAdvancersByDepotIdAsync(
             depotId,

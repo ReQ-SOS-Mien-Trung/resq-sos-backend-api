@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.CompleteClosureTransfer;
 
@@ -12,4 +12,5 @@ namespace RESQ.Application.UseCases.Logistics.Commands.CompleteClosureTransfer;
 public record CompleteClosureTransferCommand(
     int TransferId,
     Guid UserId,
-    string? Note) : IRequest<CompleteClosureTransferResponse>;
+    string? Note,
+    int? DepotId = null) : IRequest<CompleteClosureTransferResponse>;

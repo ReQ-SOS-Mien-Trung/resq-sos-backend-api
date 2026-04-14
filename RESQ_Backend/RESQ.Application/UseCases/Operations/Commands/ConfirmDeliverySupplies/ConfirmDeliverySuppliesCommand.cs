@@ -1,10 +1,10 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 
 /// <summary>
-/// Team th�nh vi�n x�c nh?n d� giao v?t ph?m, k�m s? lu?ng th?c t? t?ng m?t h�ng.
-/// Chuy?n DELIVER_SUPPLIES activity t? OnGoing ? Succeed v� t? d?ng t?o RETURN_SUPPLIES n?u c� surplus.
+/// Team thành viên xác nhận đã giao vật phẩm, kèm số lượng thực tế từng mặt hàng.
+/// Chuyển DELIVER_SUPPLIES activity từ OnGoing → Succeed và tự động tạo RETURN_SUPPLIES nếu có surplus.
 /// </summary>
 public record ConfirmDeliverySuppliesCommand(
     int ActivityId,

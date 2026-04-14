@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -14,7 +14,6 @@ public class GetMyDepotThresholdsHandler(
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IStockThresholdConfigRepository _stockThresholdConfigRepository = stockThresholdConfigRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<GetMyDepotThresholdsResponse> Handle(GetMyDepotThresholdsQuery request, CancellationToken cancellationToken)
     {

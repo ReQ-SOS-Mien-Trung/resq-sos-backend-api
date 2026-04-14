@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Operations;
@@ -29,7 +29,7 @@ public static class OperationsSeeder
         var now = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Mission>().HasData(
-            // Mission 1: Rescue in D� N?ng (Cluster 2) - �ang di?n ra (Scenario 3)
+            // Mission 1: Rescue in Dà Nẵng (Cluster 2) - Đang diễn ra (Scenario 3)
             new Mission
             {
                 Id = 1,
@@ -42,7 +42,7 @@ public static class OperationsSeeder
                 CreatedAt = now,
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 3: Rescue Phong �i?n (Cluster 4) - �� ho�n th�nh (Scenario 4)
+            // Mission 3: Rescue Phong Điền (Cluster 4) - Đã hoàn thành (Scenario 4)
             new Mission
             {
                 Id = 3,
@@ -57,7 +57,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 1, 7, 45, 0, DateTimeKind.Utc),
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 4: Relief Phong �i?n - ho�n th�nh, c� pickup v?t ph?m t?i kho Hu?
+            // Mission 4: Relief Phong Điền - hoàn thành, có pickup vật phẩm tại kho Huế
             new Mission
             {
                 Id = 4,
@@ -73,7 +73,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 5, 6, 45, 0, DateTimeKind.Utc),
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 5: Relief Phong �i?n - dang di?n ra, c� pickup t?i kho Hu? d? test upcoming pickups
+            // Mission 5: Relief Phong Điền - đang diễn ra, có pickup tại kho Huế để test upcoming pickups
             new Mission
             {
                 Id = 5,
@@ -87,7 +87,7 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 20, 8, 30, 0, DateTimeKind.Utc),
                 CreatedById = SeedConstants.CoordinatorUserId
             },
-            // Mission 6: Relief Phong �i?n - ho�n th�nh, c� c? v?t ph?m ti�u hao L?N thi?t b? t�i s? d?ng (�o phao)
+            // Mission 6: Relief Phong Điền - hoàn thành, có cả vật phẩm tiêu hao LẪN thiết bị tái sử dụng (áo phao)
             new Mission
             {
                 Id = 6,
@@ -111,61 +111,61 @@ public static class OperationsSeeder
         var now = new DateTime(2024, 10, 16, 9, 15, 0, DateTimeKind.Utc);
         var pickupHistoryItems = JsonSerializer.Serialize(new[]
         {
-            new { ItemId = 1, ItemName = "M� t�m", Quantity = 120, Unit = "g�i" },
-            new { ItemId = 2, ItemName = "Nu?c tinh khi?t", Quantity = 240, Unit = "chai" },
-            new { ItemId = 3, ItemName = "Thu?c h? s?t Paracetamol 500mg", Quantity = 300, Unit = "vi�n" }
+            new { ItemId = 1, ItemName = "Mì tôm", Quantity = 120, Unit = "gói" },
+            new { ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 240, Unit = "chai" },
+            new { ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 300, Unit = "viên" }
         });
         var upcomingPickupItems = JsonSerializer.Serialize(new[]
         {
-            new { ItemId = 1, ItemName = "M� t�m", Quantity = 80, Unit = "g�i" },
-            new { ItemId = 2, ItemName = "Nu?c tinh khi?t", Quantity = 160, Unit = "chai" },
-            new { ItemId = 8, ItemName = "Luong kh�", Quantity = 120, Unit = "thanh" }
+            new { ItemId = 1, ItemName = "Mì tôm", Quantity = 80, Unit = "gói" },
+            new { ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 160, Unit = "chai" },
+            new { ItemId = 8, ItemName = "Lương khô", Quantity = 120, Unit = "thanh" }
         });
-        // Activity 8: RETURN_SUPPLIES - tr? v?t ph?m ti�u hao du th?a v? kho Hu? sau Mission 5
+        // Activity 8: RETURN_SUPPLIES - trả vật phẩm tiêu hao dư thừa về kho Huế sau Mission 5
         // ► Test endpoint: POST /operations/missions/5/activities/8/confirm-return
-        // ? �ang nh?p: manager@resq.vn / Manager@123 (qu?n l� kho Hu? - DepotId=1)
-        // ? Ch? consumable: m� t�m x60 + nu?c x80 + thu?c x120
+        // ► Đăng nhập: manager@resq.vn / Manager@123 (quản lý kho Huế - DepotId=1)
+        // ► Chỉ consumable: mì tôm x60 + nước x80 + thuốc x120
         var returnSuppliesItems = JsonSerializer.Serialize(new[]
         {
-            new { ItemId = 1, ItemName = "M� t�m",                         Quantity = 60,  Unit = "g�i"  },
-            new { ItemId = 2, ItemName = "Nu?c tinh khi?t",                 Quantity = 80,  Unit = "chai" },
-            new { ItemId = 3, ItemName = "Thu?c h? s?t Paracetamol 500mg", Quantity = 120, Unit = "vi�n" }
+            new { ItemId = 1, ItemName = "Mì tôm",                         Quantity = 60,  Unit = "gói"  },
+            new { ItemId = 2, ItemName = "Nước tinh khiết",                 Quantity = 80,  Unit = "chai" },
+            new { ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 120, Unit = "viên" }
         });
-        // Activity 9: RETURN_SUPPLIES ho�n th�nh - tr? v?t ph?m ti�u hao du th?a v? kho Hu? sau Mission 4
+        // Activity 9: RETURN_SUPPLIES hoàn thành - trả vật phẩm tiêu hao dư thừa về kho Huế sau Mission 4
         var returnConsumableHistoryItems = JsonSerializer.Serialize(new[]
         {
-            new { ItemId = 1, ItemName = "M� t�m",                         Quantity = 50,  Unit = "g�i"  },
-            new { ItemId = 3, ItemName = "Thu?c h? s?t Paracetamol 500mg", Quantity = 100, Unit = "vi�n" }
+            new { ItemId = 1, ItemName = "Mì tôm",                         Quantity = 50,  Unit = "gói"  },
+            new { ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 100, Unit = "viên" }
         });
-        // Activity 10: COLLECT_SUPPLIES cho Mission 6 - consumable + reusable (�o phao)
+        // Activity 10: COLLECT_SUPPLIES cho Mission 6 - consumable + reusable (áo phao)
         var mission6PickupItems = JsonSerializer.Serialize(new object[]
         {
-            new { ItemId = 1, ItemName = "M� t�m",            Quantity = 100, Unit = "g�i"   },
-            new { ItemId = 6, ItemName = "Chan ?m gi? nhi?t", Quantity = 50,  Unit = "chi?c" },
+            new { ItemId = 1, ItemName = "Mì tôm",            Quantity = 100, Unit = "gói"   },
+            new { ItemId = 6, ItemName = "Chăn ấm giữ nhiệt", Quantity = 50,  Unit = "chiếc" },
             new
             {
-                ItemId = 4, ItemName = "�o phao c?u sinh", Quantity = 3, Unit = "chi?c",
+                ItemId = 4, ItemName = "Áo phao cứu sinh", Quantity = 3, Unit = "chiếc",
                 ExpectedReturnUnits = new[]
                 {
-                    new { ReusableItemId = 1, ItemModelId = 4, ItemName = "�o phao c?u sinh", SerialNumber = "D1-R004-001", Condition = "Good" },
-                    new { ReusableItemId = 2, ItemModelId = 4, ItemName = "�o phao c?u sinh", SerialNumber = "D1-R004-002", Condition = "Good" },
-                    new { ReusableItemId = 3, ItemModelId = 4, ItemName = "�o phao c?u sinh", SerialNumber = "D1-R004-003", Condition = "Fair" }
+                    new { ReusableItemId = 1, ItemModelId = 4, ItemName = "Áo phao cứu sinh", SerialNumber = "D1-R004-001", Condition = "Good" },
+                    new { ReusableItemId = 2, ItemModelId = 4, ItemName = "Áo phao cứu sinh", SerialNumber = "D1-R004-002", Condition = "Good" },
+                    new { ReusableItemId = 3, ItemModelId = 4, ItemName = "Áo phao cứu sinh", SerialNumber = "D1-R004-003", Condition = "Fair" }
                 }
             }
         });
-        // Activity 11: RETURN_SUPPLIES cho Mission 6 - tr? consumable du th?a + to�n b? �o phao
+        // Activity 11: RETURN_SUPPLIES cho Mission 6 - trả consumable dư thừa + toàn bộ áo phao
         var mission6ReturnItems = JsonSerializer.Serialize(new object[]
         {
-            new { ItemId = 1, ItemName = "M� t�m",            Quantity = 30, Unit = "g�i"   },
-            new { ItemId = 6, ItemName = "Chan ?m gi? nhi?t", Quantity = 8,  Unit = "chi?c" },
+            new { ItemId = 1, ItemName = "Mì tôm",            Quantity = 30, Unit = "gói"   },
+            new { ItemId = 6, ItemName = "Chăn ấm giữ nhiệt", Quantity = 8,  Unit = "chiếc" },
             new
             {
-                ItemId = 4, ItemName = "�o phao c?u sinh", Quantity = 3, Unit = "chi?c",
+                ItemId = 4, ItemName = "Áo phao cứu sinh", Quantity = 3, Unit = "chiếc",
                 ExpectedReturnUnits = new[]
                 {
-                    new { ReusableItemId = 1, ItemModelId = 4, ItemName = "�o phao c?u sinh", SerialNumber = "D1-R004-001", Condition = "Good" },
-                    new { ReusableItemId = 2, ItemModelId = 4, ItemName = "�o phao c?u sinh", SerialNumber = "D1-R004-002", Condition = "Good" },
-                    new { ReusableItemId = 3, ItemModelId = 4, ItemName = "�o phao c?u sinh", SerialNumber = "D1-R004-003", Condition = "Fair" }
+                    new { ReusableItemId = 1, ItemModelId = 4, ItemName = "Áo phao cứu sinh", SerialNumber = "D1-R004-001", Condition = "Good" },
+                    new { ReusableItemId = 2, ItemModelId = 4, ItemName = "Áo phao cứu sinh", SerialNumber = "D1-R004-002", Condition = "Good" },
+                    new { ReusableItemId = 3, ItemModelId = 4, ItemName = "Áo phao cứu sinh", SerialNumber = "D1-R004-003", Condition = "Fair" }
                 }
             }
         });
@@ -177,38 +177,38 @@ public static class OperationsSeeder
                 MissionId = 1,
                 Step = 1,
                 ActivityType = "EVACUATE",
-                Description = "Ti?p c?n khu v?c ng?p s�u L? Th?y, h? tr? y t? v� di t?n.",
-                Target = "{\"location\": \"X� An Th?y\", \"count\": 30}",
+                Description = "Tiếp cận khu vực ngập sâu Lệ Thủy, hỗ trợ y tế và di tản.",
+                Target = "{\"location\": \"Xã An Thủy\", \"count\": 30}",
                 TargetLocation = new Point(106.7865, 17.2140) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.OnGoing),
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
-                MissionTeamId = 1 // Bi?t d?i Ca n� H� Tinh
+                MissionTeamId = 1 // Biệt đội Ca nô Hà Tĩnh
             },
-            // Activity 3: H? tr? y t? cho Mission 1 (bu?c 2, chua b?t d?u)
+            // Activity 3: Hỗ trợ y tế cho Mission 1 (bước 2, chưa bắt đầu)
             new MissionActivity
             {
                 Id = 3,
                 MissionId = 1,
                 Step = 2,
                 ActivityType = "MEDICAL_AID",
-                Description = "So c?u v� h? tr? y t? t?i ch?, uu ti�n c? b� 82t v� ph? n? mang thai.",
-                Target = "{\"location\": \"Khu v?c ng?p Hu?\", \"count\": 9}",
+                Description = "Sơ cứu và hỗ trợ y tế tại chỗ, ưu tiên cụ bà 82t và phụ nữ mang thai.",
+                Target = "{\"location\": \"Khu vực ngập Huế\", \"count\": 9}",
                 TargetLocation = new Point(107.568, 16.455) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Planned),
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
                 MissionTeamId = 1
             },
-            // Activity 4: Di t?n Mission 3 Phong �i?n (Succeed)
+            // Activity 4: Di tản Mission 3 Phong Điền (Succeed)
             new MissionActivity
             {
                 Id = 4,
                 MissionId = 3,
                 Step = 1,
                 ActivityType = "EVACUATE",
-                Description = "Di t?n n?n nh�n ra kh?i v�ng ng?p Phong �i?n, uu ti�n ngu?i gi� v� tr? em.",
-                Target = "{\"location\": \"Phong �i?n, Hu?\", \"count\": 10}",
+                Description = "Di tản nạn nhân ra khỏi vùng ngập Phong Điền, ưu tiên người già và trẻ em.",
+                Target = "{\"location\": \"Phong Điền, Huế\", \"count\": 10}",
                 TargetLocation = new Point(107.582, 16.465) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Succeed),
                 AssignedAt = new DateTime(2026, 3, 1, 8, 5, 0, DateTimeKind.Utc),
@@ -218,15 +218,15 @@ public static class OperationsSeeder
                 MissionTeamId = 2,
                 SosRequestId = 7
             },
-            // Activity 5: H? tr? y t? Mission 3 Phong �i?n (Succeed)
+            // Activity 5: Hỗ trợ y tế Mission 3 Phong Điền (Succeed)
             new MissionActivity
             {
                 Id = 5,
                 MissionId = 3,
                 Step = 2,
                 ActivityType = "MEDICAL_AID",
-                Description = "So c?u v� x? l� y t? t?i hi?n tru?ng, chuy?n ca n?ng l�n tuy?n tr�n.",
-                Target = "{\"location\": \"Phong �i?n, Hu?\", \"count\": 3}",
+                Description = "Sơ cứu và xử lý y tế tại hiện trường, chuyển ca nặng lên tuyến trên.",
+                Target = "{\"location\": \"Phong Điền, Huế\", \"count\": 3}",
                 TargetLocation = new Point(107.584, 16.467) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Succeed),
                 AssignedAt = new DateTime(2026, 3, 1, 8, 10, 0, DateTimeKind.Utc),
@@ -236,15 +236,15 @@ public static class OperationsSeeder
                 MissionTeamId = 2,
                 SosRequestId = 8
             },
-            // Activity 6: Pickup supplies cho Mission 4 t?i kho Hu? (Succeed)
+            // Activity 6: Pickup supplies cho Mission 4 tại kho Huế (Succeed)
             new MissionActivity
             {
                 Id = 6,
                 MissionId = 4,
                 Step = 1,
                 ActivityType = "COLLECT_SUPPLIES",
-                Description = "�?i v?n chuy?n d?n kho Hu? d? nh?n v?t ph?m c?u tr? tru?c khi di ph�n ph?i.",
-                Target = "{\"location\":\"Kho Hu?\",\"purpose\":\"pickup_supplies\"}",
+                Description = "Đội vận chuyển đến kho Huế để nhận vật phẩm cứu trợ trước khi đi phân phối.",
+                Target = "{\"location\":\"Kho Huế\",\"purpose\":\"pickup_supplies\"}",
                 Items = pickupHistoryItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Succeed),
@@ -256,18 +256,18 @@ public static class OperationsSeeder
                 Priority = "High",
                 EstimatedTime = 45,
                 DepotId = 1,
-                DepotName = "U? Ban MTTQVN T?nh Th?a Thi�n Hu?",
-                DepotAddress = "46 �?ng �a, TP. Hu?, Th?a Thi�n Hu?"
+                DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
             },
-            // Activity 7: Pickup supplies cho Mission 5 t?i kho Hu? (OnGoing)
+            // Activity 7: Pickup supplies cho Mission 5 tại kho Huế (OnGoing)
             new MissionActivity
             {
                 Id = 7,
                 MissionId = 5,
                 Step = 1,
                 ActivityType = "COLLECT_SUPPLIES",
-                Description = "�?i v?n chuy?n dang l?y h�ng t?i kho Hu? d? ch? d?n khu v?c so t�n.",
-                Target = "{\"location\":\"Kho Hu?\",\"purpose\":\"pickup_supplies\"}",
+                Description = "Đội vận chuyển đang lấy hàng tại kho Huế để chở đến khu vực sơ tán.",
+                Target = "{\"location\":\"Kho Huế\",\"purpose\":\"pickup_supplies\"}",
                 Items = upcomingPickupItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.OnGoing),
@@ -277,20 +277,20 @@ public static class OperationsSeeder
                 Priority = "Medium",
                 EstimatedTime = 30,
                 DepotId = 1,
-                DepotName = "U? Ban MTTQVN T?nh Th?a Thi�n Hu?",
-                DepotAddress = "46 �?ng �a, TP. Hu?, Th?a Thi�n Hu?"
+                DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
             },
-            // Activity 8: RETURN_SUPPLIES cho Mission 5 t?i kho Hu? (PendingConfirmation)
-            // ? D�ng d? test: POST /operations/missions/5/activities/8/confirm-return
-            // ? Login: manager@resq.vn / Manager@123
+            // Activity 8: RETURN_SUPPLIES cho Mission 5 tại kho Huế (PendingConfirmation)
+            // → Dùng để test: POST /operations/missions/5/activities/8/confirm-return
+            // → Login: manager@resq.vn / Manager@123
             new MissionActivity
             {
                 Id = 8,
                 MissionId = 5,
                 Step = 2,
                 ActivityType = "RETURN_SUPPLIES",
-                Description = "Ho�n t?t nhi?m v?, tr? v?t ph?m ti�u hao du th?a v? kho Hu?. Tr?: M� t�m x60 + Nu?c x80 + Thu?c x120.",
-                Target = "{\"location\":\"Kho Hu?\",\"purpose\":\"return_supplies\"}",
+                Description = "Hoàn tất nhiệm vụ, trả vật phẩm tiêu hao dư thừa về kho Huế. Trả: Mì tôm x60 + Nước x80 + Thuốc x120.",
+                Target = "{\"location\":\"Kho Huế\",\"purpose\":\"return_supplies\"}",
                 Items = returnSuppliesItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.PendingConfirmation),
@@ -300,19 +300,19 @@ public static class OperationsSeeder
                 Priority = "Medium",
                 EstimatedTime = 30,
                 DepotId = 1,
-                DepotName = "U? Ban MTTQVN T?nh Th?a Thi�n Hu?",
-                DepotAddress = "46 �?ng �a, TP. Hu?, Th?a Thi�n Hu?"
+                DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
             },
-            // Activity 9: RETURN_SUPPLIES ho�n th�nh cho Mission 4 t?i kho Hu? (Succeed)
-            // ? L?ch s? tr? v?t ph?m ti�u hao (consumable only) du th?a sau ph�n ph?i Phong �i?n
+            // Activity 9: RETURN_SUPPLIES hoàn thành cho Mission 4 tại kho Huế (Succeed)
+            // → Lịch sử trả vật phẩm tiêu hao (consumable only) dư thừa sau phân phối Phong Điền
             new MissionActivity
             {
                 Id = 9,
                 MissionId = 4,
                 Step = 2,
                 ActivityType = "RETURN_SUPPLIES",
-                Description = "Tr? l?i v?t ph?m ti�u hao du th?a sau khi k?t th�c ph�n ph?i t?i Phong �i?n. Tr?: M� t�m x50 + Thu?c h? s?t x100.",
-                Target = "{\"location\":\"Kho Hu?\",\"purpose\":\"return_supplies\"}",
+                Description = "Trả lại vật phẩm tiêu hao dư thừa sau khi kết thúc phân phối tại Phong Điền. Trả: Mì tôm x50 + Thuốc hạ sốt x100.",
+                Target = "{\"location\":\"Kho Huế\",\"purpose\":\"return_supplies\"}",
                 Items = returnConsumableHistoryItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Succeed),
@@ -324,19 +324,19 @@ public static class OperationsSeeder
                 Priority = "Low",
                 EstimatedTime = 30,
                 DepotId = 1,
-                DepotName = "U? Ban MTTQVN T?nh Th?a Thi�n Hu?",
-                DepotAddress = "46 �?ng �a, TP. Hu?, Th?a Thi�n Hu?"
+                DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
             },
-            // Activity 10: COLLECT_SUPPLIES cho Mission 6 t?i kho Hu? (Succeed)
-            // ? L?ch s? l?y h�ng c� C? consumable (m� t�m, chan ?m) L?N reusable (�o phao x3)
+            // Activity 10: COLLECT_SUPPLIES cho Mission 6 tại kho Huế (Succeed)
+            // → Lịch sử lấy hàng có CẢ consumable (mì tôm, chăn ấm) LẪN reusable (áo phao x3)
             new MissionActivity
             {
                 Id = 10,
                 MissionId = 6,
                 Step = 1,
                 ActivityType = "COLLECT_SUPPLIES",
-                Description = "�?i v?n chuy?n d?n kho Hu? nh?n v?t ph?m c?u tr? g?m: M� t�m x100 + Chan ?m x50 + �o phao c?u sinh x3.",
-                Target = "{\"location\":\"Kho Hu?\",\"purpose\":\"pickup_supplies\"}",
+                Description = "Đội vận chuyển đến kho Huế nhận vật phẩm cứu trợ gồm: Mì tôm x100 + Chăn ấm x50 + Áo phao cứu sinh x3.",
+                Target = "{\"location\":\"Kho Huế\",\"purpose\":\"pickup_supplies\"}",
                 Items = mission6PickupItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Succeed),
@@ -348,19 +348,19 @@ public static class OperationsSeeder
                 Priority = "High",
                 EstimatedTime = 45,
                 DepotId = 1,
-                DepotName = "U? Ban MTTQVN T?nh Th?a Thi�n Hu?",
-                DepotAddress = "46 �?ng �a, TP. Hu?, Th?a Thi�n Hu?"
+                DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
             },
-            // Activity 11: RETURN_SUPPLIES cho Mission 6 t?i kho Hu? (Succeed)
-            // ? L?ch s? tr? h�ng c� C? consumable du th?a L?N reusable (�o phao x3 tr? l?i d?y d?)
+            // Activity 11: RETURN_SUPPLIES cho Mission 6 tại kho Huế (Succeed)
+            // → Lịch sử trả hàng có CẢ consumable dư thừa LẪN reusable (áo phao x3 trả lại đầy đủ)
             new MissionActivity
             {
                 Id = 11,
                 MissionId = 6,
                 Step = 2,
                 ActivityType = "RETURN_SUPPLIES",
-                Description = "Ho�n t?t nhi?m v?, tr? v? kho Hu?: M� t�m du x30 + Chan ?m du x8 + �o phao c?u sinh x3 (d?y d?).",
-                Target = "{\"location\":\"Kho Hu?\",\"purpose\":\"return_supplies\"}",
+                Description = "Hoàn tất nhiệm vụ, trả về kho Huế: Mì tôm dư x30 + Chăn ấm dư x8 + Áo phao cứu sinh x3 (đầy đủ).",
+                Target = "{\"location\":\"Kho Huế\",\"purpose\":\"return_supplies\"}",
                 Items = mission6ReturnItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Succeed),
@@ -372,8 +372,8 @@ public static class OperationsSeeder
                 Priority = "Medium",
                 EstimatedTime = 30,
                 DepotId = 1,
-                DepotName = "U? Ban MTTQVN T?nh Th?a Thi�n Hu?",
-                DepotAddress = "46 �?ng �a, TP. Hu?, Th?a Thi�n Hu?"
+                DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
             }
         );
     }
@@ -400,7 +400,7 @@ public static class OperationsSeeder
         var now = new DateTime(2024, 10, 16, 9, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<MissionTeam>().HasData(
-            // MissionTeam 1: RescueTeam 4 (Bi?t d?i Ca n� H� Tinh) - Mission 1 dang di?n ra
+            // MissionTeam 1: RescueTeam 4 (Biệt đội Ca nô Hà Tĩnh) - Mission 1 đang diễn ra
             new MissionTeam
             {
                 Id = 1,
@@ -410,9 +410,9 @@ public static class OperationsSeeder
                 Status = "InProgress",
                 AssignedAt = now,
                 CreatedAt = now,
-                Note = "�?i dang ti?p c?n khu v?c ng?p s�u L? Th?y"
+                Note = "Đội đang tiếp cận khu vực ngập sâu Lệ Thủy"
             },
-            // MissionTeam 2: RescueTeam 2 (�?i Y t? Hu?) - Mission 3 d� ho�n th�nh v� d� n?p b�o c�o
+            // MissionTeam 2: RescueTeam 2 (Đội Y tế Huế) - Mission 3 đã hoàn thành và đã nộp báo cáo
             new MissionTeam
             {
                 Id = 2,
@@ -422,7 +422,7 @@ public static class OperationsSeeder
                 Status = "Reported",
                 AssignedAt = new DateTime(2026, 3, 1, 7, 50, 0, DateTimeKind.Utc),
                 CreatedAt = new DateTime(2026, 3, 1, 7, 50, 0, DateTimeKind.Utc),
-                Note = "�?i y t? Hu? ho�n th�nh nhi?m v? t?i Phong �i?n"
+                Note = "Đội y tế Huế hoàn thành nhiệm vụ tại Phong Điền"
             },
             new MissionTeam
             {
@@ -433,7 +433,7 @@ public static class OperationsSeeder
                 Status = "Reported",
                 AssignedAt = new DateTime(2026, 3, 5, 6, 55, 0, DateTimeKind.Utc),
                 CreatedAt = new DateTime(2026, 3, 5, 6, 55, 0, DateTimeKind.Utc),
-                Note = "�?i v?n chuy?n Hu? d� ho�n th�nh l?y h�ng t?i kho Hu?"
+                Note = "Đội vận chuyển Huế đã hoàn thành lấy hàng tại kho Huế"
             },
             new MissionTeam
             {
@@ -444,9 +444,9 @@ public static class OperationsSeeder
                 Status = "InProgress",
                 AssignedAt = new DateTime(2026, 3, 20, 9, 0, 0, DateTimeKind.Utc),
                 CreatedAt = new DateTime(2026, 3, 20, 9, 0, 0, DateTimeKind.Utc),
-                Note = "�?i dang l?y h�ng t?i kho Hu? cho d?t c?u tr? m?i"
+                Note = "Đội đang lấy hàng tại kho Huế cho đợt cứu trợ mới"
             },
-            // MissionTeam 5: RescueTeam 3 (�?i v?n chuy?n Hu?) - Mission 6 d� ho�n th�nh c� c? consumable + reusable
+            // MissionTeam 5: RescueTeam 3 (Đội vận chuyển Huế) - Mission 6 đã hoàn thành có cả consumable + reusable
             new MissionTeam
             {
                 Id = 5,
@@ -456,7 +456,7 @@ public static class OperationsSeeder
                 Status = "Reported",
                 AssignedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc),
                 CreatedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc),
-                Note = "�?i v?n chuy?n ho�n th�nh nhi?m v?, d� tr? d? �o phao v� v?t ph?m du th?a"
+                Note = "Đội vận chuyển hoàn thành nhiệm vụ, đã trả đủ áo phao và vật phẩm dư thừa"
             }
         );
     }
@@ -467,14 +467,14 @@ public static class OperationsSeeder
         var now3 = new DateTime(2026, 3, 1, 7, 50, 0, DateTimeKind.Utc);    // Mission 3 join time
 
         modelBuilder.Entity<MissionTeamMember>().HasData(
-            // MissionTeam 1 members (RescueTeam 4: Bi?t d?i Ca n� H� Tinh)
+            // MissionTeam 1 members (RescueTeam 4: Biệt đội Ca nô Hà Tĩnh)
             new MissionTeamMember { Id = 1, MissionTeamId = 1, RescuerId = SeedConstants.RescuerUserId, RoleInTeam = "Leader", JoinedAt = now1 },
             new MissionTeamMember { Id = 2, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330020"), RoleInTeam = "Member", JoinedAt = now1 },
             new MissionTeamMember { Id = 3, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330021"), RoleInTeam = "Member", JoinedAt = now1 },
             new MissionTeamMember { Id = 4, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330022"), RoleInTeam = "Member", JoinedAt = now1 },
             new MissionTeamMember { Id = 5, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330023"), RoleInTeam = "Member", JoinedAt = now1 },
             new MissionTeamMember { Id = 6, MissionTeamId = 1, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330024"), RoleInTeam = "Member", JoinedAt = now1 },
-            // MissionTeam 2 members (RescueTeam 2: �?i Ph?n ?ng nhanh Y t? Hu?)
+            // MissionTeam 2 members (RescueTeam 2: Đội Phản ứng nhanh Y tế Huế)
             new MissionTeamMember { Id = 7, MissionTeamId = 2, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330007"), RoleInTeam = "Leader", JoinedAt = now3 },
             new MissionTeamMember { Id = 8, MissionTeamId = 2, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330008"), RoleInTeam = "Member", JoinedAt = now3 },
             new MissionTeamMember { Id = 9, MissionTeamId = 2, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330009"), RoleInTeam = "Member", JoinedAt = now3 },
@@ -493,7 +493,7 @@ public static class OperationsSeeder
             new MissionTeamMember { Id = 22, MissionTeamId = 4, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330016"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 20, 9, 0, 0, DateTimeKind.Utc) },
             new MissionTeamMember { Id = 23, MissionTeamId = 4, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330017"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 20, 9, 0, 0, DateTimeKind.Utc) },
             new MissionTeamMember { Id = 24, MissionTeamId = 4, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330018"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 20, 9, 0, 0, DateTimeKind.Utc) },
-            // MissionTeam 5 members - c�ng d?i v?n chuy?n Hu? (RescueTeam 3), Mission 6
+            // MissionTeam 5 members - cùng đội vận chuyển Huế (RescueTeam 3), Mission 6
             new MissionTeamMember { Id = 25, MissionTeamId = 5, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330013"), RoleInTeam = "Leader", JoinedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc) },
             new MissionTeamMember { Id = 26, MissionTeamId = 5, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330014"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc) },
             new MissionTeamMember { Id = 27, MissionTeamId = 5, RescuerId = Guid.Parse("33333333-3333-3333-3333-333333330015"), RoleInTeam = "Member", JoinedAt = new DateTime(2026, 3, 8, 6, 55, 0, DateTimeKind.Utc) },
@@ -513,8 +513,8 @@ public static class OperationsSeeder
                 Id = 1,
                 MissionTeamId = 2,
                 ReportStatus = "Submitted",
-                TeamSummary = "�?i ho�n th�nh nhi?m v?: di t?n 10 ngu?i, so c?u 3 ngu?i b? thuong.",
-                TeamNote = "�i?u ki?n du?ng b? kh� khan nhung ho�n th�nh d�ng ti?n d?.",
+                TeamSummary = "Đội hoàn thành nhiệm vụ: di tản 10 người, sơ cứu 3 người bị thương.",
+                TeamNote = "Điều kiện đường bộ khó khăn nhưng hoàn thành đúng tiến độ.",
                 ResultJson = "{\"rescued\":10,\"treated\":3,\"referred\":1}",
                 StartedAt = new DateTime(2026, 3, 1, 13, 0, 0, DateTimeKind.Utc),
                 LastEditedAt = new DateTime(2026, 3, 1, 13, 20, 0, DateTimeKind.Utc),
@@ -528,8 +528,8 @@ public static class OperationsSeeder
                 Id = 2,
                 MissionTeamId = 3,
                 ReportStatus = "Submitted",
-                TeamSummary = "�?i v?n chuy?n d� ho�n t?t vi?c nh?n h�ng t?i kho Hu? v� b�n giao cho tuy?n ti?p theo.",
-                TeamNote = "Ho�n th�nh l?y h�ng d�ng s? lu?ng theo k? ho?ch.",
+                TeamSummary = "Đội vận chuyển đã hoàn tất việc nhận hàng tại kho Huế và bàn giao cho tuyến tiếp theo.",
+                TeamNote = "Hoàn thành lấy hàng đúng số lượng theo kế hoạch.",
                 ResultJson = "{\"pickedUpItemTypes\":3,\"pickupDepotId\":1}",
                 StartedAt = new DateTime(2026, 3, 5, 7, 0, 0, DateTimeKind.Utc),
                 LastEditedAt = new DateTime(2026, 3, 5, 8, 10, 0, DateTimeKind.Utc),
@@ -538,14 +538,14 @@ public static class OperationsSeeder
                 CreatedAt = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc),
                 UpdatedAt = new DateTime(2026, 3, 5, 8, 15, 0, DateTimeKind.Utc)
             },
-            // MissionTeamReport 3: B�o c�o cho MissionTeam 5 (Mission 6 - consumable + reusable)
+            // MissionTeamReport 3: Báo cáo cho MissionTeam 5 (Mission 6 - consumable + reusable)
             new MissionTeamReport
             {
                 Id = 3,
                 MissionTeamId = 5,
                 ReportStatus = "Submitted",
-                TeamSummary = "�?i v?n chuy?n ho�n th�nh nhi?m v? Mission 6: nh?n v� tr? d?y d? m� t�m, chan ?m v� 3 �o phao c?u sinh.",
-                TeamNote = "T?t c? �o phao tr? v? d�ng tr?ng th�i, v?t ph?m ti�u hao du th?a du?c ho�n kho.",
+                TeamSummary = "Đội vận chuyển hoàn thành nhiệm vụ Mission 6: nhận và trả đầy đủ mì tôm, chăn ấm và 3 áo phao cứu sinh.",
+                TeamNote = "Tất cả áo phao trả về đúng trạng thái, vật phẩm tiêu hao dư thừa được hoàn kho.",
                 ResultJson = "{\"pickedUpItemTypes\":3,\"returnedReusableUnits\":3,\"pickupDepotId\":1}",
                 StartedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc),
                 LastEditedAt = new DateTime(2026, 3, 8, 13, 25, 0, DateTimeKind.Utc),
@@ -569,7 +569,7 @@ public static class OperationsSeeder
                 MissionActivityId = 4,
                 ActivityType = "EVACUATE",
                 ExecutionStatus = "Succeed",
-                Summary = "Di t?n th�nh c�ng 10 ngu?i ra di?m t?p k?t an to�n.",
+                Summary = "Di tản thành công 10 người ra điểm tập kết an toàn.",
                 CreatedAt = created,
                 UpdatedAt = created
             },
@@ -580,7 +580,7 @@ public static class OperationsSeeder
                 MissionActivityId = 5,
                 ActivityType = "MEDICAL_AID",
                 ExecutionStatus = "Succeed",
-                Summary = "So c?u 3 ngu?i b? thuong nh?, chuy?n 1 ca n?ng l�n tuy?n tr�n.",
+                Summary = "Sơ cứu 3 người bị thương nhẹ, chuyển 1 ca nặng lên tuyến trên.",
                 CreatedAt = created.AddMinutes(5),
                 UpdatedAt = created.AddMinutes(5)
             },
@@ -591,7 +591,7 @@ public static class OperationsSeeder
                 MissionActivityId = 6,
                 ActivityType = "COLLECT_SUPPLIES",
                 ExecutionStatus = "Succeed",
-                Summary = "�� nh?n d? m� t�m, nu?c u?ng v� thu?c t?i kho Hu? tru?c khi xu?t ph�t.",
+                Summary = "Đã nhận đủ mì tôm, nước uống và thuốc tại kho Huế trước khi xuất phát.",
                 CreatedAt = new DateTime(2026, 3, 5, 8, 5, 0, DateTimeKind.Utc),
                 UpdatedAt = new DateTime(2026, 3, 5, 8, 5, 0, DateTimeKind.Utc)
             },
@@ -602,11 +602,11 @@ public static class OperationsSeeder
                 MissionActivityId = 9,
                 ActivityType = "RETURN_SUPPLIES",
                 ExecutionStatus = "Succeed",
-                Summary = "Tr? l?i 50 g�i m� t�m v� 100 vi�n thu?c h? s?t du th?a v? kho Hu? sau khi ho�n th�nh ph�n ph?i.",
+                Summary = "Trả lại 50 gói mì tôm và 100 viên thuốc hạ sốt dư thừa về kho Huế sau khi hoàn thành phân phối.",
                 CreatedAt = new DateTime(2026, 3, 5, 11, 35, 0, DateTimeKind.Utc),
                 UpdatedAt = new DateTime(2026, 3, 5, 11, 35, 0, DateTimeKind.Utc)
             },
-            // Reports 5 & 6: Mission 6 - COLLECT + RETURN c� c? consumable v� reusable
+            // Reports 5 & 6: Mission 6 - COLLECT + RETURN có cả consumable và reusable
             new MissionActivityReport
             {
                 Id = 5,
@@ -614,7 +614,7 @@ public static class OperationsSeeder
                 MissionActivityId = 10,
                 ActivityType = "COLLECT_SUPPLIES",
                 ExecutionStatus = "Succeed",
-                Summary = "Nh?n d? m� t�m x100, chan ?m x50 v� 3 �o phao c?u sinh (D1-R004-001/002/003) t?i kho Hu?.",
+                Summary = "Nhận đủ mì tôm x100, chăn ấm x50 và 3 áo phao cứu sinh (D1-R004-001/002/003) tại kho Huế.",
                 CreatedAt = new DateTime(2026, 3, 8, 8, 5, 0, DateTimeKind.Utc),
                 UpdatedAt = new DateTime(2026, 3, 8, 8, 5, 0, DateTimeKind.Utc)
             },
@@ -625,7 +625,7 @@ public static class OperationsSeeder
                 MissionActivityId = 11,
                 ActivityType = "RETURN_SUPPLIES",
                 ExecutionStatus = "Succeed",
-                Summary = "Tr? l?i kho Hu?: m� t�m du x30, chan ?m du x8 v� d?y d? 3 �o phao c?u sinh c�n t?t.",
+                Summary = "Trả lại kho Huế: mì tôm dư x30, chăn ấm dư x8 và đầy đủ 3 áo phao cứu sinh còn tốt.",
                 CreatedAt = new DateTime(2026, 3, 8, 13, 10, 0, DateTimeKind.Utc),
                 UpdatedAt = new DateTime(2026, 3, 8, 13, 10, 0, DateTimeKind.Utc)
             }
@@ -637,38 +637,38 @@ public static class OperationsSeeder
         var now = new DateTime(2024, 10, 16, 10, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<TeamIncident>().HasData(
-            // S? c? 1: Thuy?n b? h?ng d?ng co khi ti?p c?n khu v?c ng?p
+            // Sự cố 1: Thuyền bị hỏng động cơ khi tiếp cận khu vực ngập
             new TeamIncident
             {
                 Id = 1,
                 MissionTeamId = 1,
                 IncidentScope = TeamIncidentScope.Mission.ToString(),
                 Location = new Point(106.7870, 17.2145) { SRID = 4326 },
-                Description = "Thuy?n c?u h? b? h?ng d?ng co khi dang ti?p c?n khu v?c ng?p s�u t?i x� An Th?y. �?i dang ch? h? tr?.",
+                Description = "Thuyền cứu hộ bị hỏng động cơ khi đang tiếp cận khu vực ngập sâu tại xã An Thủy. Đội đang chờ hỗ trợ.",
                 Status = TeamIncidentStatus.Reported.ToString(),
                 ReportedBy = SeedConstants.RescuerUserId,
                 ReportedAt = now
             },
-            // S? c? 2: M?t th�nh vi�n d?i c?u h? b? thuong nh?
+            // Sự cố 2: Một thành viên đội cứu hộ bị thương nhẹ
             new TeamIncident
             {
                 Id = 2,
                 MissionTeamId = 1,
                 IncidentScope = TeamIncidentScope.Mission.ToString(),
                 Location = new Point(106.7860, 17.2138) { SRID = 4326 },
-                Description = "M?t th�nh vi�n d?i c?u h? b? tru?t ch�n v� b? thuong nh? ? ch�n khi di chuy?n qua khu v?c b�n l?y.",
+                Description = "Một thành viên đội cứu hộ bị trượt chân và bị thương nhẹ ở chân khi di chuyển qua khu vực bùn lầy.",
                 Status = TeamIncidentStatus.InProgress.ToString(),
                 ReportedBy = SeedConstants.RescuerUserId,
                 ReportedAt = now.AddMinutes(30)
             },
-            // S? c? 3: M?t li�n l?c t?m th?i v?i trung t�m ch? huy
+            // Sự cố 3: Mất liên lạc tạm thời với trung tâm chỉ huy
             new TeamIncident
             {
                 Id = 3,
                 MissionTeamId = 1,
                 IncidentScope = TeamIncidentScope.Mission.ToString(),
                 Location = new Point(106.7855, 17.2150) { SRID = 4326 },
-                Description = "�?i m?t li�n l?c v?i trung t�m ch? huy trong 15 ph�t do s�ng y?u t?i khu v?c v�ng trung.",
+                Description = "Đội mất liên lạc với trung tâm chỉ huy trong 15 phút do sóng yếu tại khu vực vùng trũng.",
                 Status = TeamIncidentStatus.Resolved.ToString(),
                 ReportedBy = SeedConstants.RescuerUserId,
                 ReportedAt = now.AddMinutes(45)
@@ -692,7 +692,7 @@ public static class OperationsSeeder
         modelBuilder.Entity<ConversationParticipant>().HasData(
             new ConversationParticipant { Id = 1, ConversationId = 1, UserId = SeedConstants.AdminUserId, RoleInConversation = "Monitor", JoinedAt = now },
             new ConversationParticipant { Id = 2, ConversationId = 1, UserId = SeedConstants.RescuerUserId, RoleInConversation = "Leader", JoinedAt = now },
-            // Conversation 3: Mission 3 (Phong �i?n, d� ho�n th�nh)
+            // Conversation 3: Mission 3 (Phong Điền, đã hoàn thành)
             new ConversationParticipant { Id = 4, ConversationId = 3, UserId = SeedConstants.CoordinatorUserId, RoleInConversation = "Monitor", JoinedAt = now3 },
             new ConversationParticipant { Id = 5, ConversationId = 3, UserId = Guid.Parse("33333333-3333-3333-3333-333333330007"), RoleInConversation = "Leader", JoinedAt = now3 }
         );
@@ -708,7 +708,7 @@ public static class OperationsSeeder
                 Id = 1,
                 ConversationId = 1,
                 SenderId = SeedConstants.RescuerUserId,
-                Content = "�?i d� ti?p c?n du?c d?u l�ng. �ang s? d?ng v?t ph?m y t? d? so c?u ngu?i b? thuong.",
+                Content = "Đội đã tiếp cận được đầu làng. Đang sử dụng vật phẩm y tế để sơ cứu người bị thương.",
                 CreatedAt = now
             }
         );

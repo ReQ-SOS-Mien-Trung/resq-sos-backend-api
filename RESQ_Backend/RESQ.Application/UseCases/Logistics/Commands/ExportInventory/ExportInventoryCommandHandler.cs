@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -19,11 +19,12 @@ public class ExportInventoryCommandHandler(
 
     public async Task<ExportInventoryResponse> Handle(ExportInventoryCommand request, CancellationToken cancellationToken)
     {
-        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
+            ?? throw new BadRequestException("Ti kho?n khng qu?n l kho no dang ho?t d?ng.");
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
-            throw new ConflictException("Kho ngung ho?t d?ng ho?c d� d�ng. Kh�ng th? xu?t h�ng kh?i kho n�y.");
+            throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể xuất hàng khỏi kho này.");
 
         await _depotInventoryRepository.ExportInventoryAsync(
             depotId,
@@ -33,6 +34,6 @@ public class ExportInventoryCommandHandler(
             request.Note,
             cancellationToken);
 
-        return new ExportInventoryResponse($"�� xu?t kho th�nh c�ng {request.Quantity} don v? v?t ph?m #{request.ItemModelId} t?i kho #{depotId}.");
+        return new ExportInventoryResponse($"Đã xuất kho thành công {request.Quantity} đơn vị vật phẩm #{request.ItemModelId} tại kho #{depotId}.");
     }
 }

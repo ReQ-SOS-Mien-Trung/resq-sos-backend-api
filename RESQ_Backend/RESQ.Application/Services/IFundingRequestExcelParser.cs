@@ -1,19 +1,19 @@
-using RESQ.Domain.Entities.Finance;
+﻿using RESQ.Domain.Entities.Finance;
 
 namespace RESQ.Application.Services;
 
 public interface IFundingRequestExcelParser
 {
     /// <summary>
-    /// Parse file Excel v?t ph?m t? FundingRequest.
-    /// Tr? v? danh s�ch items v� t?ng ti?n.
+    /// Parse file Excel vật phẩm từ FundingRequest.
+    /// Trả về danh sách items và tổng tiền.
     /// </summary>
-    /// <param name="fileStream">Stream c?a file Excel (.xlsx).</param>
-    /// <returns>Danh s�ch items du?c parse t? file.</returns>
+    /// <param name="fileStream">Stream của file Excel (.xlsx).</param>
+    /// <returns>Danh sách items được parse từ file.</returns>
     List<FundingRequestItemModel> ParseSupplyItems(Stream fileStream);
 
     /// <summary>
-    /// T�nh t?ng ti?n t? danh s�ch items.
+    /// Tính tổng tiền từ danh sách items.
     /// </summary>
     decimal CalculateTotal(List<FundingRequestItemModel> items);
 }

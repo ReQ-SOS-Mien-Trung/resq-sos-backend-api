@@ -1,8 +1,8 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.ExportClosureTemplate;
 
 /// <summary>
-/// T?i file Excel template d? depot manager ghi nh?n c�ch x? l� t?n kho b�n ngo�i.
+/// Tải file Excel template để depot manager ghi nhận cách xử lý tồn kho bên ngoài.
 /// </summary>
-public record ExportClosureTemplateQuery(Guid UserId) : IRequest<ExportClosureTemplateResponse>;
+public record ExportClosureTemplateQuery(Guid UserId, int? DepotId = null) : IRequest<ExportClosureTemplateResponse>;

@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Models;
+﻿using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.Finance;
 
 namespace RESQ.Application.Repositories.Finance;
@@ -12,17 +12,17 @@ public interface ICampaignDisbursementRepository
         int? campaignId = null, int? depotId = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>L?y danh s�ch disbursement c�ng khai cho donor xem (bao g?m items).</summary>
+    /// <summary>Lấy danh sách disbursement công khai cho donor xem (bao gồm items).</summary>
     Task<PagedResult<CampaignDisbursementModel>> GetPublicByCampaignAsync(
         int campaignId, int pageNumber, int pageSize,
         CancellationToken cancellationToken = default);
 
-    /// <summary>T�nh t?ng s? ti?n d� gi?i ng�n t? campaign.</summary>
+    /// <summary>Tính tổng số tiền đã giải ngân từ campaign.</summary>
     Task<decimal> GetTotalDisbursedByCampaignAsync(int campaignId, CancellationToken cancellationToken = default);
 
-    /// <summary>T?o m?i disbursement, luu ngay v� tr? v? ID du?c sinh ra t? DB.</summary>
+    /// <summary>Tạo mới disbursement, lưu ngay và trả về ID được sinh ra từ DB.</summary>
     Task<int> CreateAsync(CampaignDisbursementModel model, CancellationToken cancellationToken = default);
 
-    /// <summary>Th�m danh s�ch v?t ph?m d� mua v�o disbursement (cho donor xem).</summary>
+    /// <summary>Thêm danh sách vật phẩm đã mua vào disbursement (cho donor xem).</summary>
     Task AddItemsAsync(int disbursementId, List<DisbursementItemModel> items, CancellationToken cancellationToken = default);
 }

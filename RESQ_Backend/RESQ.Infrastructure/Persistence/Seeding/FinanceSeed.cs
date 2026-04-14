@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 
@@ -12,9 +12,9 @@ public static class FinanceSeed
         var campaign1CreatedAt = new DateTime(2026, 2, 12, 9, 43, 42, 480, DateTimeKind.Utc).AddTicks(3636);
         var campaign2CreatedAt = new DateTime(2025, 8, 13, 9, 43, 42, 480, DateTimeKind.Utc).AddTicks(3648);
 
-        // 0.1 Depot Funds (v� kho)
-        // H?n m?c ?ng v� du n? ?ng du?c qu?n l� ? c?p Depot.
-        // FundSourceType = "Campaign", FundSourceId = 1 ? d?n t? chi?n d?ch FLOOD_RELIEF_2026
+        // 0.1 Depot Funds (ví kho)
+        // Hạn mức ứng và dư nợ ứng được quản lý ở cấp Depot.
+        // FundSourceType = "Campaign", FundSourceId = 1 → đến từ chiến dịch FLOOD_RELIEF_2026
         var depotFunds = new List<DepotFund>
         {
             new DepotFund { Id = 1, DepotId = 1, Balance = 120_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
@@ -28,7 +28,7 @@ public static class FinanceSeed
         };
         modelBuilder.Entity<DepotFund>().HasData(depotFunds);
 
-        // 0.2 Depot Fund Transactions - d? li?u m?u l?ch s? v� kho
+        // 0.2 Depot Fund Transactions - dữ liệu mẫu lịch sử ví kho
         var depotFundTransactions = new List<DepotFundTransaction>
         {
             new DepotFundTransaction
@@ -39,7 +39,7 @@ public static class FinanceSeed
                 Amount = 200_000_000m,
                 ReferenceType = "FundingRequest",
                 ReferenceId = 1001,
-                Note = "Admin c?p qu? d?u k? cho kho Hu?",
+                Note = "Admin cấp quỹ đầu kỳ cho kho Huế",
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = new DateTime(2026, 1, 5, 2, 0, 0, DateTimeKind.Utc)
             },
@@ -51,7 +51,7 @@ public static class FinanceSeed
                 Amount = 80_000_000m,
                 ReferenceType = "VatInvoice",
                 ReferenceId = 1,
-                Note = "Nh?p h�ng qu� I",
+                Note = "Nhập hàng quý I",
                 CreatedBy = SeedConstants.ManagerUserId,
                 CreatedAt = new DateTime(2026, 2, 2, 3, 30, 0, DateTimeKind.Utc)
             },
@@ -63,7 +63,7 @@ public static class FinanceSeed
                 Amount = 120_000_000m,
                 ReferenceType = "FundingRequest",
                 ReferenceId = 1002,
-                Note = "Admin c?p qu? kho �� N?ng",
+                Note = "Admin cấp quỹ kho Đà Nẵng",
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = new DateTime(2026, 1, 8, 2, 15, 0, DateTimeKind.Utc)
             },
@@ -75,7 +75,7 @@ public static class FinanceSeed
                 Amount = 30_000_000m,
                 ReferenceType = "VatInvoice",
                 ReferenceId = 2,
-                Note = "Kho t? ?ng khi nh?p h�ng vu?t s? du",
+                Note = "Kho tự ứng khi nhập hàng vượt số dư",
                 CreatedBy = SeedConstants.Manager2UserId,
                 CreatedAt = new DateTime(2026, 2, 20, 4, 0, 0, DateTimeKind.Utc)
             },
@@ -87,7 +87,7 @@ public static class FinanceSeed
                 Amount = 20_000_000m,
                 ReferenceType = "FundingRequest",
                 ReferenceId = 1003,
-                Note = "Tr? m?t ph?n n? t? ?ng sau khi du?c c?p b? sung",
+                Note = "Trả một phần nợ tự ứng sau khi được cấp bổ sung",
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = new DateTime(2026, 3, 1, 1, 45, 0, DateTimeKind.Utc)
             },
@@ -99,7 +99,7 @@ public static class FinanceSeed
                 Amount = 90_000_000m,
                 ReferenceType = "FundingRequest",
                 ReferenceId = 1004,
-                Note = "Admin c?p qu? kho H� Tinh",
+                Note = "Admin cấp quỹ kho Hà Tĩnh",
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = new DateTime(2026, 1, 10, 2, 10, 0, DateTimeKind.Utc)
             },
@@ -111,7 +111,7 @@ public static class FinanceSeed
                 Amount = 260_000_000m,
                 ReferenceType = "FundingRequest",
                 ReferenceId = 1005,
-                Note = "Admin c?p qu? kho trung t�m",
+                Note = "Admin cấp quỹ kho trung tâm",
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = new DateTime(2026, 1, 3, 1, 30, 0, DateTimeKind.Utc)
             },
@@ -123,7 +123,7 @@ public static class FinanceSeed
                 Amount = 110_000_000m,
                 ReferenceType = "VatInvoice",
                 ReferenceId = 3,
-                Note = "Nh?p v?t ph?m y t? v� c?u h?",
+                Note = "Nhập vật phẩm y tế và cứu hộ",
                 CreatedBy = SeedConstants.Manager4UserId,
                 CreatedAt = new DateTime(2026, 2, 14, 3, 20, 0, DateTimeKind.Utc)
             },
@@ -135,7 +135,7 @@ public static class FinanceSeed
                 Amount = 18_000_000m,
                 ReferenceType = "FundingRequest",
                 ReferenceId = 1006,
-                Note = "Admin c?p qu? kho Thang B�nh d? test d�ng kho x? l� b�n ngo�i",
+                Note = "Admin cấp quỹ kho Thăng Bình để test đóng kho xử lý bên ngoài",
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = new DateTime(2026, 1, 12, 2, 0, 0, DateTimeKind.Utc)
             },
@@ -147,7 +147,7 @@ public static class FinanceSeed
                 Amount = 22_000_000m,
                 ReferenceType = "FundingRequest",
                 ReferenceId = 1007,
-                Note = "Admin c?p qu? kho Qu?ng Ninh d? test d�ng kho chuy?n kho",
+                Note = "Admin cấp quỹ kho Quảng Ninh để test đóng kho chuyển kho",
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = new DateTime(2026, 1, 14, 2, 15, 0, DateTimeKind.Utc)
             },
@@ -159,7 +159,7 @@ public static class FinanceSeed
                 Amount = 8_000_000m,
                 ReferenceType = "FundingRequest",
                 ReferenceId = 1008,
-                Note = "Admin c?p qu? kho Ngh? An d? test d�ng kho tr?ng",
+                Note = "Admin cấp quỹ kho Nghệ An để test đóng kho trống",
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = new DateTime(2026, 1, 16, 1, 45, 0, DateTimeKind.Utc)
             }
@@ -173,13 +173,13 @@ public static class FinanceSeed
             {
                 Id = 1,
                 Code = "FLOOD_RELIEF_2026",
-                Name = "Qu? H? Tr? N?n Nh�n Lu L?t Mi?n Trung 2026",
-                Region = "Mi?n Trung",
+                Name = "Quỹ Hỗ Trợ Nạn Nhân Lũ Lụt Miền Trung 2026",
+                Region = "Miền Trung",
                 CampaignStartDate = new DateOnly(2026, 1, 1),
                 CampaignEndDate = new DateOnly(2026, 12, 31),
-                TargetAmount = 1000000000, // 1 t? VND
-                TotalAmount = 7500000,     // T?ng demo
-                CurrentBalance = 7500000,  // S? du hi?n t?i
+                TargetAmount = 1000000000, // 1 tỷ VND
+                TotalAmount = 7500000,     // Tổng demo
+                CurrentBalance = 7500000,  // Số dư hiện tại
                 Status = FundCampaignStatus.Active.ToString(),
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = campaign1CreatedAt
@@ -188,13 +188,13 @@ public static class FinanceSeed
             {
                 Id = 2,
                 Code = "MEDICAL_SUPPLY_HN",
-                Name = "Qu? Cung C?p Thi?t B? Y T? Hu?",
-                Region = "Hu?",
+                Name = "Quỹ Cung Cấp Thiết Bị Y Tế Huế",
+                Region = "Huế",
                 CampaignStartDate = new DateOnly(2025, 1, 15),
                 CampaignEndDate = new DateOnly(2025, 3, 31),
-                TargetAmount = 500000000, // 500 tri?u VND
-                TotalAmount = 520000000,   // �� d?t m?c ti�u
-                CurrentBalance = 520000000, // S? du hi?n t?i
+                TargetAmount = 500000000, // 500 triệu VND
+                TotalAmount = 520000000,   // Đã đạt mục tiêu
+                CurrentBalance = 520000000, // Số dư hiện tại
                 Status = FundCampaignStatus.Closed.ToString(),
                 CreatedBy = SeedConstants.AdminUserId,
                 CreatedAt = campaign2CreatedAt
@@ -211,7 +211,7 @@ public static class FinanceSeed
             {
                 Id = 1,
                 FundCampaignId = 1,
-                DonorName = "Nguy?n Van A",
+                DonorName = "Nguyễn Văn A",
                 DonorEmail = "nguyenvana@example.com",
                 Amount = 500000,
                 OrderId = "2607150001",
@@ -219,7 +219,7 @@ public static class FinanceSeed
                 Status = Status.Succeed.ToString(),
                 PaymentMethodCode = PaymentMethodCode.PAYOS,
                 PaidAt = new DateTime(2026, 1, 15, 10, 30, 0, DateTimeKind.Utc),
-                Note = "Mong b� con s?m vu?t qua kh� khan.",
+                Note = "Mong bà con sớm vượt qua khó khăn.",
                 PaymentAuditInfo = "[Bank:MBBANK-1234567890]", 
                 IsPrivate = false,
                 CreatedAt = new DateTime(2026, 1, 15, 10, 25, 0, DateTimeKind.Utc)
@@ -228,7 +228,7 @@ public static class FinanceSeed
             {
                 Id = 2,
                 FundCampaignId = 1,
-                DonorName = "Tr?n Th? B",
+                DonorName = "Trần Thị B",
                 DonorEmail = "tranthib@example.com",
                 Amount = 2000000,
                 OrderId = "2607160002",
@@ -236,7 +236,7 @@ public static class FinanceSeed
                 Status = Status.Succeed.ToString(),
                 PaymentMethodCode = PaymentMethodCode.PAYOS,
                 PaidAt = new DateTime(2026, 1, 16, 14, 15, 0, DateTimeKind.Utc),
-                Note = "?ng h? mi?n Trung ru?t th?t.",
+                Note = "Ủng hộ miền Trung ruột thịt.",
                 PaymentAuditInfo = "[Bank:VIETCOMBANK-0987654321]", 
                 IsPrivate = true, 
                 CreatedAt = new DateTime(2026, 1, 16, 14, 10, 0, DateTimeKind.Utc)
@@ -245,7 +245,7 @@ public static class FinanceSeed
             {
                 Id = 3,
                 FundCampaignId = 1,
-                DonorName = "L� Van C",
+                DonorName = "Lê Văn C",
                 DonorEmail = "levanc@example.com",
                 Amount = 5000000,
                 OrderId = "2608010003",
@@ -253,7 +253,7 @@ public static class FinanceSeed
                 Status = Status.Succeed.ToString(),
                 PaymentMethodCode = PaymentMethodCode.MOMO,
                 PaidAt = new DateTime(2026, 2, 1, 09, 00, 0, DateTimeKind.Utc),
-                Note = "G�p m?t ph?n nh? b�.",
+                Note = "Góp một phần nhỏ bé.",
                 PaymentAuditInfo = "[MoMo:TransId=99887766,Type=captureWallet]", 
                 IsPrivate = false,
                 CreatedAt = new DateTime(2026, 2, 1, 08, 55, 0, DateTimeKind.Utc)
@@ -264,7 +264,7 @@ public static class FinanceSeed
             {
                 Id = 4,
                 FundCampaignId = 2,
-                DonorName = "C�ng ty TNHH ABC",
+                DonorName = "Công ty TNHH ABC",
                 DonorEmail = "contact@abc.vn",
                 Amount = 50000000,
                 OrderId = "2502100004",
@@ -272,7 +272,7 @@ public static class FinanceSeed
                 Status = Status.Succeed.ToString(),
                 PaymentMethodCode = PaymentMethodCode.PAYOS,
                 PaidAt = new DateTime(2025, 2, 10, 11, 20, 0, DateTimeKind.Utc),
-                Note = "H? tr? thi?t b? y t? cho b?nh vi?n.",
+                Note = "Hỗ trợ thiết bị y tế cho bệnh viện.",
                 PaymentAuditInfo = "[Bank:BIDV-555666777]", 
                 IsPrivate = false,
                 CreatedAt = new DateTime(2025, 2, 10, 11, 15, 0, DateTimeKind.Utc)
@@ -281,7 +281,7 @@ public static class FinanceSeed
             {
                 Id = 5,
                 FundCampaignId = 2,
-                DonorName = "Ph?m Van D",
+                DonorName = "Phạm Văn D",
                 DonorEmail = "phamvand@example.com",
                 Amount = 200000,
                 OrderId = "2502150005",
@@ -289,7 +289,7 @@ public static class FinanceSeed
                 Status = Status.Succeed.ToString(),
                 PaymentMethodCode = PaymentMethodCode.MOMO,
                 PaidAt = new DateTime(2025, 2, 15, 16, 45, 0, DateTimeKind.Utc),
-                Note = "Ch�c c�c b�c si nhi?u s?c kh?e.",
+                Note = "Chúc các bác sĩ nhiều sức khỏe.",
                 PaymentAuditInfo = "[MoMo:TransId=55443322,Type=qr]",
                 IsPrivate = true,
                 CreatedAt = new DateTime(2025, 2, 15, 16, 40, 0, DateTimeKind.Utc)

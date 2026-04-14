@@ -1,11 +1,11 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 
 namespace RESQ.Application.UseCases.Finance.Queries.GetPublicCampaignSpending;
 
 /// <summary>
-/// [C�ng khai] Donor xem ti?n campaign d� du?c s? d?ng d? mua v?t ph?m g�.
-/// Kh�ng c?n dang nh?p.
+/// [Công khai] Donor xem tiền campaign đã được sử dụng để mua vật phẩm gì.
+/// Không cần đăng nhập.
 /// </summary>
 public record GetPublicCampaignSpendingQuery(
     int CampaignId,

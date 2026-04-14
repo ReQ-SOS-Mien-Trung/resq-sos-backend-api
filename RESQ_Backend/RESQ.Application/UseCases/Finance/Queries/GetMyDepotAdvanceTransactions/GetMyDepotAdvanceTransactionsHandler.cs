@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Extensions;
@@ -19,7 +19,6 @@ public class GetMyDepotAdvanceTransactionsHandler(
     private readonly IDepotInventoryRepository _depotInventoryRepo = depotInventoryRepo;
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotFundRepository _depotFundRepo = depotFundRepo;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<DepotFundTransactionDto>> Handle(
         GetMyDepotAdvanceTransactionsQuery request,

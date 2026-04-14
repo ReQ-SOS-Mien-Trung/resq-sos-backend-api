@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
@@ -34,22 +34,22 @@ public static class LogisticsSeeder
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        // Quantity = t?ng v?t ph?m theo danh m?c c?a T?T C? kho
-        // Consumable: baseQty � (1.0 + 0.8 + 0.6 + 0.9) = baseQty � 3.3
-        // Reusable (phi xe): s? item � 3 units/kho � 4 kho = � 12
-        // Vehicle: t�nh t?ng xe theo depot factor
+        // Quantity = tổng vật phẩm theo danh mục của TẤT CẢ kho
+        // Consumable: baseQty × (1.0 + 0.8 + 0.6 + 0.9) = baseQty × 3.3
+        // Reusable (phi xe): số item × 3 units/kho × 4 kho = × 12
+        // Vehicle: tính từng xe theo depot factor
         modelBuilder.Entity<ItemCategory>().HasData(
-            new ItemCategory { Id = 1,  Code = "Food",            Name = "Th?c ph?m",         Quantity = 597300,  Description = "Luong th?c, d? an kh�",                   CreatedAt = now },
-            new ItemCategory { Id = 2,  Code = "Water",           Name = "Nu?c u?ng",         Quantity = 382800,  Description = "Nu?c s?ch, nu?c d�ng chai",             CreatedAt = now },
-            new ItemCategory { Id = 3,  Code = "Medical",         Name = "Y t?",              Quantity = 574200,  Description = "Thu?c men, d?ng c? so c?u",          CreatedAt = now },
-            new ItemCategory { Id = 4,  Code = "Hygiene",         Name = "V? sinh c� nh�n",   Quantity = 242550,  Description = "Khan gi?y, x� ph�ng, bang v? sinh",    CreatedAt = now },
-            new ItemCategory { Id = 5,  Code = "Clothing",        Name = "Qu?n �o",            Quantity = 13860,   Description = "Qu?n �o s?ch, �o mua",                  CreatedAt = now },
-            new ItemCategory { Id = 6,  Code = "Shelter",         Name = "Noi tr� ?n",         Quantity = 18186,   Description = "L?u b?t, t�i ng?",                     CreatedAt = now },
-            new ItemCategory { Id = 7,  Code = "RepairTools",     Name = "C�ng c? s?a ch?a",  Quantity = 23196,   Description = "B�a, dinh, cua",                       CreatedAt = now },
-            new ItemCategory { Id = 8,  Code = "RescueEquipment", Name = "Thi?t b? c?u h?",  Quantity = 168,     Description = "�o phao, xu?ng, d�y th?ng",              CreatedAt = now },
-            new ItemCategory { Id = 9,  Code = "Heating",         Name = "Su?i ?m",            Quantity = 32340,   Description = "Chan, than, m�y su?i",                  CreatedAt = now },
-            new ItemCategory { Id = 10, Code = "Vehicle",         Name = "Phuong ti?n",        Quantity = 119,     Description = "Xe c?, phuong ti?n v?n chuy?n c?u tr?", CreatedAt = now },
-            new ItemCategory { Id = 99, Code = "Others",          Name = "Kh�c",               Quantity = 8616,    Description = "C�c v?t ph?m kh�c",                    CreatedAt = now }
+            new ItemCategory { Id = 1,  Code = "Food",            Name = "Thực phẩm",         Quantity = 597300,  Description = "Lương thực, đồ ăn khô",                   CreatedAt = now },
+            new ItemCategory { Id = 2,  Code = "Water",           Name = "Nước uống",         Quantity = 382800,  Description = "Nước sạch, nước đóng chai",             CreatedAt = now },
+            new ItemCategory { Id = 3,  Code = "Medical",         Name = "Y tế",              Quantity = 574200,  Description = "Thuốc men, dụng cụ sơ cứu",          CreatedAt = now },
+            new ItemCategory { Id = 4,  Code = "Hygiene",         Name = "Vệ sinh cá nhân",   Quantity = 242550,  Description = "Khăn giấy, xà phòng, băng vệ sinh",    CreatedAt = now },
+            new ItemCategory { Id = 5,  Code = "Clothing",        Name = "Quần áo",            Quantity = 13860,   Description = "Quần áo sạch, áo mưa",                  CreatedAt = now },
+            new ItemCategory { Id = 6,  Code = "Shelter",         Name = "Nơi trú ẩn",         Quantity = 18186,   Description = "Lều bạt, túi ngủ",                     CreatedAt = now },
+            new ItemCategory { Id = 7,  Code = "RepairTools",     Name = "Công cụ sửa chữa",  Quantity = 23196,   Description = "Búa, đinh, cưa",                       CreatedAt = now },
+            new ItemCategory { Id = 8,  Code = "RescueEquipment", Name = "Thiết bị cứu hộ",  Quantity = 168,     Description = "Áo phao, xuồng, dây thừng",              CreatedAt = now },
+            new ItemCategory { Id = 9,  Code = "Heating",         Name = "Sưởi ấm",            Quantity = 32340,   Description = "Chăn, than, máy sưởi",                  CreatedAt = now },
+            new ItemCategory { Id = 10, Code = "Vehicle",         Name = "Phương tiện",        Quantity = 119,     Description = "Xe cộ, phương tiện vận chuyển cứu trợ", CreatedAt = now },
+            new ItemCategory { Id = 99, Code = "Others",          Name = "Khác",               Quantity = 8616,    Description = "Các vật phẩm khác",                    CreatedAt = now }
         );
     }
 
@@ -58,16 +58,16 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<Organization>().HasData(
-            new Organization { Id = 1, Name = "H?i Ch? Th?p �? - Th?a Thi�n Hu?", Phone = "02343822123", Email = "hue@redcross.org.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new Organization { Id = 2, Name = "?y ban MTTQ Vi?t Nam - Qu?ng B�nh", Phone = "02323812345", Email = "mttq@quangbinh.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new Organization { Id = 3, Name = "Qu? T?m L�ng V�ng - �� N?ng", Phone = "02363567890", Email = "contact@tamlongvang-dn.org", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new Organization { Id = 4, Name = "T?nh �o�n Qu?ng Tr?", Phone = "02333852111", Email = "tinhdoan@quangtri.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new Organization { Id = 5, Name = "H?i Li�n hi?p Ph? n? - H� Tinh", Phone = "02393855222", Email = "phunu@hatinh.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new Organization { Id = 6, Name = "Nh�m Thi?n Nguy?n �?ng Xanh - Qu?ng Nam", Phone = "0905123456", Email = "dongxanh@thiennguyen.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new Organization { Id = 7, Name = "H?i Ch? Th?p �? - Qu?ng Ng�i", Phone = "02553822777", Email = "quangngai@redcross.org.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new Organization { Id = 8, Name = "Ban Ch? huy PCTT & TKCN Mi?n Trung", Phone = "02363822999", Email = "pctt@mientrung.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new Organization { Id = 9, Name = "C�u l?c b? T�nh Ngu?i - Ph� Y�n", Phone = "0988765432", Email = "tinhnguoi@phuyen.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new Organization { Id = 10, Name = "Qu? B?o tr? Tr? em Mi?n Trung", Phone = "02343811811", Email = "treem@baotromientrung.vn", IsActive = true, CreatedAt = now, UpdatedAt = now }
+            new Organization { Id = 1, Name = "Hội Chữ Thập Đỏ - Thừa Thiên Huế", Phone = "02343822123", Email = "hue@redcross.org.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 2, Name = "Ủy ban MTTQ Việt Nam - Quảng Bình", Phone = "02323812345", Email = "mttq@quangbinh.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 3, Name = "Quỹ Tấm Lòng Vàng - Đà Nẵng", Phone = "02363567890", Email = "contact@tamlongvang-dn.org", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 4, Name = "Tỉnh Đoàn Quảng Trị", Phone = "02333852111", Email = "tinhdoan@quangtri.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 5, Name = "Hội Liên hiệp Phụ nữ - Hà Tĩnh", Phone = "02393855222", Email = "phunu@hatinh.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 6, Name = "Nhóm Thiện Nguyện Đồng Xanh - Quảng Nam", Phone = "0905123456", Email = "dongxanh@thiennguyen.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 7, Name = "Hội Chữ Thập Đỏ - Quảng Ngãi", Phone = "02553822777", Email = "quangngai@redcross.org.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 8, Name = "Ban Chỉ huy PCTT & TKCN Miền Trung", Phone = "02363822999", Email = "pctt@mientrung.gov.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 9, Name = "Câu lạc bộ Tình Người - Phú Yên", Phone = "0988765432", Email = "tinhnguoi@phuyen.vn", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new Organization { Id = 10, Name = "Quỹ Bảo trợ Trẻ em Miền Trung", Phone = "02343811811", Email = "treem@baotromientrung.vn", IsActive = true, CreatedAt = now, UpdatedAt = now }
         );
     }
 
@@ -77,139 +77,139 @@ public static class LogisticsSeeder
 
         var items = new[]
         {
-            // -- Category 1: Th?c ph?m (Food) - 10 items ----------------------
-            new ReliefItem { Id = 1,  CategoryId = 1, Name = "M� t�m",                        Description = "M� an li?n d�ng g�i d�ng c?u tr? kh?n c?p", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.8m,    WeightPerUnit = 0.075m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 7,  CategoryId = 1, Name = "S?a b?t tr? em",                Description = "S?a b?t dinh du?ng d�nh cho tr? em du?i 6 tu?i", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.5m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 8,  CategoryId = 1, Name = "Luong kh�",                     Description = "Luong kh� nang lu?ng cao, b?o qu?n l�u d�i", Unit = "thanh", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.06m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 11, CategoryId = 1, Name = "G?o s?y kh�",                   Description = "G?o s?y kh� an li?n, ch? c?n th�m nu?c n�ng", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.6m,    WeightPerUnit = 0.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 12, CategoryId = 1, Name = "Ch�o an li?n",                  Description = "Ch�o an li?n d�ng g�i, d? ti�u h�a cho m?i l?a tu?i", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.4m,    WeightPerUnit = 0.065m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 13, CategoryId = 1, Name = "B�nh m� kh�",                   Description = "B�nh m� kh� b?o qu?n l�u, ti?n l?i khi c?u tr?", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.8m,    WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 14, CategoryId = 1, Name = "Mu?i tinh",                     Description = "Mu?i tinh ti�u chu?n d�ng ch? bi?n th?c ph?m", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.2m,    WeightPerUnit = 0.25m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 15, CategoryId = 1, Name = "�u?ng c�t tr?ng",               Description = "�u?ng c�t tr?ng tinh luy?n d�ng pha ch? v� n?u an", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.35m,   WeightPerUnit = 0.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 16, CategoryId = 1, Name = "D?u an th?c v?t",               Description = "D?u an th?c v?t d�ng chai d�ng ch? bi?n th?c ph?m", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.2m,    WeightPerUnit = 1.0m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 17, CategoryId = 1, Name = "Th?t h?p d�ng g�i",             Description = "Th?t h?p d�ng g�i b?o qu?n l�u, gi�u dinh du?ng", Unit = "h?p",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.5m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
+            // -- Category 1: Thực phẩm (Food) - 10 items ----------------------
+            new ReliefItem { Id = 1,  CategoryId = 1, Name = "Mì tôm",                        Description = "Mì ăn liền đóng gói dùng cứu trợ khẩn cấp", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.8m,    WeightPerUnit = 0.075m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 7,  CategoryId = 1, Name = "Sữa bột trẻ em",                Description = "Sữa bột dinh dưỡng dành cho trẻ em dưới 6 tuổi", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.5m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 8,  CategoryId = 1, Name = "Lương khô",                     Description = "Lương khô năng lượng cao, bảo quản lâu dài", Unit = "thanh", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.06m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 11, CategoryId = 1, Name = "Gạo sấy khô",                   Description = "Gạo sấy khô ăn liền, chỉ cần thêm nước nóng", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.6m,    WeightPerUnit = 0.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 12, CategoryId = 1, Name = "Cháo ăn liền",                  Description = "Cháo ăn liền đóng gói, dễ tiêu hóa cho mọi lứa tuổi", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.4m,    WeightPerUnit = 0.065m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 13, CategoryId = 1, Name = "Bánh mì khô",                   Description = "Bánh mì khô bảo quản lâu, tiện lợi khi cứu trợ", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.8m,    WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 14, CategoryId = 1, Name = "Muối tinh",                     Description = "Muối tinh tiêu chuẩn dùng chế biến thực phẩm", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.2m,    WeightPerUnit = 0.25m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 15, CategoryId = 1, Name = "Đường cát trắng",               Description = "Đường cát trắng tinh luyện dùng pha chế và nấu ăn", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.35m,   WeightPerUnit = 0.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 16, CategoryId = 1, Name = "Dầu ăn thực vật",               Description = "Dầu ăn thực vật đóng chai dùng chế biến thực phẩm", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.2m,    WeightPerUnit = 1.0m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 17, CategoryId = 1, Name = "Thịt hộp đóng gói",             Description = "Thịt hộp đóng gói bảo quản lâu, giàu dinh dưỡng", Unit = "hộp",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.5m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 2: Nu?c u?ng (Water) - 7 items (ti�u hao, ph�t cho n?n nh�n) --
-            new ReliefItem { Id = 2,  CategoryId = 2, Name = "Nu?c tinh khi?t",               Description = "Nu?c u?ng d�ng chai 500ml ph?c v? c?p ph�t", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.6m,    WeightPerUnit = 0.52m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 18, CategoryId = 2, Name = "Nu?c l?c b�nh 20L",             Description = "B�nh nu?c l?c 20 l�t ph?c v? sinh ho?t t?p th?", Unit = "b�nh",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 22.0m,   WeightPerUnit = 20.5m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 19, CategoryId = 2, Name = "Vi�n l?c nu?c kh?n c?p",        Description = "Vi�n l?c nu?c c?m tay, x? l� nu?c b?n th�nh nu?c u?ng", Unit = "vi�n",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.005m,  WeightPerUnit = 0.004m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 20, CategoryId = 2, Name = "Nu?c d�ng th�ng 24 chai",       Description = "Th�ng 24 chai nu?c u?ng 500ml ti?n ph�n ph?i", Unit = "th�ng", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 16.0m,   WeightPerUnit = 13.0m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 22, CategoryId = 2, Name = "Nu?c kho�ng thi�n nhi�n 500ml", Description = "Nu?c kho�ng thi�n nhi�n d�ng chai 500ml", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.6m,    WeightPerUnit = 0.53m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 25, CategoryId = 2, Name = "Nu?c d?a d�ng h?p",             Description = "Nu?c d?a tuoi d�ng h?p b? sung di?n gi?i", Unit = "h?p",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.4m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 26, CategoryId = 2, Name = "B?t b� di?n gi?i ORS",          Description = "B?t pha b� nu?c v� di?n gi?i cho ngu?i m?t nu?c", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.05m,   WeightPerUnit = 0.025m,  CreatedAt = now, UpdatedAt = now },
+            // -- Category 2: Nước uống (Water) - 7 items (tiêu hao, phát cho nạn nhân) --
+            new ReliefItem { Id = 2,  CategoryId = 2, Name = "Nước tinh khiết",               Description = "Nước uống đóng chai 500ml phục vụ cấp phát", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.6m,    WeightPerUnit = 0.52m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 18, CategoryId = 2, Name = "Nước lọc bình 20L",             Description = "Bình nước lọc 20 lít phục vụ sinh hoạt tập thể", Unit = "bình",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 22.0m,   WeightPerUnit = 20.5m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 19, CategoryId = 2, Name = "Viên lọc nước khẩn cấp",        Description = "Viên lọc nước cầm tay, xử lý nước bẩn thành nước uống", Unit = "viên",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.005m,  WeightPerUnit = 0.004m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 20, CategoryId = 2, Name = "Nước đóng thùng 24 chai",       Description = "Thùng 24 chai nước uống 500ml tiện phân phối", Unit = "thùng", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 16.0m,   WeightPerUnit = 13.0m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 22, CategoryId = 2, Name = "Nước khoáng thiên nhiên 500ml", Description = "Nước khoáng thiên nhiên đóng chai 500ml", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.6m,    WeightPerUnit = 0.53m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 25, CategoryId = 2, Name = "Nước dừa đóng hộp",             Description = "Nước dừa tươi đóng hộp bổ sung điện giải", Unit = "hộp",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.4m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 26, CategoryId = 2, Name = "Bột bù điện giải ORS",          Description = "Bột pha bù nước và điện giải cho người mất nước", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.05m,   WeightPerUnit = 0.025m,  CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 3: Y t? (Medical) - 9 items (ti�u hao, c?p ph�t cho n?n nh�n) --
-            new ReliefItem { Id = 3,  CategoryId = 3, Name = "Thu?c h? s?t Paracetamol 500mg", Description = "Thu?c h? s?t gi?m dau co b?n cho ngu?i l?n", Unit = "vi�n",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.005m,  WeightPerUnit = 0.002m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 9,  CategoryId = 3, Name = "D?u gi�",                         Description = "D?u gi� xanh d�ng xoa b�p gi?m dau, ch?ng c?m", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.04m,   WeightPerUnit = 0.035m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 10, CategoryId = 3, Name = "S?t & Vitamin t?ng h?p",          Description = "Vi�n u?ng b? sung s?t v� vitamin t?ng h?p", Unit = "vi�n",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.005m,  WeightPerUnit = 0.002m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 27, CategoryId = 3, Name = "Bang g?c y t? v� khu?n",          Description = "Bang g?c v� khu?n d�ng bang b� v?t thuong", Unit = "cu?n",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.05m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 28, CategoryId = 3, Name = "B�ng g�n y t?",                   Description = "B�ng g�n y t? v� khu?n d�ng v? sinh v� so c?u", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.4m,    WeightPerUnit = 0.05m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 29, CategoryId = 3, Name = "Thu?c kh�ng sinh Amoxicillin",    Description = "Thu?c kh�ng sinh ph? r?ng di?u tr? nhi?m khu?n", Unit = "vi�n",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.005m,  WeightPerUnit = 0.002m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 30, CategoryId = 3, Name = "Dung d?ch s�t khu?n Betadine",    Description = "Dung d?ch s�t khu?n Povidone-Iodine r?a v?t thuong", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.12m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 32, CategoryId = 3, Name = "Kh?u trang y t? 3 l?p",           Description = "Kh?u trang y t? d�ng m?t l?n, d�ng g�i v� khu?n", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.04m,   WeightPerUnit = 0.005m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 33, CategoryId = 3, Name = "B? so c?u co b?n",                Description = "B? so c?u g?m bang, g?c, k�o, k?p v� thu?c co b?n", Unit = "b?",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 3.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
+            // -- Category 3: Y tế (Medical) - 9 items (tiêu hao, cấp phát cho nạn nhân) --
+            new ReliefItem { Id = 3,  CategoryId = 3, Name = "Thuốc hạ sốt Paracetamol 500mg", Description = "Thuốc hạ sốt giảm đau cơ bản cho người lớn", Unit = "viên",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.005m,  WeightPerUnit = 0.002m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 9,  CategoryId = 3, Name = "Dầu gió",                         Description = "Dầu gió xanh dùng xoa bóp giảm đau, chống cảm", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.04m,   WeightPerUnit = 0.035m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 10, CategoryId = 3, Name = "Sắt & Vitamin tổng hợp",          Description = "Viên uống bổ sung sắt và vitamin tổng hợp", Unit = "viên",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.005m,  WeightPerUnit = 0.002m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 27, CategoryId = 3, Name = "Băng gạc y tế vô khuẩn",          Description = "Băng gạc vô khuẩn dùng băng bó vết thương", Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.05m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 28, CategoryId = 3, Name = "Bông gòn y tế",                   Description = "Bông gòn y tế vô khuẩn dùng vệ sinh và sơ cứu", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.4m,    WeightPerUnit = 0.05m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 29, CategoryId = 3, Name = "Thuốc kháng sinh Amoxicillin",    Description = "Thuốc kháng sinh phổ rộng điều trị nhiễm khuẩn", Unit = "viên",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.005m,  WeightPerUnit = 0.002m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 30, CategoryId = 3, Name = "Dung dịch sát khuẩn Betadine",    Description = "Dung dịch sát khuẩn Povidone-Iodine rửa vết thương", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.12m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 32, CategoryId = 3, Name = "Khẩu trang y tế 3 lớp",           Description = "Khẩu trang y tế dùng một lần, đóng gói vô khuẩn", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.04m,   WeightPerUnit = 0.005m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 33, CategoryId = 3, Name = "Bộ sơ cứu cơ bản",                Description = "Bộ sơ cứu gồm băng, gạc, kéo, kẹp và thuốc cơ bản", Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 3.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 4: V? sinh c� nh�n (Hygiene) - 10 items -------------
-            new ReliefItem { Id = 5,  CategoryId = 4, Name = "Bang v? sinh",              Description = "Bang v? sinh ph? n? d�ng m?t l?n, d�ng g�i ri�ng", Unit = "mi?ng", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.06m,   WeightPerUnit = 0.015m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 34, CategoryId = 4, Name = "X� ph�ng di?t khu?n",      Description = "X� ph�ng c?c di?t khu?n d�ng v? sinh c� nh�n", Unit = "b�nh",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.12m,   WeightPerUnit = 0.1m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 35, CategoryId = 4, Name = "Nu?c r?a tay kh�",          Description = "Gel r?a tay kh� di?t khu?n nhanh, kh�ng c?n nu?c", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.3m,    WeightPerUnit = 0.28m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 36, CategoryId = 4, Name = "Khan u?t kh�ng khu?n",      Description = "Khan u?t kh�ng khu?n ti?n d?ng, d�ng g�i 10 t?", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.25m,   WeightPerUnit = 0.1m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 37, CategoryId = 4, Name = "Kem d�nh rang",             Description = "Kem d�nh rang k�ch thu?c nh? g?n ph� h?p c?u tr?", Unit = "tu�p",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.12m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 38, CategoryId = 4, Name = "B�n ch?i d�nh rang",        Description = "B�n ch?i d�nh rang d�ng m?t l?n, d�ng g�i ri�ng", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.06m,   WeightPerUnit = 0.02m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 39, CategoryId = 4, Name = "D?u g?i d?u",               Description = "D?u g?i d?u g�i nh? ti?n l?i cho c?u tr?", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.25m,   WeightPerUnit = 0.22m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 40, CategoryId = 4, Name = "Khan b�ng t?m",             Description = "Khan b�ng t?m c? trung d�ng v? sinh c� nh�n", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 2.5m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 41, CategoryId = 4, Name = "Gi?y v? sinh",              Description = "Gi?y v? sinh cu?n nh? ti�u chu?n", Unit = "cu?n",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.2m,    WeightPerUnit = 0.1m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 42, CategoryId = 4, Name = "T� d�ng m?t l?n",           Description = "T� gi?y d�ng m?t l?n cho tr? em ho?c ngu?i gi�", Unit = "mi?ng", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.5m,    WeightPerUnit = 0.06m,   CreatedAt = now, UpdatedAt = now },
+            // -- Category 4: Vệ sinh cá nhân (Hygiene) - 10 items -------------
+            new ReliefItem { Id = 5,  CategoryId = 4, Name = "Băng vệ sinh",              Description = "Băng vệ sinh phụ nữ dùng một lần, đóng gói riêng", Unit = "miếng", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.06m,   WeightPerUnit = 0.015m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 34, CategoryId = 4, Name = "Xà phòng diệt khuẩn",      Description = "Xà phòng cục diệt khuẩn dùng vệ sinh cá nhân", Unit = "bánh",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.12m,   WeightPerUnit = 0.1m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 35, CategoryId = 4, Name = "Nước rửa tay khô",          Description = "Gel rửa tay khô diệt khuẩn nhanh, không cần nước", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.3m,    WeightPerUnit = 0.28m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 36, CategoryId = 4, Name = "Khăn ướt kháng khuẩn",      Description = "Khăn ướt kháng khuẩn tiện dụng, đóng gói 10 tờ", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.25m,   WeightPerUnit = 0.1m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 37, CategoryId = 4, Name = "Kem đánh răng",             Description = "Kem đánh răng kích thước nhỏ gọn phù hợp cứu trợ", Unit = "tuýp",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.12m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 38, CategoryId = 4, Name = "Bàn chải đánh răng",        Description = "Bàn chải đánh răng dùng một lần, đóng gói riêng", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.06m,   WeightPerUnit = 0.02m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 39, CategoryId = 4, Name = "Dầu gội đầu",               Description = "Dầu gội đầu gói nhỏ tiện lợi cho cứu trợ", Unit = "chai",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.25m,   WeightPerUnit = 0.22m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 40, CategoryId = 4, Name = "Khăn bông tắm",             Description = "Khăn bông tắm cỡ trung dùng vệ sinh cá nhân", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 2.5m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 41, CategoryId = 4, Name = "Giấy vệ sinh",              Description = "Giấy vệ sinh cuộn nhỏ tiêu chuẩn", Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.2m,    WeightPerUnit = 0.1m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 42, CategoryId = 4, Name = "Tã dùng một lần",           Description = "Tã giấy dùng một lần cho trẻ em hoặc người già", Unit = "miếng", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.5m,    WeightPerUnit = 0.06m,   CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 5: Qu?n �o (Clothing) - 10 items --------------------
-            new ReliefItem { Id = 43, CategoryId = 5, Name = "�o mua ngu?i l?n",          Description = "�o mua nh?a d�ng m?t l?n cho ngu?i l?n", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.5m,    WeightPerUnit = 0.25m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 44, CategoryId = 5, Name = "?ng cao su ch?ng lu",       Description = "?ng cao su ch?ng nu?c d�ng di l?i trong v�ng ng?p", Unit = "d�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 6.0m,    WeightPerUnit = 1.8m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 45, CategoryId = 5, Name = "B? qu?n �o tr? em",         Description = "B? qu?n �o s?ch k�ch thu?c tr? em 3�12 tu?i", Unit = "b?",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 2.0m,    WeightPerUnit = 0.3m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 46, CategoryId = 5, Name = "�o ?m ngu?i l?n",           Description = "�o kho�c gi? ?m d�ng trong th?i ti?t l?nh", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 4.0m,    WeightPerUnit = 0.7m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 47, CategoryId = 5, Name = "B? qu?n �o ngu?i l?n",      Description = "B? qu?n �o s?ch k�ch thu?c ngu?i l?n", Unit = "b?",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 3.5m,    WeightPerUnit = 0.6m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 48, CategoryId = 5, Name = "B? qu?n �o ngu?i cao tu?i", Description = "B? qu?n �o tho?i m�i ph� h?p ngu?i cao tu?i", Unit = "b?",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 3.5m,    WeightPerUnit = 0.6m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 49, CategoryId = 5, Name = "Gang tay gi? ?m",           Description = "Gang tay len gi? ?m trong th?i ti?t l?nh", Unit = "d�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.3m,    WeightPerUnit = 0.08m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 50, CategoryId = 5, Name = "T?t len gi? ?m",            Description = "T?t len d�y gi? ?m ch�n trong m�a l?nh", Unit = "d�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.2m,    WeightPerUnit = 0.06m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 51, CategoryId = 5, Name = "Mu len",                    Description = "Mu len gi? ?m d?u trong th?i ti?t l?nh", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.4m,    WeightPerUnit = 0.08m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 52, CategoryId = 5, Name = "�o mua tr? em",             Description = "�o mua nh?a d�ng m?t l?n cho tr? em", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.0m,    WeightPerUnit = 0.18m,   CreatedAt = now, UpdatedAt = now },
+            // -- Category 5: Quần áo (Clothing) - 10 items --------------------
+            new ReliefItem { Id = 43, CategoryId = 5, Name = "Áo mưa người lớn",          Description = "Áo mưa nhựa dùng một lần cho người lớn", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.5m,    WeightPerUnit = 0.25m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 44, CategoryId = 5, Name = "Ủng cao su chống lũ",       Description = "Ủng cao su chống nước dùng đi lại trong vùng ngập", Unit = "đôi",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 6.0m,    WeightPerUnit = 1.8m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 45, CategoryId = 5, Name = "Bộ quần áo trẻ em",         Description = "Bộ quần áo sạch kích thước trẻ em 3–12 tuổi", Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 2.0m,    WeightPerUnit = 0.3m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 46, CategoryId = 5, Name = "Áo ấm người lớn",           Description = "Áo khoác giữ ấm dùng trong thời tiết lạnh", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 4.0m,    WeightPerUnit = 0.7m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 47, CategoryId = 5, Name = "Bộ quần áo người lớn",      Description = "Bộ quần áo sạch kích thước người lớn", Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 3.5m,    WeightPerUnit = 0.6m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 48, CategoryId = 5, Name = "Bộ quần áo người cao tuổi", Description = "Bộ quần áo thoải mái phù hợp người cao tuổi", Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 3.5m,    WeightPerUnit = 0.6m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 49, CategoryId = 5, Name = "Găng tay giữ ấm",           Description = "Găng tay len giữ ấm trong thời tiết lạnh", Unit = "đôi",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.3m,    WeightPerUnit = 0.08m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 50, CategoryId = 5, Name = "Tất len giữ ấm",            Description = "Tất len dày giữ ấm chân trong mùa lạnh", Unit = "đôi",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.2m,    WeightPerUnit = 0.06m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 51, CategoryId = 5, Name = "Mũ len",                    Description = "Mũ len giữ ấm đầu trong thời tiết lạnh", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.4m,    WeightPerUnit = 0.08m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 52, CategoryId = 5, Name = "Áo mưa trẻ em",             Description = "Áo mưa nhựa dùng một lần cho trẻ em", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.0m,    WeightPerUnit = 0.18m,   CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 6: Noi tr� ?n (Shelter) - 10 items -----------------
-            // Ti�u hao: c?p ph�t cho n?n nh�n tr� ?n (kh�ng b?t bu?c ho�n tr?)
-            new ReliefItem { Id = 53, CategoryId = 6, Name = "L?u b?t c?u tr? 4 ngu?i",   Description = "L?u b?t d� chi?n s?c ch?a 4 ngu?i, ch?ng nu?c", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 30.0m,   WeightPerUnit = 8.0m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 54, CategoryId = 6, Name = "T?m b?t che mua da nang",   Description = "T?m b?t PE ch?ng nu?c da nang d�ng che mua n?ng", Unit = "t?m",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 5.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 55, CategoryId = 6, Name = "T�i ng? gi? nhi?t",         Description = "T�i ng? c�ch nhi?t d�ng trong th?i ti?t l?nh", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 10.0m,   WeightPerUnit = 1.8m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 56, CategoryId = 6, Name = "�?m hoi d� chi?n",          Description = "�?m hoi g?p g?n d�ng ng? d� chi?n", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 8.0m,    WeightPerUnit = 2.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 57, CategoryId = 6, Name = "M�n ch?ng c�n tr�ng",        Description = "M�n lu?i ch?ng mu?i v� c�n tr�ng khi ng?", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 2.0m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
-            // T�i s? d?ng: d?ng c? c?a c?u h? vi�n (b?t bu?c ho�n tr?)
-            new ReliefItem { Id = 58, CategoryId = 6, Name = "B? c?c v� d�y l?u",          Description = "B? c?c kim lo?i v� d�y bu?c d? d?ng l?u", Unit = "b?",    ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 3.0m,    WeightPerUnit = 2.0m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 59, CategoryId = 6, Name = "T?m b?t ch?ng th?m",        Description = "T?m b?t PE d�y ch?ng th?m nu?c d�ng l�t s�n l?u", Unit = "t?m",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 4.0m,    WeightPerUnit = 1.2m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 60, CategoryId = 6, Name = "D�y bu?c da nang",           Description = "D�y th?ng da nang d�ng bu?c, c? d?nh v?t d?ng", Unit = "cu?n",  ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 2.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 61, CategoryId = 6, Name = "��n LED d� chi?n",           Description = "��n LED s?c d�ng chi?u s�ng d� chi?n", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 1.0m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 62, CategoryId = 6, Name = "N?n kh?n c?p",               Description = "N?n ch�y l�u d�ng chi?u s�ng khi m?t di?n", Unit = "c�y",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.12m,   CreatedAt = now, UpdatedAt = now },
+            // -- Category 6: Nơi trú ẩn (Shelter) - 10 items -----------------
+            // Tiêu hao: cấp phát cho nạn nhân trú ẩn (không bắt buộc hoàn trả)
+            new ReliefItem { Id = 53, CategoryId = 6, Name = "Lều bạt cứu trợ 4 người",   Description = "Lều bạt dã chiến sức chứa 4 người, chống nước", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 30.0m,   WeightPerUnit = 8.0m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 54, CategoryId = 6, Name = "Tấm bạt che mưa đa năng",   Description = "Tấm bạt PE chống nước đa năng dùng che mưa nắng", Unit = "tấm",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 5.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 55, CategoryId = 6, Name = "Túi ngủ giữ nhiệt",         Description = "Túi ngủ cách nhiệt dùng trong thời tiết lạnh", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 10.0m,   WeightPerUnit = 1.8m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 56, CategoryId = 6, Name = "Đệm hơi dã chiến",          Description = "Đệm hơi gấp gọn dùng ngủ dã chiến", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 8.0m,    WeightPerUnit = 2.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 57, CategoryId = 6, Name = "Màn chống côn trùng",        Description = "Màn lưới chống muỗi và côn trùng khi ngủ", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 2.0m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
+            // Tái sử dụng: dụng cụ của cứu hộ viên (bắt buộc hoàn trả)
+            new ReliefItem { Id = 58, CategoryId = 6, Name = "Bộ cọc và dây lều",          Description = "Bộ cọc kim loại và dây buộc để dựng lều", Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 3.0m,    WeightPerUnit = 2.0m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 59, CategoryId = 6, Name = "Tấm bạt chống thấm",        Description = "Tấm bạt PE dày chống thấm nước dùng lót sàn lều", Unit = "tấm",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 4.0m,    WeightPerUnit = 1.2m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 60, CategoryId = 6, Name = "Dây buộc đa năng",           Description = "Dây thừng đa năng dùng buộc, cố định vật dụng", Unit = "cuộn",  ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 2.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 61, CategoryId = 6, Name = "Đèn LED dã chiến",           Description = "Đèn LED sạc dùng chiếu sáng dã chiến", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 1.0m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 62, CategoryId = 6, Name = "Nến khẩn cấp",               Description = "Nến cháy lâu dùng chiếu sáng khi mất điện", Unit = "cây",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.12m,   CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 7: C�ng c? s?a ch?a (RepairTools) - 10 items --------
-            new ReliefItem { Id = 63, CategoryId = 7, Name = "B�a d�ng dinh",                     Description = "B�a s?t d�ng dinh d�ng s?a ch?a nh� c?a", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 1.5m,    WeightPerUnit = 0.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 64, CategoryId = 7, Name = "�inh c�c lo?i",                     Description = "B? dinh s?t c�c k�ch c? d�ng s?a ch?a", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.3m,    WeightPerUnit = 0.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 65, CategoryId = 7, Name = "Cua tay da nang",                   Description = "Cua tay g?p g?n d�ng c?t g? v� v?t li?u", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 3.0m,    WeightPerUnit = 0.6m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 66, CategoryId = 7, Name = "Tua v�t 2 d?u",                     Description = "Tua v�t 2 d?u d?t v� bake d�ng s?a ch?a", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.3m,    WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 67, CategoryId = 7, Name = "K�m c?t d�y",                       Description = "K�m c?t d�y th�p v� d�y di?n da nang", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.5m,    WeightPerUnit = 0.3m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 68, CategoryId = 7, Name = "Bang keo ch?ng th?m",               Description = "Bang keo d�n ch?ng th?m nu?c cho m�i v� tu?ng", Unit = "cu?n",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.2m,    WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 69, CategoryId = 7, Name = "Dao da nang d� chi?n",              Description = "Dao g?p da nang t�ch h?p nhi?u c�ng c?", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.2m,    WeightPerUnit = 0.2m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 70, CategoryId = 7, Name = "X?ng tay",                          Description = "X?ng tay g?p g?n d�ng d�o d?p trong c?u tr?", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 4.0m,    WeightPerUnit = 1.2m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 71, CategoryId = 7, Name = "Bao c�t ch?ng lu",                  Description = "Bao c�t d�ng d?p d� ngan nu?c lu tr�n", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 2.5m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 72, CategoryId = 7, Name = "B? d?ng c? s?a ch?a di?n co b?n",  Description = "B? d?ng c? s?a ch?a di?n g?m k�m, tua v�t, bang keo", Unit = "b?",    ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 4.0m,    WeightPerUnit = 2.5m,    CreatedAt = now, UpdatedAt = now },
+            // -- Category 7: Công cụ sửa chữa (RepairTools) - 10 items --------
+            new ReliefItem { Id = 63, CategoryId = 7, Name = "Búa đóng đinh",                     Description = "Búa sắt đóng đinh dùng sửa chữa nhà cửa", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 1.5m,    WeightPerUnit = 0.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 64, CategoryId = 7, Name = "Đinh các loại",                     Description = "Bộ đinh sắt các kích cỡ dùng sửa chữa", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.3m,    WeightPerUnit = 0.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 65, CategoryId = 7, Name = "Cưa tay đa năng",                   Description = "Cưa tay gấp gọn dùng cắt gỗ và vật liệu", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 3.0m,    WeightPerUnit = 0.6m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 66, CategoryId = 7, Name = "Tua vít 2 đầu",                     Description = "Tua vít 2 đầu dẹt và bake dùng sửa chữa", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.3m,    WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 67, CategoryId = 7, Name = "Kìm cắt dây",                       Description = "Kìm cắt dây thép và dây điện đa năng", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.5m,    WeightPerUnit = 0.3m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 68, CategoryId = 7, Name = "Băng keo chống thấm",               Description = "Băng keo dán chống thấm nước cho mái và tường", Unit = "cuộn",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.2m,    WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 69, CategoryId = 7, Name = "Dao đa năng dã chiến",              Description = "Dao gấp đa năng tích hợp nhiều công cụ", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.2m,    WeightPerUnit = 0.2m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 70, CategoryId = 7, Name = "Xẻng tay",                          Description = "Xẻng tay gấp gọn dùng đào đắp trong cứu trợ", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 4.0m,    WeightPerUnit = 1.2m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 71, CategoryId = 7, Name = "Bao cát chống lũ",                  Description = "Bao cát dùng đắp đê ngăn nước lũ tràn", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 2.5m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 72, CategoryId = 7, Name = "Bộ dụng cụ sửa chữa điện cơ bản",  Description = "Bộ dụng cụ sửa chữa điện gồm kìm, tua vít, băng keo", Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 4.0m,    WeightPerUnit = 2.5m,    CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 8: Thi?t b? c?u h? (RescueEquipment) - 14 items ----
-            new ReliefItem { Id = 4,  CategoryId = 8, Name = "�o phao c?u sinh",              Description = "�o phao ti�u chu?n ph?c v? c?u h? du?ng th?y", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 8.0m,    WeightPerUnit = 1.2m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 21, CategoryId = 8, Name = "B�nh l?c nu?c d� chi?n",        Description = "B�nh l?c nu?c di d?ng l?c nu?c b?n th�nh nu?c s?ch", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 5.0m,    WeightPerUnit = 2.0m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 23, CategoryId = 8, Name = "Can d?ng nu?c 10L",             Description = "Can nh?a 10 l�t ch?a v� v?n chuy?n nu?c s?ch", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 12.0m,   WeightPerUnit = 0.8m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 24, CategoryId = 8, Name = "T�i d?ng nu?c linh ho?t",       Description = "T�i nh?a d?o d?ng nu?c g?p g?n khi kh�ng s? d?ng", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 1.5m,    WeightPerUnit = 0.3m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 31, CategoryId = 8, Name = "Nhi?t k? di?n t?",              Description = "Nhi?t k? di?n t? do th�n nhi?t nhanh ch�ng", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.1m,    WeightPerUnit = 0.05m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 73, CategoryId = 8, Name = "Xu?ng cao su c?u h?",           Description = "Xu?ng cao su chuy�n d?ng cho nhi?m v? c?u h? lu", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 250.0m,  WeightPerUnit = 45.0m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 74, CategoryId = 8, Name = "D�y th?ng c?u sinh 30m",        Description = "D�y th?ng d�i 30m ch?u l?c cao d�ng c?u h?", Unit = "cu?n",  ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 6.0m,    WeightPerUnit = 3.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 75, CategoryId = 8, Name = "Phao tr�n c?u sinh",            Description = "Phao tr�n c?u sinh ti�u chu?n n�m cho n?n nh�n", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 20.0m,   WeightPerUnit = 2.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 76, CategoryId = 8, Name = "M�y bom nu?c di d?ng",          Description = "M�y bom nu?c ch?y xang di d?ng h�t nu?c ng?p", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 60.0m,   WeightPerUnit = 25.0m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 77, CategoryId = 8, Name = "B? d�m li�n l?c d� chi?n",      Description = "B? d�m c?m tay li�n l?c t?n s? UHF/VHF", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.5m,    WeightPerUnit = 0.3m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 78, CategoryId = 8, Name = "��n t�n hi?u kh?n c?p",        Description = "��n t�n hi?u nh?p nh�y c?nh b�o khu v?c nguy hi?m", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.8m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 79, CategoryId = 8, Name = "M�y ph�t di?n di d?ng",         Description = "M�y ph�t di?n xang di d?ng c�ng su?t nh?", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 120.0m,  WeightPerUnit = 50.0m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 80, CategoryId = 8, Name = "C�ng khi�ng thuong",            Description = "C�ng g?p g?n d�ng v?n chuy?n ngu?i b? thuong", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 30.0m,   WeightPerUnit = 7.0m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 81, CategoryId = 8, Name = "Mu b?o hi?m c?u h?",           Description = "Mu b?o hi?m chuy�n d?ng cho c?u h? vi�n", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 6.0m,    WeightPerUnit = 0.6m,    CreatedAt = now, UpdatedAt = now },
+            // -- Category 8: Thiết bị cứu hộ (RescueEquipment) - 14 items ----
+            new ReliefItem { Id = 4,  CategoryId = 8, Name = "Áo phao cứu sinh",              Description = "Áo phao tiêu chuẩn phục vụ cứu hộ đường thủy", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 8.0m,    WeightPerUnit = 1.2m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 21, CategoryId = 8, Name = "Bình lọc nước dã chiến",        Description = "Bình lọc nước di động lọc nước bẩn thành nước sạch", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 5.0m,    WeightPerUnit = 2.0m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 23, CategoryId = 8, Name = "Can đựng nước 10L",             Description = "Can nhựa 10 lít chứa và vận chuyển nước sạch", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 12.0m,   WeightPerUnit = 0.8m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 24, CategoryId = 8, Name = "Túi đựng nước linh hoạt",       Description = "Túi nhựa dẻo đựng nước gấp gọn khi không sử dụng", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 1.5m,    WeightPerUnit = 0.3m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 31, CategoryId = 8, Name = "Nhiệt kế điện tử",              Description = "Nhiệt kế điện tử đo thân nhiệt nhanh chóng", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.1m,    WeightPerUnit = 0.05m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 73, CategoryId = 8, Name = "Xuồng cao su cứu hộ",           Description = "Xuồng cao su chuyên dụng cho nhiệm vụ cứu hộ lũ", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 250.0m,  WeightPerUnit = 45.0m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 74, CategoryId = 8, Name = "Dây thừng cứu sinh 30m",        Description = "Dây thừng dài 30m chịu lực cao dùng cứu hộ", Unit = "cuộn",  ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 6.0m,    WeightPerUnit = 3.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 75, CategoryId = 8, Name = "Phao tròn cứu sinh",            Description = "Phao tròn cứu sinh tiêu chuẩn ném cho nạn nhân", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 20.0m,   WeightPerUnit = 2.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 76, CategoryId = 8, Name = "Máy bơm nước di động",          Description = "Máy bơm nước chạy xăng di động hút nước ngập", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 60.0m,   WeightPerUnit = 25.0m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 77, CategoryId = 8, Name = "Bộ đàm liên lạc dã chiến",      Description = "Bộ đàm cầm tay liên lạc tần số UHF/VHF", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.5m,    WeightPerUnit = 0.3m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 78, CategoryId = 8, Name = "Đèn tín hiệu khẩn cấp",        Description = "Đèn tín hiệu nhấp nháy cảnh báo khu vực nguy hiểm", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.8m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 79, CategoryId = 8, Name = "Máy phát điện di động",         Description = "Máy phát điện xăng di động công suất nhỏ", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 120.0m,  WeightPerUnit = 50.0m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 80, CategoryId = 8, Name = "Cáng khiêng thương",            Description = "Cáng gấp gọn dùng vận chuyển người bị thương", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 30.0m,   WeightPerUnit = 7.0m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 81, CategoryId = 8, Name = "Mũ bảo hiểm cứu hộ",           Description = "Mũ bảo hiểm chuyên dụng cho cứu hộ viên", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 6.0m,    WeightPerUnit = 0.6m,    CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 9: Su?i ?m (Heating) - 10 items --------------------
-            new ReliefItem { Id = 6,  CategoryId = 9, Name = "Chan ?m gi? nhi?t",             Description = "Chan d�y gi? nhi?t d�ng trong th?i ti?t l?nh", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 6.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 82, CategoryId = 9, Name = "Than t? ong",                    Description = "Than t? ong d�ng d?t su?i ?m ho?c n?u an", Unit = "vi�n",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.2m,    WeightPerUnit = 1.0m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 83, CategoryId = 9, Name = "M�y su?i di?n mini",             Description = "M�y su?i di?n nh? g?n c�ng su?t th?p", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 8.0m,    WeightPerUnit = 2.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 84, CategoryId = 9, Name = "T�i su?i ?m tay d�ng m?t l?n",  Description = "T�i su?i ?m tay ph?n ?ng h�a h?c d�ng m?t l?n", Unit = "g�i",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.05m,   WeightPerUnit = 0.04m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 85, CategoryId = 9, Name = "B? qu?n �o nhi?t",               Description = "B? d? l�t gi? nhi?t m?c trong th?i ti?t r�t", Unit = "b?",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 2.5m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 86, CategoryId = 9, Name = "?m dun nu?c du l?ch",            Description = "?m dun nu?c di?n nh? g?n ti?n d�ng d� chi?n", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 3.0m,    WeightPerUnit = 0.8m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 87, CategoryId = 9, Name = "B?p gas du l?ch mini",           Description = "B?p gas mini g?p g?n d�ng n?u an d� chi?n", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 4.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 88, CategoryId = 9, Name = "B�nh gas mini d� chi?n",         Description = "B�nh gas lon nh? d�ng cho b?p gas du l?ch", Unit = "b�nh",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.8m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 89, CategoryId = 9, Name = "Chan di?n su?i",                 Description = "Chan di?n su?i ?m d�ng khi ng? m�a l?nh", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 5.0m,    WeightPerUnit = 1.8m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 90, CategoryId = 9, Name = "T?m su?i ?m b?c x?",            Description = "T?m su?i h?ng ngo?i b?c x? di d?ng", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 15.0m,   WeightPerUnit = 5.0m,    CreatedAt = now, UpdatedAt = now },
+            // -- Category 9: Sưởi ấm (Heating) - 10 items --------------------
+            new ReliefItem { Id = 6,  CategoryId = 9, Name = "Chăn ấm giữ nhiệt",             Description = "Chăn dày giữ nhiệt dùng trong thời tiết lạnh", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 6.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 82, CategoryId = 9, Name = "Than tổ ong",                    Description = "Than tổ ong dùng đốt sưởi ấm hoặc nấu ăn", Unit = "viên",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 1.2m,    WeightPerUnit = 1.0m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 83, CategoryId = 9, Name = "Máy sưởi điện mini",             Description = "Máy sưởi điện nhỏ gọn công suất thấp", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 8.0m,    WeightPerUnit = 2.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 84, CategoryId = 9, Name = "Túi sưởi ấm tay dùng một lần",  Description = "Túi sưởi ấm tay phản ứng hóa học dùng một lần", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.05m,   WeightPerUnit = 0.04m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 85, CategoryId = 9, Name = "Bộ quần áo nhiệt",               Description = "Bộ đồ lót giữ nhiệt mặc trong thời tiết rét", Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 2.5m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 86, CategoryId = 9, Name = "Ấm đun nước du lịch",            Description = "Ấm đun nước điện nhỏ gọn tiện dùng dã chiến", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 3.0m,    WeightPerUnit = 0.8m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 87, CategoryId = 9, Name = "Bếp gas du lịch mini",           Description = "Bếp gas mini gấp gọn dùng nấu ăn dã chiến", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 4.0m,    WeightPerUnit = 1.5m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 88, CategoryId = 9, Name = "Bình gas mini dã chiến",         Description = "Bình gas lon nhỏ dùng cho bếp gas du lịch", Unit = "bình",  ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.8m,    WeightPerUnit = 0.35m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 89, CategoryId = 9, Name = "Chăn điện sưởi",                 Description = "Chăn điện sưởi ấm dùng khi ngủ mùa lạnh", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 5.0m,    WeightPerUnit = 1.8m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 90, CategoryId = 9, Name = "Tấm sưởi ấm bức xạ",            Description = "Tấm sưởi hồng ngoại bức xạ di động", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 15.0m,   WeightPerUnit = 5.0m,    CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 10: Phuong ti?n (Vehicle) - 10 items -----------------
-            new ReliefItem { Id = 101, CategoryId = 10, Name = "Xe t?i c?u tr? 2.5 t?n",       Description = "Xe t?i 2.5 t?n v?n chuy?n h�ng c?u tr?", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 18000.0m, WeightPerUnit = 3500.0m, CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 102, CategoryId = 10, Name = "Xe c?u thuong",                 Description = "Xe chuy�n d?ng v?n chuy?n c?p c?u v� b?nh nh�n", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 16000.0m, WeightPerUnit = 3800.0m, CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 103, CategoryId = 10, Name = "Xe b�n t?i 4x4",                Description = "Xe b�n t?i 2 c?u vu?t d?a h�nh x?u", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 12000.0m, WeightPerUnit = 2200.0m, CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 104, CategoryId = 10, Name = "Xe m�y d?a h�nh",               Description = "Xe m�y d?a h�nh di v�o v�ng kh� ti?p c?n", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 2500.0m,  WeightPerUnit = 150.0m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 105, CategoryId = 10, Name = "Ca n� c?u h?",                  Description = "Ca n� m�y chuy�n d?ng c?u h? du?ng th?y", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 8000.0m,  WeightPerUnit = 800.0m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 106, CategoryId = 10, Name = "Xe ch? h�ng nh? 1 t?n",         Description = "Xe t?i nh? 1 t?n v?n chuy?n h�ng c?u tr?", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 14000.0m, WeightPerUnit = 2500.0m, CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 107, CategoryId = 10, Name = "Xe t?i d�ng l?nh 3.5 t?n",      Description = "Xe t?i d�ng l?nh b?o qu?n th?c ph?m tuoi s?ng", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 20000.0m, WeightPerUnit = 5000.0m, CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 108, CategoryId = 10, Name = "Xe kh�ch 16 ch?",               Description = "Xe kh�ch 16 ch? ch? ngu?i so t�n", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 15000.0m, WeightPerUnit = 3200.0m, CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 109, CategoryId = 10, Name = "Xe c?u di d?ng",                Description = "Xe c?u di d?ng d?n d?p d? n�t v� v?t c?n", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 20000.0m, WeightPerUnit = 12000.0m, CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 110, CategoryId = 10, Name = "Xe chuy�n d?ng ph�ng ch�y",     Description = "Xe ch?a ch�y chuy�n d?ng ph�ng ch�y ch?a ch�y", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 18000.0m, WeightPerUnit = 8000.0m, CreatedAt = now, UpdatedAt = now },
+            // -- Category 10: Phương tiện (Vehicle) - 10 items -----------------
+            new ReliefItem { Id = 101, CategoryId = 10, Name = "Xe tải cứu trợ 2.5 tấn",       Description = "Xe tải 2.5 tấn vận chuyển hàng cứu trợ", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 18000.0m, WeightPerUnit = 3500.0m, CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 102, CategoryId = 10, Name = "Xe cứu thương",                 Description = "Xe chuyên dụng vận chuyển cấp cứu và bệnh nhân", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 16000.0m, WeightPerUnit = 3800.0m, CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 103, CategoryId = 10, Name = "Xe bán tải 4x4",                Description = "Xe bán tải 2 cầu vượt địa hình xấu", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 12000.0m, WeightPerUnit = 2200.0m, CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 104, CategoryId = 10, Name = "Xe máy địa hình",               Description = "Xe máy địa hình đi vào vùng khó tiếp cận", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 2500.0m,  WeightPerUnit = 150.0m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 105, CategoryId = 10, Name = "Ca nô cứu hộ",                  Description = "Ca nô máy chuyên dụng cứu hộ đường thủy", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 8000.0m,  WeightPerUnit = 800.0m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 106, CategoryId = 10, Name = "Xe chở hàng nhẹ 1 tấn",         Description = "Xe tải nhẹ 1 tấn vận chuyển hàng cứu trợ", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 14000.0m, WeightPerUnit = 2500.0m, CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 107, CategoryId = 10, Name = "Xe tải đông lạnh 3.5 tấn",      Description = "Xe tải đông lạnh bảo quản thực phẩm tươi sống", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 20000.0m, WeightPerUnit = 5000.0m, CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 108, CategoryId = 10, Name = "Xe khách 16 chỗ",               Description = "Xe khách 16 chỗ chở người sơ tán", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 15000.0m, WeightPerUnit = 3200.0m, CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 109, CategoryId = 10, Name = "Xe cẩu di động",                Description = "Xe cẩu di động dọn dẹp đổ nát và vật cản", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 20000.0m, WeightPerUnit = 12000.0m, CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 110, CategoryId = 10, Name = "Xe chuyên dụng phòng cháy",     Description = "Xe chữa cháy chuyên dụng phòng cháy chữa cháy", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(), VolumePerUnit = 18000.0m, WeightPerUnit = 8000.0m, CreatedAt = now, UpdatedAt = now },
 
-            // -- Category 99: Kh�c (Others) - 10 items ------------------------
-            new ReliefItem { Id = 91,  CategoryId = 99, Name = "Pin d? ph�ng 10000mAh",           Description = "Pin s?c d? ph�ng 10000mAh s?c di?n tho?i", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.25m,   WeightPerUnit = 0.22m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 92,  CategoryId = 99, Name = "C�p s?c da nang",                 Description = "C�p s?c da d?u Lightning/USB-C/Micro USB", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.08m,   WeightPerUnit = 0.04m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 93,  CategoryId = 99, Name = "B?n d? d?a h�nh kh?n c?p",        Description = "B?n d? in d?a h�nh khu v?c thu?ng x?y ra thi�n tai", Unit = "t?",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.1m,    WeightPerUnit = 0.05m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 94,  CategoryId = 99, Name = "C�i b�o d?ng kh?n c?p",           Description = "C�i th?i b�o d?ng v� k�u g?i c?u h? kh?n c?p", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.02m,   WeightPerUnit = 0.015m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 95,  CategoryId = 99, Name = "K�nh b?o h? lao d?ng",            Description = "K�nh b?o h? ch?ng b?i v� m?nh v? khi l�m vi?c", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.3m,    WeightPerUnit = 0.08m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 96,  CategoryId = 99, Name = "Ba l� kh?n c?p",                  Description = "Ba l� ch?a d? d�ng thi?t y?u cho t�nh hu?ng kh?n c?p", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 25.0m,   WeightPerUnit = 0.8m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 97,  CategoryId = 99, Name = "S? tay v� b�t ghi ch�p",          Description = "B? s? tay v� b�t bi d�ng ghi ch�p th�ng tin hi?n tru?ng", Unit = "b?",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.3m,    WeightPerUnit = 0.18m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 98,  CategoryId = 99, Name = "B? d�n pin d?i d?u",              Description = "��n pin LED d?i d?u r?i s�ng r?nh tay", Unit = "b?",    ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.5m,    WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 99,  CategoryId = 99, Name = "�o ph?n quang an to�n",           Description = "�o ghi l� ph?n quang tang nh?n di?n trong d�m", Unit = "chi?c", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 1.5m,    WeightPerUnit = 0.2m,    CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 100, CategoryId = 99, Name = "Ph�o s�ng kh?n c?p",              Description = "Ph�o s�ng ph�t t�n hi?u c?u c?u kh?n c?p", Unit = "chi?c", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.25m,   WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now }
+            // -- Category 99: Khác (Others) - 10 items ------------------------
+            new ReliefItem { Id = 91,  CategoryId = 99, Name = "Pin dự phòng 10000mAh",           Description = "Pin sạc dự phòng 10000mAh sạc điện thoại", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.25m,   WeightPerUnit = 0.22m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 92,  CategoryId = 99, Name = "Cáp sạc đa năng",                 Description = "Cáp sạc đa đầu Lightning/USB-C/Micro USB", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.08m,   WeightPerUnit = 0.04m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 93,  CategoryId = 99, Name = "Bản đồ địa hình khẩn cấp",        Description = "Bản đồ in địa hình khu vực thường xảy ra thiên tai", Unit = "tờ",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.1m,    WeightPerUnit = 0.05m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 94,  CategoryId = 99, Name = "Còi báo động khẩn cấp",           Description = "Còi thổi báo động và kêu gọi cứu hộ khẩn cấp", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.02m,   WeightPerUnit = 0.015m,  CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 95,  CategoryId = 99, Name = "Kính bảo hộ lao động",            Description = "Kính bảo hộ chống bụi và mảnh vỡ khi làm việc", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.3m,    WeightPerUnit = 0.08m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 96,  CategoryId = 99, Name = "Ba lô khẩn cấp",                  Description = "Ba lô chứa đồ dùng thiết yếu cho tình huống khẩn cấp", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 25.0m,   WeightPerUnit = 0.8m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 97,  CategoryId = 99, Name = "Sổ tay và bút ghi chép",          Description = "Bộ sổ tay và bút bi dùng ghi chép thông tin hiện trường", Unit = "bộ",    ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.3m,    WeightPerUnit = 0.18m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 98,  CategoryId = 99, Name = "Bộ đèn pin đội đầu",              Description = "Đèn pin LED đội đầu rọi sáng rảnh tay", Unit = "bộ",    ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 0.5m,    WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 99,  CategoryId = 99, Name = "Áo phản quang an toàn",           Description = "Áo ghi lê phản quang tăng nhận diện trong đêm", Unit = "chiếc", ItemType = ItemType.Reusable.ToString(),   VolumePerUnit = 1.5m,    WeightPerUnit = 0.2m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 100, CategoryId = 99, Name = "Pháo sáng khẩn cấp",              Description = "Pháo sáng phát tín hiệu cầu cứu khẩn cấp", Unit = "chiếc", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.25m,   WeightPerUnit = 0.15m,   CreatedAt = now, UpdatedAt = now }
         };
 
         foreach (var item in items)
@@ -344,282 +344,282 @@ public static class LogisticsSeeder
         // 1=Children, 2=Elderly, 3=Pregnant, 4=Adult, 5=Rescuer
         //
         // Multi-target-group logic:
-        //   - Basic food/water/blankets ? all civilian groups + Rescuer (field use)
-        //   - Paediatric/elderly/maternal items ? specific vulnerable groups only
-        //   - Medical consumables ? civilian groups + Rescuer (field first-aid)
-        //   - Hygiene consumables ? relevant civilian groups + Rescuer (field hygiene)
-        //   - Raincoats / boots ? Adult + Rescuer (rescuers wear them too)
-        //   - Reusable rescue equipment ? Rescuer only
-        //   - Vehicles ? Rescuer only
+        //   - Basic food/water/blankets → all civilian groups + Rescuer (field use)
+        //   - Paediatric/elderly/maternal items → specific vulnerable groups only
+        //   - Medical consumables → civilian groups + Rescuer (field first-aid)
+        //   - Hygiene consumables → relevant civilian groups + Rescuer (field hygiene)
+        //   - Raincoats / boots → Adult + Rescuer (rescuers wear them too)
+        //   - Reusable rescue equipment → Rescuer only
+        //   - Vehicles → Rescuer only
 
         modelBuilder.Entity("item_model_target_groups").HasData(
-            // -- Category 1: Th?c ph?m -----------------------------------------
-            // M� t�m � d? n?u, rescuer d�ng trong hi?n tru?ng
+            // -- Category 1: Thực phẩm -----------------------------------------
+            // Mì tôm – dễ nấu, rescuer dùng trong hiện trường
             new { item_model_id = 1,  target_group_id = 4 }, // Adult
             new { item_model_id = 1,  target_group_id = 5 }, // Rescuer
-            // S?a b?t tr? em � ch? d�nh cho tr?
+            // Sữa bột trẻ em – chỉ dành cho trẻ
             new { item_model_id = 7,  target_group_id = 1 }, // Children
-            // Luong kh� - kh?u ph?n d� chi?n cho rescuer v� adult
+            // Lương khô - khẩu phần dã chiến cho rescuer và adult
             new { item_model_id = 8,  target_group_id = 4 }, // Adult
             new { item_model_id = 8,  target_group_id = 5 }, // Rescuer
-            // G?o s?y kh� � th?c ph?m co b?n, d�ng cho nhi?u nh�m
+            // Gạo sấy khô – thực phẩm cơ bản, dùng cho nhiều nhóm
             new { item_model_id = 11, target_group_id = 4 }, // Adult
             new { item_model_id = 11, target_group_id = 2 }, // Elderly
             new { item_model_id = 11, target_group_id = 3 }, // Pregnant
             new { item_model_id = 11, target_group_id = 5 }, // Rescuer
-            // Ch�o an li?n � m?m, d? ti�u, ph� h?p ngu?i gi� / b� b?u / tr? em
+            // Cháo ăn liền – mềm, dễ tiêu, phù hợp người già / bà bầu / trẻ em
             new { item_model_id = 12, target_group_id = 2 }, // Elderly
             new { item_model_id = 12, target_group_id = 1 }, // Children
             new { item_model_id = 12, target_group_id = 3 }, // Pregnant
-            // B�nh m� kh� � ti?n l?i ngo�i hi?n tru?ng
+            // Bánh mì khô – tiện lợi ngoài hiện trường
             new { item_model_id = 13, target_group_id = 4 }, // Adult
             new { item_model_id = 13, target_group_id = 5 }, // Rescuer
-            // Mu?i tinh � gia v? co b?n
+            // Muối tinh – gia vị cơ bản
             new { item_model_id = 14, target_group_id = 4 }, // Adult
-            // �u?ng c�t tr?ng � gia v? co b?n
+            // Đường cát trắng – gia vị cơ bản
             new { item_model_id = 15, target_group_id = 4 }, // Adult
-            // D?u an th?c v?t � gia v? co b?n
+            // Dầu ăn thực vật – gia vị cơ bản
             new { item_model_id = 16, target_group_id = 4 }, // Adult
-            // Th?t h?p d�ng g�i � ngu?n protein, rescuer d�ng ngo�i hi?n tru?ng
+            // Thịt hộp đóng gói – nguồn protein, rescuer dùng ngoài hiện trường
             new { item_model_id = 17, target_group_id = 4 }, // Adult
             new { item_model_id = 17, target_group_id = 5 }, // Rescuer
 
-            // -- Category 2: Nu?c u?ng -----------------------------------------
-            // Nu?c tinh khi?t � thi?t y?u cho t?t c?
+            // -- Category 2: Nước uống -----------------------------------------
+            // Nước tinh khiết – thiết yếu cho tất cả
             new { item_model_id = 2,  target_group_id = 4 }, // Adult
             new { item_model_id = 2,  target_group_id = 1 }, // Children
             new { item_model_id = 2,  target_group_id = 2 }, // Elderly
             new { item_model_id = 2,  target_group_id = 3 }, // Pregnant
             new { item_model_id = 2,  target_group_id = 5 }, // Rescuer
-            // Nu?c l?c b�nh 20L � d�ng chung cho c?ng d?ng
+            // Nước lọc bình 20L – dùng chung cho cộng đồng
             new { item_model_id = 18, target_group_id = 4 }, // Adult
-            // Vi�n l?c nu?c kh?n c?p � rescuer l?c nu?c t?i hi?n tru?ng
+            // Viên lọc nước khẩn cấp – rescuer lọc nước tại hiện trường
             new { item_model_id = 19, target_group_id = 4 }, // Adult
             new { item_model_id = 19, target_group_id = 5 }, // Rescuer
-            // Nu?c d�ng th�ng 24 chai
+            // Nước đóng thùng 24 chai
             new { item_model_id = 20, target_group_id = 4 }, // Adult
-            // Nu?c kho�ng thi�n nhi�n 500ml
+            // Nước khoáng thiên nhiên 500ml
             new { item_model_id = 22, target_group_id = 4 }, // Adult
-            // Nu?c d?a d�ng h?p
+            // Nước dừa đóng hộp
             new { item_model_id = 25, target_group_id = 4 }, // Adult
-            // B?t b� di?n gi?i ORS � quan tr?ng cho m?i nh�m khi m?t nu?c
+            // Bột bù điện giải ORS – quan trọng cho mọi nhóm khi mất nước
             new { item_model_id = 26, target_group_id = 4 }, // Adult
             new { item_model_id = 26, target_group_id = 1 }, // Children
             new { item_model_id = 26, target_group_id = 2 }, // Elderly
             new { item_model_id = 26, target_group_id = 3 }, // Pregnant
             new { item_model_id = 26, target_group_id = 5 }, // Rescuer
 
-            // -- Category 3: Y t? ----------------------------------------------
-            // Thu?c h? s?t Paracetamol 500mg - d�ng r?ng r�i, k? c? rescuer
+            // -- Category 3: Y tế ----------------------------------------------
+            // Thuốc hạ sốt Paracetamol 500mg - dùng rộng rãi, kể cả rescuer
             new { item_model_id = 3,  target_group_id = 4 }, // Adult
             new { item_model_id = 3,  target_group_id = 2 }, // Elderly
             new { item_model_id = 3,  target_group_id = 5 }, // Rescuer
-            // D?u gi� � gi?m dau, ch?ng l?nh; ngu?i l?n tu?i v� adult d?u d�ng
+            // Dầu gió – giảm đau, chống lạnh; người lớn tuổi và adult đều dùng
             new { item_model_id = 9,  target_group_id = 2 }, // Elderly
             new { item_model_id = 9,  target_group_id = 4 }, // Adult
-            // S?t & Vitamin t?ng h?p � ch? y?u cho b� b?u
+            // Sắt & Vitamin tổng hợp – chủ yếu cho bà bầu
             new { item_model_id = 10, target_group_id = 3 }, // Pregnant
-            // Bang g?c y t? v� khu?n � so c?u n?n nh�n v� c?u h? vi�n b? thuong
+            // Băng gạc y tế vô khuẩn – sơ cứu nạn nhân và cứu hộ viên bị thương
             new { item_model_id = 27, target_group_id = 4 }, // Adult
             new { item_model_id = 27, target_group_id = 5 }, // Rescuer
-            // B�ng g�n y t? � so c?u cho c? n?n nh�n l?n rescuer
+            // Bông gòn y tế – sơ cứu cho cả nạn nhân lẫn rescuer
             new { item_model_id = 28, target_group_id = 4 }, // Adult
             new { item_model_id = 28, target_group_id = 5 }, // Rescuer
-            // Thu?c kh�ng sinh Amoxicillin � k� don, d�nh cho adult
+            // Thuốc kháng sinh Amoxicillin – kê đơn, dành cho adult
             new { item_model_id = 29, target_group_id = 4 }, // Adult
-            // Dung d?ch s�t khu?n Betadine � rescuer c?n s�t khu?n v?t thuong ngo�i hi?n tru?ng
+            // Dung dịch sát khuẩn Betadine – rescuer cần sát khuẩn vết thương ngoài hiện trường
             new { item_model_id = 30, target_group_id = 4 }, // Adult
             new { item_model_id = 30, target_group_id = 5 }, // Rescuer
-            // Kh?u trang y t? 3 l?p � b?o v? cho t?t c? c�c nh�m
+            // Khẩu trang y tế 3 lớp – bảo vệ cho tất cả các nhóm
             new { item_model_id = 32, target_group_id = 4 }, // Adult
             new { item_model_id = 32, target_group_id = 1 }, // Children
             new { item_model_id = 32, target_group_id = 2 }, // Elderly
             new { item_model_id = 32, target_group_id = 3 }, // Pregnant
             new { item_model_id = 32, target_group_id = 5 }, // Rescuer
-            // B? so c?u co b?n � rescuer mang theo trong nhi?m v?
+            // Bộ sơ cứu cơ bản – rescuer mang theo trong nhiệm vụ
             new { item_model_id = 33, target_group_id = 4 }, // Adult
             new { item_model_id = 33, target_group_id = 5 }, // Rescuer
 
-            // -- Category 4: V? sinh c� nh�n -----------------------------------
-            // Bang v? sinh � ph? n? adult v� b� b?u
+            // -- Category 4: Vệ sinh cá nhân -----------------------------------
+            // Băng vệ sinh – phụ nữ adult và bà bầu
             new { item_model_id = 5,  target_group_id = 4 }, // Adult
             new { item_model_id = 5,  target_group_id = 3 }, // Pregnant
-            // X� ph�ng di?t khu?n
+            // Xà phòng diệt khuẩn
             new { item_model_id = 34, target_group_id = 4 }, // Adult
-            // Nu?c r?a tay kh� � rescuer c?n gi? v? sinh ngo�i hi?n tru?ng
+            // Nước rửa tay khô – rescuer cần giữ vệ sinh ngoài hiện trường
             new { item_model_id = 35, target_group_id = 4 }, // Adult
             new { item_model_id = 35, target_group_id = 5 }, // Rescuer
-            // Khan u?t kh�ng khu?n � ti?n cho tr? em v� rescuer
+            // Khăn ướt kháng khuẩn – tiện cho trẻ em và rescuer
             new { item_model_id = 36, target_group_id = 4 }, // Adult
             new { item_model_id = 36, target_group_id = 1 }, // Children
             new { item_model_id = 36, target_group_id = 5 }, // Rescuer
-            // Kem d�nh rang
+            // Kem đánh răng
             new { item_model_id = 37, target_group_id = 4 }, // Adult
-            // B�n ch?i d�nh rang
+            // Bàn chải đánh răng
             new { item_model_id = 38, target_group_id = 4 }, // Adult
-            // D?u g?i d?u
+            // Dầu gội đầu
             new { item_model_id = 39, target_group_id = 4 }, // Adult
-            // Khan b�ng t?m
+            // Khăn bông tắm
             new { item_model_id = 40, target_group_id = 4 }, // Adult
-            // Gi?y v? sinh
+            // Giấy vệ sinh
             new { item_model_id = 41, target_group_id = 4 }, // Adult
-            // T� d�ng m?t l?n - tr? em l� ch? y?u
+            // Tã dùng một lần - trẻ em là chủ yếu
             new { item_model_id = 42, target_group_id = 1 }, // Children
 
-            // -- Category 5: Qu?n �o -------------------------------------------
-            // �o mua ngu?i l?n � rescuer m?c khi t�c nghi?p
+            // -- Category 5: Quần áo -------------------------------------------
+            // Áo mưa người lớn – rescuer mặc khi tác nghiệp
             new { item_model_id = 43, target_group_id = 4 }, // Adult
             new { item_model_id = 43, target_group_id = 5 }, // Rescuer
-            // ?ng cao su ch?ng lu � rescuer di chuy?n v�ng ng?p
+            // Ủng cao su chống lũ – rescuer di chuyển vùng ngập
             new { item_model_id = 44, target_group_id = 4 }, // Adult
             new { item_model_id = 44, target_group_id = 5 }, // Rescuer
-            // B? qu?n �o tr? em
+            // Bộ quần áo trẻ em
             new { item_model_id = 45, target_group_id = 1 }, // Children
-            // �o ?m ngu?i l?n � b� b?u v� ngu?i cao tu?i cung c?n �o ?m
+            // Áo ấm người lớn – bà bầu và người cao tuổi cũng cần áo ấm
             new { item_model_id = 46, target_group_id = 4 }, // Adult
             new { item_model_id = 46, target_group_id = 2 }, // Elderly
             new { item_model_id = 46, target_group_id = 3 }, // Pregnant
-            // B? qu?n �o ngu?i l?n � cung ph� h?p ngu?i gi�
+            // Bộ quần áo người lớn – cũng phù hợp người già
             new { item_model_id = 47, target_group_id = 4 }, // Adult
             new { item_model_id = 47, target_group_id = 2 }, // Elderly
-            // B? qu?n �o ngu?i cao tu?i
+            // Bộ quần áo người cao tuổi
             new { item_model_id = 48, target_group_id = 2 }, // Elderly
-            // Gang tay gi? ?m
+            // Găng tay giữ ấm
             new { item_model_id = 49, target_group_id = 4 }, // Adult
-            // T?t len gi? ?m
+            // Tất len giữ ấm
             new { item_model_id = 50, target_group_id = 4 }, // Adult
-            // Mu len
+            // Mũ len
             new { item_model_id = 51, target_group_id = 4 }, // Adult
-            // �o mua tr? em
+            // Áo mưa trẻ em
             new { item_model_id = 52, target_group_id = 1 }, // Children
 
-            // -- Category 6: Noi tr� ?n ---------------------------------------
-            // L?u b?t c?u tr? 4 ngu?i � c?p cho n?n nh�n, rescuer cung d?ng tr?i
+            // -- Category 6: Nơi trú ẩn ---------------------------------------
+            // Lều bạt cứu trợ 4 người – cấp cho nạn nhân, rescuer cũng dựng trại
             new { item_model_id = 53, target_group_id = 4 }, // Adult
             new { item_model_id = 53, target_group_id = 5 }, // Rescuer
-            // T?m b?t che mua da nang
+            // Tấm bạt che mưa đa năng
             new { item_model_id = 54, target_group_id = 4 }, // Adult
-            // T�i ng? gi? nhi?t
+            // Túi ngủ giữ nhiệt
             new { item_model_id = 55, target_group_id = 4 }, // Adult
-            // �?m hoi d� chi?n
+            // Đệm hơi dã chiến
             new { item_model_id = 56, target_group_id = 4 }, // Adult
-            // M�n ch?ng c�n tr�ng
+            // Màn chống côn trùng
             new { item_model_id = 57, target_group_id = 4 }, // Adult
-            // B? c?c v� d�y l?u � Reusable, d�ng b?i rescuer
+            // Bộ cọc và dây lều – Reusable, dùng bởi rescuer
             new { item_model_id = 58, target_group_id = 5 }, // Rescuer
-            // T?m b?t ch?ng th?m � rescuer ph? thi?t b? ngo�i hi?n tru?ng
+            // Tấm bạt chống thấm – rescuer phủ thiết bị ngoài hiện trường
             new { item_model_id = 59, target_group_id = 4 }, // Adult
             new { item_model_id = 59, target_group_id = 5 }, // Rescuer
-            // D�y bu?c da nang � Reusable
+            // Dây buộc đa năng – Reusable
             new { item_model_id = 60, target_group_id = 5 }, // Rescuer
-            // ��n LED d� chi?n - Reusable
+            // Đèn LED dã chiến - Reusable
             new { item_model_id = 61, target_group_id = 5 }, // Rescuer
-            // N?n kh?n c?p � rescuer cung d�ng chi?u s�ng t?m th?i
+            // Nến khẩn cấp – rescuer cũng dùng chiếu sáng tạm thời
             new { item_model_id = 62, target_group_id = 4 }, // Adult
             new { item_model_id = 62, target_group_id = 5 }, // Rescuer
 
-            // -- Category 7: C�ng c? s?a ch?a ---------------------------------
-            // B�a d�ng dinh � Reusable
+            // -- Category 7: Công cụ sửa chữa ---------------------------------
+            // Búa đóng đinh – Reusable
             new { item_model_id = 63, target_group_id = 5 }, // Rescuer
-            // �inh c�c lo?i � Consumable, rescuer s?a ch?a c�ng tr�nh kh?n c?p
+            // Đinh các loại – Consumable, rescuer sửa chữa công trình khẩn cấp
             new { item_model_id = 64, target_group_id = 5 }, // Rescuer
-            // Cua tay da nang � Reusable
+            // Cưa tay đa năng – Reusable
             new { item_model_id = 65, target_group_id = 5 }, // Rescuer
-            // Tua v�t 2 d?u � Reusable
+            // Tua vít 2 đầu – Reusable
             new { item_model_id = 66, target_group_id = 5 }, // Rescuer
-            // K�m c?t d�y � Reusable
+            // Kìm cắt dây – Reusable
             new { item_model_id = 67, target_group_id = 5 }, // Rescuer
-            // Bang keo ch?ng th?m � Consumable, d�ng trong hi?n tru?ng
+            // Băng keo chống thấm – Consumable, dùng trong hiện trường
             new { item_model_id = 68, target_group_id = 5 }, // Rescuer
-            // Dao da nang d� chi?n - Reusable
+            // Dao đa năng dã chiến - Reusable
             new { item_model_id = 69, target_group_id = 5 }, // Rescuer
-            // X?ng tay � Reusable
+            // Xẻng tay – Reusable
             new { item_model_id = 70, target_group_id = 5 }, // Rescuer
-            // Bao c�t ch?ng lu � Reusable
+            // Bao cát chống lũ – Reusable
             new { item_model_id = 71, target_group_id = 5 }, // Rescuer
-            // B? d?ng c? s?a ch?a di?n co b?n � Reusable
+            // Bộ dụng cụ sửa chữa điện cơ bản – Reusable
             new { item_model_id = 72, target_group_id = 5 }, // Rescuer
 
-            // -- Category 8: Thi?t b? c?u h? (t?t c? Reusable, ch? Rescuer) --
-            new { item_model_id = 4,  target_group_id = 5 }, // �o phao c?u sinh
-            new { item_model_id = 21, target_group_id = 5 }, // B�nh l?c nu?c d� chi?n
-            new { item_model_id = 23, target_group_id = 5 }, // Can d?ng nu?c 10L
-            new { item_model_id = 24, target_group_id = 5 }, // T�i d?ng nu?c linh ho?t
-            new { item_model_id = 31, target_group_id = 5 }, // Nhi?t k? di?n t?
-            new { item_model_id = 73, target_group_id = 5 }, // Xu?ng cao su c?u h?
-            new { item_model_id = 74, target_group_id = 5 }, // D�y th?ng c?u sinh 30m
-            new { item_model_id = 75, target_group_id = 5 }, // Phao tr�n c?u sinh
-            new { item_model_id = 76, target_group_id = 5 }, // M�y bom nu?c di d?ng
-            new { item_model_id = 77, target_group_id = 5 }, // B? d�m li�n l?c d� chi?n
-            new { item_model_id = 78, target_group_id = 5 }, // ��n t�n hi?u kh?n c?p
-            new { item_model_id = 79, target_group_id = 5 }, // M�y ph�t di?n di d?ng
-            new { item_model_id = 80, target_group_id = 5 }, // C�ng khi�ng thuong
-            new { item_model_id = 81, target_group_id = 5 }, // Mu b?o hi?m c?u h?
+            // -- Category 8: Thiết bị cứu hộ (tất cả Reusable, chỉ Rescuer) --
+            new { item_model_id = 4,  target_group_id = 5 }, // Áo phao cứu sinh
+            new { item_model_id = 21, target_group_id = 5 }, // Bình lọc nước dã chiến
+            new { item_model_id = 23, target_group_id = 5 }, // Can đựng nước 10L
+            new { item_model_id = 24, target_group_id = 5 }, // Túi đựng nước linh hoạt
+            new { item_model_id = 31, target_group_id = 5 }, // Nhiệt kế điện tử
+            new { item_model_id = 73, target_group_id = 5 }, // Xuồng cao su cứu hộ
+            new { item_model_id = 74, target_group_id = 5 }, // Dây thừng cứu sinh 30m
+            new { item_model_id = 75, target_group_id = 5 }, // Phao tròn cứu sinh
+            new { item_model_id = 76, target_group_id = 5 }, // Máy bơm nước di động
+            new { item_model_id = 77, target_group_id = 5 }, // Bộ đàm liên lạc dã chiến
+            new { item_model_id = 78, target_group_id = 5 }, // Đèn tín hiệu khẩn cấp
+            new { item_model_id = 79, target_group_id = 5 }, // Máy phát điện di động
+            new { item_model_id = 80, target_group_id = 5 }, // Cáng khiêng thương
+            new { item_model_id = 81, target_group_id = 5 }, // Mũ bảo hiểm cứu hộ
 
-            // -- Category 9: Su?i ?m ------------------------------------------
-            // Chan ?m gi? nhi?t � thi?t y?u cho t?t c? nh�m d�n s? d? t?n thuong
+            // -- Category 9: Sưởi ấm ------------------------------------------
+            // Chăn ấm giữ nhiệt – thiết yếu cho tất cả nhóm dân sự dễ tổn thương
             new { item_model_id = 6,  target_group_id = 4 }, // Adult
             new { item_model_id = 6,  target_group_id = 1 }, // Children
             new { item_model_id = 6,  target_group_id = 2 }, // Elderly
             new { item_model_id = 6,  target_group_id = 3 }, // Pregnant
-            // Than t? ong
+            // Than tổ ong
             new { item_model_id = 82, target_group_id = 4 }, // Adult
-            // M�y su?i di?n mini
+            // Máy sưởi điện mini
             new { item_model_id = 83, target_group_id = 4 }, // Adult
-            // T�i su?i ?m tay d�ng m?t l?n � rescuer gi? ?m khi t�c nghi?p d�m
+            // Túi sưởi ấm tay dùng một lần – rescuer giữ ấm khi tác nghiệp đêm
             new { item_model_id = 84, target_group_id = 4 }, // Adult
             new { item_model_id = 84, target_group_id = 5 }, // Rescuer
-            // B? qu?n �o nhi?t
+            // Bộ quần áo nhiệt
             new { item_model_id = 85, target_group_id = 4 }, // Adult
-            // ?m dun nu?c du l?ch
+            // Ấm đun nước du lịch
             new { item_model_id = 86, target_group_id = 4 }, // Adult
-            // B?p gas du l?ch mini - rescuer n?u an ngo�i d� chi?n
+            // Bếp gas du lịch mini - rescuer nấu ăn ngoài dã chiến
             new { item_model_id = 87, target_group_id = 4 }, // Adult
             new { item_model_id = 87, target_group_id = 5 }, // Rescuer
-            // B�nh gas mini d� chi?n - k�m b?p, rescuer d�ng tr?c ti?p
+            // Bình gas mini dã chiến - kèm bếp, rescuer dùng trực tiếp
             new { item_model_id = 88, target_group_id = 4 }, // Adult
             new { item_model_id = 88, target_group_id = 5 }, // Rescuer
-            // Chan di?n su?i
+            // Chăn điện sưởi
             new { item_model_id = 89, target_group_id = 4 }, // Adult
-            // T?m su?i ?m b?c x?
+            // Tấm sưởi ấm bức xạ
             new { item_model_id = 90, target_group_id = 4 }, // Adult
 
-            // -- Category 10: Phuong ti?n (Reusable, ch? Rescuer) -------------
-            new { item_model_id = 101, target_group_id = 5 }, // Xe t?i c?u tr? 2.5 t?n
-            new { item_model_id = 102, target_group_id = 5 }, // Xe c?u thuong
-            new { item_model_id = 103, target_group_id = 5 }, // Xe b�n t?i 4x4
-            new { item_model_id = 104, target_group_id = 5 }, // Xe m�y d?a h�nh
-            new { item_model_id = 105, target_group_id = 5 }, // Ca n� c?u h?
-            new { item_model_id = 106, target_group_id = 5 }, // Xe ch? h�ng nh? 1 t?n
-            new { item_model_id = 107, target_group_id = 5 }, // Xe t?i d�ng l?nh 3.5 t?n
-            new { item_model_id = 108, target_group_id = 5 }, // Xe kh�ch 16 ch?
-            new { item_model_id = 109, target_group_id = 5 }, // Xe c?u di d?ng
-            new { item_model_id = 110, target_group_id = 5 }, // Xe chuy�n d?ng ph�ng ch�y
+            // -- Category 10: Phương tiện (Reusable, chỉ Rescuer) -------------
+            new { item_model_id = 101, target_group_id = 5 }, // Xe tải cứu trợ 2.5 tấn
+            new { item_model_id = 102, target_group_id = 5 }, // Xe cứu thương
+            new { item_model_id = 103, target_group_id = 5 }, // Xe bán tải 4x4
+            new { item_model_id = 104, target_group_id = 5 }, // Xe máy địa hình
+            new { item_model_id = 105, target_group_id = 5 }, // Ca nô cứu hộ
+            new { item_model_id = 106, target_group_id = 5 }, // Xe chở hàng nhẹ 1 tấn
+            new { item_model_id = 107, target_group_id = 5 }, // Xe tải đông lạnh 3.5 tấn
+            new { item_model_id = 108, target_group_id = 5 }, // Xe khách 16 chỗ
+            new { item_model_id = 109, target_group_id = 5 }, // Xe cẩu di động
+            new { item_model_id = 110, target_group_id = 5 }, // Xe chuyên dụng phòng cháy
 
-            // -- Category 99: Kh�c ---------------------------------------------
-            // Pin d? ph�ng � rescuer c?n s?c thi?t b? li�n l?c
+            // -- Category 99: Khác ---------------------------------------------
+            // Pin dự phòng – rescuer cần sạc thiết bị liên lạc
             new { item_model_id = 91,  target_group_id = 4 }, // Adult
             new { item_model_id = 91,  target_group_id = 5 }, // Rescuer
-            // C�p s?c da nang � rescuer gi? thi?t b? ho?t d?ng
+            // Cáp sạc đa năng – rescuer giữ thiết bị hoạt động
             new { item_model_id = 92,  target_group_id = 4 }, // Adult
             new { item_model_id = 92,  target_group_id = 5 }, // Rescuer
-            // B?n d? d?a h�nh kh?n c?p � ch? y?u rescuer
+            // Bản đồ địa hình khẩn cấp – chủ yếu rescuer
             new { item_model_id = 93,  target_group_id = 5 }, // Rescuer
-            // C�i b�o d?ng kh?n c?p � ph�t t�n hi?u c?u c?u, rescuer cung d�ng
+            // Còi báo động khẩn cấp – phát tín hiệu cầu cứu, rescuer cũng dùng
             new { item_model_id = 94,  target_group_id = 4 }, // Adult
             new { item_model_id = 94,  target_group_id = 5 }, // Rescuer
-            // K�nh b?o h? lao d?ng � Reusable, rescuer
+            // Kính bảo hộ lao động – Reusable, rescuer
             new { item_model_id = 95,  target_group_id = 5 }, // Rescuer
-            // Ba l� kh?n c?p � rescuer mang thi?t b? v�o hi?n tru?ng
+            // Ba lô khẩn cấp – rescuer mang thiết bị vào hiện trường
             new { item_model_id = 96,  target_group_id = 4 }, // Adult
             new { item_model_id = 96,  target_group_id = 5 }, // Rescuer
-            // S? tay v� b�t ghi ch�p
+            // Sổ tay và bút ghi chép
             new { item_model_id = 97,  target_group_id = 4 }, // Adult
-            // B? d�n pin d?i d?u � Reusable
+            // Bộ đèn pin đội đầu – Reusable
             new { item_model_id = 98,  target_group_id = 5 }, // Rescuer
-            // �o ph?n quang an to�n � Reusable
+            // Áo phản quang an toàn – Reusable
             new { item_model_id = 99,  target_group_id = 5 }, // Rescuer
-            // Ph�o s�ng kh?n c?p � rescuer b�o hi?u v? tr�
+            // Pháo sáng khẩn cấp – rescuer báo hiệu vị trí
             new { item_model_id = 100, target_group_id = 5 }  // Rescuer
         );
     }
@@ -628,24 +628,24 @@ public static class LogisticsSeeder
     {
         var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
 
-        // CurrentUtilization = S (quantity � volumePerUnit) across all items (consumable + reusable + vehicle)
-        // CurrentWeightUtilization = S (quantity � weightPerUnit) across all items
-        // Volume unit: dm� (cubic decimeters), Weight unit: kg
-        // Depot 1 (Hu?):        Volume=831777.9,  Weight=330877.49  ? Capacity 1100000 (~75.6%), WeightCapacity 440000 (~75.2%)
-        // Depot 2 (�� N?ng):    Volume=754700.9,  Weight=365265.69  ? Capacity 1000000 (~75.5%), WeightCapacity 480000 (~76.1%)
-        // Depot 3 (H� Tinh):    Volume=443207.6,  Weight=195723.64  ? Capacity 600000  (~73.9%), WeightCapacity 260000 (~75.3%)
-        // Depot 4 (HN/TW):      Volume=1064369.2, Weight=472365.44  ? Capacity 1400000 (~76.0%), WeightCapacity 650000 (~72.7%)
-        // Depot 5 (Thang B�nh): Volume=1890,      Weight=581       ? closure test: external resolution
-        // Depot 6 (Qu?ng Ninh): Volume=2400,      Weight=732.5     ? closure test: transfer to another depot
-        // Depot 7 (Vinh):       Volume=0,         Weight=0         ? closure test: empty depot / transfer target
+        // CurrentUtilization = Σ (quantity × volumePerUnit) across all items (consumable + reusable + vehicle)
+        // CurrentWeightUtilization = Σ (quantity × weightPerUnit) across all items
+        // Volume unit: dm³ (cubic decimeters), Weight unit: kg
+        // Depot 1 (Huế):        Volume=831777.9,  Weight=330877.49  → Capacity 1100000 (~75.6%), WeightCapacity 440000 (~75.2%)
+        // Depot 2 (Đà Nẵng):    Volume=754700.9,  Weight=365265.69  → Capacity 1000000 (~75.5%), WeightCapacity 480000 (~76.1%)
+        // Depot 3 (Hà Tĩnh):    Volume=443207.6,  Weight=195723.64  → Capacity 600000  (~73.9%), WeightCapacity 260000 (~75.3%)
+        // Depot 4 (HN/TW):      Volume=1064369.2, Weight=472365.44  → Capacity 1400000 (~76.0%), WeightCapacity 650000 (~72.7%)
+        // Depot 5 (Thăng Bình): Volume=1890,      Weight=581       → closure test: external resolution
+        // Depot 6 (Quảng Ninh): Volume=2400,      Weight=732.5     → closure test: transfer to another depot
+        // Depot 7 (Vinh):       Volume=0,         Weight=0         → closure test: empty depot / transfer target
         modelBuilder.Entity<Depot>().HasData(
-            new Depot { Id = 1, Name = "U? Ban MTTQVN T?nh Th?a Thi�n Hu?", Address = "46 �?ng �a, TP. Hu?, Th?a Thi�n Hu?", Location = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1100000m,  CurrentUtilization = 831777.9m,  WeightCapacity = 440000m,  CurrentWeightUtilization = 330877.49m, AdvanceLimit = 80_000_000m,  OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg" },
-            new Depot { Id = 2, Name = "?y ban MTTQVN TP �� N?ng", Address = "270 Trung N? Vuong, H?i Ch�u, �� N?ng", Location = new Point(108.22283205420794, 16.080298466000496) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1000000m,  CurrentUtilization = 754700.9m,  WeightCapacity = 480000m,  CurrentWeightUtilization = 365265.69m, AdvanceLimit = 60_000_000m,  OutstandingAdvanceAmount = 10_000_000m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
-            new Depot { Id = 3, Name = "?y Ban MTTQ T?nh H� Tinh", Address = "72 Phan ��nh Ph�ng, TP. H� Tinh, H� Tinh", Location = new Point(105.90102499916586, 18.349622333272194) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 600000m,   CurrentUtilization = 443207.6m,  WeightCapacity = 260000m,  CurrentWeightUtilization = 195723.64m, AdvanceLimit = 40_000_000m,  OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg" },
-            new Depot { Id = 4, Name = "?y ban MTTQVN Vi?t Nam", Address = "46 Tr�ng Thi, Ho�n Ki?m, H� N?i", Location = new Point(105.842191, 21.027819) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1400000m,  CurrentUtilization = 1064369.2m, WeightCapacity = 650000m,  CurrentWeightUtilization = 472365.44m, AdvanceLimit = 100_000_000m, OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
-            new Depot { Id = 5, Name = "?y ban MTTQVN Huy?n Thang B�nh", Address = "282 Ti?u La, th? tr?n H� Lam, huy?n Thang B�nh, Qu?ng Nam", Location = new Point(108.4587, 15.6949) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 250000m, CurrentUtilization = 1890m, WeightCapacity = 120000m, CurrentWeightUtilization = 581m, AdvanceLimit = 12_000_000m, OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
-            new Depot { Id = 6, Name = "?y ban MTTQVN Huy?n Qu?ng Ninh", Address = "TT. Qu�n H�u, huy?n Qu?ng Ninh, Qu?ng B�nh", Location = new Point(106.6175, 17.4619) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 280000m, CurrentUtilization = 2400m, WeightCapacity = 140000m, CurrentWeightUtilization = 732.5m, AdvanceLimit = 14_000_000m, OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
-            new Depot { Id = 7, Name = "?y ban MTTQVN T?nh Ngh? An", Address = "1 Phan �ang Luu, TP. Vinh, Ngh? An", Location = new Point(105.6936046, 18.6732581) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 300000m, CurrentUtilization = 0m, WeightCapacity = 150000m, CurrentWeightUtilization = 0m, AdvanceLimit = 5_000_000m, OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" }
+            new Depot { Id = 1, Name = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", Address = "46 Đống Đa, TP. Huế, Thừa Thiên Huế", Location = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1100000m,  CurrentUtilization = 831777.9m,  WeightCapacity = 440000m,  CurrentWeightUtilization = 330877.49m, AdvanceLimit = 80_000_000m,  OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg" },
+            new Depot { Id = 2, Name = "Ủy ban MTTQVN TP Đà Nẵng", Address = "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", Location = new Point(108.22283205420794, 16.080298466000496) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1000000m,  CurrentUtilization = 754700.9m,  WeightCapacity = 480000m,  CurrentWeightUtilization = 365265.69m, AdvanceLimit = 60_000_000m,  OutstandingAdvanceAmount = 10_000_000m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
+            new Depot { Id = 3, Name = "Ủy Ban MTTQ Tỉnh Hà Tĩnh", Address = "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", Location = new Point(105.90102499916586, 18.349622333272194) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 600000m,   CurrentUtilization = 443207.6m,  WeightCapacity = 260000m,  CurrentWeightUtilization = 195723.64m, AdvanceLimit = 40_000_000m,  OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg" },
+            new Depot { Id = 4, Name = "Ủy ban MTTQVN Việt Nam", Address = "46 Tràng Thi, Hoàn Kiếm, Hà Nội", Location = new Point(105.842191, 21.027819) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 1400000m,  CurrentUtilization = 1064369.2m, WeightCapacity = 650000m,  CurrentWeightUtilization = 472365.44m, AdvanceLimit = 100_000_000m, OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
+            new Depot { Id = 5, Name = "Ủy ban MTTQVN Huyện Thăng Bình", Address = "282 Tiểu La, thị trấn Hà Lam, huyện Thăng Bình, Quảng Nam", Location = new Point(108.4587, 15.6949) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 250000m, CurrentUtilization = 1890m, WeightCapacity = 120000m, CurrentWeightUtilization = 581m, AdvanceLimit = 12_000_000m, OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
+            new Depot { Id = 6, Name = "Ủy ban MTTQVN Huyện Quảng Ninh", Address = "TT. Quán Hàu, huyện Quảng Ninh, Quảng Bình", Location = new Point(106.6175, 17.4619) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 280000m, CurrentUtilization = 2400m, WeightCapacity = 140000m, CurrentWeightUtilization = 732.5m, AdvanceLimit = 14_000_000m, OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" },
+            new Depot { Id = 7, Name = "Ủy ban MTTQVN Tỉnh Nghệ An", Address = "1 Phan Đăng Lưu, TP. Vinh, Nghệ An", Location = new Point(105.6936046, 18.6732581) { SRID = 4326 }, Status = DepotStatus.Available.ToString(), Capacity = 300000m, CurrentUtilization = 0m, WeightCapacity = 150000m, CurrentWeightUtilization = 0m, AdvanceLimit = 5_000_000m, OutstandingAdvanceAmount = 0m, LastUpdatedAt = now, ImageUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg" }
         );
     }
 
@@ -664,7 +664,7 @@ public static class LogisticsSeeder
         );
     }
 
-    // -- Consumable items ? tracked by quantity in depot_supply_inventory ------
+    // -- Consumable items → tracked by quantity in depot_supply_inventory ------
     private static void SeedDepotInventories(ModelBuilder modelBuilder)
     {
         var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
@@ -722,19 +722,19 @@ public static class LogisticsSeeder
         };
 
         // -- Per-category, per-depot quantity factors -------------------------
-        // Depot order: D1-Hu?(0), D2-�� N?ng(1), D3-H� Tinh(2), D4-HN-TW(3)
+        // Depot order: D1-Huế(0), D2-Đà Nẵng(1), D3-Hà Tĩnh(2), D4-HN-TW(3)
         // Low factors (< 0.4) are intentional to create supply shortage test data
         var categoryFactors = new Dictionary<int, double[]>
         {
-            [1]  = new[] { 1.2,  0.7,  0.25, 1.5  }, // Food       - D3 LOW ??
+            [1]  = new[] { 1.2,  0.7,  0.25, 1.5  }, // Food       - D3 LOW ⚠️
             [2]  = new[] { 0.8,  1.3,  0.6,  1.4  }, // Water
-            [3]  = new[] { 0.25, 1.4,  0.7,  1.5  }, // Medical    - D1 LOW ??
-            [4]  = new[] { 0.9,  1.2,  0.2,  1.3  }, // Hygiene    - D3 LOW ??
-            [5]  = new[] { 1.1,  0.3,  1.3,  0.9  }, // Clothing   - D2 LOW ??
+            [3]  = new[] { 0.25, 1.4,  0.7,  1.5  }, // Medical    - D1 LOW ⚠️
+            [4]  = new[] { 0.9,  1.2,  0.2,  1.3  }, // Hygiene    - D3 LOW ⚠️
+            [5]  = new[] { 1.1,  0.3,  1.3,  0.9  }, // Clothing   - D2 LOW ⚠️
             [6]  = new[] { 1.0,  0.6,  1.2,  0.8  }, // Shelter
             [7]  = new[] { 1.0,  0.8,  1.0,  1.2  }, // RepairTools
-            [9]  = new[] { 0.35, 0.3,  1.5,  0.8  }, // Heating    - D1+D2 LOW ??
-            [99] = new[] { 0.6,  0.8,  0.3,  1.2  }, // Others     - D3 LOW ??
+            [9]  = new[] { 0.35, 0.3,  1.5,  0.8  }, // Heating    - D1+D2 LOW ⚠️
+            [99] = new[] { 0.6,  0.8,  0.3,  1.2  }, // Others     - D3 LOW ⚠️
         };
 
         int[] depotIds = { 1, 2, 3, 4 };
@@ -767,8 +767,8 @@ public static class LogisticsSeeder
 
         // -- Low-stock seed overrides -----------------------------------------
         // DSI ID formula: id = depotIndex * 72 + itemIndex + 1
-        //   D1 (Hu?):    IDs  1- 72  | D2 (�� N?ng): IDs  73-144
-        //   D3 (H� Tinh): IDs 145-216 | D4 (HN-TW):   IDs 217-288
+        //   D1 (Huế):    IDs  1- 72  | D2 (Đà Nẵng): IDs  73-144
+        //   D3 (Hà Tĩnh): IDs 145-216 | D4 (HN-TW):   IDs 217-288
         //
         // Each depot has 3 consumable items intentionally pushed into the fixed warning bands:
         // CRITICAL [0.0, 0.4), MEDIUM [0.4, 0.7), LOW [0.7, 1.0). The rest remain OK (>= 1.0).
@@ -806,10 +806,10 @@ public static class LogisticsSeeder
             entry.MissionReservedQuantity = Math.Clamp(reserved, 0, quantity - 1);
         }
 
-        // -- Transfer reservation overrides - kh?p v?i supply requests d� seed --
-        // Request #1 (Depot 1 = Hu? l� kho ngu?n, tr?ng th�i Accepted):
-        //   DSI 1 = Depot 1, Item #1  (M� t�m)        ? d?t tr? 6000
-        //   DSI 2 = Depot 1, Item #2  (Nu?c tinh khi?t) ? d?t tr? 4000
+        // -- Transfer reservation overrides - khớp với supply requests đã seed --
+        // Request #1 (Depot 1 = Huế là kho nguồn, trạng thái Accepted):
+        //   DSI 1 = Depot 1, Item #1  (Mì tôm)        → đặt trữ 6000
+        //   DSI 2 = Depot 1, Item #2  (Nước tinh khiết) → đặt trữ 4000
         // (DSI id = depotIndex * 72 + itemIndex + 1; Depot 1 = index 0)
         var transferReservedOverrides = new Dictionary<int, int>
         {
@@ -889,7 +889,7 @@ public static class LogisticsSeeder
         modelBuilder.Entity<DepotSupplyInventory>().HasData(list.ToArray());
     }
 
-    // -- Reusable items ? each physical unit tracked individually --------------
+    // -- Reusable items → each physical unit tracked individually --------------
     private static void SeedDepotReusableItems(ModelBuilder modelBuilder)
     {
         var now = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
@@ -899,15 +899,15 @@ public static class LogisticsSeeder
         var fair = ReusableItemCondition.Fair.ToString();
 
         // -- Reusable item groups with per-depot unit counts ---------------
-        // Per-depot unit table (D1-Hu?, D2-�� N?ng, D3-H� Tinh, D4-HN-TW)
+        // Per-depot unit table (D1-Huế, D2-Đà Nẵng, D3-Hà Tĩnh, D4-HN-TW)
         //
         // RescueEquipment (4,21,23,24,31,73,74,75,76,77,78,79,80,81) : 3, 4, 2, 3
-        // Shelter reusables (58,60,61)                                : 5, 2, 4, 3  (Shelter-rich for Hu?+H� Tinh)
+        // Shelter reusables (58,60,61)                                : 5, 2, 4, 3  (Shelter-rich for Huế+Hà Tĩnh)
         // RepairTools (63,65,66,67,69,70,71,72)                       : 2, 4, 2, 3
         // Cat99 reusables (95,98,99)                                  : 3, 3, 3, 3
         //
         // Heating reusables: none (all heating is consumable)
-        // Vehicle (101-110) : scaled by depot factor �1.0/�0.8/�0.6/�1.2
+        // Vehicle (101-110) : scaled by depot factor ×1.0/×0.8/×0.6/×1.2
 
         // (itemId, unitsPerDepot[D1,D2,D3,D4])
         var reusableGroups = new (int[] ids, int[] units)[]
@@ -923,9 +923,9 @@ public static class LogisticsSeeder
         };
 
         // -- Vehicle item IDs and base units per depot ----------------------
-        // 101 Xe t?i 2.5T, 102 Xe c?u thuong, 103 Xe b�n t?i 4�4, 104 Xe m�y d?a h�nh,
-        // 105 Ca n�, 106 Xe ch? h�ng 1T, 107 Xe d�ng l?nh, 108 Xe kh�ch 16 ch?,
-        // 109 Xe c?u, 110 Xe PCCC
+        // 101 Xe tải 2.5T, 102 Xe cứu thương, 103 Xe bán tải 4×4, 104 Xe máy địa hình,
+        // 105 Ca nô, 106 Xe chở hàng 1T, 107 Xe đông lạnh, 108 Xe khách 16 chỗ,
+        // 109 Xe cẩu, 110 Xe PCCC
         int[] vehicleIds       = { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110 };
         int[] vehicleBaseUnits = {   5,   3,   5,   8,   4,   5,   3,   3,   2,   2 };
         double[] vehicleDepotFactors = { 1.0, 0.8, 0.6, 1.2 };
@@ -993,14 +993,14 @@ public static class LogisticsSeeder
         // Lot Id == InventoryLog Id for simplicity (they share the same auto-sequence space in seed only).
         // RemainingQuantity = QuantityChange for seed data (nothing consumed yet).
         //
-        // Log Id ? DSI Id, Qty, SourceType, SourceId, ReceivedDate, ExpiredDate
+        // Log Id → DSI Id, Qty, SourceType, SourceId, ReceivedDate, ExpiredDate
         // We give realistic expiry dates: food ~6-12 months, medicine ~2 years, toiletries ~18 months, etc.
 
         var baseDate = new DateTime(2024, 10, 14, 0, 0, 0, DateTimeKind.Utc);
 
         var lots = new List<SupplyInventoryLot>
         {
-            // -- Initial import (Depot 1 - Hu?) -----------------------------
+            // -- Initial import (Depot 1 - Huế) -----------------------------
             new() { Id = 1,  SupplyInventoryId = 1,  Quantity = 50000, RemainingQuantity = 50000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(12), SourceType = InventorySourceType.Donation.ToString(), SourceId = 1,  CreatedAt = baseDate },
             new() { Id = 2,  SupplyInventoryId = 2,  Quantity = 40000, RemainingQuantity = 40000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = InventorySourceType.Donation.ToString(), SourceId = 1,  CreatedAt = baseDate },
             new() { Id = 3,  SupplyInventoryId = 3,  Quantity = 80000, RemainingQuantity = 80000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  CreatedAt = baseDate },
@@ -1010,7 +1010,7 @@ public static class LogisticsSeeder
             new() { Id = 7,  SupplyInventoryId = 7,  Quantity = 5000,  RemainingQuantity = 5000,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(36), SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  CreatedAt = baseDate },
             new() { Id = 8,  SupplyInventoryId = 8,  Quantity = 20000, RemainingQuantity = 20000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, CreatedAt = baseDate },
 
-            // -- Initial import (Depot 2 - �� N?ng) -------------------------
+            // -- Initial import (Depot 2 - Đà Nẵng) -------------------------
             new() { Id = 9,  SupplyInventoryId = 45, Quantity = 40000, RemainingQuantity = 40000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(12), SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  CreatedAt = baseDate },
             new() { Id = 10, SupplyInventoryId = 46, Quantity = 32000, RemainingQuantity = 32000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  CreatedAt = baseDate },
             new() { Id = 11, SupplyInventoryId = 47, Quantity = 64000, RemainingQuantity = 64000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  CreatedAt = baseDate },
@@ -1018,7 +1018,7 @@ public static class LogisticsSeeder
             new() { Id = 13, SupplyInventoryId = 49, Quantity = 6400,  RemainingQuantity = 6400,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(6),  SourceType = InventorySourceType.Donation.ToString(), SourceId = 7,  CreatedAt = baseDate },
             new() { Id = 14, SupplyInventoryId = 50, Quantity = 24000, RemainingQuantity = 24000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  CreatedAt = baseDate },
 
-            // -- Initial import (Depot 3 - H� Tinh) -------------------------
+            // -- Initial import (Depot 3 - Hà Tĩnh) -------------------------
             new() { Id = 15, SupplyInventoryId = 89,  Quantity = 30000, RemainingQuantity = 30000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(12), SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  CreatedAt = baseDate },
             new() { Id = 16, SupplyInventoryId = 90,  Quantity = 24000, RemainingQuantity = 24000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = InventorySourceType.Donation.ToString(), SourceId = 2,  CreatedAt = baseDate },
             new() { Id = 17, SupplyInventoryId = 91,  Quantity = 48000, RemainingQuantity = 48000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  CreatedAt = baseDate },
@@ -1037,26 +1037,26 @@ public static class LogisticsSeeder
             new() { Id = 28, SupplyInventoryId = 139, Quantity = 4500,  RemainingQuantity = 4500,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(36), SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  CreatedAt = baseDate },
             new() { Id = 29, SupplyInventoryId = 140, Quantity = 18000, RemainingQuantity = 18000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, CreatedAt = baseDate },
 
-            // -- Purchase imports (Depot 1 - Hu?) ---------------------------
-            // Log 33: Invoice 1, m� t�m, Jan 2025
+            // -- Purchase imports (Depot 1 - Huế) ---------------------------
+            // Log 33: Invoice 1, mì tôm, Jan 2025
             new() { Id = 30, SupplyInventoryId = 1,  Quantity = 20000, RemainingQuantity = 20000, ReceivedDate = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Purchase.ToString(), SourceId = 1, CreatedAt = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc) },
-            // Log 34: Invoice 1, nu?c, Jan 2025
+            // Log 34: Invoice 1, nước, Jan 2025
             new() { Id = 31, SupplyInventoryId = 2,  Quantity = 15000, RemainingQuantity = 15000, ReceivedDate = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Purchase.ToString(), SourceId = 1, CreatedAt = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc) },
 
             // -- Donation imports --------------------------------------------
-            // Log 36: thu?c, Jun 2025
+            // Log 36: thuốc, Jun 2025
             new() { Id = 32, SupplyInventoryId = 3,  Quantity = 30000, RemainingQuantity = 30000, ReceivedDate = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 6, 5, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 1, CreatedAt = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc) },
-            // Log 38: s?a b?t, Oct 2025
+            // Log 38: sữa bột, Oct 2025
             new() { Id = 33, SupplyInventoryId = 5,  Quantity = 1000,  RemainingQuantity = 1000,  ReceivedDate = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc) },
 
             // -- Purchase imports (Jan & Feb 2026) ---------------------------
-            // Log 40: Invoice 2, thu?c, Jan 2026
+            // Log 40: Invoice 2, thuốc, Jan 2026
             new() { Id = 34, SupplyInventoryId = 3,  Quantity = 30000, RemainingQuantity = 30000, ReceivedDate = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2028, 1, 8, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Purchase.ToString(), SourceId = 2, CreatedAt = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc) },
-            // Log 42: Invoice 3, d?u gi�, Feb 2026
+            // Log 42: Invoice 3, dầu gió, Feb 2026
             new() { Id = 35, SupplyInventoryId = 7,  Quantity = 500,   RemainingQuantity = 500,   ReceivedDate = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2029, 2, 12, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Purchase.ToString(), SourceId = 3, CreatedAt = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc) },
 
             // -- Donation import (Mar 2026) ----------------------------------
-            // Log 44: m� t�m, Mar 2026
+            // Log 44: mì tôm, Mar 2026
             new() { Id = 36, SupplyInventoryId = 1,  Quantity = 10000, RemainingQuantity = 10000, ReceivedDate = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 3, CreatedAt = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc) },
 
             // -- Closure test depots -----------------------------------------
@@ -1075,7 +1075,7 @@ public static class LogisticsSeeder
     {
         // DSI layout: 44 consumable items per depot, sequential IDs
         // Depot 1: DSI 1-44, Depot 2: DSI 45-88, Depot 3: DSI 89-132, Depot 4: DSI 133-176
-        // Index 0=m� t�m(1), 1=nu?c(2), 2=thu?c(3), 3=bang VS(5), 4=s?a b?t(7), 5=luong kh�(8), 6=d?u gi�(9), 7=vitamin(10)
+        // Index 0=mì tôm(1), 1=nước(2), 2=thuốc(3), 3=băng VS(5), 4=sữa bột(7), 5=lương khô(8), 6=dầu gió(9), 7=vitamin(10)
 
         var now = new DateTime(2024, 10, 14, 0, 0, 0, DateTimeKind.Utc);
 
@@ -1084,7 +1084,7 @@ public static class LogisticsSeeder
         Guid mgr3 = SeedConstants.Manager3UserId;
         Guid mgr4 = SeedConstants.Manager4UserId;
 
-        // Expiry dates matching the lots � food ~12m, water ~18m, medicine ~24m, toiletries ~18m, milk ~6m, ration ~24m, oil ~36m, vitamin ~18m
+        // Expiry dates matching the lots – food ~12m, water ~18m, medicine ~24m, toiletries ~18m, milk ~6m, ration ~24m, oil ~36m, vitamin ~18m
         var exp12 = now.AddMonths(12);
         var exp18 = now.AddMonths(18);
         var exp24 = now.AddMonths(24);
@@ -1092,108 +1092,108 @@ public static class LogisticsSeeder
         var exp36 = now.AddMonths(36);
 
         modelBuilder.Entity<InventoryLog>().HasData(
-            // -- Nh?p kho ban d?u ----------------------------------------------
-            // Depot 1 (Hu?) - DSI 1-8
-            new InventoryLog { Id = 1,  DepotSupplyInventoryId = 1,  SupplyInventoryLotId = 1,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 50000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 1,  PerformedBy = mgr1, Note = "Nh?p m� t�m kho Hu? t? H?i CT� TT-Hu?",        ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
-            new InventoryLog { Id = 2,  DepotSupplyInventoryId = 2,  SupplyInventoryLotId = 2,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 40000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 1,  PerformedBy = mgr1, Note = "Nh?p nu?c u?ng kho Hu?",                        ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
-            new InventoryLog { Id = 3,  DepotSupplyInventoryId = 3,  SupplyInventoryLotId = 3,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 80000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  PerformedBy = mgr1, Note = "Nh?p thu?c Paracetamol kho Hu?",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
-            new InventoryLog { Id = 4,  DepotSupplyInventoryId = 4,  SupplyInventoryLotId = 4,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 15000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr1, Note = "Nh?p bang v? sinh kho Hu?",                     ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
-            new InventoryLog { Id = 5,  DepotSupplyInventoryId = 5,  SupplyInventoryLotId = 5,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 8000,   SourceType = InventorySourceType.Donation.ToString(), SourceId = 7,  PerformedBy = mgr1, Note = "Nh?p s?a b?t tr? em kho Hu?",                   ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
-            new InventoryLog { Id = 6,  DepotSupplyInventoryId = 6,  SupplyInventoryLotId = 6,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 30000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr1, Note = "Nh?p luong kh� kho Hu?",                        ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
-            new InventoryLog { Id = 7,  DepotSupplyInventoryId = 7,  SupplyInventoryLotId = 7,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 5000,   SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  PerformedBy = mgr1, Note = "Nh?p d?u gi� kho Hu?",                          ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
-            new InventoryLog { Id = 8,  DepotSupplyInventoryId = 8,  SupplyInventoryLotId = 8,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 20000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr1, Note = "Nh?p Vitamin t?ng h?p kho Hu?",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            // -- Nhập kho ban đầu ----------------------------------------------
+            // Depot 1 (Huế) - DSI 1-8
+            new InventoryLog { Id = 1,  DepotSupplyInventoryId = 1,  SupplyInventoryLotId = 1,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 50000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 1,  PerformedBy = mgr1, Note = "Nhập mì tôm kho Huế từ Hội CTĐ TT-Huế",        ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
+            new InventoryLog { Id = 2,  DepotSupplyInventoryId = 2,  SupplyInventoryLotId = 2,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 40000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 1,  PerformedBy = mgr1, Note = "Nhập nước uống kho Huế",                        ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 3,  DepotSupplyInventoryId = 3,  SupplyInventoryLotId = 3,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 80000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  PerformedBy = mgr1, Note = "Nhập thuốc Paracetamol kho Huế",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 4,  DepotSupplyInventoryId = 4,  SupplyInventoryLotId = 4,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 15000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr1, Note = "Nhập băng vệ sinh kho Huế",                     ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 5,  DepotSupplyInventoryId = 5,  SupplyInventoryLotId = 5,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 8000,   SourceType = InventorySourceType.Donation.ToString(), SourceId = 7,  PerformedBy = mgr1, Note = "Nhập sữa bột trẻ em kho Huế",                   ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
+            new InventoryLog { Id = 6,  DepotSupplyInventoryId = 6,  SupplyInventoryLotId = 6,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 30000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr1, Note = "Nhập lương khô kho Huế",                        ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 7,  DepotSupplyInventoryId = 7,  SupplyInventoryLotId = 7,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 5000,   SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  PerformedBy = mgr1, Note = "Nhập dầu gió kho Huế",                          ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
+            new InventoryLog { Id = 8,  DepotSupplyInventoryId = 8,  SupplyInventoryLotId = 8,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 20000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr1, Note = "Nhập Vitamin tổng hợp kho Huế",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
 
-            // Depot 2 (�� N?ng) - DSI 45-50
-            new InventoryLog { Id = 9,  DepotSupplyInventoryId = 45, SupplyInventoryLotId = 9,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 40000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  PerformedBy = mgr2, Note = "Nh?p m� t�m kho �� N?ng t? Qu? T?m L�ng V�ng", ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
-            new InventoryLog { Id = 10, DepotSupplyInventoryId = 46, SupplyInventoryLotId = 10, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 32000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  PerformedBy = mgr2, Note = "Nh?p nu?c u?ng kho �� N?ng",                    ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
-            new InventoryLog { Id = 11, DepotSupplyInventoryId = 47, SupplyInventoryLotId = 11, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 64000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  PerformedBy = mgr2, Note = "Nh?p thu?c h? s?t kho �� N?ng",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
-            new InventoryLog { Id = 12, DepotSupplyInventoryId = 48, SupplyInventoryLotId = 12, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 12000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr2, Note = "Nh?p bang v? sinh kho �� N?ng",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
-            new InventoryLog { Id = 13, DepotSupplyInventoryId = 49, SupplyInventoryLotId = 13, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 6400,   SourceType = InventorySourceType.Donation.ToString(), SourceId = 7,  PerformedBy = mgr2, Note = "Nh?p s?a b?t kho �� N?ng",                     ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
-            new InventoryLog { Id = 14, DepotSupplyInventoryId = 50, SupplyInventoryLotId = 14, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 24000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr2, Note = "Nh?p luong kh� kho �� N?ng t? Ban PCTT",       ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            // Depot 2 (Đà Nẵng) - DSI 45-50
+            new InventoryLog { Id = 9,  DepotSupplyInventoryId = 45, SupplyInventoryLotId = 9,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 40000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  PerformedBy = mgr2, Note = "Nhập mì tôm kho Đà Nẵng từ Quỹ Tấm Lòng Vàng", ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
+            new InventoryLog { Id = 10, DepotSupplyInventoryId = 46, SupplyInventoryLotId = 10, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 32000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  PerformedBy = mgr2, Note = "Nhập nước uống kho Đà Nẵng",                    ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 11, DepotSupplyInventoryId = 47, SupplyInventoryLotId = 11, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 64000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  PerformedBy = mgr2, Note = "Nhập thuốc hạ sốt kho Đà Nẵng",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 12, DepotSupplyInventoryId = 48, SupplyInventoryLotId = 12, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 12000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr2, Note = "Nhập băng vệ sinh kho Đà Nẵng",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 13, DepotSupplyInventoryId = 49, SupplyInventoryLotId = 13, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 6400,   SourceType = InventorySourceType.Donation.ToString(), SourceId = 7,  PerformedBy = mgr2, Note = "Nhập sữa bột kho Đà Nẵng",                     ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
+            new InventoryLog { Id = 14, DepotSupplyInventoryId = 50, SupplyInventoryLotId = 14, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 24000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr2, Note = "Nhập lương khô kho Đà Nẵng từ Ban PCTT",       ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
 
-            // Depot 3 (H� Tinh) - DSI 89-96
-            new InventoryLog { Id = 15, DepotSupplyInventoryId = 89,  SupplyInventoryLotId = 15, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 30000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr3, Note = "Nh?p m� t�m kho H� Tinh t? H?i LHPN",          ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
-            new InventoryLog { Id = 16, DepotSupplyInventoryId = 90,  SupplyInventoryLotId = 16, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 24000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 2,  PerformedBy = mgr3, Note = "Nh?p nu?c u?ng kho H� Tinh t? MTTQ QB",        ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
-            new InventoryLog { Id = 17, DepotSupplyInventoryId = 91,  SupplyInventoryLotId = 17, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 48000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr3, Note = "Nh?p thu?c kho H� Tinh",                       ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
-            new InventoryLog { Id = 18, DepotSupplyInventoryId = 92,  SupplyInventoryLotId = 18, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 9000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr3, Note = "Nh?p bang v? sinh kho H� Tinh",                ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
-            new InventoryLog { Id = 19, DepotSupplyInventoryId = 93,  SupplyInventoryLotId = 19, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 4800,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr3, Note = "Nh?p s?a b?t tr? em kho H� Tinh",              ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
-            new InventoryLog { Id = 20, DepotSupplyInventoryId = 95,  SupplyInventoryLotId = 20, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 3000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  PerformedBy = mgr3, Note = "Nh?p d?u gi� kho H� Tinh",                     ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
-            new InventoryLog { Id = 21, DepotSupplyInventoryId = 96,  SupplyInventoryLotId = 21, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 12000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr3, Note = "Nh?p Vitamin kho H� Tinh",                     ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            // Depot 3 (Hà Tĩnh) - DSI 89-96
+            new InventoryLog { Id = 15, DepotSupplyInventoryId = 89,  SupplyInventoryLotId = 15, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 30000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr3, Note = "Nhập mì tôm kho Hà Tĩnh từ Hội LHPN",          ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
+            new InventoryLog { Id = 16, DepotSupplyInventoryId = 90,  SupplyInventoryLotId = 16, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 24000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 2,  PerformedBy = mgr3, Note = "Nhập nước uống kho Hà Tĩnh từ MTTQ QB",        ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 17, DepotSupplyInventoryId = 91,  SupplyInventoryLotId = 17, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 48000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr3, Note = "Nhập thuốc kho Hà Tĩnh",                       ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 18, DepotSupplyInventoryId = 92,  SupplyInventoryLotId = 18, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 9000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr3, Note = "Nhập băng vệ sinh kho Hà Tĩnh",                ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 19, DepotSupplyInventoryId = 93,  SupplyInventoryLotId = 19, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 4800,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr3, Note = "Nhập sữa bột trẻ em kho Hà Tĩnh",              ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
+            new InventoryLog { Id = 20, DepotSupplyInventoryId = 95,  SupplyInventoryLotId = 20, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 3000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  PerformedBy = mgr3, Note = "Nhập dầu gió kho Hà Tĩnh",                     ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
+            new InventoryLog { Id = 21, DepotSupplyInventoryId = 96,  SupplyInventoryLotId = 21, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 12000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr3, Note = "Nhập Vitamin kho Hà Tĩnh",                     ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
 
             // Depot 4 (MTTQVN) - DSI 133-140
-            new InventoryLog { Id = 22, DepotSupplyInventoryId = 133, SupplyInventoryLotId = 22, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 45000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr4, Note = "Nh?p m� t�m kho trung uong t? Ban PCTT",       ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
-            new InventoryLog { Id = 23, DepotSupplyInventoryId = 134, SupplyInventoryLotId = 23, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 36000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr4, Note = "Nh?p nu?c u?ng kho trung uong",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
-            new InventoryLog { Id = 24, DepotSupplyInventoryId = 135, SupplyInventoryLotId = 24, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 72000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 7,  PerformedBy = mgr4, Note = "Nh?p thu?c kho trung uong t? CT� Qu?ng Ng�i",  ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
-            new InventoryLog { Id = 25, DepotSupplyInventoryId = 136, SupplyInventoryLotId = 25, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 13500, SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr4, Note = "Nh?p bang v? sinh kho trung uong",              ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
-            new InventoryLog { Id = 26, DepotSupplyInventoryId = 137, SupplyInventoryLotId = 26, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 7200,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr4, Note = "Nh?p s?a b?t kho trung uong",                  ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
-            new InventoryLog { Id = 27, DepotSupplyInventoryId = 138, SupplyInventoryLotId = 27, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 27000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr4, Note = "Nh?p luong kh� kho trung uong",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
-            new InventoryLog { Id = 28, DepotSupplyInventoryId = 139, SupplyInventoryLotId = 28, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 4500,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  PerformedBy = mgr4, Note = "Nh?p d?u gi� kho trung uong",                   ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
-            new InventoryLog { Id = 29, DepotSupplyInventoryId = 140, SupplyInventoryLotId = 29, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 18000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr4, Note = "Nh?p Vitamin kho trung uong",                   ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 22, DepotSupplyInventoryId = 133, SupplyInventoryLotId = 22, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 45000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr4, Note = "Nhập mì tôm kho trung ương từ Ban PCTT",       ReceivedDate = now, ExpiredDate = exp12, CreatedAt = now },
+            new InventoryLog { Id = 23, DepotSupplyInventoryId = 134, SupplyInventoryLotId = 23, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 36000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr4, Note = "Nhập nước uống kho trung ương",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 24, DepotSupplyInventoryId = 135, SupplyInventoryLotId = 24, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 72000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 7,  PerformedBy = mgr4, Note = "Nhập thuốc kho trung ương từ CTĐ Quảng Ngãi",  ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 25, DepotSupplyInventoryId = 136, SupplyInventoryLotId = 25, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 13500, SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr4, Note = "Nhập băng vệ sinh kho trung ương",              ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
+            new InventoryLog { Id = 26, DepotSupplyInventoryId = 137, SupplyInventoryLotId = 26, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 7200,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr4, Note = "Nhập sữa bột kho trung ương",                  ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
+            new InventoryLog { Id = 27, DepotSupplyInventoryId = 138, SupplyInventoryLotId = 27, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 27000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr4, Note = "Nhập lương khô kho trung ương",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
+            new InventoryLog { Id = 28, DepotSupplyInventoryId = 139, SupplyInventoryLotId = 28, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 4500,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  PerformedBy = mgr4, Note = "Nhập dầu gió kho trung ương",                   ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
+            new InventoryLog { Id = 29, DepotSupplyInventoryId = 140, SupplyInventoryLotId = 29, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 18000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr4, Note = "Nhập Vitamin kho trung ương",                   ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
 
-            // -- M?u da d?ng c�c lo?i h�nh d?ng (kh�ng c� ReceivedDate/ExpiredDate) --
-            new InventoryLog { Id = 30, DepotSupplyInventoryId = 1,  ActionType = InventoryActionType.Export.ToString(),      QuantityChange = 5000,  SourceType = InventorySourceType.Mission.ToString(),    MissionId = 1, PerformedBy = mgr1, Note = "Xu?t m� t�m cho nhi?m v? c?u h? lu l?t",              CreatedAt = now.AddHours(1) },
-            new InventoryLog { Id = 31, DepotSupplyInventoryId = 45, ActionType = InventoryActionType.TransferOut.ToString(), QuantityChange = 2000,  SourceType = InventorySourceType.Transfer.ToString(),   SourceId = 1,  PerformedBy = mgr2, Note = "Chuy?n m� t�m t? �� N?ng sang kho Hu?",               CreatedAt = now.AddHours(2) },
-            new InventoryLog { Id = 32, DepotSupplyInventoryId = 3,  ActionType = InventoryActionType.Adjust.ToString(),      QuantityChange = -1000, SourceType = InventorySourceType.Adjustment.ToString(),                PerformedBy = mgr1, Note = "�i?u ch?nh s? lu?ng thu?c do h?t h?n",                CreatedAt = now.AddHours(3) },
+            // -- Mẫu đa dạng các loại hành động (không có ReceivedDate/ExpiredDate) --
+            new InventoryLog { Id = 30, DepotSupplyInventoryId = 1,  ActionType = InventoryActionType.Export.ToString(),      QuantityChange = 5000,  SourceType = InventorySourceType.Mission.ToString(),    MissionId = 1, PerformedBy = mgr1, Note = "Xuất mì tôm cho nhiệm vụ cứu hộ lũ lụt",              CreatedAt = now.AddHours(1) },
+            new InventoryLog { Id = 31, DepotSupplyInventoryId = 45, ActionType = InventoryActionType.TransferOut.ToString(), QuantityChange = 2000,  SourceType = InventorySourceType.Transfer.ToString(),   SourceId = 1,  PerformedBy = mgr2, Note = "Chuyển mì tôm từ Đà Nẵng sang kho Huế",               CreatedAt = now.AddHours(2) },
+            new InventoryLog { Id = 32, DepotSupplyInventoryId = 3,  ActionType = InventoryActionType.Adjust.ToString(),      QuantityChange = -1000, SourceType = InventorySourceType.Adjustment.ToString(),                PerformedBy = mgr1, Note = "Điều chỉnh số lượng thuốc do hết hạn",                CreatedAt = now.AddHours(3) },
 
-            // -- Giao d?ch mua s?m (VAT) -------------------------------------
+            // -- Giao dịch mua sắm (VAT) -------------------------------------
             // Jan 2025
-            new InventoryLog { Id = 33, DepotSupplyInventoryId = 1,  VatInvoiceId = 1, SupplyInventoryLotId = 30, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 20000, SourceType = InventorySourceType.Purchase.ToString(), SourceId = 1, PerformedBy = mgr1, Note = "Nh?p m� t�m theo h�a don VAT Q1/2025",                  ReceivedDate = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),  CreatedAt = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 34, DepotSupplyInventoryId = 2,  VatInvoiceId = 1, SupplyInventoryLotId = 31, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 15000, SourceType = InventorySourceType.Purchase.ToString(), SourceId = 1, PerformedBy = mgr1, Note = "Nh?p nu?c tinh khi?t theo h�a don VAT Q1/2025",         ReceivedDate = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc),  CreatedAt = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 35, DepotSupplyInventoryId = 1,                    ActionType = InventoryActionType.Export.ToString(), QuantityChange = 5000,  SourceType = InventorySourceType.Mission.ToString(),  MissionId = 1, PerformedBy = mgr1, Note = "Xu?t m� t�m ph?c v? nhi?m v? c?u h? lu l?t",         CreatedAt = new DateTime(2025, 1, 15, 6, 30, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 33, DepotSupplyInventoryId = 1,  VatInvoiceId = 1, SupplyInventoryLotId = 30, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 20000, SourceType = InventorySourceType.Purchase.ToString(), SourceId = 1, PerformedBy = mgr1, Note = "Nhập mì tôm theo hóa đơn VAT Q1/2025",                  ReceivedDate = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),  CreatedAt = new DateTime(2025, 1, 10, 7, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 34, DepotSupplyInventoryId = 2,  VatInvoiceId = 1, SupplyInventoryLotId = 31, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 15000, SourceType = InventorySourceType.Purchase.ToString(), SourceId = 1, PerformedBy = mgr1, Note = "Nhập nước tinh khiết theo hóa đơn VAT Q1/2025",         ReceivedDate = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc),  CreatedAt = new DateTime(2025, 1, 10, 9, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 35, DepotSupplyInventoryId = 1,                    ActionType = InventoryActionType.Export.ToString(), QuantityChange = 5000,  SourceType = InventorySourceType.Mission.ToString(),  MissionId = 1, PerformedBy = mgr1, Note = "Xuất mì tôm phục vụ nhiệm vụ cứu hộ lũ lụt",         CreatedAt = new DateTime(2025, 1, 15, 6, 30, 0, DateTimeKind.Utc) },
 
             // Jun 2025
-            new InventoryLog { Id = 36, DepotSupplyInventoryId = 3,                    SupplyInventoryLotId = 32, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 30000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 1, PerformedBy = mgr1, Note = "Nh?n thu?c t? H?i Ch? Th?p �? Hu? d?t 2",             ReceivedDate = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc),  ExpiredDate = new DateTime(2027, 6, 5, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 37, DepotSupplyInventoryId = 4,                    ActionType = InventoryActionType.Adjust.ToString(), QuantityChange = -500,  SourceType = InventorySourceType.Adjustment.ToString(),             PerformedBy = mgr1, Note = "�i?u ch?nh gi?m bang v? sinh do h?t h?n s? d?ng",      CreatedAt = new DateTime(2025, 6, 20, 10, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 36, DepotSupplyInventoryId = 3,                    SupplyInventoryLotId = 32, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 30000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 1, PerformedBy = mgr1, Note = "Nhận thuốc từ Hội Chữ Thập Đỏ Huế đợt 2",             ReceivedDate = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc),  ExpiredDate = new DateTime(2027, 6, 5, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 37, DepotSupplyInventoryId = 4,                    ActionType = InventoryActionType.Adjust.ToString(), QuantityChange = -500,  SourceType = InventorySourceType.Adjustment.ToString(),             PerformedBy = mgr1, Note = "Điều chỉnh giảm băng vệ sinh do hết hạn sử dụng",      CreatedAt = new DateTime(2025, 6, 20, 10, 0, 0, DateTimeKind.Utc) },
 
             // Oct 2025
-            new InventoryLog { Id = 38, DepotSupplyInventoryId = 5,                    SupplyInventoryLotId = 33, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, PerformedBy = mgr1, Note = "Nh?n s?a b?t t? MTTQ Qu?ng B�nh h? tr?",              ReceivedDate = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 39, DepotSupplyInventoryId = 2,                    ActionType = InventoryActionType.TransferOut.ToString(), QuantityChange = 5000, SourceType = InventorySourceType.Transfer.ToString(), SourceId = 2, PerformedBy = mgr1, Note = "Chuy?n nu?c u?ng sang kho �� N?ng h? tr? b�o s? 4", CreatedAt = new DateTime(2025, 10, 10, 6, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 38, DepotSupplyInventoryId = 5,                    SupplyInventoryLotId = 33, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, PerformedBy = mgr1, Note = "Nhận sữa bột từ MTTQ Quảng Bình hỗ trợ",              ReceivedDate = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 39, DepotSupplyInventoryId = 2,                    ActionType = InventoryActionType.TransferOut.ToString(), QuantityChange = 5000, SourceType = InventorySourceType.Transfer.ToString(), SourceId = 2, PerformedBy = mgr1, Note = "Chuyển nước uống sang kho Đà Nẵng hỗ trợ bão số 4", CreatedAt = new DateTime(2025, 10, 10, 6, 0, 0, DateTimeKind.Utc) },
 
             // Jan 2026
-            new InventoryLog { Id = 40, DepotSupplyInventoryId = 3,  VatInvoiceId = 2, SupplyInventoryLotId = 34, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 30000, SourceType = InventorySourceType.Purchase.ToString(), SourceId = 2, PerformedBy = mgr1, Note = "Nh?p thu?c Paracetamol theo h�a don VAT d?u nam 2026", ReceivedDate = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc),   ExpiredDate = new DateTime(2028, 1, 8, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 41, DepotSupplyInventoryId = 4,                    ActionType = InventoryActionType.Export.ToString(), QuantityChange = 200,   SourceType = InventorySourceType.Mission.ToString(),  MissionId = 2, PerformedBy = mgr1, Note = "Xu?t bang v? sinh cho d?i c?u h? ph�n ph?i v�ng lu",  CreatedAt = new DateTime(2026, 1, 20, 9, 30, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 40, DepotSupplyInventoryId = 3,  VatInvoiceId = 2, SupplyInventoryLotId = 34, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 30000, SourceType = InventorySourceType.Purchase.ToString(), SourceId = 2, PerformedBy = mgr1, Note = "Nhập thuốc Paracetamol theo hóa đơn VAT đầu năm 2026", ReceivedDate = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc),   ExpiredDate = new DateTime(2028, 1, 8, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2026, 1, 8, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 41, DepotSupplyInventoryId = 4,                    ActionType = InventoryActionType.Export.ToString(), QuantityChange = 200,   SourceType = InventorySourceType.Mission.ToString(),  MissionId = 2, PerformedBy = mgr1, Note = "Xuất băng vệ sinh cho đội cứu hộ phân phối vùng lũ",  CreatedAt = new DateTime(2026, 1, 20, 9, 30, 0, DateTimeKind.Utc) },
 
             // Feb 2026
-            new InventoryLog { Id = 42, DepotSupplyInventoryId = 7,  VatInvoiceId = 3, SupplyInventoryLotId = 35, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 500,   SourceType = InventorySourceType.Purchase.ToString(), SourceId = 3, PerformedBy = mgr1, Note = "Nh?p d?u gi� theo h�a don VAT T2/2026",                ReceivedDate = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2029, 2, 12, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 43, DepotSupplyInventoryId = 6,                    ActionType = InventoryActionType.Return.ToString(), QuantityChange = 100,   SourceType = InventorySourceType.Mission.ToString(),  MissionId = 1, PerformedBy = mgr1, Note = "Ho�n tr? luong kh� sau khi k?t th�c nhi?m v? c?u h?", CreatedAt = new DateTime(2026, 2, 25, 14, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 42, DepotSupplyInventoryId = 7,  VatInvoiceId = 3, SupplyInventoryLotId = 35, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 500,   SourceType = InventorySourceType.Purchase.ToString(), SourceId = 3, PerformedBy = mgr1, Note = "Nhập dầu gió theo hóa đơn VAT T2/2026",                ReceivedDate = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2029, 2, 12, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 12, 10, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 43, DepotSupplyInventoryId = 6,                    ActionType = InventoryActionType.Return.ToString(), QuantityChange = 100,   SourceType = InventorySourceType.Mission.ToString(),  MissionId = 1, PerformedBy = mgr1, Note = "Hoàn trả lương khô sau khi kết thúc nhiệm vụ cứu hộ", CreatedAt = new DateTime(2026, 2, 25, 14, 0, 0, DateTimeKind.Utc) },
 
             // Mar 2026
-            new InventoryLog { Id = 44, DepotSupplyInventoryId = 1,                    SupplyInventoryLotId = 36, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 10000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 3, PerformedBy = mgr1, Note = "Ti?p nh?n m� t�m t? Qu? T?m L�ng V�ng �� N?ng",      ReceivedDate = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc),  ExpiredDate = new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 45, DepotSupplyInventoryId = 3,                    ActionType = InventoryActionType.Export.ToString(), QuantityChange = 5000,  SourceType = InventorySourceType.Mission.ToString(),  MissionId = 1, PerformedBy = mgr1, Note = "Xu?t thu?c h? s?t c?p ph�t cho v�ng thi�n tai",      CreatedAt = new DateTime(2026, 3, 10, 7, 30, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 46, DepotSupplyInventoryId = 2,                    ActionType = InventoryActionType.Adjust.ToString(), QuantityChange = -2000, SourceType = InventorySourceType.Adjustment.ToString(),             PerformedBy = mgr1, Note = "�i?u ch?nh t?n kho nu?c sau ki?m k� d?nh k? qu� I/2026", CreatedAt = new DateTime(2026, 3, 15, 16, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 44, DepotSupplyInventoryId = 1,                    SupplyInventoryLotId = 36, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 10000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 3, PerformedBy = mgr1, Note = "Tiếp nhận mì tôm từ Quỹ Tấm Lòng Vàng Đà Nẵng",      ReceivedDate = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc),  ExpiredDate = new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 45, DepotSupplyInventoryId = 3,                    ActionType = InventoryActionType.Export.ToString(), QuantityChange = 5000,  SourceType = InventorySourceType.Mission.ToString(),  MissionId = 1, PerformedBy = mgr1, Note = "Xuất thuốc hạ sốt cấp phát cho vùng thiên tai",      CreatedAt = new DateTime(2026, 3, 10, 7, 30, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 46, DepotSupplyInventoryId = 2,                    ActionType = InventoryActionType.Adjust.ToString(), QuantityChange = -2000, SourceType = InventorySourceType.Adjustment.ToString(),             PerformedBy = mgr1, Note = "Điều chỉnh tồn kho nước sau kiểm kê định kỳ quý I/2026", CreatedAt = new DateTime(2026, 3, 15, 16, 0, 0, DateTimeKind.Utc) },
 
-            // -- L?ch s? xu?t / tr? cho Activity 6 + 9 (Mission 4, kho Hu? - consumable only) ---------------
-            // Xu?t khi manager x�c nh?n COLLECT_SUPPLIES Activity 6
-            new InventoryLog { Id = 47, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Export.ToString(),  QuantityChange = 120, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Xu?t m� t�m cho d?i v?n chuy?n Mission 4 (Activity 6)",             CreatedAt = new DateTime(2026, 3, 5, 7, 55, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 48, DepotSupplyInventoryId = 2, ActionType = InventoryActionType.Export.ToString(),  QuantityChange = 240, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Xu?t nu?c tinh khi?t cho d?i v?n chuy?n Mission 4 (Activity 6)",       CreatedAt = new DateTime(2026, 3, 5, 7, 55, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 49, DepotSupplyInventoryId = 3, ActionType = InventoryActionType.Export.ToString(),  QuantityChange = 300, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Xu?t thu?c h? s?t cho d?i v?n chuy?n Mission 4 (Activity 6)",          CreatedAt = new DateTime(2026, 3, 5, 7, 55, 0, DateTimeKind.Utc) },
-            // Nh?n l?i khi manager x�c nh?n RETURN_SUPPLIES Activity 9
-            new InventoryLog { Id = 50, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Return.ToString(),  QuantityChange = 50,  SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Nh?n l?i m� t�m du th?a t? d?i v?n chuy?n Mission 4 (Activity 9)",      CreatedAt = new DateTime(2026, 3, 5, 11, 30, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 51, DepotSupplyInventoryId = 3, ActionType = InventoryActionType.Return.ToString(),  QuantityChange = 100, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Nh?n l?i thu?c h? s?t du th?a t? d?i v?n chuy?n Mission 4 (Activity 9)", CreatedAt = new DateTime(2026, 3, 5, 11, 30, 0, DateTimeKind.Utc) },
+            // -- Lịch sử xuất / trả cho Activity 6 + 9 (Mission 4, kho Huế - consumable only) ---------------
+            // Xuất khi manager xác nhận COLLECT_SUPPLIES Activity 6
+            new InventoryLog { Id = 47, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Export.ToString(),  QuantityChange = 120, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Xuất mì tôm cho đội vận chuyển Mission 4 (Activity 6)",             CreatedAt = new DateTime(2026, 3, 5, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 48, DepotSupplyInventoryId = 2, ActionType = InventoryActionType.Export.ToString(),  QuantityChange = 240, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Xuất nước tinh khiết cho đội vận chuyển Mission 4 (Activity 6)",       CreatedAt = new DateTime(2026, 3, 5, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 49, DepotSupplyInventoryId = 3, ActionType = InventoryActionType.Export.ToString(),  QuantityChange = 300, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Xuất thuốc hạ sốt cho đội vận chuyển Mission 4 (Activity 6)",          CreatedAt = new DateTime(2026, 3, 5, 7, 55, 0, DateTimeKind.Utc) },
+            // Nhận lại khi manager xác nhận RETURN_SUPPLIES Activity 9
+            new InventoryLog { Id = 50, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Return.ToString(),  QuantityChange = 50,  SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Nhận lại mì tôm dư thừa từ đội vận chuyển Mission 4 (Activity 9)",      CreatedAt = new DateTime(2026, 3, 5, 11, 30, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 51, DepotSupplyInventoryId = 3, ActionType = InventoryActionType.Return.ToString(),  QuantityChange = 100, SourceType = InventorySourceType.Mission.ToString(), MissionId = 4, PerformedBy = mgr1, Note = "Nhận lại thuốc hạ sốt dư thừa từ đội vận chuyển Mission 4 (Activity 9)", CreatedAt = new DateTime(2026, 3, 5, 11, 30, 0, DateTimeKind.Utc) },
 
-            // -- L?ch s? xu?t / tr? cho Activity 10 + 11 (Mission 6, kho Hu? - consumable + reusable) --------
-            // Xu?t consumable khi manager x�c nh?n COLLECT_SUPPLIES Activity 10
-            new InventoryLog { Id = 52, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 100, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xu?t m� t�m cho d?i v?n chuy?n Mission 6 (Activity 10)",             CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 53, DepotSupplyInventoryId = 5, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 50,  SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xu?t chan ?m cho d?i v?n chuy?n Mission 6 (Activity 10)",           CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
-            // Xu?t reusable (�o phao c?u sinh) - 1 log row m?i don v?
-            new InventoryLog { Id = 54, ReusableItemId = 1, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xu?t �o phao D1-R004-001 cho d?i v?n chuy?n Mission 6 (Activity 10)", CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 55, ReusableItemId = 2, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xu?t �o phao D1-R004-002 cho d?i v?n chuy?n Mission 6 (Activity 10)", CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 56, ReusableItemId = 3, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xu?t �o phao D1-R004-003 cho d?i v?n chuy?n Mission 6 (Activity 10)", CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
-            // Nh?n l?i consumable du th?a khi manager x�c nh?n RETURN_SUPPLIES Activity 11
-            new InventoryLog { Id = 57, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 30, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nh?n l?i m� t�m du th?a t? d?i v?n chuy?n Mission 6 (Activity 11)",   CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 58, DepotSupplyInventoryId = 5, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 8,  SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nh?n l?i chan ?m du th?a t? d?i v?n chuy?n Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
-            // Nh?n l?i reusable (�o phao c?u sinh) - 1 log row m?i don v?
-            new InventoryLog { Id = 59, ReusableItemId = 1, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nh?n l?i �o phao D1-R004-001 t? d?i v?n chuy?n Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 60, ReusableItemId = 2, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nh?n l?i �o phao D1-R004-002 t? d?i v?n chuy?n Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 61, ReusableItemId = 3, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nh?n l?i �o phao D1-R004-003 t? d?i v?n chuy?n Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+            // -- Lịch sử xuất / trả cho Activity 10 + 11 (Mission 6, kho Huế - consumable + reusable) --------
+            // Xuất consumable khi manager xác nhận COLLECT_SUPPLIES Activity 10
+            new InventoryLog { Id = 52, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 100, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất mì tôm cho đội vận chuyển Mission 6 (Activity 10)",             CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 53, DepotSupplyInventoryId = 5, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 50,  SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất chăn ấm cho đội vận chuyển Mission 6 (Activity 10)",           CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            // Xuất reusable (áo phao cứu sinh) - 1 log row mỗi đơn vị
+            new InventoryLog { Id = 54, ReusableItemId = 1, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất áo phao D1-R004-001 cho đội vận chuyển Mission 6 (Activity 10)", CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 55, ReusableItemId = 2, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất áo phao D1-R004-002 cho đội vận chuyển Mission 6 (Activity 10)", CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 56, ReusableItemId = 3, ActionType = InventoryActionType.Export.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Xuất áo phao D1-R004-003 cho đội vận chuyển Mission 6 (Activity 10)", CreatedAt = new DateTime(2026, 3, 8, 7, 55, 0, DateTimeKind.Utc) },
+            // Nhận lại consumable dư thừa khi manager xác nhận RETURN_SUPPLIES Activity 11
+            new InventoryLog { Id = 57, DepotSupplyInventoryId = 1, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 30, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại mì tôm dư thừa từ đội vận chuyển Mission 6 (Activity 11)",   CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 58, DepotSupplyInventoryId = 5, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 8,  SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại chăn ấm dư thừa từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+            // Nhận lại reusable (áo phao cứu sinh) - 1 log row mỗi đơn vị
+            new InventoryLog { Id = 59, ReusableItemId = 1, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-001 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 60, ReusableItemId = 2, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-002 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 61, ReusableItemId = 3, ActionType = InventoryActionType.Return.ToString(), QuantityChange = 1, SourceType = InventorySourceType.Mission.ToString(), MissionId = 6, PerformedBy = mgr1, Note = "Nhận lại áo phao D1-R004-003 từ đội vận chuyển Mission 6 (Activity 11)", CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc) },
 
-            // -- Seed ri�ng cho test d�ng kho depot 5/6 ---------------------
-            new InventoryLog { Id = 62, DepotSupplyInventoryId = 289, SupplyInventoryLotId = 62, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1200, SourceType = InventorySourceType.Donation.ToString(), SourceId = 6, PerformedBy = SeedConstants.Manager5UserId, Note = "Nh?p m� t�m kho Thang B�nh d? test x? l� d�ng kho b�n ngo�i", ReceivedDate = new DateTime(2026, 2, 18, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 2, 18, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 18, 8, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 63, DepotSupplyInventoryId = 290, SupplyInventoryLotId = 63, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 800,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3, PerformedBy = SeedConstants.Manager5UserId, Note = "Nh?p nu?c tinh khi?t kho Thang B�nh d? test d�ng kho", ReceivedDate = new DateTime(2026, 2, 18, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 8, 18, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 18, 9, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 64, DepotSupplyInventoryId = 291, SupplyInventoryLotId = 64, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 300,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 6, PerformedBy = SeedConstants.Manager5UserId, Note = "Nh?p �o mua ngu?i l?n kho Thang B�nh d? test x? l� b�n ngo�i", ReceivedDate = new DateTime(2026, 2, 20, 8, 30, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 20, 8, 30, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 65, DepotSupplyInventoryId = 292, SupplyInventoryLotId = 65, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1500, SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, PerformedBy = SeedConstants.Manager6UserId, Note = "Nh?p m� t�m kho Qu?ng Ninh d? test chuy?n kho khi d�ng kho", ReceivedDate = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 3, 5, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 66, DepotSupplyInventoryId = 293, SupplyInventoryLotId = 66, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, PerformedBy = SeedConstants.Manager6UserId, Note = "Nh?p nu?c tinh khi?t kho Qu?ng Ninh d? test lu?ng chuy?n kho", ReceivedDate = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 9, 5, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc) },
-            new InventoryLog { Id = 67, DepotSupplyInventoryId = 294, SupplyInventoryLotId = 67, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 400,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 4, PerformedBy = SeedConstants.Manager6UserId, Note = "Nh?p �o mua ngu?i l?n kho Qu?ng Ninh d? test d�ng kho chuy?n sang kho kh�c", ReceivedDate = new DateTime(2026, 3, 6, 8, 30, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 3, 6, 8, 30, 0, DateTimeKind.Utc) }
+            // -- Seed riêng cho test đóng kho depot 5/6 ---------------------
+            new InventoryLog { Id = 62, DepotSupplyInventoryId = 289, SupplyInventoryLotId = 62, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1200, SourceType = InventorySourceType.Donation.ToString(), SourceId = 6, PerformedBy = SeedConstants.Manager5UserId, Note = "Nhập mì tôm kho Thăng Bình để test xử lý đóng kho bên ngoài", ReceivedDate = new DateTime(2026, 2, 18, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 2, 18, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 18, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 63, DepotSupplyInventoryId = 290, SupplyInventoryLotId = 63, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 800,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3, PerformedBy = SeedConstants.Manager5UserId, Note = "Nhập nước tinh khiết kho Thăng Bình để test đóng kho", ReceivedDate = new DateTime(2026, 2, 18, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 8, 18, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 18, 9, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 64, DepotSupplyInventoryId = 291, SupplyInventoryLotId = 64, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 300,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 6, PerformedBy = SeedConstants.Manager5UserId, Note = "Nhập áo mưa người lớn kho Thăng Bình để test xử lý bên ngoài", ReceivedDate = new DateTime(2026, 2, 20, 8, 30, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 2, 20, 8, 30, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 65, DepotSupplyInventoryId = 292, SupplyInventoryLotId = 65, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1500, SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, PerformedBy = SeedConstants.Manager6UserId, Note = "Nhập mì tôm kho Quảng Ninh để test chuyển kho khi đóng kho", ReceivedDate = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 3, 5, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 3, 5, 8, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 66, DepotSupplyInventoryId = 293, SupplyInventoryLotId = 66, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1000, SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, PerformedBy = SeedConstants.Manager6UserId, Note = "Nhập nước tinh khiết kho Quảng Ninh để test luồng chuyển kho", ReceivedDate = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 9, 5, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc) },
+            new InventoryLog { Id = 67, DepotSupplyInventoryId = 294, SupplyInventoryLotId = 67, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 400,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 4, PerformedBy = SeedConstants.Manager6UserId, Note = "Nhập áo mưa người lớn kho Quảng Ninh để test đóng kho chuyển sang kho khác", ReceivedDate = new DateTime(2026, 3, 6, 8, 30, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc), CreatedAt = new DateTime(2026, 3, 6, 8, 30, 0, DateTimeKind.Utc) }
         );
     }
 
@@ -1202,37 +1202,37 @@ public static class LogisticsSeeder
         var seedDate = new DateTime(2024, 10, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<OrganizationReliefItem>().HasData(
-            new OrganizationReliefItem { Id = 1,  OrganizationId = 1,  ItemModelId = 1,  Quantity = 50000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 4, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "C?u tr? d?t 1",              CreatedAt = seedDate },
-            new OrganizationReliefItem { Id = 2,  OrganizationId = 2,  ItemModelId = 2,  Quantity = 40000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 10, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "C?u tr? d?t 1",              CreatedAt = seedDate },
-            new OrganizationReliefItem { Id = 3,  OrganizationId = 3,  ItemModelId = 3,  Quantity = 80000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "C?u tr? y t?",               CreatedAt = seedDate },
-            new OrganizationReliefItem { Id = 4,  OrganizationId = 4,  ItemModelId = 4,  Quantity = 100,   ReceivedDate = seedDate, ExpiredDate = null,                                                     Notes = "Trang thi?t b? T?nh do�n",       CreatedAt = seedDate },
-            new OrganizationReliefItem { Id = 5,  OrganizationId = 5,  ItemModelId = 5,  Quantity = 15000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2027, 10, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Nhu y?u ph?m ph? n?",          CreatedAt = seedDate },
-            new OrganizationReliefItem { Id = 6,  OrganizationId = 6,  ItemModelId = 6,  Quantity = 200,   ReceivedDate = seedDate, ExpiredDate = null,                                                     Notes = "�o l?nh m�a d�ng",              CreatedAt = seedDate },
-            new OrganizationReliefItem { Id = 7,  OrganizationId = 7,  ItemModelId = 7,  Quantity = 8000,  ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Dinh du?ng tr? em",           CreatedAt = seedDate },
-            new OrganizationReliefItem { Id = 8,  OrganizationId = 8,  ItemModelId = 8,  Quantity = 30000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 12, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Luong kh� kh?n c?p",           CreatedAt = seedDate },
-            new OrganizationReliefItem { Id = 9,  OrganizationId = 9,  ItemModelId = 9,  Quantity = 5000,  ReceivedDate = seedDate, ExpiredDate = new DateTime(2028, 1, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Y t? ngu?i gi�",               CreatedAt = seedDate },
-            new OrganizationReliefItem { Id = 10, OrganizationId = 10, ItemModelId = 10, Quantity = 20000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "B? sung Vitamin",             CreatedAt = seedDate }
+            new OrganizationReliefItem { Id = 1,  OrganizationId = 1,  ItemModelId = 1,  Quantity = 50000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 4, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Cứu trợ đợt 1",              CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 2,  OrganizationId = 2,  ItemModelId = 2,  Quantity = 40000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 10, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Cứu trợ đợt 1",              CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 3,  OrganizationId = 3,  ItemModelId = 3,  Quantity = 80000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Cứu trợ y tế",               CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 4,  OrganizationId = 4,  ItemModelId = 4,  Quantity = 100,   ReceivedDate = seedDate, ExpiredDate = null,                                                     Notes = "Trang thiết bị Tỉnh đoàn",       CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 5,  OrganizationId = 5,  ItemModelId = 5,  Quantity = 15000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2027, 10, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Nhu yếu phẩm phụ nữ",          CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 6,  OrganizationId = 6,  ItemModelId = 6,  Quantity = 200,   ReceivedDate = seedDate, ExpiredDate = null,                                                     Notes = "Áo lạnh mùa đông",              CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 7,  OrganizationId = 7,  ItemModelId = 7,  Quantity = 8000,  ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Dinh dưỡng trẻ em",           CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 8,  OrganizationId = 8,  ItemModelId = 8,  Quantity = 30000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2025, 12, 1, 0, 0, 0, DateTimeKind.Utc), Notes = "Lương khô khẩn cấp",           CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 9,  OrganizationId = 9,  ItemModelId = 9,  Quantity = 5000,  ReceivedDate = seedDate, ExpiredDate = new DateTime(2028, 1, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Y tế người già",               CreatedAt = seedDate },
+            new OrganizationReliefItem { Id = 10, OrganizationId = 10, ItemModelId = 10, Quantity = 20000, ReceivedDate = seedDate, ExpiredDate = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),  Notes = "Bổ sung Vitamin",             CreatedAt = seedDate }
         );
     }
 
     private static void SeedVatInvoices(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<VatInvoice>().HasData(
-            new VatInvoice { Id = 1, InvoiceSerial = "AA", InvoiceNumber = "0001234", SupplierName = "C�ng ty TNHH H�ng Ph�c",         SupplierTaxCode = "0301234567", InvoiceDate = new DateOnly(2025, 1, 10), TotalAmount = 145_000_000m, CreatedAt = new DateTime(2025, 1, 10, 0, 0, 0, DateTimeKind.Utc) },
-            new VatInvoice { Id = 2, InvoiceSerial = "AA", InvoiceNumber = "0001235", SupplierName = "Chu?i Si�u th? Bigmart Hu?",     SupplierTaxCode = "0305678901", InvoiceDate = new DateOnly(2026, 1,  8), TotalAmount =  60_000_000m, CreatedAt = new DateTime(2026, 1, 8, 0, 0, 0, DateTimeKind.Utc) },
-            new VatInvoice { Id = 3, InvoiceSerial = "BB", InvoiceNumber = "0002001", SupplierName = "C�ng ty Du?c ph?m Minh Ch�u",    SupplierTaxCode = "0302345678", InvoiceDate = new DateOnly(2026, 2, 12), TotalAmount =  75_000_000m, CreatedAt = new DateTime(2026, 2, 12, 0, 0, 0, DateTimeKind.Utc) }
+            new VatInvoice { Id = 1, InvoiceSerial = "AA", InvoiceNumber = "0001234", SupplierName = "Công ty TNHH Hùng Phúc",         SupplierTaxCode = "0301234567", InvoiceDate = new DateOnly(2025, 1, 10), TotalAmount = 145_000_000m, CreatedAt = new DateTime(2025, 1, 10, 0, 0, 0, DateTimeKind.Utc) },
+            new VatInvoice { Id = 2, InvoiceSerial = "AA", InvoiceNumber = "0001235", SupplierName = "Chuỗi Siêu thị Bigmart Huế",     SupplierTaxCode = "0305678901", InvoiceDate = new DateOnly(2026, 1,  8), TotalAmount =  60_000_000m, CreatedAt = new DateTime(2026, 1, 8, 0, 0, 0, DateTimeKind.Utc) },
+            new VatInvoice { Id = 3, InvoiceSerial = "BB", InvoiceNumber = "0002001", SupplierName = "Công ty Dược phẩm Minh Châu",    SupplierTaxCode = "0302345678", InvoiceDate = new DateOnly(2026, 2, 12), TotalAmount =  75_000_000m, CreatedAt = new DateTime(2026, 2, 12, 0, 0, 0, DateTimeKind.Utc) }
         );
     }
 
     private static void SeedVatInvoiceItems(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<VatInvoiceItem>().HasData(
-            // Invoice 1 (Jan 2025): m� t�m + nu?c
+            // Invoice 1 (Jan 2025): mì tôm + nước
             new VatInvoiceItem { Id = 1, VatInvoiceId = 1, ItemModelId = 1, Quantity = 20000, UnitPrice =   3_500m, CreatedAt = new DateTime(2025, 1, 10, 0, 0, 0, DateTimeKind.Utc) },
             new VatInvoiceItem { Id = 2, VatInvoiceId = 1, ItemModelId = 2, Quantity = 15000, UnitPrice =   5_000m, CreatedAt = new DateTime(2025, 1, 10, 0, 0, 0, DateTimeKind.Utc) },
-            // Invoice 2 (Jan 2026): thu?c h? s?t
+            // Invoice 2 (Jan 2026): thuốc hạ sốt
             new VatInvoiceItem { Id = 3, VatInvoiceId = 2, ItemModelId = 3, Quantity = 30000, UnitPrice =   2_000m, CreatedAt = new DateTime(2026, 1,  8, 0, 0, 0, DateTimeKind.Utc) },
-            // Invoice 3 (Feb 2026): d?u gi�
+            // Invoice 3 (Feb 2026): dầu gió
             new VatInvoiceItem { Id = 4, VatInvoiceId = 3, ItemModelId = 9, Quantity =  5000, UnitPrice =  15_000m, CreatedAt = new DateTime(2026, 2, 12, 0, 0, 0, DateTimeKind.Utc) }
         );
     }
@@ -1243,11 +1243,11 @@ public static class LogisticsSeeder
         var now = new DateTime(2024, 11, 1, 0, 0, 0, DateTimeKind.Utc);
 
         modelBuilder.Entity<DepotSupplyRequest>().HasData(
-            // Req 1 (COMPLETED - 2 b�n d� x�c nh?n): Kho 3 (H� Tinh) xin t? Kho 1 (Hu?)
+            // Req 1 (COMPLETED - 2 bên đã xác nhận): Kho 3 (Hà Tĩnh) xin từ Kho 1 (Huế)
             new DepotSupplyRequest
             {
                 Id = 1, RequestingDepotId = 3, SourceDepotId = 1,
-                Note = "Thi?u luong th?c v� nu?c u?ng c?u tr? kh?n c?p",
+                Note = "Thiếu lương thực và nước uống cứu trợ khẩn cấp",
                 PriorityLevel     = "High",
                 SourceStatus      = SourceDepotStatus.Completed.ToString(),
                 RequestingStatus  = RequestingDepotStatus.Received.ToString(),
@@ -1258,11 +1258,11 @@ public static class LogisticsSeeder
                 ShippedAt         = now.AddDays(-26),
                 CompletedAt       = now.AddDays(-25)
             },
-            // Req 2 (COMPLETED - 2 b�n d� x�c nh?n): Kho 2 (�� N?ng) xin t? Kho 1 (Hu?)
+            // Req 2 (COMPLETED - 2 bên đã xác nhận): Kho 2 (Đà Nẵng) xin từ Kho 1 (Huế)
             new DepotSupplyRequest
             {
                 Id = 2, RequestingDepotId = 2, SourceDepotId = 1,
-                Note = "B? sung thu?c y t? cho kho �� N?ng",
+                Note = "Bổ sung thuốc y tế cho kho Đà Nẵng",
                 PriorityLevel     = "Medium",
                 SourceStatus      = SourceDepotStatus.Completed.ToString(),
                 RequestingStatus  = RequestingDepotStatus.Received.ToString(),
@@ -1273,11 +1273,11 @@ public static class LogisticsSeeder
                 ShippedAt         = now.AddDays(-18),
                 CompletedAt       = now.AddDays(-16)
             },
-            // Req 3 (COMPLETED - 2 b�n d� x�c nh?n): Kho 4 (HN) xin t? Kho 2 (�� N?ng)
+            // Req 3 (COMPLETED - 2 bên đã xác nhận): Kho 4 (HN) xin từ Kho 2 (Đà Nẵng)
             new DepotSupplyRequest
             {
                 Id = 3, RequestingDepotId = 4, SourceDepotId = 2,
-                Note = "B? sung nu?c u?ng cho kho trung uong",
+                Note = "Bổ sung nước uống cho kho trung ương",
                 PriorityLevel     = "Medium",
                 SourceStatus      = SourceDepotStatus.Completed.ToString(),
                 RequestingStatus  = RequestingDepotStatus.Received.ToString(),
@@ -1288,11 +1288,11 @@ public static class LogisticsSeeder
                 ShippedAt         = now.AddDays(-12),
                 CompletedAt       = now.AddDays(-10)
             },
-            // Req 4 (COMPLETED - 2 b�n d� x�c nh?n): Kho 1 (Hu?) xin t? Kho 4 (HN)
+            // Req 4 (COMPLETED - 2 bên đã xác nhận): Kho 1 (Huế) xin từ Kho 4 (HN)
             new DepotSupplyRequest
             {
                 Id = 4, RequestingDepotId = 1, SourceDepotId = 4,
-                Note = "B? sung chan ?m v� thi?t b? su?i t? kho trung uong",
+                Note = "Bổ sung chăn ấm và thiết bị sưởi từ kho trung ương",
                 PriorityLevel     = "Low",
                 SourceStatus      = SourceDepotStatus.Completed.ToString(),
                 RequestingStatus  = RequestingDepotStatus.Received.ToString(),
@@ -1303,25 +1303,25 @@ public static class LogisticsSeeder
                 ShippedAt         = now.AddDays(-6),
                 CompletedAt       = now.AddDays(-4)
             },
-            // Req 5 (REJECTED): Kho 1 (Hu?) xin t? Kho 3 (H� Tinh) - b? t? ch?i
+            // Req 5 (REJECTED): Kho 1 (Huế) xin từ Kho 3 (Hà Tĩnh) - bị từ chối
             new DepotSupplyRequest
             {
                 Id = 5, RequestingDepotId = 1, SourceDepotId = 3,
-                Note = "C?n b? sung d?ng c? c?u h? kh?n c?p",
+                Note = "Cần bổ sung dụng cụ cứu hộ khẩn cấp",
                 PriorityLevel     = "High",
                 SourceStatus      = SourceDepotStatus.Rejected.ToString(),
                 RequestingStatus  = RequestingDepotStatus.Rejected.ToString(),
-                RejectedReason    = "Kho H� Tinh kh�ng d? t?n kho d? d�p ?ng",
+                RejectedReason    = "Kho Hà Tĩnh không đủ tồn kho để đáp ứng",
                 RequestedBy       = SeedConstants.ManagerUserId,
                 CreatedAt         = now.AddDays(-30),
                 AutoRejectAt      = now.AddDays(-30).AddHours(2),
                 RespondedAt       = now.AddDays(-30).AddHours(1)
             },
-            // Req 6 (COMPLETED - 2 b�n d� x�c nh?n): Kho 1 (Hu?) xin t? Kho 2 (�� N?ng)
+            // Req 6 (COMPLETED - 2 bên đã xác nhận): Kho 1 (Huế) xin từ Kho 2 (Đà Nẵng)
             new DepotSupplyRequest
             {
                 Id = 6, RequestingDepotId = 1, SourceDepotId = 2,
-                Note = "B? sung thu?c y t? d? ph�ng cho m�a lu l?t",
+                Note = "Bổ sung thuốc y tế dự phòng cho mùa lũ lụt",
                 PriorityLevel     = "Medium",
                 SourceStatus      = SourceDepotStatus.Completed.ToString(),
                 RequestingStatus  = RequestingDepotStatus.Received.ToString(),
@@ -1338,19 +1338,19 @@ public static class LogisticsSeeder
     private static void SeedDepotSupplyRequestItems(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<DepotSupplyRequestItem>().HasData(
-            // Req 1 (COMPLETED): m� t�m + nu?c
+            // Req 1 (COMPLETED): mì tôm + nước
             new DepotSupplyRequestItem { Id = 1, DepotSupplyRequestId = 1, ItemModelId = 1, Quantity = 6000 },
             new DepotSupplyRequestItem { Id = 2, DepotSupplyRequestId = 1, ItemModelId = 2, Quantity = 4000 },
-            // Req 2 (COMPLETED): thu?c Paracetamol
+            // Req 2 (COMPLETED): thuốc Paracetamol
             new DepotSupplyRequestItem { Id = 3, DepotSupplyRequestId = 2, ItemModelId = 3, Quantity = 5000 },
-            // Req 3 (COMPLETED): nu?c tinh khi?t
+            // Req 3 (COMPLETED): nước tinh khiết
             new DepotSupplyRequestItem { Id = 4, DepotSupplyRequestId = 3, ItemModelId = 2, Quantity = 8000 },
-            // Req 4 (COMPLETED): chan ?m gi? nhi?t
+            // Req 4 (COMPLETED): chăn ấm giữ nhiệt
             new DepotSupplyRequestItem { Id = 5, DepotSupplyRequestId = 4, ItemModelId = 6, Quantity = 200 },
-            // Req 5 (REJECTED): d?ng c? c?u h?
+            // Req 5 (REJECTED): dụng cụ cứu hộ
             new DepotSupplyRequestItem { Id = 6, DepotSupplyRequestId = 5, ItemModelId = 5, Quantity = 50 },
             new DepotSupplyRequestItem { Id = 7, DepotSupplyRequestId = 5, ItemModelId = 4, Quantity = 100 },
-            // Req 6 (COMPLETED): thu?c b? sung
+            // Req 6 (COMPLETED): thuốc bổ sung
             new DepotSupplyRequestItem { Id = 8, DepotSupplyRequestId = 6, ItemModelId = 3, Quantity = 3000 }
         );
     }

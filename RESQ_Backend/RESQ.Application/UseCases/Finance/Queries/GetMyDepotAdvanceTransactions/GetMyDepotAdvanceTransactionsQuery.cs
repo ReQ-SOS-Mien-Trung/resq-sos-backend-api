@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Finance.Queries.GetDepotFundTransactions;
 
@@ -8,4 +8,4 @@ public record GetMyDepotAdvanceTransactionsQuery(
     Guid UserId,
     int PageNumber,
     int PageSize
-) : IRequest<PagedResult<DepotFundTransactionDto>>;
+, int? DepotId = null) : IRequest<PagedResult<DepotFundTransactionDto>>;

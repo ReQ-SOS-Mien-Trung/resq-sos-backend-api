@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +22,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>[C�ch 2] Manager kho g?i y�u c?u c?p th�m qu? k�m danh s�ch v?t ph?m. DepotId du?c t? d?ng l?y t? token.</summary>
+    /// <summary>[Cách 2] Manager kho gửi yêu cầu cấp thêm quỹ kèm danh sách vật phẩm. DepotId được tự động lấy từ token.</summary>
     [HttpPost]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
@@ -54,7 +54,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { id }, id);
     }
 
-    /// <summary>Admin duy?t y�u c?u - ch?n ngu?n qu? (Campaign ho?c SystemFund).</summary>
+    /// <summary>Admin duyệt yêu cầu - chọn nguồn quỹ (Campaign hoặc SystemFund).</summary>
     [HttpPatch("{id}/approve")]
     [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
@@ -67,7 +67,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return Ok(new { DisbursementId = disbursementId });
     }
 
-    /// <summary>Admin t? ch?i y�u c?u c?p qu?.</summary>
+    /// <summary>Admin từ chối yêu cầu cấp quỹ.</summary>
     [HttpPatch("{id}/reject")]
     [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -80,7 +80,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Tr? v? danh s�ch c�c gi� tr? enum FundingRequestStatus.</summary>
+    /// <summary>Trả về danh sách các giá trị enum FundingRequestStatus.</summary>
     [HttpGet("metadata/statuses")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(List<string>), StatusCodes.Status200OK)]
@@ -90,7 +90,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return Ok(values);
     }
 
-    /// <summary>[Metadata] Danh s�ch lo?i ngu?n qu? d�ng cho dropdown duy?t y�u c?u c?p qu?.</summary>
+    /// <summary>[Metadata] Danh sách loại nguồn quỹ dùng cho dropdown duyệt yêu cầu cấp quỹ.</summary>
     [HttpGet("metadata/source-types")]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetFundSourceTypeMetadata()
@@ -109,7 +109,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return File(result.FileContent, result.ContentType, result.FileName);
     }
 
-    /// <summary>L?y danh s�ch y�u c?u c?p qu? (filter theo nhi?u depot, nhi?u status).</summary>
+    /// <summary>Lấy danh sách yêu cầu cấp quỹ (filter theo nhiều depot, nhiều status).</summary>
     [HttpGet]
     [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     [ProducesResponseType(typeof(PagedResult<FundingRequestListDto>), StatusCodes.Status200OK)]
@@ -124,7 +124,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>L?y danh s�ch d�ng v?t ph?m trong m?t y�u c?u c?p qu? (ph�n trang).</summary>
+    /// <summary>Lấy danh sách dòng vật phẩm trong một yêu cầu cấp quỹ (phân trang).</summary>
     [HttpGet("{id}/items")]
     [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     [ProducesResponseType(typeof(PagedResult<FundingRequestItemListDto>), StatusCodes.Status200OK)]

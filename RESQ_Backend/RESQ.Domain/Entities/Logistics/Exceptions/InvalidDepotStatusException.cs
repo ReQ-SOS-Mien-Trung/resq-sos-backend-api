@@ -1,8 +1,8 @@
-using RESQ.Domain.Entities.Exceptions;
+﻿using RESQ.Domain.Entities.Exceptions;
 
 namespace RESQ.Domain.Entities.Logistics.Exceptions;
 
 public sealed class InvalidDepotStatusException : DomainException
 {
-    public InvalidDepotStatusException(string status) : base($"Tr?ng th�i kho kh�ng h?p l?: {status}") {}
+    public InvalidDepotStatusException(string status) : base($"Trạng thái kho không hợp lệ: {status}") {}
 }

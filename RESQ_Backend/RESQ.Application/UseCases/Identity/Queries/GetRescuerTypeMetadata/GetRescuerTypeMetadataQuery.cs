@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Enum.Identity;
 
@@ -12,8 +12,8 @@ public class GetRescuerTypeMetadataQueryHandler : IRequestHandler<GetRescuerType
     {
         var result = new List<MetadataDto>
         {
-            new() { Key = RescuerType.Core.ToString(), Value = "Nh�n s? n�ng c?t" },
-            new() { Key = RescuerType.Volunteer.ToString(), Value = "T�nh nguy?n vi�n" }
+            new() { Key = RescuerType.Core.ToString(), Value = "Nhân sự nòng cốt" },
+            new() { Key = RescuerType.Volunteer.ToString(), Value = "Tình nguyện viên" }
         };
 
         return await Task.FromResult(result);

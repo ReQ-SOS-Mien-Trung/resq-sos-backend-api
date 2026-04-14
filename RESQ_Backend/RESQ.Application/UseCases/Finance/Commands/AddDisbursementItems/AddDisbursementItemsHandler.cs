@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -8,8 +8,8 @@ using RESQ.Domain.Entities.Finance;
 namespace RESQ.Application.UseCases.Finance.Commands.AddDisbursementItems;
 
 /// <summary>
-/// DepotManager c?a ch�nh depot d� m?i du?c b�o c�o v?t ph?m d� mua.
-/// Admin c� th? th�m b?t k? l�c n�o.
+/// DepotManager của chính depot đó mới được báo cáo vật phẩm đã mua.
+/// Admin có thể thêm bất kỳ lúc nào.
 /// </summary>
 public class AddDisbursementItemsHandler : IRequestHandler<AddDisbursementItemsCommand, Unit>
 {
@@ -30,15 +30,15 @@ public class AddDisbursementItemsHandler : IRequestHandler<AddDisbursementItemsC
     public async Task<Unit> Handle(AddDisbursementItemsCommand request, CancellationToken cancellationToken)
     {
         var disbursement = await _disbursementRepo.GetByIdAsync(request.DisbursementId, cancellationToken)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y gi?i ng�n #{request.DisbursementId}.");
+            ?? throw new NotFoundException($"Không tìm thấy giải ngân #{request.DisbursementId}.");
 
         if (!request.CanManageAnyDisbursement)
         {
             var depot = await _depotRepo.GetByIdAsync(disbursement.DepotId, cancellationToken)
-                ?? throw new NotFoundException($"Kh�ng t�m th?y depot #{disbursement.DepotId}.");
+                ?? throw new NotFoundException($"Không tìm thấy depot #{disbursement.DepotId}.");
 
             if (depot.CurrentManagerId != request.CallerId)
-                throw new ForbiddenException("B?n kh�ng ph?i l� qu?n l� hi?n t?i c?a depot n�y.");
+                throw new ForbiddenException("Bạn không phải là quản lý hiện tại của depot này.");
         }
 
         var newItems = request.Items.Select(item => new DisbursementItemModel

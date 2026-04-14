@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -19,13 +19,9 @@ public class ExportInventoryMovementQueryHandler(
     private readonly IInventoryMovementExportRepository _exportRepository = exportRepository;
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotRepository _depotRepository = depotRepository;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IExcelExportService _excelExportService = excelExportService;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly ILogger<ExportInventoryMovementQueryHandler> _logger = logger;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<ExportInventoryMovementResult> Handle(
         ExportInventoryMovementQuery request,

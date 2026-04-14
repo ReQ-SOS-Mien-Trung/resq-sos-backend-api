@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -65,8 +65,8 @@ public class CloseAssemblyPointCommandHandler(
                 {
                     await _firebaseService.SendNotificationToUserAsync(
                         userId, 
-                        "S? ki?n t?p h?p d� b? h?y", 
-                        $"�i?m t?p k?t \"{assemblyPoint.Name}\" d� b? d�ng. S? ki?n t?p h?p d� k?t th�c.", 
+                        "Sự kiện tập hợp đã bị hủy", 
+                        $"Điểm tập kết \"{assemblyPoint.Name}\" đã bị đóng. Sự kiện tập hợp đã kết thúc.", 
                         "assembly_event_completed", 
                         cancellationToken);
                 }

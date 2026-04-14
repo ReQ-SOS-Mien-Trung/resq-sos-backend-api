@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
@@ -9,17 +9,17 @@ namespace RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 public class GetMyDepotFundHandler : IRequestHandler<GetMyDepotFundQuery, MyDepotFundsResponseDto>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepo;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService;
     private readonly IDepotFundRepository _depotFundRepo;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotRepository _depotRepo;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public GetMyDepotFundHandler(
+            RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
         IDepotInventoryRepository depotInventoryRepo,
         IDepotFundRepository depotFundRepo,
         IDepotRepository depotRepo)
     {
+        _managerDepotAccessService = managerDepotAccessService;
         _depotInventoryRepo = depotInventoryRepo;
         _depotFundRepo = depotFundRepo;
         _depotRepo = depotRepo;

@@ -1,102 +1,102 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using RESQ.Domain.Entities.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 
 /// <summary>
-/// Chi ti?t di?m d�nh gi� rule-based (t? d?ng khi g?i SOS).
+/// Chi tiết điểm đánh giá rule-based (tự động khi gửi SOS).
 /// </summary>
 public class SosRuleEvaluationDto
 {
-    /// <summary>ID b?n ghi d�nh gi� trong DB</summary>
+    /// <summary>ID bản ghi đánh giá trong DB</summary>
     public int Id { get; set; }
-    /// <summary>ID version config d� du?c snapshot khi ch?m di?m.</summary>
+    /// <summary>ID version config đã được snapshot khi chấm điểm.</summary>
     public int? ConfigId { get; set; }
-    /// <summary>config_version d� du?c snapshot khi ch?m di?m.</summary>
+    /// <summary>config_version đã được snapshot khi chấm điểm.</summary>
     public string? ConfigVersion { get; set; }
 
-    // --- Gi� tr? tuong th�ch legacy ---
-    /// <summary>�i?m y t? theo rule V1.</summary>
+    // --- Giá trị tương thích legacy ---
+    /// <summary>Điểm y tế theo rule V1.</summary>
     public double MedicalScore { get; set; }
-    /// <summary>Mirror legacy: hi?n ph?n �nh supply_urgency_score d? gi? tuong th�ch d? li?u cu.</summary>
+    /// <summary>Mirror legacy: hiện phản ánh supply_urgency_score để giữ tương thích dữ liệu cũ.</summary>
     public double InjuryScore { get; set; }
-    /// <summary>Mirror legacy: hi?n ph?n �nh vulnerability_score d? gi? tuong th�ch d? li?u cu.</summary>
+    /// <summary>Mirror legacy: hiện phản ánh vulnerability_score để giữ tương thích dữ liệu cũ.</summary>
     public double MobilityScore { get; set; }
-    /// <summary>Mirror legacy: hi?n ph?n �nh situation_multiplier d? gi? tuong th�ch d? li?u cu.</summary>
+    /// <summary>Mirror legacy: hiện phản ánh situation_multiplier để giữ tương thích dữ liệu cũ.</summary>
     public double EnvironmentScore { get; set; }
-    /// <summary>Mirror legacy: hi?n ph?n �nh relief_score d? gi? tuong th�ch d? li?u cu.</summary>
+    /// <summary>Mirror legacy: hiện phản ánh relief_score để giữ tương thích dữ liệu cũ.</summary>
     public double FoodScore { get; set; }
 
-    // --- T?ng h?p ---
-    /// <summary>�i?m t?ng theo expression priority_score c?a config version d� �p d?ng.</summary>
+    // --- Tổng hợp ---
+    /// <summary>Điểm tổng theo expression priority_score của config version đã áp dụng.</summary>
     public double TotalScore { get; set; }
-    /// <summary>M?c uu ti�n n?i b?: Low / Medium / High / Critical, tuong ?ng P4 / P3 / P2 / P1.</summary>
+    /// <summary>Mức ưu tiên nội bộ: Low / Medium / High / Critical, tương ứng P4 / P3 / P2 / P1.</summary>
     public string PriorityLevel { get; set; } = string.Empty;
-    /// <summary>Phi�n b?n b? quy t?c du?c �p d?ng</summary>
+    /// <summary>Phiên bản bộ quy tắc được áp dụng</summary>
     public string RuleVersion { get; set; } = string.Empty;
-    /// <summary>Danh s�ch v?t ph?m/thi?t b? du?c d? xu?t c?n mang d?n</summary>
+    /// <summary>Danh sách vật phẩm/thiết bị được đề xuất cần mang đến</summary>
     public List<string> ItemsNeeded { get; set; } = [];
-    /// <summary>Breakdown d?y d? theo config snapshot d� �p d?ng.</summary>
+    /// <summary>Breakdown đầy đủ theo config snapshot đã áp dụng.</summary>
     public SosPriorityEvaluationDetails? Breakdown { get; set; }
-    /// <summary>Th?i di?m d�nh gi�</summary>
+    /// <summary>Thời điểm đánh giá</summary>
     public DateTime CreatedAt { get; set; }
 }
 
 /// <summary>
-/// Chi ti?t m?t b?n ph�n t�ch AI (c� th? c� nhi?u l?n ph�n t�ch cho c�ng m?t SOS).
+/// Chi tiết một bản phân tích AI (có thể có nhiều lần phân tích cho cùng một SOS).
 /// </summary>
 public class SosAiAnalysisDto
 {
     public int Id { get; set; }
-    /// <summary>T�n model AI (vd: gemini-2.0-flash)</summary>
+    /// <summary>Tên model AI (vd: gemini-2.0-flash)</summary>
     public string? ModelName { get; set; }
-    /// <summary>Phi�n b?n model</summary>
+    /// <summary>Phiên bản model</summary>
     public string? ModelVersion { get; set; }
-    /// <summary>Lo?i ph�n t�ch (vd: SOS_TRIAGE)</summary>
+    /// <summary>Loại phân tích (vd: SOS_TRIAGE)</summary>
     public string? AnalysisType { get; set; }
-    /// <summary>M?c d? nghi�m tr?ng do AI d? xu?t</summary>
+    /// <summary>Mức độ nghiêm trọng do AI đề xuất</summary>
     public string? SuggestedSeverityLevel { get; set; }
-    /// <summary>M?c uu ti�n do AI d? xu?t</summary>
+    /// <summary>Mức ưu tiên do AI đề xuất</summary>
     public string? SuggestedPriority { get; set; }
-    /// <summary>Gi?i th�ch / l� do d�nh gi� t? AI</summary>
+    /// <summary>Giải thích / lý do đánh giá từ AI</summary>
     public string? Explanation { get; set; }
-    /// <summary>�? tin c?y (0.0�1.0)</summary>
+    /// <summary>Độ tin cậy (0.0–1.0)</summary>
     public double? ConfidenceScore { get; set; }
-    /// <summary>Ph?m vi d? xu?t</summary>
+    /// <summary>Phạm vi đề xuất</summary>
     public string? SuggestionScope { get; set; }
-    /// <summary>Metadata d?y d? t? AI (JSON raw)</summary>
+    /// <summary>Metadata đầy đủ từ AI (JSON raw)</summary>
     public JsonElement? Metadata { get; set; }
-    /// <summary>Th?i di?m AI ph�n t�ch xong</summary>
+    /// <summary>Thời điểm AI phân tích xong</summary>
     public DateTime? CreatedAt { get; set; }
-    /// <summary>Th?i di?m d? xu?t AI du?c �p d?ng (n?u c�)</summary>
+    /// <summary>Thời điểm đề xuất AI được áp dụng (nếu có)</summary>
     public DateTime? AdoptedAt { get; set; }
 }
 
 /// <summary>
-/// Response t?ng h?p: d�nh gi� rule-based + d�nh gi� AI cho m?t SOS request.
+/// Response tổng hợp: đánh giá rule-based + đánh giá AI cho một SOS request.
 /// </summary>
 public class GetSosEvaluationResponse
 {
     public int SosRequestId { get; set; }
-    /// <summary>Lo?i SOS (RESCUE / MEDICAL / EVACUATION / SUPPLY ...)</summary>
+    /// <summary>Loại SOS (RESCUE / MEDICAL / EVACUATION / SUPPLY ...)</summary>
     public string? SosType { get; set; }
-    /// <summary>Tr?ng th�i hi?n t?i c?a SOS request</summary>
+    /// <summary>Trạng thái hiện tại của SOS request</summary>
     public string Status { get; set; } = string.Empty;
-    /// <summary>M?c uu ti�n t?ng h?p dang �p d?ng tr�n SOS request</summary>
+    /// <summary>Mức ưu tiên tổng hợp đang áp dụng trên SOS request</summary>
     public string? CurrentPriorityLevel { get; set; }
 
     /// <summary>
-    /// ��nh gi� rule-based (lu�n t?n t?i ngay sau khi g?i SOS).
-    /// Null n?u d? li?u b? m?t trong DB.
+    /// Đánh giá rule-based (luôn tồn tại ngay sau khi gửi SOS).
+    /// Null nếu dữ liệu bị mất trong DB.
     /// </summary>
     public SosRuleEvaluationDto? RuleEvaluation { get; set; }
 
     /// <summary>
-    /// T?t c? c�c b?n ph�n t�ch AI (x? l� b?t d?ng b? sau khi g?i SOS).
-    /// Danh s�ch r?ng n?u AI chua ph�n t�ch xong.
+    /// Tất cả các bản phân tích AI (xử lý bất đồng bộ sau khi gửi SOS).
+    /// Danh sách rỗng nếu AI chưa phân tích xong.
     /// </summary>
     public List<SosAiAnalysisDto> AiAnalyses { get; set; } = [];
 
-    /// <summary>C� �t nh?t m?t b?n ph�n t�ch AI chua?</summary>
+    /// <summary>Có ít nhất một bản phân tích AI chưa?</summary>
     public bool HasAiAnalysis => AiAnalyses.Count > 0;
 }

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
@@ -20,17 +20,17 @@ public class GetFundTransactionsByFundIdHandler
     : IRequestHandler<GetFundTransactionsByFundIdQuery, PagedResult<DepotFundTransactionDto>>
 {
     private readonly IDepotFundRepository _depotFundRepo;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepo;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IUserPermissionResolver _permissionResolver;
-    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public GetFundTransactionsByFundIdHandler(
+            RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
         IDepotFundRepository depotFundRepo,
         IDepotInventoryRepository depotInventoryRepo,
         IUserPermissionResolver permissionResolver)
     {
+        _managerDepotAccessService = managerDepotAccessService;
         _depotFundRepo = depotFundRepo;
         _depotInventoryRepo = depotInventoryRepo;
         _permissionResolver = permissionResolver;

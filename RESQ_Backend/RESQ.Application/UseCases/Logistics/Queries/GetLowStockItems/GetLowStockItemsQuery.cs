@@ -1,10 +1,10 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 
-/// <param name="DepotId">L?c theo kho c? th?. Null = t?t c? kho (d�nh cho Admin).</param>
-/// <param name="WarningLevel">L?c theo level c? th? (CRITICAL/MEDIUM/LOW/UNCONFIGURED). Null = t?t c? m?c kh�ng ph?i OK.</param>
-/// <param name="IncludeUnconfigured">C� bao g?m v?t ph?m chua c?u h�nh threshold kh�ng (UNCONFIGURED).</param>
+/// <param name="DepotId">Lọc theo kho cụ thể. Null = tất cả kho (dành cho Admin).</param>
+/// <param name="WarningLevel">Lọc theo level cụ thể (CRITICAL/MEDIUM/LOW/UNCONFIGURED). Null = tất cả mức không phải OK.</param>
+/// <param name="IncludeUnconfigured">Có bao gồm vật phẩm chưa cấu hình threshold không (UNCONFIGURED).</param>
 public record GetLowStockItemsQuery(
     int? DepotId,
     string? WarningLevel = null,

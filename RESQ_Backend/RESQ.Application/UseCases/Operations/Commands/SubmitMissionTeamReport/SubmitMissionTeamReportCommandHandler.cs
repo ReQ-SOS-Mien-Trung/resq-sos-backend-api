@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -29,41 +29,41 @@ public class SubmitMissionTeamReportCommandHandler(
     public async Task<MissionTeamReportResponse> Handle(SubmitMissionTeamReportCommand request, CancellationToken cancellationToken)
     {
         var mission = await missionRepository.GetByIdAsync(request.MissionId, cancellationToken)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y mission v?i ID: {request.MissionId}");
+            ?? throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
 
         var missionTeam = await missionTeamRepository.GetByIdAsync(request.MissionTeamId, cancellationToken)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y li�n k?t d?i-mission v?i ID: {request.MissionTeamId}");
+            ?? throw new NotFoundException($"Không tìm thấy liên kết đội-mission với ID: {request.MissionTeamId}");
 
         if (missionTeam.MissionId != request.MissionId)
-            throw new BadRequestException("Mission team kh�ng thu?c mission du?c y�u c?u.");
+            throw new BadRequestException("Mission team không thuộc mission được yêu cầu.");
 
         var leader = missionTeam.RescueTeamMembers.FirstOrDefault(x => x.UserId == request.SubmittedBy && x.IsLeader);
         if (leader is null)
-            throw new ForbiddenException("Ch? d?i tru?ng m?i c� quy?n n?p b�o c�o cu?i c�ng.");
+            throw new ForbiddenException("Chỉ đội trưởng mới có quyền nộp báo cáo cuối cùng.");
 
         if (string.Equals(missionTeam.Status, MissionTeamExecutionStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("�?i d� b? h?y ph�n c�ng, kh�ng th? n?p b�o c�o.");
+            throw new BadRequestException("Đội đã bị hủy phân công, không thể nộp báo cáo.");
 
         if (!string.Equals(missionTeam.Status, MissionTeamExecutionStatus.CompletedWaitingReport.ToString(), StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("�?i ph?i ho�n t?t th?c thi tru?c khi n?p b�o c�o cu?i c�ng.");
+            throw new BadRequestException("Đội phải hoàn tất thực thi trước khi nộp báo cáo cuối cùng.");
 
         if (string.Equals(missionTeam.ReportStatus, MissionTeamReportStatus.Submitted.ToString(), StringComparison.OrdinalIgnoreCase)
             || string.Equals(missionTeam.Status, MissionTeamExecutionStatus.Reported.ToString(), StringComparison.OrdinalIgnoreCase))
-            throw new ConflictException("B�o c�o cu?i c�ng d� du?c n?p tru?c d�.");
+            throw new ConflictException("Báo cáo cuối cùng đã được nộp trước đó.");
 
         var assignedActivities = mission.Activities
             .Where(x => x.MissionTeamId == request.MissionTeamId)
             .ToDictionary(x => x.Id);
 
         if (assignedActivities.Count == 0)
-            throw new BadRequestException("�?i n�y chua du?c giao activity n�o d? b�o c�o.");
+            throw new BadRequestException("Đội này chưa được giao activity nào để báo cáo.");
 
         var invalidActivityId = request.Activities
             .Select(x => x.MissionActivityId)
             .FirstOrDefault(id => !assignedActivities.ContainsKey(id));
 
         if (invalidActivityId > 0)
-            throw new BadRequestException($"Activity #{invalidActivityId} kh�ng thu?c mission team n�y.");
+            throw new BadRequestException($"Activity #{invalidActivityId} không thuộc mission team này.");
 
         var memberEvaluations = request.MemberEvaluations
             .Select(x => new MissionTeamMemberEvaluationModel
@@ -90,7 +90,7 @@ public class SubmitMissionTeamReportCommandHandler(
             if (!TryMapExecutionStatus(item.ExecutionStatus, out var mappedStatus))
             {
                 throw new BadRequestException(
-                    $"ExecutionStatus '{item.ExecutionStatus}' c?a activity #{item.MissionActivityId} kh�ng h?p l?.");
+                    $"ExecutionStatus '{item.ExecutionStatus}' của activity #{item.MissionActivityId} không hợp lệ.");
             }
 
             activityStatusUpdates.Add((item.MissionActivityId, mappedStatus));
@@ -138,7 +138,7 @@ public class SubmitMissionTeamReportCommandHandler(
                 {
                     effectiveStatus = MissionActivityStatus.PendingConfirmation;
                     logger.LogInformation(
-                        "RETURN_SUPPLIES ActivityId={activityId}: intercepted Succeed ? PendingConfirmation in report",
+                        "RETURN_SUPPLIES ActivityId={activityId}: intercepted Succeed → PendingConfirmation in report",
                         statusUpdate.ActivityId);
                 }
 
@@ -198,7 +198,7 @@ public class SubmitMissionTeamReportCommandHandler(
                         MissionId = request.MissionId,
                         Step = insertionStep,
                         ActivityType = "RETURN_SUPPLIES",
-                        Description = $"Tr? v?t ph?m v? kho {failedActivity.DepotName} do giao h�ng th?t b?i (Activity #{failedActivity.Id})",
+                        Description = $"Trả vật phẩm về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
                         Priority = failedActivity.Priority,
                         EstimatedTime = failedActivity.EstimatedTime,
                         SosRequestId = failedActivity.SosRequestId,
@@ -285,7 +285,7 @@ public class SubmitMissionTeamReportCommandHandler(
         });
 
         var refreshedMissionTeam = await missionTeamRepository.GetByIdAsync(request.MissionTeamId, cancellationToken)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y li�n k?t d?i-mission v?i ID: {request.MissionTeamId}");
+            ?? throw new NotFoundException($"Không tìm thấy liên kết đội-mission với ID: {request.MissionTeamId}");
         var report = await missionTeamReportRepository.GetByMissionTeamIdAsync(request.MissionTeamId, cancellationToken);
 
         return MissionTeamReportResponseFactory.Create(request.MissionId, refreshedMissionTeam, report, assignedActivities.Values, request.SubmittedBy);

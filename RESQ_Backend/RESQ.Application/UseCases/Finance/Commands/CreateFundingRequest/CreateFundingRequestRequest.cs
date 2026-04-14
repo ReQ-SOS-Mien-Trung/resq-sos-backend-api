@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
@@ -7,7 +7,7 @@ public class CreateFundingRequestRequest
     public string? Description { get; set; }
 
     /// <summary>
-    /// Danh s�ch v?t ph?m d? ki?n mua. TotalAmount s? du?c t�nh t? d?ng = sum(items[].totalPrice).
+    /// Danh sách vật phẩm dự kiến mua. TotalAmount sẽ được tính tự động = sum(items[].totalPrice).
     /// </summary>
     [Required]
     public List<FundingRequestItemRequest> Items { get; set; } = [];
@@ -31,10 +31,10 @@ public class FundingRequestItemRequest
 
     public string? Unit { get; set; }
 
-    /// <summary>M� t? v?t ph?m - tuong ?ng c?t G trong template Excel.</summary>
+    /// <summary>Mô tả vật phẩm - tương ứng cột G trong template Excel.</summary>
     public string? Description { get; set; }
 
-    /// <summary>URL ?nh v?t ph?m (optional). Ch? �p d?ng khi t?o item model m?i (theo t�n).</summary>
+    /// <summary>URL ảnh vật phẩm (optional). Chỉ áp dụng khi tạo item model mới (theo tên).</summary>
     public string? ImageUrl { get; set; }
 
     [Required]
@@ -43,9 +43,9 @@ public class FundingRequestItemRequest
     [Required]
     public decimal UnitPrice { get; set; }
 
-    /// <summary>Th? t�ch m?i don v? (dm�). N?u kh�ng truy?n, m?c d?nh = 0.</summary>
+    /// <summary>Thể tích mỗi đơn vị (dm³). Nếu không truyền, mặc định = 0.</summary>
     public decimal? VolumePerUnit { get; set; }
 
-    /// <summary>C�n n?ng m?i don v? (kg). N?u kh�ng truy?n, m?c d?nh = 0.</summary>
+    /// <summary>Cân nặng mỗi đơn vị (kg). Nếu không truyền, mặc định = 0.</summary>
     public decimal? WeightPerUnit { get; set; }
 }

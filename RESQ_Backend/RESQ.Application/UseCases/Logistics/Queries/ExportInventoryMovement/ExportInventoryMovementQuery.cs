@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
@@ -6,6 +6,7 @@ namespace RESQ.Application.UseCases.Logistics.Queries.ExportInventoryMovement;
 public class ExportInventoryMovementQuery : IRequest<ExportInventoryMovementResult>
 {
     public Guid UserId { get; set; }
+    public int? DepotId { get; set; }
     public ExportPeriodType PeriodType { get; set; }
 
     // --- ByMonth ---

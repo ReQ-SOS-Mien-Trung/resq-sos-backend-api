@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -11,8 +11,8 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosureTransfer;
 
 /// <summary>
-/// Admin ph�n b? h�ng t?n sang m?t ho?c nhi?u kho d�ch d? ho�n t?t d�ng kho ngu?n.
-/// T? d?ng t?o m?t DepotClosureRecord v� nhi?u DepotClosureTransferRecord tuong ?ng.
+/// Admin phân bổ hàng tồn sang một hoặc nhiều kho đích để hoàn tất đóng kho nguồn.
+/// Tự động tạo một DepotClosureRecord và nhiều DepotClosureTransferRecord tương ứng.
 /// </summary>
 public class InitiateDepotClosureTransferCommandHandler(
     IDepotRepository depotRepository,
@@ -35,24 +35,24 @@ public class InitiateDepotClosureTransferCommandHandler(
             request.InitiatedBy);
 
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
-            ?? throw new NotFoundException("Kh�ng t�m th?y kho ngu?n.");
+            ?? throw new NotFoundException("Không tìm thấy kho nguồn.");
 
         if (depot.Status != DepotStatus.Unavailable)
         {
             throw new ConflictException(
-                $"Kho dang ? tr?ng th�i '{depot.Status}'. Ph?i chuy?n sang Unavailable tru?c khi chuy?n h�ng.");
+                $"Kho đang ở trạng thái '{depot.Status}'. Phải chuyển sang Unavailable trước khi chuyển hàng.");
         }
 
         var activeCount = await depotRepository.GetActiveDepotCountExcludingAsync(request.DepotId, cancellationToken);
         if (activeCount == 0)
         {
-            throw new ConflictException("Kh�ng th? d�ng kho duy nh?t c�n dang ho?t d?ng trong h? th?ng.");
+            throw new ConflictException("Không thể đóng kho duy nhất còn đang hoạt động trong hệ thống.");
         }
 
         var existingClosure = await closureRepository.GetActiveClosureByDepotIdAsync(request.DepotId, cancellationToken);
         if (existingClosure != null)
         {
-            throw new ConflictException("Kho dang c� phi�n chuy?n kho chua ho�n t?t. H?y phi�n cu tru?c khi t?o m?i.");
+            throw new ConflictException("Kho đang có phiên chuyển kho chưa hoàn tất. Hủy phiên cũ trước khi tạo mới.");
         }
 
         var remainingItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
@@ -85,12 +85,12 @@ public class InitiateDepotClosureTransferCommandHandler(
         foreach (var targetDepotId in targetDepotIds)
         {
             var targetDepot = await depotRepository.GetByIdAsync(targetDepotId, cancellationToken)
-                ?? throw new NotFoundException($"Kh�ng t�m th?y kho d�ch #{targetDepotId}.");
+                ?? throw new NotFoundException($"Không tìm thấy kho đích #{targetDepotId}.");
 
             if (targetDepot.Status is DepotStatus.Unavailable or DepotStatus.Closed)
             {
                 throw new ConflictException(
-                    $"Kho d�ch '{targetDepot.Name}' kh�ng kh? d?ng (tr?ng th�i: {targetDepot.Status}). Vui l�ng ch?n kho kh�c.");
+                    $"Kho đích '{targetDepot.Name}' không khả dụng (trạng thái: {targetDepot.Status}). Vui lòng chọn kho khác.");
             }
 
             targetDepots[targetDepotId] = targetDepot;
@@ -111,8 +111,8 @@ public class InitiateDepotClosureTransferCommandHandler(
             if (requiredVolume > availableVolumeCapacity)
             {
                 throw new ConflictException(
-                    $"Kho d�ch '{targetDepot.Name}' kh�ng d? s?c ch?a th? t�ch cho ph?n h�ng du?c ph�n b?. " +
-                    $"C?n: {requiredVolume:N0} � C�n tr?ng: {availableVolumeCapacity:N0} dm�.");
+                    $"Kho đích '{targetDepot.Name}' không đủ sức chứa thể tích cho phần hàng được phân bổ. " +
+                    $"Cần: {requiredVolume:N0} — Còn trống: {availableVolumeCapacity:N0} dm³.");
             }
 
             var requiredWeight = targetGroup
@@ -127,8 +127,8 @@ public class InitiateDepotClosureTransferCommandHandler(
             if (requiredWeight > availableWeightCapacity)
             {
                 throw new ConflictException(
-                    $"Kho d�ch '{targetDepot.Name}' kh�ng d? s?c ch?a c�n n?ng cho ph?n h�ng du?c ph�n b?. " +
-                    $"C?n: {requiredWeight:N0} � C�n tr?ng: {availableWeightCapacity:N0} kg.");
+                    $"Kho đích '{targetDepot.Name}' không đủ sức chứa cân nặng cho phần hàng được phân bổ. " +
+                    $"Cần: {requiredWeight:N0} — Còn trống: {availableWeightCapacity:N0} kg.");
             }
         }
 
@@ -226,8 +226,8 @@ public class InitiateDepotClosureTransferCommandHandler(
                 {
                     await firebaseService.SendNotificationToUserAsync(
                         targetManagerId.Value,
-                        "Kho c?a b?n s?p ti?p nh?n h�ng chuy?n kho",
-                        $"Admin d� ch? d?nh '{transferSummary.TargetDepotName}' ti?p nh?n m?t ph?n h�ng t? kho '{depot.Name}' dang d�ng c?a.",
+                        "Kho của bạn sắp tiếp nhận hàng chuyển kho",
+                        $"Admin đã chỉ định '{transferSummary.TargetDepotName}' tiếp nhận một phần hàng từ kho '{depot.Name}' đang đóng cửa.",
                         "depot_closure_transfer_assigned",
                         new Dictionary<string, string>
                         {
@@ -251,8 +251,8 @@ public class InitiateDepotClosureTransferCommandHandler(
             Transfers = transferSummaries.OrderBy(x => x.TargetDepotName).ThenBy(x => x.TransferId).ToList(),
             ReusableItemsSkipped = reusableInUse,
             Message = transferSummaries.Count == 1
-                ? $"�� t?o k? ho?ch chuy?n h�ng sang kho '{transferSummaries[0].TargetDepotName}'. Manager kho ngu?n v� kho d�ch ti?p t?c x�c nh?n theo t?ng bu?c."
-                : $"�� t?o k? ho?ch ph�n b? h�ng t?n sang {transferSummaries.Count} kho d�ch. M?i kho s? nh?n m?t transfer ri�ng d? x�c nh?n."
+                ? $"Đã tạo kế hoạch chuyển hàng sang kho '{transferSummaries[0].TargetDepotName}'. Manager kho nguồn và kho đích tiếp tục xác nhận theo từng bước."
+                : $"Đã tạo kế hoạch phân bổ hàng tồn sang {transferSummaries.Count} kho đích. Mỗi kho sẽ nhận một transfer riêng để xác nhận."
         };
     }
 
@@ -267,18 +267,18 @@ public class InitiateDepotClosureTransferCommandHandler(
             if (!inventoryLookup.TryGetValue(key, out var item))
             {
                 throw new ConflictException(
-                    $"v?t ph?m #{assignment.ItemModelId} ({assignment.ItemType}) kh�ng t?n t?i trong t?n kho c?a kho ngu?n.");
+                    $"vật phẩm #{assignment.ItemModelId} ({assignment.ItemType}) không tồn tại trong tồn kho của kho nguồn.");
             }
 
             if (assignment.TargetDepotId == sourceDepotId)
             {
-                throw new ConflictException($"v?t ph?m '{item.ItemName}' kh�ng du?c ph�n b? v? ch�nh kho ngu?n.");
+                throw new ConflictException($"vật phẩm '{item.ItemName}' không được phân bổ về chính kho nguồn.");
             }
 
             if (assignment.Quantity > item.TransferableQuantity)
             {
                 throw new ConflictException(
-                    $"v?t ph?m '{item.ItemName}' ch? c� th? chuy?n {item.TransferableQuantity} don v? nhung y�u c?u ph�n b? {assignment.Quantity}.");
+                    $"vật phẩm '{item.ItemName}' chỉ có thể chuyển {item.TransferableQuantity} đơn vị nhưng yêu cầu phân bổ {assignment.Quantity}.");
             }
         }
 
@@ -292,7 +292,7 @@ public class InitiateDepotClosureTransferCommandHandler(
             if (assignedQuantity != item.TransferableQuantity)
             {
                 throw new ConflictException(
-                    $"v?t ph?m '{item.ItemName}' c?n du?c ph�n b? d? {item.TransferableQuantity} don v? c� th? chuy?n. Hi?n m?i ph�n b? {assignedQuantity}.");
+                    $"vật phẩm '{item.ItemName}' cần được phân bổ đủ {item.TransferableQuantity} đơn vị có thể chuyển. Hiện mới phân bổ {assignedQuantity}.");
             }
         }
     }

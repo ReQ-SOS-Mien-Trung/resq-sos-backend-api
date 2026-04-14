@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Domain.Entities.Identity
@@ -34,9 +34,9 @@ namespace RESQ.Domain.Entities.Identity
         public double? Longitude { get; set; }
 
         // Address fields
-        public string? Address { get; set; }        // S? nh�, t�n du?ng
-        public string? Ward { get; set; }           // Phu?ng/X�
-        public string? Province { get; set; }       // T?nh/Th�nh ph?
+        public string? Address { get; set; }        // Số nhà, tên đường
+        public string? Ward { get; set; }           // Phường/Xã
+        public string? Province { get; set; }       // Tỉnh/Thành phố
 
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }

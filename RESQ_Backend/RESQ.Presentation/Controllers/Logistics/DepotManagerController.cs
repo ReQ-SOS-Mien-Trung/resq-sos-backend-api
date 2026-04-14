@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
@@ -13,7 +13,7 @@ namespace RESQ.Presentation.Controllers.Logistics
     {
         private readonly IMediator _mediator = mediator;
 
-        /// <summary>L?y l?ch s? th? kho c?a m?t kho (depotId) c� ph�n trang.</summary>
+        /// <summary>Lấy lịch sử thủ kho của một kho (depotId) có phân trang.</summary>
         [HttpGet]
         [Authorize(Policy = PermissionConstants.PersonnelDepotBranchManage)]
         public async Task<IActionResult> Get([FromQuery] int depotId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -29,9 +29,9 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// G? manager dang active kh?i kho (soft-unassign): set UnassignedAt cho b?n ghi depot_managers,
-        /// l?ch s? v?n du?c gi? l?i. Kho ph?i ? tr?ng th�i Available.
-        /// Sau khi g?, kho chuy?n v? PendingAssignment (ch? g�n qu?n l� m?i).
+        /// Gỡ manager đang active khỏi kho (soft-unassign): set UnassignedAt cho bản ghi depot_managers,
+        /// lịch sử vẫn được giữ lại. Kho phải ở trạng thái Available.
+        /// Sau khi gỡ, kho chuyển về PendingAssignment (chờ gán quản lý mới).
         /// </summary>
         [HttpDelete("{depotId:int}")]
         [Authorize(Policy = PermissionConstants.PersonnelDepotBranchManage)]

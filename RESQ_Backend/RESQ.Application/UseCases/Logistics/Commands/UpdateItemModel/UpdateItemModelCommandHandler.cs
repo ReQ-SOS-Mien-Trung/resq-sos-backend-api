@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
@@ -14,20 +14,20 @@ public class UpdateItemModelCommandHandler(IItemModelMetadataRepository itemMode
     {
         var existing = await _itemModelMetadataRepository.GetByIdsAsync([request.Id], cancellationToken);
         if (!existing.ContainsKey(request.Id))
-            throw new NotFoundException($"Kh�ng t�m th?y item model v?i ID = {request.Id}");
+            throw new NotFoundException($"Không tìm thấy item model với ID = {request.Id}");
 
         var existingItem = existing[request.Id];
 
         var categoryExists = await _itemModelMetadataRepository.CategoryExistsAsync(request.CategoryId, cancellationToken);
 
         if (!categoryExists)
-            throw new NotFoundException($"Kh�ng t�m th?y category v?i ID = {request.CategoryId}");
+            throw new NotFoundException($"Không tìm thấy category với ID = {request.CategoryId}");
 
         if (existingItem.CategoryId != request.CategoryId)
         {
             var hasTransactions = await _itemModelMetadataRepository.HasInventoryTransactionsAsync(request.Id, cancellationToken);
             if (hasTransactions)
-                throw new ConflictException("Kh�ng th? d?i categoryId v� v?t ph?m d� ph�t sinh giao d?ch kho. �i?u n�y c� th? l�m l?ch d? li?u l?ch s?.");
+                throw new ConflictException("Không thể đổi categoryId vì vật phẩm đã phát sinh giao dịch kho. Điều này có thể làm lệch dữ liệu lịch sử.");
         }
 
         var normalizedItemType = Enum.Parse<ItemType>(request.ItemType.Trim(), ignoreCase: true).ToString();
@@ -55,7 +55,7 @@ public class UpdateItemModelCommandHandler(IItemModelMetadataRepository itemMode
             cancellationToken);
 
         if (!updated)
-            throw new NotFoundException($"Kh�ng t�m th?y item model v?i ID = {request.Id}");
+            throw new NotFoundException($"Không tìm thấy item model với ID = {request.Id}");
 
         return Unit.Value;
     }

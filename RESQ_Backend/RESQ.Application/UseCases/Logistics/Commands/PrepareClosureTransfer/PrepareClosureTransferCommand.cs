@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.PrepareClosureTransfer;
 
@@ -12,4 +12,5 @@ namespace RESQ.Application.UseCases.Logistics.Commands.PrepareClosureTransfer;
 public record PrepareClosureTransferCommand(
     int TransferId,
     Guid UserId,
-    string? Note) : IRequest<PrepareClosureTransferResponse>;
+    string? Note,
+    int? DepotId = null) : IRequest<PrepareClosureTransferResponse>;

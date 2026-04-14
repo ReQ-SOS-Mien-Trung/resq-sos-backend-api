@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -20,6 +20,7 @@ public class PrepareSupplyRequestCommandHandler(
     IFirebaseService firebaseService)
     : IRequestHandler<PrepareSupplyRequestCommand, PrepareSupplyRequestResponse>
 {
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     public async Task<PrepareSupplyRequestResponse> Handle(PrepareSupplyRequestCommand request, CancellationToken cancellationToken)
     {
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)

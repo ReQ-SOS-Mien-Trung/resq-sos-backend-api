@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Logistics;
+﻿using RESQ.Application.Common.Logistics;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -21,6 +21,7 @@ public class ReturnSupplyActivityQueryHandlerTests
     public async Task UpcomingReturnsHandler_ThrowsNotFound_WhenUserHasNoActiveDepot()
     {
         var handler = new GetMyUpcomingReturnActivitiesQueryHandler(
+            new StubManagerDepotAccessService(null),
             new StubDepotInventoryRepository { ActiveDepotId = null },
             new StubItemModelMetadataRepository(),
             new StubReturnSupplyActivityRepository());
@@ -39,6 +40,7 @@ public class ReturnSupplyActivityQueryHandlerTests
     {
         var repository = new StubReturnSupplyActivityRepository();
         var handler = new GetMyUpcomingReturnActivitiesQueryHandler(
+            new StubManagerDepotAccessService(12),
             new StubDepotInventoryRepository { ActiveDepotId = 12 },
             new StubItemModelMetadataRepository(),
             repository);
@@ -60,6 +62,7 @@ public class ReturnSupplyActivityQueryHandlerTests
         const int itemId = 80;
 
         var handler = new GetMyUpcomingReturnActivitiesQueryHandler(
+            new StubManagerDepotAccessService(depotId),
             new StubDepotInventoryRepository { ActiveDepotId = depotId },
             new StubItemModelMetadataRepository(),
             new StubReturnSupplyActivityRepository
@@ -115,6 +118,7 @@ public class ReturnSupplyActivityQueryHandlerTests
     public async Task ReturnHistoryHandler_ThrowsNotFound_WhenUserHasNoActiveDepot()
     {
         var handler = new GetMyReturnHistoryActivitiesQueryHandler(
+            new StubManagerDepotAccessService(null),
             new StubDepotInventoryRepository { ActiveDepotId = null },
             new StubItemModelMetadataRepository(),
             new StubReturnSupplyActivityRepository());
@@ -133,6 +137,7 @@ public class ReturnSupplyActivityQueryHandlerTests
         const string imageUrl = "https://cdn.example/items/4.png";
 
         var handler = new GetMyReturnHistoryActivitiesQueryHandler(
+            new StubManagerDepotAccessService(depotId),
             new StubDepotInventoryRepository { ActiveDepotId = depotId },
             new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
             {
@@ -395,5 +400,21 @@ public class ReturnSupplyActivityQueryHandlerTests
 
         public Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
+    }
+
+    private sealed class StubManagerDepotAccessService(int? depotId = null)
+        : RESQ.Application.Services.IManagerDepotAccessService
+    {
+        public Task<List<RESQ.Application.Services.ManagedDepotDto>> GetManagedDepotsAsync(
+            Guid userId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<RESQ.Application.Services.ManagedDepotDto>());
+
+        public Task<int?> ResolveAccessibleDepotIdAsync(
+            Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default)
+            => Task.FromResult(requestedDepotId ?? depotId);
+
+        public Task EnsureDepotAccessAsync(
+            Guid userId, int depotIdParam, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }

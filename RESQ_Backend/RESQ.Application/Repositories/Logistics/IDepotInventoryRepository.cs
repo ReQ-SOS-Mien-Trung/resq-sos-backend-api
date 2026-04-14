@@ -1,4 +1,4 @@
-using RESQ.Application.Common.Models;
+﻿using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
@@ -26,20 +26,20 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// L?y danh s�ch c�c l� h�ng (lot) c?a m?t m?t h�ng t?i kho, s?p x?p theo FEFO.
+    /// Lấy danh sách các lô hàng (lot) của một mặt hàng tại kho, sắp xếp theo FEFO.
     /// </summary>
     Task<PagedResult<InventoryLotModel>> GetInventoryLotsAsync(
         int depotId, int itemModelId, int pageNumber, int pageSize,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// L?y t?ng s? lu?ng t?n kho theo danh m?c c?a m?t kho c? th?.
+    /// Lấy tổng số lượng tồn kho theo danh mục của một kho cụ thể.
     /// </summary>
     Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// T�m ki?m v?t ph?m theo t? kho� danh m?c/lo?i d? agent AI d�ng trong qu� tr�nh l?p k? ho?ch.
-    /// Tr? v? c? Consumable l?n Reusable; v?i Reusable, AvailableQuantity l� s? don v? Available.
+    /// Tìm kiếm vật phẩm theo từ khoá danh mục/loại để agent AI dùng trong quá trình lập kế hoạch.
+    /// Trả về cả Consumable lẫn Reusable; với Reusable, AvailableQuantity là số đơn vị Available.
     /// </summary>
     Task<(List<AgentInventoryItem> Items, int TotalCount)> SearchForAgentAsync(
         string categoryKeyword,
@@ -55,9 +55,9 @@ public interface IDepotInventoryRepository
     Task<(double Latitude, double Longitude)?> GetDepotLocationAsync(int depotId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// T�m ki?m c�c kho c?u tr? c� ch?a v?t ph?m theo danh s�ch m� v?t ph?m.
-    /// Ch? tr? v? kho c� s? lu?ng kh? d?ng >= quantity.
-    /// Tr? v? danh s�ch ph?ng (item, depot) d? handler nh�m l?i.
+    /// Tìm kiếm các kho cứu trợ có chứa vật phẩm theo danh sách mã vật phẩm.
+    /// Chỉ trả về kho có số lượng khả dụng >= quantity.
+    /// Trả về danh sách phẳng (item, depot) để handler nhóm lại.
     /// </summary>
     Task<(List<WarehouseItemRow> Rows, int TotalItemCount)> SearchWarehousesByItemsAsync(
         List<int>? itemModelIds,
@@ -69,9 +69,9 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Ki?m tra t?n kho t?i m?t kho c? th? cho danh s�ch v?t ph?m.
-    /// Tr? v? danh s�ch v?t ph?m kh�ng d? s? lu?ng ho?c kh�ng c� trong kho.
-    /// S? lu?ng kh? d?ng = Quantity - ReservedQuantity.
+    /// Kiểm tra tồn kho tại một kho cụ thể cho danh sách vật phẩm.
+    /// Trả về danh sách vật phẩm không đủ số lượng hoặc không có trong kho.
+    /// Số lượng khả dụng = Quantity - ReservedQuantity.
     /// </summary>
     Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(
         int depotId,
@@ -79,8 +79,8 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// �?t tru?c v?t ph?m cho mission: tang ReservedQuantity v� tr? v? snapshot
-    /// c�c l� FEFO ho?c reusable units activity c?n l?y.
+    /// Đặt trước vật phẩm cho mission: tăng ReservedQuantity và trả về snapshot
+    /// các lô FEFO hoặc reusable units activity cần lấy.
     /// </summary>
     Task<MissionSupplyReservationResult> ReserveSuppliesAsync(
         int depotId,
@@ -88,8 +88,8 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Team x�c nh?n d� l?y h�ng: gi?m c? Quantity v� ReservedQuantity, ghi InventoryLog,
-    /// d?ng th?i tr? v? chi ti?t th?c t? d� l?y theo lot FEFO ho?c reusable unit.
+    /// Team xác nhận đã lấy hàng: giảm cả Quantity và ReservedQuantity, ghi InventoryLog,
+    /// đồng thời trả về chi tiết thực tế đã lấy theo lot FEFO hoặc reusable unit.
     /// </summary>
     Task<MissionSupplyPickupExecutionResult> ConsumeReservedSuppliesAsync(
         int depotId,
@@ -100,10 +100,10 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Depot manager x�c nh?n nh?n l?i v?t ph?m t? mission v� nh?p kho theo d? li?u th?c t?.
-    /// Consumable du?c nh?p l?i theo quantity; Reusable du?c nh?n l?i theo t?ng unit id,
-    /// ho?c quantity fallback cho legacy mission chua c� unit snapshot.
-    /// Condition v� Note c?a t?ng reusable unit s? du?c c?p nh?t n?u du?c cung c?p.
+    /// Depot manager xác nhận nhận lại vật phẩm từ mission và nhập kho theo dữ liệu thực tế.
+    /// Consumable được nhập lại theo quantity; Reusable được nhận lại theo từng unit id,
+    /// hoặc quantity fallback cho legacy mission chưa có unit snapshot.
+    /// Condition và Note của từng reusable unit sẽ được cập nhật nếu được cung cấp.
     /// </summary>
     Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(
         int depotId,
@@ -117,14 +117,14 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// L?y d? li?u th� v?t ph?m ti�u hao d? application/domain t? resolve threshold v� ph�n lo?i m?c t?n.
+    /// Lấy dữ liệu thô vật phẩm tiêu hao để application/domain tự resolve threshold và phân loại mức tồn.
     /// </summary>
     Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(
         int? depotId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gi?i ph�ng v?t ph?m d� d?t tru?c (v� d? khi hu? activity ho?c thay d?i items): gi?m ReservedQuantity.
+    /// Giải phóng vật phẩm đã đặt trước (ví dụ khi huỷ activity hoặc thay đổi items): giảm ReservedQuantity.
     /// </summary>
     Task ReleaseReservedSuppliesAsync(
         int depotId,
@@ -132,8 +132,8 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Xu?t kho th? c�ng (Export): gi?m Quantity, �p d?ng FEFO tr�n c�c l� v� ghi InventoryLog.
-    /// Ch? du?c xu?t s? lu?ng kh? d?ng (Quantity - ReservedQuantity).
+    /// Xuất kho thủ công (Export): giảm Quantity, áp dụng FEFO trên các lô và ghi InventoryLog.
+    /// Chỉ được xuất số lượng khả dụng (Quantity - ReservedQuantity).
     /// </summary>
     Task ExportInventoryAsync(
         int depotId,
@@ -144,8 +144,8 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// �i?u ch?nh t?n kho (Adjust): quantityChange duong ? t?o l� m?i + tang Quantity;
-    /// quantityChange �m ? FEFO deduction tr�n c�c l� + gi?m Quantity.
+    /// Điều chỉnh tồn kho (Adjust): quantityChange dương → tạo lô mới + tăng Quantity;
+    /// quantityChange âm → FEFO deduction trên các lô + giảm Quantity.
     /// </summary>
     Task AdjustInventoryAsync(
         int depotId,
@@ -160,12 +160,12 @@ public interface IDepotInventoryRepository
     // -- Depot Closure helpers ------------------------------------------------
 
     /// <summary>
-    /// Chuy?n to�n b? inventory t? kho d�ng sang kho d�ch.
-    /// Consumable: upsert supply_inventory t?i d�ch + chuy?n t?t c? lots + ghi log.
-    /// Reusable (Available): c?p nh?t depot_id sang kho d�ch + ghi log.
-    /// Reusable (InUse): d�nh d?u pending_reassignment, kh�ng di chuy?n ngay.
-    /// X? l� theo cursor-based batch d? c� th? resume khi retry.
-    /// Returns (processedRows, lastInventoryId) d? handler luu ti?n tr�nh.
+    /// Chuyển toàn bộ inventory từ kho đóng sang kho đích.
+    /// Consumable: upsert supply_inventory tại đích + chuyển tất cả lots + ghi log.
+    /// Reusable (Available): cập nhật depot_id sang kho đích + ghi log.
+    /// Reusable (InUse): đánh dấu pending_reassignment, không di chuyển ngay.
+    /// Xử lý theo cursor-based batch để có thể resume khi retry.
+    /// Returns (processedRows, lastInventoryId) để handler lưu tiến trình.
     /// </summary>
     Task<(int ProcessedRows, int? LastInventoryId)> BulkTransferForClosureAsync(
         int sourceDepotId,
@@ -186,15 +186,15 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Tra c?u userId c?a qu?n l� dang du?c ph�n c�ng t?i kho (ngu?c v?i GetActiveDepotIdByManagerAsync).
+    /// Tra cứu userId của quản lý đang được phân công tại kho (ngược với GetActiveDepotIdByManagerAsync).
     /// </summary>
     Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken ct = default);
 
     /// <summary>
-    /// Zero-out to�n b? inventory khi d�ng kho theo h�nh th?c x? l� b�n ngo�i.
-    /// Ghi log d?y d? t?ng l� h�ng v?i closure_id d? audit.
-    /// Reusable (Available): chuy?n sang Decommissioned.
-    /// Reusable (InUse): d�nh d?u pending_reassignment.
+    /// Zero-out toàn bộ inventory khi đóng kho theo hình thức xử lý bên ngoài.
+    /// Ghi log đầy đủ từng lô hàng với closure_id để audit.
+    /// Reusable (Available): chuyển sang Decommissioned.
+    /// Reusable (InUse): đánh dấu pending_reassignment.
     /// </summary>
     Task ZeroOutForClosureAsync(
         int depotId,
@@ -204,10 +204,10 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Ki?m tra xem kho c� dang c� cam k?t t?n kho chua ho�n t?t kh�ng:
-    /// - Consumable: mission_reserved_quantity > 0 (dang du?c d?t cho nhi?m v? c?u h?).
-    /// - Reusable: status = 'InUse' t?i kho n�y (dang du?c s? d?ng trong nhi?m v?).
-    /// D�ng d? ch?n chuy?n sang Unavailable khi c�n ho?t d?ng dang di?n ra.
+    /// Kiểm tra xem kho có đang có cam kết tồn kho chưa hoàn tất không:
+    /// - Consumable: mission_reserved_quantity > 0 (đang được đặt cho nhiệm vụ cứu hộ).
+    /// - Reusable: status = 'InUse' tại kho này (đang được sử dụng trong nhiệm vụ).
+    /// Dùng để chặn chuyển sang Unavailable khi còn hoạt động đang diễn ra.
     /// </summary>
     Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,4 @@
-using MediatR;
+ï»¿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -18,7 +18,7 @@ public class GetClosureTransferSuggestionsHandler : IRequestHandler<GetClosureTr
     {
         var sourceDepot = await _depotRepository.GetByIdAsync(request.DepotId, cancellationToken);
         if (sourceDepot == null)
-            throw new NotFoundException($"Không tìm th?y kho có ID = {request.DepotId}");
+            throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y kho cÃ³ ID = {request.DepotId}");
 
         var inventoryItems = await _depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
 

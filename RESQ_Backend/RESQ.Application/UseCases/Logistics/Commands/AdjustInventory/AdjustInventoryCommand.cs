@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.AdjustInventory;
 
@@ -8,4 +8,4 @@ public record AdjustInventoryCommand(
     int QuantityChange,
     string Reason,
     string? Note,
-    DateTime? ExpiredDate) : IRequest<AdjustInventoryResponse>;
+    DateTime? ExpiredDate, int? DepotId = null) : IRequest<AdjustInventoryResponse>;

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -88,7 +88,7 @@ internal static class MissionActivityIncidentFailureHelper
         if (!CanFailFromIncident(activity.Status))
         {
             throw new BadRequestException(
-                $"Activity #{activity.Id} dang ? tr?ng th�i '{activity.Status}' n�n kh�ng th? chuy?n sang Failed b?ng incident.");
+                $"Activity #{activity.Id} đang ở trạng thái '{activity.Status}' nên không thể chuyển sang Failed bằng incident.");
         }
 
         await activityRepository.UpdateStatusAsync(activity.Id, MissionActivityStatus.Failed, decisionBy, cancellationToken: cancellationToken);
@@ -217,7 +217,7 @@ internal static class MissionActivityIncidentFailureHelper
                 MissionId = missionId,
                 Step = insertionStep,
                 ActivityType = "RETURN_SUPPLIES",
-                Description = $"Tr? v?t ph?m v? kho {failedActivity.DepotName} do giao h�ng th?t b?i (Activity #{failedActivity.Id})",
+                Description = $"Trả vật phẩm về kho {failedActivity.DepotName} do giao hàng thất bại (Activity #{failedActivity.Id})",
                 Priority = failedActivity.Priority,
                 EstimatedTime = failedActivity.EstimatedTime,
                 SosRequestId = failedActivity.SosRequestId,

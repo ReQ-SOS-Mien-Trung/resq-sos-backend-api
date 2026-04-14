@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
@@ -102,7 +102,7 @@ public sealed class AuthFlowHandlerTests
         var depotInvRepo = new StubDepotInventoryRepository();
         var depotRepo = new StubDepotRepository();
         var config = BuildJwtConfiguration();
-        var handler = new LoginCommandHandler(repo, permRepo, tokenService, uow, config,
+        var handler = new LoginCommandHandler(new StubManagerDepotAccessService(), repo, permRepo, tokenService, uow, config,
             NullLogger<LoginCommandHandler>.Instance, depotInvRepo, depotRepo);
 
         var cmd = new LoginCommand(Username: "admin1", Phone: null, Password: "P@ssw0rd!");
@@ -124,7 +124,7 @@ public sealed class AuthFlowHandlerTests
         var tokenService = new StubTokenService(["at"], ["rt"]);
         var uow = new StubUnitOfWork();
         var config = BuildJwtConfiguration();
-        var handler = new LoginCommandHandler(repo, permRepo, tokenService, uow, config,
+        var handler = new LoginCommandHandler(new StubManagerDepotAccessService(), repo, permRepo, tokenService, uow, config,
             NullLogger<LoginCommandHandler>.Instance, new StubDepotInventoryRepository(), new StubDepotRepository());
 
         var cmd = new LoginCommand(Username: null, Phone: "0901234567", Password: "P@ssw0rd!");
@@ -137,7 +137,7 @@ public sealed class AuthFlowHandlerTests
     public async Task Login_NoUsernameOrPhone_ThrowsBadRequest()
     {
         var repo = new StubUserRepository();
-        var handler = new LoginCommandHandler(repo, new StubPermissionRepository([]),
+        var handler = new LoginCommandHandler(new StubManagerDepotAccessService(), repo, new StubPermissionRepository([]),
             new StubTokenService(), new StubUnitOfWork(), BuildJwtConfiguration(),
             NullLogger<LoginCommandHandler>.Instance, new StubDepotInventoryRepository(), new StubDepotRepository());
 
@@ -149,7 +149,7 @@ public sealed class AuthFlowHandlerTests
     public async Task Login_UserNotFound_ThrowsUnauthorized()
     {
         var repo = new StubUserRepository();
-        var handler = new LoginCommandHandler(repo, new StubPermissionRepository([]),
+        var handler = new LoginCommandHandler(new StubManagerDepotAccessService(), repo, new StubPermissionRepository([]),
             new StubTokenService(), new StubUnitOfWork(), BuildJwtConfiguration(),
             NullLogger<LoginCommandHandler>.Instance, new StubDepotInventoryRepository(), new StubDepotRepository());
 
@@ -163,7 +163,7 @@ public sealed class AuthFlowHandlerTests
         var user = BuildUser();
         user.Username = "admin1";
         var repo = new StubUserRepository(user);
-        var handler = new LoginCommandHandler(repo, new StubPermissionRepository([]),
+        var handler = new LoginCommandHandler(new StubManagerDepotAccessService(), repo, new StubPermissionRepository([]),
             new StubTokenService(), new StubUnitOfWork(), BuildJwtConfiguration(),
             NullLogger<LoginCommandHandler>.Instance, new StubDepotInventoryRepository(), new StubDepotRepository());
 
@@ -651,5 +651,21 @@ public sealed class AuthFlowHandlerTests
         public void AttachAsUnchanged<TEntity>(TEntity entity) where TEntity : class { }
         public void ClearTrackedChanges() { }
         public Task ExecuteInTransactionAsync(Func<Task> action) => action();
+    }
+
+    private sealed class StubManagerDepotAccessService(int? depotId = null)
+        : RESQ.Application.Services.IManagerDepotAccessService
+    {
+        public Task<List<RESQ.Application.Services.ManagedDepotDto>> GetManagedDepotsAsync(
+            Guid userId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<RESQ.Application.Services.ManagedDepotDto>());
+
+        public Task<int?> ResolveAccessibleDepotIdAsync(
+            Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default)
+            => Task.FromResult(requestedDepotId ?? depotId);
+
+        public Task EnsureDepotAccessAsync(
+            Guid userId, int depotIdParam, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }

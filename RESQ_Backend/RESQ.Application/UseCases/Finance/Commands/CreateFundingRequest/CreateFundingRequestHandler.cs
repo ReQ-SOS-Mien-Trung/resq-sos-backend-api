@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -8,21 +8,24 @@ using RESQ.Domain.Entities.Finance;
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
 /// <summary>
-/// [C�ch 2] Depot t?o FundingRequest k�m danh s�ch v?t ph?m.
-/// DepotId du?c t? d?ng l?y t? manager dang dang nh?p.
-/// TotalAmount du?c t? t�nh t? sum(items[].TotalPrice).
+/// [Cách 2] Depot tạo FundingRequest kèm danh sách vật phẩm.
+/// DepotId được tự động lấy từ manager đang đăng nhập.
+/// TotalAmount được tự tính từ sum(items[].TotalPrice).
 /// </summary>
 public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestCommand, int>
 {
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService;
     private readonly IFundingRequestRepository _fundingRequestRepo;
     private readonly IDepotInventoryRepository _depotInventoryRepo;
     private readonly IUnitOfWork _unitOfWork;
 
     public CreateFundingRequestHandler(
+            RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
         IFundingRequestRepository fundingRequestRepo,
         IDepotInventoryRepository depotInventoryRepo,
         IUnitOfWork unitOfWork)
     {
+        _managerDepotAccessService = managerDepotAccessService;
         _fundingRequestRepo = fundingRequestRepo;
         _depotInventoryRepo = depotInventoryRepo;
         _unitOfWork = unitOfWork;
@@ -32,9 +35,9 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
     {
         // 1. L?y depotId t? manager token
         var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.RequestedBy, request.DepotId, cancellationToken)
-            ?? throw new BadRequestException("B?n kh�ng c� kho dang ho?t d?ng. Vui l�ng li�n h? admin.");
+            ?? throw new BadRequestException("Bạn không có kho đang hoạt động. Vui lòng liên hệ admin.");
 
-        // 2. T�nh t?ng ti?n t? d?ng t? danh s�ch items
+        // 2. Tính tổng tiền tự động từ danh sách items
         var totalAmount = request.Items.Sum(i => i.Quantity * i.UnitPrice);
 
         // 3. T?o FundingRequest domain model
@@ -46,7 +49,7 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
             null
         );
 
-        // 3. Th�m items
+        // 3. Thêm items
         foreach (var item in request.Items)
         {
             fundingRequest.AddItem(new FundingRequestItemModel
@@ -67,7 +70,7 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
             });
         }
 
-        // 4. Persist - CreateAsync luu ngay v� tr? v? ID th?c t? DB
+        // 4. Persist - CreateAsync lưu ngay và trả về ID thực từ DB
         var fundingRequestId = await _fundingRequestRepo.CreateAsync(fundingRequest, cancellationToken);
         await _unitOfWork.SaveAsync();
 

@@ -1,16 +1,17 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
 /// <summary>
-/// [C�ch 2] Depot g?i y�u c?u c?p th�m qu? k�m danh s�ch v?t ph?m.
-/// DepotId du?c t? d?ng l?y t? manager dang dang nh?p.
-/// TotalAmount du?c t�nh t? d?ng = sum(items[].TotalPrice).
+/// [Cách 2] Depot gửi yêu cầu cấp thêm quỹ kèm danh sách vật phẩm.
+/// DepotId được tự động lấy từ manager đang đăng nhập.
+/// TotalAmount được tính tự động = sum(items[].TotalPrice).
 /// </summary>
 public record CreateFundingRequestCommand(
     string? Description,
     List<FundingRequestItemDto> Items,
-    Guid RequestedBy
+    Guid RequestedBy,
+    int? DepotId = null
 ) : IRequest<int>;
 
 public class FundingRequestItemDto

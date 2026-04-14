@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -82,7 +82,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
     {
         var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
             .GetByPropertyAsync(r => r.Id == id, tracked: true)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y y�u c?u cung c?p #{id}.");
+            ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{id}.");
 
         var now = DateTime.UtcNow;
         entity.SourceStatus     = sourceStatus;
@@ -154,7 +154,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
     {
         var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
             .GetByPropertyAsync(x => x.Id == id, tracked: true)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y y�u c?u cung c?p #{id}.");
+            ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{id}.");
 
         if (entity.AutoRejectAt.HasValue)
             return;
@@ -168,7 +168,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
     {
         var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
             .GetByPropertyAsync(x => x.Id == id, tracked: true)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y y�u c?u cung c?p #{id}.");
+            ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{id}.");
 
         if (entity.HighEscalationNotified)
             return;
@@ -184,7 +184,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
     {
         var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
             .GetByPropertyAsync(x => x.Id == id, tracked: true)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y y�u c?u cung c?p #{id}.");
+            ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{id}.");
 
         if (entity.UrgentEscalationNotified)
             return;
@@ -235,7 +235,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             // Determine item type to choose the correct tracking path
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
-                ?? throw new NotFoundException($"v?t ph?m #{itemModelId} kh�ng t?n t?i trong h? th?ng.");
+                ?? throw new NotFoundException($"vật phẩm #{itemModelId} không tồn tại trong hệ thống.");
 
             if (itemModel.ItemType == "Reusable")
             {
@@ -248,7 +248,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
                 if (availableUnits.Count < quantity)
                     throw new BadRequestException(
-                        $"v?t ph?m '{itemModel.Name}' (#{itemModelId}): kho ngu?n ch? c� {availableUnits.Count} don v? kh? d?ng, y�u c?u {quantity}.");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): kho nguồn chỉ có {availableUnits.Count} đơn vị khả dụng, yêu cầu {quantity}.");
 
                 // Reserve exactly 'quantity' units
                 var unitsToReserve = availableUnits.Take(quantity).ToList();
@@ -268,7 +268,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                         SourceType     = InventorySourceType.Transfer.ToString(),
                         SourceId       = supplyRequestId,
                         PerformedBy    = performedBy,
-                        Note           = $"�?t tr? {itemModel.Name} (S/N: {unit.SerialNumber}) cho y�u c?u #{supplyRequestId}",
+                        Note           = $"Đặt trữ {itemModel.Name} (S/N: {unit.SerialNumber}) cho yêu cầu #{supplyRequestId}",
                         CreatedAt      = now
                     });
                 }
@@ -279,12 +279,12 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
                     .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
                     ?? throw new BadRequestException(
-                        $"Kho ngu?n kh�ng c� v?t ph?m '{itemModel.Name}' (#{itemModelId}) trong t?n kho.");
+                        $"Kho nguồn không có vật phẩm '{itemModel.Name}' (#{itemModelId}) trong tồn kho.");
 
                 var available = (inventory.Quantity ?? 0) - (inventory.MissionReservedQuantity + inventory.TransferReservedQuantity);
                 if (available < quantity)
                     throw new BadRequestException(
-                        $"v?t ph?m '{itemModel.Name}' (#{itemModelId}): t?n kho kh? d?ng ({available}) kh�ng d? so v?i y�u c?u ({quantity}).");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tồn kho khả dụng ({available}) không đủ so với yêu cầu ({quantity}).");
 
                 inventory.TransferReservedQuantity += quantity;
                 inventory.LastStockedAt             = now;
@@ -297,7 +297,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     SourceType             = InventorySourceType.Transfer.ToString(),
                     SourceId               = supplyRequestId,
                     PerformedBy            = performedBy,
-                    Note                   = $"�?t tr? {itemModel.Name} (#{itemModelId}) cho y�u c?u #{supplyRequestId}",
+                    Note                   = $"Đặt trữ {itemModel.Name} (#{itemModelId}) cho yêu cầu #{supplyRequestId}",
                     CreatedAt              = now
                 });
             }
@@ -322,14 +322,14 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         {
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
-                ?? throw new NotFoundException($"v?t ph?m #{itemModelId} kh�ng t?n t?i trong h? th?ng.");
+                ?? throw new NotFoundException($"vật phẩm #{itemModelId} không tồn tại trong hệ thống.");
 
             totalVolume += (itemModel.VolumePerUnit ?? 0m) * quantity;
             totalWeight += (itemModel.WeightPerUnit ?? 0m) * quantity;
 
             if (itemModel.ItemType == "Reusable")
             {
-                // -- Reusable: transition Reserved ? InTransit per unit --
+                // -- Reusable: transition Reserved → InTransit per unit --
                 var reservedUnits = await _unitOfWork.GetRepository<ReusableItem>()
                     .GetAllByPropertyAsync(x =>
                         x.SupplyRequestId == supplyRequestId &&
@@ -338,8 +338,8 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
                 if (reservedUnits.Count != quantity)
                     throw new BadRequestException(
-                        $"v?t ph?m '{itemModel.Name}' (#{itemModelId}): t�m th?y {reservedUnits.Count} don v? d?t tr?, " +
-                        $"kh�ng kh?p v?i y�u c?u {quantity}. Quy tr�nh c� th? b? b? qua bu?c Accept.");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tìm thấy {reservedUnits.Count} đơn vị đặt trữ, " +
+                        $"không khớp với yêu cầu {quantity}. Quy trình có thể bị bỏ qua bước Accept.");
 
                 foreach (var unit in reservedUnits)
                 {
@@ -357,7 +357,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                         SourceType     = InventorySourceType.Transfer.ToString(),
                         SourceId       = supplyRequestId,
                         PerformedBy    = performedBy,
-                        Note           = $"Xu?t ti?p t? {itemModel.Name} (S/N: {unit.SerialNumber}) cho y�u c?u #{supplyRequestId}",
+                        Note           = $"Xuất tiếp tế {itemModel.Name} (S/N: {unit.SerialNumber}) cho yêu cầu #{supplyRequestId}",
                         CreatedAt      = now
                     });
                 }
@@ -370,18 +370,18 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
                     .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
                     ?? throw new BadRequestException(
-                        $"v?t ph?m '{itemModel.Name}' (#{itemModelId}): kh�ng t�m th?y t?n kho t?i kho ngu?n. " +
-                        "Quy tr�nh c� th? b? b? qua bu?c Accept.");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): không tìm thấy tồn kho tại kho nguồn. " +
+                        "Quy trình có thể bị bỏ qua bước Accept.");
 
                 var reserved = inventory.TransferReservedQuantity;
                 if (reserved < quantity)
                     throw new BadRequestException(
-                        $"v?t ph?m '{itemModel.Name}' (#{itemModelId}): s? lu?ng d?t tr? ti?p t? ({reserved}) kh�ng d? so v?i y�u c?u ({quantity}). " +
-                        "Quy tr�nh c� th? b? b? qua bu?c Accept.");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): số lượng đặt trữ tiếp tế ({reserved}) không đủ so với yêu cầu ({quantity}). " +
+                        "Quy trình có thể bị bỏ qua bước Accept.");
 
                 if ((inventory.Quantity ?? 0) < quantity)
                     throw new BadRequestException(
-                        $"v?t ph?m '{itemModel.Name}' (#{itemModelId}): t?n kho ({inventory.Quantity ?? 0}) kh�ng d? so v?i y�u c?u ({quantity}).");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tồn kho ({inventory.Quantity ?? 0}) không đủ so với yêu cầu ({quantity}).");
 
                 inventory.Quantity                  = (inventory.Quantity ?? 0) - quantity;
                 inventory.TransferReservedQuantity  = reserved - quantity;
@@ -414,14 +414,14 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                             SourceType             = InventorySourceType.Transfer.ToString(),
                             SourceId               = supplyRequestId,
                             PerformedBy            = performedBy,
-                            Note                   = $"Xu?t ti?p t? FEFO l� #{lot.Id} {itemModel.Name} (#{itemModelId}) SL {deduct} cho y�u c?u #{supplyRequestId}",
+                            Note                   = $"Xuất tiếp tế FEFO lô #{lot.Id} {itemModel.Name} (#{itemModelId}) SL {deduct} cho yêu cầu #{supplyRequestId}",
                             CreatedAt              = now
                         });
                     }
 
                     if (remaining > 0)
                         throw new InvalidOperationException(
-                            $"v?t ph?m '{itemModel.Name}' (#{itemModelId}): kh�ng d? l� d? xu?t ti?p t? {quantity} don v?.");
+                            $"vật phẩm '{itemModel.Name}' (#{itemModelId}): không đủ lô để xuất tiếp tế {quantity} đơn vị.");
                 }
                 else
                 {
@@ -434,7 +434,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                         SourceType             = InventorySourceType.Transfer.ToString(),
                         SourceId               = supplyRequestId,
                         PerformedBy            = performedBy,
-                        Note                   = $"Xu?t ti?p t? {itemModel.Name} (#{itemModelId}) SL {quantity} cho y�u c?u #{supplyRequestId} (legacy � kh�ng c� l�)",
+                        Note                   = $"Xuất tiếp tế {itemModel.Name} (#{itemModelId}) SL {quantity} cho yêu cầu #{supplyRequestId} (legacy – không có lô)",
                         CreatedAt              = now
                     });
                 }
@@ -495,14 +495,14 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         {
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
-                ?? throw new NotFoundException($"v?t ph?m #{itemModelId} kh�ng t?n t?i trong h? th?ng.");
+                ?? throw new NotFoundException($"vật phẩm #{itemModelId} không tồn tại trong hệ thống.");
 
             totalVolume += (itemModel.VolumePerUnit ?? 0m) * quantity;
             totalWeight += (itemModel.WeightPerUnit ?? 0m) * quantity;
 
             if (itemModel.ItemType == "Reusable")
             {
-                // -- Reusable: transition InTransit ? Available at destination depot --
+                // -- Reusable: transition InTransit → Available at destination depot --
                 var inTransitUnits = await _unitOfWork.GetRepository<ReusableItem>()
                     .GetAllByPropertyAsync(x =>
                         x.SupplyRequestId == supplyRequestId &&
@@ -511,8 +511,8 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
                 if (inTransitUnits.Count != quantity)
                     throw new BadRequestException(
-                        $"v?t ph?m '{itemModel.Name}' (#{itemModelId}): t�m th?y {inTransitUnits.Count} don v? dang v?n chuy?n, " +
-                        $"kh�ng kh?p v?i y�u c?u {quantity}. Quy tr�nh c� th? b? b? qua bu?c Ship.");
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tìm thấy {inTransitUnits.Count} đơn vị đang vận chuyển, " +
+                        $"không khớp với yêu cầu {quantity}. Quy trình có thể bị bỏ qua bước Ship.");
 
                 foreach (var unit in inTransitUnits)
                 {
@@ -531,7 +531,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                         SourceType     = InventorySourceType.Transfer.ToString(),
                         SourceId       = supplyRequestId,
                         PerformedBy    = performedBy,
-                        Note           = $"Nh?n ti?p t? {itemModel.Name} (S/N: {unit.SerialNumber}) t?i kho #{requestingDepotId} t? y�u c?u #{supplyRequestId}",
+                        Note           = $"Nhận tiếp tế {itemModel.Name} (S/N: {unit.SerialNumber}) tại kho #{requestingDepotId} từ yêu cầu #{supplyRequestId}",
                         CreatedAt      = now
                     });
                 }
@@ -557,7 +557,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     await _unitOfWork.SaveAsync(); // flush to get inventory.Id
                 }
 
-                // T?o l� m?i cho h�ng du?c ti?p t? v�o kho
+                // Tạo lô mới cho hàng được tiếp tế vào kho
                 var lot = new SupplyInventoryLot
                 {
                     SupplyInventoryId = inventory.Id,
@@ -570,7 +570,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     CreatedAt         = now
                 };
                 await _unitOfWork.GetRepository<SupplyInventoryLot>().AddAsync(lot);
-                await _unitOfWork.SaveAsync(); // flush d? l?y lot.Id
+                await _unitOfWork.SaveAsync(); // flush để lấy lot.Id
 
                 inventory.Quantity      = (inventory.Quantity ?? 0) + quantity;
                 inventory.LastStockedAt = now;
@@ -584,7 +584,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     SourceType             = InventorySourceType.Transfer.ToString(),
                     SourceId               = supplyRequestId,
                     PerformedBy            = performedBy,
-                    Note                   = $"Nh?n ti?p t? {itemModel.Name} (#{itemModelId}) t? y�u c?u #{supplyRequestId}",
+                    Note                   = $"Nhận tiếp tế {itemModel.Name} (#{itemModelId}) từ yêu cầu #{supplyRequestId}",
                     CreatedAt              = now
                 });
             }

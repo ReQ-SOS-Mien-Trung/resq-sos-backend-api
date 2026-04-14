@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,7 +43,7 @@ public class MissionController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
-    /// <summary>[Metadata] Danh s�ch tr?ng th�i mission.</summary>
+    /// <summary>[Metadata] Danh sách trạng thái mission.</summary>
     [HttpGet("metadata/statuses")]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMissionStatusesMetadata()
@@ -52,7 +52,7 @@ public class MissionController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>[Metadata] Danh s�ch tr?ng th�i mission activity.</summary>
+    /// <summary>[Metadata] Danh sách trạng thái mission activity.</summary>
     [HttpGet("metadata/activity-statuses")]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMissionActivityStatusesMetadata()
@@ -65,14 +65,14 @@ public class MissionController(IMediator mediator) : ControllerBase
     // MISSIONS
     // ============================================================
 
-    /// <summary>Coordinator t?o mission m?i k�m danh s�ch activities cho m?t cluster.</summary>
+    /// <summary>Coordinator tạo mission mới kèm danh sách activities cho một cluster.</summary>
     [HttpPost]
     [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
     public async Task<IActionResult> CreateMission([FromBody] CreateMissionRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new CreateMissionCommand(
             dto.ClusterId,
@@ -89,7 +89,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// L?y danh s�ch t?t c? missions, c� th? filter theo clusterId.
+    /// Lấy danh sách tất cả missions, có thể filter theo clusterId.
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PermissionConstants.PolicyMissionAccess)]
@@ -100,7 +100,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// L?y danh s�ch missions m� d?i c?a user hi?n t?i dang du?c giao.
+    /// Lấy danh sách missions mà đội của user hiện tại đang được giao.
     /// </summary>
     [HttpGet("my-team")]
     [Authorize(Policy = PermissionConstants.MissionSelfView)]
@@ -108,25 +108,25 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var result = await _mediator.Send(new GetMyTeamMissionsQuery(userId));
         return Ok(result);
     }
 
     /// <summary>
-    /// Xem chi ti?t m?t mission k�m to�n b? activities.
+    /// Xem chi tiết một mission kèm toàn bộ activities.
     /// </summary>
     [HttpGet("{missionId:int}")]
     [Authorize(Policy = PermissionConstants.PolicyMissionAccess)]
     public async Task<IActionResult> GetMissionById([FromRoute] int missionId)
     {
         var result = await _mediator.Send(new GetMissionByIdQuery(missionId));
-        return Ok(result ?? throw new NotFoundException($"Kh�ng t�m th?y mission #{missionId}."));
+        return Ok(result ?? throw new NotFoundException($"Không tìm thấy mission #{missionId}."));
     }
 
     /// <summary>
-    /// C?p nh?t th�ng tin chung c?a mission (type, priority, th?i gian).
+    /// Cập nhật thông tin chung của mission (type, priority, thời gian).
     /// </summary>
     [HttpPut("{missionId:int}")]
     [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
@@ -139,7 +139,7 @@ public class MissionController(IMediator mediator) : ControllerBase
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-                throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+                throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
             updatedBy = userId;
         }
@@ -168,7 +168,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// C?p nh?t tr?ng th�i mission: pending | in_progress | completed | cancelled.
+    /// Cập nhật trạng thái mission: pending | in_progress | completed | cancelled.
     /// </summary>
     [HttpPatch("{missionId:int}/status")]
     [Authorize(Policy = PermissionConstants.PolicyActivityManage)] // Global | Point | TeamUpdate
@@ -176,14 +176,14 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new UpdateMissionStatusCommand(missionId, dto.Status, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }
 
-    /// <summary>�?i c?u h? b�o s? c? cho to�n b? ph?n mission c?a ch�nh missionTeam n�y.</summary>
+    /// <summary>Đội cứu hộ báo sự cố cho toàn bộ phần mission của chính missionTeam này.</summary>
     [HttpPost("{missionId:int}/teams/{missionTeamId:int}/incident")]
     [Authorize(Policy = PermissionConstants.MissionIncidentReport)]
     public async Task<IActionResult> ReportMissionTeamIncident(
@@ -193,7 +193,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new ReportMissionTeamIncidentCommand(
             missionId,
@@ -210,7 +210,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     // ============================================================
 
     /// <summary>
-    /// L?y danh s�ch activities c?a m?t mission.
+    /// Lấy danh sách activities của một mission.
     /// </summary>
     [HttpGet("{missionId:int}/activities")]
     [Authorize(Policy = PermissionConstants.PolicyActivityAccess)]
@@ -221,7 +221,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// L?y danh s�ch activities du?c giao cho d?i c?a user hi?n t?i trong m?t mission.
+    /// Lấy danh sách activities được giao cho đội của user hiện tại trong một mission.
     /// </summary>
     [HttpGet("{missionId:int}/activities/my-team")]
     [Authorize(Policy = PermissionConstants.ActivitySelfView)]
@@ -229,20 +229,20 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var result = await _mediator.Send(new GetMyTeamActivitiesQuery(missionId, userId));
         return Ok(result);
     }
 
-    /// <summary>Th�m activity v�o mission (tu? ch?n giao d?i ngay b?ng RescueTeamId).</summary>
+    /// <summary>Thêm activity vào mission (tuỳ chọn giao đội ngay bằng RescueTeamId).</summary>
     [HttpPost("{missionId:int}/activities")]
     [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
     public async Task<IActionResult> AddMissionActivity([FromRoute] int missionId, [FromBody] AddMissionActivityRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new AddMissionActivityCommand(
             missionId,
@@ -268,7 +268,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// C?p nh?t n?i dung m?t activity.
+    /// Cập nhật nội dung một activity.
     /// </summary>
     [HttpPut("{missionId:int}/activities/{activityId:int}")]
     [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
@@ -291,7 +291,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// C?p nh?t tr?ng th�i activity: Planned | OnGoing | Succeed | PendingConfirmation | Failed | Cancelled.
+    /// Cập nhật trạng thái activity: Planned | OnGoing | Succeed | PendingConfirmation | Failed | Cancelled.
     /// </summary>
     [HttpPatch("{missionId:int}/activities/{activityId:int}/status")]
     [Authorize(Policy = PermissionConstants.PolicyActivityAccess)] // includes ActivityTeamManage | ActivityOwnManage
@@ -299,7 +299,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var validStatuses = string.Join(", ", Enum.GetNames<MissionActivityStatus>());
 
@@ -308,7 +308,7 @@ public class MissionController(IMediator mediator) : ControllerBase
             || !Enum.IsDefined(newStatus))
         {
             throw new BadRequestException(
-                $"Tr?ng th�i activity kh�ng h?p l?: '{dto.Status}'. C�c gi� tr? h?p l?: {validStatuses}.");
+                $"Trạng thái activity không hợp lệ: '{dto.Status}'. Các giá trị hợp lệ: {validStatuses}.");
         }
 
         var command = new UpdateActivityStatusCommand(missionId, activityId, newStatus, userId, dto.ImageUrl);
@@ -316,21 +316,21 @@ public class MissionController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>�?ng b? h�ng d?i offline c?p nh?t tr?ng th�i activity cho d?i hi?n t?i tr�n nhi?u mission.</summary>
+    /// <summary>Đồng bộ hàng đợi offline cập nhật trạng thái activity cho đội hiện tại trên nhiều mission.</summary>
     [HttpPost("activities/sync/my-team")]
     [Authorize(Policy = PermissionConstants.PolicyActivityExecutionSync)]
     public async Task<IActionResult> SyncMissionActivities([FromBody] SyncMissionActivitiesRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new SyncMissionActivitiesCommand(userId, dto.Items);
         var result = await _mediator.Send(command);
         return Ok(result);
     }
 
-    /// <summary>�?i c?u h? b�o activity incident theo contract V2 cho m?t ho?c nhi?u activity thu?c c�ng mission team.</summary>
+    /// <summary>Đội cứu hộ báo activity incident theo contract V2 cho một hoặc nhiều activity thuộc cùng mission team.</summary>
     [HttpPost("{missionId:int}/teams/{missionTeamId:int}/activity-incident")]
     [Authorize(Policy = PermissionConstants.MissionIncidentReport)]
     public async Task<IActionResult> ReportMissionActivityIncident(
@@ -340,7 +340,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new ReportMissionActivityIncidentCommand(
             missionId,
@@ -353,9 +353,9 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Team x�c nh?n th�ng tin s? d?ng buffer d? tr� khi l?y h�ng t?i kho cho m?t COLLECT_SUPPLIES activity.
-    /// G?i tru?c khi chuy?n activity sang Succeed n?u c� d�ng buffer. Kh�ng b?t bu?c n?u kh�ng d�ng buffer.
-    /// Vi?c tr? kho th?c t? x?y ra khi activity du?c chuy?n sang Succeed.
+    /// Team xác nhận thông tin sử dụng buffer dự trù khi lấy hàng tại kho cho một COLLECT_SUPPLIES activity.
+    /// Gọi trước khi chuyển activity sang Succeed nếu có dùng buffer. Không bắt buộc nếu không dùng buffer.
+    /// Việc trừ kho thực tế xảy ra khi activity được chuyển sang Succeed.
     /// </summary>
     [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-pickup")]
     [Authorize(Policy = PermissionConstants.PolicyActivityAccess)]
@@ -366,7 +366,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new ConfirmMissionSupplyPickupCommand(
             activityId,
@@ -378,7 +378,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Depot manager x�c nh?n d� nh?n l?i v?t ph?m t? d?i c?u h? (RETURN_SUPPLIES: PendingConfirmation ? Succeed + restock kho).
+    /// Depot manager xác nhận đã nhận lại vật phẩm từ đội cứu hộ (RETURN_SUPPLIES: PendingConfirmation → Succeed + restock kho).
     /// </summary>
     [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-return")]
     [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
@@ -389,7 +389,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new ConfirmReturnSuppliesCommand(
             activityId,
@@ -403,8 +403,8 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Team x�c nh?n d� giao v?t ph?m k�m s? lu?ng th?c t? t?ng m?t h�ng (DELIVER_SUPPLIES: OnGoing ? Succeed).
-    /// N?u giao thi?u, h? th?ng t? d?ng t?o RETURN_SUPPLIES activity cho s? lu?ng th?a.
+    /// Team xác nhận đã giao vật phẩm kèm số lượng thực tế từng mặt hàng (DELIVER_SUPPLIES: OnGoing → Succeed).
+    /// Nếu giao thiếu, hệ thống tự động tạo RETURN_SUPPLIES activity cho số lượng thừa.
     /// </summary>
     [HttpPost("{missionId:int}/activities/{activityId:int}/confirm-delivery")]
     [Authorize(Policy = PermissionConstants.PolicyActivityAccess)]
@@ -415,7 +415,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new ConfirmDeliverySuppliesCommand(
             activityId,
@@ -427,14 +427,14 @@ public class MissionController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Giao m?t rescue team (d� ho?c chua assigned v�o mission) d? th?c hi?n m?t activity c? th?.</summary>
+    /// <summary>Giao một rescue team (đã hoặc chưa assigned vào mission) để thực hiện một activity cụ thể.</summary>
     [HttpPost("{missionId:int}/activities/{activityId:int}/team")]
     [Authorize(Policy = PermissionConstants.PolicyActivityManage)]
     public async Task<IActionResult> AssignTeamToActivity([FromRoute] int missionId, [FromRoute] int activityId, [FromBody] AssignTeamToActivityRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new AssignTeamToActivityCommand(activityId, missionId, dto.RescueTeamId, userId);
         var result = await _mediator.Send(command);
@@ -445,11 +445,11 @@ public class MissionController(IMediator mediator) : ControllerBase
     // ROUTING (GOONG MAP)
     // ============================================================
 
-    /// <summary>L?y tuy?n du?ng t? v? tr� rescuer d?n d�ch activity (vehicle: car|bike|taxi|hd).</summary>
+    /// <summary>Lấy tuyến đường từ vị trí rescuer đến đích activity (vehicle: car|bike|taxi|hd).</summary>
     /// <remarks>
-    /// API n�y v?n c� th? tr? HTTP 200 n?u request h?p l? nhung Goong kh�ng t?o du?c tuy?n du?ng.
-    /// Frontend ph?i ki?m tra tru?ng <c>status</c> trong response body tru?c khi d�ng d? li?u tuy?n du?ng.
-    /// Ch? s? d?ng <c>route</c> khi <c>status</c> l� <c>OK</c>; n?u kh�ng, d?c <c>errorMessage</c> d? x? l� l?i.
+    /// API này vẫn có thể trả HTTP 200 nếu request hợp lệ nhưng Goong không tạo được tuyến đường.
+    /// Frontend phải kiểm tra trường <c>status</c> trong response body trước khi dùng dữ liệu tuyến đường.
+    /// Chỉ sử dụng <c>route</c> khi <c>status</c> là <c>OK</c>; nếu không, đọc <c>errorMessage</c> để xử lý lỗi.
     /// </remarks>
     [HttpGet("{missionId:int}/activities/{activityId:int}/route")]
     [Authorize(Policy = PermissionConstants.PolicyRouteAccess)]
@@ -467,11 +467,11 @@ public class MissionController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>L?y tuy?n du?ng to�n b? mission c?a m?t team, bao g?m t?t c? di?m c?n t?i theo th? t? activity.</summary>
+    /// <summary>Lấy tuyến đường toàn bộ mission của một team, bao gồm tất cả điểm cần tới theo thứ tự activity.</summary>
     /// <remarks>
-    /// N?u truy?n <c>originLat</c>/<c>originLng</c>, API t�nh route t? v? tr� du?c ch? d?nh nhu h�nh vi cu.
-    /// N?u b? tr?ng c? hai, API t? l?y v? tr� snapshot hi?n t?i c?a team (ho?c di?m t?p k?t n?u chua c� current location)
-    /// d? frontend c� th? theo d�i team tr?c ti?p tr�n Goong map.
+    /// Nếu truyền <c>originLat</c>/<c>originLng</c>, API tính route từ vị trí được chỉ định như hành vi cũ.
+    /// Nếu bỏ trống cả hai, API tự lấy vị trí snapshot hiện tại của team (hoặc điểm tập kết nếu chưa có current location)
+    /// để frontend có thể theo dõi team trực tiếp trên Goong map.
     /// </remarks>
     [HttpGet("{missionId:int}/teams/{missionTeamId:int}/route")]
     [Authorize(Policy = PermissionConstants.PolicyRouteAccess)]
@@ -495,7 +495,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     // ============================================================
 
     /// <summary>
-    /// L?y danh s�ch d?i c?u h? du?c giao cho m?t mission.
+    /// Lấy danh sách đội cứu hộ được giao cho một mission.
     /// </summary>
     [HttpGet("{missionId:int}/teams")]
     [Authorize(Policy = PermissionConstants.PolicyMissionAccess)]
@@ -505,14 +505,14 @@ public class MissionController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Giao m?t d?i c?u h? (tr?ng th�i Available) v�o mission.</summary>
+    /// <summary>Giao một đội cứu hộ (trạng thái Available) vào mission.</summary>
     [HttpPost("{missionId:int}/teams")]
     [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
     public async Task<IActionResult> AssignTeamToMission([FromRoute] int missionId, [FromBody] AssignTeamToMissionRequestDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new AssignTeamToMissionCommand(missionId, dto.RescueTeamId, userId);
         var result = await _mediator.Send(command);
@@ -520,7 +520,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// G? m?t d?i c?u h? kh?i mission (ch? khi d?i chua b?t d?u th?c thi).
+    /// Gỡ một đội cứu hộ khỏi mission (chỉ khi đội chưa bắt đầu thực thi).
     /// </summary>
     [HttpDelete("{missionId:int}/teams/{missionTeamId:int}")]
     [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
@@ -528,7 +528,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new UnassignTeamFromMissionCommand(missionTeamId, userId);
         var result = await _mediator.Send(command);
@@ -536,7 +536,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// ��nh d?u d?i d� ho�n t?t ph?n th?c thi ngo�i hi?n tru?ng v� chuy?n sang ch? n?p b�o c�o.
+    /// Đánh dấu đội đã hoàn tất phần thực thi ngoài hiện trường và chuyển sang chờ nộp báo cáo.
     /// </summary>
     [HttpPost("{missionId:int}/teams/{missionTeamId:int}/complete-execution")]
     [Authorize(Policy = PermissionConstants.MissionExecutionComplete)]
@@ -544,7 +544,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new CompleteMissionTeamExecutionCommand(missionId, missionTeamId, userId, dto.Note);
         var result = await _mediator.Send(command);
@@ -552,7 +552,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// L?y b�o c�o hi?n t?i c?a m?t mission team, bao g?m draft n?u c�.
+    /// Lấy báo cáo hiện tại của một mission team, bao gồm draft nếu có.
     /// </summary>
     [HttpGet("{missionId:int}/teams/{missionTeamId:int}/report")]
     [Authorize(Policy = PermissionConstants.MissionReportView)]
@@ -560,14 +560,14 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var result = await _mediator.Send(new GetMissionTeamReportQuery(missionId, missionTeamId, userId));
         return Ok(result);
     }
 
     /// <summary>
-    /// Luu nh�p b�o c�o cho m?t mission team.
+    /// Lưu nháp báo cáo cho một mission team.
     /// </summary>
     [HttpPut("{missionId:int}/teams/{missionTeamId:int}/report-draft")]
     [Authorize(Policy = PermissionConstants.MissionReportEdit)]
@@ -575,7 +575,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new SaveMissionTeamReportDraftCommand(
             missionId,
@@ -594,7 +594,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// N?p b�o c�o cu?i c�ng cho m?t mission team. Ch? d?i tru?ng du?c ph�p th?c hi?n.
+    /// Nộp báo cáo cuối cùng cho một mission team. Chỉ đội trưởng được phép thực hiện.
     /// </summary>
     [HttpPost("{missionId:int}/teams/{missionTeamId:int}/report-submit")]
     [Authorize(Policy = PermissionConstants.MissionReportSubmit)]
@@ -602,7 +602,7 @@ public class MissionController(IMediator mediator) : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            throw new UnauthorizedException("Token kh�ng h?p l? ho?c kh�ng t�m th?y th�ng tin ngu?i d�ng.");
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new SubmitMissionTeamReportCommand(
             missionId,

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 
@@ -8,5 +8,5 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransf
 /// Trả về transfer đang active (chưa Received / Cancelled) kèm đủ sourceDepotId, closureId,
 /// transferId để manager gọi các endpoint tiếp theo (prepare / ship / receive).
 /// </summary>
-public record GetMyIncomingClosureTransferQuery(Guid UserId)
+public record GetMyIncomingClosureTransferQuery(Guid UserId, int? DepotId = null)
     : IRequest<MyIncomingClosureTransferResponse?>;

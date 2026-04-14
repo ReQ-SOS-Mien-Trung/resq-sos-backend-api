@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
 
@@ -9,4 +9,4 @@ namespace RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
 /// </summary>
 public record UploadExternalResolutionCommand(
     Guid ManagerUserId,
-    List<ExternalResolutionItemDto> Items) : IRequest<UploadExternalResolutionResponse>;
+    List<ExternalResolutionItemDto> Items, int? DepotId = null) : IRequest<UploadExternalResolutionResponse>;

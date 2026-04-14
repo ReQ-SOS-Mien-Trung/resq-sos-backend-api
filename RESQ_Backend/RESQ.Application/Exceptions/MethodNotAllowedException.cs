@@ -1,8 +1,8 @@
-namespace RESQ.Application.Exceptions;
+﻿namespace RESQ.Application.Exceptions;
 
 public class MethodNotAllowedException : Exception
 {
-    public MethodNotAllowedException() : base("Phuong th?c kh�ng du?c ph�p")
+    public MethodNotAllowedException() : base("Phương thức không được phép")
     {
     }
 

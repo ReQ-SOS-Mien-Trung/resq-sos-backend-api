@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -10,8 +10,8 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
 
 /// <summary>
-/// Kho ngu?n xu?t h�ng (TransferOut) v� chuy?n tr?ng th�i sang Shipping (dang v?n chuy?n).
-/// Inventory source depot gi?m tuong ?ng.
+/// Kho nguồn xuất hàng (TransferOut) và chuyển trạng thái sang Shipping (đang vận chuyển).
+/// Inventory source depot giảm tương ứng.
 /// </summary>
 public class ShipSupplyRequestCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
@@ -22,22 +22,23 @@ public class ShipSupplyRequestCommandHandler(
     IUnitOfWork unitOfWork)
     : IRequestHandler<ShipSupplyRequestCommand, ShipSupplyRequestResponse>
 {
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     public async Task<ShipSupplyRequestResponse> Handle(ShipSupplyRequestCommand request, CancellationToken cancellationToken)
     {
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
-            ?? throw new NotFoundException($"Kh�ng t�m th?y y�u c?u cung c?p #{request.SupplyRequestId}.");
+            ?? throw new NotFoundException($"Không tìm thấy yêu cầu cung cấp #{request.SupplyRequestId}.");
 
         SupplyRequestStateMachine.EnsureCanShip(sr.SourceStatus);
 
         var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
-            ?? throw new BadRequestException("T�i kho?n kh�ng qu?n l� kho n�o dang ho?t d?ng.");
+            ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         if (managerDepotId != sr.SourceDepotId)
-            throw new SupplyRequestAccessDeniedException("B?n kh�ng ph?i manager c?a kho ngu?n trong y�u c?u n�y.");
+            throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho nguồn trong yêu cầu này.");
 
         var depotStatus = await depotRepository.GetStatusByIdAsync(managerDepotId, cancellationToken);
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
-            throw new ConflictException("Kho ngu?n ngung ho?t d?ng ho?c d� d�ng. Kh�ng th? xu?t h�ng cho y�u c?u ti?p t?.");
+            throw new ConflictException("Kho nguồn ngưng hoạt động hoặc đã đóng. Không thể xuất hàng cho yêu cầu tiếp tế.");
 
         // Wrap trong transaction d? d?m b?o TransferOut + UpdateStatus d?ng b?
         await unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -52,10 +53,10 @@ public class ShipSupplyRequestCommandHandler(
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "v?t ph?m dang du?c v?n chuy?n",
-            $"Y�u c?u ti?p t? s? {sr.Id}: h�ng d� xu?t kho v� dang v?n chuy?n d?n kho c?a b?n.",
+            $"Yêu cầu tiếp tế số {sr.Id}: hàng đã xuất kho và đang vận chuyển đến kho của bạn.",
             "supply_shipped",
             cancellationToken);
 
-        return new ShipSupplyRequestResponse { Message = $"�� xu?t h�ng cho y�u c?u s? {sr.Id}." };
+        return new ShipSupplyRequestResponse { Message = $"Đã xuất hàng cho yêu cầu số {sr.Id}." };
     }
 }
