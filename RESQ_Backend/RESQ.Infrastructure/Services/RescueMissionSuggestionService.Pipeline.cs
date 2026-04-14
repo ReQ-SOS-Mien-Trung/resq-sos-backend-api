@@ -41,6 +41,7 @@ public partial class RescueMissionSuggestionService
         int? clusterId,
         int? suggestionId,
         MissionSuggestionMetadata metadata,
+        MissionSuggestionExecutionOptions options,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         MissionRequirementsFragment requirements;
@@ -61,6 +62,7 @@ public partial class RescueMissionSuggestionService
                     },
                     "Analyze SOS requests and return JSON for mission requirements only."),
                 "No tools are available. Return JSON only.",
+                options,
                 cancellationToken);
 
             requirements = DeserializePipelineFragment<MissionRequirementsFragment>(stage.ResponseText);
@@ -112,6 +114,7 @@ public partial class RescueMissionSuggestionService
                 BuildAllowedTools("searchInventory"),
                 nearbyDepots,
                 nearbyTeams,
+                options,
                 cancellationToken);
 
             depot = DeserializePipelineFragment<MissionDepotFragment>(stage.ResponseText);
@@ -163,6 +166,7 @@ public partial class RescueMissionSuggestionService
                 BuildAllowedTools("getTeams", "getAssemblyPoints"),
                 nearbyDepots,
                 nearbyTeams,
+                options,
                 cancellationToken);
 
             team = DeserializePipelineFragment<MissionTeamFragment>(stage.ResponseText);
@@ -230,6 +234,7 @@ public partial class RescueMissionSuggestionService
                     },
                     "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields."),
                 "No tools are available. Return the full mission JSON only. Do not introduce a second depot.",
+                options,
                 cancellationToken);
 
             result = ParseMissionSuggestion(stage.ResponseText);
@@ -283,6 +288,7 @@ public partial class RescueMissionSuggestionService
             metadata,
             draftActivities,
             finalResultSource,
+            options,
             cancellationToken);
 
         yield return new SseMissionEvent
@@ -296,9 +302,10 @@ public partial class RescueMissionSuggestionService
         PromptType promptType,
         string userMessage,
         string systemAppendix,
+        MissionSuggestionExecutionOptions options,
         CancellationToken cancellationToken)
     {
-        var (prompt, settings) = await GetStagePromptAsync(promptType, cancellationToken);
+        var (prompt, settings) = await GetStagePromptAsync(promptType, options, cancellationToken);
         var providerClient = _aiProviderClientFactory.GetClient(settings.Provider);
         var stopwatch = Stopwatch.StartNew();
 
@@ -335,9 +342,10 @@ public partial class RescueMissionSuggestionService
         IReadOnlyList<AiToolDefinition> tools,
         IReadOnlyCollection<DepotSummary>? nearbyDepots,
         IReadOnlyCollection<AgentTeamInfo> nearbyTeams,
+        MissionSuggestionExecutionOptions options,
         CancellationToken cancellationToken)
     {
-        var (prompt, settings) = await GetStagePromptAsync(promptType, cancellationToken);
+        var (prompt, settings) = await GetStagePromptAsync(promptType, options, cancellationToken);
         var providerClient = _aiProviderClientFactory.GetClient(settings.Provider);
         var messages = new List<AiChatMessage>
         {
@@ -405,9 +413,13 @@ public partial class RescueMissionSuggestionService
 
     private async Task<(PromptModel Prompt, AiPromptExecutionSettings Settings)> GetStagePromptAsync(
         PromptType promptType,
+        MissionSuggestionExecutionOptions options,
         CancellationToken cancellationToken)
     {
-        var prompt = await _promptRepository.GetActiveByTypeAsync(promptType, cancellationToken);
+        var prompt = options.PromptOverride?.PromptType == promptType
+            ? options.PromptOverride
+            : await _promptRepository.GetActiveByTypeAsync(promptType, cancellationToken);
+
         if (prompt is null)
             throw new MissionSuggestionPipelineFallbackException($"Missing active prompt '{promptType}'.");
 
@@ -819,6 +831,7 @@ public partial class RescueMissionSuggestionService
         MissionSuggestionMetadata? metadata,
         List<SuggestedActivityDto>? draftActivities,
         string finalResultSource,
+        MissionSuggestionExecutionOptions options,
         CancellationToken cancellationToken)
     {
         await ApplySharedPostProcessingAsync(
@@ -844,6 +857,13 @@ public partial class RescueMissionSuggestionService
         {
             effectiveMetadata.Pipeline.PipelineStatus = "completed";
             effectiveMetadata.Pipeline.FinalResultSource = finalResultSource;
+        }
+
+        if (!options.PersistSuggestion)
+        {
+            result.SuggestionId = null;
+            result.PipelineMetadata = effectiveMetadata.Pipeline;
+            return;
         }
 
         result.SuggestionId = await PersistSuggestionAsync(

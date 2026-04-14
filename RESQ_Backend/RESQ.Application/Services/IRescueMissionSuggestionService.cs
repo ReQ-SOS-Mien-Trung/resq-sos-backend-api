@@ -1,4 +1,5 @@
-﻿using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Models;
+using RESQ.Domain.Entities.System;
 
 namespace RESQ.Application.Services;
 
@@ -10,6 +11,15 @@ public interface IRescueMissionSuggestionService
         List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
         int? clusterId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<RescueMissionSuggestionResult> PreviewSuggestionAsync(
+        List<SosRequestSummary> sosRequests,
+        List<DepotSummary>? nearbyDepots,
+        List<AgentTeamInfo>? nearbyTeams,
+        bool isMultiDepotRecommended,
+        int clusterId,
+        PromptModel promptOverride,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -118,6 +128,8 @@ public class RescueMissionSuggestionResult
 
     /// <summary>Đội cứu hộ được AI đề xuất cho sứ mệnh này (populated khi agent tìm được đội phù hợp).</summary>
     public SuggestedTeamDto? SuggestedTeam { get; set; }
+
+    public MissionSuggestionPipelineMetadata? PipelineMetadata { get; set; }
 }
 
 public class SupplyShortageDto

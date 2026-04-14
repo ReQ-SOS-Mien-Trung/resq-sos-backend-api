@@ -12,6 +12,7 @@ using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
+using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Domain.Enum.System;
 using RESQ.Infrastructure.Options;
@@ -48,6 +49,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
     private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex CoordinateRegex = new(@"(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", RegexOptions.Compiled);
+    private sealed record MissionSuggestionExecutionOptions(bool PersistSuggestion, PromptModel? PromptOverride)
+    {
+        public static readonly MissionSuggestionExecutionOptions Persisted = new(true, null);
+
+        public static MissionSuggestionExecutionOptions Preview(PromptModel promptOverride) =>
+            new(false, promptOverride);
+    }
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
@@ -78,21 +86,61 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         _logger = logger;
     }
 
-    public async Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
+    public Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
         List<SosRequestSummary> sosRequests,
         List<DepotSummary>? nearbyDepots = null,
         List<AgentTeamInfo>? nearbyTeams = null,
         bool isMultiDepotRecommended = false,
         int? clusterId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RunSuggestionAsync(
+            sosRequests,
+            nearbyDepots,
+            nearbyTeams,
+            isMultiDepotRecommended,
+            clusterId,
+            MissionSuggestionExecutionOptions.Persisted,
+            cancellationToken);
+
+    public Task<RescueMissionSuggestionResult> PreviewSuggestionAsync(
+        List<SosRequestSummary> sosRequests,
+        List<DepotSummary>? nearbyDepots,
+        List<AgentTeamInfo>? nearbyTeams,
+        bool isMultiDepotRecommended,
+        int clusterId,
+        PromptModel promptOverride,
+        CancellationToken cancellationToken = default) =>
+        RunSuggestionAsync(
+            sosRequests,
+            nearbyDepots,
+            nearbyTeams,
+            isMultiDepotRecommended,
+            clusterId,
+            MissionSuggestionExecutionOptions.Preview(promptOverride),
+            cancellationToken);
+
+    private async Task<RescueMissionSuggestionResult> RunSuggestionAsync(
+        List<SosRequestSummary> sosRequests,
+        List<DepotSummary>? nearbyDepots,
+        List<AgentTeamInfo>? nearbyTeams,
+        bool isMultiDepotRecommended,
+        int? clusterId,
+        MissionSuggestionExecutionOptions options,
+        CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         RescueMissionSuggestionResult? finalResult = null;
 
         try
         {
-            await foreach (var evt in GenerateSuggestionStreamAsync(
-                sosRequests, nearbyDepots, nearbyTeams, isMultiDepotRecommended, clusterId, cancellationToken))
+            await foreach (var evt in GenerateSuggestionStreamCoreAsync(
+                sosRequests,
+                nearbyDepots,
+                nearbyTeams,
+                isMultiDepotRecommended,
+                clusterId,
+                options,
+                cancellationToken))
             {
                 if (evt.EventType == "result" && evt.Result != null)
                     finalResult = evt.Result;
@@ -124,6 +172,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (finalResult != null)
         {
             finalResult.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
+            if (!options.PersistSuggestion)
+                finalResult.SuggestionId = null;
+
             return finalResult;
         }
 
@@ -134,7 +185,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ResponseTimeMs = stopwatch.ElapsedMilliseconds
         };
     }
-
     private static string BuildSosRequestsData(List<SosRequestSummary> sosRequests)
     {
         var now = DateTime.UtcNow;
@@ -1735,6 +1785,23 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return Regex.Replace(result, @"  +", " ").Trim();
     }
 
+    private bool ShouldUsePipeline(MissionSuggestionExecutionOptions options)
+    {
+        if (options.PromptOverride?.PromptType == PromptType.MissionPlanning)
+            return false;
+
+        return options.PromptOverride is not null || _pipelineOptions.UseMissionSuggestionPipeline;
+    }
+
+    private async Task<PromptModel?> GetLegacyPromptAsync(
+        MissionSuggestionExecutionOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (options.PromptOverride?.PromptType == PromptType.MissionPlanning)
+            return options.PromptOverride;
+
+        return await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
+    }
     // --- SSE helpers -----------------------------------------------------------
 
     private static SseMissionEvent Status(string msg) =>
@@ -1753,14 +1820,38 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         int? clusterId = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        await foreach (var evt in GenerateSuggestionStreamCoreAsync(
+            sosRequests,
+            nearbyDepots,
+            nearbyTeams,
+            isMultiDepotRecommended,
+            clusterId,
+            MissionSuggestionExecutionOptions.Persisted,
+            cancellationToken))
+        {
+            yield return evt;
+        }
+    }
+
+    private async IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamCoreAsync(
+        List<SosRequestSummary> sosRequests,
+        List<DepotSummary>? nearbyDepots,
+        List<AgentTeamInfo>? nearbyTeams,
+        bool isMultiDepotRecommended,
+        int? clusterId,
+        MissionSuggestionExecutionOptions options,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
         var availableNearbyTeams = nearbyTeams ?? [];
         MissionSuggestionMetadata? pipelineMetadata = null;
         int? suggestionId = null;
 
-        if (_pipelineOptions.UseMissionSuggestionPipeline)
+        if (ShouldUsePipeline(options))
         {
             pipelineMetadata = CreateSuggestionMetadataForPipeline();
-            suggestionId = await EnsureSuggestionRecordAsync(clusterId, pipelineMetadata, cancellationToken);
+            suggestionId = options.PersistSuggestion
+                ? await EnsureSuggestionRecordAsync(clusterId, pipelineMetadata, cancellationToken)
+                : null;
 
             await using var pipelineEnumerator = GeneratePipelineSuggestionStreamAsync(
                 sosRequests,
@@ -1770,6 +1861,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 clusterId,
                 suggestionId,
                 pipelineMetadata,
+                options,
                 cancellationToken).GetAsyncEnumerator(cancellationToken);
 
             MissionSuggestionPipelineFallbackException? pipelineFallback = null;
@@ -1810,7 +1902,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         yield return Status("Đang tải cấu hình AI agent...");
 
-        var prompt = await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
+        var prompt = await GetLegacyPromptAsync(options, cancellationToken);
         if (prompt == null)
         {
             yield return Error("Chưa có prompt 'MissionPlanning' đang được kích hoạt. Vui lòng cấu hình trong quản trị hệ thống.");
@@ -2027,6 +2119,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             pipelineMetadata,
             null,
             "legacy",
+            options,
             cancellationToken);
 
         _logger.LogInformation(
