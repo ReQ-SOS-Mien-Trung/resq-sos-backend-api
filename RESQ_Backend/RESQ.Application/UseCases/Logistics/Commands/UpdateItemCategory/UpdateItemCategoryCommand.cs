@@ -9,4 +9,6 @@ public class UpdateItemCategoryCommand : IRequest<Unit>
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    [JsonIgnore]
+    public Guid? RequestedBy { get; set; }
 }

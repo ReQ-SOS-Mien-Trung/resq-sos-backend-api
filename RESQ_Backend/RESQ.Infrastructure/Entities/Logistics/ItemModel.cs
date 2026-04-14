@@ -50,6 +50,9 @@ public partial class ItemModel
     [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
+    [Column("updated_by")]
+    public Guid? UpdatedBy { get; set; }
+
     [ForeignKey("CategoryId")]
     [InverseProperty("ItemModels")]
     public virtual Category? Category { get; set; }

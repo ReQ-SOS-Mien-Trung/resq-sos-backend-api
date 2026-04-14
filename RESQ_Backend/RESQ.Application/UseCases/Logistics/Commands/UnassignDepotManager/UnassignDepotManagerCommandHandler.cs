@@ -29,7 +29,7 @@ public class UnassignDepotManagerCommandHandler(
         depot.UnassignManager();
 
         // 4. Persist
-        await depotRepository.UnassignManagerAsync(depot, cancellationToken);
+        await depotRepository.UnassignManagerAsync(depot, request.RequestedBy, cancellationToken);
         await unitOfWork.SaveAsync();
 
         return new UnassignDepotManagerResponse

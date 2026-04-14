@@ -354,8 +354,8 @@ public class GetAlternativeDepotsQueryHandlerTests
 
         public Task CreateAsync(DepotModel depotModel, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateAsync(DepotModel depotModel, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task AssignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task UnassignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UnassignManagerAsync(DepotModel depot, Guid? unassignedBy = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<RESQ.Application.Common.Models.PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IEnumerable<DepotModel>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(_depots.AsEnumerable());
         public Task<IEnumerable<DepotModel>> GetAvailableDepotsAsync(CancellationToken cancellationToken = default) => Task.FromResult(_depots.AsEnumerable());

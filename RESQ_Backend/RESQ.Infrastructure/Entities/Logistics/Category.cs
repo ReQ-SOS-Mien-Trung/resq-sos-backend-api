@@ -32,6 +32,12 @@ public partial class Category
     [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
+    [Column("created_by")]
+    public Guid? CreatedBy { get; set; }
+
+    [Column("updated_by")]
+    public Guid? UpdatedBy { get; set; }
+
     [InverseProperty("Category")]
     public virtual ICollection<ItemModel> ItemModels { get; set; } = new List<ItemModel>();
 }

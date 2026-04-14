@@ -10,6 +10,9 @@ namespace RESQ.Application.Services
     {
         public int DepotId { get; set; }
         public string DepotName { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
     }
 
     public interface IManagerDepotAccessService

@@ -10,5 +10,6 @@ public record UpdateDepotCommand(
     double Longitude,
     decimal Capacity,
     decimal WeightCapacity,
-    string? ImageUrl = null
+    string? ImageUrl = null,
+    Guid? RequestedBy = null
 ) : IRequest;

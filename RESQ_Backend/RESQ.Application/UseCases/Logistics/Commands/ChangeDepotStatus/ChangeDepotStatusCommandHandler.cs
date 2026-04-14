@@ -79,7 +79,7 @@ public class ChangeDepotStatusCommandHandler(
             }
         }
 
-        depot.ChangeStatus(request.Status);
+        depot.ChangeStatus(request.Status, request.RequestedBy);
 
         await _depotRepository.UpdateAsync(depot, cancellationToken);
         await _unitOfWork.SaveAsync();

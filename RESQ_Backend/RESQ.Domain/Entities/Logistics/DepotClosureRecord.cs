@@ -37,6 +37,9 @@ public class DepotClosureRecord
     public int? TargetDepotId { get; private set; }
     public string? ExternalNote { get; private set; }
 
+    /// <summary>Người đánh dấu xử lý bên ngoài.</summary>
+    public Guid? ExternalMarkedBy { get; private set; }
+
     public bool ConsumableZeroed { get; private set; }
     public bool ReusableZeroed { get; private set; }
 
@@ -82,6 +85,7 @@ public class DepotClosureRecord
         CloseResolutionType? resolutionType,
         int? targetDepotId,
         string? externalNote,
+        Guid? externalMarkedBy,
         bool consumableZeroed,
         bool reusableZeroed,
         int retryCount,
@@ -119,6 +123,7 @@ public class DepotClosureRecord
             ResolutionType = resolutionType,
             TargetDepotId = targetDepotId,
             ExternalNote = externalNote,
+            ExternalMarkedBy = externalMarkedBy,
             ConsumableZeroed = consumableZeroed,
             ReusableZeroed = reusableZeroed,
             RetryCount = retryCount,
@@ -167,10 +172,11 @@ public class DepotClosureRecord
         TargetDepotId = targetDepotId;
     }
 
-    public void SetExternalResolution(string? note)
+    public void SetExternalResolution(string? note, Guid? markedBy = null)
     {
         ResolutionType = CloseResolutionType.ExternalResolution;
         ExternalNote = note;
+        ExternalMarkedBy = markedBy;
     }
 
     public void RecordActualInventory(int actualConsumable, int actualReusable)

@@ -12,9 +12,15 @@ public class ItemCategoryModel
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>Người tạo danh mục.</summary>
+    public Guid? CreatedBy { get; set; }
+
+    /// <summary>Người cập nhật danh mục gần nhất.</summary>
+    public Guid? UpdatedBy { get; set; }
+
     public ItemCategoryModel() { }
 
-    public static ItemCategoryModel Create(ItemCategoryCode code, string name, string description)
+    public static ItemCategoryModel Create(ItemCategoryCode code, string name, string description, Guid? createdBy = null)
     {
         return new ItemCategoryModel
         {
@@ -23,15 +29,17 @@ public class ItemCategoryModel
             Description = description?.Trim() ?? string.Empty,
             Quantity = 0,
             CreatedAt = DateTime.UtcNow,
-            UpdatedAt = null 
+            UpdatedAt = null,
+            CreatedBy = createdBy
         };
     }
 
-    public void Update(ItemCategoryCode code, string name, string description)
+    public void Update(ItemCategoryCode code, string name, string description, Guid? updatedBy = null)
     {
         Code = code;
         Name = name.Trim();
         Description = description?.Trim() ?? string.Empty;
+        UpdatedBy = updatedBy;
         UpdatedAt = DateTime.UtcNow;
     }
 }

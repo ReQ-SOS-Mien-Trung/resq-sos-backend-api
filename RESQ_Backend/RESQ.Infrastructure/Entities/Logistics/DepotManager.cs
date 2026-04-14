@@ -26,6 +26,12 @@ public partial class DepotManager
     [Column("unassigned_at", TypeName = "timestamp with time zone")]
     public DateTime? UnassignedAt { get; set; }
 
+    [Column("assigned_by")]
+    public Guid? AssignedBy { get; set; }
+
+    [Column("unassigned_by")]
+    public Guid? UnassignedBy { get; set; }
+
     [ForeignKey("DepotId")]
     [InverseProperty("DepotManagers")]
     public virtual Depot? Depot { get; set; }

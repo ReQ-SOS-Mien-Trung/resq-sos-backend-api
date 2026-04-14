@@ -22,7 +22,8 @@ public static class ItemModelMapper
             WeightPerUnit = model.WeightPerUnit,
             ImageUrl = model.ImageUrl,
             CreatedAt = model.CreatedAt,
-            UpdatedAt = model.UpdatedAt
+            UpdatedAt = model.UpdatedAt,
+            UpdatedBy = model.UpdatedBy
         };
     }
 
@@ -41,7 +42,8 @@ public static class ItemModelMapper
             TargetGroups = entity.TargetGroups?.Select(tg => tg.Name).ToList() ?? new(),
             ImageUrl = entity.ImageUrl,
             CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt
+            UpdatedAt = entity.UpdatedAt,
+            UpdatedBy = entity.UpdatedBy
         };
     }
 }

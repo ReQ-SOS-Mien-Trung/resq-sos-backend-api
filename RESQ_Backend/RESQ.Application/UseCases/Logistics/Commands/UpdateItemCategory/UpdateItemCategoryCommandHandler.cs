@@ -22,7 +22,7 @@ public class UpdateItemCategoryCommandHandler(
         }
 
         // Preserve existing Code and update Name/Description
-        category.Update(category.Code, request.Name, request.Description);
+        category.Update(category.Code, request.Name, request.Description, request.RequestedBy);
 
         await _itemCategoryRepository.UpdateAsync(category, cancellationToken);
         await _unitOfWork.SaveAsync();

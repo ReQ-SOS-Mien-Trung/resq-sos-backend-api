@@ -26,7 +26,7 @@ public interface ISupplyRequestRepository
         int pageSize,
         CancellationToken cancellationToken = default);
 
-    Task UpdateStatusAsync(int id, string sourceStatus, string requestingStatus, string? rejectedReason, CancellationToken cancellationToken = default);
+    Task UpdateStatusAsync(int id, string sourceStatus, string requestingStatus, string? rejectedReason, Guid? performedBy = null, CancellationToken cancellationToken = default);
 
     Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
 

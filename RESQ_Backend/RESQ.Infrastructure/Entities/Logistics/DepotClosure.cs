@@ -76,6 +76,9 @@ public class DepotClosure
     [Column("external_note")]
     public string? ExternalNote { get; set; }
 
+    [Column("external_marked_by")]
+    public Guid? ExternalMarkedBy { get; set; }
+
     [Column("consumable_zeroed")]
     public bool ConsumableZeroed { get; set; }
 

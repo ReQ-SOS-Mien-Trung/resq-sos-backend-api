@@ -5,7 +5,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 public class ImportPurchasedInventoryCommand : IRequest<ImportPurchasedInventoryResponse>
 {
     public Guid UserId { get; set; }
-    public int? DepotId { get; set; }
+    public int DepotId { get; set; }
 
     /// <summary>
     /// ID quỹ kho được chọn để chi tiền cho lần nhập hàng này.

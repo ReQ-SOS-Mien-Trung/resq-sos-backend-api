@@ -43,7 +43,7 @@ public class AcceptSupplyRequestCommandHandler(
             await supplyRequestRepository.ReserveItemsAsync(
                 sr.SourceDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
 
-            await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Accepted", "Approved", null, cancellationToken);
+            await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Accepted", "Approved", null, request.UserId, cancellationToken);
         });
 
         // Notify requesting manager

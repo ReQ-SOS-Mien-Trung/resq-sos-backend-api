@@ -54,6 +54,18 @@ public partial class Depot
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime? LastUpdatedAt { get; set; }
 
+    /// <summary>Người cập nhật trạng thái kho gần nhất.</summary>
+    [Column("last_status_changed_by")]
+    public Guid? LastStatusChangedBy { get; set; }
+
+    /// <summary>Người tạo kho.</summary>
+    [Column("created_by")]
+    public Guid? CreatedBy { get; set; }
+
+    /// <summary>Người cập nhật kho gần nhất.</summary>
+    [Column("last_updated_by")]
+    public Guid? LastUpdatedBy { get; set; }
+
     [Column("image_url")]
     public string? ImageUrl { get; set; }
 

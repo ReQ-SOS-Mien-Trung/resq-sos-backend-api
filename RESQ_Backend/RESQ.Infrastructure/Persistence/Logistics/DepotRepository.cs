@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -205,7 +205,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         return (available, inUse);
     }
 
-    public async Task AssignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default)
+    public async Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
 
@@ -216,7 +216,10 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
             .ToListAsync(cancellationToken);
 
         foreach (var old in existingManagers)
+        {
             old.UnassignedAt = now;
+            old.UnassignedBy = assignedBy;
+        }
 
         // Thêm bản ghi manager mới
         var newManager = depot.CurrentManager!;
@@ -224,7 +227,8 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         {
             DepotId    = depot.Id,
             UserId     = newManager.UserId,
-            AssignedAt = newManager.AssignedAt
+            AssignedAt = newManager.AssignedAt,
+            AssignedBy = assignedBy
         });
 
         // Cập nhật status + LastUpdatedAt của kho
@@ -239,7 +243,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         }
     }
 
-    public async Task UnassignManagerAsync(DepotModel depot, CancellationToken cancellationToken = default)
+    public async Task UnassignManagerAsync(DepotModel depot, Guid? unassignedBy = null, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
 
@@ -251,7 +255,10 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
             .ToListAsync(cancellationToken);
 
         foreach (var active in activeManagers)
+        {
             active.UnassignedAt = now;
+            active.UnassignedBy = unassignedBy;
+        }
 
         // Cập nhật status kho → PendingAssignment + LastUpdatedAt
         var depotEntity = await _unitOfWork.GetRepository<Depot>()

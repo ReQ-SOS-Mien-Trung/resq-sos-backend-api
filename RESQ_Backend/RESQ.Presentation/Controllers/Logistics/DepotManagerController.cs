@@ -37,9 +37,16 @@ namespace RESQ.Presentation.Controllers.Logistics
         [Authorize(Policy = PermissionConstants.PersonnelDepotBranchManage)]
         public async Task<IActionResult> Delete(int depotId)
         {
-            var command = new UnassignDepotManagerCommand(depotId);
+            var command = new UnassignDepotManagerCommand(depotId, GetUserId());
             var result = await _mediator.Send(command);
             return Ok(result);
+        }
+
+        private Guid GetUserId()
+        {
+            var userIdString = User.FindFirst(global::System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (Guid.TryParse(userIdString, out var userId)) return userId;
+            throw new UnauthorizedAccessException("Token không hợp lệ hoặc thiếu thông tin người dùng.");
         }
     }
 }

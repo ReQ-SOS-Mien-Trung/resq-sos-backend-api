@@ -185,6 +185,7 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
         entity.WeightPerUnit = model.WeightPerUnit;
         entity.ImageUrl = model.ImageUrl;
         entity.UpdatedAt = model.UpdatedAt ?? DateTime.UtcNow;
+        entity.UpdatedBy = model.UpdatedBy;
 
         entity.TargetGroups.Clear();
         foreach (var targetGroup in targetGroups)

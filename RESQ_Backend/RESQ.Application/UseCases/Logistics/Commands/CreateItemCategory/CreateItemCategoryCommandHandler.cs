@@ -25,7 +25,7 @@ public class CreateItemCategoryCommandHandler(
         }
 
         // 2. Create Domain Model
-        var category = ItemCategoryModel.Create(request.Code, request.Name, request.Description);
+        var category = ItemCategoryModel.Create(request.Code, request.Name, request.Description, request.RequestedBy);
 
         // 3. Persist
         await _repository.CreateAsync(category, cancellationToken);

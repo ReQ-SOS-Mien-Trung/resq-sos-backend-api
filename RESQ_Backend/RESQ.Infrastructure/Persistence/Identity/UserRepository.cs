@@ -177,7 +177,8 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     Id       = u.Id,
                     FullName = (u.LastName + " " + u.FirstName).Trim(),
                     Email    = u.Email,
-                    Phone    = u.Phone
+                    Phone    = u.Phone,
+                    AssignedDepotsCount = u.DepotManagers.Count(dm => dm.UnassignedAt == null)
                 })
                 .ToListAsync(cancellationToken);
         }

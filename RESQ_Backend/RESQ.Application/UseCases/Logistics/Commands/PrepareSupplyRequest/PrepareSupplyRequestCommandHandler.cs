@@ -38,7 +38,7 @@ public class PrepareSupplyRequestCommandHandler(
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
             throw new ConflictException("Kho nguồn ngưng hoạt động hoặc đã đóng. Không thể chuẩn bị yêu cầu tiếp tế.");
 
-        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Preparing", "Approved", null, cancellationToken);
+        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Preparing", "Approved", null, request.UserId, cancellationToken);
 
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,

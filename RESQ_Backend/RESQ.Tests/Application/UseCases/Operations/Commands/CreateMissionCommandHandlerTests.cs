@@ -445,8 +445,8 @@ public class CreateMissionCommandHandlerTests
         public Task<int> GetActiveDepotCountExcludingAsync(int id, CancellationToken token = default) => throw new NotImplementedException();
         public Task CreateAsync(RESQ.Domain.Entities.Logistics.DepotModel d, CancellationToken token = default) => throw new NotImplementedException();
         public Task UpdateAsync(RESQ.Domain.Entities.Logistics.DepotModel d, CancellationToken token = default) => Task.CompletedTask;
-        public Task AssignManagerAsync(RESQ.Domain.Entities.Logistics.DepotModel depot, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task UnassignManagerAsync(RESQ.Domain.Entities.Logistics.DepotModel depot, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task AssignManagerAsync(RESQ.Domain.Entities.Logistics.DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UnassignManagerAsync(RESQ.Domain.Entities.Logistics.DepotModel depot, Guid? unassignedBy = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<RESQ.Application.Common.Models.PagedResult<RESQ.Domain.Entities.Logistics.DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, System.Collections.Generic.IEnumerable<RESQ.Domain.Enum.Logistics.DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<System.Collections.Generic.IEnumerable<RESQ.Domain.Entities.Logistics.DepotModel>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<System.Collections.Generic.IEnumerable<RESQ.Domain.Entities.Logistics.DepotModel>> GetAvailableDepotsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();

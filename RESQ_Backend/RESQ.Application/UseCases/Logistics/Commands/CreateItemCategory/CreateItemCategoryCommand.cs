@@ -6,5 +6,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.CreateItemCategory;
 public record CreateItemCategoryCommand(
     ItemCategoryCode Code,
     string Name,
-    string Description
+    string Description,
+    Guid? RequestedBy = null
 ) : IRequest<CreateItemCategoryResponse>;

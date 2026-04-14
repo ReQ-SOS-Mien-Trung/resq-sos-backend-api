@@ -40,7 +40,7 @@ public class AssignDepotManagerCommandHandler(
         depot.AssignManager(request.ManagerId);
 
         // 5. Persist qua repository method chuyên biệt
-        await depotRepository.AssignManagerAsync(depot, cancellationToken);
+        await depotRepository.AssignManagerAsync(depot, request.RequestedBy, cancellationToken);
         await unitOfWork.SaveAsync();
 
         return new AssignDepotManagerResponse

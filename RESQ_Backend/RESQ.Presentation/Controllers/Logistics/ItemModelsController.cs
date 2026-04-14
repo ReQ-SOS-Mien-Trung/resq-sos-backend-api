@@ -15,7 +15,15 @@ public class ItemModelsController(ISender sender) : ControllerBase
     public async Task<IActionResult> Update(int id, [FromBody] UpdateItemModelCommand command)
     {
         command.Id = id;
+        command.RequestedBy = GetUserId();
         await _sender.Send(command);
         return NoContent();
+    }
+
+    private Guid GetUserId()
+    {
+        var userIdString = User.FindFirst(global::System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(userIdString, out var userId)) return userId;
+        throw new UnauthorizedAccessException("Token không hợp lệ hoặc thiếu thông tin người dùng.");
     }
 }

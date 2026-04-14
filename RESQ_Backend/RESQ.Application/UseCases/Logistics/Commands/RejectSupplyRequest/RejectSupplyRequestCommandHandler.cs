@@ -28,7 +28,7 @@ public class RejectSupplyRequestCommandHandler(
         if (managerDepotId != sr.SourceDepotId)
             throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho nguồn trong yêu cầu này.");
 
-        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Rejected", "Rejected", request.Reason, cancellationToken);
+        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Rejected", "Rejected", request.Reason, request.UserId, cancellationToken);
 
         // Notify requesting manager - kèm lý do từ chối
         await firebaseService.SendNotificationToUserAsync(

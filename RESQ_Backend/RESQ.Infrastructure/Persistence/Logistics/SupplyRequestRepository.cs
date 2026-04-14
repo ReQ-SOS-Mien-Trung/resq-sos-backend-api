@@ -78,7 +78,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         };
     }
 
-    public async Task UpdateStatusAsync(int id, string sourceStatus, string requestingStatus, string? rejectedReason, CancellationToken cancellationToken = default)
+    public async Task UpdateStatusAsync(int id, string sourceStatus, string requestingStatus, string? rejectedReason, Guid? performedBy = null, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<DepotSupplyRequest>()
             .GetByPropertyAsync(r => r.Id == id, tracked: true)
@@ -93,16 +93,29 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         {
             case "Accepted":
                 entity.RespondedAt = now;
+                entity.AcceptedBy  = performedBy;
                 break;
             case "Rejected":
                 entity.RespondedAt    = now;
                 entity.RejectedReason = rejectedReason;
+                entity.RejectedBy     = performedBy;
+                break;
+            case "Preparing":
+                entity.PreparedBy = performedBy;
                 break;
             case "Shipping":
                 entity.ShippedAt = now;
+                entity.ShippedBy = performedBy;
+                break;
+            case "Completed" when requestingStatus == "Received":
+                // ConfirmSupplyRequest: requesting depot xác nhận nhận hàng
+                entity.CompletedAt  ??= now;
+                entity.ConfirmedBy  = performedBy;
                 break;
             case "Completed":
-                entity.CompletedAt ??= now;
+                // CompleteSupplyRequest: source depot xác nhận giao hàng xong
+                entity.CompletedAt  ??= now;
+                entity.CompletedBy  = performedBy;
                 break;
         }
 
