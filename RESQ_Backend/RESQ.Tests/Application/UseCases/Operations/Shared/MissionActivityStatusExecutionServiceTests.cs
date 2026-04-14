@@ -8,6 +8,9 @@ using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
+using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
+using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Logistics;
@@ -17,6 +20,7 @@ using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Identity;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Operations.Shared;
@@ -142,6 +146,94 @@ public class MissionActivityStatusExecutionServiceTests
         Assert.Null(Assert.Single(activityRepository.UpdateStatusCalls).imageUrl);
     }
 
+    [Fact]
+    public async Task ApplyAsync_ReturnAssemblyPointSucceed_ChecksInMembersAtActivityAssemblyPointAndMovesTeam()
+    {
+        var memberId = Guid.Parse("bbbbbbbb-1111-1111-1111-111111111111");
+        var removedMemberId = Guid.Parse("bbbbbbbb-2222-2222-2222-222222222222");
+
+        var activityRepository = CreateActivityRepository(new MissionActivityModel
+        {
+            Id = 6,
+            MissionId = 12,
+            Status = MissionActivityStatus.OnGoing,
+            ActivityType = MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType,
+            MissionTeamId = 30,
+            AssemblyPointId = 9,
+            AssemblyPointLatitude = 10,
+            AssemblyPointLongitude = 20
+        });
+
+        var missionTeamRepository = new RecordingMissionTeamRepository(new MissionTeamModel
+        {
+            Id = 30,
+            RescuerTeamId = 40,
+            Status = MissionTeamExecutionStatus.InProgress.ToString(),
+            AssemblyPointId = 1,
+            RescueTeamMembers =
+            [
+                new MissionTeamMemberInfo { UserId = memberId, Status = TeamMemberStatus.Accepted.ToString() },
+                new MissionTeamMemberInfo { UserId = removedMemberId, Status = TeamMemberStatus.Removed.ToString() }
+            ]
+        });
+
+        var rescueTeam = RescueTeamModel.Create("Return Team", RescueTeamType.Mixed, assemblyPointId: 1, managedBy: Guid.NewGuid());
+        rescueTeam.SetId(40);
+        var rescueTeamRepository = new RecordingRescueTeamRepository(rescueTeam);
+        var assemblyEventRepository = new RecordingAssemblyEventRepository();
+        assemblyEventRepository.SetActiveEvent(assemblyPointId: 9, eventId: 90);
+
+        var service = BuildService(
+            activityRepository,
+            new StubUnitOfWork(),
+            missionTeamRepository,
+            rescueTeamRepository,
+            assemblyEventRepository);
+
+        await service.ApplyAsync(12, 6, MissionActivityStatus.Succeed, Guid.NewGuid(), null, CancellationToken.None);
+
+        var checkIn = Assert.Single(assemblyEventRepository.ReturnCheckInCalls);
+        Assert.Equal(90, checkIn.EventId);
+        Assert.Equal(memberId, checkIn.RescuerId);
+        Assert.Equal(9, rescueTeamRepository.UpdatedTeam?.AssemblyPointId);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_DoesNotReturnCheckIn_ForNonReturnAssemblyActivity()
+    {
+        var memberId = Guid.Parse("bbbbbbbb-1111-1111-1111-111111111111");
+        var activityRepository = CreateActivityRepository(new MissionActivityModel
+        {
+            Id = 7,
+            MissionId = 13,
+            Status = MissionActivityStatus.OnGoing,
+            ActivityType = "RESCUE",
+            MissionTeamId = 30,
+            AssemblyPointId = 9
+        });
+        var assemblyEventRepository = new RecordingAssemblyEventRepository();
+        assemblyEventRepository.SetActiveEvent(assemblyPointId: 9, eventId: 90);
+
+        var service = BuildService(
+            activityRepository,
+            new StubUnitOfWork(),
+            new RecordingMissionTeamRepository(new MissionTeamModel
+            {
+                Id = 30,
+                RescuerTeamId = 40,
+                RescueTeamMembers =
+                [
+                    new MissionTeamMemberInfo { UserId = memberId, Status = TeamMemberStatus.Accepted.ToString() }
+                ]
+            }),
+            new RecordingRescueTeamRepository(null),
+            assemblyEventRepository);
+
+        await service.ApplyAsync(13, 7, MissionActivityStatus.Succeed, Guid.NewGuid(), null, CancellationToken.None);
+
+        Assert.Empty(assemblyEventRepository.ReturnCheckInCalls);
+    }
+
     private static RecordingMissionActivityRepository CreateActivityRepository(MissionActivityModel activity)
     {
         var repository = new RecordingMissionActivityRepository();
@@ -151,17 +243,22 @@ public class MissionActivityStatusExecutionServiceTests
 
     private static MissionActivityStatusExecutionService BuildService(
         RecordingMissionActivityRepository activityRepository,
-        StubUnitOfWork unitOfWork)
+        StubUnitOfWork unitOfWork,
+        IMissionTeamRepository? missionTeamRepository = null,
+        IRescueTeamRepository? rescueTeamRepository = null,
+        IAssemblyEventRepository? assemblyEventRepository = null)
         => new(
             activityRepository,
-            new NoOpMissionTeamRepository(),
+            missionTeamRepository ?? new RecordingMissionTeamRepository(),
             new NoOpPersonnelQueryRepository(),
             new NoOpDepotInventoryRepository(),
             new NoOpSosRequestRepository(),
             new NoOpSosRequestUpdateRepository(),
             new NoOpTeamIncidentRepository(),
+            rescueTeamRepository ?? new RecordingRescueTeamRepository(null),
             unitOfWork,
-            NullLogger<MissionActivityStatusExecutionService>.Instance);
+            NullLogger<MissionActivityStatusExecutionService>.Instance,
+            assemblyEventRepository ?? new RecordingAssemblyEventRepository());
 
     private sealed class RecordingMissionActivityRepository : IMissionActivityRepository
     {
@@ -215,17 +312,80 @@ public class MissionActivityStatusExecutionServiceTests
         public MissionActivityModel Get(int id) => _activities[id];
     }
 
-    private sealed class NoOpMissionTeamRepository : IMissionTeamRepository
+    private sealed class RecordingMissionTeamRepository(MissionTeamModel? missionTeam = null) : IMissionTeamRepository
     {
-        public Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult<MissionTeamModel?>(null);
+        public List<(int Id, string Status)> StatusUpdates { get; } = [];
+        public List<(int Id, double Latitude, double Longitude, string Source)> LocationUpdates { get; } = [];
+
+        public Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult(missionTeam?.Id == id ? missionTeam : null);
         public Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<MissionTeamModel>());
         public Task<int> CreateAsync(MissionTeamModel model, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task UpdateStatusAsync(int id, string status, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task UpdateStatusAsync(int id, string status, string? note, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task UpdateCurrentLocationAsync(int id, double latitude, double longitude, string locationSource, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateStatusAsync(int id, string status, CancellationToken cancellationToken = default)
+        {
+            StatusUpdates.Add((id, status));
+            return Task.CompletedTask;
+        }
+        public Task UpdateStatusAsync(int id, string status, string? note, CancellationToken cancellationToken = default) => UpdateStatusAsync(id, status, cancellationToken);
+        public Task UpdateCurrentLocationAsync(int id, double latitude, double longitude, string locationSource, CancellationToken cancellationToken = default)
+        {
+            LocationUpdates.Add((id, latitude, longitude, locationSource));
+            return Task.CompletedTask;
+        }
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IEnumerable<MissionTeamModel>> GetActiveByRescuerTeamIdAsync(int rescuerTeamId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<MissionTeamModel>());
         public Task<MissionTeamModel?> GetByMissionAndTeamAsync(int missionId, int rescuerTeamId, CancellationToken cancellationToken = default) => Task.FromResult<MissionTeamModel?>(null);
+    }
+
+    private sealed class RecordingRescueTeamRepository(RescueTeamModel? team) : IRescueTeamRepository
+    {
+        public RescueTeamModel? UpdatedTeam { get; private set; }
+
+        public Task<RescueTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult(team?.Id == id ? team : null);
+        public Task<RescueTeamModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<RescueTeamModel>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> IsUserInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> HasRequiredAbilityCategoryAsync(Guid userId, string categoryCode, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<string?> GetTopAbilityCategoryAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateAsync(RescueTeamModel team, CancellationToken cancellationToken = default)
+        {
+            UpdatedTeam = team;
+            return Task.CompletedTask;
+        }
+        public Task<int> CountActiveTeamsByAssemblyPointAsync(int assemblyPointId, IEnumerable<int> excludeTeamIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<(List<AgentTeamInfo> Teams, int TotalCount)> GetTeamsForAgentAsync(string? abilityKeyword, bool? available, int page, int pageSize, CancellationToken ct = default) => throw new NotImplementedException();
+    }
+
+    private sealed class RecordingAssemblyEventRepository : IAssemblyEventRepository
+    {
+        private readonly Dictionary<int, (int EventId, string Status)> _activeEvents = [];
+
+        public List<(int EventId, Guid RescuerId)> ReturnCheckInCalls { get; } = [];
+
+        public void SetActiveEvent(int assemblyPointId, int eventId)
+            => _activeEvents[assemblyPointId] = (eventId, AssemblyEventStatus.Gathering.ToString());
+
+        public Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+            => Task.FromResult(_activeEvents.TryGetValue(assemblyPointId, out var value) ? value : ((int EventId, string Status)?)null);
+
+        public Task<bool> ReturnCheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default)
+        {
+            ReturnCheckInCalls.Add((eventId, rescuerId));
+            return Task.FromResult(true);
+        }
+
+        public Task<int> CreateEventAsync(int assemblyPointId, DateTime assemblyDate, Guid createdBy, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task AssignParticipantsAsync(int eventId, List<Guid> rescuerIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> CheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> CheckOutAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(int eventId, int pageNumber, int pageSize, RescuerType? rescuerType = null, string? abilitySubgroupCode = null, string? abilityCategoryCode = null, string? search = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateEventStatusAsync(int eventId, string status, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> GetParticipantIdsAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class NoOpPersonnelQueryRepository : IPersonnelQueryRepository

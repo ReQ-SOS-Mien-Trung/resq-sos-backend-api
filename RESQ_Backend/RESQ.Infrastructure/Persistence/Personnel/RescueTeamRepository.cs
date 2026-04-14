@@ -98,7 +98,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
                 InvitedAt = member.JoinedAt,
                 IsLeader = member.IsLeader,
                 RoleInTeam = member.RoleInTeam,
-                CheckedIn = false
+                CheckedIn = true
             });
         }
 
@@ -127,7 +127,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
                         InvitedAt = domainMem.JoinedAt, // DB column "invited_at" maps to domain JoinedAt
                         IsLeader = domainMem.IsLeader,
                         RoleInTeam = domainMem.RoleInTeam,
-                        CheckedIn = false
+                        CheckedIn = true
                     });
                 }
                 else

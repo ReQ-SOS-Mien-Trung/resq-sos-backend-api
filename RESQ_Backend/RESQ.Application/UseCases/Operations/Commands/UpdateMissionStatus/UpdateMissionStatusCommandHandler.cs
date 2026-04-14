@@ -20,7 +20,7 @@ public class UpdateMissionStatusCommandHandler(
     ISosRequestRepository sosRequestRepository,
     IUnitOfWork unitOfWork,
     ILogger<UpdateMissionStatusCommandHandler> logger,
-    IAssemblyEventRepository? assemblyEventRepository = null
+    IAssemblyEventRepository assemblyEventRepository
 ) : IRequestHandler<UpdateMissionStatusCommand, UpdateMissionStatusResponse>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
@@ -29,7 +29,7 @@ public class UpdateMissionStatusCommandHandler(
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<UpdateMissionStatusCommandHandler> _logger = logger;
-    private readonly IAssemblyEventRepository? _assemblyEventRepository = assemblyEventRepository;
+    private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
 
     public async Task<UpdateMissionStatusResponse> Handle(UpdateMissionStatusCommand request, CancellationToken cancellationToken)
     {
@@ -94,8 +94,6 @@ public class UpdateMissionStatusCommandHandler(
     /// </summary>
     private async Task AutoCheckOutMissionTeamsAsync(int missionId, CancellationToken cancellationToken)
     {
-        if (_assemblyEventRepository is null) return;
-
         try
         {
             var missionTeams = await _missionTeamRepository.GetByMissionIdAsync(missionId, cancellationToken);
