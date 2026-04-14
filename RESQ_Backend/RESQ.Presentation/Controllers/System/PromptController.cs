@@ -94,11 +94,11 @@ namespace RESQ.Presentation.Controllers.System
             return NoContent();
         }
 
-        /// <summary>Kiểm tra kết nối AI model theo cấu hình prompt.</summary>
+        /// <summary>Preview ke hoach mission AI theo prompt va cum SOS.</summary>
         [HttpPost("{id}/test")]
-        public async Task<IActionResult> TestModel(int id)
+        public async Task<IActionResult> TestModel(int id, [FromBody] TestPromptRequestDto? dto)
         {
-            var result = await _mediator.Send(new TestPromptCommand(id));
+            var result = await _mediator.Send(new TestPromptCommand(id, dto?.ClusterId ?? 0));
             return Ok(result);
         }
     }

@@ -5,6 +5,7 @@ using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
 using RESQ.Application.UseCases.Emergency.Queries.StreamRescueMissionSuggestion;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Entities.System;
 
 namespace RESQ.Tests.Application.UseCases.Emergency;
 
@@ -260,6 +261,12 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
             CancellationToken ct = default)
             => Task.FromResult(result);
 
+        public Task<RescueMissionSuggestionResult> PreviewSuggestionAsync(
+            List<SosRequestSummary> sos, List<DepotSummary>? depots,
+            List<AgentTeamInfo>? teams, bool isMultiDepot, int clusterId,
+            PromptModel promptOverride, CancellationToken ct = default)
+            => throw new NotImplementedException();
+
         public IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(
             List<SosRequestSummary> sos, List<DepotSummary>? depots,
             List<AgentTeamInfo>? teams, bool isMultiDepot, int? clusterId,
@@ -273,6 +280,12 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
             List<SosRequestSummary> sos, List<DepotSummary>? depots,
             List<AgentTeamInfo>? teams, bool isMultiDepot, int? clusterId,
             CancellationToken ct = default)
+            => throw new NotImplementedException();
+
+        public Task<RescueMissionSuggestionResult> PreviewSuggestionAsync(
+            List<SosRequestSummary> sos, List<DepotSummary>? depots,
+            List<AgentTeamInfo>? teams, bool isMultiDepot, int clusterId,
+            PromptModel promptOverride, CancellationToken ct = default)
             => throw new NotImplementedException();
 
         public async IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(
