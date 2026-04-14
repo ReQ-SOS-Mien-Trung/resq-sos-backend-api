@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Enum.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Common.Constants;
 
@@ -6,10 +6,10 @@ public static class ExternalDispositionMetadata
 {
     public static readonly Dictionary<string, string> Labels = new(StringComparer.OrdinalIgnoreCase)
     {
-        [ExternalDispositionType.DonatedToOrganization.ToString()] = "Quyên góp cho tổ chức / nhân đạo",
-        [ExternalDispositionType.Liquidated.ToString()] = "Thanh lý",
-        [ExternalDispositionType.Disposed.ToString()] = "Tiêu hủy",
-        [ExternalDispositionType.Other.ToString()] = "Khác"
+        [ExternalDispositionType.DonatedToOrganization.ToString()] = "Quy�n g�p cho t? ch?c / nh�n d?o",
+        [ExternalDispositionType.Liquidated.ToString()] = "Thanh l�",
+        [ExternalDispositionType.Disposed.ToString()] = "Ti�u h?y",
+        [ExternalDispositionType.Other.ToString()] = "Kh�c"
     };
 
     private static readonly Dictionary<string, ExternalDispositionType> Aliases = new(StringComparer.OrdinalIgnoreCase)

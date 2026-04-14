@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
+namespace RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
 
 public enum ChangeableDepotStatus
 {

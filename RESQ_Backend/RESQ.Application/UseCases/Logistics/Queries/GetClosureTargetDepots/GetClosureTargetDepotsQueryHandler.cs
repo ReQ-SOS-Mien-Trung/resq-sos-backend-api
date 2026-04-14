@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.UseCases.Logistics.Queries.GetClosureTargetDepots;
+namespace RESQ.Application.UseCases.Logistics.Queries.GetClosureTargetDepots;
 
 using MediatR;
 using RESQ.Domain.Enum.Logistics;

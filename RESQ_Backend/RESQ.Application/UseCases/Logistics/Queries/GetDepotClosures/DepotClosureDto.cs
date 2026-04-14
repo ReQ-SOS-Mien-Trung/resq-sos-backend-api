@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
+namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 
 public class DepotClosureDto
 {

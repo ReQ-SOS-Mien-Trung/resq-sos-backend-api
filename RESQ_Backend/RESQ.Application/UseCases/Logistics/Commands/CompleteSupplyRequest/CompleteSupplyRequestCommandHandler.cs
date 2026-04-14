@@ -13,6 +13,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 /// RequestingDepotStatus vẫn giữ InTransit - đợi kho yêu cầu xác nhận nhận hàng sau.
 /// </summary>
 public class CompleteSupplyRequestCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
@@ -26,7 +27,7 @@ public class CompleteSupplyRequestCommandHandler(
 
         SupplyRequestStateMachine.EnsureCanComplete(sr.SourceStatus);
 
-        var managerDepotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         if (managerDepotId != sr.SourceDepotId)

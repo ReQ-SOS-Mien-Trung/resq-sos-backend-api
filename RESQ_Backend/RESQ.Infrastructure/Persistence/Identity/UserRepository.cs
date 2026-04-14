@@ -167,15 +167,9 @@ namespace RESQ.Infrastructure.Persistence.Identity
 
         public async Task<List<AvailableManagerDto>> GetAvailableManagersAsync(CancellationToken cancellationToken = default)
         {
-            // Sub-query: userId của manager đang giữ kho (UnassignedAt == null)
-            var busyManagerIds = _unitOfWork.Set<DepotManager>()
-                .Where(dm => dm.UnassignedAt == null && dm.UserId != null)
-                .Select(dm => dm.UserId!.Value)
-                .Distinct();
-
             return await _unitOfWork.GetRepository<User>()
                 .AsQueryable(tracked: false)
-                .Where(u => u.RoleId == 4 && !u.IsBanned && !busyManagerIds.Contains(u.Id))
+                .Where(u => u.RoleId == 4 && !u.IsBanned)
                 .OrderBy(u => u.LastName)
                 .ThenBy(u => u.FirstName)
                 .Select(u => new AvailableManagerDto

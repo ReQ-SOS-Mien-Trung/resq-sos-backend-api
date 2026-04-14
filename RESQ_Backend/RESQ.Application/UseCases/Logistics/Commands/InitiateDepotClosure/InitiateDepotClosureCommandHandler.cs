@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -26,21 +26,21 @@ public class InitiateDepotClosureCommandHandler(
             request.DepotId, request.InitiatedBy);
 
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
-            ?? throw new NotFoundException("KhÃ´ng tÃ¬m tháº¥y kho cá»©u trá»£.");
+            ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
         if (depot.Status == DepotStatus.Closed)
-            throw new ConflictException("Kho Ä‘Ã£ Ä‘Ã³ng cá»­a.");
+            throw new ConflictException("Kho đã đóng cửa.");
 
         if (depot.Status != DepotStatus.Closing)
         {
             throw new ConflictException(
-                $"Kho Ä‘ang á»Ÿ tráº¡ng thÃ¡i '{depot.Status}'. " +
-                "Admin pháº£i chuyá»ƒn kho sang Unavailable trÆ°á»›c khi Ä‘Ã³ng kho.");
+                $"Kho đang ở trạng thái '{depot.Status}'. " +
+                "Admin phải chuyển kho sang Unavailable trước khi đóng kho.");
         }
 
         var activeCount = await depotRepository.GetActiveDepotCountExcludingAsync(request.DepotId, cancellationToken);
         if (activeCount == 0)
-            throw new ConflictException("KhÃ´ng thá»ƒ Ä‘Ã³ng kho duy nháº¥t cÃ²n Ä‘ang hoáº¡t Ä‘á»™ng trong há»‡ thá»‘ng.");
+            throw new ConflictException("Không thể đóng kho duy nhất còn đang hoạt động trong hệ thống.");
 
         var latestClosure = await closureRepository.GetLatestClosureByDepotIdAsync(request.DepotId, cancellationToken);
 
@@ -59,8 +59,8 @@ public class InitiateDepotClosureCommandHandler(
                 DepotId = depot.Id,
                 DepotName = depot.Name,
                 Success = false,
-                Message = $"Kho váº«n cÃ²n hÃ ng tá»“n ({totalConsumable} Ä‘Æ¡n vá»‹ tiÃªu hao, {totalReusable} thiáº¿t bá»‹ tÃ¡i sá»­ dá»¥ng). " +
-                          "HÃ£y chá»n cÃ¡ch xá»­ lÃ½: chuyá»ƒn kho (POST /close/transfer) hoáº·c xá»­ lÃ½ bÃªn ngoÃ i (POST /close/external-resolution).",
+                Message = $"Kho vẫn còn hàng tồn ({totalConsumable} đơn vị tiêu hao, {totalReusable} thiết bị tái sử dụng). " +
+                          "Hãy chọn cách xử lý: chuyển kho (POST /close/transfer) hoặc xử lý bên ngoài (POST /close/external-resolution).",
                 RemainingItems = inventoryItems
             };
         }
@@ -73,8 +73,8 @@ public class InitiateDepotClosureCommandHandler(
             })
         {
             throw new ConflictException(
-                $"PhiÃªn Ä‘Ã³ng kho hiá»‡n táº¡i Ä‘ang á»Ÿ tráº¡ng thÃ¡i '{latestClosure.Status}'. " +
-                "Cáº§n hoÃ n táº¥t xá»­ lÃ½ hÃ ng tá»“n trÆ°á»›c khi admin xÃ¡c nháº­n Ä‘Ã³ng kho.");
+                $"Phiên đóng kho hiện tại đang ở trạng thái '{latestClosure.Status}'. " +
+                "Cần hoàn tất xử lý hàng tồn trước khi admin xác nhận đóng kho.");
         }
 
         var previousStatus = depot.Status;
@@ -129,8 +129,8 @@ public class InitiateDepotClosureCommandHandler(
             ClosureId = closureRecord!.Id,
             Success = true,
             Message = isFinalizingExistingClosure
-                ? "ÄÃ£ xÃ¡c nháº­n hoÃ n táº¥t Ä‘Ã³ng kho. Quá»¹ kho Ä‘Ã£ Ä‘Æ°á»£c chuyá»ƒn vá» quá»¹ há»‡ thá»‘ng, kho chuyá»ƒn sang Closed vÃ  manager Ä‘Ã£ Ä‘Æ°á»£c gá»¡."
-                : "Kho khÃ´ng cÃ³ hÃ ng tá»“n nÃªn Ä‘Ã£ Ä‘Æ°á»£c Ä‘Ã³ng ngay. Quá»¹ kho Ä‘Ã£ Ä‘Æ°á»£c chuyá»ƒn vá» quá»¹ há»‡ thá»‘ng vÃ  manager Ä‘Ã£ Ä‘Æ°á»£c gá»¡."
+                ? "Đã xác nhận hoàn tất đóng kho. Quỹ kho đã được chuyển về quỹ hệ thống, kho chuyển sang Closed và manager đã được gỡ."
+                : "Kho không có hàng tồn nên đã được đóng ngay. Quỹ kho đã được chuyển về quỹ hệ thống và manager đã được gỡ."
         };
     }
 }

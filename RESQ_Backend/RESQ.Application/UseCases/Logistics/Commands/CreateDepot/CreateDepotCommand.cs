@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.CreateDepot;
 public record CreateDepotCommand (

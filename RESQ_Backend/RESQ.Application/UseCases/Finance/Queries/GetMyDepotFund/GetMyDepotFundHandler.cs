@@ -9,8 +9,11 @@ namespace RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 public class GetMyDepotFundHandler : IRequestHandler<GetMyDepotFundQuery, MyDepotFundsResponseDto>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepo;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotFundRepository _depotFundRepo;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotRepository _depotRepo;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public GetMyDepotFundHandler(
         IDepotInventoryRepository depotInventoryRepo,
@@ -24,7 +27,7 @@ public class GetMyDepotFundHandler : IRequestHandler<GetMyDepotFundQuery, MyDepo
 
     public async Task<MyDepotFundsResponseDto> Handle(GetMyDepotFundQuery request, CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepo.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var funds = await _depotFundRepo.GetAllByDepotIdAsync(depotId, cancellationToken);

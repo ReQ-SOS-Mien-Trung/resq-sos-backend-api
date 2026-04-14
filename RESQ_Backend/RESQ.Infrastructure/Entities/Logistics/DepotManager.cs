@@ -33,4 +33,4 @@ public partial class DepotManager
     [ForeignKey("UserId")]
     [InverseProperty("DepotManagers")]
     public virtual User? User { get; set; }
-}
+}

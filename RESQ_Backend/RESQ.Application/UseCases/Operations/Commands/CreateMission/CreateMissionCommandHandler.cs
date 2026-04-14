@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using RESQ.Application.Extensions;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
@@ -63,7 +63,7 @@ public class CreateMissionCommandHandler(
         // Validate cluster exists
         var cluster = await _sosClusterRepository.GetByIdAsync(request.ClusterId, cancellationToken);
         if (cluster is null)
-            throw new NotFoundException($"Không tìm thấy cluster với ID: {request.ClusterId}");
+            throw new NotFoundException($"Kh�ng t�m th?y cluster v?i ID: {request.ClusterId}");
 
         // Validate assembly points
         var requestedApIds = (request.Activities ?? [])
@@ -119,11 +119,11 @@ public class CreateMissionCommandHandler(
         {
             var status = await _depotRepository.GetStatusByIdAsync(id, cancellationToken);
             if (status is null)
-                throw new NotFoundException($"Không tìm thấy kho có ID {id}.");
+                throw new NotFoundException($"Kh�ng t�m th?y kho c� ID {id}.");
                 
             if (status is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             {
-                throw new ConflictException($"Kho {id} đang ở trạng thái {status} và không thể sử dụng cho nhiệm vụ.");
+                throw new ConflictException($"Kho {id} dang ? tr?ng th�i {status} v� kh�ng th? s? d?ng cho nhi?m v?.");
             }
         }
 
@@ -420,13 +420,13 @@ public class CreateMissionCommandHandler(
             foreach (var s in shortages)
             {
                 allErrors.Add(s.NotFound
-                    ? $"Kho {depot.DepotId}: vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không có trong kho."
-                    : $"Kho {depot.DepotId}: vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
+                    ? $"Kho {depot.DepotId}: v?t ph?m '{s.ItemName}' (ID={s.ItemModelId}) kh�ng c� trong kho."
+                    : $"Kho {depot.DepotId}: v?t ph?m '{s.ItemName}' (ID={s.ItemModelId}) kh�ng d? s? lu?ng � y�u c?u {s.RequestedQuantity}, kh? d?ng {s.AvailableQuantity}.");
             }
         }
 
         if (allErrors.Count > 0)
-            throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", allErrors)}");
+            throw new BadRequestException($"Ki?m tra t?n kho th?t b?i:\n{string.Join("\n", allErrors)}");
     }
 
     private async Task ValidateReusableReturnActivitiesAsync(
@@ -453,7 +453,7 @@ public class CreateMissionCommandHandler(
             if (seenReturnActivity && !IsReturnAssemblyPointActivity(activity))
             {
                 orderingErrors.Add(
-                    $"RETURN_SUPPLIES phải nằm ở cuối kế hoạch, nhưng phát hiện activity '{activity.ActivityType}' sau bước trả kho (step {activity.Step ?? 0}).");
+                    $"RETURN_SUPPLIES ph?i n?m ? cu?i k? ho?ch, nhung ph�t hi?n activity '{activity.ActivityType}' sau bu?c tr? kho (step {activity.Step ?? 0}).");
             }
         }
 
@@ -469,11 +469,11 @@ public class CreateMissionCommandHandler(
             foreach (var returnActivity in returnActivities)
             {
                 orderingErrors.Add(
-                    $"RETURN_SUPPLIES step {returnActivity.Step ?? 0} phải có item_id hợp lệ cho vật phẩm reusable cần trả.");
+                    $"RETURN_SUPPLIES step {returnActivity.Step ?? 0} ph?i c� item_id h?p l? cho v?t ph?m reusable c?n tr?.");
             }
 
             if (orderingErrors.Count > 0)
-                throw new BadRequestException($"Kế hoạch mission chưa hợp lệ:\n{string.Join("\n", orderingErrors)}");
+                throw new BadRequestException($"K? ho?ch mission chua h?p l?:\n{string.Join("\n", orderingErrors)}");
 
             return;
         }
@@ -486,7 +486,7 @@ public class CreateMissionCommandHandler(
         if (missingItemIds.Count > 0)
         {
             throw new BadRequestException(
-                $"Không tìm thấy metadata cho các item_id: {string.Join(", ", missingItemIds)}.");
+                $"Kh�ng t�m th?y metadata cho c�c item_id: {string.Join(", ", missingItemIds)}.");
         }
 
         var errors = new List<string>(orderingErrors);
@@ -522,19 +522,19 @@ public class CreateMissionCommandHandler(
             var stepLabel = activity.Step?.ToString() ?? "?";
             if (!activity.DepotId.HasValue)
             {
-                errors.Add($"RETURN_SUPPLIES step {stepLabel} thiếu DepotId.");
+                errors.Add($"RETURN_SUPPLIES step {stepLabel} thi?u DepotId.");
                 continue;
             }
 
             if (!activity.RescueTeamId.HasValue)
             {
-                errors.Add($"RETURN_SUPPLIES step {stepLabel} thiếu RescueTeamId.");
+                errors.Add($"RETURN_SUPPLIES step {stepLabel} thi?u RescueTeamId.");
                 continue;
             }
 
             if (activity.SuppliesToCollect is not { Count: > 0 })
             {
-                errors.Add($"RETURN_SUPPLIES step {stepLabel} phải có danh sách vật phẩm reusable cần trả.");
+                errors.Add($"RETURN_SUPPLIES step {stepLabel} ph?i c� danh s�ch v?t ph?m reusable c?n tr?.");
                 continue;
             }
 
@@ -544,14 +544,14 @@ public class CreateMissionCommandHandler(
             {
                 if (!supply.Id.HasValue || (supply.Quantity ?? 0) <= 0)
                 {
-                    errors.Add($"RETURN_SUPPLIES step {stepLabel} có vật phẩm thiếu item_id hoặc quantity không hợp lệ.");
+                    errors.Add($"RETURN_SUPPLIES step {stepLabel} c� v?t ph?m thi?u item_id ho?c quantity kh�ng h?p l?.");
                     continue;
                 }
 
                 if (!IsReusableItem(supply.Id.Value, itemLookup))
                 {
                     errors.Add(
-                        $"RETURN_SUPPLIES step {stepLabel} chỉ được chứa vật phẩm reusable, nhưng item '{ResolveItemName(supply.Id.Value, itemLookup, supply.Name)}' không phải reusable.");
+                        $"RETURN_SUPPLIES step {stepLabel} ch? du?c ch?a v?t ph?m reusable, nhung item '{ResolveItemName(supply.Id.Value, itemLookup, supply.Name)}' kh�ng ph?i reusable.");
                     continue;
                 }
 
@@ -564,7 +564,7 @@ public class CreateMissionCommandHandler(
             if (!requiredReturnItems.TryGetValue(actualGroup.Key, out var expectedItems))
             {
                 errors.Add(
-                    $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, đội {actualGroup.Key.TeamId} không tương ứng với bất kỳ COLLECT_SUPPLIES nào có vật phẩm reusable.");
+                    $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, d?i {actualGroup.Key.TeamId} kh�ng tuong ?ng v?i b?t k? COLLECT_SUPPLIES n�o c� v?t ph?m reusable.");
                 continue;
             }
 
@@ -573,14 +573,14 @@ public class CreateMissionCommandHandler(
                 if (!expectedItems.TryGetValue(actualItem.Key, out var expectedQuantity))
                 {
                     errors.Add(
-                        $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, đội {actualGroup.Key.TeamId} đang trả thêm item '{ResolveItemName(actualItem.Key, itemLookup)}' không xuất hiện trong COLLECT_SUPPLIES reusable tương ứng.");
+                        $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, d?i {actualGroup.Key.TeamId} dang tr? th�m item '{ResolveItemName(actualItem.Key, itemLookup)}' kh�ng xu?t hi?n trong COLLECT_SUPPLIES reusable tuong ?ng.");
                     continue;
                 }
 
                 if (actualItem.Value != expectedQuantity)
                 {
                     errors.Add(
-                        $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, đội {actualGroup.Key.TeamId} phải trả đúng {expectedQuantity} đơn vị item '{ResolveItemName(actualItem.Key, itemLookup)}', nhưng payload hiện có {actualItem.Value}.");
+                        $"RETURN_SUPPLIES cho kho {actualGroup.Key.DepotId}, d?i {actualGroup.Key.TeamId} ph?i tr? d�ng {expectedQuantity} don v? item '{ResolveItemName(actualItem.Key, itemLookup)}', nhung payload hi?n c� {actualItem.Value}.");
                 }
             }
         }
@@ -590,7 +590,7 @@ public class CreateMissionCommandHandler(
             if (!actualReturnItems.TryGetValue(expectedGroup.Key, out var actualItems))
             {
                 errors.Add(
-                    $"Thiếu RETURN_SUPPLIES cuối kế hoạch cho kho {expectedGroup.Key.DepotId}, đội {expectedGroup.Key.TeamId} dù đã COLLECT_SUPPLIES vật phẩm reusable.");
+                    $"Thi?u RETURN_SUPPLIES cu?i k? ho?ch cho kho {expectedGroup.Key.DepotId}, d?i {expectedGroup.Key.TeamId} d� d� COLLECT_SUPPLIES v?t ph?m reusable.");
                 continue;
             }
 
@@ -599,14 +599,14 @@ public class CreateMissionCommandHandler(
                 if (!actualItems.ContainsKey(expectedItem.Key))
                 {
                     errors.Add(
-                        $"RETURN_SUPPLIES cho kho {expectedGroup.Key.DepotId}, đội {expectedGroup.Key.TeamId} chưa trả item '{ResolveItemName(expectedItem.Key, itemLookup)}'.");
+                        $"RETURN_SUPPLIES cho kho {expectedGroup.Key.DepotId}, d?i {expectedGroup.Key.TeamId} chua tr? item '{ResolveItemName(expectedItem.Key, itemLookup)}'.");
                 }
             }
         }
 
         if (errors.Count > 0)
         {
-            throw new BadRequestException($"Kế hoạch mission chưa hợp lệ với vật phẩm reusable:\n{string.Join("\n", errors)}");
+            throw new BadRequestException($"K? ho?ch mission chua h?p l? v?i v?t ph?m reusable:\n{string.Join("\n", errors)}");
         }
     }
 
@@ -631,8 +631,8 @@ public class CreateMissionCommandHandler(
                     {
                         await _firebaseService.SendNotificationToUserAsync(
                             member.UserId,
-                            "Nhiệm vụ mới",
-                            $"Đội của bạn đã được phân công vào nhiệm vụ #{missionId}. Vui lòng kiểm tra chi tiết.",
+                            "Nhi?m v? m?i",
+                            $"�?i c?a b?n d� du?c ph�n c�ng v�o nhi?m v? #{missionId}. Vui l�ng ki?m tra chi ti?t.",
                             "mission_assigned",
                             cancellationToken);
                     }
@@ -701,16 +701,16 @@ public class CreateMissionCommandHandler(
             catch (InvalidOperationException ex)
             {
                 var activityLabel = persistedActivity.Step.HasValue
-                    ? $"bước {persistedActivity.Step.Value}"
-                    : $"hoạt động #{persistedActivity.Id}";
+                    ? $"bu?c {persistedActivity.Step.Value}"
+                    : $"ho?t d?ng #{persistedActivity.Id}";
 
                 throw new BadRequestException(
-                    $"Không thể tạo mission vì kho #{requestActivity.DepotId.Value} không đặt trước được vật phẩm cho {activityLabel}: {ex.Message}");
+                    $"Kh�ng th? t?o mission v� kho #{requestActivity.DepotId.Value} kh�ng d?t tru?c du?c v?t ph?m cho {activityLabel}: {ex.Message}");
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
-                    "Không thể đặt trước vật phẩm tại kho {DepotId} cho activity #{ActivityId} khi tạo mission",
+                    "Kh�ng th? d?t tru?c v?t ph?m t?i kho {DepotId} cho activity #{ActivityId} khi t?o mission",
                     requestActivity.DepotId.Value,
                     persistedActivity.Id);
                 throw;

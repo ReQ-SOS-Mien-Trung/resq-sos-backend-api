@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -29,7 +29,7 @@ public class SetAssemblyPointUnavailableCommandHandler(
         _logger.LogInformation("SetAssemblyPointUnavailable: Id={Id}", request.Id);
 
         var assemblyPoint = await _repository.GetByIdAsync(request.Id, cancellationToken)
-            ?? throw new NotFoundException("KhÃ´ng tÃ¬m tháº¥y Ä‘iá»ƒm táº­p káº¿t");
+            ?? throw new NotFoundException("Không tìm thấy điểm tập kết");
 
 var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.Id, cancellationToken);
         if (activeEvent != null)
@@ -42,8 +42,8 @@ var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAs
                 {
                     await _firebaseService.SendNotificationToUserAsync(
                         userId, 
-                        "Sự kiện tập hợp đã thay đổi", 
-                        $"Điểm tập kết \"{assemblyPoint.Name}\" đang được bảo trì. Sự kiện tập hợp đã bị hủy.", 
+                        "S? ki?n t?p h?p d� thay d?i", 
+                        $"�i?m t?p k?t \"{assemblyPoint.Name}\" dang du?c b?o tr�. S? ki?n t?p h?p d� b? h?y.", 
                         "assembly_event_completed", 
                         cancellationToken);
                 }
@@ -54,7 +54,7 @@ var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAs
             }
         }
 
-        // Domain enforces: chá»‰ Active hoáº·c Overloaded â†’ Unavailable    
+        // Domain enforces: chỉ Active hoặc Overloaded → Unavailable    
         assemblyPoint.ChangeStatus(AssemblyPointStatus.Unavailable);
 
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
@@ -69,8 +69,8 @@ var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAs
         var stationedUserIds = await _repository.GetAssignedRescuerUserIdsAsync(assemblyPoint.Id, cancellationToken);
         if (stationedUserIds.Count > 0)
         {
-            var title = "🚨 CẢNH BÁO SƠ TÁN KHẨN CẤP 🚨";
-            var body = $"Điểm tập kết {assemblyPoint.Name} (Mã: {assemblyPoint.Code}) đã chuyển sang trạng thái KHÔNG KHẢ DỤNG. Tất cả nhân sự đang có mặt tại đây lập tức di tản đến nơi an toàn và chờ lệnh điều phối mới!";
+            var title = "?? C?NH B�O SO T�N KH?N C?P ??";
+            var body = $"�i?m t?p k?t {assemblyPoint.Name} (M�: {assemblyPoint.Code}) d� chuy?n sang tr?ng th�i KH�NG KH? D?NG. T?t c? nh�n s? dang c� m?t t?i d�y l?p t?c di t?n d?n noi an to�n v� ch? l?nh di?u ph?i m?i!";
             
             // Fire-and-Forget push notification for all stationed rescuers
             _ = Task.Run(async () =>
@@ -100,7 +100,7 @@ var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAs
         {
             Id = assemblyPoint.Id,
             Status = assemblyPoint.Status.ToString(),
-            Message = "Äiá»ƒm táº­p káº¿t Ä‘ang trong tráº¡ng thÃ¡i báº£o trÃ¬."
+            Message = "Điểm tập kết đang trong trạng thái bảo trì."
         };
     }
 }

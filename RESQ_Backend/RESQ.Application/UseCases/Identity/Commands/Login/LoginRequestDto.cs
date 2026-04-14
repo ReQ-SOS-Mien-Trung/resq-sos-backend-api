@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.UseCases.Identity.Commands.Login
+namespace RESQ.Application.UseCases.Identity.Commands.Login
 {
     public class LoginRequestDto
     {

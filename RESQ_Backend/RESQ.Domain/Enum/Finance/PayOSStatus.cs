@@ -1,4 +1,4 @@
-﻿namespace RESQ.Domain.Enum.Finance;
+namespace RESQ.Domain.Enum.Finance;
 
 public enum Status
 {

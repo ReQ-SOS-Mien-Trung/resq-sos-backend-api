@@ -253,7 +253,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     /// severityRatio = max(0, available / minimumThreshold). Ngưỡng được resolve theo cấu hình scope.
     /// Response gồm: summary (tổng), byDepot (bar chart), byCategory (pie chart), items (table).</summary>
     [HttpGet("my-depot/low-stock")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(LowStockChartResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyDepotLowStockItems(
@@ -267,7 +267,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>[Manager] Xem cấu hình threshold hiện tại của kho mình quản lý (global + override theo scope).</summary>
     [HttpGet("my-depot/thresholds")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(GetMyDepotThresholdsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyDepotThresholds()
@@ -313,7 +313,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>[Manager] Reset cấu hình ngưỡng tồn kho về scope thấp hơn (soft reset: is_active=false).</summary>
     [HttpDelete("my-depot/thresholds")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(StockThresholdCommandResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -444,7 +444,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>Xem tổng số lượng tồn kho theo danh mục của kho do người dùng hiện tại quản lý.</summary>
     [HttpGet("my-depot/quantity-by-category")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> GetMyDepotInventoryByCategory()
     {
         var userId = GetCurrentUserId();
@@ -707,7 +707,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>Tìm kiếm kho có chứa vật tư theo danh sách ID, ưu tiên kho gần và đủ số lượng.</summary>
     [HttpGet("search-depots")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> SearchDepotsByItems(
         [FromQuery] List<int> itemModelIds,
         [FromQuery] List<int>? quantities,
@@ -745,7 +745,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     /// <summary>[Manager] Xuất kho thủ công (Export): giảm tồn kho theo FEFO và ghi nhật ký.
     /// Chỉ xuất được số lượng khả dụng (Quantity - ReservedQuantity).</summary>
     [HttpPost("my-depot/export")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(ExportInventoryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -754,6 +754,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new ExportInventoryCommand(
             userId,
+            request.DepotId,
             request.ItemModelId,
             request.Quantity,
             request.Note));
@@ -763,7 +764,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     /// <summary>[Manager] Điều chỉnh tồn kho (Adjust): quantityChange dương → tạo lô mới + tăng số lượng;
     /// quantityChange âm → FEFO deduction trên các lô + giảm số lượng. Bắt buộc ghi lý do.</summary>
     [HttpPost("my-depot/adjust")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(AdjustInventoryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -789,6 +790,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
         var command = new ImportReliefItemsCommand
         {
+            DepotId = request.DepotId,
             UserId = userId,
             OrganizationId = request.OrganizationId,
             OrganizationName = request.OrganizationName,
@@ -820,7 +822,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>Tạo yêu cầu cung cấp vật tư từ một hoặc nhiều kho nguồn. Mỗi kho nguồn tạo một request riêng.</summary>
     [HttpPost("supply-requests")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> CreateSupplyRequest([FromBody] CreateSupplyRequestRequest request)
     {
         var userId = GetCurrentUserId();
@@ -840,7 +842,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     /// Trả về field <c>role</c>: "Requester" - kho này đã gửi yêu cầu | "Source" - kho này nhận yêu cầu.
     /// </summary>
     [HttpGet("supply-requests")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(GetSupplyRequestsResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSupplyRequests(
         [FromQuery] SourceDepotStatus? sourceStatus,
@@ -865,7 +867,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>Manager kho nguồn bắt đầu đóng gói / picking (Accepted -> Preparing).</summary>
     [HttpPut("supply-requests/{id:int}/prepare")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> PrepareSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();
@@ -876,7 +878,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>Manager kho nguồn chấp nhận yêu cầu tiếp tế.</summary>
     [HttpPut("supply-requests/{id:int}/accept")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> AcceptSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();
@@ -887,7 +889,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>Manager kho nguồn từ chối yêu cầu tiếp tế (bắt buộc ghi lý do).</summary>
     [HttpPut("supply-requests/{id:int}/reject")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> RejectSupplyRequest(int id, [FromBody] RejectSupplyRequestRequest request)
     {
         var userId = GetCurrentUserId();
@@ -905,7 +907,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>Manager kho nguồn xuất hàng và vận chuyển đến kho yêu cầu.</summary>
     [HttpPut("supply-requests/{id:int}/ship")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> ShipSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();
@@ -916,7 +918,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>Manager kho nguồn xác nhận đã hoàn tất giao hàng (Shipping -> Completed).</summary>
     [HttpPut("supply-requests/{id:int}/complete")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> CompleteSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();
@@ -927,7 +929,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
     /// <summary>Manager kho yêu cầu xác nhận đã nhận hàng tiếp tế.</summary>
     [HttpPut("supply-requests/{id:int}/confirm")]
-    [Authorize(Policy = PermissionConstants.InventoryDepotManage)]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     public async Task<IActionResult> ConfirmSupplyRequest(int id)
     {
         var userId = GetCurrentUserId();

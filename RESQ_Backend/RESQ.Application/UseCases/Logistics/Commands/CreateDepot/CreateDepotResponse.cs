@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.UseCases.Logistics.Commands.CreateDepot
+namespace RESQ.Application.UseCases.Logistics.Commands.CreateDepot
 {
     public class CreateDepotResponse
     {

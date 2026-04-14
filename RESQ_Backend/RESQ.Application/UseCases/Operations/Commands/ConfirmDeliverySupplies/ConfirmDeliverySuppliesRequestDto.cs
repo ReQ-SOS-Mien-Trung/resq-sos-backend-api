@@ -1,19 +1,19 @@
-﻿namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
+namespace RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 
 public class ConfirmDeliverySuppliesRequestDto
 {
-    /// <summary>Danh sách số lượng thực tế đã giao cho từng loại vật phẩm trong activity.</summary>
+    /// <summary>Danh s�ch s? lu?ng th?c t? d� giao cho t?ng lo?i v?t ph?m trong activity.</summary>
     public List<ActualDeliveredItemDto> ActualDeliveredItems { get; set; } = [];
 
-    /// <summary>Ghi chú khi có chênh lệch giữa số lượng kế hoạch và thực tế.</summary>
+    /// <summary>Ghi ch� khi c� ch�nh l?ch gi?a s? lu?ng k? ho?ch v� th?c t?.</summary>
     public string? DeliveryNote { get; set; }
 }
 
 public class ActualDeliveredItemDto
 {
-    /// <summary>ID của relief item (khớp với SupplyToCollectDto.ItemId).</summary>
+    /// <summary>ID c?a relief item (kh?p v?i SupplyToCollectDto.ItemId).</summary>
     public int ItemId { get; set; }
 
-    /// <summary>Số lượng thực tế đã giao tới đích. Phải >= 0.</summary>
+    /// <summary>S? lu?ng th?c t? d� giao t?i d�ch. Ph?i >= 0.</summary>
     public int ActualQuantity { get; set; }
 }

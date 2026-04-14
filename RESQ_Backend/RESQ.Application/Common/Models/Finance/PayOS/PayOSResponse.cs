@@ -15,4 +15,4 @@ public class PayOSResponse<T>
     
     [JsonPropertyName("signature")]
     public string? Signature { get; set; }
-}
+}

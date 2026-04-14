@@ -29,4 +29,4 @@ public partial class Permission
 
     [InverseProperty("Claim")]
     public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
-}
+}

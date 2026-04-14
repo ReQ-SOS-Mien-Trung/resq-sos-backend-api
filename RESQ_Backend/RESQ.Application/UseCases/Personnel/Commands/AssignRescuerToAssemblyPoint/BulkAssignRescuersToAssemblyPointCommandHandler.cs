@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -20,47 +20,47 @@ public class BulkAssignRescuersToAssemblyPointCommandHandler(
     public async Task Handle(BulkAssignRescuersToAssemblyPointCommand request, CancellationToken cancellationToken)
     {
         if (request.UserIds.Count == 0)
-            throw new BadRequestException("Danh sách user ID không được để trống.");
+            throw new BadRequestException("Danh s�ch user ID kh�ng du?c d? tr?ng.");
 
-        // 1. Validate assembly point tồn tại (nếu gán mới)
+        // 1. Validate assembly point t?n t?i (n?u g�n m?i)
         string? apName = null;
 
         if (!request.AssemblyPointId.HasValue)
         {
-            logger.LogInformation("Gỡ số lượng lớn {Count} rescuer khỏi điểm tập kết hiện tại (chiều OUT). Thao tác này luôn mở kể cả khi AssemblyPoint Unavailable.", request.UserIds.Count);
+            logger.LogInformation("G? s? lu?ng l?n {Count} rescuer kh?i di?m t?p k?t hi?n t?i (chi?u OUT). Thao t�c n�y lu�n m? k? c? khi AssemblyPoint Unavailable.", request.UserIds.Count);
         }
         if (request.AssemblyPointId.HasValue)
         {
             var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId.Value, cancellationToken)
-                ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId.Value}");
+                ?? throw new NotFoundException($"Kh�ng t�m th?y di?m t?p k?t v?i id = {request.AssemblyPointId.Value}");
 
             if (ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Unavailable || ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Closed)
             {
-                throw new BadRequestException($"Điểm tập kết {ap.Name} đang trạng thái ({ap.Status}), không thể nhận lượng lớn người lúc này.");
+                throw new BadRequestException($"�i?m t?p k?t {ap.Name} dang tr?ng th�i ({ap.Status}), kh�ng th? nh?n lu?ng l?n ngu?i l�c n�y.");
             }
 
             apName = ap.Name;
         }
 
-        // 2. Validate tất cả user tồn tại và có role Rescuer - một lần query
+        // 2. Validate t?t c? user t?n t?i v� c� role Rescuer - m?t l?n query
         var users = await userRepository.GetByIdsAsync(request.UserIds, cancellationToken);
 
         var missingIds = request.UserIds.Except(users.Select(u => u.Id)).ToList();
         if (missingIds.Count > 0)
-            throw new NotFoundException($"Không tìm thấy người dùng với ID: {string.Join(", ", missingIds)}");
+            throw new NotFoundException($"Kh�ng t�m th?y ngu?i d�ng v?i ID: {string.Join(", ", missingIds)}");
 
         var nonRescuers = users.Where(u => u.RoleId != 3).ToList();
         if (nonRescuers.Count > 0)
         {
             var names = string.Join(", ", nonRescuers.Select(u => $"{u.LastName} {u.FirstName}".Trim()));
-            throw new BadRequestException($"Người dùng sau không phải nhân sự cứu hộ: {names}");
+            throw new BadRequestException($"Ngu?i d�ng sau kh�ng ph?i nh�n s? c?u h?: {names}");
         }
 
         // 3. Bulk UPDATE assembly point - single SQL statement
         var updatedIds = await assemblyPointRepository.BulkUpdateRescuerAssemblyPointAsync(
             request.UserIds, request.AssemblyPointId, cancellationToken);
 
-        // 4. Nếu có AP đang active: tự động thêm rescuer chưa có đội vào event
+        // 4. N?u c� AP dang active: t? d?ng th�m rescuer chua c� d?i v�o event
         if (request.AssemblyPointId.HasValue && updatedIds.Count > 0)
         {
             var teamlessIds = await assemblyPointRepository.FilterUsersWithoutActiveTeamAsync(
@@ -77,7 +77,7 @@ public class BulkAssignRescuersToAssemblyPointCommandHandler(
                         activeEvent.Value.EventId, teamlessIds, cancellationToken);
 
                     logger.LogInformation(
-                        "Tự động thêm {Count} rescuer vào sự kiện EventId={EventId} (AP={ApId})",
+                        "T? d?ng th�m {Count} rescuer v�o s? ki?n EventId={EventId} (AP={ApId})",
                         teamlessIds.Count, activeEvent.Value.EventId, request.AssemblyPointId.Value);
                 }
             }
@@ -85,23 +85,23 @@ public class BulkAssignRescuersToAssemblyPointCommandHandler(
 
         await unitOfWork.SaveAsync();
 
-        // 5. Gửi Firebase notification cho từng rescuer (song song, không block, không throw)
-        // Dùng CancellationToken.None để notification luôn được gửi sau khi SaveAsync() thành công,
-        // không bị cancel theo HTTP request. SendNotificationToUserAsync đã catch all exceptions nội bộ.
+        // 5. G?i Firebase notification cho t?ng rescuer (song song, kh�ng block, kh�ng throw)
+        // D�ng CancellationToken.None d? notification lu�n du?c g?i sau khi SaveAsync() th�nh c�ng,
+        // kh�ng b? cancel theo HTTP request. SendNotificationToUserAsync d� catch all exceptions n?i b?.
         var notificationTasks = updatedIds.Select(userId =>
         {
             string title, body;
             if (request.AssemblyPointId.HasValue)
             {
-                title = "Cập nhật điểm tập kết";
-                body = $"Bạn đã được chỉ định vào điểm tập kết \"{apName}\". " +
-                       "Vui lòng kiểm tra thông tin chi tiết trong ứng dụng.";
+                title = "C?p nh?t di?m t?p k?t";
+                body = $"B?n d� du?c ch? d?nh v�o di?m t?p k?t \"{apName}\". " +
+                       "Vui l�ng ki?m tra th�ng tin chi ti?t trong ?ng d?ng.";
             }
             else
             {
-                title = "Cập nhật điểm tập kết";
-                body = "Bạn đã được gỡ khỏi điểm tập kết hiện tại. " +
-                       "Vui lòng liên hệ quản trị viên nếu cần thêm thông tin.";
+                title = "C?p nh?t di?m t?p k?t";
+                body = "B?n d� du?c g? kh?i di?m t?p k?t hi?n t?i. " +
+                       "Vui l�ng li�n h? qu?n tr? vi�n n?u c?n th�m th�ng tin.";
             }
 
             return firebaseService

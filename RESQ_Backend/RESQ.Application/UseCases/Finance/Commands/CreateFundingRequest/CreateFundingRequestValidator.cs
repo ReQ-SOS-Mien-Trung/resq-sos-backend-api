@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
@@ -7,30 +7,30 @@ public class CreateFundingRequestValidator : AbstractValidator<CreateFundingRequ
     public CreateFundingRequestValidator()
     {
         RuleFor(x => x.Items)
-            .NotEmpty().WithMessage("Danh sách vật phẩm không được để trống.");
+            .NotEmpty().WithMessage("Danh s�ch v?t ph?m kh�ng du?c d? tr?ng.");
 
         RuleForEach(x => x.Items).ChildRules(item =>
         {
             item.RuleFor(i => i.ItemName)
-                .NotEmpty().WithMessage("Tên vật phẩm không được để trống.");
+                .NotEmpty().WithMessage("T�n v?t ph?m kh�ng du?c d? tr?ng.");
             item.RuleFor(i => i.CategoryCode)
-                .NotEmpty().WithMessage("Mã danh mục không được để trống.");
+                .NotEmpty().WithMessage("M� danh m?c kh�ng du?c d? tr?ng.");
             item.RuleFor(i => i.ItemType)
-                .NotEmpty().WithMessage("Loại vật phẩm không được để trống.");
+                .NotEmpty().WithMessage("Lo?i v?t ph?m kh�ng du?c d? tr?ng.");
             item.RuleFor(i => i.TargetGroup)
-                .NotEmpty().WithMessage("Nhóm đối tượng không được để trống.");
+                .NotEmpty().WithMessage("Nh�m d?i tu?ng kh�ng du?c d? tr?ng.");
             item.RuleFor(i => i.Quantity)
-                .GreaterThan(0).WithMessage("Số lượng phải lớn hơn 0.");
+                .GreaterThan(0).WithMessage("S? lu?ng ph?i l?n hon 0.");
             item.RuleFor(i => i.UnitPrice)
-                .GreaterThan(0).WithMessage("Đơn giá phải lớn hơn 0.");
+                .GreaterThan(0).WithMessage("�on gi� ph?i l?n hon 0.");
             item.RuleFor(i => i.VolumePerUnit)
-                .GreaterThanOrEqualTo(0).WithMessage("Thể tích mỗi đơn vị không được âm.");
+                .GreaterThanOrEqualTo(0).WithMessage("Th? t�ch m?i don v? kh�ng du?c �m.");
             item.RuleFor(i => i.WeightPerUnit)
-                .GreaterThanOrEqualTo(0).WithMessage("Cân nặng mỗi đơn vị không được âm.");
+                .GreaterThanOrEqualTo(0).WithMessage("C�n n?ng m?i don v? kh�ng du?c �m.");
         });
 
         RuleFor(x => x.RequestedBy)
-            .NotEmpty().WithMessage("Người yêu cầu không hợp lệ.");
+            .NotEmpty().WithMessage("Ngu?i y�u c?u kh�ng h?p l?.");
     }
 }
 

@@ -7,10 +7,12 @@ using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetInventoryLots;
 
-public class GetInventoryLotsQueryHandler(IDepotInventoryRepository depotInventoryRepository)
+public class GetInventoryLotsQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,IDepotInventoryRepository depotInventoryRepository)
     : IRequestHandler<GetInventoryLotsQuery, PagedResult<InventoryLotDto>>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<InventoryLotDto>> Handle(GetInventoryLotsQuery request, CancellationToken cancellationToken)
     {
@@ -21,7 +23,7 @@ public class GetInventoryLotsQueryHandler(IDepotInventoryRepository depotInvento
         }
         else
         {
-            depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+            depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
                 ?? throw ExceptionCodes.WithCode(
                     new NotFoundException("Tài khoản quản lý kho chưa được gán kho phụ trách."),
                     LogisticsErrorCodes.DepotManagerNotAssigned);

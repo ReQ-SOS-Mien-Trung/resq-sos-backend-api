@@ -8,12 +8,15 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
 
 public class GetInventoryLogsQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IInventoryLogRepository inventoryLogRepository,
     IDepotInventoryRepository depotInventoryRepository) 
     : IRequestHandler<GetInventoryLogsQuery, PagedResult<InventoryLogDto>>
 {
     private readonly IInventoryLogRepository _inventoryLogRepository = inventoryLogRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<InventoryLogDto>> Handle(GetInventoryLogsQuery request, CancellationToken cancellationToken)
     {
@@ -22,7 +25,7 @@ public class GetInventoryLogsQueryHandler(
         // Ensure managers can only see logs for their active depot
         if (request.IsManager)
         {
-            var activeDepotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken);
+            var activeDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
             if (!activeDepotId.HasValue)
             {
                 throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");

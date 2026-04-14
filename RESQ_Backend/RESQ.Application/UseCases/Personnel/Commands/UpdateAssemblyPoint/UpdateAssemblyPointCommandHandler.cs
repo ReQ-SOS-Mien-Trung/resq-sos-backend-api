@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -28,7 +28,7 @@ public class UpdateAssemblyPointCommandHandler(
         var assemblyPoint = await _repository.GetByIdAsync(request.Id, cancellationToken);
         if (assemblyPoint == null)
         {
-            throw new NotFoundException("Không tìm thấy điểm tập kết");
+            throw new NotFoundException("Kh�ng t�m th?y di?m t?p k?t");
         }
 
         // 1. Validate Duplicate Name (excluding current record)

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;

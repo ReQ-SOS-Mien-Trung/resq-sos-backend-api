@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Enum.Logistics;
+using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Domain.Entities.Logistics;
 
@@ -181,7 +181,7 @@ public class DepotClosureRecord
         var consumableDrift = SnapshotConsumableUnits - actualConsumable;
         if (consumableDrift > 0)
         {
-            DriftNote = $"Mission đã tiêu thụ {consumableDrift} đơn vị trong quá trình đóng kho.";
+            DriftNote = $"Mission d� ti�u th? {consumableDrift} don v? trong qu� tr�nh d�ng kho.";
         }
     }
 

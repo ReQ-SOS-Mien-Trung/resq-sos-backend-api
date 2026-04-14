@@ -7,20 +7,24 @@ using RESQ.Application.Repositories.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyPickupHistoryActivities;
 
 public class GetMyPickupHistoryActivitiesQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository depotInventoryRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IUpcomingPickupActivityRepository upcomingPickupActivityRepository)
     : IRequestHandler<GetMyPickupHistoryActivitiesQuery, PagedResult<PickupHistoryActivityDto>>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IUpcomingPickupActivityRepository _upcomingPickupActivityRepository = upcomingPickupActivityRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<PickupHistoryActivityDto>> Handle(
         GetMyPickupHistoryActivitiesQuery request,
         CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;

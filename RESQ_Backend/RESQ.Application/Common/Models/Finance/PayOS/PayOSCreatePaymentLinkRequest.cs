@@ -36,4 +36,4 @@ public class PayOSCreatePaymentLinkRequest
 
     [JsonPropertyName("expiredAt")]
     public long? ExpiredAt { get; set; }
-}
+}

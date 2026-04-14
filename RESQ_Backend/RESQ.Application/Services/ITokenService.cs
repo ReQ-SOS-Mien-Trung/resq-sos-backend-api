@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Entities.Identity;
+using RESQ.Domain.Entities.Identity;
 
 namespace RESQ.Application.Services
 {

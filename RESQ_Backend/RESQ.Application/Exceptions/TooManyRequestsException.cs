@@ -1,8 +1,8 @@
-﻿namespace RESQ.Application.Exceptions;
+namespace RESQ.Application.Exceptions;
 
 public class TooManyRequestsException : Exception
 {
-    public TooManyRequestsException() : base("Quá nhiều yêu cầu")
+    public TooManyRequestsException() : base("Qu� nhi?u y�u c?u")
     {
     }
 

@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 
@@ -8,34 +8,34 @@ public class SearchWarehousesByItemsQueryValidator : AbstractValidator<SearchWar
     {
         RuleFor(x => x.ItemModelIds)
             .NotNull().NotEmpty()
-            .WithMessage("Vui lòng cung cấp ít nhất một mã vật phẩm (itemModelIds).");
+            .WithMessage("Vui l�ng cung c?p �t nh?t m?t m� v?t ph?m (itemModelIds).");
 
         When(x => x.ItemModelIds != null && x.ItemModelIds.Count > 0, () =>
         {
             RuleFor(x => x.ItemModelIds!.Count)
                 .LessThanOrEqualTo(50)
-                .WithMessage("Số lượng mã vật phẩm tìm kiếm không được vượt quá 50.");
+                .WithMessage("S? lu?ng m� v?t ph?m t�m ki?m kh�ng du?c vu?t qu� 50.");
 
             RuleForEach(x => x.ItemModelIds)
                 .GreaterThan(0)
-                .WithMessage("Mã vật phẩm phải là số nguyên dương.");
+                .WithMessage("M� v?t ph?m ph?i l� s? nguy�n duong.");
 
             RuleFor(x => x.ItemQuantities)
                 .Must((query, dict) =>
                     dict.Count == 0 || dict.Count == (query.ItemModelIds?.Count ?? 0))
-                .WithMessage("Số lượng quantities phải bằng số lượng itemModelIds (hoặc để trống để dùng mặc định là 1).");
+                .WithMessage("S? lu?ng quantities ph?i b?ng s? lu?ng itemModelIds (ho?c d? tr?ng d? d�ng m?c d?nh l� 1).");
 
             RuleFor(x => x.ItemQuantities)
                 .Must(dict => dict.Values.All(v => v > 0))
-                .WithMessage("Mỗi số lượng yêu cầu phải lớn hơn 0.");
+                .WithMessage("M?i s? lu?ng y�u c?u ph?i l?n hon 0.");
         });
 
         RuleFor(x => x.PageNumber)
             .GreaterThan(0)
-            .WithMessage("Số trang phải lớn hơn 0.");
+            .WithMessage("S? trang ph?i l?n hon 0.");
 
         RuleFor(x => x.PageSize)
             .InclusiveBetween(1, 50)
-            .WithMessage("Kích thước trang phải từ 1 đến 50.");
+            .WithMessage("K�ch thu?c trang ph?i t? 1 d?n 50.");
     }
 }

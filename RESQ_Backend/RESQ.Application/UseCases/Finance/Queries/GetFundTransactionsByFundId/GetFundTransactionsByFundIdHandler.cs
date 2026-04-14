@@ -20,8 +20,11 @@ public class GetFundTransactionsByFundIdHandler
     : IRequestHandler<GetFundTransactionsByFundIdQuery, PagedResult<DepotFundTransactionDto>>
 {
     private readonly IDepotFundRepository _depotFundRepo;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepo;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IUserPermissionResolver _permissionResolver;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public GetFundTransactionsByFundIdHandler(
         IDepotFundRepository depotFundRepo,
@@ -45,7 +48,7 @@ public class GetFundTransactionsByFundIdHandler
 
         if (!isAdmin)
         {
-            var managedDepotId = await _depotInventoryRepo.GetActiveDepotIdByManagerAsync(request.RequestedBy, cancellationToken);
+            var managedDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.RequestedBy, request.DepotId, cancellationToken);
             if (!managedDepotId.HasValue)
             {
                 throw ExceptionCodes.WithCode(

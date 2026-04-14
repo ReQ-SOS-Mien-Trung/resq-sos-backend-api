@@ -1,8 +1,8 @@
-﻿namespace RESQ.Application.Exceptions;
+namespace RESQ.Application.Exceptions;
 
 public class ForbiddenException : Exception
 {
-    public ForbiddenException() : base("Truy cập bị từ chối")
+    public ForbiddenException() : base("Truy c?p b? t? ch?i")
     {
     }
 

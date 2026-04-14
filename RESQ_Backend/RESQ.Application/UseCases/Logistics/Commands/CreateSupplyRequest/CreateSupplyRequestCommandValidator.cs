@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
@@ -8,32 +8,32 @@ public class CreateSupplyRequestCommandValidator : AbstractValidator<CreateSuppl
     public CreateSupplyRequestCommandValidator()
     {
         RuleFor(x => x.Requests)
-            .NotEmpty().WithMessage("Danh sách yêu cầu không được để trống.");
+            .NotEmpty().WithMessage("Danh s�ch y�u c?u kh�ng du?c d? tr?ng.");
 
         RuleFor(x => x.Requests)
             .Must(list => list.Select(r => r.SourceDepotId).Distinct().Count() == list.Count)
-            .WithMessage("Mỗi kho nguồn chỉ được xuất hiện một lần trong yêu cầu.");
+            .WithMessage("M?i kho ngu?n ch? du?c xu?t hi?n m?t l?n trong y�u c?u.");
 
         RuleForEach(x => x.Requests).ChildRules(group =>
         {
             group.RuleFor(g => g.SourceDepotId)
-                .GreaterThan(0).WithMessage("ID kho nguồn không hợp lệ.");
+                .GreaterThan(0).WithMessage("ID kho ngu?n kh�ng h?p l?.");
 
             group.RuleFor(g => g.PriorityLevel)
                 .IsInEnum()
                 .Must(x => x is SupplyRequestPriorityLevel.Urgent or SupplyRequestPriorityLevel.High or SupplyRequestPriorityLevel.Medium)
-                .WithMessage("Mức độ ưu tiên yêu cầu tiếp tế không hợp lệ.");
+                .WithMessage("M?c d? uu ti�n y�u c?u ti?p t? kh�ng h?p l?.");
 
             group.RuleFor(g => g.Items)
-                .NotEmpty().WithMessage("Mỗi kho nguồn phải có ít nhất một vật phẩm yêu cầu.");
+                .NotEmpty().WithMessage("M?i kho ngu?n ph?i c� �t nh?t m?t v?t ph?m y�u c?u.");
 
             group.RuleForEach(g => g.Items).ChildRules(item =>
             {
                 item.RuleFor(i => i.ItemModelId)
-                    .GreaterThan(0).WithMessage("ID vật phẩm không hợp lệ.");
+                    .GreaterThan(0).WithMessage("ID v?t ph?m kh�ng h?p l?.");
 
                 item.RuleFor(i => i.Quantity)
-                    .GreaterThan(0).WithMessage("Số lượng yêu cầu phải lớn hơn 0.");
+                    .GreaterThan(0).WithMessage("S? lu?ng y�u c?u ph?i l?n hon 0.");
             });
         });
     }

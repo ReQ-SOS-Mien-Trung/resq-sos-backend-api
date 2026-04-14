@@ -33,4 +33,4 @@ public class MomoCreatePaymentResponse
     
     [JsonPropertyName("qrCodeUrl")]
     public string QrCodeUrl { get; set; } = string.Empty;
-}
+}

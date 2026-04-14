@@ -7,6 +7,7 @@ using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 
 public class GetMyIncomingClosureTransferQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository inventoryRepository,
     IDepotClosureTransferRepository transferRepository,
     IDepotRepository depotRepository,
@@ -18,7 +19,7 @@ public class GetMyIncomingClosureTransferQueryHandler(
         CancellationToken cancellationToken)
     {
         // 1. Xác định depot của manager từ token
-        var myDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var myDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         // 2. Tìm transfer chưa kết thúc mà kho này là kho đích

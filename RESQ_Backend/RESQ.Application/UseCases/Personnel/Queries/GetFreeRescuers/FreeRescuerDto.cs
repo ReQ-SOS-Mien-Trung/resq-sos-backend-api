@@ -13,4 +13,4 @@ public class FreeRescuerDto
     public string? Ward { get; set; }
     public string? Province { get; set; }
     public List<string> TopAbilities { get; set; } = new();
-}
+}

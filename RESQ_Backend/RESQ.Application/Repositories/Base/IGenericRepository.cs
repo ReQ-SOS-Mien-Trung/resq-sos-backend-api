@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using RESQ.Application.Common.Models;
 
 namespace RESQ.Application.Repositories.Base

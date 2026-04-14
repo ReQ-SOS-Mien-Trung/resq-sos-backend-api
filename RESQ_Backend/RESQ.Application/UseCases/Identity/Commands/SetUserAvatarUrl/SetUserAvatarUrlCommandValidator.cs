@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace RESQ.Application.UseCases.Identity.Commands.SetUserAvatarUrl
 {
@@ -6,7 +6,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.SetUserAvatarUrl
     {
         public SetUserAvatarUrlCommandValidator()
         {
-            RuleFor(x => x.AvatarUrl).NotEmpty().WithMessage("AvatarUrl không được để trống");
+            RuleFor(x => x.AvatarUrl).NotEmpty().WithMessage("AvatarUrl kh�ng du?c d? tr?ng");
         }
     }
 }

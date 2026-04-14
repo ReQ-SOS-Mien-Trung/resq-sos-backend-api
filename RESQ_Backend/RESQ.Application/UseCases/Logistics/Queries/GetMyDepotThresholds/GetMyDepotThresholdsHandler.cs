@@ -6,16 +6,19 @@ using RESQ.Domain.Enum.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
 
 public class GetMyDepotThresholdsHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository depotInventoryRepository,
     IStockThresholdConfigRepository stockThresholdConfigRepository)
     : IRequestHandler<GetMyDepotThresholdsQuery, GetMyDepotThresholdsResponse>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IStockThresholdConfigRepository _stockThresholdConfigRepository = stockThresholdConfigRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<GetMyDepotThresholdsResponse> Handle(GetMyDepotThresholdsQuery request, CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var global = await _stockThresholdConfigRepository.GetActiveGlobalAsync(cancellationToken);

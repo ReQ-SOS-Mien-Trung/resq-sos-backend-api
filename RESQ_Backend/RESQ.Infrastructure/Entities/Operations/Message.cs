@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -23,7 +23,7 @@ public partial class Message
     [Column("content")]
     public string? Content { get; set; }
 
-    /// <summary>Loại tin nhắn: UserMessage | AiMessage | SystemMessage</summary>
+    /// <summary>Lo?i tin nh?n: UserMessage | AiMessage | SystemMessage</summary>
     [Column("message_type")]
     [StringLength(30)]
     public string? MessageType { get; set; }

@@ -12,4 +12,4 @@ public interface IFundDistributionManager
     /// <param name="currentBalance">The calculated available balance (Total Raised - Total Spent).</param>
     /// <param name="allocationAmount">The amount to allocate.</param>
     void ValidateAllocation(FundCampaignModel campaign, decimal currentBalance, decimal allocationAmount);
-}
+}

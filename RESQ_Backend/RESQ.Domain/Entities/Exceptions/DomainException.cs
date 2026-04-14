@@ -1,4 +1,4 @@
-﻿namespace RESQ.Domain.Entities.Exceptions
+namespace RESQ.Domain.Entities.Exceptions
 {
     public abstract class DomainException : Exception
     {

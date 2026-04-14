@@ -11,18 +11,21 @@ using RESQ.Domain.Enum.Finance;
 namespace RESQ.Application.UseCases.Finance.Queries.GetMyDepotAdvanceTransactions;
 
 public class GetMyDepotAdvanceTransactionsHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository depotInventoryRepo,
     IDepotFundRepository depotFundRepo)
     : IRequestHandler<GetMyDepotAdvanceTransactionsQuery, PagedResult<DepotFundTransactionDto>>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepo = depotInventoryRepo;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotFundRepository _depotFundRepo = depotFundRepo;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<DepotFundTransactionDto>> Handle(
         GetMyDepotAdvanceTransactionsQuery request,
         CancellationToken cancellationToken)
     {
-        var depotId = await _depotInventoryRepo.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Tài khoản hiện tại chưa được phân công quản lý kho đang hoạt động.");
 
         var pagedResult = await _depotFundRepo.GetPagedTransactionsByDepotIdAsync(

@@ -28,4 +28,4 @@ public partial class RolePermission
     [ForeignKey("RoleId")]
     [InverseProperty("RolePermissions")]
     public virtual Role Role { get; set; } = null!;
-}
+}

@@ -1,12 +1,12 @@
-﻿namespace RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosureTransfer;
+namespace RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosureTransfer;
 
 /// <summary>Request body cho POST /{id}/close/transfer.</summary>
 public class InitiateDepotClosureTransferRequestDto
 {
-    /// <summary>Lý do đóng kho (tùy chọn).</summary>
+    /// <summary>L� do d�ng kho (t�y ch?n).</summary>
     public string? Reason { get; set; }
 
-    /// <summary>Danh sách phân bổ vật phẩm sang các kho đích.</summary>
+    /// <summary>Danh s�ch ph�n b? v?t ph?m sang c�c kho d�ch.</summary>
     public List<InitiateDepotClosureTransferDepotAssignmentRequestDto> Assignments { get; set; } = [];
 }
 

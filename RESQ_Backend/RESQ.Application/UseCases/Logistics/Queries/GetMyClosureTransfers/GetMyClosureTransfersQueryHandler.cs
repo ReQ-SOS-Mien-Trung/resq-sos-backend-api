@@ -1,30 +1,31 @@
-﻿using MediatR;
+using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetMyClosureTransfers;
 
 public class GetMyClosureTransfersQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository inventoryRepository,
     IDepotClosureTransferRepository transferRepository)
     : IRequestHandler<GetMyClosureTransfersQuery, List<MyClosureTransferDto>>
 {
     public async Task<List<MyClosureTransferDto>> Handle(GetMyClosureTransfersQuery request, CancellationToken cancellationToken)
     {
-        var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken);
+        var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
 
         int depotId;
         if (request.DepotId.HasValue)
         {
             if (managerDepotId.HasValue && managerDepotId.Value != request.DepotId.Value)
-                throw new ForbiddenException("Bạn chỉ có thể xem transfer của kho mình quản lý.");
+                throw new ForbiddenException("B?n ch? c� th? xem transfer c?a kho m�nh qu?n l�.");
 
             depotId = request.DepotId.Value;
         }
         else
         {
             depotId = managerDepotId
-                ?? throw new NotFoundException("Bạn hiện không phụ trách kho nào.");
+                ?? throw new NotFoundException("B?n hi?n kh�ng ph? tr�ch kho n�o.");
         }
 
         var transfers = await transferRepository.GetByRelatedDepotIdAsync(depotId, cancellationToken);

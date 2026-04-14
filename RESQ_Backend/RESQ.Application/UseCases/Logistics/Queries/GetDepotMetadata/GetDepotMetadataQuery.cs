@@ -1,10 +1,10 @@
-ï»¿using MediatR;
+using MediatR;
 using RESQ.Application.Common.Models;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 
 /// <summary>
-/// [Metadata] Danh sÃ¡ch kho dÃ¹ng cho dropdown  key = id, value = tÃªn.
+/// [Metadata] Danh sách kho dùng cho dropdown  key = id, value = tên.
 /// </summary>
 public record GetDepotMetadataQuery : IRequest<List<MetadataDto>>
 {

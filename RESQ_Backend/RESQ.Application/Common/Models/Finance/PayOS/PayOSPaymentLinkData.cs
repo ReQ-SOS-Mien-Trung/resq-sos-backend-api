@@ -27,4 +27,4 @@ public class PayOSPaymentLinkData
 
     [JsonPropertyName("qrCode")]
     public string QrCode { get; set; } = string.Empty;
-}
+}

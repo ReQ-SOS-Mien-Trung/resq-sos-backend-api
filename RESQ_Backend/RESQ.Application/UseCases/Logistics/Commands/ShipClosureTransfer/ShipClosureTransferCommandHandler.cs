@@ -12,6 +12,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
 /// Yêu cầu người thực hiện phải là manager của kho nguồn trong transfer.
 /// </summary>
 public class ShipClosureTransferCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotClosureTransferRepository transferRepository,
     IDepotInventoryRepository inventoryRepository,
     IFirebaseService firebaseService,
@@ -27,7 +28,7 @@ public class ShipClosureTransferCommandHandler(
             ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
 
         // Kiểm tra người thực hiện là manager của kho nguồn
-        var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         if (managerDepotId != transfer.SourceDepotId)

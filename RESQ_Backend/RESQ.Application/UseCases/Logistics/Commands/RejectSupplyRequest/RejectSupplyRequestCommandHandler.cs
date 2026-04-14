@@ -8,6 +8,7 @@ using RESQ.Domain.Entities.Exceptions.Logistics;
 namespace RESQ.Application.UseCases.Logistics.Commands.RejectSupplyRequest;
 
 public class RejectSupplyRequestCommandHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IFirebaseService firebaseService)
@@ -20,7 +21,7 @@ public class RejectSupplyRequestCommandHandler(
 
         SupplyRequestStateMachine.EnsureCanReject(sr.SourceStatus, sr.RequestingStatus);
 
-        var managerDepotId = await depotInventoryRepository.GetActiveDepotIdByManagerAsync(request.UserId, cancellationToken)
+        var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         if (managerDepotId != sr.SourceDepotId)

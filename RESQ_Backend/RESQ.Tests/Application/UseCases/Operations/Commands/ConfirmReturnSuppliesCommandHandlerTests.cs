@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -277,7 +277,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         var depotInventoryRepository = new StubDepotInventoryRepository
         {
             ManagerDepotIds = [depotId],
-            ExceptionFactory = () => new InvalidOperationException("Reusable unit #171 không ở trạng thái InUse.")
+            ExceptionFactory = () => new InvalidOperationException("Reusable unit #171 kh�ng ? tr?ng th�i InUse.")
         };
         var metadataRepository = new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
         {
@@ -308,7 +308,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 ],
                 null), CancellationToken.None));
 
-        Assert.Equal("Reusable unit #171 không ở trạng thái InUse.", ex.Message);
+        Assert.Equal("Reusable unit #171 kh�ng ? tr?ng th�i InUse.", ex.Message);
     }
 
     [Fact]
@@ -582,8 +582,8 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         return builder
             .ToString()
             .Normalize(System.Text.NormalizationForm.FormC)
-            .Replace('đ', 'd')
-            .Replace('Đ', 'D');
+            .Replace('d', 'd')
+            .Replace('�', 'D');
     }
 }
 

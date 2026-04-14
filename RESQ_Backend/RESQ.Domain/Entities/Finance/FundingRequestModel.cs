@@ -1,12 +1,12 @@
-﻿using RESQ.Domain.Entities.Finance.Exceptions;
+using RESQ.Domain.Entities.Finance.Exceptions;
 using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Domain.Entities.Finance;
 
 /// <summary>
-/// Yêu cầu cấp thêm quỹ từ Depot → Admin (Cách 2).
-/// Depot đính kèm file Excel vật phẩm + giá tiền.
-/// Admin duyệt → chọn campaign → hệ thống giải ngân.
+/// Y�u c?u c?p th�m qu? t? Depot ? Admin (C�ch 2).
+/// Depot d�nh k�m file Excel v?t ph?m + gi� ti?n.
+/// Admin duy?t ? ch?n campaign ? h? th?ng gi?i ng�n.
 /// </summary>
 public class FundingRequestModel
 {
@@ -16,12 +16,12 @@ public class FundingRequestModel
     public decimal TotalAmount { get; private set; }
     public string? Description { get; private set; }
     
-    /// <summary>URL file Excel đính kèm (vật phẩm + giá tiền).</summary>
+    /// <summary>URL file Excel d�nh k�m (v?t ph?m + gi� ti?n).</summary>
     public string? AttachmentUrl { get; private set; }
     
     public FundingRequestStatus Status { get; private set; }
     
-    /// <summary>Campaign mà Admin chọn để rút tiền (chỉ có khi đã duyệt).</summary>
+    /// <summary>Campaign m� Admin ch?n d? r�t ti?n (ch? c� khi d� duy?t).</summary>
     public int? ApprovedCampaignId { get; private set; }
     public Guid? ReviewedBy { get; private set; }
     public DateTime? ReviewedAt { get; private set; }
@@ -40,7 +40,7 @@ public class FundingRequestModel
 
     private FundingRequestModel() { }
 
-    /// <summary>Depot tạo yêu cầu cấp quỹ mới.</summary>
+    /// <summary>Depot t?o y�u c?u c?p qu? m?i.</summary>
     public FundingRequestModel(int depotId, Guid requestedBy, decimal totalAmount, string? description, string? attachmentUrl)
     {
         if (totalAmount <= 0) throw new NegativeMoneyException(totalAmount);
@@ -87,11 +87,11 @@ public class FundingRequestModel
         return model;
     }
 
-    /// <summary>Admin duyệt yêu cầu - chọn nguồn quỹ (campaign hoặc system fund).</summary>
+    /// <summary>Admin duy?t y�u c?u - ch?n ngu?n qu? (campaign ho?c system fund).</summary>
     public void Approve(int? campaignId, Guid reviewerId)
     {
         if (Status != FundingRequestStatus.Pending)
-            throw new InvalidFundingRequestStatusException(Status.ToString(), "duyệt");
+            throw new InvalidFundingRequestStatusException(Status.ToString(), "duy?t");
 
         Status = FundingRequestStatus.Approved;
         ApprovedCampaignId = campaignId;
@@ -99,11 +99,11 @@ public class FundingRequestModel
         ReviewedAt = DateTime.UtcNow;
     }
 
-    /// <summary>Admin từ chối yêu cầu.</summary>
+    /// <summary>Admin t? ch?i y�u c?u.</summary>
     public void Reject(Guid reviewerId, string reason)
     {
         if (Status != FundingRequestStatus.Pending)
-            throw new InvalidFundingRequestStatusException(Status.ToString(), "từ chối");
+            throw new InvalidFundingRequestStatusException(Status.ToString(), "t? ch?i");
 
         Status = FundingRequestStatus.Rejected;
         ReviewedBy = reviewerId;

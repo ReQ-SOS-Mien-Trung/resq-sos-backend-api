@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Models.Finance.PayOS;
@@ -42,7 +42,7 @@ public class PayOSService : IPaymentGatewayService
 
         if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(checksumKey))
         {
-            throw new InvalidOperationException("Cấu hình PayOS bị thiếu hoặc không hợp lệ.");
+            throw new InvalidOperationException("C?u h�nh PayOS b? thi?u ho?c kh�ng h?p l?.");
         }
 
         long orderCode;
@@ -76,7 +76,7 @@ public class PayOSService : IPaymentGatewayService
             ExpiredAt = expiredAt,
             BuyerName = donation.Donor?.Name,
             BuyerEmail = donation.Donor?.Email,
-            Items = [ new PayOSItem { Name = $"Ủng hộ {campaignCode}", Quantity = 1, Price = amount } ]
+            Items = [ new PayOSItem { Name = $"?ng h? {campaignCode}", Quantity = 1, Price = amount } ]
         };
 
         var client = _httpClientFactory.CreateClient();
@@ -90,14 +90,14 @@ public class PayOSService : IPaymentGatewayService
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("PayOS Error: {Content}", responseContent);
-            throw new Exception($"Lỗi tạo link thanh toán (HTTP {(int)response.StatusCode}).");
+            throw new Exception($"L?i t?o link thanh to�n (HTTP {(int)response.StatusCode}).");
         }
 
         var result = JsonSerializer.Deserialize<PayOSResponse<PayOSPaymentLinkData>>(responseContent, 
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         if (result == null || result.Code != "00" || result.Data == null)
-            throw new Exception($"Lỗi PayOS: {result?.Desc}");
+            throw new Exception($"L?i PayOS: {result?.Desc}");
 
         return new PaymentLinkResult
         {
@@ -118,21 +118,21 @@ public class PayOSService : IPaymentGatewayService
             if (!root.TryGetProperty("data", out var dataElement) ||
                 !root.TryGetProperty("signature", out var signatureElement))
             {
-                _logger.LogWarning("Webhook thiếu data hoặc signature.");
+                _logger.LogWarning("Webhook thi?u data ho?c signature.");
                 return false;
             }
 
             var receivedSignature = signatureElement.GetString();
             if (string.IsNullOrEmpty(receivedSignature))
             {
-                _logger.LogWarning("Signature rỗng.");
+                _logger.LogWarning("Signature r?ng.");
                 return false;
             }
 
             var checksumKey = _configuration["PayOS:ChecksumKey"];
             if (string.IsNullOrEmpty(checksumKey))
             {
-                _logger.LogError("Thiếu cấu hình PayOS ChecksumKey.");
+                _logger.LogError("Thi?u c?u h�nh PayOS ChecksumKey.");
                 return false;
             }
 
@@ -143,7 +143,7 @@ public class PayOSService : IPaymentGatewayService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Lỗi verify PayOS webhook.");
+            _logger.LogError(ex, "L?i verify PayOS webhook.");
             return false;
         }
     }

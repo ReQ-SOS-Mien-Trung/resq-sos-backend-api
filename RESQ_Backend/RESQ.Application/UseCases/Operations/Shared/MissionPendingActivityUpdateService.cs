@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -47,7 +47,7 @@ public class MissionPendingActivityUpdateService(
             mission.Id);
 
         if (mission.Status is MissionStatus.Completed or MissionStatus.Incompleted)
-            throw new BadRequestException("Không thể cập nhật activity của mission đã kết thúc.");
+            throw new BadRequestException("Kh�ng th? c?p nh?t activity c?a mission d� k?t th�c.");
 
         var missionActivities = (await _activityRepository.GetByMissionIdAsync(mission.Id, cancellationToken)).ToList();
         var activityLookup = missionActivities.ToDictionary(activity => activity.Id);
@@ -56,13 +56,13 @@ public class MissionPendingActivityUpdateService(
         foreach (var patch in activities)
         {
             if (!activityLookup.TryGetValue(patch.ActivityId, out var activity))
-                throw new NotFoundException($"Activity #{patch.ActivityId} không thuộc mission #{mission.Id}.");
+                throw new NotFoundException($"Activity #{patch.ActivityId} kh�ng thu?c mission #{mission.Id}.");
 
             if (activity.Status != MissionActivityStatus.Planned
                 && !CanUpdateOngoingReturnAssemblyPoint(activity, patch))
             {
                 throw new BadRequestException(
-                    $"Chỉ được cập nhật activity Planned. Activity #{activity.Id} hiện ở trạng thái {activity.Status}.");
+                    $"Ch? du?c c?p nh?t activity Planned. Activity #{activity.Id} hi?n ? tr?ng th�i {activity.Status}.");
             }
 
             var currentItems = ParseSupplies(activity.Items);
@@ -160,11 +160,11 @@ public class MissionPendingActivityUpdateService(
                 continue;
 
             var missionTeamLabel = teamGroup.Key.HasValue
-                ? $"đội #{teamGroup.Key.Value}"
-                : "nhóm activity chưa gán đội";
+                ? $"d?i #{teamGroup.Key.Value}"
+                : "nh�m activity chua g�n d?i";
             var activityIds = string.Join(", ", duplicateStep.Select(activity => $"#{activity.Id}"));
             throw new BadRequestException(
-                $"Step {duplicateStep.Key} bị trùng trong {missionTeamLabel}. Các activity liên quan: {activityIds}.");
+                $"Step {duplicateStep.Key} b? tr�ng trong {missionTeamLabel}. C�c activity li�n quan: {activityIds}.");
         }
     }
 
@@ -232,9 +232,9 @@ public class MissionPendingActivityUpdateService(
                 continue;
 
             var errors = shortages.Select(shortage => shortage.NotFound
-                ? $"Kho {depot.Key}: vật phẩm '{shortage.ItemName}' không có trong kho."
-                : $"Kho {depot.Key}: vật phẩm '{shortage.ItemName}' không đủ số lượng bổ sung - cần thêm {shortage.RequestedQuantity}, khả dụng {shortage.AvailableQuantity}.");
-            throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", errors)}");
+                ? $"Kho {depot.Key}: v?t ph?m '{shortage.ItemName}' kh�ng c� trong kho."
+                : $"Kho {depot.Key}: v?t ph?m '{shortage.ItemName}' kh�ng d? s? lu?ng b? sung - c?n th�m {shortage.RequestedQuantity}, kh? d?ng {shortage.AvailableQuantity}.");
+            throw new BadRequestException($"Ki?m tra t?n kho th?t b?i:\n{string.Join("\n", errors)}");
         }
     }
 

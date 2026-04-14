@@ -1,4 +1,4 @@
-﻿using ClosedXML.Excel;
+using ClosedXML.Excel;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 using System.Globalization;
@@ -6,9 +6,9 @@ using System.Globalization;
 namespace RESQ.Infrastructure.Services.Finance;
 
 /// <summary>
-/// Parse file Excel vật phẩm từ FundingRequest (dùng khi cần import hàng loạt).
-/// Format Excel mong đợi:
-/// Row 1: Header (STT | Tên vật phẩm | Mã danh mục | Đơn vị | Số lượng | Đơn giá | Thành tiền | Loại | Nhóm đối tượng | Ghi chú)
+/// Parse file Excel v?t ph?m t? FundingRequest (d�ng khi c?n import h�ng lo?t).
+/// Format Excel mong d?i:
+/// Row 1: Header (STT | T�n v?t ph?m | M� danh m?c | �on v? | S? lu?ng | �on gi� | Th�nh ti?n | Lo?i | Nh�m d?i tu?ng | Ghi ch�)
 /// Row 2+: Data
 /// </summary>
 public class FundingRequestExcelParser : IFundingRequestExcelParser
@@ -16,18 +16,18 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
     private static readonly Dictionary<string, string> TargetGroupVietnameseToRaw = BuildNormalizedLookup(
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Trẻ em"] = "Children",
-            ["Người già"] = "Elderly",
-            ["Phụ nữ mang thai"] = "Pregnant",
-            ["Người lớn"] = "Adult",
-            ["Lực lượng cứu hộ"] = "Rescuer"
+            ["Tr? em"] = "Children",
+            ["Ngu?i gi�"] = "Elderly",
+            ["Ph? n? mang thai"] = "Pregnant",
+            ["Ngu?i l?n"] = "Adult",
+            ["L?c lu?ng c?u h?"] = "Rescuer"
         });
 
     private static readonly Dictionary<string, string> ItemTypeVietnameseToRaw = BuildNormalizedLookup(
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Tiêu thụ"] = "Consumable",
-            ["Tái sử dụng"] = "Reusable"
+            ["Ti�u th?"] = "Consumable",
+            ["T�i s? d?ng"] = "Reusable"
         });
 
     public List<FundingRequestItemModel> ParseSupplyItems(Stream fileStream)
@@ -172,8 +172,8 @@ public class FundingRequestExcelParser : IFundingRequestExcelParser
         return builder
             .ToString()
             .Normalize(System.Text.NormalizationForm.FormC)
-            .Replace('đ', 'd')
-            .Replace('Đ', 'D');
+            .Replace('d', 'd')
+            .Replace('�', 'D');
     }
 
     private static Dictionary<string, string> BuildNormalizedLookup(Dictionary<string, string> source)

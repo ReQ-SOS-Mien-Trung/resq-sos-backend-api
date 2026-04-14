@@ -5,6 +5,8 @@ using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.System;
 
+using RESQ.Application.Services;
+
 namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
 {
     public class GetCurrentUserQueryHandler(
@@ -15,7 +17,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         IDepotInventoryRepository depotInventoryRepository,
         IDepotRepository depotRepository,
         IRescuerScoreRepository rescuerScoreRepository,
-        IRescuerScoreVisibilityConfigRepository rescuerScoreVisibilityConfigRepository
+        IRescuerScoreVisibilityConfigRepository rescuerScoreVisibilityConfigRepository,
+        IManagerDepotAccessService managerDepotAccessService
     ) : IRequestHandler<GetCurrentUserQuery, GetCurrentUserResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
@@ -26,6 +29,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
         private readonly IDepotRepository _depotRepository = depotRepository;
         private readonly IRescuerScoreRepository _rescuerScoreRepository = rescuerScoreRepository;
         private readonly IRescuerScoreVisibilityConfigRepository _rescuerScoreVisibilityConfigRepository = rescuerScoreVisibilityConfigRepository;
+        private readonly IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
         public async Task<GetCurrentUserResponse> Handle(GetCurrentUserQuery request, CancellationToken cancellationToken)
         {
@@ -61,16 +65,8 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
 
             var permissions = await _permissionRepository.GetEffectivePermissionCodesAsync(user.Id, user.RoleId, cancellationToken);
 
-            int? depotId = null;
-            string? depotName = null;
-            var managedDepotId = await _depotInventoryRepository.GetActiveDepotIdByManagerAsync(user.Id, cancellationToken);
-            if (managedDepotId.HasValue)
-            {
-                depotId = managedDepotId.Value;
-                var depot = await _depotRepository.GetByIdAsync(managedDepotId.Value, cancellationToken);
-                depotName = depot?.Name;
-            }
-
+            var managedDepotsData = await _managerDepotAccessService.GetManagedDepotsAsync(user.Id, cancellationToken);
+            
             RescuerScoreDto? rescuerScoreDto = null;
             if (user.RescuerStep > 0)
             {
@@ -114,8 +110,7 @@ namespace RESQ.Application.UseCases.Identity.Queries.GetCurrentUser
                 ApprovedAt = user.ApprovedAt,
                 RescuerApplicationDocuments = documents,
                 Permissions = permissions,
-                DepotId = depotId,
-                DepotName = depotName,
+                ManagedDepots = managedDepotsData,
                 RescuerScore = rescuerScoreDto
             };
         }

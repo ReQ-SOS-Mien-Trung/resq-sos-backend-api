@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -73,7 +73,7 @@ public partial class SosRequest
     [Column("ai_analysis", TypeName = "jsonb")]
     public string? AiAnalysis { get; set; }
 
-    /// <summary>Thời điểm server nhận được SOS request (có thể muộn hơn CreatedAt nếu gửi qua mesh network offline).</summary>
+    /// <summary>Th?i di?m server nh?n du?c SOS request (c� th? mu?n hon CreatedAt n?u g?i qua mesh network offline).</summary>
     [Column("received_at", TypeName = "timestamp with time zone")]
     public DateTime? ReceivedAt { get; set; }
 

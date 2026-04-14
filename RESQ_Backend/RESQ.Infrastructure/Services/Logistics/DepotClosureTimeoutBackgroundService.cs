@@ -1,1 +1,1 @@
-﻿namespace RESQ.Infrastructure.Services.Logistics;
+namespace RESQ.Infrastructure.Services.Logistics;

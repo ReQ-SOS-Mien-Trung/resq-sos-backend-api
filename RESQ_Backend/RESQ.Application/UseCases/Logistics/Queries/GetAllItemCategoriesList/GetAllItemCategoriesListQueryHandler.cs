@@ -22,4 +22,4 @@ public class GetAllItemCategoriesListQueryHandler(IItemCategoryRepository reposi
             Description = c.Description
         }).ToList();
     }
-}
+}

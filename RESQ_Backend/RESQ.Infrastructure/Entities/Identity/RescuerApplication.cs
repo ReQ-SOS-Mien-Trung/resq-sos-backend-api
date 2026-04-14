@@ -42,4 +42,4 @@ public partial class RescuerApplication
 
     [InverseProperty("Application")]
     public virtual ICollection<RescuerApplicationDocument> RescuerApplicationDocuments { get; set; } = new List<RescuerApplicationDocument>();
-}
+}

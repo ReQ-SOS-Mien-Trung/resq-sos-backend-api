@@ -12,10 +12,12 @@ namespace RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 /// 4. Sorts each item's depots by straight-line distance from the manager's depot (nearest first).
 /// </summary>
 public class SearchWarehousesByItemsQueryHandler(
+    RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository depotInventoryRepository)
     : IRequestHandler<SearchWarehousesByItemsQuery, PagedResult<ItemWarehouseAvailabilityDto>>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
+    private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
 
     public async Task<PagedResult<ItemWarehouseAvailabilityDto>> Handle(
         SearchWarehousesByItemsQuery request,

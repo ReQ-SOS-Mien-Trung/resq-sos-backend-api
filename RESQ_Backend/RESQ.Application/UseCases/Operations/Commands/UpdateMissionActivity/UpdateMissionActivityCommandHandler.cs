@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
@@ -37,7 +37,7 @@ public class UpdateMissionActivityCommandHandler(
 
         var activity = await _activityRepository.GetByIdAsync(request.ActivityId, cancellationToken);
         if (activity is null)
-            throw new NotFoundException($"Không tìm thấy activity với ID: {request.ActivityId}");
+            throw new NotFoundException($"Kh�ng t�m th?y activity v?i ID: {request.ActivityId}");
 
         if (activity.Status != MissionActivityStatus.Planned
             && !CanUpdateOngoingReturnAssemblyPoint(activity, request))
@@ -73,7 +73,7 @@ public class UpdateMissionActivityCommandHandler(
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Lỗi khi giải phóng vật phẩm cũ cho activity #{ActivityId}", activity.Id);
+                _logger.LogWarning(ex, "L?i khi gi?i ph�ng v?t ph?m cu cho activity #{ActivityId}", activity.Id);
             }
         }
 
@@ -100,9 +100,9 @@ public class UpdateMissionActivityCommandHandler(
                         if (shortages.Count > 0)
                         {
                             var errors = shortages.Select(s => s.NotFound
-                                ? $"Kho {newDepotId}: vật phẩm '{s.ItemName}' không có trong kho."
-                                : $"Kho {newDepotId}: vật phẩm '{s.ItemName}' không đủ — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
-                            throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", errors)}");
+                                ? $"Kho {newDepotId}: v?t ph?m '{s.ItemName}' kh�ng c� trong kho."
+                                : $"Kho {newDepotId}: v?t ph?m '{s.ItemName}' kh�ng d? � y�u c?u {s.RequestedQuantity}, kh? d?ng {s.AvailableQuantity}.");
+                            throw new BadRequestException($"Ki?m tra t?n kho th?t b?i:\n{string.Join("\n", errors)}");
                         }
                     }
                 }
@@ -158,7 +158,7 @@ public class UpdateMissionActivityCommandHandler(
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Không thể đặt trước vật phẩm mới cho activity #{ActivityId}", activity.Id);
+                    _logger.LogWarning(ex, "Kh�ng th? d?t tru?c v?t ph?m m?i cho activity #{ActivityId}", activity.Id);
                 }
             }
         }

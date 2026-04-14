@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.Common.Models
+namespace RESQ.Application.Common.Models
 {
     public class PaymentLinkResult
     {

@@ -6,4 +6,4 @@ public class ExtendCampaignRequest
 {
     [Required]
     public DateOnly NewEndDate { get; set; }
-}
+}

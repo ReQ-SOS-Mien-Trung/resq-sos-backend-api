@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace RESQ.Application.UseCases.Identity.Commands.Login
 {
