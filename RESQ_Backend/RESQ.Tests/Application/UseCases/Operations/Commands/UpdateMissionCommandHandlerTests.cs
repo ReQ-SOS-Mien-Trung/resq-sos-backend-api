@@ -185,6 +185,90 @@ public class UpdateMissionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_DoesNotTouchInventory_WhenFullItemPayloadOnlyEchoesCurrentBusinessValues()
+    {
+        var mission = new MissionModel
+        {
+            Id = 25,
+            MissionType = "Initial",
+            PriorityScore = 10,
+            Status = MissionStatus.OnGoing
+        };
+        var activity = new MissionActivityModel
+        {
+            Id = 10,
+            MissionId = 25,
+            MissionTeamId = 7,
+            Step = 3,
+            Description = "Collect supplies",
+            Status = MissionActivityStatus.Planned,
+            DepotId = 3,
+            ActivityType = "COLLECT_SUPPLIES",
+            Items = SerializeSupplies([
+                new SupplyToCollectDto { ItemId = 100, ItemName = "Water", Quantity = 10, Unit = "bottle", BufferRatio = 0.10, BufferQuantity = 1 }
+            ])
+        };
+
+        var handler = CreateHandler(
+            mission,
+            [activity],
+            new MissionDto { Id = 25 },
+            out _,
+            out var activityRepository,
+            out var inventoryRepository,
+            out _,
+            out _);
+
+        await handler.Handle(
+            new UpdateMissionCommand(
+                25,
+                "Medical",
+                88.5,
+                new DateTime(2026, 4, 10, 8, 0, 0, DateTimeKind.Unspecified),
+                new DateTime(2026, 4, 10, 12, 30, 0, DateTimeKind.Unspecified),
+                Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"),
+                [
+                    new UpdateMissionActivityPatch(
+                        10,
+                        3,
+                        "Collect supplies, updated note",
+                        null,
+                        null,
+                        null,
+                        [
+                            new SupplyToCollectDto
+                            {
+                                ItemId = 100,
+                                ItemName = "Water",
+                                Quantity = 10,
+                                Unit = "bottle",
+                                PlannedPickupLotAllocations = [],
+                                PlannedPickupReusableUnits = [],
+                                PickupLotAllocations = [],
+                                PickedReusableUnits = [],
+                                ExpectedReturnUnits = [],
+                                ReturnedReusableUnits = [],
+                                ActualReturnedQuantity = 0,
+                                BufferRatio = 0,
+                                BufferQuantity = 0,
+                                BufferUsedQuantity = 0,
+                                ActualDeliveredQuantity = 0
+                            }
+                        ])
+                ]),
+            CancellationToken.None);
+
+        var updatedActivity = activityRepository.GetById(10)!;
+        var savedSupplies = JsonSerializer.Deserialize<List<SupplyToCollectDto>>(updatedActivity.Items!)!;
+        Assert.Equal("Collect supplies, updated note", updatedActivity.Description);
+        Assert.Equal(0.10, savedSupplies[0].BufferRatio);
+        Assert.Equal(1, savedSupplies[0].BufferQuantity);
+        Assert.Empty(inventoryRepository.CheckCalls);
+        Assert.Empty(inventoryRepository.ReleaseCalls);
+        Assert.Empty(inventoryRepository.ReserveCalls);
+    }
+
+    [Fact]
     public async Task Handle_DoesNotPersistMission_WhenInventoryValidationFailsForPendingActivities()
     {
         var mission = new MissionModel

@@ -58,7 +58,6 @@ public class MissionPendingActivityUpdateService(
             if (!activityLookup.TryGetValue(patch.ActivityId, out var activity))
                 throw new NotFoundException($"Activity #{patch.ActivityId} không thuộc mission #{mission.Id}.");
 
-            var isOngoingReturnAssemblyPointUpdate = IsOngoingReturnAssemblyPoint(activity);
             if (activity.Status != MissionActivityStatus.Planned
                 && !CanUpdateOngoingReturnAssemblyPoint(activity, patch))
             {
@@ -71,7 +70,7 @@ public class MissionPendingActivityUpdateService(
                 ? await GetAssemblyPointForUpdateAsync(patch.AssemblyPointId.Value, cancellationToken)
                 : null;
             var shouldReplaceItems = patch.Items is not null
-                && !(isOngoingReturnAssemblyPointUpdate && AreSuppliesEquivalent(currentItems, patch.Items));
+                && !AreSuppliesEquivalent(currentItems, patch.Items);
             IReadOnlyList<SupplyToCollectDto> nextItems = !shouldReplaceItems
                 ? []
                 : NormalizeRequestedSupplies(patch.Items!, currentItems);
@@ -297,12 +296,10 @@ public class MissionPendingActivityUpdateService(
     {
         var current = currentItems
             .OrderBy(item => item.ItemId)
-            .ThenBy(item => item.ItemName, StringComparer.OrdinalIgnoreCase)
             .Select(NormalizeSupplyForComparison)
             .ToList();
         var requested = requestedItems
             .OrderBy(item => item.ItemId)
-            .ThenBy(item => item.ItemName, StringComparer.OrdinalIgnoreCase)
             .Select(NormalizeSupplyForComparison)
             .ToList();
 
@@ -313,11 +310,7 @@ public class MissionPendingActivityUpdateService(
     private static SupplyComparison NormalizeSupplyForComparison(SupplyToCollectDto item) =>
         new(
             item.ItemId,
-            item.ItemName?.Trim() ?? string.Empty,
-            item.Quantity,
-            item.Unit?.Trim() ?? string.Empty,
-            item.BufferRatio,
-            item.BufferQuantity);
+            item.Quantity);
 
     private static MissionActivityModel CloneActivity(MissionActivityModel activity) => new()
     {
@@ -414,7 +407,8 @@ public class MissionPendingActivityUpdateService(
             {
                 var existing = currentItems.FirstOrDefault(current => current.ItemId == item.ItemId);
                 var quantity = item.Quantity;
-                var bufferRatio = Math.Max(0.0, item.BufferRatio ?? existing?.BufferRatio ?? DefaultBufferRatio);
+                var requestedBufferRatio = item.BufferRatio is > 0 ? item.BufferRatio.Value : (double?)null;
+                var bufferRatio = Math.Max(0.0, requestedBufferRatio ?? existing?.BufferRatio ?? DefaultBufferRatio);
                 var bufferQuantity = bufferRatio > 0 ? (int)Math.Ceiling(quantity * bufferRatio) : 0;
 
                 return new SupplyToCollectDto
@@ -450,9 +444,5 @@ public class MissionPendingActivityUpdateService(
     private sealed record InventoryDelta(string ItemName, int Quantity);
     private sealed record SupplyComparison(
         int? ItemId,
-        string ItemName,
-        int Quantity,
-        string Unit,
-        double? BufferRatio,
-        int? BufferQuantity);
+        int Quantity);
 }
