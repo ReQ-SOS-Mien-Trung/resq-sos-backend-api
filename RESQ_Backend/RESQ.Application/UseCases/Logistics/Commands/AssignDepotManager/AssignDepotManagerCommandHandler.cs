@@ -36,7 +36,7 @@ public class AssignDepotManagerCommandHandler(
         // 3. (Đã gỡ bỏ: Kiểm tra manager đang quản lý kho khác)
         // Cho phép 1 quản kho được phân công quản lý nhiều kho cùng lúc.
 
-        // 4. Gọi domain method - unassign manager cũ + assign mới + status → Available
+        // 4. Gọi domain method - thêm manager mới + status → Available (không chạm manager cũ)
         depot.AssignManager(request.ManagerId);
 
         // 5. Persist qua repository method chuyên biệt

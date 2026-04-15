@@ -603,6 +603,15 @@ public class CreateMissionCommandHandlerTests
         public Task<bool> IsUserInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
 
+        public Task<bool> IsLeaderInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<Guid?> GetTeamLeaderUserIdByMemberAsync(Guid userId, CancellationToken cancellationToken = default)
+            => Task.FromResult<Guid?>(null);
+
+        public Task<bool> SoftRemoveMemberFromActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
         public Task<bool> HasRequiredAbilityCategoryAsync(Guid userId, string categoryCode, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
 

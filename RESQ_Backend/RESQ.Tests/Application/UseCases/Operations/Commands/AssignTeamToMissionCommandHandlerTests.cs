@@ -126,6 +126,9 @@ public class AssignTeamToMissionCommandHandlerTests
         public Task<RescueTeamModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) => Task.FromResult<RescueTeamModel?>(null);
         public Task<PagedResult<RescueTeamModel>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<RescueTeamModel>([], 0, pageNumber, pageSize));
         public Task<bool> IsUserInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> IsLeaderInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<Guid?> GetTeamLeaderUserIdByMemberAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<Guid?>(null);
+        public Task<bool> SoftRemoveMemberFromActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<bool> HasRequiredAbilityCategoryAsync(Guid userId, string categoryCode, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<string?> GetTopAbilityCategoryAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
         public Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default) => Task.CompletedTask;

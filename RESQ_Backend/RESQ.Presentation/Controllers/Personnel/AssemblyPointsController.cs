@@ -14,6 +14,7 @@ using RESQ.Application.UseCases.Personnel.Commands.ScheduleGathering;
 using RESQ.Application.UseCases.Personnel.Commands.StartGathering;
 using RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint;
+using RESQ.Application.UseCases.Personnel.Commands.MarkParticipantAbsent;
 using RESQ.Application.UseCases.Personnel.Queries.AssemblyPointStatusMetadata;
 using RESQ.Application.UseCases.Personnel.Queries.GetAllAssemblyPoints;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
@@ -208,7 +209,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             if (!Guid.TryParse(userIdStr, out var createdBy))
                 return Unauthorized();
 
-            var command = new ScheduleGatheringCommand(id, dto.AssemblyDate, createdBy);
+            var command = new ScheduleGatheringCommand(id, dto.AssemblyDate, dto.CheckInDeadline, createdBy);
             var eventId = await _mediator.Send(command);
             return Ok(new { EventId = eventId });
         }
@@ -248,6 +249,23 @@ namespace RESQ.Presentation.Controllers.Personnel
                 return Unauthorized();
 
             var command = new CheckOutAtAssemblyPointCommand(eventId, userId, dto.Latitude, dto.Longitude);
+            await _mediator.Send(command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Đội trưởng đánh dấu một thành viên vắng mặt tại sự kiện tập trung.
+        /// Ghi nhận trạng thái Absent và thông báo tới coordinator để bổ sung thành viên.
+        /// </summary>
+        [HttpPost("events/{eventId}/participants/{rescuerId}/mark-absent")]
+        [Authorize(Policy = PermissionConstants.PersonnelAssemblyEventCheckIn)]
+        public async Task<IActionResult> MarkParticipantAbsent(int eventId, Guid rescuerId)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var callerUserId))
+                return Unauthorized();
+
+            var command = new MarkParticipantAbsentCommand(eventId, rescuerId, callerUserId);
             await _mediator.Send(command);
             return NoContent();
         }

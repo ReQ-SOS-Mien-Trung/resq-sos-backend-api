@@ -278,6 +278,9 @@ public class ReportMissionTeamIncidentCommandHandlerTests
         public Task<RESQ.Domain.Entities.Personnel.RescueTeamModel?> GetByCodeAsync(string code, CancellationToken ct = default) => Task.FromResult<RESQ.Domain.Entities.Personnel.RescueTeamModel?>(null);
         public Task<PagedResult<RESQ.Domain.Entities.Personnel.RescueTeamModel>> GetPagedAsync(int pn, int ps, CancellationToken ct = default) => Task.FromResult(new PagedResult<RESQ.Domain.Entities.Personnel.RescueTeamModel>([], 0, pn, ps));
         public Task<bool> IsUserInActiveTeamAsync(Guid uid, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<bool> IsLeaderInActiveTeamAsync(Guid uid, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<Guid?> GetTeamLeaderUserIdByMemberAsync(Guid uid, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<bool> SoftRemoveMemberFromActiveTeamAsync(Guid uid, CancellationToken ct = default) => Task.FromResult(false);
         public Task<bool> HasRequiredAbilityCategoryAsync(Guid uid, string cc, CancellationToken ct = default) => Task.FromResult(false);
         public Task<string?> GetTopAbilityCategoryAsync(Guid uid, CancellationToken ct = default) => Task.FromResult<string?>(null);
         public Task CreateAsync(RESQ.Domain.Entities.Personnel.RescueTeamModel t, CancellationToken ct = default) => Task.CompletedTask;

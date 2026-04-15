@@ -38,6 +38,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotsByCluster;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyClosureTransfers;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Queries.ExportClosureTemplate;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyManagedDepots;
 using System.Security.Claims;
 
 namespace RESQ.Presentation.Controllers.Logistics
@@ -232,15 +233,26 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
+        /// <summary>[Manager] Lấy danh sách kho mà manager hiện tại đang quản lý. Dùng cho dropdown chọn kho trước khi thực hiện thác tác.</summary>
+        [HttpGet("metadata/my-managed-depots")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ProducesResponseType(typeof(List<RESQ.Application.Services.ManagedDepotDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetMyManagedDepots()
+        {
+            var userId = GetUserId();
+            var result = await _mediator.Send(new GetMyManagedDepotsQuery(userId));
+            return Ok(result);
+        }
+
         /// <summary>[Manager] Xem quỹ kho của mình.</summary>
         [HttpGet("my-fund")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         [ProducesResponseType(typeof(DepotFundDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetMyFund()
+        public async Task<IActionResult> GetMyFund([FromQuery] int depotId)
         {
             var userId = GetUserId();
-            var result = await _mediator.Send(new GetMyDepotFundQuery(userId));
+            var result = await _mediator.Send(new GetMyDepotFundQuery(userId, depotId));
             return Ok(result);
         }
 
@@ -269,10 +281,10 @@ namespace RESQ.Presentation.Controllers.Logistics
         [ProducesResponseType(typeof(MyIncomingClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetMyIncomingClosureTransfer()
+        public async Task<IActionResult> GetMyIncomingClosureTransfer([FromQuery] int depotId)
         {
             var userId = GetUserId();
-            var result = await _mediator.Send(new GetMyIncomingClosureTransferQuery(userId));
+            var result = await _mediator.Send(new GetMyIncomingClosureTransferQuery(userId, depotId));
             return result is null ? NoContent() : Ok(result);
         }
 
@@ -419,15 +431,16 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// Sau bước này kho vẫn giữ trạng thái Unavailable; admin phải gọi lại POST /{id}/close để finalize đóng kho.
         /// </summary>
         [HttpPost("close/external-resolution")]
+        [HttpPost("my/closure/external-resolution")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(UploadExternalResolutionResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
-        public async Task<IActionResult> UploadExternalResolution([FromBody] UploadExternalResolutionRequestDto dto)
+        public async Task<IActionResult> UploadExternalResolution([FromBody] UploadExternalResolutionRequestDto dto, [FromQuery] int depotId)
         {
             var userId = GetUserId();
-            var command = new UploadExternalResolutionCommand(userId, dto.Items);
+            var command = new UploadExternalResolutionCommand(userId, dto.Items, depotId);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

@@ -1,37 +1,63 @@
 using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint
 {
-    public class CheckOutAtAssemblyPointCommandHandler : IRequestHandler<CheckOutAtAssemblyPointCommand>
+    public class CheckOutAtAssemblyPointCommandHandler(
+        IAssemblyEventRepository assemblyEventRepository,
+        IRescueTeamRepository rescueTeamRepository,
+        IUserRepository userRepository,
+        IFirebaseService firebaseService,
+        IUnitOfWork unitOfWork)
+        : IRequestHandler<CheckOutAtAssemblyPointCommand>
     {
-        private readonly IAssemblyEventRepository _assemblyEventRepository;
-        private readonly IUnitOfWork _unitOfWork;
-
-        public CheckOutAtAssemblyPointCommandHandler(
-            IAssemblyEventRepository assemblyEventRepository,
-            IUnitOfWork unitOfWork)
-        {
-            _assemblyEventRepository = assemblyEventRepository;
-            _unitOfWork = unitOfWork;
-        }
-
         public async Task Handle(CheckOutAtAssemblyPointCommand request, CancellationToken cancellationToken)
         {
-            var evt = await _assemblyEventRepository.GetEventByIdAsync(request.EventId, cancellationToken)
+            var evt = await assemblyEventRepository.GetEventByIdAsync(request.EventId, cancellationToken)
                 ?? throw new NotFoundException($"Sự kiện tập trung không tồn tại: {request.EventId}");
 
             if (evt.Status != AssemblyEventStatus.Gathering.ToString())
                 throw new BadRequestException($"Sự kiện không ở trạng thái đang tập hợp. Trạng thái hiện tại: {evt.Status}");
 
-            var success = await _assemblyEventRepository.CheckOutAsync(request.EventId, request.RescuerId, cancellationToken);
+            // Validate: rescuer phải rời nhóm trước khi check-out
+            var stillInTeam = await rescueTeamRepository.IsUserInActiveTeamAsync(request.RescuerId, cancellationToken);
+            if (stillInTeam)
+                throw new BadRequestException("Bạn cần rời khỏi đội cứu hộ trước khi thực hiện check-out khỏi sự kiện tập trung.");
+
+            var success = await assemblyEventRepository.CheckOutAsync(request.EventId, request.RescuerId, cancellationToken);
             if (!success)
                 throw new BadRequestException("Bạn chưa check-in hoặc không nằm trong danh sách tham gia.");
 
-            await _unitOfWork.SaveAsync();
+            await unitOfWork.SaveAsync();
+
+            // Lấy tên rescuer để đưa vào nội dung thông báo
+            var rescuer = await userRepository.GetByIdAsync(request.RescuerId, cancellationToken);
+            var rescuerName = rescuer != null
+                ? $"{rescuer.FirstName} {rescuer.LastName}".Trim()
+                : request.RescuerId.ToString();
+
+            // Thông báo cho coordinator (người tạo sự kiện)
+            var coordinatorId = await assemblyEventRepository.GetEventCreatedByAsync(request.EventId, cancellationToken);
+            if (coordinatorId.HasValue && coordinatorId.Value != request.RescuerId)
+            {
+                await firebaseService.SendNotificationToUserAsync(
+                    coordinatorId.Value,
+                    "Thành viên đã rời điểm tập kết",
+                    $"{rescuerName} đã check-out khỏi sự kiện tập trung.",
+                    "assembly_checkout",
+                    new Dictionary<string, string>
+                    {
+                        { "eventId", request.EventId.ToString() },
+                        { "rescuerId", request.RescuerId.ToString() }
+                    },
+                    cancellationToken);
+            }
         }
     }
 }
+

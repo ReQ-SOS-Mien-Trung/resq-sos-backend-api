@@ -30,6 +30,10 @@ public class AssemblyEvent
     [Column("updated_at", TypeName = "timestamp with time zone")]
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>Thời hạn check-in. Sau thời điểm này rescuer không thể check-in (nhưng vẫn có thể check-out).</summary>
+    [Column("check_in_deadline", TypeName = "timestamp with time zone")]
+    public DateTime? CheckInDeadline { get; set; }
+
     [ForeignKey("AssemblyPointId")]
     public virtual AssemblyPoint? AssemblyPoint { get; set; }
 
