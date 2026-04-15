@@ -99,4 +99,31 @@ public class UpdateMissionCommandValidatorTests
         Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("ItemId trùng", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.ErrorMessage.Contains("Quantity phải lớn hơn 0", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public void Validate_AllowsAssemblyPointIdWithCoordinates_ForFullPayloadUpdates()
+    {
+        var command = new UpdateMissionCommand(
+            15,
+            "Medical",
+            80,
+            DateTime.UtcNow,
+            DateTime.UtcNow.AddHours(1),
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            [
+                new UpdateMissionActivityPatch(
+                    7,
+                    4,
+                    "return to assembly point",
+                    "Current target",
+                    10.1,
+                    106.1,
+                    null,
+                    2)
+            ]);
+
+        var result = _validator.Validate(command);
+
+        Assert.True(result.IsValid);
+    }
 }

@@ -58,6 +58,7 @@ public class MissionPendingActivityUpdateService(
             if (!activityLookup.TryGetValue(patch.ActivityId, out var activity))
                 throw new NotFoundException($"Activity #{patch.ActivityId} không thuộc mission #{mission.Id}.");
 
+            var isOngoingReturnAssemblyPointUpdate = IsOngoingReturnAssemblyPoint(activity);
             if (activity.Status != MissionActivityStatus.Planned
                 && !CanUpdateOngoingReturnAssemblyPoint(activity, patch))
             {
@@ -69,10 +70,12 @@ public class MissionPendingActivityUpdateService(
             var nextAssemblyPoint = patch.AssemblyPointId.HasValue
                 ? await GetAssemblyPointForUpdateAsync(patch.AssemblyPointId.Value, cancellationToken)
                 : null;
-            IReadOnlyList<SupplyToCollectDto> nextItems = patch.Items is null
+            var shouldReplaceItems = patch.Items is not null
+                && !(isOngoingReturnAssemblyPointUpdate && AreSuppliesEquivalent(currentItems, patch.Items));
+            IReadOnlyList<SupplyToCollectDto> nextItems = !shouldReplaceItems
                 ? []
-                : NormalizeRequestedSupplies(patch.Items, currentItems);
-            var nextItemsJson = patch.Items is null
+                : NormalizeRequestedSupplies(patch.Items!, currentItems);
+            var nextItemsJson = !shouldReplaceItems
                 ? activity.Items
                 : nextItems.Count == 0
                     ? null
@@ -81,7 +84,7 @@ public class MissionPendingActivityUpdateService(
             var projectedActivity = CloneActivity(activity);
             ApplyPatch(projectedActivity, patch, nextItemsJson, nextAssemblyPoint, updatedBy);
 
-            plans.Add(new ActivityUpdatePlan(activity, projectedActivity, patch, currentItems, nextItems));
+            plans.Add(new ActivityUpdatePlan(activity, projectedActivity, patch, currentItems, nextItems, shouldReplaceItems));
         }
 
         ValidateProjectedSteps(missionActivities, plans);
@@ -255,14 +258,66 @@ public class MissionPendingActivityUpdateService(
         MissionActivityModel activity,
         UpdateMissionActivityPatch patch)
     {
-        return string.Equals(activity.ActivityType, ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
-            && activity.Status == MissionActivityStatus.OnGoing
-            && !patch.Step.HasValue
-            && patch.Target is null
-            && !patch.TargetLatitude.HasValue
-            && !patch.TargetLongitude.HasValue
-            && patch.Items is null;
+        if (!IsOngoingReturnAssemblyPoint(activity))
+            return false;
+
+        return IsSameStep(activity, patch)
+            && IsSameTarget(activity, patch)
+            && IsSameCoordinates(activity, patch)
+            && IsSameItems(activity, patch);
     }
+
+    private static bool IsOngoingReturnAssemblyPoint(MissionActivityModel activity)
+    {
+        return string.Equals(activity.ActivityType, ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
+            && activity.Status == MissionActivityStatus.OnGoing;
+    }
+
+    private static bool IsSameStep(MissionActivityModel activity, UpdateMissionActivityPatch patch) =>
+        !patch.Step.HasValue || patch.Step == activity.Step;
+
+    private static bool IsSameTarget(MissionActivityModel activity, UpdateMissionActivityPatch patch) =>
+        patch.Target is null || string.Equals(patch.Target, activity.Target, StringComparison.Ordinal);
+
+    private static bool IsSameCoordinates(MissionActivityModel activity, UpdateMissionActivityPatch patch)
+    {
+        return (!patch.TargetLatitude.HasValue || AreSameCoordinate(patch.TargetLatitude.Value, activity.TargetLatitude))
+            && (!patch.TargetLongitude.HasValue || AreSameCoordinate(patch.TargetLongitude.Value, activity.TargetLongitude));
+    }
+
+    private static bool IsSameItems(MissionActivityModel activity, UpdateMissionActivityPatch patch) =>
+        patch.Items is null || AreSuppliesEquivalent(ParseSupplies(activity.Items), patch.Items);
+
+    private static bool AreSameCoordinate(double provided, double? existing) =>
+        existing.HasValue && Math.Abs(provided - existing.Value) < 0.000001;
+
+    private static bool AreSuppliesEquivalent(
+        IReadOnlyCollection<SupplyToCollectDto> currentItems,
+        IReadOnlyCollection<SupplyToCollectDto> requestedItems)
+    {
+        var current = currentItems
+            .OrderBy(item => item.ItemId)
+            .ThenBy(item => item.ItemName, StringComparer.OrdinalIgnoreCase)
+            .Select(NormalizeSupplyForComparison)
+            .ToList();
+        var requested = requestedItems
+            .OrderBy(item => item.ItemId)
+            .ThenBy(item => item.ItemName, StringComparer.OrdinalIgnoreCase)
+            .Select(NormalizeSupplyForComparison)
+            .ToList();
+
+        return current.Count == requested.Count
+            && current.Zip(requested).All(pair => pair.First == pair.Second);
+    }
+
+    private static SupplyComparison NormalizeSupplyForComparison(SupplyToCollectDto item) =>
+        new(
+            item.ItemId,
+            item.ItemName?.Trim() ?? string.Empty,
+            item.Quantity,
+            item.Unit?.Trim() ?? string.Empty,
+            item.BufferRatio,
+            item.BufferQuantity);
 
     private static MissionActivityModel CloneActivity(MissionActivityModel activity) => new()
     {
@@ -389,10 +444,15 @@ public class MissionPendingActivityUpdateService(
         MissionActivityModel ProjectedActivity,
         UpdateMissionActivityPatch Patch,
         IReadOnlyList<SupplyToCollectDto> CurrentItems,
-        IReadOnlyList<SupplyToCollectDto> NextItems)
-    {
-        public bool ShouldReplaceItems => Patch.Items is not null;
-    }
+        IReadOnlyList<SupplyToCollectDto> NextItems,
+        bool ShouldReplaceItems);
 
     private sealed record InventoryDelta(string ItemName, int Quantity);
+    private sealed record SupplyComparison(
+        int? ItemId,
+        string ItemName,
+        int Quantity,
+        string Unit,
+        double? BufferRatio,
+        int? BufferQuantity);
 }

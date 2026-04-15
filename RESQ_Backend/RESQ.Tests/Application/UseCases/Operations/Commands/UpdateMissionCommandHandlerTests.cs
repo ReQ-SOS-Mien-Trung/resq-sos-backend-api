@@ -20,6 +20,7 @@ using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Entities.Personnel;
+using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Domain.Enum.Operations;
 
@@ -257,6 +258,149 @@ public class UpdateMissionCommandHandlerTests
         Assert.Single(inventoryRepository.CheckCalls);
     }
 
+    [Fact]
+    public async Task Handle_AllowsOngoingReturnAssemblyPointUpdate_WhenFullPayloadKeepsRestrictedFieldsUnchanged()
+    {
+        var mission = new MissionModel
+        {
+            Id = 30,
+            MissionType = "Mixed",
+            PriorityScore = 9,
+            Status = MissionStatus.OnGoing
+        };
+        var activity = new MissionActivityModel
+        {
+            Id = 20,
+            MissionId = 30,
+            MissionTeamId = 8,
+            Step = 5,
+            ActivityType = "RETURN_ASSEMBLY_POINT",
+            Description = "Return to old assembly point",
+            Target = "Old Assembly Point",
+            TargetLatitude = 10.1,
+            TargetLongitude = 106.1,
+            Status = MissionActivityStatus.OnGoing,
+            AssemblyPointId = 1,
+            AssemblyPointName = "Old Assembly Point",
+            AssemblyPointLatitude = 10.1,
+            AssemblyPointLongitude = 106.1
+        };
+        var newAssemblyPoint = new AssemblyPointModel
+        {
+            Id = 2,
+            Name = "New Assembly Point",
+            Location = new GeoLocation(11.2, 107.2)
+        };
+
+        var handler = CreateHandler(
+            mission,
+            [activity],
+            new MissionDto { Id = 30 },
+            out var missionRepository,
+            out var activityRepository,
+            out _,
+            out var unitOfWork,
+            out _,
+            new StubAssemblyPointRepository(newAssemblyPoint));
+
+        await handler.Handle(
+            new UpdateMissionCommand(
+                30,
+                null,
+                null,
+                null,
+                null,
+                Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"),
+                [
+                    new UpdateMissionActivityPatch(
+                        20,
+                        5,
+                        "Return to new assembly point",
+                        "Old Assembly Point",
+                        10.1,
+                        106.1,
+                        [],
+                        2)
+                ]),
+            CancellationToken.None);
+
+        var updatedActivity = activityRepository.GetById(20)!;
+        Assert.True(missionRepository.UpdateWasCalled);
+        Assert.Equal("Return to new assembly point", updatedActivity.Description);
+        Assert.Equal(2, updatedActivity.AssemblyPointId);
+        Assert.Equal("New Assembly Point", updatedActivity.AssemblyPointName);
+        Assert.Equal(11.2, updatedActivity.AssemblyPointLatitude);
+        Assert.Equal(107.2, updatedActivity.AssemblyPointLongitude);
+        Assert.Equal(10.1, updatedActivity.TargetLatitude);
+        Assert.Equal(106.1, updatedActivity.TargetLongitude);
+        Assert.Equal(3, unitOfWork.SaveCalls);
+    }
+
+    [Fact]
+    public async Task Handle_RejectsOngoingReturnAssemblyPointUpdate_WhenFullPayloadChangesRestrictedField()
+    {
+        var mission = new MissionModel
+        {
+            Id = 30,
+            MissionType = "Mixed",
+            PriorityScore = 9,
+            Status = MissionStatus.OnGoing
+        };
+        var activity = new MissionActivityModel
+        {
+            Id = 20,
+            MissionId = 30,
+            MissionTeamId = 8,
+            Step = 5,
+            ActivityType = "RETURN_ASSEMBLY_POINT",
+            Description = "Return to old assembly point",
+            Target = "Old Assembly Point",
+            TargetLatitude = 10.1,
+            TargetLongitude = 106.1,
+            Status = MissionActivityStatus.OnGoing,
+            AssemblyPointId = 1,
+            AssemblyPointName = "Old Assembly Point",
+            AssemblyPointLatitude = 10.1,
+            AssemblyPointLongitude = 106.1
+        };
+
+        var handler = CreateHandler(
+            mission,
+            [activity],
+            new MissionDto { Id = 30 },
+            out var missionRepository,
+            out _,
+            out _,
+            out var unitOfWork,
+            out _);
+
+        var exception = await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(
+                new UpdateMissionCommand(
+                    30,
+                    null,
+                    null,
+                    null,
+                    null,
+                    Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"),
+                    [
+                        new UpdateMissionActivityPatch(
+                            20,
+                            6,
+                            "Return to new assembly point",
+                            "Old Assembly Point",
+                            10.1,
+                            106.1,
+                            null,
+                            2)
+                    ]),
+                CancellationToken.None));
+
+        Assert.Contains("activity Planned", exception.Message);
+        Assert.False(missionRepository.UpdateWasCalled);
+        Assert.Equal(0, unitOfWork.SaveCalls);
+    }
+
     private static UpdateMissionCommandHandler CreateHandler(
         MissionModel? mission,
         IReadOnlyCollection<MissionActivityModel> activities,
@@ -265,7 +409,8 @@ public class UpdateMissionCommandHandlerTests
         out StubMissionActivityRepository activityRepository,
         out StubDepotInventoryRepository inventoryRepository,
         out TrackingUnitOfWork unitOfWork,
-        out StubSender sender)
+        out StubSender sender,
+        StubAssemblyPointRepository? assemblyPointRepository = null)
     {
         missionRepository = new StubMissionRepository(mission);
         activityRepository = new StubMissionActivityRepository(activities);
@@ -275,7 +420,7 @@ public class UpdateMissionCommandHandlerTests
         var pendingActivityUpdateService = new MissionPendingActivityUpdateService(
             activityRepository,
             inventoryRepository,
-            new StubAssemblyPointRepository(),
+            assemblyPointRepository ?? new StubAssemblyPointRepository(),
             unitOfWork,
             NullLogger<MissionPendingActivityUpdateService>.Instance);
 
@@ -435,12 +580,13 @@ public class UpdateMissionCommandHandlerTests
         }
     }
 
-    private sealed class StubAssemblyPointRepository : IAssemblyPointRepository
+    private sealed class StubAssemblyPointRepository(AssemblyPointModel? assemblyPoint = null) : IAssemblyPointRepository
     {
         public Task CreateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<AssemblyPointModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<AssemblyPointModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+            => Task.FromResult(assemblyPoint?.Id == id ? assemblyPoint : null);
         public Task<AssemblyPointModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
         public Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
         public Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
