@@ -54,10 +54,6 @@ internal class UpdateMissionActivityPatchValidator : AbstractValidator<UpdateMis
             .Must(HaveCompleteCoordinates)
             .WithMessage("TargetLatitude và TargetLongitude phải được gửi cùng nhau");
 
-        RuleFor(x => x)
-            .Must(NotMixAssemblyPointAndTargetCoordinates)
-            .WithMessage("Khong duoc gui TargetLatitude/TargetLongitude khi cap nhat AssemblyPointId.");
-
         RuleFor(x => x.Items)
             .Must(HaveDistinctItemIds)
             .WithMessage("Danh sách item không được chứa ItemId trùng nhau")
@@ -91,10 +87,6 @@ internal class UpdateMissionActivityPatchValidator : AbstractValidator<UpdateMis
 
     private static bool HaveCompleteCoordinates(UpdateMissionActivityPatch patch) =>
         patch.TargetLatitude.HasValue == patch.TargetLongitude.HasValue;
-
-    private static bool NotMixAssemblyPointAndTargetCoordinates(UpdateMissionActivityPatch patch) =>
-        !patch.AssemblyPointId.HasValue
-        || (!patch.TargetLatitude.HasValue && !patch.TargetLongitude.HasValue);
 
     private static bool HaveDistinctItemIds(List<SupplyToCollectDto>? items)
     {
