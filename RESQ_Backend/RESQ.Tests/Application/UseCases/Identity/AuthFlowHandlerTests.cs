@@ -523,7 +523,7 @@ public sealed class AuthFlowHandlerTests
         public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pn, int ps, int? r = null, string? s = null, CancellationToken ct = default)
             => throw new NotImplementedException();
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken ct = default) => throw new NotImplementedException();
     }
 
     private sealed class StubPermissionRepository(List<string>? codes = null) : IPermissionRepository
@@ -638,6 +638,8 @@ public sealed class AuthFlowHandlerTests
         public Task<bool> IsManagerActiveElsewhereAsync(Guid a, int b, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<List<ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<List<ClosureInventoryLotItemDto>> GetLotDetailedInventoryForClosureAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<List<RESQ.Application.Services.ManagedDepotDto>> GetManagedDepotsByUserAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(new List<RESQ.Application.Services.ManagedDepotDto>());
+        public Task<List<RESQ.Application.UseCases.Logistics.Queries.GetDepotManagers.DepotManagerInfoDto>> GetDepotManagersAsync(int depotId, CancellationToken cancellationToken = default) => Task.FromResult(new List<RESQ.Application.UseCases.Logistics.Queries.GetDepotManagers.DepotManagerInfoDto>());
     }
 
     private sealed class FailingSaveUnitOfWork : IUnitOfWork

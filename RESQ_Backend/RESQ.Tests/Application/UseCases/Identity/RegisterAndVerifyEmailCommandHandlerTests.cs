@@ -137,7 +137,7 @@ public class RegisterAndVerifyEmailCommandHandlerTests
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(CancellationToken cancellationToken = default)
+        public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
 

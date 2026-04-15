@@ -4,6 +4,7 @@ using RESQ.Application.Repositories.Identity;
 namespace RESQ.Application.UseCases.Logistics.Queries.GetAvailableManagersMetadata;
 
 /// <summary>
-/// [Metadata] Danh sách Manager (RoleId=4) chưa quản lý kho nào - dùng cho dropdown gán manager.
+/// [Metadata] Danh sách Manager (RoleId=4) dùng cho dropdown gán manager. Loại trừ account bị ban.
+/// Nếu truyền DepotId, loại trừ manager đang active trong kho đó.
 /// </summary>
-public record GetAvailableManagersMetadataQuery : IRequest<List<AvailableManagerDto>>;
+public record GetAvailableManagersMetadataQuery(int? DepotId = null) : IRequest<List<AvailableManagerDto>>;

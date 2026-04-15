@@ -4,6 +4,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Exceptions;
 using RESQ.Domain.Entities.Exceptions;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace RESQ.Presentation.Middlewares;
@@ -31,7 +32,7 @@ public class GlobalExceptionMiddleware : IMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/json; charset=utf-8";
 
         var errorCode = ExceptionCodes.TryGet(exception) ?? DepotManagerAssignmentErrorResolver.Resolve(exception);
         var response = new ErrorResponse
@@ -48,7 +49,8 @@ public class GlobalExceptionMiddleware : IMiddleware
             var depotManagerJson = JsonSerializer.Serialize(response, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             });
 
             await context.Response.WriteAsync(depotManagerJson);
@@ -123,7 +125,8 @@ public class GlobalExceptionMiddleware : IMiddleware
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         });
 
         await context.Response.WriteAsync(json);

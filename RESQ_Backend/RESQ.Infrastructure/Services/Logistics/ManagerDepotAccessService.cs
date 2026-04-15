@@ -18,26 +18,9 @@ namespace RESQ.Infrastructure.Services.Logistics
 
         public async Task<List<ManagedDepotDto>> GetManagedDepotsAsync(Guid userId, CancellationToken cancellationToken = default)
         {
-            var depotIds = await _depotInventoryRepository.GetActiveDepotIdsByManagerAsync(userId, cancellationToken);
-            
-            var managedDepots = new List<ManagedDepotDto>();
-            foreach (var id in depotIds)
-            {
-                var depot = await _depotRepository.GetByIdAsync(id, cancellationToken);
-                if (depot != null)
-                {
-                    managedDepots.Add(new ManagedDepotDto
-                    {
-                        DepotId = depot.Id,
-                        DepotName = depot.Name ?? string.Empty,
-                        Status = depot.Status.ToString(),
-                        Address = depot.Address ?? string.Empty,
-                        ImageUrl = depot.ImageUrl
-                    });
-                }
-            }
-
-            return managedDepots;
+            // Single JOIN query: Depot ⋈ DepotManager WHERE UserId = userId AND UnassignedAt IS NULL
+            // Replaces the previous N+1 approach (get IDs → loop GetByIdAsync per depot)
+            return await _depotRepository.GetManagedDepotsByUserAsync(userId, cancellationToken);
         }
 
         public async Task<int?> ResolveAccessibleDepotIdAsync(Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default)

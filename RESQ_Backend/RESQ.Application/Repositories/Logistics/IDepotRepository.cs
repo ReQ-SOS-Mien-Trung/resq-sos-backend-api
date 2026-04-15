@@ -1,5 +1,7 @@
 ﻿using RESQ.Application.Common.Models;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotManagers;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
@@ -88,5 +90,17 @@ namespace RESQ.Application.Repositories.Logistics
         /// Dùng cho file Excel template xử lý bên ngoài để chia vật phẩm theo lô.
         /// </summary>
         Task<List<ClosureInventoryLotItemDto>> GetLotDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Lấy danh sách tất cả kho mà user đang active quản lý (UnassignedAt IS NULL).
+        /// Trả về trực tiếp DTO, dùng cho endpoint my-managed-depots.
+        /// </summary>
+        Task<List<ManagedDepotDto>> GetManagedDepotsByUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Lấy danh sách manager đang active (UnassignedAt IS NULL) trong một kho.
+        /// Dùng để frontend hiển thị danh sách quản kho hiện tại khi thao tác gán/gỡ.
+        /// </summary>
+        Task<List<DepotManagerInfoDto>> GetDepotManagersAsync(int depotId, CancellationToken cancellationToken = default);
     }
 }

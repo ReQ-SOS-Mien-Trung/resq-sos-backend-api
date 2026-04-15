@@ -169,6 +169,6 @@ public sealed class BanUnbanUserHandlerTests
         public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pn, int ps, int? r = null, string? s = null, CancellationToken ct = default)
             => throw new NotImplementedException();
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken ct = default) => throw new NotImplementedException();
     }
 }
