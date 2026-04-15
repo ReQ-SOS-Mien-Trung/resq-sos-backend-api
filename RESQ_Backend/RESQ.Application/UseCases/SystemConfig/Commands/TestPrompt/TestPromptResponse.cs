@@ -6,7 +6,7 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.TestPrompt;
 public class TestPromptResponse
 {
     public bool IsSuccess { get; set; }
-    public int PromptId { get; set; }
+    public int? PromptId { get; set; }
     public string PromptName { get; set; } = string.Empty;
     public PromptType PromptType { get; set; }
     public int ClusterId { get; set; }

@@ -94,11 +94,57 @@ namespace RESQ.Presentation.Controllers.System
             return NoContent();
         }
 
-        /// <summary>Preview ke hoach mission AI theo prompt va cum SOS.</summary>
+        /// <summary>Preview ke hoach mission AI theo draft prompt moi chua luu.</summary>
+        [HttpPost("test")]
+        public async Task<IActionResult> TestNewModel([FromBody] TestNewPromptRequestDto? dto)
+        {
+            dto ??= new TestNewPromptRequestDto();
+
+            var result = await _mediator.Send(new TestPromptCommand(
+                null,
+                TestPromptDraftMode.NewPromptDraft,
+                dto.ClusterId,
+                dto.Name,
+                dto.PromptType,
+                dto.Provider,
+                dto.Purpose,
+                dto.SystemPrompt,
+                dto.UserPromptTemplate,
+                dto.Model,
+                dto.Temperature,
+                dto.MaxTokens,
+                dto.Version,
+                dto.ApiUrl,
+                dto.ApiKey,
+                dto.IsActive));
+
+            return Ok(result);
+        }
+
+        /// <summary>Preview ke hoach mission AI theo draft cap nhat prompt va cum SOS.</summary>
         [HttpPost("{id}/test")]
         public async Task<IActionResult> TestModel(int id, [FromBody] TestPromptRequestDto? dto)
         {
-            var result = await _mediator.Send(new TestPromptCommand(id, dto?.ClusterId ?? 0));
+            dto ??= new TestPromptRequestDto();
+
+            var result = await _mediator.Send(new TestPromptCommand(
+                id,
+                TestPromptDraftMode.ExistingPromptDraft,
+                dto.ClusterId,
+                dto.Name,
+                dto.PromptType,
+                dto.Provider,
+                dto.Purpose,
+                dto.SystemPrompt,
+                dto.UserPromptTemplate,
+                dto.Model,
+                dto.Temperature,
+                dto.MaxTokens,
+                dto.Version,
+                dto.ApiUrl,
+                dto.ApiKey,
+                dto.IsActive));
+
             return Ok(result);
         }
     }
