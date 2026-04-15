@@ -76,9 +76,9 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetMyFundsMetadata()
+    public async Task<IActionResult> GetMyFundsMetadata([FromQuery] int depotId)
     {
-        var response = await _mediator.Send(new GetMyDepotFundQuery(GetUserId()));
+        var response = await _mediator.Send(new GetMyDepotFundQuery(GetUserId(), depotId));
         var result = response.Funds.Select(f => new MetadataDto
         {
             Key = f.Id.ToString(),
@@ -107,9 +107,9 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(MyDepotFundsResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetMy()
+    public async Task<IActionResult> GetMy([FromQuery] int depotId)
     {
-        var result = await _mediator.Send(new GetMyDepotFundQuery(GetUserId()));
+        var result = await _mediator.Send(new GetMyDepotFundQuery(GetUserId(), depotId));
         return Ok(result);
     }
 
