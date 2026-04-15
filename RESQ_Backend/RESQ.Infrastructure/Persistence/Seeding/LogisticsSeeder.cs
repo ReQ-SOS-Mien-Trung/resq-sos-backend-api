@@ -660,7 +660,11 @@ public static class LogisticsSeeder
             new DepotManager { Id = 4, DepotId = 4, UserId = SeedConstants.Manager4UserId,  AssignedAt = now },
             new DepotManager { Id = 5, DepotId = 5, UserId = SeedConstants.Manager5UserId,  AssignedAt = now },
             new DepotManager { Id = 6, DepotId = 6, UserId = SeedConstants.Manager6UserId,  AssignedAt = now },
-            new DepotManager { Id = 7, DepotId = 7, UserId = SeedConstants.Manager7UserId,  AssignedAt = now }
+            new DepotManager { Id = 7, DepotId = 7, UserId = SeedConstants.Manager7UserId,  AssignedAt = now },
+            // Multi-depot demo: các manager quản lý nhiều kho để test
+            new DepotManager { Id = 8, DepotId = 7, UserId = SeedConstants.Manager4UserId,  AssignedAt = now }, // Manager4 quản lý cả kho 4 (HN) và kho 7 (Nghệ An)
+            new DepotManager { Id = 9, DepotId = 3, UserId = SeedConstants.ManagerUserId,   AssignedAt = now }, // Manager1 quản lý cả kho 1 (Huế) và kho 3 (Hà Tĩnh)
+            new DepotManager { Id = 10, DepotId = 4, UserId = SeedConstants.Manager2UserId, AssignedAt = now }  // Manager2 quản lý cả kho 2 (Đà Nẵng) và kho 4 (HN)
         );
     }
 
