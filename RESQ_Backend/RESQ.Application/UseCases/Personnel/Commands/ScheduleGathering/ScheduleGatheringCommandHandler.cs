@@ -22,9 +22,9 @@ public class ScheduleGatheringCommandHandler(
         var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId}");
 
-        if (ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Unavailable || ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Closed)
+        if (ap.Status != Domain.Enum.Personnel.AssemblyPointStatus.Available)
         {
-            throw new BadRequestException($"Không thể tạo sự kiện tập trung vì điểm tập kết {ap.Name} đang ở trạng thái {ap.Status}.");
+            throw new BadRequestException($"Không thể tạo sự kiện tập trung vì điểm tập kết {ap.Name} đang ở trạng thái {ap.Status}. Chỉ cho phép khi điểm tập kết đang Available.");
         }
 
         // 2. Normalize ve UTC de luu tru.

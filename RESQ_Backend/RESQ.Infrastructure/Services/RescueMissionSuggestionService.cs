@@ -1508,7 +1508,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     {
         var assemblyPoints = await _assemblyPointRepository.GetAllAsync(cancellationToken);
         var activeAssemblyPoints = assemblyPoints
-            .Where(a => a.Status == AssemblyPointStatus.Active && a.Location is not null)
+            .Where(a => a.Status == AssemblyPointStatus.Available && a.Location is not null)
             .ToList();
 
         var assemblyPointIds = result.SuggestedActivities
@@ -2204,7 +2204,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 var page = args.TryGetProperty("page", out var pg) && pg.TryGetInt32(out var pgv) ? pgv : 1;
                 var assemblyPoints = await _assemblyPointRepository.GetAllAsync(ct);
                 var items = assemblyPoints
-                    .Where(a => a.Status == AssemblyPointStatus.Active)
+                    .Where(a => a.Status == AssemblyPointStatus.Available)
                     .OrderBy(a => a.Name)
                     .Skip((page - 1) * AgentPageSize)
                     .Take(AgentPageSize)
@@ -2218,7 +2218,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     })
                     .ToList();
 
-                var total = assemblyPoints.Count(a => a.Status == AssemblyPointStatus.Active);
+                var total = assemblyPoints.Count(a => a.Status == AssemblyPointStatus.Available);
                 var totalPages = (int)Math.Ceiling((double)total / AgentPageSize);
                 return JsonSerializer.SerializeToElement(new
                 {

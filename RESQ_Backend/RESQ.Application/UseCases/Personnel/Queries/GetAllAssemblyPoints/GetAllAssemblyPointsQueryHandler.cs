@@ -17,7 +17,7 @@ public class GetAllAssemblyPointsQueryHandler(
     {
         _logger.LogInformation("Handling {handler} - retrieving all assembly points page {page}", nameof(GetAllAssemblyPointsQueryHandler), request.PageNumber);
 
-        var pagedResult = await _repository.GetAllPagedAsync(request.PageNumber, request.PageSize, cancellationToken);
+        var pagedResult = await _repository.GetAllPagedAsync(request.PageNumber, request.PageSize, cancellationToken, request.Status?.ToString());
 
         var dtos = pagedResult.Items.Select(ap => new AssemblyPointDto
         {
@@ -30,7 +30,10 @@ public class GetAllAssemblyPointsQueryHandler(
             Status = ap.Status.ToString(),
             ImageUrl = ap.ImageUrl,
             LastUpdatedAt = ap.UpdatedAt,
-            HasActiveEvent = ap.HasActiveEvent
+            HasActiveEvent = ap.HasActiveEvent,
+            StatusReason = ap.StatusReason,
+            StatusChangedAt = ap.StatusChangedAt,
+            StatusChangedBy = ap.StatusChangedBy
         }).ToList();
 
         var response = new GetAllAssemblyPointsResponse

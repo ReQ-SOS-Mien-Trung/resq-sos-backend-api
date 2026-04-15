@@ -27,8 +27,9 @@ public class ActivateAssemblyPointCommandHandler(
         var assemblyPoint = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy điểm tập kết");
 
-        // Domain enforces: chỉ Created → Active
-        assemblyPoint.ChangeStatus(AssemblyPointStatus.Active);
+        // Domain enforces: chỉ Created → Available
+        // Domain enforces: Created → Available
+        assemblyPoint.ChangeStatus(AssemblyPointStatus.Available, request.ChangedBy);
 
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
         await _unitOfWork.SaveAsync();

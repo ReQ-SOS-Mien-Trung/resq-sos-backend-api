@@ -26,6 +26,14 @@ public class DeleteAssemblyPointCommandHandler(
             throw new NotFoundException("Không tìm thấy điểm tập kết");
         }
 
+        if (assemblyPoint.Status != RESQ.Domain.Enum.Personnel.AssemblyPointStatus.Created)
+        {
+            throw new BadRequestException(
+                $"Chỉ có thể xóa điểm tập kết ở trạng thái 'Created'. " +
+                $"Trạng thái hiện tại: '{assemblyPoint.Status}'. " +
+                "Để đóng vĩnh viễn, hãy dùng chức năng Close.");
+        }
+
         await _repository.DeleteAsync(request.Id, cancellationToken);
         await _unitOfWork.SaveAsync();
 

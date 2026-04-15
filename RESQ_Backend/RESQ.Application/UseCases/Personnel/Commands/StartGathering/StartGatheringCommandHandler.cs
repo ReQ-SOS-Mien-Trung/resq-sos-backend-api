@@ -21,9 +21,9 @@ public class StartGatheringCommandHandler(
         var ap = await assemblyPointRepository.GetByIdAsync(evt.AssemblyPointId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {evt.AssemblyPointId}");
 
-        if (ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Unavailable || ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Closed)
+        if (ap.Status != Domain.Enum.Personnel.AssemblyPointStatus.Available)
         {
-            throw new BadRequestException($"Không thể bắt đầu sự kiện tập trung vì điểm tập kết {ap.Name} đang ở trạng thái {ap.Status}.");
+            throw new BadRequestException($"Không thể bắt đầu sự kiện tập trung vì điểm tập kết {ap.Name} đang ở trạng thái {ap.Status}. Chỉ cho phép khi điểm tập kết đang Available.");
         }
 
         logger.LogInformation("StartGathering for EventId={EventId}, current status={Status}",

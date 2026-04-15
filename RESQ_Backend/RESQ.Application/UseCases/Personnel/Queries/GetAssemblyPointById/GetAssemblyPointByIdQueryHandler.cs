@@ -43,6 +43,9 @@ public class GetAssemblyPointByIdQueryHandler(
             ImageUrl = entity.ImageUrl,
             LastUpdatedAt = entity.UpdatedAt,
             HasActiveEvent = activeEvent != null,
+            StatusReason = entity.StatusReason,
+            StatusChangedAt = entity.StatusChangedAt,
+            StatusChangedBy = entity.StatusChangedBy,
             Teams = teams
         };
     }

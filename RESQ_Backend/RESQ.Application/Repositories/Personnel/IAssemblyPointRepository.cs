@@ -14,7 +14,7 @@ public interface IAssemblyPointRepository
     Task<AssemblyPointModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
     Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default);
     
-    Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+    Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default, string? statusFilter = null);
 
     /// <summary>
     /// Lấy tất cả điểm tập kết (không phân trang) - dùng cho metadata dropdown.
@@ -52,4 +52,10 @@ public interface IAssemblyPointRepository
     /// Trong tập <paramref name="userIds"/>, trả về các UserId KHÔNG thuộc đội cứu hộ đang hoạt động.
     /// </summary>
     Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(IReadOnlyList<Guid> userIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gỡ toàn bộ rescuer khỏi điểm tập kết (đặt AssemblyPointId = null).
+    /// Dùng khi Close điểm tập kết để auto-unassign tất cả.
+    /// </summary>
+    Task UnassignAllRescuersAsync(int assemblyPointId, CancellationToken cancellationToken = default);
 }

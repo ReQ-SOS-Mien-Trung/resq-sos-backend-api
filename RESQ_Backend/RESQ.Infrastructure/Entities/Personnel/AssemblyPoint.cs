@@ -41,6 +41,15 @@ public partial class AssemblyPoint
     [Column("image_url")]
     public string? ImageUrl { get; set; }
 
+    [Column("status_reason")]
+    public string? StatusReason { get; set; }
+
+    [Column("status_changed_at", TypeName = "timestamp with time zone")]
+    public DateTime? StatusChangedAt { get; set; }
+
+    [Column("status_changed_by")]
+    public Guid? StatusChangedBy { get; set; }
+
     [InverseProperty("AssemblyPoint")]
     public virtual ICollection<RescueTeam> RescueTeams { get; set; } = new List<RescueTeam>();
 }
