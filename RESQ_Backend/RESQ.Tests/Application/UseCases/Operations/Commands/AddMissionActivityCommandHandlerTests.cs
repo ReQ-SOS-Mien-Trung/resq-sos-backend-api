@@ -49,7 +49,8 @@ public class AddMissionActivityCommandHandlerTests
         var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(command, CancellationToken.None));
 
-        Assert.Contains("t?n kho", ex.Message);
+        Assert.Contains("Water", ex.Message);
+        Assert.Contains("11", ex.Message);
     }
 
     // --- Creates activity as Planned ------------------------------
