@@ -307,8 +307,12 @@ public class RescueMissionSuggestionServicePreviewTests
         public Task<RESQ.Application.Common.Models.PagedResult<AssemblyPointModel>> GetAllPagedAsync(
             int pageNumber,
             int pageSize,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            string? statusFilter = null)
             => throw new NotImplementedException();
+
+        public Task UnassignAllRescuersAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
 
         public Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<List<AssemblyPointModel>>([]);

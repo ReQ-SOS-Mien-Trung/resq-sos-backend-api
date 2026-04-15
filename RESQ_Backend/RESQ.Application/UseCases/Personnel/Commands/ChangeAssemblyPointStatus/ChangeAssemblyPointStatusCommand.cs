@@ -5,5 +5,6 @@ namespace RESQ.Application.UseCases.Personnel.Commands.ChangeAssemblyPointStatus
 
 public record ChangeAssemblyPointStatusCommand(
     int Id,
-    AssemblyPointStatus Status
+    AssemblyPointStatus Status,
+    Guid ChangedBy
 ) : IRequest<ChangeAssemblyPointStatusResponse>;

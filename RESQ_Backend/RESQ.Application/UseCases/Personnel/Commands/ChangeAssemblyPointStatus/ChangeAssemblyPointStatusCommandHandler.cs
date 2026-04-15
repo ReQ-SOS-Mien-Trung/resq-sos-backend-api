@@ -27,7 +27,7 @@ public class ChangeAssemblyPointStatusCommandHandler(
         }
 
         // Apply change (Domain Layer enforces invariants)
-        assemblyPoint.ChangeStatus(request.Status);
+        assemblyPoint.ChangeStatus(request.Status, request.ChangedBy);
 
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
         await _unitOfWork.SaveAsync();
