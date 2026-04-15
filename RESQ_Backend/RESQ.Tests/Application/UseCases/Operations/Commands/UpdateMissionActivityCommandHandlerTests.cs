@@ -251,7 +251,8 @@ public class UpdateMissionActivityCommandHandlerTests
         public Task CreateAsync(AssemblyPointModel m, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateAsync(AssemblyPointModel m, CancellationToken ct = default) => Task.CompletedTask;
         public Task DeleteAsync(int id, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pn, int ps, CancellationToken ct = default) => Task.FromResult(new PagedResult<AssemblyPointModel>([], 0, pn, ps));
+        public Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pn, int ps, CancellationToken ct = default, string? statusFilter = null) => Task.FromResult(new PagedResult<AssemblyPointModel>([], 0, pn, ps));
+        public Task UnassignAllRescuersAsync(int assemblyPointId, CancellationToken ct = default) => Task.CompletedTask;
         public Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(new List<AssemblyPointModel>());
         public Task<Dictionary<int, List<RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById.AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(IEnumerable<int> ids, CancellationToken ct = default) => Task.FromResult(new Dictionary<int, List<RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById.AssemblyPointTeamDto>>());
         public Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int apId, CancellationToken ct = default) => Task.FromResult(new List<Guid>());
