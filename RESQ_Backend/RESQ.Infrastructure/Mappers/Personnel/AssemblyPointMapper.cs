@@ -18,7 +18,10 @@ public static class AssemblyPointMapper
             Status = model.Status.ToString(),
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt,
-            ImageUrl = model.ImageUrl
+            ImageUrl = model.ImageUrl,
+            StatusReason = model.StatusReason,
+            StatusChangedAt = model.StatusChangedAt,
+            StatusChangedBy = model.StatusChangedBy
         };
 
         if (model.Id > 0)
@@ -42,6 +45,9 @@ public static class AssemblyPointMapper
         entity.Status = model.Status.ToString();
         entity.UpdatedAt = model.UpdatedAt;
         entity.ImageUrl = model.ImageUrl;
+        entity.StatusReason = model.StatusReason;
+        entity.StatusChangedAt = model.StatusChangedAt;
+        entity.StatusChangedBy = model.StatusChangedBy;
 
         if (model.Location != null)
         {
@@ -51,6 +57,7 @@ public static class AssemblyPointMapper
 
     public static AssemblyPointModel ToDomain(AssemblyPoint entity)
     {
+        // Fallback về Created nếu DB chứa giá trị không hợp lệ (e.g. "Active" từ migration cũ)
         if (!Enum.TryParse<AssemblyPointStatus>(entity.Status, ignoreCase: true, out var status))
         {
             status = AssemblyPointStatus.Created;
@@ -59,7 +66,7 @@ public static class AssemblyPointMapper
         GeoLocation? location = null;
         if (entity.Location != null)
         {
-            // Instantiating the Personnel GeoLocation
+            // PostGIS lưu X=Longitude, Y=Latitude
             location = new GeoLocation(entity.Location.Y, entity.Location.X);
         }
 
@@ -73,7 +80,10 @@ public static class AssemblyPointMapper
             Location = location,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt,
-            ImageUrl = entity.ImageUrl
+            ImageUrl = entity.ImageUrl,
+            StatusReason = entity.StatusReason,
+            StatusChangedAt = entity.StatusChangedAt,
+            StatusChangedBy = entity.StatusChangedBy
         };
     }
 }

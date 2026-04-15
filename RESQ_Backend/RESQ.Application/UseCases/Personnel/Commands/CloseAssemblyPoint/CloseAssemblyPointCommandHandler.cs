@@ -33,15 +33,6 @@ public class CloseAssemblyPointCommandHandler(
         var assemblyPoint = await _assemblyPointRepository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy điểm tập kết");
 
-        // Kiểm tra còn rescuer nào được gán vào điểm tập kết này không
-        var assignedRescuers = await _assemblyPointRepository.GetAssignedRescuerUserIdsAsync(request.Id, cancellationToken);
-        if (assignedRescuers.Count > 0)
-        {
-            throw new ConflictException(
-                $"Không thể đóng điểm tập kết khi vẫn còn {assignedRescuers.Count} rescuer được gán. " +
-                "Vui lòng gỡ toàn bộ rescuer trước khi đóng điểm tập kết.");
-        }
-
         // Kiểm tra còn đội cứu hộ nào đang hoạt động tại điểm tập kết này không
         var activeTeamCount = await _rescueTeamRepository.CountActiveTeamsByAssemblyPointAsync(
             request.Id,
@@ -54,6 +45,9 @@ public class CloseAssemblyPointCommandHandler(
                 "Vui lòng giải thể hoặc chuyển toàn bộ đội sang điểm tập kết khác trước khi đóng.");
         }
 
+        // Lấy danh sách rescuer trước khi unassign (để gửi thông báo)
+        var assignedRescuers = await _assemblyPointRepository.GetAssignedRescuerUserIdsAsync(request.Id, cancellationToken);
+
         var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.Id, cancellationToken);
         if (activeEvent != null)
         {
@@ -64,10 +58,10 @@ public class CloseAssemblyPointCommandHandler(
                 try
                 {
                     await _firebaseService.SendNotificationToUserAsync(
-                        userId, 
-                        "Sự kiện tập hợp đã bị hủy", 
-                        $"Điểm tập kết \"{assemblyPoint.Name}\" đã bị đóng. Sự kiện tập hợp đã kết thúc.", 
-                        "assembly_event_completed", 
+                        userId,
+                        "Sự kiện tập hợp đã bị hủy",
+                        $"Điểm tập kết \"{assemblyPoint.Name}\" đã bị đóng. Sự kiện tập hợp đã kết thúc.",
+                        "assembly_event_completed",
                         cancellationToken);
                 }
                 catch (Exception ex)
@@ -77,10 +71,14 @@ public class CloseAssemblyPointCommandHandler(
             }
         }
 
-        // Domain enforces: chỉ Active hoặc Overloaded → Closed
-        assemblyPoint.ChangeStatus(AssemblyPointStatus.Closed);
+        // Domain enforces: Unavailable → Closed hoặc Created → Closed (Reason bắt buộc)
+        assemblyPoint.ChangeStatus(AssemblyPointStatus.Closed, request.ChangedBy, request.Reason);
 
         await _assemblyPointRepository.UpdateAsync(assemblyPoint, cancellationToken);
+
+        // Auto-unassign toàn bộ rescuer được gán vào AP này
+        await _assemblyPointRepository.UnassignAllRescuersAsync(request.Id, cancellationToken);
+
         await _unitOfWork.SaveAsync();
 
         await _dashboardHubService.PushAssemblyPointSnapshotAsync(
@@ -88,7 +86,31 @@ public class CloseAssemblyPointCommandHandler(
             "Close",
             cancellationToken);
 
-        _logger.LogInformation("AssemblyPoint closed permanently: Id={Id}", request.Id);
+        // Thông báo cho toàn bộ rescuer bị unassign
+        if (assignedRescuers.Count > 0)
+        {
+            _ = Task.Run(async () =>
+            {
+                foreach (var userId in assignedRescuers)
+                {
+                    try
+                    {
+                        await _firebaseService.SendNotificationToUserAsync(
+                            userId,
+                            "Điểm tập kết đã đóng",
+                            $"Điểm tập kết \"{assemblyPoint.Name}\" đã đóng vĩnh viễn. Bạn đã được gỡ khỏi điểm tập kết này. Vui lòng liên hệ quản trị viên để được phân công điểm tập kết mới.",
+                            "assembly_point_closed",
+                            CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send close notification to user {UserId}", userId);
+                    }
+                }
+            });
+        }
+
+        _logger.LogInformation("AssemblyPoint closed permanently: Id={Id}, Reason={Reason}", request.Id, request.Reason);
 
         return new CloseAssemblyPointResponse
         {

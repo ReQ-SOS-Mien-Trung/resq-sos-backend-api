@@ -65,15 +65,19 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
         return entity == null ? null : AssemblyPointMapper.ToDomain(entity);
     }
 
-    public async Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default, string? statusFilter = null)
     {
         var apQuery     = _unitOfWork.Set<AssemblyPoint>();
         var eventsQuery = _unitOfWork.Set<AssemblyEvent>();
 
-        var totalCount = await apQuery.CountAsync(cancellationToken);
+        var filtered = statusFilter != null
+            ? apQuery.Where(x => x.Status == statusFilter)
+            : apQuery;
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
 
         // Single round-trip: EXISTS subquery for HasActiveEvent is folded into the projection
-        var projected = await apQuery
+        var projected = await filtered
             .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -242,5 +246,17 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
             .Where(u => userIds.Contains(u.Id) && !withTeam.Contains(u.Id))
             .Select(u => u.Id)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task UnassignAllRescuersAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        await _unitOfWork.GetRepository<User>().AsQueryable(tracked: false)
+            .Where(u => u.AssemblyPointId == assemblyPointId && u.RoleId == 3)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(u => u.AssemblyPointId, (int?)null)
+                    .SetProperty(u => u.UpdatedAt, now),
+                cancellationToken);
     }
 }

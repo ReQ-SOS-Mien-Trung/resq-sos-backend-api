@@ -3,7 +3,7 @@ using MediatR;
 namespace RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointUnavailable;
 
 /// <summary>
-/// Admin đưa điểm tập kết vào bảo trì: Active → UnderMaintenance hoặc Overloaded → UnderMaintenance.
+/// Admin đánh dấu điểm tập kết không khả dụng: Available → Unavailable.
 /// </summary>
-public record SetAssemblyPointUnavailableCommand(int Id) : IRequest<SetAssemblyPointUnavailableResponse>;
+public record SetAssemblyPointUnavailableCommand(int Id, Guid ChangedBy, string? Reason = null) : IRequest<SetAssemblyPointUnavailableResponse>;
 

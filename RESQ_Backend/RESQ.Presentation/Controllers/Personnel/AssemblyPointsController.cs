@@ -24,6 +24,7 @@ using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 using RESQ.Domain.Enum.Identity;
+using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Presentation.Controllers.Personnel
 {
@@ -34,11 +35,17 @@ namespace RESQ.Presentation.Controllers.Personnel
         private readonly IMediator _mediator = mediator;
 
         /// <summary>Lấy danh sách điểm tập kết có phân trang.</summary>
+        /// <param name="pageNumber">Số trang (mặc định 1).</param>
+        /// <param name="pageSize">Kích thước trang (mặc định 10).</param>
+        /// <param name="status">Lọc theo trạng thái (Created, Available, Unavailable, Closed). Bỏ trống = lấy tất cả.</param>
         [HttpGet]
         [Authorize(Policy = PermissionConstants.PersonnelAssemblyPointView)]
-        public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] AssemblyPointStatus? status = null)
         {
-            var query = new GetAllAssemblyPointsQuery { PageNumber = pageNumber, PageSize = pageSize };
+            var query = new GetAllAssemblyPointsQuery { PageNumber = pageNumber, PageSize = pageSize, Status = status };
             var result = await _mediator.Send(query);
             return Ok(result);
         }
@@ -132,48 +139,64 @@ namespace RESQ.Presentation.Controllers.Personnel
         }
 
         /// <summary>
-        /// Kích hoạt điểm tập kết: <c>Created → Active</c>.
+        /// Kích hoạt điểm tập kết: <c>Created → Available</c>.
         /// </summary>
         [HttpPatch("{id}/activate")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> Activate(int id)
         {
-            var result = await _mediator.Send(new ActivateAssemblyPointCommand(id));
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var changedBy))
+                return Unauthorized();
+
+            var result = await _mediator.Send(new ActivateAssemblyPointCommand(id, changedBy));
             return Ok(result);
         }
 
         /// <summary>
-        /// Đưa điểm tập kết vào trạng thái bảo trì: <c>Active → UnderMaintenance</c> hoặc <c>Overloaded → UnderMaintenance</c>.
+        /// Đánh dấu điểm tập kết không khả dụng: <c>Available → Unavailable</c>.
         /// </summary>
-        [HttpPatch("{id}/start-maintenance")]
+        [HttpPatch("{id}/set-unavailable")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
-        public async Task<IActionResult> StartMaintenance(int id)
+        public async Task<IActionResult> SetUnavailable(int id, [FromBody] SetAssemblyPointUnavailableRequestDto dto)
         {
-            var result = await _mediator.Send(new SetAssemblyPointUnavailableCommand(id));
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var changedBy))
+                return Unauthorized();
+
+            var result = await _mediator.Send(new SetAssemblyPointUnavailableCommand(id, changedBy, dto.Reason));
             return Ok(result);
         }
 
         /// <summary>
-        /// Hoàn tất bảo trì, đưa điểm tập kết về hoạt động: <c>UnderMaintenance → Active</c>.
+        /// Khôi phục điểm tập kết về khả dụng: <c>Unavailable → Available</c>.
         /// </summary>
-        [HttpPatch("{id}/complete-maintenance")]
+        [HttpPatch("{id}/set-available")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
-        public async Task<IActionResult> CompleteMaintenance(int id)
+        public async Task<IActionResult> SetAvailable(int id, [FromBody] SetAssemblyPointAvailableRequestDto dto)
         {
-            var result = await _mediator.Send(new SetAssemblyPointAvailableCommand(id));
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var changedBy))
+                return Unauthorized();
+
+            var result = await _mediator.Send(new SetAssemblyPointAvailableCommand(id, changedBy, dto.Reason));
             return Ok(result);
         }
 
         /// <summary>
-        /// Đóng vĩnh viễn điểm tập kết: <c>Active → Closed</c>.
-        /// Yêu cầu không còn rescuer hoặc đội cứu hộ nào thuộc điểm tập kết này.
+        /// Đóng vĩnh viễn điểm tập kết: <c>Created → Closed</c> hoặc <c>Unavailable → Closed</c>.
+        /// Rescuer được tự động gỡ khỏi điểm tập kết. Yêu cầu bắt buộc phải cung cấp lý do.
         /// Sau khi đóng, không thể thực hiện bất kỳ thao tác nào với điểm tập kết này.
         /// </summary>
         [HttpPatch("{id}/close")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
-        public async Task<IActionResult> Close(int id)
+        public async Task<IActionResult> Close(int id, [FromBody] CloseAssemblyPointRequestDto dto)
         {
-            var result = await _mediator.Send(new CloseAssemblyPointCommand(id));
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var changedBy))
+                return Unauthorized();
+
+            var result = await _mediator.Send(new CloseAssemblyPointCommand(id, changedBy, dto.Reason));
             return Ok(result);
         }
 

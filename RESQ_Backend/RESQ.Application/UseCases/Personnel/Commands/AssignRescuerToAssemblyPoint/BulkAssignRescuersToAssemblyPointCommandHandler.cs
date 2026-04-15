@@ -34,7 +34,9 @@ public class BulkAssignRescuersToAssemblyPointCommandHandler(
             var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId.Value, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId.Value}");
 
-            if (ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Unavailable || ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Closed)
+            if (ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Created ||
+                ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Unavailable ||
+                ap.Status == Domain.Enum.Personnel.AssemblyPointStatus.Closed)
             {
                 throw new BadRequestException($"Điểm tập kết {ap.Name} đang trạng thái ({ap.Status}), không thể nhận lượng lớn người lúc này.");
             }

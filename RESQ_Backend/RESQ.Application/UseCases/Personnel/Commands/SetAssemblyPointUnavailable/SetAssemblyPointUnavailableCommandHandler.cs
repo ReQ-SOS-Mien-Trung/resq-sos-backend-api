@@ -54,8 +54,8 @@ var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAs
             }
         }
 
-        // Domain enforces: chỉ Active hoặc Overloaded → Unavailable    
-        assemblyPoint.ChangeStatus(AssemblyPointStatus.Unavailable);
+        // Domain enforces: Available → Unavailable
+        assemblyPoint.ChangeStatus(AssemblyPointStatus.Unavailable, request.ChangedBy, request.Reason);
 
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
         await _unitOfWork.SaveAsync();

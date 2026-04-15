@@ -288,7 +288,7 @@ public class CreateMissionCommandHandlerTests
 
     private static AssemblyPointModel CreateAssemblyPoint(
         int id,
-        AssemblyPointStatus status = AssemblyPointStatus.Active,
+        AssemblyPointStatus status = AssemblyPointStatus.Available,
         GeoLocation? location = null) => new()
     {
         Id = id,

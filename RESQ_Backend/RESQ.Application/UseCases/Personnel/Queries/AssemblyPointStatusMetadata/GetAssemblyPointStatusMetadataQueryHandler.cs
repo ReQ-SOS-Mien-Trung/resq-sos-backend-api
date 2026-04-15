@@ -14,10 +14,10 @@ public class GetAssemblyPointStatusMetadataQueryHandler
         // Define metadata for UI dropdowns
         var result = new List<MetadataDto>
         {
-            new() { Key = AssemblyPointStatus.Created.ToString(),          Value = "Mới tạo" },
-            new() { Key = AssemblyPointStatus.Active.ToString(),           Value = "Đang hoạt động" },
-            new() { Key = AssemblyPointStatus.Unavailable.ToString(), Value = "Đang bảo trì" },
-            new() { Key = AssemblyPointStatus.Closed.ToString(),           Value = "Đã đóng" }
+            new() { Key = AssemblyPointStatus.Created.ToString(),     Value = "Mới tạo" },
+            new() { Key = AssemblyPointStatus.Available.ToString(),   Value = "Đang hoạt động" },
+            new() { Key = AssemblyPointStatus.Unavailable.ToString(), Value = "Không khả dụng" },
+            new() { Key = AssemblyPointStatus.Closed.ToString(),      Value = "Đã đóng" }
         };
 
         return await Task.FromResult(result);

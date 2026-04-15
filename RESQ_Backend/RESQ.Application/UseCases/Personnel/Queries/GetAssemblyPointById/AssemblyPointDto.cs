@@ -35,5 +35,8 @@ public class AssemblyPointDto
     public DateTime? LastUpdatedAt { get; set; }
     /// <summary>True khi điểm tập kết đang có sự kiện triệu tập (Scheduled/Gathering).</summary>
     public bool HasActiveEvent { get; set; }
+    public string? StatusReason { get; set; }
+    public DateTime? StatusChangedAt { get; set; }
+    public Guid? StatusChangedBy { get; set; }
     public List<AssemblyPointTeamDto> Teams { get; set; } = [];
 }

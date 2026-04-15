@@ -128,7 +128,7 @@ public class AssemblyEventRepositoryTests
         {
             Id = 5,
             Name = "AP 5",
-            Status = AssemblyPointStatus.Active.ToString(),
+            Status = AssemblyPointStatus.Available.ToString(),
             CreatedAt = DateTime.UtcNow
         });
         context.AssemblyEvents.Add(new AssemblyEvent
