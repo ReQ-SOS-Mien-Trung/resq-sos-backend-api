@@ -130,7 +130,7 @@ public class InitiateDepotClosureCommandHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task AssignManagerAsync(DepotModel depot, Guid newManagerId, Guid? assignedBy = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
         public Task UnassignManagerAsync(DepotModel depot, Guid? unassignedBy = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task UnassignSpecificManagersAsync(DepotModel depot, IReadOnlyList<Guid> userIds, Guid? unassignedBy = null, CancellationToken cancellationToken = default) => Task.CompletedTask;

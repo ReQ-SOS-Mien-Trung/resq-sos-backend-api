@@ -16,7 +16,7 @@ namespace RESQ.Application.Repositories.Logistics
         /// Gán thêm một manager mới cho kho mà không đụng vào các manager đang active khác.
         /// Cập nhật status kho → Available.
         /// </summary>
-        Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default);
+        Task AssignManagerAsync(DepotModel depot, Guid newManagerId, Guid? assignedBy = null, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gỡ manager hiện tại khỏi kho (soft-unassign): set UnassignedAt cho bản ghi manager đang active,
