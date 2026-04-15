@@ -285,6 +285,8 @@ public class UpdateMissionStatusCommandHandlerTests
         public Task<List<Guid>> GetParticipantIdsAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Guid?> GetEventCreatedByAsync(int eventId, CancellationToken cancellationToken = default) => Task.FromResult<Guid?>(null);
+        public Task<bool> MarkParticipantAbsentAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 }

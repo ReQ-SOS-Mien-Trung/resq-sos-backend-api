@@ -55,6 +55,16 @@ public interface IAssemblyEventRepository
     /// <summary>Lấy event theo ID. Null nếu không tồn tại.</summary>
     Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default);
 
+    /// <summary>Lấy userId của người tạo event (coordinator). Null nếu event không tồn tại.</summary>
+    Task<Guid?> GetEventCreatedByAsync(int eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Đánh dấu participant là vắng mặt (Absent) tại sự kiện tập trung.
+    /// Nếu participant đang checked-in thì đồng thời đánh dấu checked-out.
+    /// Trả về false nếu không tìm thấy participant.
+    /// </summary>
+    Task<bool> MarkParticipantAbsentAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
+
     /// <summary>Lấy danh sách sự kiện triệu tập mà rescuer được gán vào (phân trang, mới nhất trước).</summary>
     Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(
         Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);

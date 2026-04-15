@@ -62,6 +62,58 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
                       cancellationToken);
     }
 
+    public async Task<bool> IsLeaderInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<RescueTeamMember>()
+            .Include(m => m.Team)
+            .AnyAsync(m => m.UserId == userId
+                           && m.IsLeader
+                           && m.Status == TeamMemberStatus.Accepted.ToString()
+                           && m.Team!.Status != RescueTeamStatus.Disbanded.ToString(),
+                      cancellationToken);
+    }
+
+    public async Task<Guid?> GetTeamLeaderUserIdByMemberAsync(Guid memberUserId, CancellationToken cancellationToken = default)
+    {
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString();
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
+
+        // Tìm đội mà thành viên đang tham gia
+        var teamId = await _unitOfWork.Set<RescueTeamMember>()
+            .Include(m => m.Team)
+            .Where(m => m.UserId == memberUserId
+                        && m.Status == acceptedStatus
+                        && m.Team!.Status != disbandedStatus)
+            .Select(m => (int?)m.TeamId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (teamId == null) return null;
+
+        // Lấy đội trưởng của đội đó
+        return await _unitOfWork.Set<RescueTeamMember>()
+            .Where(m => m.TeamId == teamId && m.IsLeader && m.Status == acceptedStatus)
+            .Select(m => (Guid?)m.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<bool> SoftRemoveMemberFromActiveTeamAsync(Guid memberUserId, CancellationToken cancellationToken = default)
+    {
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString();
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
+
+        var member = await _unitOfWork.SetTracked<RescueTeamMember>()
+            .Include(m => m.Team)
+            .FirstOrDefaultAsync(m => m.UserId == memberUserId
+                                      && m.Status == acceptedStatus
+                                      && m.Team!.Status != disbandedStatus,
+                                 cancellationToken);
+
+        if (member == null) return false;
+
+        member.Status = TeamMemberStatus.Removed.ToString();
+        return true;
+    }
+
     public async Task<bool> HasRequiredAbilityCategoryAsync(Guid userId, string categoryCode, CancellationToken cancellationToken = default)
     {
         return await _unitOfWork.Set<UserAbility>()

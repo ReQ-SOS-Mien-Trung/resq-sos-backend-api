@@ -69,9 +69,17 @@ public class CheckInAtAssemblyPointCommandHandler(
             assemblyPoint.Location.Latitude, assemblyPoint.Location.Longitude);
 
         if (distanceMeters > maxDistanceMeters)
+        {
+            var distanceDisplay = distanceMeters >= 1000
+                ? $"{distanceMeters / 1000:F1}km"
+                : $"{distanceMeters:F0}m";
+            var radiusDisplay = maxDistanceMeters >= 1000
+                ? $"{maxDistanceMeters / 1000:F1}km"
+                : $"{maxDistanceMeters:F0}m";
             throw new BadRequestException(
-                $"Bạn hiện cách điểm tập kết \"{assemblyPoint.Name}\" khoảng {distanceMeters:F0}m. " +
-                $"Vui lòng di chuyển đến trong phạm vi {maxDistanceMeters:F0}m để thực hiện check-in.");
+                $"Bạn hiện cách điểm tập kết \"{assemblyPoint.Name}\" khoảng {distanceDisplay}. " +
+                $"Vui lòng di chuyển đến trong phạm vi {radiusDisplay} để thực hiện check-in.");
+        }
 
         // 5. Check-in (validate participant tồn tại + idempotent)
         var success = await assemblyEventRepository.CheckInAsync(

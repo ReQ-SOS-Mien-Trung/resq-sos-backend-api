@@ -376,6 +376,34 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         return (evt.Id, evt.AssemblyPointId, evt.Status, evt.AssemblyDate);
     }
 
+    public async Task<Guid?> GetEventCreatedByAsync(int eventId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<AssemblyEvent>()
+            .Where(e => e.Id == eventId)
+            .Select(e => (Guid?)e.CreatedBy)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<bool> MarkParticipantAbsentAsync(int eventId, Guid rescuerId,
+        CancellationToken cancellationToken = default)
+    {
+        var participant = await _unitOfWork.SetTracked<AssemblyParticipant>()
+            .FirstOrDefaultAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId, cancellationToken);
+
+        if (participant == null) return false;
+
+        // Nếu đang checked-in thì đánh dấu checkout trước
+        if (participant.IsCheckedIn && !participant.IsCheckedOut)
+        {
+            participant.IsCheckedOut = true;
+            participant.CheckOutTime = DateTime.UtcNow;
+            await MirrorActiveTeamMemberCheckedInAsync(rescuerId, checkedIn: false, cancellationToken);
+        }
+
+        participant.Status = AssemblyParticipantStatus.Absent.ToString();
+        return true;
+    }
+
     public async Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(
         Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
