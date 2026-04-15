@@ -207,10 +207,13 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         return (available, inUse);
     }
 
-    public async Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default)
+    public async Task AssignManagerAsync(DepotModel depot, Guid newManagerId, Guid? assignedBy = null, CancellationToken cancellationToken = default)
     {
         // Thêm bản ghi manager mới - không unassign manager cũ, đó là thao tác riêng biệt
-        var newManager = depot.CurrentManager!;
+        var newManager = depot.ManagerHistory
+            .Where(x => x.UserId == newManagerId && x.IsActive())
+            .OrderByDescending(x => x.AssignedAt)
+            .First();
 
         // Guard chống tạo bản ghi active trùng lặp (UserId, DepotId) ở DB level,
         // phòng trường hợp race condition vượt qua domain guard ở in-memory level.

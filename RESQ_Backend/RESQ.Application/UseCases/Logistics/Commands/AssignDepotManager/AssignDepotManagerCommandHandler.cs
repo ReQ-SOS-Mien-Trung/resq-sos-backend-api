@@ -18,40 +18,60 @@ public class AssignDepotManagerCommandHandler(
         AssignDepotManagerCommand request, CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "AssignDepotManager: depotId={DepotId}, managerId={ManagerId}",
-            request.DepotId, request.ManagerId);
+            "AssignDepotManager: depotId={DepotId}, managerIds=[{ManagerIds}]",
+            request.DepotId, string.Join(", ", request.ManagerIds));
 
         // 1. Validate depot tồn tại
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy kho với ID = {request.DepotId}");
 
-        // 2. Validate user tồn tại và là Manager (RoleId = 4)
-        var user = await userRepository.GetByIdAsync(request.ManagerId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy người dùng với ID = {request.ManagerId}");
+        // 2. Batch-load tất cả user, sau đó validate trước khi thực hiện bất kỳ thay đổi nào
+        var users = await userRepository.GetByIdsAsync(request.ManagerIds, cancellationToken);
 
-        if (user.RoleId != 4)
-            throw new BadRequestException(
-                $"Người dùng {user.LastName} {user.FirstName} không có vai trò Quản lý kho (Manager).");
+        foreach (var managerId in request.ManagerIds)
+        {
+            var user = users.FirstOrDefault(u => u.Id == managerId)
+                ?? throw new NotFoundException($"Không tìm thấy người dùng với ID = {managerId}");
 
-        // 3. (Đã gỡ bỏ: Kiểm tra manager đang quản lý kho khác)
-        // Cho phép 1 quản kho được phân công quản lý nhiều kho cùng lúc.
+            if (user.RoleId != 4)
+                throw new BadRequestException(
+                    $"Người dùng {user.LastName} {user.FirstName} không có vai trò Quản lý kho (Manager).");
+        }
 
-        // 4. Gọi domain method - thêm manager mới + status → Available (không chạm manager cũ)
-        depot.AssignManager(request.ManagerId);
+        // 3. Gán từng manager: domain method + persist (mỗi người một lần)
+        foreach (var managerId in request.ManagerIds)
+        {
+            depot.AssignManager(managerId);
+            await depotRepository.AssignManagerAsync(depot, managerId, request.RequestedBy, cancellationToken);
+        }
 
-        // 5. Persist qua repository method chuyên biệt
-        await depotRepository.AssignManagerAsync(depot, request.RequestedBy, cancellationToken);
         await unitOfWork.SaveAsync();
+
+        // 4. Xây dựng response
+        var assignedManagers = request.ManagerIds
+            .Select(id =>
+            {
+                var user = users.First(u => u.Id == id);
+                var assignment = depot.ManagerHistory
+                    .Where(a => a.UserId == id && a.IsActive())
+                    .OrderByDescending(a => a.AssignedAt)
+                    .First();
+                return new AssignedManagerInfo
+                {
+                    ManagerId  = id,
+                    FullName   = $"{user.LastName} {user.FirstName}".Trim(),
+                    Email      = user.Email,
+                    AssignedAt = assignment.AssignedAt
+                };
+            })
+            .ToList();
 
         return new AssignDepotManagerResponse
         {
-            DepotId    = depot.Id,
-            DepotName  = depot.Name,
-            Status     = depot.Status.ToString(),
-            ManagerId  = request.ManagerId,
-            ManagerFullName = $"{user.LastName} {user.FirstName}".Trim(),
-            ManagerEmail    = user.Email,
-            AssignedAt = depot.CurrentManager!.AssignedAt
+            DepotId          = depot.Id,
+            DepotName        = depot.Name,
+            Status           = depot.Status.ToString(),
+            AssignedManagers = assignedManagers
         };
     }
 }

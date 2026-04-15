@@ -421,7 +421,7 @@ public class RescuerAuthSessionAndProfileHandlerTests
         public Task UpdateAsync(DepotModel depotModel, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default)
+        public Task AssignManagerAsync(DepotModel depot, Guid newManagerId, Guid? assignedBy = null, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task UnassignManagerAsync(DepotModel depot, Guid? unassignedBy = null, CancellationToken cancellationToken = default)

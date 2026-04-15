@@ -144,7 +144,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> AssignManager(int id, [FromBody] AssignDepotManagerRequestDto dto)
         {
-            var command = new AssignDepotManagerCommand(id, dto.ManagerId, GetUserId());
+            var command = new AssignDepotManagerCommand(id, dto.ManagerIds, GetUserId());
             var result = await _mediator.Send(command);
             return Ok(result);
         }
