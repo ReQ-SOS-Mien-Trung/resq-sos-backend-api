@@ -133,6 +133,7 @@ public class InitiateDepotClosureCommandHandlerTests
         public Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
         public Task UnassignManagerAsync(DepotModel depot, Guid? unassignedBy = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UnassignSpecificManagersAsync(DepotModel depot, IReadOnlyList<Guid> userIds, Guid? unassignedBy = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<RESQ.Application.Common.Models.PagedResult<DepotModel>> GetAllPagedAsync(
             int pageNumber,

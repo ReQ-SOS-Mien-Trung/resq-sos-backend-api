@@ -368,6 +368,34 @@ public class DepotModel
         LastUpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Gỡ những manager có userId trong danh sách (selective unassign).
+    /// Nếu sau khi gỡ không còn manager active → status → PendingAssignment.
+    /// Nếu còn manager khác vẫn active → giữ nguyên status hiện tại.
+    /// </summary>
+    public void UnassignManagersByUserIds(IReadOnlyList<Guid> userIds)
+    {
+        if (Status == DepotStatus.Closed)
+            throw new DepotClosedException();
+
+        if (Status == DepotStatus.Unavailable)
+            throw new DepotClosingException(
+                "Kho đang ngưng hoạt động (Unavailable), không thể gỡ quản lý.");
+
+        var now = DateTime.UtcNow;
+        foreach (var uid in userIds)
+        {
+            var assignment = _managerHistory.FirstOrDefault(x => x.UserId == uid && x.IsActive());
+            assignment?.Unassign(now);
+        }
+
+        // Chỉ chuyển PendingAssignment nếu không còn manager active nào
+        if (!_managerHistory.Any(x => x.IsActive()))
+            Status = DepotStatus.PendingAssignment;
+
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
     // ── Inventory lines (item-level stock, loaded from DepotSupplyInventory) ──
     private readonly List<DepotInventoryLine> _inventoryLines = [];
     public IReadOnlyList<DepotInventoryLine> InventoryLines => _inventoryLines.AsReadOnly();
