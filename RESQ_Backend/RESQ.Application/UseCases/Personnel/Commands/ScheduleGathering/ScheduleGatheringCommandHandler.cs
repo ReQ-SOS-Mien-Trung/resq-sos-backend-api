@@ -29,6 +29,7 @@ public class ScheduleGatheringCommandHandler(
 
         // 2. Normalize ve UTC de luu tru.
         var assemblyDateUtc = request.AssemblyDate.ToUtcForStorage();
+        var checkInDeadlineUtc = request.CheckInDeadline.ToUtcForStorage();
 
         // 3. Không cho phép l?p l?ch vào ngày quá kh? theo gi? Vi?t Nam.
         var assemblyDateInVietnam = assemblyDateUtc.ToVietnamTime().Date;
@@ -41,7 +42,7 @@ public class ScheduleGatheringCommandHandler(
 
         // 4. Tao AssemblyEvent (rule: chi 1 active event per AP, enforce trong repository).
         var eventId = await assemblyEventRepository.CreateEventAsync(
-            request.AssemblyPointId, assemblyDateUtc, request.CreatedBy, cancellationToken);
+            request.AssemblyPointId, assemblyDateUtc, checkInDeadlineUtc, request.CreatedBy, cancellationToken);
 
         // 5. Snapshot rescuer chua co team vao su kien trieu tap de xep nhom.
         var rescuerIds = await assemblyPointRepository.GetTeamlessRescuerUserIdsAsync(
@@ -59,8 +60,10 @@ public class ScheduleGatheringCommandHandler(
         var vnAssemblyDate = TimeZoneInfo.ConvertTimeFromUtc(assemblyDateUtc, vnTimeZone);
 
         var title = "Thông báo triệu tập";
+        var vnCheckInDeadline = TimeZoneInfo.ConvertTimeFromUtc(checkInDeadlineUtc, vnTimeZone);
         var body = $"Bạn được triệu tập tập trung tại điểm tập kết \"{ap.Name}\" vào lúc " +
                    $"{vnAssemblyDate:HH:mm} ngày {vnAssemblyDate:dd/MM/yyyy}. " +
+                   $"Thời hạn check-in: {vnCheckInDeadline:HH:mm} ngày {vnCheckInDeadline:dd/MM/yyyy}. " +
                    "Vui lòng có mặt đúng giờ và thực hiện check-in trên ứng dụng khi đến nơi.";
 
         logger.LogInformation("Gửi thông báo triệu tập cho {Count} rescuer tại AP {ApId}, EventId={EventId}",

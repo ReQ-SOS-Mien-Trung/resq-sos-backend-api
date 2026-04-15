@@ -11,8 +11,8 @@ namespace RESQ.Application.Repositories.Logistics
         Task UpdateAsync(DepotModel depotModel, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Gán / đổi manager cho kho: unassign manager cũ (nếu có), thêm bản ghi manager mới,
-        /// cập nhật status kho → Available.
+        /// Gán thêm một manager mới cho kho mà không đụng vào các manager đang active khác.
+        /// Cập nhật status kho → Available.
         /// </summary>
         Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default);
 
@@ -76,12 +76,6 @@ namespace RESQ.Application.Repositories.Logistics
         /// Trả về null nếu không tìm thấy kho.
         /// </summary>
         Task<DepotStatus?> GetStatusByIdAsync(int depotId, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Kiểm tra manager có đang active (UnassignedAt == null) ở một kho khác không.
-        /// Dùng để ngăn gán một manager đang quản lý kho khác vào kho mới.
-        /// </summary>
-        Task<bool> IsManagerActiveElsewhereAsync(Guid managerId, int excludeDepotId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Lấy chi tiết tồn kho của kho (consumable + reusable) cho quy trình đóng kho.

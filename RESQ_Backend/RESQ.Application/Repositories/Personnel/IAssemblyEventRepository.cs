@@ -8,7 +8,7 @@ namespace RESQ.Application.Repositories.Personnel;
 public interface IAssemblyEventRepository
 {
     /// <summary>Tạo sự kiện tập trung mới. Trả về event ID.</summary>
-    Task<int> CreateEventAsync(int assemblyPointId, DateTime assemblyDate, Guid createdBy, CancellationToken cancellationToken = default);
+    Task<int> CreateEventAsync(int assemblyPointId, DateTime assemblyDate, DateTime checkInDeadline, Guid createdBy, CancellationToken cancellationToken = default);
 
     /// <summary>Snapshot: gán danh sách rescuer vào sự kiện (chỉ thêm, không xóa).</summary>
     Task AssignParticipantsAsync(int eventId, List<Guid> rescuerIds, CancellationToken cancellationToken = default);
@@ -53,10 +53,13 @@ public interface IAssemblyEventRepository
     Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default);
 
     /// <summary>Lấy event theo ID. Null nếu không tồn tại.</summary>
-    Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default);
+    Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default);
 
     /// <summary>Lấy userId của người tạo event (coordinator). Null nếu event không tồn tại.</summary>
     Task<Guid?> GetEventCreatedByAsync(int eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>Kiểm tra rescuer đã check-out tại sự kiện (không thể check-in lại sau đó).</summary>
+    Task<bool> HasParticipantCheckedOutAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Đánh dấu participant là vắng mặt (Absent) tại sự kiện tập trung.

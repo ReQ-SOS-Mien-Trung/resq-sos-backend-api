@@ -14,6 +14,12 @@ public class ScheduleGatheringCommandValidator : AbstractValidator<ScheduleGathe
         RuleFor(x => x.AssemblyDate)
             .Must(BeOnOrAfterTodayInVietnam)
             .WithMessage("Ngày triệu tập không được là ngày quá khứ.");
+
+        RuleFor(x => x.CheckInDeadline)
+            .Must(d => d.ToUtcForStorage() > DateTime.UtcNow)
+            .WithMessage("Thời hạn check-in phải là thời điểm trong tương lai.")
+            .Must((cmd, deadline) => deadline.ToUtcForStorage() <= cmd.AssemblyDate.ToUtcForStorage())
+            .WithMessage("Thời hạn check-in phải trước hoặc bằng thời gian tập trung.");
     }
 
     private static bool BeOnOrAfterTodayInVietnam(DateTime assemblyDate)

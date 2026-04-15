@@ -13,6 +13,7 @@ using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 using RESQ.Application.UseCases.Personnel.RescueTeams.DTOs;
 using RESQ.Application.UseCases.Personnel.Commands.SetTeamAvailable;
 using RESQ.Application.UseCases.Personnel.Commands.SetTeamUnavailable;
+using RESQ.Application.UseCases.Personnel.Commands.LeaveTeam;
 
 namespace RESQ.Presentation.Controllers.Personnel;
 
@@ -66,6 +67,16 @@ public class RescueTeamsController(IMediator mediator, IAuthorizationService aut
         var userId = GetCurrentUserId();
         var result = await mediator.Send(new GetMyRescueTeamQuery(userId));
         return Ok(result);
+    }
+
+    /// <summary>Rescuer tự rời khỏi đội cứu hộ hiện tại. Thông báo cho đội trưởng và coordinator.</summary>
+    [HttpPost("my/leave")]
+    [Authorize(Policy = PermissionConstants.PersonnelTeamSelfView)]
+    public async Task<IActionResult> LeaveMyTeam()
+    {
+        var userId = GetCurrentUserId();
+        await mediator.Send(new LeaveTeamCommand(userId));
+        return NoContent();
     }
 
     /// <summary>Tạo đội cứu hộ mới từ danh sách rescuer đã check-in.</summary>

@@ -17,12 +17,6 @@ public class CheckInAtAssemblyPointCommandHandler(
     /// <summary>Bán kính check-in mặc định khi chưa có cấu hình (200m).</summary>
     private const double DefaultMaxDistanceMeters = 200;
 
-    /// <summary>Số giờ trước EventDateTime cho phép check-in.</summary>
-    private const int CheckInOpenHoursBefore = 24;
-
-    /// <summary>Số giờ sau EventDateTime vẫn cho phép check-in.</summary>
-    private const int CheckInCloseHoursAfter = 6;
-
     public async Task Handle(CheckInAtAssemblyPointCommand request, CancellationToken cancellationToken)
     {
         // 1. Validate sự kiện tồn tại
@@ -35,21 +29,15 @@ public class CheckInAtAssemblyPointCommandHandler(
             throw new BadRequestException(
                 $"Sự kiện tập trung chưa mở hoặc đã kết thúc check-in. Trạng thái hiện tại: {evt.Status}.");
 
-        // 3. Validate cửa sổ thời gian check-in
-        var checkInOpensAt = evt.AssemblyDate.AddHours(-CheckInOpenHoursBefore);
-        var checkInClosesAt = evt.AssemblyDate.AddHours(CheckInCloseHoursAfter);
+        // 3. Enforce thời hạn check-in nếu coordinator đã thiết lập
         var now = DateTime.UtcNow;
-
-        // TODO: Bỏ comment khi demo xong
-        // if (now < checkInOpensAt)
-        //     throw new BadRequestException(
-        //         $"Chưa đến thời gian check-in. Check-in mở từ {checkInOpensAt:dd/MM/yyyy HH:mm} UTC " +
-        //         $"(trước giờ triệu tập {CheckInOpenHoursBefore} tiếng).");
-
-        // if (now > checkInClosesAt)
-        //     throw new BadRequestException(
-        //         $"Đã quá thời gian check-in. Check-in đóng lúc {checkInClosesAt:dd/MM/yyyy HH:mm} UTC " +
-        //         $"(sau giờ triệu tập {CheckInCloseHoursAfter} tiếng).");
+        if (evt.CheckInDeadline.HasValue && now > evt.CheckInDeadline.Value)
+        {
+            var vnTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+            var deadlineVn = TimeZoneInfo.ConvertTimeFromUtc(evt.CheckInDeadline.Value, vnTimeZone);
+            throw new BadRequestException(
+                $"Đã quá thời hạn check-in. Thời hạn check-in là {deadlineVn:HH:mm dd/MM/yyyy} (giờ Việt Nam).");
+        }
 
         // 4. Validate vị trí GPS - rescuer phải nằm trong phạm vi điểm tập kết
         var assemblyPoint = await assemblyPointRepository.GetByIdAsync(evt.AssemblyPointId, cancellationToken)
@@ -86,7 +74,15 @@ public class CheckInAtAssemblyPointCommandHandler(
             request.AssemblyEventId, request.UserId, cancellationToken);
 
         if (!success)
+        {
+            // Phân biệt: đã check-out (không thể check-in lại) vs không có trong danh sách
+            var hasCheckedOut = await assemblyEventRepository.HasParticipantCheckedOutAsync(
+                request.AssemblyEventId, request.UserId, cancellationToken);
+            if (hasCheckedOut)
+                throw new BadRequestException("Bạn đã check-out khỏi sự kiện này. Không thể check-in lại sau khi đã check-out.");
+
             throw new BadRequestException("Bạn không nằm trong danh sách tham gia sự kiện tập trung này.");
+        }
 
         await unitOfWork.SaveAsync();
     }

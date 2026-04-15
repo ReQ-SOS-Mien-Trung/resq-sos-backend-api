@@ -207,21 +207,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
 
     public async Task AssignManagerAsync(DepotModel depot, Guid? assignedBy = null, CancellationToken cancellationToken = default)
     {
-        var now = DateTime.UtcNow;
-
-        // Unassign manager cũ (nếu có) - set UnassignedAt trực tiếp trên entity
-        // Phải dùng SetTracked để EF Core theo dõi thay đổi và lưu khi SaveChangesAsync được gọi
-        var existingManagers = await _unitOfWork.SetTracked<DepotManager>()
-            .Where(dm => dm.DepotId == depot.Id && dm.UnassignedAt == null)
-            .ToListAsync(cancellationToken);
-
-        foreach (var old in existingManagers)
-        {
-            old.UnassignedAt = now;
-            old.UnassignedBy = assignedBy;
-        }
-
-        // Thêm bản ghi manager mới
+        // Thêm bản ghi manager mới - không unassign manager cũ, đó là thao tác riêng biệt
         var newManager = depot.CurrentManager!;
         await _unitOfWork.GetRepository<DepotManager>().AddAsync(new DepotManager
         {
@@ -287,17 +273,6 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
 
         if (statusStr == null) return null;
         return Enum.TryParse<DepotStatus>(statusStr, out var status) ? status : null;
-    }
-
-    public async Task<bool> IsManagerActiveElsewhereAsync(
-        Guid managerId, int excludeDepotId, CancellationToken cancellationToken = default)
-    {
-        return await _unitOfWork.Set<DepotManager>()
-            .AnyAsync(
-                dm => dm.UserId == managerId
-                   && dm.UnassignedAt == null
-                   && dm.DepotId != excludeDepotId,
-                cancellationToken);
     }
 
     public async Task<List<ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(

@@ -209,7 +209,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             if (!Guid.TryParse(userIdStr, out var createdBy))
                 return Unauthorized();
 
-            var command = new ScheduleGatheringCommand(id, dto.AssemblyDate, createdBy);
+            var command = new ScheduleGatheringCommand(id, dto.AssemblyDate, dto.CheckInDeadline, createdBy);
             var eventId = await _mediator.Send(command);
             return Ok(new { EventId = eventId });
         }
