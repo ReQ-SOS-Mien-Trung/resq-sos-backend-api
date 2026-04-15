@@ -15,5 +15,5 @@ public class GetAvailableManagersMetadataHandler
 
     public Task<List<AvailableManagerDto>> Handle(
         GetAvailableManagersMetadataQuery request, CancellationToken cancellationToken)
-        => _userRepository.GetAvailableManagersAsync(cancellationToken);
+        => _userRepository.GetAvailableManagersAsync(request.DepotId, cancellationToken);
 }

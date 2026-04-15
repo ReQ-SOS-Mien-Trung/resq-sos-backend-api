@@ -3,7 +3,9 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotManagers;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
@@ -209,13 +211,25 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
     {
         // Thêm bản ghi manager mới - không unassign manager cũ, đó là thao tác riêng biệt
         var newManager = depot.CurrentManager!;
-        await _unitOfWork.GetRepository<DepotManager>().AddAsync(new DepotManager
+
+        // Guard chống tạo bản ghi active trùng lặp (UserId, DepotId) ở DB level,
+        // phòng trường hợp race condition vượt qua domain guard ở in-memory level.
+        var alreadyActiveInDb = await _unitOfWork.Set<DepotManager>()
+            .AnyAsync(dm => dm.UserId == newManager.UserId
+                         && dm.DepotId == depot.Id
+                         && dm.UnassignedAt == null,
+                      cancellationToken);
+
+        if (!alreadyActiveInDb)
         {
-            DepotId    = depot.Id,
-            UserId     = newManager.UserId,
-            AssignedAt = newManager.AssignedAt,
-            AssignedBy = assignedBy
-        });
+            await _unitOfWork.GetRepository<DepotManager>().AddAsync(new DepotManager
+            {
+                DepotId    = depot.Id,
+                UserId     = newManager.UserId,
+                AssignedAt = newManager.AssignedAt,
+                AssignedBy = assignedBy
+            });
+        }
 
         // Cập nhật status + LastUpdatedAt của kho
         var depotEntity = await _unitOfWork.GetRepository<Depot>()
@@ -394,5 +408,48 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
             .ToList();
 
         return [.. consumables, .. reusables];
+    }
+
+    public async Task<List<ManagedDepotDto>> GetManagedDepotsByUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Lấy danh sách DepotId distinct mà user đang active (UnassignedAt IS NULL).
+        // Dùng Distinct() để loại bỏ trùng lặp phòng trường hợp có nhiều bản ghi active
+        // cùng (UserId, DepotId) do race-condition hay reassign cycle.
+        var activeDepotIds = await _unitOfWork.Set<DepotManager>()
+            .Where(dm => dm.UserId == userId && dm.UnassignedAt == null && dm.DepotId != null)
+            .Select(dm => dm.DepotId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (activeDepotIds.Count == 0)
+            return [];
+
+        // Step 2: Lấy thông tin kho cho các DepotId đã lọc.
+        return await _unitOfWork.Set<Depot>()
+            .Where(d => activeDepotIds.Contains(d.Id))
+            .Select(d => new ManagedDepotDto
+            {
+                DepotId   = d.Id,
+                DepotName = d.Name ?? string.Empty,
+                Status    = d.Status ?? string.Empty,
+                Address   = d.Address ?? string.Empty,
+                ImageUrl  = d.ImageUrl
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<DepotManagerInfoDto>> GetDepotManagersAsync(int depotId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<DepotManager>()
+            .Where(dm => dm.DepotId == depotId && dm.UnassignedAt == null && dm.UserId != null)
+            .Select(dm => new DepotManagerInfoDto
+            {
+                UserId     = dm.UserId!.Value,
+                FullName   = ((dm.User!.LastName ?? "") + " " + (dm.User.FirstName ?? "")).Trim(),
+                Email      = dm.User.Email,
+                Phone      = dm.User.Phone,
+                AssignedAt = dm.AssignedAt
+            })
+            .ToListAsync(cancellationToken);
     }
 }

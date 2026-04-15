@@ -343,7 +343,7 @@ public sealed class AdminUserManagementHandlerTests
             => throw new NotImplementedException();
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken ct = default)
             => throw new NotImplementedException();
-        public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(CancellationToken ct = default)
+        public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken ct = default)
             => throw new NotImplementedException();
     }
 

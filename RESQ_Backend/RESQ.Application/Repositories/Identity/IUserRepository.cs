@@ -28,9 +28,10 @@ namespace RESQ.Application.Repositories.Identity
         Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Lấy danh sách Manager (RoleId=4, không bị ban) chưa được gán quản lý kho nào (không có bản ghi
-        /// depot_managers với UnassignedAt = null). Dùng cho dropdown chọn manager khi tạo/gán kho.
+        /// Lấy danh sách Manager (RoleId=4, không bị ban). Nếu truyền excludeDepotId,
+        /// loại trừ các manager đang active (UnassignedAt IS NULL) trong kho đó.
+        /// Dùng cho dropdown chọn manager khi gán kho.
         /// </summary>
-        Task<List<AvailableManagerDto>> GetAvailableManagersAsync(CancellationToken cancellationToken = default);
+        Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken cancellationToken = default);
     }
 }

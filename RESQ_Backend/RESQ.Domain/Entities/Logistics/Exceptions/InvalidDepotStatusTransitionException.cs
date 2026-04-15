@@ -7,7 +7,7 @@ namespace RESQ.Domain.Entities.Logistics.Exceptions;
 public sealed class InvalidDepotStatusTransitionException : DomainException
 {
     public InvalidDepotStatusTransitionException(DepotStatus current, DepotStatus target, string reason) 
-        : base($"Không thể chuyển trạng thái từ {current} sang {target}. Lý do: {reason}") 
+        : base($"Không thể chuyển trạng thái từ '{current.ToVietnamese()}' sang '{target.ToVietnamese()}'. Lý do: {reason}") 
     { 
     }
 }

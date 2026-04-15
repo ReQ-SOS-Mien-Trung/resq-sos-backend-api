@@ -165,11 +165,12 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task<List<AvailableManagerDto>> GetAvailableManagersAsync(CancellationToken cancellationToken = default)
+        public async Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken cancellationToken = default)
         {
             return await _unitOfWork.GetRepository<User>()
                 .AsQueryable(tracked: false)
                 .Where(u => u.RoleId == 4 && !u.IsBanned)
+                .Where(u => excludeDepotId == null || !u.DepotManagers.Any(dm => dm.DepotId == excludeDepotId && dm.UnassignedAt == null))
                 .OrderBy(u => u.LastName)
                 .ThenBy(u => u.FirstName)
                 .Select(u => new AvailableManagerDto
