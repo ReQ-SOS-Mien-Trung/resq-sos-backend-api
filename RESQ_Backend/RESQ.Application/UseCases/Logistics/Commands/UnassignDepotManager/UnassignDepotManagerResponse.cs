@@ -6,4 +6,8 @@ public class UnassignDepotManagerResponse
     public string? DepotName { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime UnassignedAt { get; set; }
+    /// <summary>Danh sách userId đã được gỡ thành công.</summary>
+    public List<Guid> UnassignedUserIds { get; set; } = [];
+    /// <summary>Số manager còn lại đang active sau khi gỡ.</summary>
+    public int RemainingManagerCount { get; set; }
 }

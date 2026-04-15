@@ -29,15 +29,16 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// Gỡ manager đang active khỏi kho (soft-unassign): set UnassignedAt cho bản ghi depot_managers,
-        /// lịch sử vẫn được giữ lại. Kho phải ở trạng thái Available.
-        /// Sau khi gỡ, kho chuyển về PendingAssignment (chờ gán quản lý mới).
+        /// Gỡ manager khỏi kho (soft-unassign). Lịch sử vẫn được giữ lại.<br/>
+        /// - Không truyền body (hoặc UserIds rỗng): gỡ TẤT CẢ manager đang active, kho về PendingAssignment.<br/>
+        /// - Truyền UserIds: chỉ gỡ những người được liệt kê, kho giữ Available nếu còn manager khác.
         /// </summary>
         [HttpDelete("{depotId:int}")]
         [Authorize(Policy = PermissionConstants.PersonnelDepotBranchManage)]
-        public async Task<IActionResult> Delete(int depotId)
+        public async Task<IActionResult> Delete(int depotId, [FromBody] UnassignDepotManagerRequestDto? dto = null)
         {
-            var command = new UnassignDepotManagerCommand(depotId, GetUserId());
+            var userIds = dto?.UserIds is { Count: > 0 } list ? list.AsReadOnly() : null;
+            var command = new UnassignDepotManagerCommand(depotId, GetUserId(), userIds);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

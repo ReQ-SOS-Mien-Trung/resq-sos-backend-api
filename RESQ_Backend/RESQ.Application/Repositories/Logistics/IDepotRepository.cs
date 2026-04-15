@@ -23,6 +23,12 @@ namespace RESQ.Application.Repositories.Logistics
         /// cập nhật status kho → PendingAssignment. Lịch sử vẫn được giữ lại.
         /// </summary>
         Task UnassignManagerAsync(DepotModel depot, Guid? unassignedBy = null, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gỡ chỉ những manager theo danh sách userId được chỉ định (soft-unassign).
+        /// Status kho được lấy từ domain object (có thể giữ Available nếu còn manager khác).
+        /// </summary>
+        Task UnassignSpecificManagersAsync(DepotModel depot, IReadOnlyList<Guid> userIds, Guid? unassignedBy = null, CancellationToken cancellationToken = default);
         
         // NEW: Pagination with optional status filter and full-text search
         Task<PagedResult<DepotModel>> GetAllPagedAsync(int pageNumber, int pageSize, IEnumerable<DepotStatus>? statuses = null, string? search = null, CancellationToken cancellationToken = default);

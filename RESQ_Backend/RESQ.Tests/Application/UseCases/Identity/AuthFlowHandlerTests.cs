@@ -625,6 +625,7 @@ public sealed class AuthFlowHandlerTests
         public Task UpdateAsync(DepotModel m, CancellationToken ct = default) => throw new NotImplementedException();
         public Task AssignManagerAsync(DepotModel m, Guid? assignedBy = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task UnassignManagerAsync(DepotModel m, Guid? unassignedBy = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task UnassignSpecificManagersAsync(DepotModel depot, IReadOnlyList<Guid> userIds, Guid? unassignedBy = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<PagedResult<DepotModel>> GetAllPagedAsync(int a, int b, IEnumerable<DepotStatus>? c = null, string? d = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IEnumerable<DepotModel>> GetAllAsync(CancellationToken ct = default) => throw new NotImplementedException();
         public Task<IEnumerable<DepotModel>> GetAvailableDepotsAsync(CancellationToken ct = default) => throw new NotImplementedException();
