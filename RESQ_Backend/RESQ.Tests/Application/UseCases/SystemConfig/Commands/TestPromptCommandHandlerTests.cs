@@ -326,11 +326,17 @@ public class TestPromptCommandHandlerTests
 
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task<bool> ExistsAsync(string name, CancellationToken cancellationToken = default)
+        public Task<bool> ExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default)
         {
             ExistsCalls++;
             return Task.FromResult(false);
         }
+
+        public Task<bool> ExistsVersionAsync(PromptType promptType, string version, int? excludeId = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<IReadOnlyList<PromptModel>> GetVersionsByTypeAsync(PromptType promptType, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<PromptModel>>([]);
 
         public Task DeactivateOthersByTypeAsync(int currentPromptId, PromptType promptType, CancellationToken cancellationToken = default)
         {

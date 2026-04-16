@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
@@ -202,6 +203,133 @@ public class CreateMissionCommandHandlerTests
         Assert.Contains("Khong tim thay diem tap ket #999.", ex.Message);
     }
 
+    [Fact]
+    public async Task Handle_ThrowsBadRequest_WhenMixedMissionRequiresOverride()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository();
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork);
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(
+                BuildCommandWithOptions(
+                    [CreateCollectActivity(quantity: 10), CreateRescueActivity(step: 2)]),
+                CancellationToken.None));
+
+        Assert.Contains("IgnoreMixedMissionWarning=true", ex.Message);
+        Assert.Null(missionRepository.CreatedMission);
+    }
+
+    [Fact]
+    public async Task Handle_PersistsOverrideAudit_WhenMixedMissionIsExplicitlyIgnored()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository();
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+        var suggestionRepository = new StubMissionAiSuggestionRepository(
+            new MissionAiSuggestionModel
+            {
+                Id = 44,
+                ClusterId = 1,
+                SuggestedMissionTitle = "Mixed mission"
+            });
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork,
+            missionAiSuggestionRepository: suggestionRepository);
+
+        var response = await handler.Handle(
+            BuildCommandWithOptions(
+                [CreateCollectActivity(quantity: 10), CreateRescueActivity(step: 2)],
+                aiSuggestionId: 44,
+                ignoreMixedMissionWarning: true,
+                overrideReason: "Coordinator accepts mixed mission risk."),
+            CancellationToken.None);
+
+        Assert.Equal(101, response.MissionId);
+        Assert.NotNull(missionRepository.CreatedMission);
+        Assert.Equal(44, missionRepository.CreatedMission!.AiSuggestionId);
+
+        using var metadata = JsonDocument.Parse(missionRepository.CreatedMission.ManualOverrideMetadata!);
+        var properties = metadata.RootElement
+            .EnumerateObject()
+            .ToDictionary(property => property.Name, property => property.Value, StringComparer.OrdinalIgnoreCase);
+
+        Assert.True(properties["IgnoreMixedMissionWarning"].GetBoolean());
+        Assert.Equal("Coordinator accepts mixed mission risk.", properties["OverrideReason"].GetString());
+        Assert.Equal(CoordinatorId.ToString(), properties["OverriddenBy"].GetString());
+        Assert.False(string.IsNullOrWhiteSpace(properties["OverriddenAt"].GetString()));
+    }
+
+    [Fact]
+    public async Task Handle_ReservesReusableItemsWithoutConsumableBuffer()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository();
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+        var itemMetadataRepository = new StubItemModelMetadataRepository(
+            new Dictionary<int, string>
+            {
+                [2] = nameof(ItemType.Reusable)
+            });
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            itemMetadataRepository,
+            unitOfWork,
+            assemblyPointRepository: new StubAssemblyPointRepository(CreateAssemblyPoint(3)));
+
+        var collect = CreateCollectActivity(quantity: 10);
+        collect.RescueTeamId = 12;
+
+        var response = await handler.Handle(
+            BuildCommandWithOptions(
+                [
+                    collect,
+                    CreateReturnSuppliesActivity(step: 2, quantity: 10, rescueTeamId: 12),
+                    CreateReturnAssemblyPointActivity(step: 3, assemblyPointId: 3, rescueTeamId: 12)
+                ]),
+            CancellationToken.None);
+
+        Assert.Equal(101, response.MissionId);
+
+        var availabilityCheck = Assert.Single(depotInventoryRepository.AvailabilityChecks);
+        var availabilityItem = Assert.Single(availabilityCheck.Items);
+        Assert.Equal(10, availabilityItem.RequestedQuantity);
+
+        var reserveCall = Assert.Single(depotInventoryRepository.ReserveCalls);
+        var reservedItem = Assert.Single(reserveCall.Items);
+        Assert.Equal(10, reservedItem.Quantity);
+    }
+
     private static CreateMissionCommandHandler BuildHandler(
         IMissionRepository missionRepository,
         IMissionActivityRepository missionActivityRepository,
@@ -210,6 +338,7 @@ public class CreateMissionCommandHandlerTests
         IDepotInventoryRepository depotInventoryRepository,
         IItemModelMetadataRepository itemModelMetadataRepository,
         IUnitOfWork unitOfWork,
+        IMissionAiSuggestionRepository? missionAiSuggestionRepository = null,
         IRescueTeamRepository? rescueTeamRepository = null,
         IAssemblyPointRepository? assemblyPointRepository = null)
     {
@@ -218,6 +347,7 @@ public class CreateMissionCommandHandlerTests
             missionActivityRepository,
             clusterRepository,
             sosRequestRepository,
+            missionAiSuggestionRepository ?? new StubMissionAiSuggestionRepository(),
             depotInventoryRepository,
             new StubDepotRepository(),
             itemModelMetadataRepository,
@@ -230,14 +360,24 @@ public class CreateMissionCommandHandlerTests
     }
 
     private static CreateMissionCommand BuildCommand(params CreateActivityItemDto[] activities)
+        => BuildCommandWithOptions(activities);
+
+    private static CreateMissionCommand BuildCommandWithOptions(
+        CreateActivityItemDto[] activities,
+        int? aiSuggestionId = null,
+        bool ignoreMixedMissionWarning = false,
+        string? overrideReason = null)
         => new(
             ClusterId: 1,
+            AiSuggestionId: aiSuggestionId,
             MissionType: "Flood Relief",
             PriorityScore: 90,
             StartTime: new DateTime(2026, 4, 10, 8, 0, 0, DateTimeKind.Utc),
             ExpectedEndTime: new DateTime(2026, 4, 10, 12, 0, 0, DateTimeKind.Utc),
             Activities: activities.ToList(),
-            CreatedById: CoordinatorId);
+            CreatedById: CoordinatorId,
+            IgnoreMixedMissionWarning: ignoreMixedMissionWarning,
+            OverrideReason: overrideReason);
 
     private static CreateActivityItemDto CreateCollectActivity(int quantity) => new()
     {
@@ -263,6 +403,33 @@ public class CreateMissionCommandHandlerTests
         ActivityType = "DELIVER_SUPPLIES",
         DepotId = 1,
         DepotName = "Depot A",
+        SuppliesToCollect =
+        [
+            new SuggestedSupplyItemDto
+            {
+                Id = 2,
+                Name = "Nuoc tinh khiet",
+                Quantity = quantity,
+                Unit = "chai"
+            }
+        ]
+    };
+
+    private static CreateActivityItemDto CreateRescueActivity(int step) => new()
+    {
+        Step = step,
+        ActivityType = "RESCUE",
+        Description = "Rescue trapped victims at site",
+        Priority = "Critical"
+    };
+
+    private static CreateActivityItemDto CreateReturnSuppliesActivity(int step, int quantity, int rescueTeamId) => new()
+    {
+        Step = step,
+        ActivityType = "RETURN_SUPPLIES",
+        DepotId = 1,
+        DepotName = "Depot A",
+        RescueTeamId = rescueTeamId,
         SuppliesToCollect =
         [
             new SuggestedSupplyItemDto
@@ -434,6 +601,36 @@ public class CreateMissionCommandHandlerTests
             => Task.FromResult(Enumerable.Empty<RESQ.Domain.Entities.Emergency.SosRequestModel>());
     }
 
+    private sealed class StubMissionAiSuggestionRepository(params MissionAiSuggestionModel[] suggestions)
+        : IMissionAiSuggestionRepository
+    {
+        private readonly List<MissionAiSuggestionModel> _suggestions = suggestions.ToList();
+
+        public Task<int> CreateAsync(MissionAiSuggestionModel model, CancellationToken cancellationToken = default)
+            => Task.FromResult(model.Id > 0 ? model.Id : 1);
+
+        public Task UpdateAsync(MissionAiSuggestionModel model, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task SavePipelineSnapshotAsync(int suggestionId, MissionSuggestionMetadata metadata, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<MissionAiSuggestionModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+            => Task.FromResult(_suggestions.FirstOrDefault(suggestion => suggestion.Id == id));
+
+        public Task<IEnumerable<MissionAiSuggestionModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default)
+            => Task.FromResult(_suggestions.Where(suggestion => suggestion.ClusterId == clusterId).AsEnumerable());
+
+        public Task<IEnumerable<MissionAiSuggestionModel>> GetByClusterIdsAsync(IEnumerable<int> clusterIds, CancellationToken cancellationToken = default)
+        {
+            var clusterIdSet = new HashSet<int>(clusterIds);
+            return Task.FromResult(
+                _suggestions
+                    .Where(suggestion => suggestion.ClusterId.HasValue && clusterIdSet.Contains(suggestion.ClusterId.Value))
+                    .AsEnumerable());
+        }
+    }
+
         
         
         
@@ -550,8 +747,10 @@ public class CreateMissionCommandHandlerTests
             => Task.FromResult(false);
     }
 
-    private sealed class StubItemModelMetadataRepository : IItemModelMetadataRepository
+    private sealed class StubItemModelMetadataRepository(Dictionary<int, string>? itemTypes = null) : IItemModelMetadataRepository
     {
+        private readonly Dictionary<int, string> _itemTypes = itemTypes ?? [];
+
         public Task<List<MetadataDto>> GetAllForMetadataAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(new List<MetadataDto>());
 
@@ -574,7 +773,7 @@ public class CreateMissionCommandHandlerTests
                     CategoryId = 2,
                     Name = id == 2 ? "Nuoc tinh khiet" : $"Item {id}",
                     Unit = "chai",
-                    ItemType = nameof(ItemType.Consumable)
+                    ItemType = _itemTypes.GetValueOrDefault(id, nameof(ItemType.Consumable))
                 });
 
             return Task.FromResult(map);
