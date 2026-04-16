@@ -19,8 +19,6 @@ public interface IStockThresholdConfigRepository
         int depotId,
         int? categoryId,
         int? itemModelId,
-        decimal? dangerRatio,
-        decimal? warningRatio,
         int? minimumThreshold,
         Guid changedBy,
         uint? expectedRowVersion,

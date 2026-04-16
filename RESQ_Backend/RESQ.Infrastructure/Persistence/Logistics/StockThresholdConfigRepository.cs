@@ -48,8 +48,6 @@ public class StockThresholdConfigRepository(IUnitOfWork unitOfWork) : IStockThre
         int depotId,
         int? categoryId,
         int? itemModelId,
-        decimal? dangerRatio,
-        decimal? warningRatio,
         int? minimumThreshold,
         Guid changedBy,
         uint? expectedRowVersion,
@@ -69,8 +67,6 @@ public class StockThresholdConfigRepository(IUnitOfWork unitOfWork) : IStockThre
                 DepotId = scopeType == StockThresholdScopeType.Global ? null : depotId,
                 CategoryId = categoryId,
                 ItemModelId = itemModelId,
-                DangerRatio = dangerRatio,
-                WarningRatio = warningRatio,
                 MinimumThreshold = minimumThreshold,
                 UpdatedBy = changedBy,
                 UpdatedAt = now,
@@ -84,8 +80,6 @@ public class StockThresholdConfigRepository(IUnitOfWork unitOfWork) : IStockThre
             if (expectedRowVersion.HasValue && entity.RowVersion != expectedRowVersion.Value)
                 throw new ConflictException("Cấu hình đã được cập nhật bởi người khác. Vui lòng tải lại và thử lại.");
 
-            entity.DangerRatio = dangerRatio;
-            entity.WarningRatio = warningRatio;
             entity.MinimumThreshold = minimumThreshold;
             entity.UpdatedBy = changedBy;
             entity.UpdatedAt = now;
@@ -152,8 +146,6 @@ public class StockThresholdConfigRepository(IUnitOfWork unitOfWork) : IStockThre
             DepotId = x.DepotId,
             CategoryId = x.CategoryId,
             ItemModelId = x.ItemModelId,
-            DangerRatio = x.DangerRatio,
-            WarningRatio = x.WarningRatio,
             MinimumThreshold = x.MinimumThreshold,
             IsActive = x.IsActive,
             RowVersion = x.RowVersion,

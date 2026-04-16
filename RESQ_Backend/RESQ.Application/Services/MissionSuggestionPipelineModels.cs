@@ -163,6 +163,8 @@ public class MissionSuggestionMetadata
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public bool NeedsManualReview { get; set; }
+    public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto>? SupplyShortages { get; set; }
     public List<SuggestedResourceDto>? SuggestedResources { get; set; }

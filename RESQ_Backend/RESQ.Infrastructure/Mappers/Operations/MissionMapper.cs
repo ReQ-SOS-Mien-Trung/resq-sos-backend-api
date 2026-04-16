@@ -44,6 +44,7 @@ public static class MissionMapper
         {
             ClusterId = model.ClusterId,
             PreviousMissionId = model.PreviousMissionId,
+            AiSuggestionId = model.AiSuggestionId,
             MissionType = model.MissionType,
             PriorityScore = model.PriorityScore,
             Status = ToDbString(model.Status),
@@ -52,7 +53,8 @@ public static class MissionMapper
             IsCompleted = model.IsCompleted ?? false,
             CreatedById = model.CreatedById,
             CreatedAt = model.CreatedAt ?? DateTime.UtcNow,
-            CompletedAt = model.CompletedAt
+            CompletedAt = model.CompletedAt,
+            ManualOverrideMetadata = model.ManualOverrideMetadata
         };
     }
 
@@ -63,6 +65,7 @@ public static class MissionMapper
             Id = entity.Id,
             ClusterId = entity.ClusterId,
             PreviousMissionId = entity.PreviousMissionId,
+            AiSuggestionId = entity.AiSuggestionId,
             MissionType = entity.MissionType,
             PriorityScore = entity.PriorityScore,
             Status = ToEnum(entity.Status),
@@ -72,6 +75,7 @@ public static class MissionMapper
             CreatedById = entity.CreatedById,
             CreatedAt = entity.CreatedAt,
             CompletedAt = entity.CompletedAt,
+            ManualOverrideMetadata = entity.ManualOverrideMetadata,
             Activities = entity.MissionActivities
                 .Select(MissionActivityMapper.ToDomain)
                 .ToList()

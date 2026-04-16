@@ -109,8 +109,8 @@ public partial class RescueMissionSuggestionService
                         ["single_depot_required"] = bool.TrueString,
                         ["eligible_depot_count"] = (nearbyDepots?.Count ?? 0).ToString()
                     },
-                    "Plan depot collection and delivery fragments. Use only inventory lookup results. Choose exactly one depot for the whole mission. Do not split supplies across multiple depots. If the chosen depot lacks stock, keep the one-depot plan and fill needs_additional_depot plus supply_shortages."),
-                "Only searchInventory is available. It is already scoped to eligible depots for this cluster. Do not invent depot_id or item_id. Return JSON only.",
+                    "Plan depot collection and delivery fragments. Use only inventory lookup results. Choose exactly one depot for the whole mission. Do not split supplies across multiple depots. Search both relief stock and transport or reusable equipment from inventory when the plan needs vehicles or field gear. If the chosen depot lacks stock, keep the one-depot plan and fill needs_additional_depot plus supply_shortages."),
+                "Only searchInventory is available. It is already scoped to eligible depots for this cluster. If a depot-backed vehicle or reusable item is selected, keep it inside COLLECT_SUPPLIES and RETURN_SUPPLIES with depot and item identifiers; do not demote it to resources[]. This stage only suggests the plan and does not reserve inventory. Do not invent depot_id or item_id. Return JSON only.",
                 BuildAllowedTools("searchInventory"),
                 nearbyDepots,
                 nearbyTeams,
@@ -232,8 +232,8 @@ public partial class RescueMissionSuggestionService
                         ["sos_requests_data"] = BuildSosRequestsData(sosRequests),
                         ["mission_draft_body"] = draftJson
                     },
-                    "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields."),
-                "No tools are available. Return the full mission JSON only. Do not introduce a second depot.",
+                    "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields. Preserve any inventory-backed transport or reusable equipment inside supplies_to_collect. If rescue or evacuation work is mixed with supply collection or delivery, write the safety warning only into special_notes and keep the JSON contract unchanged."),
+                "No tools are available. Return the full mission JSON only. Do not introduce a second depot. Do not add warnings[] or any new warning schema.",
                 options,
                 cancellationToken);
 
@@ -846,6 +846,8 @@ public partial class RescueMissionSuggestionService
         effectiveMetadata.OverallAssessment = result.OverallAssessment;
         effectiveMetadata.EstimatedDuration = result.EstimatedDuration;
         effectiveMetadata.SpecialNotes = result.SpecialNotes;
+        effectiveMetadata.NeedsManualReview = result.NeedsManualReview;
+        effectiveMetadata.LowConfidenceWarning = result.LowConfidenceWarning;
         effectiveMetadata.NeedsAdditionalDepot = result.NeedsAdditionalDepot;
         effectiveMetadata.SupplyShortages = result.SupplyShortages;
         effectiveMetadata.SuggestedResources = result.SuggestedResources;
@@ -887,6 +889,7 @@ public partial class RescueMissionSuggestionService
         var sosLookup = sosRequests.ToDictionary(sos => sos.Id);
         NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
         BackfillItemIds(result.SuggestedActivities, nearbyDepots ?? []);
+        await BackfillInventoryBackedItemIdsAsync(result.SuggestedActivities, cancellationToken);
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
         await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
         await EnsureReusableReturnActivitiesAsync(result.SuggestedActivities, cancellationToken);
@@ -896,6 +899,7 @@ public partial class RescueMissionSuggestionService
         ApplySingleDepotConstraint(result);
         RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(result, nearbyTeams);
         EnsureReturnAssemblyPointActivities(result);
+        ApplyMixedRescueReliefSafetyNote(result);
         NormalizeEstimatedDurations(result);
 
         if (result.ConfidenceScore < LowConfidenceThreshold)

@@ -17,8 +17,18 @@ public class MissionSuggestionDto
     public string? ModelName { get; set; }
     public string? AnalysisType { get; set; }
     public string? SuggestedMissionTitle { get; set; }
+    public string? SuggestedMissionType { get; set; }
     public double? SuggestedPriorityScore { get; set; }
+    public string? SuggestedSeverityLevel { get; set; }
     public double? ConfidenceScore { get; set; }
+    public string? OverallAssessment { get; set; }
+    public string? EstimatedDuration { get; set; }
+    public string? SpecialNotes { get; set; }
+    public bool NeedsManualReview { get; set; }
+    public string? LowConfidenceWarning { get; set; }
+    public bool NeedsAdditionalDepot { get; set; }
+    public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
+    public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
     public string? SuggestionScope { get; set; }
     public DateTime? CreatedAt { get; set; }
     public List<ActivitySuggestionDto> Activities { get; set; } = [];

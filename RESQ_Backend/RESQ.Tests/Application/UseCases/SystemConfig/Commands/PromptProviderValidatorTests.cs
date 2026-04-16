@@ -28,7 +28,7 @@ public class PromptProviderValidatorTests
         var result = validator.Validate(command);
 
         var error = Assert.Single(result.Errors, x => x.PropertyName == nameof(CreatePromptCommand.Provider));
-        Assert.Equal("Provider không hợp lệ. Giá trị hợp lệ: \"Gemini\" hoặc \"OpenRouter\".", error.ErrorMessage);
+        Assert.Equal("Provider khong hop le. Gia tri hop le: \"Gemini\" hoac \"OpenRouter\".", error.ErrorMessage);
     }
 
     [Fact]
@@ -54,6 +54,55 @@ public class PromptProviderValidatorTests
         var result = validator.Validate(command);
 
         var error = Assert.Single(result.Errors, x => x.PropertyName == nameof(UpdatePromptCommand.Provider));
-        Assert.Equal("Provider không hợp lệ. Giá trị hợp lệ: \"Gemini\" hoặc \"OpenRouter\".", error.ErrorMessage);
+        Assert.Equal("Provider khong hop le. Gia tri hop le: \"Gemini\" hoac \"OpenRouter\".", error.ErrorMessage);
+    }
+
+    [Fact]
+    public void CreatePromptValidator_ShouldRejectDraftVersionFormat()
+    {
+        var validator = new CreatePromptCommandValidator();
+        var command = new CreatePromptCommand(
+            Name: "Prompt test",
+            PromptType: PromptType.MissionPlanning,
+            Provider: AiProvider.Gemini,
+            Purpose: "Test purpose",
+            SystemPrompt: "System prompt",
+            UserPromptTemplate: "User prompt",
+            Model: "gemini-2.5-flash",
+            Temperature: 0.5,
+            MaxTokens: 256,
+            Version: "v1-D26041612",
+            ApiUrl: null,
+            ApiKey: null,
+            IsActive: true);
+
+        var result = validator.Validate(command);
+
+        var error = Assert.Single(result.Errors, x => x.PropertyName == nameof(CreatePromptCommand.Version));
+        Assert.Equal("Version tao moi khong duoc dung dinh dang draft '-D'. Hay dung endpoint tao draft.", error.ErrorMessage);
+    }
+
+    [Fact]
+    public void CreatePromptValidator_ShouldAllowRegularVersionContainingDashDText()
+    {
+        var validator = new CreatePromptCommandValidator();
+        var command = new CreatePromptCommand(
+            Name: "Prompt test",
+            PromptType: PromptType.MissionPlanning,
+            Provider: AiProvider.Gemini,
+            Purpose: "Test purpose",
+            SystemPrompt: "System prompt",
+            UserPromptTemplate: "User prompt",
+            Model: "gemini-2.5-flash",
+            Temperature: 0.5,
+            MaxTokens: 256,
+            Version: "v1-DEMO",
+            ApiUrl: null,
+            ApiKey: null,
+            IsActive: true);
+
+        var result = validator.Validate(command);
+
+        Assert.DoesNotContain(result.Errors, x => x.PropertyName == nameof(CreatePromptCommand.Version));
     }
 }

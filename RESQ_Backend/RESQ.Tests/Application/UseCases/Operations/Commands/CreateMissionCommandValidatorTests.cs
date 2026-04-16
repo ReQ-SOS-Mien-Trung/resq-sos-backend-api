@@ -65,6 +65,7 @@ public class CreateMissionCommandValidatorTests
         List<CreateActivityItemDto>? activities = null)
         => new(
             clusterId,
+            null,
             missionType,
             88.0,
             DateTime.UtcNow,

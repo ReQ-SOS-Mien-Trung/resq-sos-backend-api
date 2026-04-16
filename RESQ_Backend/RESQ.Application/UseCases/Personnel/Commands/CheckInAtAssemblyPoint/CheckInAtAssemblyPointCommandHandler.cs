@@ -3,6 +3,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
@@ -11,6 +12,7 @@ public class CheckInAtAssemblyPointCommandHandler(
     IAssemblyEventRepository assemblyEventRepository,
     IAssemblyPointRepository assemblyPointRepository,
     ICheckInRadiusConfigRepository checkInRadiusConfigRepository,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork)
     : IRequestHandler<CheckInAtAssemblyPointCommand>
 {
@@ -85,6 +87,7 @@ public class CheckInAtAssemblyPointCommandHandler(
         }
 
         await unitOfWork.SaveAsync();
+        await operationalHubService.PushAssemblyPointListUpdateAsync(cancellationToken);
     }
 
     /// <summary>

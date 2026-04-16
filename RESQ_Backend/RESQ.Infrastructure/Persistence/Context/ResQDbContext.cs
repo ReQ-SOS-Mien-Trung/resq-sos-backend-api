@@ -423,8 +423,7 @@ public partial class ResQDbContext : DbContext
             {
                 Id = 1,
                 ScopeType = "GLOBAL",
-                DangerRatio = 0.2000m,
-                WarningRatio = 0.4000m,
+                MinimumThreshold = 100,
                 IsActive = true,
                 UpdatedBy = null,
                 UpdatedAt = new DateTime(2026, 3, 25, 0, 0, 0, DateTimeKind.Utc),
@@ -447,7 +446,7 @@ public partial class ResQDbContext : DbContext
             entity.HasData(new StockWarningBandConfig
             {
                 Id = 1,
-                BandsJson = "[{\"name\":\"CRITICAL\",\"from\":0.0,\"to\":0.4},{\"name\":\"MEDIUM\",\"from\":0.4,\"to\":0.7},{\"name\":\"LOW\",\"from\":0.7,\"to\":1.0},{\"name\":\"OK\",\"from\":1.0,\"to\":null}]",
+                BandsJson = "[{\"name\":\"CRITICAL\",\"from\":0.0,\"to\":0.25},{\"name\":\"MEDIUM\",\"from\":0.25,\"to\":0.5},{\"name\":\"LOW\",\"from\":0.5,\"to\":0.8},{\"name\":\"OK\",\"from\":0.8,\"to\":null}]",
                 UpdatedBy = null,
                 UpdatedAt = new DateTime(2026, 3, 30, 0, 0, 0, DateTimeKind.Utc)
             });

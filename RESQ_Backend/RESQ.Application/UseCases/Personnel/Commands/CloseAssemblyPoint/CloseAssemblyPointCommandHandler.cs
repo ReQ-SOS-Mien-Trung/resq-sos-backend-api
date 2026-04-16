@@ -14,6 +14,7 @@ public class CloseAssemblyPointCommandHandler(
     IAssemblyEventRepository assemblyEventRepository,
     IUnitOfWork unitOfWork,
     IDashboardHubService dashboardHubService,
+    IOperationalHubService operationalHubService,
     IFirebaseService firebaseService,
     ILogger<CloseAssemblyPointCommandHandler> logger)
     : IRequestHandler<CloseAssemblyPointCommand, CloseAssemblyPointResponse>
@@ -23,6 +24,7 @@ public class CloseAssemblyPointCommandHandler(
     private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
     private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ILogger<CloseAssemblyPointCommandHandler> _logger = logger;
 
@@ -81,10 +83,9 @@ public class CloseAssemblyPointCommandHandler(
 
         await _unitOfWork.SaveAsync();
 
-        await _dashboardHubService.PushAssemblyPointSnapshotAsync(
-            assemblyPoint.Id,
-            "Close",
-            cancellationToken);
+        await Task.WhenAll(
+            _dashboardHubService.PushAssemblyPointSnapshotAsync(assemblyPoint.Id, "Close", cancellationToken),
+            _operationalHubService.PushAssemblyPointListUpdateAsync(cancellationToken));
 
         // Thông báo cho toàn bộ rescuer bị unassign
         if (assignedRescuers.Count > 0)

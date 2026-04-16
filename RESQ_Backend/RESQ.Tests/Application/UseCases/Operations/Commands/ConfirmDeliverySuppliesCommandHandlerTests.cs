@@ -17,8 +17,6 @@ using RESQ.Domain.Enum.Logistics;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Tests.TestDoubles;
 
-namespace RESQ.Tests.Application.UseCases.Operations.Commands;
-
 public class ConfirmDeliverySuppliesCommandHandlerTests
 {
     [Fact]
@@ -209,6 +207,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
             activityRepository,
             new StubItemModelMetadataRepository(metadata),
             mediator,
+            new StubOperationalHubService(),
             new StubUnitOfWork(),
             NullLogger<ConfirmDeliverySuppliesCommandHandler>.Instance);
     }

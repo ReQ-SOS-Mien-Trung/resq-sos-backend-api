@@ -166,6 +166,7 @@ public class Flow5_ClusterCreationFailureTests
         var validator = new CreateMissionCommandValidator();
         var command = new CreateMissionCommand(
             ClusterId: 0,
+            AiSuggestionId: null,
             MissionType: null,
             PriorityScore: null,
             StartTime: null,
@@ -186,6 +187,7 @@ public class Flow5_ClusterCreationFailureTests
         var validator = new CreateMissionCommandValidator();
         var command = new CreateMissionCommand(
             ClusterId: 1,
+            AiSuggestionId: null,
             MissionType: null,
             PriorityScore: null,
             StartTime: null,

@@ -21,7 +21,11 @@ public class PromptRepository(
     {
         var typeStr = promptType.ToString().ToLower();
         var entity = await _unitOfWork.GetRepository<Prompt>()
-            .GetByPropertyAsync(x => x.PromptType.ToLower() == typeStr && x.IsActive, tracked: false);
+            .AsQueryable()
+            .Where(x => x.PromptType.ToLower() == typeStr && x.IsActive)
+            .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
 
         return entity == null ? null : ToDomain(entity);
     }
@@ -53,12 +57,56 @@ public class PromptRepository(
         await _unitOfWork.GetRepository<Prompt>().DeleteAsyncById(id);
     }
 
-    public async Task<bool> ExistsAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.GetRepository<Prompt>()
-            .GetByPropertyAsync(x => x.Name == name, tracked: false);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
 
-        return entity != null;
+        var normalizedName = name.Trim().ToLower();
+
+        return await _unitOfWork.GetRepository<Prompt>()
+            .AsQueryable()
+            .AnyAsync(
+                x => x.Name != null
+                     && x.Name.ToLower() == normalizedName
+                     && (!excludeId.HasValue || x.Id != excludeId.Value),
+                cancellationToken);
+    }
+
+    public async Task<bool> ExistsVersionAsync(PromptType promptType, string version, int? excludeId = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return false;
+        }
+
+        var normalizedType = promptType.ToString().ToLower();
+        var normalizedVersion = version.Trim().ToLower();
+
+        return await _unitOfWork.GetRepository<Prompt>()
+            .AsQueryable()
+            .AnyAsync(
+                x => x.PromptType.ToLower() == normalizedType
+                     && x.Version != null
+                     && x.Version.ToLower() == normalizedVersion
+                     && (!excludeId.HasValue || x.Id != excludeId.Value),
+                cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PromptModel>> GetVersionsByTypeAsync(PromptType promptType, CancellationToken cancellationToken = default)
+    {
+        var normalizedType = promptType.ToString().ToLower();
+        var entities = await _unitOfWork.GetRepository<Prompt>()
+            .AsQueryable()
+            .Where(x => x.PromptType.ToLower() == normalizedType)
+            .OrderByDescending(x => x.IsActive)
+            .ThenByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+            .ThenByDescending(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
     }
 
     public async Task DeactivateOthersByTypeAsync(int currentPromptId, PromptType promptType, CancellationToken cancellationToken = default)

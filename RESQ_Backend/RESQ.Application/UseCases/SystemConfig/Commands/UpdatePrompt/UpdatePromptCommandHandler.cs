@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Security;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -23,22 +24,49 @@ public class UpdatePromptCommandHandler(
         var prompt = await _promptRepository.GetByIdAsync(request.Id, cancellationToken);
         if (prompt == null)
         {
-            throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
+            throw new NotFoundException($"Khong tim thay prompt voi Id={request.Id}");
         }
 
-        // Check duplicate name if name is being changed
-        if (!string.IsNullOrEmpty(request.Name) && !string.Equals(prompt.Name, request.Name, StringComparison.OrdinalIgnoreCase))
+        if (!PromptLifecycleStatusResolver.IsDraft(prompt))
         {
-            var exists = await _promptRepository.ExistsAsync(request.Name, cancellationToken);
-            if (exists)
+            throw new BadRequestException("Chi co the cap nhat draft prompt. Hay tao draft moi tu version hien co.");
+        }
+
+        if (request.IsActive == true)
+        {
+            throw new BadRequestException("Khong the kich hoat prompt qua endpoint update. Hay dung endpoint activate.");
+        }
+
+        if (request.PromptType.HasValue && request.PromptType.Value != prompt.PromptType)
+        {
+            throw new BadRequestException("Khong the doi PromptType cua draft prompt. Hay tao draft moi cho loai prompt khac.");
+        }
+
+        var normalizedDraftVersion = request.Version?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(normalizedDraftVersion)
+            && !PromptLifecycleStatusResolver.IsDraftVersion(normalizedDraftVersion))
+        {
+            throw new BadRequestException("Version cua draft phai chua dau hieu '-D'.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedDraftVersion))
+        {
+            var versionExists = await _promptRepository.ExistsVersionAsync(
+                prompt.PromptType,
+                normalizedDraftVersion,
+                prompt.Id,
+                cancellationToken);
+            if (versionExists)
             {
-                throw new ConflictException($"Prompt với tên '{request.Name}' đã tồn tại.");
+                throw new ConflictException(
+                    $"Da ton tai draft prompt khac cua type '{prompt.PromptType}' voi version '{normalizedDraftVersion}'.");
             }
         }
 
         prompt.Update(
             name: request.Name,
-            promptType: request.PromptType,
+            promptType: null,
             provider: request.Provider,
             purpose: request.Purpose,
             systemPrompt: request.SystemPrompt,
@@ -46,20 +74,13 @@ public class UpdatePromptCommandHandler(
             model: request.Model,
             temperature: request.Temperature,
             maxTokens: request.MaxTokens,
-            version: request.Version,
+            version: normalizedDraftVersion,
             apiUrl: request.ApiUrl,
             apiKey: NormalizeApiKeyForUpdate(request.ApiKey),
-            isActive: request.IsActive
+            isActive: false
         );
 
         await _promptRepository.UpdateAsync(prompt, cancellationToken);
-
-        // Nếu prompt được kích hoạt, tắt các prompt khác cùng loại
-        if (request.IsActive == true)
-        {
-            await _promptRepository.DeactivateOthersByTypeAsync(prompt.Id, prompt.PromptType, cancellationToken);
-        }
-
         await _unitOfWork.SaveAsync();
 
         _logger.LogInformation("Updated prompt successfully: Id={Id}", request.Id);

@@ -286,6 +286,7 @@ public class RescuerAuthSessionAndProfileHandlerTests
         public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pageNumber, int pageSize, int? roleId = null, string? search = null, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<List<Guid>> GetActiveCoordinatorUserIdsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 

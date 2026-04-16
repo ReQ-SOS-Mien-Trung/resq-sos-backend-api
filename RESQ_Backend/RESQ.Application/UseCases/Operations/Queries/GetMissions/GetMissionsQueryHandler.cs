@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMissions;
@@ -50,14 +51,22 @@ public class GetMissionsQueryHandler(
 
         var aiSuggestions = (await _aiSuggestionRepository.GetByClusterIdsAsync(clusterIds, cancellationToken))
             .Where(s => s.ClusterId.HasValue)
+            .ToList();
+
+        var aiSuggestionsByCluster = aiSuggestions
             .GroupBy(s => s.ClusterId!.Value)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.CreatedAt).First());
+        var aiSuggestionsById = aiSuggestions.ToDictionary(s => s.Id);
 
         var response = new GetMissionsResponse
         {
             Missions = missionList.Select(m =>
             {
-                var rawAi = m.ClusterId.HasValue && aiSuggestions.TryGetValue(m.ClusterId.Value, out var ai) ? ai : null;
+                var rawAi = m.AiSuggestionId.HasValue && aiSuggestionsById.TryGetValue(m.AiSuggestionId.Value, out var linkedAi)
+                    ? linkedAi
+                    : m.ClusterId.HasValue && aiSuggestionsByCluster.TryGetValue(m.ClusterId.Value, out var ai)
+                        ? ai
+                        : null;
                 var aiModel = rawAi is not null ? MissionAiSuggestionSection.From(rawAi) : null;
                 return new MissionDto
                 {
@@ -130,11 +139,13 @@ public class GetMissionsQueryHandler(
                         CompletedAt = a.CompletedAt,
                         CompletedBy = a.CompletedBy
                     }).ToList(),
-                    AiSuggestionId = aiModel?.Id,
+                    AiSuggestionId = m.AiSuggestionId ?? aiModel?.Id,
                     SuggestedMissionTitle = aiModel?.SuggestedMissionTitle,
                     SuggestedMissionType = aiModel?.SuggestedMissionType,
                     SuggestedPriorityScore = aiModel?.SuggestedPriorityScore,
-                    SuggestedSeverityLevel = aiModel?.SuggestedSeverityLevel
+                    SuggestedSeverityLevel = aiModel?.SuggestedSeverityLevel,
+                    AiSuggestion = aiModel,
+                    ManualOverride = MissionManualOverrideJsonHelper.Parse(m.ManualOverrideMetadata)
                 };
             }).ToList()
         };

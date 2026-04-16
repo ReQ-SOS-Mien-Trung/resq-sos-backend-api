@@ -25,6 +25,7 @@ public class CreateMissionCommandHandler(
     IMissionActivityRepository missionActivityRepository,
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
+    IMissionAiSuggestionRepository missionAiSuggestionRepository,
     IDepotInventoryRepository depotInventoryRepository, IDepotRepository depotRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IRescueTeamRepository rescueTeamRepository,
@@ -39,6 +40,7 @@ public class CreateMissionCommandHandler(
     private readonly IMissionActivityRepository _missionActivityRepository = missionActivityRepository;
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly IMissionAiSuggestionRepository _missionAiSuggestionRepository = missionAiSuggestionRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IDepotRepository _depotRepository = depotRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
@@ -64,6 +66,19 @@ public class CreateMissionCommandHandler(
         var cluster = await _sosClusterRepository.GetByIdAsync(request.ClusterId, cancellationToken);
         if (cluster is null)
             throw new NotFoundException($"Không tìm thấy cluster với ID: {request.ClusterId}");
+
+        if (request.AiSuggestionId.HasValue)
+        {
+            var suggestion = await _missionAiSuggestionRepository.GetByIdAsync(request.AiSuggestionId.Value, cancellationToken);
+            if (suggestion is null)
+                throw new NotFoundException($"Khong tim thay AI mission suggestion #{request.AiSuggestionId.Value}.");
+
+            if (suggestion.ClusterId != request.ClusterId)
+            {
+                throw new BadRequestException(
+                    $"AI mission suggestion #{request.AiSuggestionId.Value} khong thuoc cluster #{request.ClusterId}.");
+            }
+        }
 
         // Validate assembly points
         var requestedApIds = (request.Activities ?? [])
@@ -107,6 +122,13 @@ public class CreateMissionCommandHandler(
             .OrderBy(activity => activity.Step ?? int.MaxValue)
             .ToList();
 
+        var itemLookup = await LoadReferencedItemMetadataAsync(activities, cancellationToken);
+
+        var mixedMissionIgnored = ValidateMixedRescueReliefOverride(
+            activities,
+            request.IgnoreMixedMissionWarning,
+            request.OverrideReason);
+
         await ValidateReturnAssemblyPointActivitiesAsync(activities, cancellationToken);
 
                 // Validate that all depots used in activities are active
@@ -128,13 +150,24 @@ public class CreateMissionCommandHandler(
         }
 
         // Validate depot inventory for each activity that specifies supplies
-        await ValidateSuppliesAsync(activities, cancellationToken);
-        await ValidateReusableReturnActivitiesAsync(activities, cancellationToken);
+        await ValidateSuppliesAsync(activities, itemLookup, cancellationToken);
+        await ValidateReusableReturnActivitiesAsync(activities, itemLookup);
+
+        var manualOverrideMetadata = mixedMissionIgnored
+            ? MissionManualOverrideJsonHelper.Serialize(new MissionManualOverrideInfo
+            {
+                IgnoreMixedMissionWarning = true,
+                OverrideReason = request.OverrideReason?.Trim(),
+                OverriddenBy = request.CreatedById,
+                OverriddenAt = DateTime.UtcNow
+            })
+            : null;
 
         // Build domain model
         var mission = new MissionModel
         {
             ClusterId = request.ClusterId,
+            AiSuggestionId = request.AiSuggestionId,
             MissionType = request.MissionType,
             PriorityScore = request.PriorityScore,
             Status = MissionStatus.Planned,
@@ -143,6 +176,7 @@ public class CreateMissionCommandHandler(
             IsCompleted = false,
             CreatedById = request.CreatedById,
             CreatedAt = DateTime.UtcNow,
+            ManualOverrideMetadata = manualOverrideMetadata,
             Activities = activities.Select((a, idx) => new MissionActivityModel
             {
                 Step = a.Step ?? (idx + 1),
@@ -158,7 +192,8 @@ public class CreateMissionCommandHandler(
                 Items = a.SuppliesToCollect is { Count: > 0 }
                     ? JsonSerializer.Serialize(a.SuppliesToCollect.Select(s =>
                     {
-                        var bufferRatio = Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
+                        var isReusable = s.Id.HasValue && IsReusableItem(s.Id.Value, itemLookup);
+                        var bufferRatio = isReusable ? 0.0 : Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
                         var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling((s.Quantity ?? 0) * bufferRatio) : 0;
                         return new SupplyToCollectDto
                         {
@@ -240,7 +275,7 @@ public class CreateMissionCommandHandler(
                     .OrderBy(a => a.Step ?? int.MaxValue)
                     .ToList();
 
-                await ReserveSuppliesAsync(requestActivities, persistedActivities, cancellationToken);
+                await ReserveSuppliesAsync(requestActivities, persistedActivities, itemLookup, cancellationToken);
             }
         });
 
@@ -285,6 +320,61 @@ public class CreateMissionCommandHandler(
         TargetLongitude = activity.TargetLongitude,
         RescueTeamId = activity.RescueTeamId
     };
+
+    private async Task<IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord>> LoadReferencedItemMetadataAsync(
+        List<CreateActivityItemDto> activities,
+        CancellationToken cancellationToken)
+    {
+        var itemIds = activities
+            .SelectMany(activity => activity.SuppliesToCollect ?? [])
+            .Where(supply => supply.Id.HasValue)
+            .Select(supply => supply.Id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (itemIds.Count == 0)
+            return new Dictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord>();
+
+        var itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(itemIds, cancellationToken);
+        var missingItemIds = itemIds
+            .Where(itemId => !itemLookup.ContainsKey(itemId))
+            .ToList();
+
+        if (missingItemIds.Count > 0)
+        {
+            throw new BadRequestException(
+                $"Khong tim thay metadata cho cac item_id: {string.Join(", ", missingItemIds)}.");
+        }
+
+        return itemLookup;
+    }
+
+    private static bool ValidateMixedRescueReliefOverride(
+        List<CreateActivityItemDto> activities,
+        bool ignoreMixedMissionWarning,
+        string? overrideReason)
+    {
+        var hasRescueBranch = activities.Any(IsRescueReliefActivity);
+        var hasSupplyBranch = activities.Any(IsSupplyDistributionActivity);
+
+        if (!hasRescueBranch || !hasSupplyBranch)
+            return false;
+
+        if (!ignoreMixedMissionWarning)
+        {
+            throw new BadRequestException(
+                "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat. " +
+                "Nguyen tac an toan la phai dua nan nhan ve diem tap ket (Safe Zone/Assembly Point) ngay sau khi cuu, " +
+                "khong tiep tuc cho nan nhan di phat do. Neu coordinator van muon tiep tuc, hay gui IgnoreMixedMissionWarning=true kem OverrideReason.");
+        }
+
+        if (string.IsNullOrWhiteSpace(overrideReason))
+        {
+            throw new BadRequestException("OverrideReason bat buoc khi bo qua canh bao mixed mission.");
+        }
+
+        return true;
+    }
 
     private Task ValidateReturnAssemblyPointActivitiesAsync(
         List<CreateActivityItemDto> activities,
@@ -373,7 +463,10 @@ public class CreateMissionCommandHandler(
         return Task.CompletedTask;
     }
 
-    private async Task ValidateSuppliesAsync(List<CreateActivityItemDto> activities, CancellationToken cancellationToken)
+    private async Task ValidateSuppliesAsync(
+        List<CreateActivityItemDto> activities,
+        IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup,
+        CancellationToken cancellationToken)
     {
         // Only COLLECT_SUPPLIES steps actually draw from depot inventory.
         // DELIVER_SUPPLIES (and others) may carry suppliesToCollect metadata but do NOT
@@ -397,7 +490,8 @@ public class CreateMissionCommandHandler(
                          {
                              var first = sg.First();
                              var totalRequired = sg.Sum(s => s.Quantity ?? 0);
-                             var bufferRatio = Math.Max(0.0, first.BufferRatio ?? DefaultBufferRatio);
+                             var isReusable = IsReusableItem(sg.Key, itemLookup);
+                             var bufferRatio = isReusable ? 0.0 : Math.Max(0.0, first.BufferRatio ?? DefaultBufferRatio);
                              var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling(totalRequired * bufferRatio) : 0;
                              return (
                                  ItemModelId: sg.Key,
@@ -429,9 +523,9 @@ public class CreateMissionCommandHandler(
             throw new BadRequestException($"Kiểm tra tồn kho thất bại:\n{string.Join("\n", allErrors)}");
     }
 
-    private async Task ValidateReusableReturnActivitiesAsync(
+    private Task ValidateReusableReturnActivitiesAsync(
         List<CreateActivityItemDto> activities,
-        CancellationToken cancellationToken)
+        IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup)
     {
         var orderedActivities = activities
             .OrderBy(activity => activity.Step ?? int.MaxValue)
@@ -475,18 +569,7 @@ public class CreateMissionCommandHandler(
             if (orderingErrors.Count > 0)
                 throw new BadRequestException($"Kế hoạch mission chưa hợp lệ:\n{string.Join("\n", orderingErrors)}");
 
-            return;
-        }
-
-        var itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(allSupplies, cancellationToken);
-        var missingItemIds = allSupplies
-            .Where(itemId => !itemLookup.ContainsKey(itemId))
-            .ToList();
-
-        if (missingItemIds.Count > 0)
-        {
-            throw new BadRequestException(
-                $"Không tìm thấy metadata cho các item_id: {string.Join(", ", missingItemIds)}.");
+            return Task.CompletedTask;
         }
 
         var errors = new List<string>(orderingErrors);
@@ -608,6 +691,8 @@ public class CreateMissionCommandHandler(
         {
             throw new BadRequestException($"Kế hoạch mission chưa hợp lệ với vật phẩm reusable:\n{string.Join("\n", errors)}");
         }
+
+        return Task.CompletedTask;
     }
 
     private async Task NotifyTeamMembersAsync(List<CreateActivityItemDto> activities, int missionId, CancellationToken cancellationToken)
@@ -656,6 +741,7 @@ public class CreateMissionCommandHandler(
     private async Task ReserveSuppliesAsync(
         List<CreateActivityItemDto> requestActivities,
         List<MissionActivityModel> persistedActivities,
+        IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup,
         CancellationToken cancellationToken)
     {
         for (var index = 0; index < Math.Min(requestActivities.Count, persistedActivities.Count); index++)
@@ -674,7 +760,8 @@ public class CreateMissionCommandHandler(
                 .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
                 .Select(s =>
                 {
-                    var bufferRatio = Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
+                    var isReusable = IsReusableItem(s.Id!.Value, itemLookup);
+                    var bufferRatio = isReusable ? 0.0 : Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
                     var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling((s.Quantity ?? 0) * bufferRatio) : 0;
                     return (ItemModelId: s.Id!.Value, Quantity: (s.Quantity ?? 0) + bufferQty);
                 })
@@ -720,6 +807,15 @@ public class CreateMissionCommandHandler(
 
     private static bool IsCollectSuppliesActivity(CreateActivityItemDto activity) =>
         string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSupplyDistributionActivity(CreateActivityItemDto activity) =>
+        string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRescueReliefActivity(CreateActivityItemDto activity) =>
+        string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsReturnSuppliesActivity(CreateActivityItemDto activity) =>
         string.Equals(activity.ActivityType, ReturnSuppliesActivityType, StringComparison.OrdinalIgnoreCase);

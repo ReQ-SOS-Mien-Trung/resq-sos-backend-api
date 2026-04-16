@@ -12,12 +12,14 @@ public class SetAssemblyPointAvailableCommandHandler(
     IAssemblyPointRepository repository,
     IUnitOfWork unitOfWork,
     IDashboardHubService dashboardHubService,
+    IOperationalHubService operationalHubService,
     ILogger<SetAssemblyPointAvailableCommandHandler> logger)
     : IRequestHandler<SetAssemblyPointAvailableCommand, SetAssemblyPointAvailableResponse>
 {
     private readonly IAssemblyPointRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
     private readonly ILogger<SetAssemblyPointAvailableCommandHandler> _logger = logger;
 
     public async Task<SetAssemblyPointAvailableResponse> Handle(SetAssemblyPointAvailableCommand request, CancellationToken cancellationToken)
@@ -33,10 +35,9 @@ public class SetAssemblyPointAvailableCommandHandler(
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
         await _unitOfWork.SaveAsync();
 
-        await _dashboardHubService.PushAssemblyPointSnapshotAsync(
-            assemblyPoint.Id,
-            "CompleteMaintenance",
-            cancellationToken);
+        await Task.WhenAll(
+            _dashboardHubService.PushAssemblyPointSnapshotAsync(assemblyPoint.Id, "CompleteMaintenance", cancellationToken),
+            _operationalHubService.PushAssemblyPointListUpdateAsync(cancellationToken));
 
         _logger.LogInformation("AssemblyPoint maintenance completed: Id={Id}", request.Id);
 

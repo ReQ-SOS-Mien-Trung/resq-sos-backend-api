@@ -13,6 +13,7 @@ public class AssignRescuerToAssemblyPointCommandHandler(
     IAssemblyPointRepository assemblyPointRepository,
     IAssemblyEventRepository assemblyEventRepository,
     IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<AssignRescuerToAssemblyPointCommandHandler> logger)
     : IRequestHandler<AssignRescuerToAssemblyPointCommand>
@@ -84,6 +85,7 @@ public class AssignRescuerToAssemblyPointCommandHandler(
         }
 
         await unitOfWork.SaveAsync();
+        await operationalHubService.PushAssemblyPointListUpdateAsync(cancellationToken);
 
         // 4. Gửi thông báo Firebase cho rescuer
         try

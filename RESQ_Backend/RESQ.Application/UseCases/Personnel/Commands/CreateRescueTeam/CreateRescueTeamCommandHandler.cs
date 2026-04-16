@@ -96,13 +96,18 @@ public class CreateRescueTeamCommandHandler(
         }
 
         await teamRepository.CreateAsync(team, ct);
+
+        // Sync User.AssemblyPointId cho tất cả member về AP của team
+        var memberIds = request.Members?.Select(m => m.UserId).ToList() ?? [];
+        if (memberIds.Count > 0)
+            await assemblyPointRepository.BulkUpdateRescuerAssemblyPointAsync(memberIds, request.AssemblyPointId, ct);
+
         await unitOfWork.SaveAsync();
 
         var createdTeam = await teamRepository.GetByCodeAsync(team.Code, ct);
         var teamId = createdTeam?.Id ?? 0;
 
         // Gửi thông báo cho tất cả rescuer trong đội
-        var memberIds = request.Members?.Select(m => m.UserId).ToList() ?? [];
         if (memberIds.Count > 0)
         {
             var title = "Thông báo đội cứu hộ";

@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -389,6 +390,35 @@ public class ImportPurchasedInventoryCommandHandler(
 
             // 9. Commit tất cả các nhóm trong 1 transaction
             await _unitOfWork.SaveChangesWithTransactionAsync();
+
+            // 10. Gửi thông báo đến toàn bộ Coordinator sau khi commit thành công
+            try
+            {
+                var depot = await _depotRepository.GetByIdAsync(depotId.Value, cancellationToken);
+                var depotName = depot?.Name ?? $"Kho #{depotId.Value}";
+                var coordinatorIds = await _userRepository.GetActiveCoordinatorUserIdsAsync(cancellationToken);
+                var notifTitle = "Thông báo nhập hàng mới";
+                var notifBody = $"Kho {depotName} vừa hoàn tất nhập hàng mua sắm ({response.TotalImported} mặt hàng). Đề nghị kiểm tra và xác nhận tình trạng tồn kho.";
+                var notifData = new Dictionary<string, string>
+                {
+                    ["depotId"] = depotId.Value.ToString(),
+                    ["type"] = "depot_purchase_imported"
+                };
+                foreach (var coordinatorId in coordinatorIds)
+                {
+                    _ = _firebaseService.SendNotificationToUserAsync(
+                        coordinatorId,
+                        notifTitle,
+                        notifBody,
+                        "depot_purchase_imported",
+                        notifData,
+                        cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to notify coordinators after purchase import | DepotId={DepotId}", depotId.Value);
+            }
         }
         catch (DomainException)
         {

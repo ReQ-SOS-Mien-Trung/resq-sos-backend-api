@@ -121,6 +121,25 @@ public class RescueMissionSuggestionServiceInternalTests
         Assert.False(result.NeedsManualReview);
     }
 
+    [Fact]
+    public void ApplyMixedRescueReliefSafetyNote_FlagsManualReviewAndAppendsSafetyGuidance()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto { Step = 1, ActivityType = "RESCUE" },
+                new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES" }
+            ]
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "ApplyMixedRescueReliefSafetyNote", result);
+
+        Assert.True(result.NeedsManualReview);
+        Assert.Contains("Safe Zone/Assembly Point", result.SpecialNotes);
+        Assert.Contains("tach thanh mission rieng", result.SpecialNotes);
+    }
+
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
     {
         var method = typeof(RescueMissionSuggestionService).GetMethod(

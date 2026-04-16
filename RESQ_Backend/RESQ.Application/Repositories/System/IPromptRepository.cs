@@ -14,7 +14,9 @@ public interface IPromptRepository
     Task CreateAsync(PromptModel prompt, CancellationToken cancellationToken = default);
     Task UpdateAsync(PromptModel prompt, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
-    Task<bool> ExistsAsync(string name, CancellationToken cancellationToken = default);
+    Task<bool> ExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default);
+    Task<bool> ExistsVersionAsync(PromptType promptType, string version, int? excludeId = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PromptModel>> GetVersionsByTypeAsync(PromptType promptType, CancellationToken cancellationToken = default);
     Task DeactivateOthersByTypeAsync(int currentPromptId, PromptType promptType, CancellationToken cancellationToken = default);
     Task<PagedResult<PromptModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 }

@@ -1,11 +1,17 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.SystemConfig.Commands.ActivatePromptVersion;
 using RESQ.Application.UseCases.SystemConfig.Commands.CreatePrompt;
+using RESQ.Application.UseCases.SystemConfig.Commands.CreatePromptDraft;
 using RESQ.Application.UseCases.SystemConfig.Commands.DeletePrompt;
+using RESQ.Application.UseCases.SystemConfig.Commands.RollbackPromptVersion;
 using RESQ.Application.UseCases.SystemConfig.Commands.TestPrompt;
 using RESQ.Application.UseCases.SystemConfig.Commands.UpdatePrompt;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetAllPrompts;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetPromptById;
+using RESQ.Application.UseCases.SystemConfig.Queries.GetPromptVersions;
+using RESQ.Application.UseCases.SystemConfig.Queries.PromptMetadata;
 
 namespace RESQ.Presentation.Controllers.System
 {
@@ -37,6 +43,23 @@ namespace RESQ.Presentation.Controllers.System
             return Ok(result);
         }
 
+        /// <summary>[Metadata] Danh sach loai prompt.</summary>
+        [HttpGet("metadata/prompt-types")]
+        [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetPromptTypesMetadata()
+        {
+            var result = await _mediator.Send(new GetPromptTypesMetadataQuery());
+            return Ok(result);
+        }
+
+        /// <summary>Lay tat ca version theo prompt type cua prompt duoc chon.</summary>
+        [HttpGet("{id:int}/versions")]
+        public async Task<IActionResult> GetVersions(int id)
+        {
+            var result = await _mediator.Send(new GetPromptVersionsQuery(id));
+            return Ok(result);
+        }
+
         /// <summary>Tạo prompt AI mới.</summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreatePromptRequestDto dto)
@@ -61,7 +84,16 @@ namespace RESQ.Presentation.Controllers.System
             return StatusCode(201, result);
         }
 
-        /// <summary>Cập nhật prompt AI (chỉ gửi trường cần thay đổi).</summary>
+        /// <summary>Clone mot prompt version thanh draft moi.</summary>
+        [HttpPost("{id:int}/drafts")]
+        public async Task<IActionResult> CreateDraft(int id)
+        {
+            var result = await _mediator.Send(new CreatePromptDraftCommand(id));
+            return Ok(result);
+        }
+
+        /// <summary>Cap nhat draft prompt AI (chi gui truong can thay doi).</summary>
+        [HttpPut("drafts/{id:int}")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdatePromptRequestDto dto)
         {
@@ -87,11 +119,28 @@ namespace RESQ.Presentation.Controllers.System
         }
 
         /// <summary>Xóa prompt AI theo ID.</summary>
+        [HttpDelete("drafts/{id:int}")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             await _mediator.Send(new DeletePromptCommand(id));
             return NoContent();
+        }
+
+        /// <summary>Activate mot prompt version.</summary>
+        [HttpPost("{id:int}/activate")]
+        public async Task<IActionResult> Activate(int id)
+        {
+            var result = await _mediator.Send(new ActivatePromptVersionCommand(id));
+            return Ok(result);
+        }
+
+        /// <summary>Rollback ve mot version prompt archived.</summary>
+        [HttpPost("{id:int}/rollback")]
+        public async Task<IActionResult> Rollback(int id)
+        {
+            var result = await _mediator.Send(new RollbackPromptVersionCommand(id));
+            return Ok(result);
         }
 
         /// <summary>Preview ke hoach mission AI theo draft prompt moi chua luu.</summary>

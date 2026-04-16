@@ -3,6 +3,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
@@ -99,6 +100,8 @@ public class GetMyTeamMissionsQueryHandler(
                     CheckedIn = m.CheckedIn
                 }).ToList()
             }).ToList(),
+            AiSuggestionId = m.AiSuggestionId,
+            ManualOverride = MissionManualOverrideJsonHelper.Parse(m.ManualOverrideMetadata),
             Activities = m.Activities.Select(a => new MissionActivityDto
             {
                 Id = a.Id,

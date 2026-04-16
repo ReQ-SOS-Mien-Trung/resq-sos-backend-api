@@ -26,3 +26,5 @@ RESQ_Backend/RESQ.Tests/bin
 RESQ_Backend/RESQ.Tests/obj
 RESQ_Backend/tools/UnitTestReportGenerator/bin
 RESQ_Backend/tools/UnitTestReportGenerator/obj
+RESQ_Backend/RESQ_UnitTest.__tmp_depotinv.xlsx
+RESQ_Backend/RESQ_UnitTest.__tmp_sheetmap2.xlsx

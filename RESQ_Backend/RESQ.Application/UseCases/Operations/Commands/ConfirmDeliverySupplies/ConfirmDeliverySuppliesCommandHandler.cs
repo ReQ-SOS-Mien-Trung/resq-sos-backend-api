@@ -17,6 +17,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
     IMissionActivityRepository activityRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IMediator mediator,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<ConfirmDeliverySuppliesCommandHandler> logger
 ) : IRequestHandler<ConfirmDeliverySuppliesCommand, ConfirmDeliverySuppliesResponse>
@@ -24,6 +25,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IMediator _mediator = mediator;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ConfirmDeliverySuppliesCommandHandler> _logger = logger;
 
@@ -147,6 +149,9 @@ public class ConfirmDeliverySuppliesCommandHandler(
                 };
             })
             .ToList();
+
+        if (activity.DepotId.HasValue)
+            await _operationalHubService.PushDepotInventoryUpdateAsync(activity.DepotId.Value, "ConfirmDelivery", cancellationToken);
 
         return new ConfirmDeliverySuppliesResponse
         {
