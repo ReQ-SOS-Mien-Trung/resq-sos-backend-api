@@ -207,7 +207,7 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-await InitializeDatabaseAsync(app);
+InitializeDatabase(app);
 
 if (IsDatabaseSeedOnlyMode(args))
 {
@@ -252,7 +252,7 @@ static bool IsDatabaseSeedOnlyMode(string[] args)
         string.Equals(arg, "--migrate-seed", StringComparison.OrdinalIgnoreCase));
 }
 
-static async Task InitializeDatabaseAsync(WebApplication app)
+static void InitializeDatabase(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
@@ -266,9 +266,6 @@ static async Task InitializeDatabaseAsync(WebApplication app)
     {
         dbContext.Database.EnsureCreated();
     }
-
-    var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
-    await seeder.SeedAsync();
 }
 
 public partial class Program;

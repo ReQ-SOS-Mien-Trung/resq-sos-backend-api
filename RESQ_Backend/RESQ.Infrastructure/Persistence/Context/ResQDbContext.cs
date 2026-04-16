@@ -267,12 +267,16 @@ public partial class ResQDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("supply_inventory_lots_pkey");
             entity.HasIndex(e => new { e.SupplyInventoryId, e.RemainingQuantity, e.ExpiredDate })
                   .HasDatabaseName("ix_supply_inventory_lots_fefo");
-            entity.UseXminAsConcurrencyToken();
+            entity.Property<uint>("xmin")
+                .HasColumnName("xmin")
+                .IsRowVersion();
         });
 
         modelBuilder.Entity<SupplyInventory>(entity =>
         {
-            entity.UseXminAsConcurrencyToken();
+            entity.Property<uint>("xmin")
+                .HasColumnName("xmin")
+                .IsRowVersion();
             entity.Ignore(e => e.TotalReservedQuantity);
         });
 
