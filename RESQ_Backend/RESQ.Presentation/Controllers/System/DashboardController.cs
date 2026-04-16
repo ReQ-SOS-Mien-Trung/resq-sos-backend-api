@@ -3,12 +3,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetVictimsByPeriod;
-using RESQ.Application.UseCases.SystemConfig.Queries.SosStatusMetadata;
 
 namespace RESQ.Presentation.Controllers.System;
 
 /// <summary>
-/// Dashboard analytics endpoints cho admin.
+/// Dashboard analytics cấp hệ thống — dành cho admin/coordinator.
 /// </summary>
 [ApiController]
 [Route("dashboard")]
@@ -23,10 +22,6 @@ public class DashboardController(IMediator mediator) : ControllerBase
     /// <param name="from">Ngày bắt đầu (inclusive). Mặc định: 6 tháng trước.</param>
     /// <param name="to">Ngày kết thúc (inclusive). Mặc định: hôm nay.</param>
     /// <param name="granularity">"day" | "month". Mặc định: "month".</param>
-    /// <param name="statuses">
-    /// Danh sách SOS status cần lọc (có thể gửi nhiều giá trị, e.g. ?statuses=Pending&amp;statuses=Closed).
-    /// Để trống = lấy tất cả.
-    /// </param>
     [HttpGet("victims-by-period")]
     public async Task<IActionResult> GetVictimsByPeriod(
         [FromQuery] DateTime? from,
@@ -38,14 +33,5 @@ public class DashboardController(IMediator mediator) : ControllerBase
 
         return Ok(result);
     }
-
-    // /// <summary>
-    // /// [Metadata] Danh sách trạng thái SOS dùng cho dropdown.
-    // /// </summary>
-    // [HttpGet("metadata/sos-statuses")]
-    // public async Task<IActionResult> GetSosStatusMetadata()
-    // {
-    //     var result = await _mediator.Send(new GetSosStatusMetadataQuery());
-    //     return Ok(result);
-    // }
 }
+
