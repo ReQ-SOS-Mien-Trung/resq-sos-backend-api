@@ -4,6 +4,7 @@ using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
+using RESQ.Application.UseCases.Operations.Shared;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMissionById;
 
@@ -31,7 +32,14 @@ public class GetMissionByIdQueryHandler(
         var missionTeams = await _missionTeamRepository.GetByMissionIdAsync(mission.Id, cancellationToken);
 
         MissionAiSuggestionSection? aiSection = null;
-        if (mission.ClusterId.HasValue)
+        if (mission.AiSuggestionId.HasValue)
+        {
+            var linked = await _aiSuggestionRepository.GetByIdAsync(mission.AiSuggestionId.Value, cancellationToken);
+            if (linked is not null)
+                aiSection = MissionAiSuggestionSection.From(linked);
+        }
+
+        if (aiSection is null && mission.ClusterId.HasValue)
         {
             var suggestions = await _aiSuggestionRepository.GetByClusterIdAsync(mission.ClusterId.Value, cancellationToken);
             var latest = suggestions.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
@@ -108,11 +116,13 @@ public class GetMissionByIdQueryHandler(
                 CompletedAt = a.CompletedAt,
                 CompletedBy = a.CompletedBy
             }).ToList(),
-            AiSuggestionId = aiSection?.Id,
+            AiSuggestionId = mission.AiSuggestionId ?? aiSection?.Id,
             SuggestedMissionTitle = aiSection?.SuggestedMissionTitle,
             SuggestedMissionType = aiSection?.SuggestedMissionType,
             SuggestedPriorityScore = aiSection?.SuggestedPriorityScore,
-            SuggestedSeverityLevel = aiSection?.SuggestedSeverityLevel
+            SuggestedSeverityLevel = aiSection?.SuggestedSeverityLevel,
+            AiSuggestion = aiSection,
+            ManualOverride = MissionManualOverrideJsonHelper.Parse(mission.ManualOverrideMetadata)
         };
 
         await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(result.Activities, _itemModelMetadataRepository, cancellationToken);

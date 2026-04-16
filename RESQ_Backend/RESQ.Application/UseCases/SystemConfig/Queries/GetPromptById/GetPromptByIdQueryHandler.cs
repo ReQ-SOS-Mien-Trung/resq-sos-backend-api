@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Security;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.System;
@@ -26,6 +27,7 @@ public class GetPromptByIdQueryHandler(
         return new GetPromptByIdResponse
         {
             Id = prompt.Id,
+            Status = PromptLifecycleStatusResolver.DetermineStatus(prompt),
             Name = prompt.Name,
             PromptType = prompt.PromptType,
             Provider = prompt.Provider,

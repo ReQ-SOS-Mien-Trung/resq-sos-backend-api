@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Security;
 using RESQ.Application.Repositories.System;
 
@@ -21,6 +22,7 @@ public class GetAllPromptsQueryHandler(
         var dtos = pagedResult.Items.Select(p => new PromptDto
         {
             Id = p.Id,
+            Status = PromptLifecycleStatusResolver.DetermineStatus(p),
             Name = p.Name,
             PromptType = p.PromptType,
             Provider = p.Provider,

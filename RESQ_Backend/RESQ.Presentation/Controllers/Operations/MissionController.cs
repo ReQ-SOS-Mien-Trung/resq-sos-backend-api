@@ -76,12 +76,15 @@ public class MissionController(IMediator mediator) : ControllerBase
 
         var command = new CreateMissionCommand(
             dto.ClusterId,
+            dto.AiSuggestionId,
             dto.MissionType,
             dto.PriorityScore,
             dto.StartTime,
             dto.ExpectedEndTime,
             dto.Activities,
-            userId
+            userId,
+            dto.IgnoreMixedMissionWarning,
+            dto.OverrideReason
         );
 
         var result = await _mediator.Send(command);

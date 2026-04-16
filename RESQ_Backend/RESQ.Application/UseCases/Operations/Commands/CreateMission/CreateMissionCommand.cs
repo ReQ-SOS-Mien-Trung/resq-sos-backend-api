@@ -4,12 +4,15 @@ namespace RESQ.Application.UseCases.Operations.Commands.CreateMission;
 
 public record CreateMissionCommand(
     int ClusterId,
+    int? AiSuggestionId,
     string? MissionType,
     double? PriorityScore,
     DateTime? StartTime,
     DateTime? ExpectedEndTime,
     List<CreateActivityItemDto> Activities,
-    Guid CreatedById
+    Guid CreatedById,
+    bool IgnoreMixedMissionWarning = false,
+    string? OverrideReason = null
 ) : IRequest<CreateMissionResponse>;
 
 public class CreateActivityItemDto

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
@@ -20,11 +21,26 @@ public class CreatePromptCommandHandler(
     {
         _logger.LogInformation("Creating new prompt with name={Name}, type={Type}", request.Name, request.PromptType);
 
-        // Check duplicate name
-        var exists = await _promptRepository.ExistsAsync(request.Name, cancellationToken);
+        var exists = await _promptRepository.ExistsAsync(request.Name, cancellationToken: cancellationToken);
         if (exists)
         {
-            throw new ConflictException($"Prompt với tên '{request.Name}' đã tồn tại.");
+            throw new ConflictException($"Prompt voi ten '{request.Name}' da ton tai.");
+        }
+
+        if (PromptLifecycleStatusResolver.IsDraftVersion(request.Version))
+        {
+            throw new BadRequestException("Version tao moi khong duoc dung dinh dang draft '-D'. Hay dung endpoint tao draft.");
+        }
+
+        var normalizedVersion = PromptLifecycleStatusResolver.NormalizeReleasedVersion(request.Version);
+        var versionExists = await _promptRepository.ExistsVersionAsync(
+            request.PromptType,
+            normalizedVersion,
+            cancellationToken: cancellationToken);
+        if (versionExists)
+        {
+            throw new ConflictException(
+                $"Prompt type '{request.PromptType}' da ton tai version '{normalizedVersion}'.");
         }
 
         var prompt = PromptModel.Create(
@@ -37,7 +53,7 @@ public class CreatePromptCommandHandler(
             model: request.Model,
             temperature: request.Temperature,
             maxTokens: request.MaxTokens,
-            version: request.Version,
+            version: normalizedVersion,
             apiUrl: request.ApiUrl,
             apiKey: request.ApiKey
         );
@@ -46,7 +62,6 @@ public class CreatePromptCommandHandler(
         await _promptRepository.CreateAsync(prompt, cancellationToken);
         await _unitOfWork.SaveAsync();
 
-        // Nếu prompt này được kích hoạt, tắt các prompt khác cùng loại
         if (prompt.IsActive)
         {
             await _promptRepository.DeactivateOthersByTypeAsync(prompt.Id, prompt.PromptType, cancellationToken);
@@ -60,7 +75,7 @@ public class CreatePromptCommandHandler(
             Id = prompt.Id,
             Name = prompt.Name,
             PromptType = prompt.PromptType,
-            Message = "Tạo prompt thành công."
+            Message = "Tao prompt thanh cong."
         };
     }
 }
