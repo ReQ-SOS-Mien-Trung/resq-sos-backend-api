@@ -13,6 +13,7 @@ public class SetAssemblyPointUnavailableCommandHandler(
     IAssemblyEventRepository assemblyEventRepository,
     IUnitOfWork unitOfWork,
     IDashboardHubService dashboardHubService,
+    IOperationalHubService operationalHubService,
     IFirebaseService firebaseService,
     ILogger<SetAssemblyPointUnavailableCommandHandler> logger)
     : IRequestHandler<SetAssemblyPointUnavailableCommand, SetAssemblyPointUnavailableResponse>
@@ -21,6 +22,7 @@ public class SetAssemblyPointUnavailableCommandHandler(
     private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
     private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ILogger<SetAssemblyPointUnavailableCommandHandler> _logger = logger;
 
@@ -60,10 +62,9 @@ var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAs
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
         await _unitOfWork.SaveAsync();
 
-        await _dashboardHubService.PushAssemblyPointSnapshotAsync(
-            assemblyPoint.Id,
-            "StartMaintenance",
-            cancellationToken);
+        await Task.WhenAll(
+            _dashboardHubService.PushAssemblyPointSnapshotAsync(assemblyPoint.Id, "StartMaintenance", cancellationToken),
+            _operationalHubService.PushAssemblyPointListUpdateAsync(cancellationToken));
 
         // Fetch stationed rescuers to issue an evacuation warning
         var stationedUserIds = await _repository.GetAssignedRescuerUserIdsAsync(assemblyPoint.Id, cancellationToken);

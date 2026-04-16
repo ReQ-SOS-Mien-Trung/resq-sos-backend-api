@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -14,6 +14,7 @@ using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Operations.Commands;
 
@@ -83,7 +84,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             depotInventoryRepository,
             metadataRepository,
             
-            new DummyMediator(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+            new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
         var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
             activityId,
@@ -206,7 +207,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             depotInventoryRepository,
             metadataRepository,
             
-            new DummyMediator(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+            new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
         var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
             returnActivityId,
@@ -277,7 +278,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         var depotInventoryRepository = new StubDepotInventoryRepository
         {
             ManagerDepotIds = [depotId],
-            ExceptionFactory = () => new InvalidOperationException("Reusable unit #171 không ở trạng thái InUse.")
+            ExceptionFactory = () => new InvalidOperationException("Reusable unit #171 kh�ng ? tr?ng th�i InUse.")
         };
         var metadataRepository = new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
         {
@@ -288,7 +289,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             depotInventoryRepository,
             metadataRepository,
             
-            new DummyMediator(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+            new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
         var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
             handler.Handle(new ConfirmReturnSuppliesCommand(
@@ -308,7 +309,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 ],
                 null), CancellationToken.None));
 
-        Assert.Equal("Reusable unit #171 không ở trạng thái InUse.", ex.Message);
+        Assert.Equal("Reusable unit #171 kh�ng ? tr?ng th�i InUse.", ex.Message);
     }
 
     [Fact]
@@ -350,7 +351,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
             }),
             
-            new DummyMediator(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+            new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
         var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
             handler.Handle(new ConfirmReturnSuppliesCommand(
@@ -583,7 +584,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             .ToString()
             .Normalize(System.Text.NormalizationForm.FormC)
             .Replace('d', 'd')
-            .Replace('Đ', 'D');
+            .Replace('�', 'D');
     }
 }
 

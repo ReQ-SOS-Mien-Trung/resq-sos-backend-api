@@ -26,20 +26,26 @@ public class LeaveTeamCommandHandler(
         var team = await personnelQueryRepository.GetActiveRescueTeamByUserIdAsync(request.RescuerId, cancellationToken)
             ?? throw new BadRequestException("Bạn không thuộc đội cứu hộ nào để rời.");
 
-        // 2. Lấy leader trước khi remove (cần status Accepted còn nguyên trong memory)
+        // 2. Chặn rời đội khi team đang trong nhiệm vụ
+        if (team.Status is RescueTeamStatus.Assigned or RescueTeamStatus.OnMission or RescueTeamStatus.Stuck)
+            throw new BadRequestException(
+                $"Không thể rời đội khi đội đang ở trạng thái '{team.Status}'. " +
+                "Vui lòng hoàn thành nhiệm vụ trước khi rời đội.");
+
+        // 3. Lấy leader trước khi remove (cần status Accepted còn nguyên trong memory)
         var leader = team.Members.FirstOrDefault(m => m.IsLeader && m.Status == TeamMemberStatus.Accepted);
 
-        // 3. Soft-remove
+        // 4. Soft-remove
         var removed = await rescueTeamRepository.SoftRemoveMemberFromActiveTeamAsync(request.RescuerId, cancellationToken);
         if (!removed)
             throw new BadRequestException("Không tìm thấy thông tin thành viên trong đội đang hoạt động.");
 
         await unitOfWork.SaveAsync();
 
-        // 4. Lấy tên rescuer để đưa vào thông báo
+        // 5. Lấy tên rescuer để đưa vào thông báo
         var rescuer = await userRepository.GetByIdAsync(request.RescuerId, cancellationToken);
         var rescuerName = rescuer != null
-            ? $"{rescuer.FirstName} {rescuer.LastName}".Trim()
+            ? $"{rescuer.LastName} {rescuer.FirstName}".Trim()
             : request.RescuerId.ToString();
 
         var notifyData = new Dictionary<string, string>

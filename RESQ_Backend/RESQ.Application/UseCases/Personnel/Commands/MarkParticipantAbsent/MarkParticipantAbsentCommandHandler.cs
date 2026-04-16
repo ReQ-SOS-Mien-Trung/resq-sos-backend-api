@@ -60,7 +60,7 @@ public class MarkParticipantAbsentCommandHandler(
             // Lấy tên thành viên vắng để đưa vào nội dung thông báo
             var absentUser = await userRepository.GetByIdAsync(request.TargetRescuerId, cancellationToken);
             var absentName = absentUser != null
-                ? $"{absentUser.FirstName} {absentUser.LastName}".Trim()
+                ? $"{absentUser.LastName} {absentUser.FirstName}".Trim()
                 : request.TargetRescuerId.ToString();
 
             await firebaseService.SendNotificationToUserAsync(

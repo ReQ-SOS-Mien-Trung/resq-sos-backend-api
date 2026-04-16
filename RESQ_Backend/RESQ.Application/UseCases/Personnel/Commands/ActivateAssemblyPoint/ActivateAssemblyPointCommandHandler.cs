@@ -12,12 +12,14 @@ public class ActivateAssemblyPointCommandHandler(
     IAssemblyPointRepository repository,
     IUnitOfWork unitOfWork,
     IDashboardHubService dashboardHubService,
+    IOperationalHubService operationalHubService,
     ILogger<ActivateAssemblyPointCommandHandler> logger)
     : IRequestHandler<ActivateAssemblyPointCommand, ActivateAssemblyPointResponse>
 {
     private readonly IAssemblyPointRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
     private readonly ILogger<ActivateAssemblyPointCommandHandler> _logger = logger;
 
     public async Task<ActivateAssemblyPointResponse> Handle(ActivateAssemblyPointCommand request, CancellationToken cancellationToken)
@@ -34,10 +36,9 @@ public class ActivateAssemblyPointCommandHandler(
         await _repository.UpdateAsync(assemblyPoint, cancellationToken);
         await _unitOfWork.SaveAsync();
 
-        await _dashboardHubService.PushAssemblyPointSnapshotAsync(
-            assemblyPoint.Id,
-            "Activate",
-            cancellationToken);
+        await Task.WhenAll(
+            _dashboardHubService.PushAssemblyPointSnapshotAsync(assemblyPoint.Id, "Activate", cancellationToken),
+            _operationalHubService.PushAssemblyPointListUpdateAsync(cancellationToken));
 
         _logger.LogInformation("AssemblyPoint activated: Id={Id}", request.Id);
 

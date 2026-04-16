@@ -15,6 +15,7 @@ public class ChangeDepotStatusCommandHandler(
     IDepotRepository depotRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IUserPermissionResolver permissionResolver,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<ChangeDepotStatusCommandHandler> logger)
     : IRequestHandler<ChangeDepotStatusCommand, ChangeDepotStatusResponse>
@@ -23,6 +24,7 @@ public class ChangeDepotStatusCommandHandler(
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IUserPermissionResolver _permissionResolver = permissionResolver;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ChangeDepotStatusCommandHandler> _logger = logger;
 
@@ -83,6 +85,10 @@ public class ChangeDepotStatusCommandHandler(
 
         await _depotRepository.UpdateAsync(depot, cancellationToken);
         await _unitOfWork.SaveAsync();
+
+        await Task.WhenAll(
+            _operationalHubService.PushDepotInventoryUpdateAsync(depot.Id, "StatusChange", cancellationToken),
+            _operationalHubService.PushLogisticsUpdateAsync("depots", cancellationToken: cancellationToken));
 
         _logger.LogInformation("Depot status updated successfully: Id={Id}", request.Id);
 

@@ -18,6 +18,7 @@ public class ConfirmReturnSuppliesCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     IMediator mediator,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<ConfirmReturnSuppliesCommandHandler> logger
 ) : IRequestHandler<ConfirmReturnSuppliesCommand, ConfirmReturnSuppliesResponse>
@@ -26,6 +27,7 @@ public class ConfirmReturnSuppliesCommandHandler(
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IMediator _mediator = mediator;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ConfirmReturnSuppliesCommandHandler> _logger = logger;
 
@@ -262,6 +264,8 @@ public class ConfirmReturnSuppliesCommandHandler(
         _logger.LogInformation(
             "Depot manager confirmed RETURN_SUPPLIES ActivityId={activityId} DepotId={depotId}: {count} item type(s) restocked",
             request.ActivityId, depotId, validItems.Count);
+
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "ConfirmReturn", cancellationToken);
 
         return new ConfirmReturnSuppliesResponse
         {

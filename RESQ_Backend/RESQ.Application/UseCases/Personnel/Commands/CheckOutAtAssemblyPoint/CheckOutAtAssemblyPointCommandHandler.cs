@@ -5,14 +5,17 @@ using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
 using RESQ.Domain.Enum.Personnel;
+using System.Collections.Generic;
 
 namespace RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint
 {
     public class CheckOutAtAssemblyPointCommandHandler(
         IAssemblyEventRepository assemblyEventRepository,
+        IAssemblyPointRepository assemblyPointRepository,
         IRescueTeamRepository rescueTeamRepository,
         IUserRepository userRepository,
         IFirebaseService firebaseService,
+        IOperationalHubService operationalHubService,
         IUnitOfWork unitOfWork)
         : IRequestHandler<CheckOutAtAssemblyPointCommand>
     {
@@ -33,12 +36,16 @@ namespace RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint
             if (!success)
                 throw new BadRequestException("Bạn chưa check-in hoặc không nằm trong danh sách tham gia.");
 
+            // Gỡ rescuer khỏi điểm tập kết (rời hẳn, không chỉ rời sự kiện)
+            await assemblyPointRepository.UpdateRescuerAssemblyPointAsync(request.RescuerId, null, cancellationToken);
+
             await unitOfWork.SaveAsync();
+            await operationalHubService.PushAssemblyPointListUpdateAsync(cancellationToken);
 
             // Lấy tên rescuer để đưa vào nội dung thông báo
             var rescuer = await userRepository.GetByIdAsync(request.RescuerId, cancellationToken);
             var rescuerName = rescuer != null
-                ? $"{rescuer.FirstName} {rescuer.LastName}".Trim()
+                ? $"{rescuer.LastName} {rescuer.FirstName}".Trim()
                 : request.RescuerId.ToString();
 
             // Thông báo cho coordinator (người tạo sự kiện)
