@@ -23,6 +23,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 {
     private readonly IAiProviderClientFactory _aiProviderClientFactory;
     private readonly IAiPromptExecutionSettingsResolver _settingsResolver;
+    private readonly IAiConfigRepository _aiConfigRepository;
     private readonly IPromptRepository _promptRepository;
     private readonly IMissionAiSuggestionRepository _missionAiSuggestionRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository;
@@ -31,10 +32,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private readonly MissionSuggestionPipelineOptions _pipelineOptions;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
 
-    private const string FallbackModel = "gemini-2.5-flash";
-    private const string FallbackApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
-    private const double FallbackTemperature = 0.5;
-    private const int FallbackMaxTokens = 65535;
     private const double LowConfidenceThreshold = 0.65;
 
     private const int MaxAgentTurns = 20;
@@ -49,12 +46,17 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
     private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex CoordinateRegex = new(@"(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", RegexOptions.Compiled);
-    private sealed record MissionSuggestionExecutionOptions(bool PersistSuggestion, PromptModel? PromptOverride)
+    private sealed record MissionSuggestionExecutionOptions(
+        bool PersistSuggestion,
+        PromptModel? PromptOverride,
+        AiConfigModel? AiConfigOverride)
     {
-        public static readonly MissionSuggestionExecutionOptions Persisted = new(true, null);
+        public static readonly MissionSuggestionExecutionOptions Persisted = new(true, null, null);
 
-        public static MissionSuggestionExecutionOptions Preview(PromptModel promptOverride) =>
-            new(false, promptOverride);
+        public static MissionSuggestionExecutionOptions Preview(
+            PromptModel promptOverride,
+            AiConfigModel? aiConfigOverride) =>
+            new(false, promptOverride, aiConfigOverride);
     }
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
@@ -67,6 +69,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     public RescueMissionSuggestionService(
         IAiProviderClientFactory aiProviderClientFactory,
         IAiPromptExecutionSettingsResolver settingsResolver,
+        IAiConfigRepository aiConfigRepository,
         IPromptRepository promptRepository,
         IMissionAiSuggestionRepository missionAiSuggestionRepository,
         IDepotInventoryRepository depotInventoryRepository,
@@ -77,6 +80,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     {
         _aiProviderClientFactory = aiProviderClientFactory;
         _settingsResolver = settingsResolver;
+        _aiConfigRepository = aiConfigRepository;
         _promptRepository = promptRepository;
         _missionAiSuggestionRepository = missionAiSuggestionRepository;
         _depotInventoryRepository = depotInventoryRepository;
@@ -109,6 +113,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         bool isMultiDepotRecommended,
         int clusterId,
         PromptModel promptOverride,
+        AiConfigModel? aiConfigOverride = null,
         CancellationToken cancellationToken = default) =>
         RunSuggestionAsync(
             sosRequests,
@@ -116,7 +121,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             nearbyTeams,
             isMultiDepotRecommended,
             clusterId,
-            MissionSuggestionExecutionOptions.Preview(promptOverride),
+            MissionSuggestionExecutionOptions.Preview(promptOverride, aiConfigOverride),
             cancellationToken);
 
     private async Task<RescueMissionSuggestionResult> RunSuggestionAsync(
@@ -1891,6 +1896,16 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         return await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
     }
+
+    private async Task<AiConfigModel?> GetEffectiveAiConfigAsync(
+        MissionSuggestionExecutionOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (options.AiConfigOverride is not null)
+            return options.AiConfigOverride;
+
+        return await _aiConfigRepository.GetActiveAsync(cancellationToken);
+    }
     // --- SSE helpers -----------------------------------------------------------
 
     private static SseMissionEvent Status(string msg) =>
@@ -1932,6 +1947,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var availableNearbyTeams = nearbyTeams ?? [];
+        var aiConfig = await GetEffectiveAiConfigAsync(options, cancellationToken);
+        if (aiConfig == null)
+        {
+            yield return Error("Chua co AI config active trong he thong. Vui long kich hoat AI config truoc khi chay prompt.");
+            yield break;
+        }
+
         MissionSuggestionMetadata? pipelineMetadata = null;
         int? suggestionId = null;
 
@@ -1950,6 +1972,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 clusterId,
                 suggestionId,
                 pipelineMetadata,
+                aiConfig,
                 options,
                 cancellationToken).GetAsyncEnumerator(cancellationToken);
 
@@ -1998,13 +2021,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             yield break;
         }
 
-        var settings = _settingsResolver.Resolve(
-            prompt,
-            new AiPromptExecutionFallback(
-                FallbackModel,
-                FallbackApiUrl,
-                FallbackTemperature,
-                FallbackMaxTokens));
+        var settings = _settingsResolver.Resolve(aiConfig);
 
         // Enforce minimum 32K tokens - mission plans with tool calls can be very long
         var maxTokens = Math.Max(settings.MaxTokens, 32768);

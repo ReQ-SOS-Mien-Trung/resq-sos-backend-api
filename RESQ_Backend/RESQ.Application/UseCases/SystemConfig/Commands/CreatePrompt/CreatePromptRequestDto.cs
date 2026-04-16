@@ -11,9 +11,6 @@ public class CreatePromptRequestDto
     [JsonPropertyName("prompt_type")]
     public PromptType PromptType { get; set; }
 
-    [JsonPropertyName("provider")]
-    public AiProvider Provider { get; set; } = AiProvider.Gemini;
-
     [JsonPropertyName("purpose")]
     public string Purpose { get; set; } = null!;
 
@@ -23,23 +20,8 @@ public class CreatePromptRequestDto
     [JsonPropertyName("user_prompt_template")]
     public string UserPromptTemplate { get; set; } = null!;
 
-    [JsonPropertyName("model")]
-    public string Model { get; set; } = "gemini-2.5-flash";
-
-    [JsonPropertyName("temperature")]
-    public double Temperature { get; set; } = 0.3;
-
-    [JsonPropertyName("max_tokens")]
-    public int MaxTokens { get; set; } = 2048;
-
     [JsonPropertyName("version")]
     public string Version { get; set; } = "1.0";
-
-    [JsonPropertyName("api_url")]
-    public string? ApiUrl { get; set; }
-
-    [JsonPropertyName("api_key")]
-    public string? ApiKey { get; set; }
 
     /// <summary>Nếu true (mặc định), prompt này sẽ được kích hoạt và các prompt cùng loại sẽ bị tắt.</summary>
     [JsonPropertyName("is_active")]

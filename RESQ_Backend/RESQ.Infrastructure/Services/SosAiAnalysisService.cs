@@ -17,6 +17,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
 {
     private readonly IAiProviderClientFactory _aiProviderClientFactory;
     private readonly IAiPromptExecutionSettingsResolver _settingsResolver;
+    private readonly IAiConfigRepository _aiConfigRepository;
     private readonly IPromptRepository _promptRepository;
     private readonly ISosAiAnalysisRepository _sosAiAnalysisRepository;
     private readonly ISosRequestRepository _sosRequestRepository;
@@ -24,14 +25,10 @@ public class SosAiAnalysisService : ISosAiAnalysisService
     private readonly ILogger<SosAiAnalysisService> _logger;
 
     // Fallback defaults - chỉ dùng khi database chưa có cấu hình
-    private const string FALLBACK_MODEL = "gemini-2.5-flash";
-    private const string FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
-    private const double FALLBACK_TEMPERATURE = 0.3;
-    private const int FALLBACK_MAX_TOKENS = 2048;
-
     public SosAiAnalysisService(
         IAiProviderClientFactory aiProviderClientFactory,
         IAiPromptExecutionSettingsResolver settingsResolver,
+        IAiConfigRepository aiConfigRepository,
         IPromptRepository promptRepository,
         ISosAiAnalysisRepository sosAiAnalysisRepository,
         ISosRequestRepository sosRequestRepository,
@@ -40,6 +37,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
     {
         _aiProviderClientFactory = aiProviderClientFactory;
         _settingsResolver = settingsResolver;
+        _aiConfigRepository = aiConfigRepository;
         _promptRepository = promptRepository;
         _sosAiAnalysisRepository = sosAiAnalysisRepository;
         _sosRequestRepository = sosRequestRepository;
@@ -61,14 +59,14 @@ public class SosAiAnalysisService : ISosAiAnalysisService
                 return;
             }
 
-            // Resolve AI configuration from database, fallback to defaults
-            var settings = _settingsResolver.Resolve(
-                prompt,
-                new AiPromptExecutionFallback(
-                    FALLBACK_MODEL,
-                    FALLBACK_API_URL,
-                    FALLBACK_TEMPERATURE,
-                    FALLBACK_MAX_TOKENS));
+            var aiConfig = await _aiConfigRepository.GetActiveAsync(cancellationToken);
+            if (aiConfig == null)
+            {
+                _logger.LogWarning("Khong tim thay AI config active. Bo qua AI analysis cho SOS Request Id={sosRequestId}.", sosRequestId);
+                return;
+            }
+
+            var settings = _settingsResolver.Resolve(aiConfig);
 
             _logger.LogInformation(
                 "Using AI config from DB: Provider={provider}, Model={model}, ApiUrl={apiUrl}, Temperature={temperature}, MaxTokens={maxTokens}",

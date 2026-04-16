@@ -1,10 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.System;
-using RESQ.Infrastructure.Options;
 using RESQ.Infrastructure.Services;
 using RESQ.Infrastructure.Services.Ai;
 
@@ -13,28 +11,20 @@ namespace RESQ.Tests.Infrastructure.Services;
 public class AiModelTestServiceTests
 {
     [Fact]
-    public async Task TestModelAsync_ShouldRouteToPromptProvider_FromPromptConfiguration()
+    public async Task TestModelAsync_ShouldRouteToAiConfigProvider()
     {
-        var resolver = new AiPromptExecutionSettingsResolver(
-            Options.Create(new AiProvidersOptions
-            {
-                OpenRouter = new AiProviderEndpointOptions
-                {
-                    ApiUrl = "https://openrouter.example/chat/completions",
-                    ApiKey = "openrouter-provider-key",
-                    DefaultModel = "openai/gpt-4o-mini"
-                }
-            }),
-            new PromptSecretProtector(Options.Create(new PromptSecretsOptions
-            {
-                MasterKey = null
-            })));
+        var resolver = new AiPromptExecutionSettingsResolver();
         var factory = new RecordingAiProviderClientFactory(new RecordingAiProviderClient());
         IAiModelTestService service = new AiModelTestService(factory, resolver, NullLogger<AiModelTestService>.Instance);
 
-        var result = await service.TestModelAsync(new PromptModel
+        var result = await service.TestModelAsync(new AiConfigModel
         {
-            Provider = AiProvider.OpenRouter
+            Provider = AiProvider.OpenRouter,
+            Model = "openai/gpt-4o-mini",
+            ApiUrl = "https://openrouter.example/chat/completions",
+            ApiKey = "provider-key",
+            Temperature = 0.2,
+            MaxTokens = 512
         });
 
         Assert.True(result.IsSuccess);

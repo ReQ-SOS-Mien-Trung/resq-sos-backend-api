@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
-using RESQ.Application.Common.Security;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.System;
 
@@ -30,18 +29,10 @@ public class GetPromptByIdQueryHandler(
             Status = PromptLifecycleStatusResolver.DetermineStatus(prompt),
             Name = prompt.Name,
             PromptType = prompt.PromptType,
-            Provider = prompt.Provider,
             Purpose = prompt.Purpose,
             SystemPrompt = prompt.SystemPrompt,
             UserPromptTemplate = prompt.UserPromptTemplate,
-            Model = prompt.Model,
-            Temperature = prompt.Temperature,
-            MaxTokens = prompt.MaxTokens,
             Version = prompt.Version,
-            ApiUrl = prompt.ApiUrl,
-            ApiKey = null,
-            ApiKeyMasked = SecretMasker.Mask(prompt.ApiKey),
-            HasApiKey = !string.IsNullOrWhiteSpace(prompt.ApiKey),
             IsActive = prompt.IsActive,
             CreatedAt = prompt.CreatedAt,
             UpdatedAt = prompt.UpdatedAt

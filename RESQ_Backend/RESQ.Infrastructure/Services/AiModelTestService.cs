@@ -13,10 +13,6 @@ public class AiModelTestService : IAiModelTestService
     private readonly ILogger<AiModelTestService> _logger;
 
     private const string TEST_PROMPT = "Respond with exactly: {\"status\": \"ok\", \"message\": \"Model is working\"}";
-    private const string FALLBACK_GEMINI_MODEL = "gemini-2.5-flash";
-    private const string FALLBACK_GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
-    private const double FALLBACK_TEMPERATURE = 0.3;
-    private const int FALLBACK_MAX_TOKENS = 256;
 
     public AiModelTestService(
         IAiProviderClientFactory aiProviderClientFactory,
@@ -29,17 +25,11 @@ public class AiModelTestService : IAiModelTestService
     }
 
     public async Task<AiModelTestResult> TestModelAsync(
-        PromptModel prompt,
+        AiConfigModel aiConfig,
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
-        var settings = _settingsResolver.Resolve(
-            prompt,
-            new AiPromptExecutionFallback(
-                FALLBACK_GEMINI_MODEL,
-                FALLBACK_GEMINI_API_URL,
-                FALLBACK_TEMPERATURE,
-                FALLBACK_MAX_TOKENS));
+        var settings = _settingsResolver.Resolve(aiConfig);
 
         try
         {

@@ -145,9 +145,9 @@ public class DepotModelTests
         var depot = DepotModel.Create("Kho", "Addr", DefaultLocation, 1000, 500);
         depot.AssignManager(Guid.NewGuid());
 
-        depot.ChangeStatus(DepotStatus.Closing);
+        depot.ChangeStatus(DepotStatus.Unavailable);
 
-        Assert.Equal(DepotStatus.Closing, depot.Status);
+        Assert.Equal(DepotStatus.Unavailable, depot.Status);
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public class DepotModelTests
     {
         var depot = DepotModel.Create("Kho", "Addr", DefaultLocation, 1000, 500);
         depot.AssignManager(Guid.NewGuid());
-        depot.ChangeStatus(DepotStatus.Closing);
+        depot.ChangeStatus(DepotStatus.Unavailable);
         depot.CompleteClosing();
 
         Assert.Throws<InvalidDepotStatusTransitionException>(

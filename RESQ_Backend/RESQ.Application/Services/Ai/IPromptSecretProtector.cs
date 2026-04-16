@@ -1,6 +1,6 @@
 namespace RESQ.Application.Services.Ai;
 
-public interface IPromptSecretProtector
+public interface IAiSecretProtector
 {
     bool HasActiveKey { get; }
 
@@ -9,4 +9,8 @@ public interface IPromptSecretProtector
     string? Protect(string? value);
 
     string? Unprotect(string? value);
+}
+
+public interface IPromptSecretProtector : IAiSecretProtector
+{
 }

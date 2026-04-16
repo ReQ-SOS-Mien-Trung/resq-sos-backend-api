@@ -15,7 +15,17 @@ public static class PromptLifecycleStatusResolver
 
     public static bool IsDraft(PromptModel prompt)
     {
-        return !prompt.IsActive && IsDraftVersion(prompt.Version);
+        return IsDraft(prompt.IsActive, prompt.Version);
+    }
+
+    public static bool IsDraft(AiConfigModel config)
+    {
+        return IsDraft(config.IsActive, config.Version);
+    }
+
+    public static bool IsDraft(bool isActive, string? version)
+    {
+        return !isActive && IsDraftVersion(version);
     }
 
     public static bool IsDraftVersion(string? version)
@@ -30,12 +40,22 @@ public static class PromptLifecycleStatusResolver
 
     public static string DetermineStatus(PromptModel prompt)
     {
-        if (prompt.IsActive)
+        return DetermineStatus(prompt.IsActive, prompt.Version);
+    }
+
+    public static string DetermineStatus(AiConfigModel config)
+    {
+        return DetermineStatus(config.IsActive, config.Version);
+    }
+
+    public static string DetermineStatus(bool isActive, string? version)
+    {
+        if (isActive)
         {
             return "Active";
         }
 
-        return IsDraft(prompt) ? "Draft" : "Archived";
+        return IsDraft(isActive, version) ? "Draft" : "Archived";
     }
 
     public static string ResolveVersionRoot(string? version)

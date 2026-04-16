@@ -21,10 +21,6 @@ public partial class Prompt
     [StringLength(100)]
     public string PromptType { get; set; } = string.Empty;
 
-    [Column("provider")]
-    [StringLength(50)]
-    public string Provider { get; set; } = "Gemini";
-
     [Column("purpose")]
     public string? Purpose { get; set; }
 
@@ -34,26 +30,9 @@ public partial class Prompt
     [Column("user_prompt_template")]
     public string? UserPromptTemplate { get; set; }
 
-    [Column("model")]
-    [StringLength(100)]
-    public string? Model { get; set; }
-
-    [Column("temperature")]
-    public double? Temperature { get; set; }
-
-    [Column("max_tokens")]
-    public int? MaxTokens { get; set; }
-
     [Column("version")]
     [StringLength(20)]
     public string? Version { get; set; }
-
-    [Column("api_url")]
-    [StringLength(500)]
-    public string? ApiUrl { get; set; }
-
-    [Column("api_key")]
-    public string? ApiKey { get; set; }
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
