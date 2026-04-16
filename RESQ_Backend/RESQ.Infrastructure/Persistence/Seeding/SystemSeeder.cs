@@ -272,55 +272,55 @@ Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này
             new Prompt
             {
                 Id = 4,
-                Name = "Mission Requirements Assessment Prompt",
+                Name = "Prompt đánh giá nhu cầu nhiệm vụ",
                 PromptType = "MissionRequirementsAssessment",
                 Provider = "Gemini",
-                Purpose = "Pipeline stage 1: analyze SOS requests into compact mission requirements.",
-                SystemPrompt = @"You are the Requirements Assessment Agent in the RESQ mission suggestion pipeline.
+                Purpose = "Giai đoạn 1 của pipeline: phân tích các yêu cầu SOS thành nhu cầu nhiệm vụ ngắn gọn.",
+                SystemPrompt = @"Bạn là tác nhân đánh giá nhu cầu trong pipeline gợi ý nhiệm vụ RESQ.
 
-Task:
-- Read SOS requests only.
-- Do not plan depots, teams, routes, or final activities.
-- Do not invent item_id, depot_id, team_id, or assembly_point_id.
-- Return one valid JSON object only. No markdown, no explanations outside JSON.
+Nhiệm vụ:
+- Chỉ đọc dữ liệu SOS request.
+- Không lập kế hoạch kho, đội cứu hộ, tuyến đường hoặc danh sách activity cuối cùng.
+- Không tự bịa item_id, depot_id, team_id hoặc assembly_point_id.
+- Chỉ trả về một JSON object hợp lệ. Không markdown, không giải thích ngoài JSON.
 
-Output schema:
+Schema đầu ra:
 {
-  ""suggested_mission_title"": ""Short mission title"",
+  ""suggested_mission_title"": ""Tiêu đề nhiệm vụ ngắn gọn"",
   ""suggested_mission_type"": ""RESCUE|EVACUATION|MEDICAL|SUPPLY|MIXED"",
   ""suggested_priority_score"": 0.0,
   ""suggested_severity_level"": ""Critical|Severe|Moderate|Minor"",
-  ""overall_assessment"": ""Brief summary of the situation and needs"",
-  ""estimated_duration"": ""rough estimate such as 2 giờ 30 phút"",
+  ""overall_assessment"": ""Tóm tắt ngắn tình huống và nhu cầu"",
+  ""estimated_duration"": ""ước lượng sơ bộ, ví dụ 2 giờ 30 phút"",
   ""special_notes"": null,
   ""needs_additional_depot"": false,
   ""supply_shortages"": [],
   ""confidence_score"": 0.0,
   ""suggested_resources"": [
-    { ""resource_type"": ""TEAM|VEHICLE|BOAT|EQUIPMENT"", ""description"": ""Only non-consumable capability/resource"", ""quantity"": 1, ""priority"": ""Critical|High|Medium|Low"" }
+    { ""resource_type"": ""TEAM|VEHICLE|BOAT|EQUIPMENT"", ""description"": ""Chỉ ghi năng lực hoặc nguồn lực không tiêu hao"", ""quantity"": 1, ""priority"": ""Critical|High|Medium|Low"" }
   ],
   ""sos_requirements"": [
     {
       ""sos_request_id"": 1,
-      ""summary"": ""What this SOS needs"",
+      ""summary"": ""Nhu cầu của SOS này"",
       ""priority"": ""Critical|High|Medium|Low"",
       ""required_supplies"": [
-        { ""item_name"": ""Nước sạch"", ""quantity"": 100, ""unit"": ""chai"", ""category"": ""Nước"", ""notes"": ""Reason or target group"" }
+        { ""item_name"": ""Nước sạch"", ""quantity"": 100, ""unit"": ""chai"", ""category"": ""Nước"", ""notes"": ""Lý do hoặc nhóm người cần hỗ trợ"" }
       ],
       ""required_teams"": [
-        { ""team_type"": ""Rescue|Medical|Evacuation|Relief"", ""quantity"": 1, ""reason"": ""Why this team is needed"" }
+        { ""team_type"": ""Rescue|Medical|Evacuation|Relief"", ""quantity"": 1, ""reason"": ""Vì sao cần loại đội này"" }
       ]
     }
   ]
 }
 
-Rules:
-- Every SOS in the input should appear in sos_requirements.
-- Food, water, medicine, milk, clothes, blankets, shelter supplies go into required_supplies, not suggested_resources.
-- suggested_resources is only for team/vehicle/boat/equipment capability that is not an inventory item.
-- If quantity is unclear, estimate conservatively from victim count and say so in notes.
-- confidence_score must be between 0 and 1.",
-                UserPromptTemplate = @"Use the backend-provided context blocks below. Return only the MissionRequirementsFragment JSON object described by the system prompt.",
+Quy tắc:
+- Mọi SOS trong input phải xuất hiện trong sos_requirements.
+- Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn và vật tư nơi trú ẩn phải nằm trong required_supplies, không đưa vào suggested_resources.
+- suggested_resources chỉ dùng cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không phải vật tư tồn kho.
+- Nếu số lượng chưa rõ, hãy ước lượng thận trọng theo số nạn nhân và ghi rõ trong notes.
+- confidence_score phải nằm trong khoảng từ 0 đến 1.",
+                UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
                 Model = "gemini-2.5-flash",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
                 ApiKey = null,
@@ -333,32 +333,32 @@ Rules:
             new Prompt
             {
                 Id = 5,
-                Name = "Mission Depot Planning Prompt",
+                Name = "Prompt lập kế hoạch kho cho nhiệm vụ",
                 PromptType = "MissionDepotPlanning",
                 Provider = "Gemini",
-                Purpose = "Pipeline stage 2: choose exactly one eligible depot and produce supply activity fragments.",
-                SystemPrompt = @"You are the Depot Planning Agent in the RESQ mission suggestion pipeline.
+                Purpose = "Giai đoạn 2 của pipeline: chọn đúng một kho hợp lệ và tạo các mảnh activity liên quan đến vật tư.",
+                SystemPrompt = @"Bạn là tác nhân lập kế hoạch kho trong pipeline gợi ý nhiệm vụ RESQ.
 
-Available tool:
-- searchInventory(category, type?, page): search inventory only in backend-scoped eligible depots.
+Công cụ có thể dùng:
+- searchInventory(category, type?, page): tìm tồn kho chỉ trong các kho hợp lệ đã được backend giới hạn phạm vi.
 
-Task:
-- Use requirements_fragment to identify supply categories and item types.
-- Call searchInventory for every required supply category/type before finalizing.
-- Choose exactly one depot_id for the whole mission when any depot inventory is available.
-- Do not split supplies across multiple depots.
-- Do not create rescue, medical, evacuation, return, or team-planning activities.
-- Do not invent item_id or depot_id. Use only IDs returned by searchInventory.
-- Return one valid JSON object only. No markdown, no explanations outside JSON.
+Nhiệm vụ:
+- Dùng requirements_fragment để xác định nhóm vật tư và loại vật tư cần thiết.
+- Gọi searchInventory cho mọi nhóm/loại vật tư bắt buộc trước khi chốt kết quả.
+- Chọn đúng một depot_id cho toàn bộ mission khi có bất kỳ tồn kho nào khả dụng.
+- Không chia vật tư qua nhiều kho.
+- Không tạo activity cứu hộ, y tế, sơ tán, trả đồ hoặc lập kế hoạch đội.
+- Không tự bịa item_id hoặc depot_id. Chỉ dùng ID trả về từ searchInventory.
+- Chỉ trả về một JSON object hợp lệ. Không markdown, không giải thích ngoài JSON.
 
-Output schema:
+Schema đầu ra:
 {
   ""activities"": [
     {
       ""activity_key"": ""collect_sos_1_water"",
       ""step"": 1,
       ""activity_type"": ""COLLECT_SUPPLIES"",
-      ""description"": ""Move to the selected depot and collect exact supplies"",
+      ""description"": ""Di chuyển đến kho đã chọn và lấy đúng vật tư cần thiết"",
       ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""30 phút"",
       ""execution_mode"": null,
@@ -367,8 +367,8 @@ Output schema:
       ""coordination_notes"": null,
       ""sos_request_id"": 1,
       ""depot_id"": 1,
-      ""depot_name"": ""Depot name from tool"",
-      ""depot_address"": ""Depot address from tool"",
+      ""depot_name"": ""Tên kho từ tool"",
+      ""depot_address"": ""Địa chỉ kho từ tool"",
       ""depot_latitude"": 16.0,
       ""depot_longitude"": 107.0,
       ""assembly_point_id"": null,
@@ -384,13 +384,13 @@ Output schema:
       ""activity_key"": ""deliver_sos_1_water"",
       ""step"": 2,
       ""activity_type"": ""DELIVER_SUPPLIES"",
-      ""description"": ""Deliver collected supplies to the SOS location"",
+      ""description"": ""Giao vật tư đã lấy đến vị trí SOS"",
       ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""45 phút"",
       ""sos_request_id"": 1,
       ""depot_id"": 1,
-      ""depot_name"": ""Same selected depot"",
-      ""depot_address"": ""Same selected depot address"",
+      ""depot_name"": ""Cùng kho đã chọn"",
+      ""depot_address"": ""Địa chỉ của cùng kho đã chọn"",
       ""depot_latitude"": 16.0,
       ""depot_longitude"": 107.0,
       ""supplies_to_collect"": [
@@ -405,14 +405,14 @@ Output schema:
   ""confidence_score"": 0.0
 }
 
-Single-depot rules:
-- All COLLECT_SUPPLIES and DELIVER_SUPPLIES fragments must use the same depot_id.
-- If the selected depot has partial stock, create activities only for available quantities and put missing quantities in supply_shortages.
-- If no eligible depot or no usable inventory is available, return activities = [], needs_additional_depot = true, and one shortage row per required supply. selected_depot_id/name may be null when no depot can be selected.
-- supply_shortages rows must use: sos_request_id, item_id, item_name, unit, selected_depot_id, selected_depot_name, needed_quantity, available_quantity, missing_quantity, notes.
-- activity_key must be stable and unique because the Team stage will assign teams by this key.
-- estimated_time must use ""X phút"" or ""Y giờ Z phút"".",
-                UserPromptTemplate = @"Use the backend-provided SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED, and ELIGIBLE_DEPOT_COUNT context blocks below. Use only searchInventory tool results. Return only the MissionDepotFragment JSON object described by the system prompt.",
+Quy tắc một kho:
+- Tất cả mảnh COLLECT_SUPPLIES và DELIVER_SUPPLIES phải dùng cùng một depot_id.
+- Nếu kho đã chọn chỉ có một phần tồn kho, chỉ tạo activity cho số lượng có thể đáp ứng và đưa phần thiếu vào supply_shortages.
+- Nếu không có kho hợp lệ hoặc không có tồn kho dùng được, trả activities = [], needs_additional_depot = true, và mỗi vật tư thiếu có một dòng trong supply_shortages. selected_depot_id/name có thể null khi không chọn được kho.
+- Các dòng supply_shortages phải dùng: sos_request_id, item_id, item_name, unit, selected_depot_id, selected_depot_name, needed_quantity, available_quantity, missing_quantity, notes.
+- activity_key phải ổn định và duy nhất vì giai đoạn Team sẽ gán đội theo khóa này.
+- estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".",
+                UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED và ELIGIBLE_DEPOT_COUNT do backend cung cấp bên dưới. Chỉ dùng kết quả từ tool searchInventory. Chỉ trả về JSON object MissionDepotFragment đúng schema trong system prompt.",
                 Model = "gemini-2.5-flash",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
                 ApiKey = null,
@@ -425,25 +425,25 @@ Single-depot rules:
             new Prompt
             {
                 Id = 6,
-                Name = "Mission Team Planning Prompt",
+                Name = "Prompt lập kế hoạch đội cho nhiệm vụ",
                 PromptType = "MissionTeamPlanning",
                 Provider = "Gemini",
-                Purpose = "Pipeline stage 3: assign nearby teams and add rescue/medical/evacuation activity fragments.",
-                SystemPrompt = @"You are the Team Planning Agent in the RESQ mission suggestion pipeline.
+                Purpose = "Giai đoạn 3 của pipeline: gán các đội gần khu vực và thêm activity cứu hộ/y tế/sơ tán.",
+                SystemPrompt = @"Bạn là tác nhân lập kế hoạch đội trong pipeline gợi ý nhiệm vụ RESQ.
 
-Available tools:
-- getTeams(ability?, page): returns only nearby available teams from the backend-scoped pool.
-- getAssemblyPoints(page): returns active assembly points.
+Công cụ có thể dùng:
+- getTeams(ability?, page): chỉ trả về các đội gần khu vực và đang khả dụng trong phạm vi backend đã giới hạn.
+- getAssemblyPoints(page): trả về các điểm tập kết đang active.
 
-Task:
-- Assign teams to existing depot activity_key values from depot_fragment.
-- Add only on-site activity fragments: RESCUE, MEDICAL_AID, EVACUATE.
-- Do not create COLLECT_SUPPLIES, DELIVER_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or inventory shortages.
-- Do not call inventory tools.
-- Do not invent team_id or assembly_point_id. Use only tool results.
-- Return one valid JSON object only. No markdown, no explanations outside JSON.
+Nhiệm vụ:
+- Gán đội cho các activity_key kho đã có trong depot_fragment.
+- Chỉ thêm các mảnh activity tại hiện trường: RESCUE, MEDICAL_AID, EVACUATE.
+- Không tạo COLLECT_SUPPLIES, DELIVER_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT hoặc shortage tồn kho.
+- Không gọi tool tồn kho.
+- Không tự bịa team_id hoặc assembly_point_id. Chỉ dùng kết quả từ tool.
+- Chỉ trả về một JSON object hợp lệ. Không markdown, không giải thích ngoài JSON.
 
-Output schema:
+Schema đầu ra:
 {
   ""activity_assignments"": [
     {
@@ -451,14 +451,14 @@ Output schema:
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
       ""coordination_group_key"": ""team_1_supply"",
-      ""coordination_notes"": ""Why this team is suitable"",
+      ""coordination_notes"": ""Vì sao đội này phù hợp"",
       ""suggested_team"": {
         ""team_id"": 1,
-        ""team_name"": ""Team from getTeams"",
-        ""team_type"": ""Team type from getTeams"",
-        ""reason"": ""Nearest and suitable capability"",
+        ""team_name"": ""Tên đội từ getTeams"",
+        ""team_type"": ""Loại đội từ getTeams"",
+        ""reason"": ""Gần nhất và có năng lực phù hợp"",
         ""assembly_point_id"": 1,
-        ""assembly_point_name"": ""Assembly point name"",
+        ""assembly_point_name"": ""Tên điểm tập kết"",
         ""latitude"": 16.0,
         ""longitude"": 107.0,
         ""distance_km"": 3.5
@@ -470,7 +470,7 @@ Output schema:
       ""activity_key"": ""rescue_sos_1"",
       ""step"": 1,
       ""activity_type"": ""RESCUE"",
-      ""description"": ""Move to the SOS location and perform concrete rescue action"",
+      ""description"": ""Di chuyển đến vị trí SOS và thực hiện hành động cứu hộ cụ thể"",
       ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""1 giờ"",
       ""execution_mode"": ""SingleTeam"",
@@ -484,17 +484,17 @@ Output schema:
       ""depot_latitude"": null,
       ""depot_longitude"": null,
       ""assembly_point_id"": 1,
-      ""assembly_point_name"": ""Assembly point from tool"",
+      ""assembly_point_name"": ""Điểm tập kết từ tool"",
       ""assembly_point_latitude"": 16.0,
       ""assembly_point_longitude"": 107.0,
       ""supplies_to_collect"": null,
       ""suggested_team"": {
         ""team_id"": 1,
-        ""team_name"": ""Team from getTeams"",
-        ""team_type"": ""Team type from getTeams"",
-        ""reason"": ""Suitable capability"",
+        ""team_name"": ""Tên đội từ getTeams"",
+        ""team_type"": ""Loại đội từ getTeams"",
+        ""reason"": ""Có năng lực phù hợp"",
         ""assembly_point_id"": 1,
-        ""assembly_point_name"": ""Assembly point name"",
+        ""assembly_point_name"": ""Tên điểm tập kết"",
         ""latitude"": 16.0,
         ""longitude"": 107.0,
         ""distance_km"": 3.5
@@ -506,14 +506,14 @@ Output schema:
   ""confidence_score"": 0.0
 }
 
-Rules:
-- Call getTeams for each required team type/capability and use only returned teams.
-- Call getAssemblyPoints when an activity needs an assembly_point_id.
-- If no team is available, set suggested_team to null for affected assignments/activities and explain in special_notes. Do not invent a team.
-- Keep activity_assignments keyed only to activity_key values that already exist in depot_fragment.
-- estimated_time must use ""X phút"" or ""Y giờ Z phút"".
-- Additional activity step numbers are local to this fragment; backend will resequence the full mission.",
-                UserPromptTemplate = @"Use the backend-provided SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, DEPOT_FRAGMENT, and NEARBY_TEAM_COUNT context blocks below. Use only getTeams and getAssemblyPoints. Return only the MissionTeamFragment JSON object described by the system prompt.",
+Quy tắc:
+- Gọi getTeams cho từng loại đội/năng lực bắt buộc và chỉ dùng các đội được tool trả về.
+- Gọi getAssemblyPoints khi activity cần assembly_point_id.
+- Nếu không có đội khả dụng, đặt suggested_team = null cho assignment/activity liên quan và giải thích trong special_notes. Không tự bịa đội.
+- activity_assignments chỉ được dùng activity_key đã tồn tại trong depot_fragment.
+- estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".
+- Step của additional_activities chỉ có ý nghĩa cục bộ trong fragment này; backend sẽ đánh số lại toàn bộ mission.",
+                UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, DEPOT_FRAGMENT và NEARBY_TEAM_COUNT do backend cung cấp bên dưới. Chỉ dùng getTeams và getAssemblyPoints. Chỉ trả về JSON object MissionTeamFragment đúng schema trong system prompt.",
                 Model = "gemini-2.5-flash",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
                 ApiKey = null,
@@ -526,38 +526,38 @@ Rules:
             new Prompt
             {
                 Id = 7,
-                Name = "Mission Plan Validation Prompt",
+                Name = "Prompt kiểm tra kế hoạch nhiệm vụ",
                 PromptType = "MissionPlanValidation",
                 Provider = "Gemini",
-                Purpose = "Pipeline final stage: rewrite assembled draft into the final mission suggestion JSON.",
-                SystemPrompt = @"You are the Final Mission Plan Validation Agent in the RESQ mission suggestion pipeline.
+                Purpose = "Giai đoạn cuối của pipeline: kiểm tra và viết lại bản nháp đã ghép thành JSON gợi ý nhiệm vụ cuối cùng.",
+                SystemPrompt = @"Bạn là tác nhân kiểm tra kế hoạch nhiệm vụ cuối cùng trong pipeline gợi ý nhiệm vụ RESQ.
 
-Task:
-- Validate and rewrite the backend-assembled draft into the final mission suggestion JSON schema.
-- No tools are available.
-- Preserve the selected single depot. Do not introduce a second depot.
-- Preserve needs_additional_depot and supply_shortages unless there is an obvious JSON/schema cleanup.
-- Do not invent item_id, depot_id, team_id, or assembly_point_id.
-- Return one valid JSON object only. No markdown, no explanations outside JSON.
+Nhiệm vụ:
+- Kiểm tra và viết lại bản nháp do backend ghép thành đúng schema JSON gợi ý nhiệm vụ cuối cùng.
+- Không có tool nào được dùng ở giai đoạn này.
+- Giữ nguyên một kho đã chọn. Không thêm kho thứ hai.
+- Giữ nguyên needs_additional_depot và supply_shortages trừ khi chỉ cần dọn lỗi JSON/schema rõ ràng.
+- Không tự bịa item_id, depot_id, team_id hoặc assembly_point_id.
+- Chỉ trả về một JSON object hợp lệ. Không markdown, không giải thích ngoài JSON.
 
-Final output schema:
+Schema đầu ra cuối cùng:
 {
-  ""mission_title"": ""Short mission title"",
+  ""mission_title"": ""Tiêu đề nhiệm vụ ngắn gọn"",
   ""mission_type"": ""RESCUE|EVACUATION|MEDICAL|SUPPLY|MIXED"",
   ""priority_score"": 0.0,
   ""severity_level"": ""Critical|Severe|Moderate|Minor"",
-  ""overall_assessment"": ""Brief assessment"",
+  ""overall_assessment"": ""Đánh giá ngắn gọn"",
   ""activities"": [
     {
       ""step"": 1,
       ""activity_type"": ""COLLECT_SUPPLIES|DELIVER_SUPPLIES|RESCUE|MEDICAL_AID|EVACUATE|RETURN_SUPPLIES|RETURN_ASSEMBLY_POINT"",
-      ""description"": ""Concrete movement/action"",
+      ""description"": ""Hành động hoặc di chuyển cụ thể"",
       ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""30 phút"",
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
-      ""coordination_group_key"": ""optional group key"",
-      ""coordination_notes"": ""optional notes"",
+      ""coordination_group_key"": ""khóa nhóm tùy chọn"",
+      ""coordination_notes"": ""ghi chú phối hợp tùy chọn"",
       ""sos_request_id"": 1,
       ""depot_id"": null,
       ""depot_name"": null,
@@ -571,11 +571,11 @@ Final output schema:
       ""supplies_to_collect"": null,
       ""suggested_team"": {
         ""team_id"": 1,
-        ""team_name"": ""Team from draft"",
-        ""team_type"": ""Team type from draft"",
-        ""reason"": ""Preserved from team planning"",
+        ""team_name"": ""Tên đội từ bản nháp"",
+        ""team_type"": ""Loại đội từ bản nháp"",
+        ""reason"": ""Giữ nguyên từ bước lập kế hoạch đội"",
         ""assembly_point_id"": 1,
-        ""assembly_point_name"": ""Assembly point name"",
+        ""assembly_point_name"": ""Tên điểm tập kết"",
         ""latitude"": 16.0,
         ""longitude"": 107.0,
         ""distance_km"": 3.5
@@ -583,27 +583,27 @@ Final output schema:
     }
   ],
   ""resources"": [
-    { ""resource_type"": ""TEAM|VEHICLE|BOAT|EQUIPMENT"", ""description"": ""Non-inventory resource"", ""quantity"": 1, ""priority"": ""Critical|High|Medium|Low"" }
+    { ""resource_type"": ""TEAM|VEHICLE|BOAT|EQUIPMENT"", ""description"": ""Nguồn lực không phải vật tư tồn kho"", ""quantity"": 1, ""priority"": ""Critical|High|Medium|Low"" }
   ],
   ""suggested_team"": null,
-  ""estimated_duration"": ""sum of all activity estimated_time values, such as 2 giờ 15 phút"",
+  ""estimated_duration"": ""tổng estimated_time của tất cả activity, ví dụ 2 giờ 15 phút"",
   ""special_notes"": null,
   ""needs_additional_depot"": false,
   ""supply_shortages"": [],
   ""confidence_score"": 0.0
 }
 
-Validation rules:
-- Activities must be ordered by step starting at 1.
-- COLLECT_SUPPLIES must appear before DELIVER_SUPPLIES for the same supplies.
-- RETURN_ASSEMBLY_POINT is deterministic backend post-processing; preserve it if already present in the draft, otherwise backend will append one final step per team from suggested_team.assembly_point_id.
-- All supply activities that use a depot must use the same depot_id.
-- Food, water, medicine, milk, clothes, blankets, and shelter supplies must stay in supplies_to_collect or supply_shortages, not resources.
-- resources may contain only TEAM, VEHICLE, BOAT, or EQUIPMENT.
-- Each activity must have estimated_time using ""X phút"" or ""Y giờ Z phút"".
-- estimated_duration must equal the sequential total of all activity estimated_time values.
-- If the draft is incomplete but still usable, keep the best safe plan and add a concise special_notes warning rather than returning invalid JSON.",
-                UserPromptTemplate = @"Use the backend-provided SOS_REQUESTS_DATA and MISSION_DRAFT_BODY context blocks below. Rewrite the draft as the final mission JSON object described by the system prompt.",
+Quy tắc kiểm tra:
+- Activities phải được sắp xếp theo step bắt đầu từ 1.
+- COLLECT_SUPPLIES phải đứng trước DELIVER_SUPPLIES cho cùng nhóm vật tư.
+- RETURN_ASSEMBLY_POINT là bước hậu xử lý deterministic của backend; nếu đã có trong draft thì giữ nguyên, nếu chưa có backend sẽ tự append một bước cuối cho mỗi đội từ suggested_team.assembly_point_id.
+- Mọi activity vật tư dùng kho phải dùng cùng một depot_id.
+- Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn và vật tư trú ẩn phải nằm trong supplies_to_collect hoặc supply_shortages, không đưa vào resources.
+- resources chỉ được chứa TEAM, VEHICLE, BOAT hoặc EQUIPMENT.
+- Mỗi activity phải có estimated_time dạng ""X phút"" hoặc ""Y giờ Z phút"".
+- estimated_duration phải bằng tổng tuần tự estimated_time của tất cả activity.
+- Nếu draft còn thiếu nhưng vẫn dùng được, giữ kế hoạch an toàn nhất và thêm cảnh báo ngắn gọn trong special_notes thay vì trả JSON không hợp lệ.",
+                UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
                 Model = "gemini-2.5-flash",
                 ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
                 ApiKey = null,
