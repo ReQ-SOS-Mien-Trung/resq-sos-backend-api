@@ -7,18 +7,17 @@ namespace RESQ.Tests.Infrastructure.Mappers;
 public class PromptMapperTests
 {
     [Fact]
-    public void ToDomain_ShouldDefaultProviderToGemini_WhenStoredProviderIsMissingOrInvalid()
+    public void ToDomain_ShouldDefaultPromptTypeToSosPriorityAnalysis_WhenStoredPromptTypeIsMissingOrInvalid()
     {
         var entity = new Prompt
         {
             Id = 99,
             Name = "Legacy Prompt",
-            PromptType = "SosPriorityAnalysis",
-            Provider = string.Empty
+            PromptType = string.Empty
         };
 
         var domain = PromptMapper.ToDomain(entity);
 
-        Assert.Equal(AiProvider.Gemini, domain.Provider);
+        Assert.Equal(PromptType.SosPriorityAnalysis, domain.PromptType);
     }
 }

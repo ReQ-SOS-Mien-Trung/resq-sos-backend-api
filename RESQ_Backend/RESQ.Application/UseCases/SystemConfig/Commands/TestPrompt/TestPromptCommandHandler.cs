@@ -10,6 +10,7 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.TestPrompt;
 
 public class TestPromptCommandHandler(
     IPromptRepository promptRepository,
+    IAiConfigRepository aiConfigRepository,
     IMissionContextService missionContextService,
     IRescueMissionSuggestionService suggestionService,
     ILogger<TestPromptCommandHandler> logger) : IRequestHandler<TestPromptCommand, TestPromptResponse>
@@ -24,6 +25,7 @@ public class TestPromptCommandHandler(
     ];
 
     private readonly IPromptRepository _promptRepository = promptRepository;
+    private readonly IAiConfigRepository _aiConfigRepository = aiConfigRepository;
     private readonly IMissionContextService _missionContextService = missionContextService;
     private readonly IRescueMissionSuggestionService _suggestionService = suggestionService;
     private readonly ILogger<TestPromptCommandHandler> _logger = logger;
@@ -31,10 +33,11 @@ public class TestPromptCommandHandler(
     public async Task<TestPromptResponse> Handle(TestPromptCommand request, CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Previewing AI mission plan for PromptId={Id}, Mode={Mode}, ClusterId={ClusterId}",
+            "Previewing AI mission plan for PromptId={Id}, Mode={Mode}, ClusterId={ClusterId}, AiConfigId={AiConfigId}",
             request.Id,
             request.Mode,
-            request.ClusterId);
+            request.ClusterId,
+            request.AiConfigId);
 
         if (request.ClusterId <= 0)
             throw new BadRequestException("ClusterId khong hop le.");
@@ -47,9 +50,12 @@ public class TestPromptCommandHandler(
         };
 
         if (!MissionPromptTypes.Contains(prompt.PromptType))
+        {
             throw new BadRequestException(
                 $"Prompt type '{prompt.PromptType}' khong thuoc luong goi y mission nen khong the preview ke hoach mission.");
+        }
 
+        var aiConfig = await ResolveAiConfigAsync(request, cancellationToken);
         var context = await _missionContextService.PrepareContextAsync(request.ClusterId, cancellationToken);
         var result = await _suggestionService.PreviewSuggestionAsync(
             context.SosRequests,
@@ -58,9 +64,10 @@ public class TestPromptCommandHandler(
             context.MultiDepotRecommended,
             request.ClusterId,
             prompt,
+            aiConfig,
             cancellationToken);
 
-        return MapResponse(request, prompt, result, context.SosRequests.Count);
+        return MapResponse(request, prompt, aiConfig, result, context.SosRequests.Count);
     }
 
     private async Task<PromptModel> BuildExistingPromptDraftAsync(
@@ -85,16 +92,10 @@ public class TestPromptCommandHandler(
         {
             Name = request.Name ?? string.Empty,
             PromptType = request.PromptType ?? default,
-            Provider = request.Provider ?? AiProvider.Gemini,
             Purpose = request.Purpose,
             SystemPrompt = request.SystemPrompt,
             UserPromptTemplate = request.UserPromptTemplate,
-            Model = request.Model,
-            Temperature = request.Temperature,
-            MaxTokens = request.MaxTokens,
             Version = request.Version,
-            ApiUrl = request.ApiUrl,
-            ApiKey = request.ApiKey,
             IsActive = request.IsActive ?? true
         };
     }
@@ -106,16 +107,10 @@ public class TestPromptCommandHandler(
             Id = source.Id,
             Name = source.Name,
             PromptType = source.PromptType,
-            Provider = source.Provider,
             Purpose = source.Purpose,
             SystemPrompt = source.SystemPrompt,
             UserPromptTemplate = source.UserPromptTemplate,
-            Model = source.Model,
-            Temperature = source.Temperature,
-            MaxTokens = source.MaxTokens,
             Version = source.Version,
-            ApiUrl = source.ApiUrl,
-            ApiKey = source.ApiKey,
             IsActive = source.IsActive,
             CreatedAt = source.CreatedAt,
             UpdatedAt = source.UpdatedAt
@@ -126,26 +121,35 @@ public class TestPromptCommandHandler(
     {
         if (request.Name != null) draft.Name = request.Name;
         if (request.PromptType.HasValue) draft.PromptType = request.PromptType.Value;
-        if (request.Provider.HasValue) draft.Provider = request.Provider.Value;
         if (request.Purpose != null) draft.Purpose = request.Purpose;
         if (request.SystemPrompt != null) draft.SystemPrompt = request.SystemPrompt;
         if (request.UserPromptTemplate != null) draft.UserPromptTemplate = request.UserPromptTemplate;
-        if (request.Model != null) draft.Model = request.Model;
-        if (request.Temperature.HasValue) draft.Temperature = request.Temperature.Value;
-        if (request.MaxTokens.HasValue) draft.MaxTokens = request.MaxTokens.Value;
         if (request.Version != null) draft.Version = request.Version;
-        if (request.ApiUrl != null) draft.ApiUrl = request.ApiUrl;
-        if (request.ApiKey != null) draft.ApiKey = request.ApiKey;
         if (request.IsActive.HasValue) draft.IsActive = request.IsActive.Value;
+    }
+
+    private async Task<AiConfigModel> ResolveAiConfigAsync(
+        TestPromptCommand request,
+        CancellationToken cancellationToken)
+    {
+        if (request.AiConfigId.HasValue)
+        {
+            return await _aiConfigRepository.GetByIdAsync(request.AiConfigId.Value, cancellationToken)
+                ?? throw new NotFoundException($"Khong tim thay AI config voi Id={request.AiConfigId.Value}");
+        }
+
+        return await _aiConfigRepository.GetActiveAsync(cancellationToken)
+            ?? throw new BadRequestException("Chua co AI config active trong he thong.");
     }
 
     private static TestPromptResponse MapResponse(
         TestPromptCommand request,
         PromptModel prompt,
+        AiConfigModel aiConfig,
         RescueMissionSuggestionResult result,
         int sosRequestCount)
     {
-        var model = result.ModelName ?? prompt.Model ?? string.Empty;
+        var runtimeModelName = result.ModelName ?? aiConfig.Model;
 
         return new TestPromptResponse
         {
@@ -155,8 +159,13 @@ public class TestPromptCommandHandler(
             PromptType = prompt.PromptType,
             ClusterId = request.ClusterId,
             SuggestionId = null,
-            Model = model,
-            ModelName = model,
+            AiConfigId = aiConfig.Id,
+            AiConfigVersion = aiConfig.Version,
+            Provider = aiConfig.Provider,
+            Model = aiConfig.Model,
+            Temperature = aiConfig.Temperature,
+            MaxTokens = aiConfig.MaxTokens,
+            ModelName = runtimeModelName,
             AiResponse = result.RawAiResponse,
             RawAiResponse = result.RawAiResponse,
             ErrorMessage = result.ErrorMessage,

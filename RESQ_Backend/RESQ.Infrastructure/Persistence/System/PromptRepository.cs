@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
-using RESQ.Application.Services.Ai;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.System;
 using RESQ.Infrastructure.Entities.System;
@@ -11,11 +10,9 @@ using RESQ.Infrastructure.Mappers.System;
 namespace RESQ.Infrastructure.Persistence.System;
 
 public class PromptRepository(
-    IUnitOfWork unitOfWork,
-    IPromptSecretProtector promptSecretProtector) : IPromptRepository
+    IUnitOfWork unitOfWork) : IPromptRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly IPromptSecretProtector _promptSecretProtector = promptSecretProtector;
 
     public async Task<PromptModel?> GetActiveByTypeAsync(PromptType promptType, CancellationToken cancellationToken = default)
     {
@@ -134,15 +131,11 @@ public class PromptRepository(
 
     private Prompt ToEntity(PromptModel model)
     {
-        var entity = PromptMapper.ToEntity(model);
-        entity.ApiKey = _promptSecretProtector.Protect(entity.ApiKey);
-        return entity;
+        return PromptMapper.ToEntity(model);
     }
 
     private PromptModel ToDomain(Prompt entity)
     {
-        var model = PromptMapper.ToDomain(entity);
-        model.ApiKey = _promptSecretProtector.Unprotect(entity.ApiKey);
-        return model;
+        return PromptMapper.ToDomain(entity);
     }
 }

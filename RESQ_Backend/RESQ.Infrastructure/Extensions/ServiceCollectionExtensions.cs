@@ -43,7 +43,11 @@ public static class ServiceCollectionExtensions
     {
         services.AddHttpClient();
         services.Configure<AiProvidersOptions>(configuration.GetSection("AiProviders"));
-        services.Configure<PromptSecretsOptions>(configuration.GetSection("PromptSecrets"));
+        var aiSecretsSection = configuration.GetSection("AiSecrets");
+        services.Configure<AiSecretsOptions>(
+            aiSecretsSection.Exists()
+                ? aiSecretsSection
+                : configuration.GetSection("PromptSecrets"));
         services.Configure<MissionSuggestionPipelineOptions>(configuration.GetSection("MissionSuggestionPipeline"));
         services.Configure<SeedDataOptions>(configuration.GetSection("SeedData"));
         services.AddHttpClient("Goong", client =>
@@ -136,6 +140,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISystemFundRepository, SystemFundRepository>();
 
         // System Repositories
+        services.AddScoped<IAiConfigRepository, AiConfigRepository>();
         services.AddScoped<IPromptRepository, PromptRepository>();
         services.AddScoped<IRescuerScoreVisibilityConfigRepository, RescuerScoreVisibilityConfigRepository>();
         services.AddScoped<IServiceZoneRepository, ServiceZoneRepository>();
@@ -146,7 +151,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDashboardRepository, DashboardRepository>();
 
         // Services
-        services.AddSingleton<IPromptSecretProtector, PromptSecretProtector>();
+        services.AddSingleton<IAiSecretProtector, AiSecretProtector>();
+        services.AddSingleton<IPromptSecretProtector>(sp => (IPromptSecretProtector)sp.GetRequiredService<IAiSecretProtector>());
         services.AddScoped<IAiPromptExecutionSettingsResolver, AiPromptExecutionSettingsResolver>();
         services.AddScoped<IAiProviderClient, GeminiAiProviderClient>();
         services.AddScoped<IAiProviderClient, OpenRouterAiProviderClient>();
@@ -189,7 +195,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISosAiAnalysisQueue>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddSingleton<ISosAiAnalysisQueueInternal>(sp => sp.GetRequiredService<SosAiAnalysisQueue>());
         services.AddHostedService<SosAiAnalysisBackgroundService>();
-        services.AddHostedService<PromptSecretBackfillHostedService>();
+        services.AddHostedService<AiConfigBackfillHostedService>();
         services.AddHostedService<DonationExpirationBackgroundService>();
         //services.AddHostedService<TeamInvitationExpirationBackgroundService>();
         services.AddHostedService<UnverifiedUserCleanupBackgroundService>();

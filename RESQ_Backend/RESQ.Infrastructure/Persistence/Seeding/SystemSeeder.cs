@@ -12,6 +12,7 @@ public static class SystemSeeder
     public static void SeedSystem(this ModelBuilder modelBuilder)
     {
         SeedNotifications(modelBuilder);
+        SeedAiConfigs(modelBuilder);
         SeedPrompts(modelBuilder);
         SeedRescuerScoreVisibilityConfig(modelBuilder);
         SeedServiceZone(modelBuilder);
@@ -49,15 +50,9 @@ public static class SystemSeeder
                 Id = 1,
                 Name = "SOS Analysis Prompt",
                 PromptType = "SosPriorityAnalysis",
-              Provider = "Gemini",
                 Purpose = "Phân tích tin nhắn SOS để trích xuất thông tin",
                 SystemPrompt = "Bạn là một AI chuyên phân tích các tin nhắn cầu cứu trong thiên tai...",
-                Temperature = 0.3,
-                MaxTokens = 1000,
                 Version = "v1.1",
-                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-              ApiKey = null,
-                Model = "gemini-2.5-flash",
                 IsActive = false, // Đã được thay thế bởi prompt Id=3
                 CreatedAt = now
             },
@@ -66,7 +61,6 @@ public static class SystemSeeder
                 Id = 2,
                 Name = "Mission Planning Prompt",
                 PromptType = "MissionPlanning",
-              Provider = "Gemini",
                 Purpose = "Lập kế hoạch nhiệm vụ cứu trợ",
                 SystemPrompt = @"Bạn là một điều phối viên cứu hộ thực địa. Nhiệm vụ của bạn là lập kế hoạch các BƯỚC DI CHUYỂN VÀ HÀNH ĐỘNG CỤ THỂ cho đội cứu hộ ngoài thực địa — giống như lệnh điều phối từng bước một.
 
@@ -216,12 +210,7 @@ QUAN TRỌNG — LÀM THEO ĐÚNG THỨ TỰ NÀY:
 6. resources[] = chỉ TEAM, VEHICLE, BOAT, EQUIPMENT.
 
 Trả về JSON (không giải thích, không markdown).",
-                Temperature = 0.5,
-                MaxTokens = 4096,
                 Version = "v1.0",
-                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-                ApiKey = null,
-                Model = "gemini-2.5-flash",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -230,7 +219,6 @@ Trả về JSON (không giải thích, không markdown).",
                 Id = 3,
                 Name = "SOS_PRIORITY_ANALYSIS",
                 PromptType = "SosPriorityAnalysis",
-              Provider = "Gemini",
                 Purpose = "Phân tích yêu cầu SOS để xác định mức độ ưu tiên và nghiêm trọng",
                 SystemPrompt = @"Bạn là một chuyên gia phân tích tình huống khẩn cấp. Nhiệm vụ của bạn là phân tích các yêu cầu SOS và đánh giá mức độ ưu tiên.
 
@@ -260,11 +248,6 @@ Tin nhắn: {{raw_message}}
 Dữ liệu chi tiết: {{structured_data}}
 
 Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này.",
-                Model = "gemini-2.5-flash",
-                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-                ApiKey = null,
-                Temperature = 0.3,
-                MaxTokens = 1024,
                 Version = "1.0",
                 IsActive = true,
                 CreatedAt = now
@@ -274,7 +257,6 @@ Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này
                 Id = 4,
                 Name = "Prompt đánh giá nhu cầu nhiệm vụ",
                 PromptType = "MissionRequirementsAssessment",
-                Provider = "Gemini",
                 Purpose = "Giai đoạn 1 của pipeline: phân tích các yêu cầu SOS thành nhu cầu nhiệm vụ ngắn gọn.",
                 SystemPrompt = @"Bạn là tác nhân đánh giá nhu cầu trong pipeline gợi ý nhiệm vụ RESQ.
 
@@ -321,11 +303,6 @@ Quy tắc:
 - Nếu số lượng chưa rõ, hãy ước lượng thận trọng theo số nạn nhân và ghi rõ trong notes.
 - confidence_score phải nằm trong khoảng từ 0 đến 1.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
-                Model = "gemini-2.5-flash",
-                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-                ApiKey = null,
-                Temperature = 0.2,
-                MaxTokens = 4096,
                 Version = "v1.0",
                 IsActive = true,
                 CreatedAt = now
@@ -335,7 +312,6 @@ Quy tắc:
                 Id = 5,
                 Name = "Prompt lập kế hoạch kho cho nhiệm vụ",
                 PromptType = "MissionDepotPlanning",
-                Provider = "Gemini",
                 Purpose = "Giai đoạn 2 của pipeline: chọn đúng một kho hợp lệ và tạo các mảnh activity liên quan đến vật tư.",
                 SystemPrompt = @"Bạn là tác nhân lập kế hoạch kho trong pipeline gợi ý nhiệm vụ RESQ.
 
@@ -413,11 +389,6 @@ Quy tắc một kho:
 - activity_key phải ổn định và duy nhất vì giai đoạn Team sẽ gán đội theo khóa này.
 - estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED và ELIGIBLE_DEPOT_COUNT do backend cung cấp bên dưới. Chỉ dùng kết quả từ tool searchInventory. Chỉ trả về JSON object MissionDepotFragment đúng schema trong system prompt.",
-                Model = "gemini-2.5-flash",
-                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-                ApiKey = null,
-                Temperature = 0.2,
-                MaxTokens = 8192,
                 Version = "v1.0",
                 IsActive = true,
                 CreatedAt = now
@@ -427,7 +398,6 @@ Quy tắc một kho:
                 Id = 6,
                 Name = "Prompt lập kế hoạch đội cho nhiệm vụ",
                 PromptType = "MissionTeamPlanning",
-                Provider = "Gemini",
                 Purpose = "Giai đoạn 3 của pipeline: gán các đội gần khu vực và thêm activity cứu hộ/y tế/sơ tán.",
                 SystemPrompt = @"Bạn là tác nhân lập kế hoạch đội trong pipeline gợi ý nhiệm vụ RESQ.
 
@@ -514,11 +484,6 @@ Quy tắc:
 - estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".
 - Step của additional_activities chỉ có ý nghĩa cục bộ trong fragment này; backend sẽ đánh số lại toàn bộ mission.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, DEPOT_FRAGMENT và NEARBY_TEAM_COUNT do backend cung cấp bên dưới. Chỉ dùng getTeams và getAssemblyPoints. Chỉ trả về JSON object MissionTeamFragment đúng schema trong system prompt.",
-                Model = "gemini-2.5-flash",
-                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-                ApiKey = null,
-                Temperature = 0.2,
-                MaxTokens = 8192,
                 Version = "v1.0",
                 IsActive = true,
                 CreatedAt = now
@@ -528,7 +493,6 @@ Quy tắc:
                 Id = 7,
                 Name = "Prompt kiểm tra kế hoạch nhiệm vụ",
                 PromptType = "MissionPlanValidation",
-                Provider = "Gemini",
                 Purpose = "Giai đoạn cuối của pipeline: kiểm tra và viết lại bản nháp đã ghép thành JSON gợi ý nhiệm vụ cuối cùng.",
                 SystemPrompt = @"Bạn là tác nhân kiểm tra kế hoạch nhiệm vụ cuối cùng trong pipeline gợi ý nhiệm vụ RESQ.
 
@@ -604,14 +568,32 @@ Quy tắc kiểm tra:
 - estimated_duration phải bằng tổng tuần tự estimated_time của tất cả activity.
 - Nếu draft còn thiếu nhưng vẫn dùng được, giữ kế hoạch an toàn nhất và thêm cảnh báo ngắn gọn trong special_notes thay vì trả JSON không hợp lệ.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
-                Model = "gemini-2.5-flash",
-                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-                ApiKey = null,
-                Temperature = 0.1,
-                MaxTokens = 8192,
                 Version = "v1.0",
                 IsActive = true,
                 CreatedAt = now
+            }
+        );
+    }
+
+    private static void SeedAiConfigs(ModelBuilder modelBuilder)
+    {
+        var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        modelBuilder.Entity<AiConfig>().HasData(
+            new AiConfig
+            {
+                Id = 1,
+                Name = "Cấu hình AI mặc định",
+                Provider = "Gemini",
+                Model = "gemini-2.5-flash",
+                Temperature = 0.3,
+                MaxTokens = 8192,
+                ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
+                ApiKey = null,
+                Version = "v1.0",
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
             }
         );
     }

@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
-using RESQ.Application.Common.Security;
 using RESQ.Application.Repositories.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Queries.GetAllPrompts;
@@ -25,16 +24,8 @@ public class GetAllPromptsQueryHandler(
             Status = PromptLifecycleStatusResolver.DetermineStatus(p),
             Name = p.Name,
             PromptType = p.PromptType,
-            Provider = p.Provider,
             Purpose = p.Purpose,
-            Model = p.Model,
-            Temperature = p.Temperature,
-            MaxTokens = p.MaxTokens,
             Version = p.Version,
-            ApiUrl = p.ApiUrl,
-            ApiKey = null,
-            ApiKeyMasked = SecretMasker.Mask(p.ApiKey),
-            HasApiKey = !string.IsNullOrWhiteSpace(p.ApiKey),
             IsActive = p.IsActive,
             CreatedAt = p.CreatedAt,
             UpdatedAt = p.UpdatedAt

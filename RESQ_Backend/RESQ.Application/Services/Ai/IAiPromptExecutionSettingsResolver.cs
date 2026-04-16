@@ -4,5 +4,5 @@ namespace RESQ.Application.Services.Ai;
 
 public interface IAiPromptExecutionSettingsResolver
 {
-    AiPromptExecutionSettings Resolve(PromptModel prompt, AiPromptExecutionFallback fallback);
+    AiPromptExecutionSettings Resolve(AiConfigModel aiConfig);
 }

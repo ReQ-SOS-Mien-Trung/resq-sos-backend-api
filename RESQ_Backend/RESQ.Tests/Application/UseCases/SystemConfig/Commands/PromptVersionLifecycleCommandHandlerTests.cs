@@ -123,16 +123,10 @@ public class PromptVersionLifecycleCommandHandlerTests
                 new CreatePromptCommand(
                     Name: "New prompt",
                     PromptType: PromptType.MissionPlanning,
-                    Provider: AiProvider.Gemini,
                     Purpose: "purpose",
                     SystemPrompt: "system",
                     UserPromptTemplate: "user",
-                    Model: "gemini-2.5-flash",
-                    Temperature: 0.3,
-                    MaxTokens: 2048,
                     Version: " v1.0 ",
-                    ApiUrl: null,
-                    ApiKey: null,
                     IsActive: false),
                 CancellationToken.None));
 
@@ -145,16 +139,10 @@ public class PromptVersionLifecycleCommandHandlerTests
         Id = id,
         Name = $"Prompt #{id}",
         PromptType = PromptType.MissionPlanning,
-        Provider = AiProvider.Gemini,
         Purpose = "Prompt purpose",
         SystemPrompt = "system",
         UserPromptTemplate = "user",
-        Model = "gemini-2.5-flash",
-        Temperature = 0.3,
-        MaxTokens = 2048,
         Version = version,
-        ApiUrl = null,
-        ApiKey = "secret",
         IsActive = isActive,
         CreatedAt = DateTime.UtcNow.AddHours(-1),
         UpdatedAt = DateTime.UtcNow.AddMinutes(-30)

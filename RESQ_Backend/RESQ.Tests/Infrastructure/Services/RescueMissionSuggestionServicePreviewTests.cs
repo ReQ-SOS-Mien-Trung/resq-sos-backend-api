@@ -13,6 +13,7 @@ using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.System;
 using RESQ.Infrastructure.Options;
 using RESQ.Infrastructure.Services;
+using RESQ.Infrastructure.Services.Ai;
 
 namespace RESQ.Tests.Infrastructure.Services;
 
@@ -23,8 +24,9 @@ public class RescueMissionSuggestionServicePreviewTests
     {
         var suggestionRepository = new RecordingMissionAiSuggestionRepository();
         var service = new RescueMissionSuggestionService(
-            new StubAiProviderClientFactory(new StubAiProviderClient()),
-            new StubSettingsResolver(),
+            new StubAiProviderClientFactory(new LegacyStubAiProviderClient()),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
             ThrowingProxy<IPromptRepository>.Create(),
             suggestionRepository,
             ThrowingProxy<IDepotInventoryRepository>.Create(),
@@ -44,12 +46,11 @@ public class RescueMissionSuggestionServicePreviewTests
                 Id = 12,
                 Name = "Draft mission planning prompt",
                 PromptType = PromptType.MissionPlanning,
-                Provider = AiProvider.Gemini,
-                Model = "gemini-preview",
-                SystemPrompt = "Return mission JSON.",
+                SystemPrompt = "mission-planning-legacy",
                 UserPromptTemplate = "{{sos_requests_data}}",
                 IsActive = false
             },
+            aiConfigOverride: BuildAiConfig(model: "gemini-preview"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -65,7 +66,8 @@ public class RescueMissionSuggestionServicePreviewTests
     public async Task PreviewSuggestionAsync_PipelinePrompt_OverridesMatchingStageOnly()
     {
         var suggestionRepository = new RecordingMissionAiSuggestionRepository();
-        var promptRepository = new RecordingPromptRepository([
+        var promptRepository = new RecordingPromptRepository(
+        [
             BuildStagePrompt(4, PromptType.MissionRequirementsAssessment, "active-requirements"),
             BuildStagePrompt(5, PromptType.MissionDepotPlanning, "active-depot"),
             BuildStagePrompt(6, PromptType.MissionTeamPlanning, "active-team"),
@@ -75,7 +77,8 @@ public class RescueMissionSuggestionServicePreviewTests
         var aiClient = new PipelineStubAiProviderClient();
         var service = new RescueMissionSuggestionService(
             new StubAiProviderClientFactory(aiClient),
-            new StubSettingsResolver(),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
             promptRepository,
             suggestionRepository,
             ThrowingProxy<IDepotInventoryRepository>.Create(),
@@ -91,6 +94,7 @@ public class RescueMissionSuggestionServicePreviewTests
             isMultiDepotRecommended: false,
             clusterId: 7,
             promptOverride: BuildStagePrompt(99, PromptType.MissionDepotPlanning, "override-depot", isActive: false),
+            aiConfigOverride: BuildAiConfig(model: "shared-preview-model"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -99,12 +103,12 @@ public class RescueMissionSuggestionServicePreviewTests
         var pipeline = result.PipelineMetadata;
         Assert.NotNull(pipeline);
         Assert.Equal("pipeline", pipeline!.ExecutionMode);
-        Assert.Equal("override-depot", pipeline.Stages["depot"].ModelName);
-        Assert.Contains("active-requirements", aiClient.Models);
-        Assert.Contains("override-depot", aiClient.Models);
-        Assert.Contains("active-team", aiClient.Models);
-        Assert.Contains("active-validation", aiClient.Models);
-        Assert.DoesNotContain("active-depot", aiClient.Models);
+        Assert.Equal("shared-preview-model", pipeline.Stages["depot"].ModelName);
+        Assert.Contains("active-requirements", aiClient.StageMarkers);
+        Assert.Contains("override-depot", aiClient.StageMarkers);
+        Assert.Contains("active-team", aiClient.StageMarkers);
+        Assert.Contains("active-validation", aiClient.StageMarkers);
+        Assert.DoesNotContain("active-depot", aiClient.StageMarkers);
         Assert.Equal(0, suggestionRepository.CreateCalls);
         Assert.Equal(0, suggestionRepository.UpdateCalls);
         Assert.Equal(0, suggestionRepository.SavePipelineSnapshotCalls);
@@ -113,25 +117,39 @@ public class RescueMissionSuggestionServicePreviewTests
     private static PromptModel BuildStagePrompt(
         int id,
         PromptType promptType,
-        string model,
+        string marker,
         bool isActive = true) => new()
         {
             Id = id,
             Name = $"{promptType} prompt",
             PromptType = promptType,
-            Provider = AiProvider.Gemini,
-            Model = model,
-            SystemPrompt = $"System {promptType}",
-            UserPromptTemplate = $"Template {promptType}",
+            Purpose = $"Purpose {promptType}",
+            SystemPrompt = $"stage-marker:{marker}",
+            UserPromptTemplate = $"template-marker:{marker}",
+            Version = "v1.0",
             IsActive = isActive
         };
+
+    private static AiConfigModel BuildAiConfig(string model = "gemini-2.5-flash") => new()
+    {
+        Id = 7,
+        Name = "Preview AI Config",
+        Provider = AiProvider.Gemini,
+        Model = model,
+        ApiUrl = "https://example.test/{0}/{1}",
+        ApiKey = "test-key",
+        Temperature = 0.2,
+        MaxTokens = 4096,
+        Version = "v1.0",
+        IsActive = true
+    };
 
     private sealed class StubAiProviderClientFactory(IAiProviderClient client) : IAiProviderClientFactory
     {
         public IAiProviderClient GetClient(AiProvider provider) => client;
     }
 
-    private sealed class StubAiProviderClient : IAiProviderClient
+    private sealed class LegacyStubAiProviderClient : IAiProviderClient
     {
         public AiProvider Provider => AiProvider.Gemini;
 
@@ -166,14 +184,16 @@ public class RescueMissionSuggestionServicePreviewTests
     private sealed class PipelineStubAiProviderClient : IAiProviderClient
     {
         public AiProvider Provider => AiProvider.Gemini;
-        public List<string> Models { get; } = [];
+        public List<string> StageMarkers { get; } = [];
 
         public Task<AiCompletionResponse> CompleteAsync(
             AiCompletionRequest request,
             CancellationToken cancellationToken = default)
         {
-            Models.Add(request.Model);
-            var text = request.Model switch
+            var marker = ExtractMarker(request.SystemPrompt);
+            StageMarkers.Add(marker);
+
+            var text = marker switch
             {
                 "active-requirements" => """
                 {
@@ -233,7 +253,7 @@ public class RescueMissionSuggestionServicePreviewTests
                   "confidence_score": 0.9
                 }
                 """,
-                _ => throw new InvalidOperationException($"Unexpected model {request.Model}.")
+                _ => throw new InvalidOperationException($"Unexpected stage marker {marker}.")
             };
 
             return Task.FromResult(new AiCompletionResponse
@@ -243,20 +263,45 @@ public class RescueMissionSuggestionServicePreviewTests
                 LatencyMs = 10
             });
         }
+
+        private static string ExtractMarker(string? systemPrompt)
+        {
+            const string prefix = "stage-marker:";
+            if (string.IsNullOrWhiteSpace(systemPrompt))
+                return string.Empty;
+
+            var start = systemPrompt.IndexOf(prefix, StringComparison.Ordinal);
+            if (start < 0)
+                return string.Empty;
+
+            start += prefix.Length;
+            var end = systemPrompt.IndexOfAny(['\r', '\n'], start);
+            return end >= 0
+                ? systemPrompt[start..end].Trim()
+                : systemPrompt[start..].Trim();
+        }
     }
 
-    private sealed class StubSettingsResolver : IAiPromptExecutionSettingsResolver
+    private sealed class RecordingAiConfigRepository(AiConfigModel activeConfig) : IAiConfigRepository
     {
-        public AiPromptExecutionSettings Resolve(PromptModel prompt, AiPromptExecutionFallback fallback)
-        {
-            return new AiPromptExecutionSettings(
-                prompt.Provider,
-                prompt.Model ?? fallback.GeminiModel,
-                "https://example.test/{0}/{1}",
-                "test-key",
-                prompt.Temperature ?? fallback.Temperature,
-                prompt.MaxTokens ?? fallback.MaxTokens);
-        }
+        public Task<AiConfigModel?> GetActiveAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<AiConfigModel?>(activeConfig);
+
+        public Task<AiConfigModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+            => Task.FromResult(activeConfig.Id == id ? activeConfig : null);
+
+        public Task CreateAsync(AiConfigModel config, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateAsync(AiConfigModel config, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> ExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> ExistsVersionAsync(string version, int? excludeId = null, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<IReadOnlyList<AiConfigModel>> GetVersionsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AiConfigModel>>([activeConfig]);
+        public Task DeactivateOthersAsync(int currentConfigId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<RESQ.Application.Common.Models.PagedResult<AiConfigModel>> GetAllPagedAsync(
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class RecordingPromptRepository(IEnumerable<PromptModel> prompts) : IPromptRepository
@@ -270,87 +315,44 @@ public class RescueMissionSuggestionServicePreviewTests
             => Task.FromResult(_prompts.FirstOrDefault(prompt => prompt.Id == id));
 
         public Task CreateAsync(PromptModel prompt, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
         public Task UpdateAsync(PromptModel prompt, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task<bool> ExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default)
-            => Task.FromResult(false);
-
-        public Task<bool> ExistsVersionAsync(PromptType promptType, string version, int? excludeId = null, CancellationToken cancellationToken = default)
-            => Task.FromResult(false);
-
+        public Task<bool> ExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> ExistsVersionAsync(PromptType promptType, string version, int? excludeId = null, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<IReadOnlyList<PromptModel>> GetVersionsByTypeAsync(PromptType promptType, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<PromptModel>>(_prompts.Where(p => p.PromptType == promptType).ToList());
-
-        public Task DeactivateOthersByTypeAsync(int currentPromptId, PromptType promptType, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
+        public Task DeactivateOthersByTypeAsync(int currentPromptId, PromptType promptType, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<RESQ.Application.Common.Models.PagedResult<PromptModel>> GetAllPagedAsync(
             int pageNumber,
             int pageSize,
-            CancellationToken cancellationToken = default)
-            => throw new NotImplementedException();
+            CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class EmptyAssemblyPointRepository : IAssemblyPointRepository
     {
         public Task CreateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
         public Task UpdateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task<AssemblyPointModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
-            => Task.FromResult<AssemblyPointModel?>(null);
-
-        public Task<AssemblyPointModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
-            => Task.FromResult<AssemblyPointModel?>(null);
-
-        public Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
-            => Task.FromResult<AssemblyPointModel?>(null);
-
+        public Task<AssemblyPointModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<AssemblyPointModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
         public Task<RESQ.Application.Common.Models.PagedResult<AssemblyPointModel>> GetAllPagedAsync(
             int pageNumber,
             int pageSize,
             CancellationToken cancellationToken = default,
-            string? statusFilter = null)
-            => throw new NotImplementedException();
-
-        public Task UnassignAllRescuersAsync(int assemblyPointId, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<List<AssemblyPointModel>>([]);
-
+            string? statusFilter = null) => throw new NotImplementedException();
+        public Task UnassignAllRescuersAsync(int assemblyPointId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<List<AssemblyPointModel>>([]);
         public Task<Dictionary<int, List<RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById.AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(
             IEnumerable<int> ids,
             CancellationToken cancellationToken = default)
             => Task.FromResult<Dictionary<int, List<RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById.AssemblyPointTeamDto>>>([]);
-
-        public Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default)
-            => Task.FromResult<List<Guid>>([]);
-
-        public Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default)
-            => Task.FromResult<List<Guid>>([]);
-
-        public Task<bool> HasActiveTeamAsync(Guid rescuerUserId, CancellationToken cancellationToken = default)
-            => Task.FromResult(false);
-
-        public Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(
-            IReadOnlyList<Guid> userIds,
-            int? assemblyPointId,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult<List<Guid>>([]);
-
-        public Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(
-            IReadOnlyList<Guid> userIds,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult<List<Guid>>([]);
+        public Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => Task.FromResult<List<Guid>>([]);
+        public Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => Task.FromResult<List<Guid>>([]);
+        public Task<bool> HasActiveTeamAsync(Guid rescuerUserId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(IReadOnlyList<Guid> userIds, int? assemblyPointId, CancellationToken cancellationToken = default) => Task.FromResult<List<Guid>>([]);
+        public Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(IReadOnlyList<Guid> userIds, CancellationToken cancellationToken = default) => Task.FromResult<List<Guid>>([]);
     }
 
     private sealed class RecordingMissionAiSuggestionRepository : IMissionAiSuggestionRepository
