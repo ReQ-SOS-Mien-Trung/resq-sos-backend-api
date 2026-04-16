@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetAdminTeamDetail;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetAdminTeamList;
@@ -77,10 +78,10 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
         DateTime yesterday,
         CancellationToken cancellationToken = default)
     {
-        var todayStart = today.ToUniversalTime();
+        var todayStart = today;
         var todayEnd = todayStart.AddDays(1);
 
-        var yesterdayStart = yesterday.ToUniversalTime();
+        var yesterdayStart = yesterday;
         var yesterdayEnd = yesterdayStart.AddDays(1);
 
         var currentCount = await _context.Set<User>()
@@ -104,10 +105,10 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
         DateTime yesterday,
         CancellationToken cancellationToken = default)
     {
-        var todayStart = today.ToUniversalTime();
+        var todayStart = today;
         var todayEnd = todayStart.AddDays(1);
 
-        var yesterdayStart = yesterday.ToUniversalTime();
+        var yesterdayStart = yesterday;
         var yesterdayEnd = yesterdayStart.AddDays(1);
 
         var todayMissions = await _context.Set<Mission>()
@@ -146,10 +147,10 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
         DateTime yesterday,
         CancellationToken cancellationToken = default)
     {
-        var todayStart = today.ToUniversalTime();
+        var todayStart = today;
         var todayEnd = todayStart.AddDays(1);
 
-        var yesterdayStart = yesterday.ToUniversalTime();
+        var yesterdayStart = yesterday;
         var yesterdayEnd = yesterdayStart.AddDays(1);
 
         var todayCount = await _context.Set<SosRequest>()
@@ -193,8 +194,8 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
             MaxMembers = t.MaxMembers ?? 0,
             CurrentMemberCount = t.RescueTeamMembers.Count(m =>
                 m.Status.ToLower() != "removed"),
-            CreatedAt = t.CreatedAt ?? DateTime.UtcNow,
-            UpdatedAt = t.UpdatedAt
+            CreatedAt = (t.CreatedAt ?? DateTime.UtcNow).ToVietnamTime(),
+            UpdatedAt = t.UpdatedAt.ToVietnamTime()
         }).ToList();
 
         return new PagedResult<AdminTeamListItemDto>(items, totalCount, pageNumber, pageSize);
@@ -256,8 +257,8 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
             AssemblyPointName = team.AssemblyPoint?.Name,
             ManagedByName = managerName,
             MaxMembers = team.MaxMembers ?? 0,
-            CreatedAt = team.CreatedAt ?? DateTime.UtcNow,
-            UpdatedAt = team.UpdatedAt,
+            CreatedAt = (team.CreatedAt ?? DateTime.UtcNow).ToVietnamTime(),
+            UpdatedAt = team.UpdatedAt.ToVietnamTime(),
             Members = team.RescueTeamMembers.Select(m => new AdminTeamMemberDto
             {
                 UserId = m.UserId,
@@ -270,7 +271,7 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
                 Status = m.Status,
                 IsLeader = m.IsLeader,
                 RoleInTeam = m.RoleInTeam,
-                JoinedAt = m.RespondedAt ?? m.InvitedAt
+                JoinedAt = (m.RespondedAt ?? m.InvitedAt).ToVietnamTime()
             }).ToList(),
             Missions = missionTeams.Select(mt => new AdminTeamMissionDto
             {
@@ -279,10 +280,10 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
                 MissionStatus = mt.Mission?.Status ?? string.Empty,
                 MissionType = mt.Mission?.MissionType,
                 TeamAssignmentStatus = mt.Status ?? string.Empty,
-                AssignedAt = mt.AssignedAt,
-                UnassignedAt = mt.UnassignedAt,
-                MissionStartTime = mt.Mission?.StartTime,
-                MissionCompletedAt = mt.Mission?.CompletedAt,
+                AssignedAt = mt.AssignedAt.ToVietnamTime(),
+                UnassignedAt = mt.UnassignedAt.ToVietnamTime(),
+                MissionStartTime = mt.Mission?.StartTime.ToVietnamTime(),
+                MissionCompletedAt = mt.Mission?.CompletedAt.ToVietnamTime(),
                 IsCompleted = mt.Mission?.IsCompleted,
                 ReportStatus = mt.MissionTeamReport?.ReportStatus,
                 Activities = mt.Mission?.MissionActivities
@@ -294,8 +295,8 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
                         ActivityType = a.ActivityType,
                         Description = a.Description,
                         Status = a.Status,
-                        AssignedAt = a.AssignedAt,
-                        CompletedAt = a.CompletedAt
+                        AssignedAt = a.AssignedAt.ToVietnamTime(),
+                        CompletedAt = a.CompletedAt.ToVietnamTime()
                     }).ToList() ?? []
             }).ToList(),
             CompletionRate = completionRate
@@ -359,14 +360,14 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
                 MissionTeamReportId = e.MissionTeamReportId,
                 MissionId = e.MissionTeamReport?.MissionTeam?.MissionId ?? 0,
                 MissionType = e.MissionTeamReport?.MissionTeam?.Mission?.MissionType,
-                MissionCompletedAt = e.MissionTeamReport?.MissionTeam?.Mission?.CompletedAt,
+                MissionCompletedAt = e.MissionTeamReport?.MissionTeam?.Mission?.CompletedAt.ToVietnamTime(),
                 ResponseTimeScore = e.ResponseTimeScore,
                 RescueEffectivenessScore = e.RescueEffectivenessScore,
                 DecisionHandlingScore = e.DecisionHandlingScore,
                 SafetyMedicalSkillScore = e.SafetyMedicalSkillScore,
                 TeamworkCommunicationScore = e.TeamworkCommunicationScore,
                 AverageScore = Math.Round(avg, 2),
-                EvaluatedAt = e.CreatedAt
+                EvaluatedAt = e.CreatedAt.ToVietnamTime()
             };
         }).ToList();
 
@@ -379,8 +380,9 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
             Status = m.Status,
             IsLeader = m.IsLeader,
             RoleInTeam = m.RoleInTeam,
-            JoinedAt = m.RespondedAt ?? m.InvitedAt,
-            LeftAt = m.Status.ToLower() == "removed" ? m.Team?.DisbandAt ?? m.RespondedAt : null
+            JoinedAt = (m.RespondedAt ?? m.InvitedAt).ToVietnamTime(),
+            // Khi status=Removed, RespondedAt là thời điểm xác nhận rời đội (gần nhất với "left_at")
+            LeftAt = m.Status.ToLower() == "removed" ? m.RespondedAt.ToVietnamTime() : null
         }).ToList();
 
         return new RescuerMissionScoresDto

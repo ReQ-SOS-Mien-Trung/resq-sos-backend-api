@@ -15,8 +15,11 @@ public class GetRescuersDailyStatisticsHandler(
     {
         logger.LogInformation("GetRescuersDailyStatistics: fetching today and yesterday rescuer counts");
 
-        var today = DateTime.UtcNow.Date;
-        var yesterday = today.AddDays(-1);
+        // Boundary theo giờ Việt Nam (UTC+7): nửa đêm VN = 17:00 UTC hôm trước
+        var vnOffset = TimeSpan.FromHours(7);
+        var todayStartUtc = DateTime.SpecifyKind((DateTime.UtcNow + vnOffset).Date - vnOffset, DateTimeKind.Utc);
+        var yesterday = todayStartUtc.AddDays(-1);
+        var today = todayStartUtc;
 
         var (currentCount, previousCount) = await dashboardRepository.GetRescuerDailyCountsAsync(today, yesterday, cancellationToken);
 
@@ -29,25 +32,25 @@ public class GetRescuersDailyStatisticsHandler(
         {
             changeDirection = "new";
             changePercent = null;
-            comparisonLabel = "New today";
+            comparisonLabel = "Mới hôm nay";
         }
         else if (changeValue > 0)
         {
             changeDirection = "increase";
             changePercent = Math.Round((double)changeValue / previousCount * 100, 2);
-            comparisonLabel = "Compared to yesterday";
+            comparisonLabel = "So với hôm qua";
         }
         else if (changeValue < 0)
         {
             changeDirection = "decrease";
             changePercent = Math.Round(Math.Abs((double)changeValue) / previousCount * 100, 2);
-            comparisonLabel = "Compared to yesterday";
+            comparisonLabel = "So với hôm qua";
         }
         else
         {
             changeDirection = "no_change";
             changePercent = 0;
-            comparisonLabel = "Compared to yesterday";
+            comparisonLabel = "So với hôm qua";
         }
 
         return new GetRescuersDailyStatisticsResponse
@@ -60,7 +63,7 @@ public class GetRescuersDailyStatisticsHandler(
                 ChangeValue = changeValue,
                 ChangePercent = changePercent,
                 ChangeDirection = changeDirection,
-                ComparisonPeriod = "yesterday",
+                ComparisonPeriod = "hôm qua",
                 ComparisonLabel = comparisonLabel
             }
         };

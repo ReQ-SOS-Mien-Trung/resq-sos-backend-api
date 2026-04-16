@@ -312,6 +312,7 @@ public class GetSosRequestQueryHandlerTests
             string? s = null, CancellationToken ct = default)
             => Task.FromResult(new PagedResult<UserModel>([], 0, pn, ps));
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken ct = default) => Task.FromResult(new List<Guid>());
+        public Task<List<Guid>> GetActiveCoordinatorUserIdsAsync(CancellationToken ct = default) => Task.FromResult(new List<Guid>());
         public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken ct = default) => Task.FromResult(new List<AvailableManagerDto>());
     }
 }

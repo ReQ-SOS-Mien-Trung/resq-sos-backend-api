@@ -28,6 +28,11 @@ namespace RESQ.Application.Repositories.Identity
         Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Lấy danh sách Id của tất cả coordinator đang hoạt động (không bị ban), dùng để gửi thông báo hệ thống.
+        /// </summary>
+        Task<List<Guid>> GetActiveCoordinatorUserIdsAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Lấy danh sách Manager (RoleId=4, không bị ban). Nếu truyền excludeDepotId,
         /// loại trừ các manager đang active (UnassignedAt IS NULL) trong kho đó.
         /// Dùng cho dropdown chọn manager khi gán kho.
