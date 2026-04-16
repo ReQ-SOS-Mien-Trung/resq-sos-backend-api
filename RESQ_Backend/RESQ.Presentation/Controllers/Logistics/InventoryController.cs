@@ -649,6 +649,9 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
 
         var isManager = !canManageAnyInventory;
 
+        if (isManager && (!depotId.HasValue || depotId.Value <= 0))
+            return BadRequest("depotId là bắt buộc đối với quản lý kho. Vui lòng chỉ định kho cụ thể.");
+
         var query = new GetInventoryLogsQuery
         {
             UserId = userId,
