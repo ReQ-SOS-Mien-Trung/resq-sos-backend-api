@@ -421,6 +421,75 @@ public class UpdateMissionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_AllowsOngoingReturnAssemblyPointUpdate_WhenStoredTargetIsJsonString()
+    {
+        var mission = new MissionModel
+        {
+            Id = 30,
+            MissionType = "Mixed",
+            PriorityScore = 9,
+            Status = MissionStatus.OnGoing
+        };
+        var activity = new MissionActivityModel
+        {
+            Id = 20,
+            MissionId = 30,
+            MissionTeamId = 8,
+            Step = 5,
+            ActivityType = "RETURN_ASSEMBLY_POINT",
+            Description = "Return to old assembly point",
+            Target = JsonSerializer.Serialize("Old Assembly Point"),
+            Status = MissionActivityStatus.OnGoing,
+            AssemblyPointId = 1,
+            AssemblyPointName = "Old Assembly Point",
+            AssemblyPointLatitude = 10.1,
+            AssemblyPointLongitude = 106.1
+        };
+        var newAssemblyPoint = new AssemblyPointModel
+        {
+            Id = 2,
+            Name = "New Assembly Point",
+            Location = new GeoLocation(11.2, 107.2)
+        };
+
+        var handler = CreateHandler(
+            mission,
+            [activity],
+            new MissionDto { Id = 30 },
+            out _,
+            out var activityRepository,
+            out _,
+            out _,
+            out _,
+            new StubAssemblyPointRepository(newAssemblyPoint));
+
+        await handler.Handle(
+            new UpdateMissionCommand(
+                30,
+                null,
+                null,
+                null,
+                null,
+                Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"),
+                [
+                    new UpdateMissionActivityPatch(
+                        20,
+                        5,
+                        "Return to new assembly point",
+                        "Old Assembly Point",
+                        null,
+                        null,
+                        [],
+                        2)
+                ]),
+            CancellationToken.None);
+
+        var updatedActivity = activityRepository.GetById(20)!;
+        Assert.Equal("Return to new assembly point", updatedActivity.Description);
+        Assert.Equal(2, updatedActivity.AssemblyPointId);
+    }
+
+    [Fact]
     public async Task Handle_RejectsOngoingReturnAssemblyPointUpdate_WhenFullPayloadChangesRestrictedField()
     {
         var mission = new MissionModel
