@@ -15,8 +15,6 @@ public class ThresholdConfigDto
     public string ScopeType { get; set; } = string.Empty;
     public int? CategoryId { get; set; }
     public int? ItemModelId { get; set; }
-    public decimal? DangerPercent { get; set; }
-    public decimal? WarningPercent { get; set; }
     public int? MinimumThreshold { get; set; }
     public uint RowVersion { get; set; }
     public DateTime UpdatedAt { get; set; }
