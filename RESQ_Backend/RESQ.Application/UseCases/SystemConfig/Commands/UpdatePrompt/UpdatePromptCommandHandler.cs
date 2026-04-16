@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Security;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
@@ -47,7 +48,7 @@ public class UpdatePromptCommandHandler(
             maxTokens: request.MaxTokens,
             version: request.Version,
             apiUrl: request.ApiUrl,
-            apiKey: request.ApiKey,
+            apiKey: NormalizeApiKeyForUpdate(request.ApiKey),
             isActive: request.IsActive
         );
 
@@ -62,5 +63,15 @@ public class UpdatePromptCommandHandler(
         await _unitOfWork.SaveAsync();
 
         _logger.LogInformation("Updated prompt successfully: Id={Id}", request.Id);
+    }
+
+    private static string? NormalizeApiKeyForUpdate(string? apiKey)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey) || SecretMasker.IsMasked(apiKey))
+        {
+            return null;
+        }
+
+        return apiKey;
     }
 }
