@@ -21,6 +21,9 @@ public partial class Mission
     [Column("previous_mission_id")]
     public int? PreviousMissionId { get; set; }
 
+    [Column("ai_suggestion_id")]
+    public int? AiSuggestionId { get; set; }
+
     [Column("mission_type")]
     [StringLength(50)]
     public string? MissionType { get; set; }
@@ -49,6 +52,9 @@ public partial class Mission
 
     [Column("completed_at", TypeName = "timestamp with time zone")]
     public DateTime? CompletedAt { get; set; }
+
+    [Column("manual_override_metadata", TypeName = "jsonb")]
+    public string? ManualOverrideMetadata { get; set; }
 
     [ForeignKey("ClusterId")]
     [InverseProperty("Missions")]

@@ -5,6 +5,7 @@ namespace RESQ.Application.UseCases.SystemConfig.Queries.GetAllPrompts;
 public class PromptDto
 {
     public int Id { get; set; }
+    public string Status { get; set; } = "Archived";
     public string Name { get; set; } = string.Empty;
     public PromptType PromptType { get; set; }
     public AiProvider Provider { get; set; } = AiProvider.Gemini;

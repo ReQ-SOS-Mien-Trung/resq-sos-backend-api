@@ -23,8 +23,42 @@ public class GetMissionSuggestionsQueryHandlerTests
                     ModelName = "gemini-3.1-flash-lite-preview",
                     AnalysisType = "RescueMissionSuggestion",
                     SuggestedMissionTitle = "Cuu ho khan cap tai Ha Tinh",
+                    SuggestedMissionType = "MixedResponse",
+                    SuggestedSeverityLevel = "Critical",
                     SuggestedPriorityScore = 9.5,
                     ConfidenceScore = 0.95,
+                    Metadata = """
+                        {
+                          "overall_assessment": "[SOS ID 77]: urgent support is required",
+                          "estimated_duration": "2 gio 10 phut",
+                          "special_notes": "Split rescue victims to safe zone before any relief delivery.",
+                          "needs_manual_review": true,
+                          "low_confidence_warning": "Coordinator should verify the mixed mission plan.",
+                          "needs_additional_depot": true,
+                          "supply_shortages": [
+                            {
+                              "sos_request_id": 77,
+                              "item_id": 12,
+                              "item_name": "Ao phao",
+                              "unit": "cai",
+                              "selected_depot_id": 9,
+                              "selected_depot_name": "Kho A",
+                              "needed_quantity": 20,
+                              "available_quantity": 8,
+                              "missing_quantity": 12,
+                              "notes": "selected depot is short"
+                            }
+                          ],
+                          "suggested_resources": [
+                            {
+                              "resource_type": "VEHICLE",
+                              "description": "Xe tai nhe",
+                              "quantity": 1,
+                              "priority": "Critical"
+                            }
+                          ]
+                        }
+                        """,
                     CreatedAt = new DateTime(2026, 4, 12, 2, 35, 9, DateTimeKind.Utc),
                     Activities =
                     [
@@ -90,6 +124,24 @@ public class GetMissionSuggestionsQueryHandlerTests
         Assert.Equal(1, response.TotalSuggestions);
 
         var mission = Assert.Single(response.MissionSuggestions);
+        Assert.Equal("MixedResponse", mission.SuggestedMissionType);
+        Assert.Equal("Critical", mission.SuggestedSeverityLevel);
+        Assert.Equal("[SOS ID 77]: urgent support is required", mission.OverallAssessment);
+        Assert.Equal("2 gio 10 phut", mission.EstimatedDuration);
+        Assert.Equal("Split rescue victims to safe zone before any relief delivery.", mission.SpecialNotes);
+        Assert.True(mission.NeedsManualReview);
+        Assert.Equal("Coordinator should verify the mixed mission plan.", mission.LowConfidenceWarning);
+        Assert.True(mission.NeedsAdditionalDepot);
+
+        var shortage = Assert.Single(mission.SupplyShortages);
+        Assert.Equal(12, shortage.ItemId);
+        Assert.Equal("Ao phao", shortage.ItemName);
+        Assert.Equal(12, shortage.MissingQuantity);
+
+        var resource = Assert.Single(mission.SuggestedResources);
+        Assert.Equal("VEHICLE", resource.ResourceType);
+        Assert.Equal("Xe tai nhe", resource.Description);
+
         var activityGroup = Assert.Single(mission.Activities);
         var activity = Assert.Single(activityGroup.SuggestedActivities);
 

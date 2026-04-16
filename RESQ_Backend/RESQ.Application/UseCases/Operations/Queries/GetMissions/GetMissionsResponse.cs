@@ -3,6 +3,7 @@ using RESQ.Application.Common.Logistics;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Shared;
+using RESQ.Application.UseCases.Operations.Shared;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMissions;
 
@@ -32,6 +33,8 @@ public class MissionDto
     public string? SuggestedMissionType { get; set; }
     public double? SuggestedPriorityScore { get; set; }
     public string? SuggestedSeverityLevel { get; set; }
+    public MissionAiSuggestionSection? AiSuggestion { get; set; }
+    public MissionManualOverrideInfo? ManualOverride { get; set; }
 }
 
 public class MissionActivityDto
@@ -74,6 +77,8 @@ public class MissionAiSuggestionSection
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public bool NeedsManualReview { get; set; }
+    public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public List<SuggestedActivityDto> SuggestedActivities { get; set; } = [];
@@ -103,6 +108,8 @@ public class MissionAiSuggestionSection
             section.OverallAssessment = meta.OverallAssessment;
             section.EstimatedDuration = meta.EstimatedDuration;
             section.SpecialNotes = meta.SpecialNotes;
+            section.NeedsManualReview = meta.NeedsManualReview;
+            section.LowConfidenceWarning = meta.LowConfidenceWarning;
             section.NeedsAdditionalDepot = meta.NeedsAdditionalDepot;
             section.SupplyShortages = meta.SupplyShortages ?? [];
             section.SuggestedResources = meta.SuggestedResources ?? [];

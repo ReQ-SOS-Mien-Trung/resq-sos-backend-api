@@ -28,26 +28,41 @@ public class GetMissionSuggestionsQueryHandler(
 
         var suggestions = (await _missionRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken)).ToList();
 
-        var missionDtos = suggestions.Select(m => new MissionSuggestionDto
+        var missionDtos = suggestions.Select(m =>
         {
-            Id = m.Id,
-            ClusterId = m.ClusterId,
-            ModelName = m.ModelName,
-            AnalysisType = m.AnalysisType,
-            SuggestedMissionTitle = m.SuggestedMissionTitle,
-            SuggestedPriorityScore = m.SuggestedPriorityScore,
-            ConfidenceScore = m.ConfidenceScore,
-            SuggestionScope = m.SuggestionScope,
-            CreatedAt = m.CreatedAt,
-            Activities = m.Activities.Select(a => new ActivitySuggestionDto
+            var metadata = MissionAiSuggestionJsonHelper.ParseMetadata(m.Metadata);
+
+            return new MissionSuggestionDto
             {
-                Id = a.Id,
-                ActivityType = a.ActivityType,
-                SuggestionPhase = a.SuggestionPhase,
-                ConfidenceScore = a.ConfidenceScore,
-                CreatedAt = a.CreatedAt,
-                SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(a.SuggestedActivities)
-            }).ToList()
+                Id = m.Id,
+                ClusterId = m.ClusterId,
+                ModelName = m.ModelName,
+                AnalysisType = m.AnalysisType,
+                SuggestedMissionTitle = m.SuggestedMissionTitle,
+                SuggestedMissionType = m.SuggestedMissionType,
+                SuggestedPriorityScore = m.SuggestedPriorityScore,
+                SuggestedSeverityLevel = m.SuggestedSeverityLevel,
+                ConfidenceScore = m.ConfidenceScore,
+                OverallAssessment = metadata?.OverallAssessment,
+                EstimatedDuration = metadata?.EstimatedDuration,
+                SpecialNotes = metadata?.SpecialNotes,
+                NeedsManualReview = metadata?.NeedsManualReview ?? false,
+                LowConfidenceWarning = metadata?.LowConfidenceWarning,
+                NeedsAdditionalDepot = metadata?.NeedsAdditionalDepot ?? false,
+                SupplyShortages = metadata?.SupplyShortages ?? [],
+                SuggestedResources = metadata?.SuggestedResources ?? [],
+                SuggestionScope = m.SuggestionScope,
+                CreatedAt = m.CreatedAt,
+                Activities = m.Activities.Select(a => new ActivitySuggestionDto
+                {
+                    Id = a.Id,
+                    ActivityType = a.ActivityType,
+                    SuggestionPhase = a.SuggestionPhase,
+                    ConfidenceScore = a.ConfidenceScore,
+                    CreatedAt = a.CreatedAt,
+                    SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(a.SuggestedActivities)
+                }).ToList()
+            };
         }).ToList();
 
         return new GetMissionSuggestionsResponse

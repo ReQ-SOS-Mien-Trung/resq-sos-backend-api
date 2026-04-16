@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.UseCases.SystemConfig.Commands.UpdatePrompt;
 using RESQ.Domain.Entities.System;
@@ -47,6 +48,86 @@ public class UpdatePromptCommandHandlerTests
         Assert.Equal(1, unitOfWork.SaveCalls);
     }
 
+    [Fact]
+    public async Task Handle_ShouldRejectUpdate_WhenPromptIsNotDraft()
+    {
+        var storedPrompt = BuildPrompt();
+        storedPrompt.IsActive = true;
+        storedPrompt.Version = "v1.0";
+
+        var promptRepository = new RecordingPromptRepository(storedPrompt);
+        var unitOfWork = new StubUnitOfWork();
+        var handler = BuildHandler(promptRepository, unitOfWork);
+
+        await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(BuildCommand(storedPrompt.Id, "new-key"), CancellationToken.None));
+
+        Assert.Equal(0, promptRepository.UpdateCalls);
+        Assert.Equal(0, unitOfWork.SaveCalls);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldRejectPromptTypeChange_ForDraftPrompt()
+    {
+        var storedPrompt = BuildPrompt();
+        var promptRepository = new RecordingPromptRepository(storedPrompt);
+        var unitOfWork = new StubUnitOfWork();
+        var handler = BuildHandler(promptRepository, unitOfWork);
+
+        await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(new UpdatePromptCommand(
+                storedPrompt.Id,
+                Name: null,
+                PromptType: PromptType.MissionDepotPlanning,
+                Provider: null,
+                Purpose: null,
+                SystemPrompt: null,
+                UserPromptTemplate: null,
+                Model: null,
+                Temperature: null,
+                MaxTokens: null,
+                Version: null,
+                ApiUrl: null,
+                ApiKey: null,
+                IsActive: null), CancellationToken.None));
+
+        Assert.Equal(PromptType.MissionPlanning, storedPrompt.PromptType);
+        Assert.Equal(0, promptRepository.UpdateCalls);
+        Assert.Equal(0, unitOfWork.SaveCalls);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldRejectDuplicateDraftVersion_ForSamePromptType()
+    {
+        var storedPrompt = BuildPrompt();
+        var promptRepository = new RecordingPromptRepository(storedPrompt)
+        {
+            ExistsVersionResult = true
+        };
+        var unitOfWork = new StubUnitOfWork();
+        var handler = BuildHandler(promptRepository, unitOfWork);
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            handler.Handle(new UpdatePromptCommand(
+                storedPrompt.Id,
+                Name: null,
+                PromptType: null,
+                Provider: null,
+                Purpose: null,
+                SystemPrompt: null,
+                UserPromptTemplate: null,
+                Model: null,
+                Temperature: null,
+                MaxTokens: null,
+                Version: " v1.1-D26041612 ",
+                ApiUrl: null,
+                ApiKey: null,
+                IsActive: null), CancellationToken.None));
+
+        Assert.Equal(0, promptRepository.UpdateCalls);
+        Assert.Equal(0, unitOfWork.SaveCalls);
+    }
+
     private static UpdatePromptCommandHandler BuildHandler(
         RecordingPromptRepository promptRepository,
         StubUnitOfWork unitOfWork)
@@ -85,14 +166,15 @@ public class UpdatePromptCommandHandlerTests
         Model = "stored-model",
         Temperature = 0.2,
         MaxTokens = 4096,
-        Version = "stored-version",
+        Version = "v1-D26041612",
         ApiUrl = "https://stored.example",
         ApiKey = "stored-key",
-        IsActive = true
+        IsActive = false
     };
 
     private sealed class RecordingPromptRepository(PromptModel? prompt) : IPromptRepository
     {
+        public bool ExistsVersionResult { get; init; }
         public int UpdateCalls { get; private set; }
         public PromptModel? UpdatedPrompt { get; private set; }
 
@@ -113,7 +195,14 @@ public class UpdatePromptCommandHandlerTests
 
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task<bool> ExistsAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> ExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<bool> ExistsVersionAsync(PromptType promptType, string version, int? excludeId = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(ExistsVersionResult);
+
+        public Task<IReadOnlyList<PromptModel>> GetVersionsByTypeAsync(PromptType promptType, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<PromptModel>>([]);
 
         public Task DeactivateOthersByTypeAsync(int currentPromptId, PromptType promptType, CancellationToken cancellationToken = default)
             => Task.CompletedTask;

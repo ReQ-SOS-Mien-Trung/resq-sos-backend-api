@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
@@ -25,9 +26,9 @@ public class DeletePromptCommandHandler(
             throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
         }
 
-        if(prompt.IsActive)
+            if (!PromptLifecycleStatusResolver.IsDraft(prompt))
         {
-            throw new ConflictException($"Không thể xóa prompt đang được kích hoạt. Vui lòng tắt kích hoạt trước khi xóa.");
+                throw new BadRequestException("Chi draft prompt moi co the xoa.");
         }
 
         await _promptRepository.DeleteAsync(request.Id, cancellationToken);
