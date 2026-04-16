@@ -9,6 +9,7 @@ public static class StaticModelSeeder
     {
         SeedRoles(modelBuilder);
         SeedDocumentFileTypes(modelBuilder);
+        modelBuilder.SeedPrompts();
         modelBuilder.SeedPermission();
     }
 

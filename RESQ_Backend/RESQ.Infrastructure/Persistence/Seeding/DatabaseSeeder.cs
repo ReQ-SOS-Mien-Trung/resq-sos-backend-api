@@ -317,14 +317,6 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
         }
 
-        if (!await _db.Prompts.AnyAsync(cancellationToken))
-        {
-            _db.Prompts.AddRange(
-                Prompt("SOS assessment default", "SosPriorityAnalysis", "Phân tích mức độ ưu tiên SOS", seed.AnchorUtc),
-                Prompt("Mission planning default", "MissionPlanning", "Gợi ý nhiệm vụ cứu hộ và tiếp tế", seed.AnchorUtc),
-                Prompt("Depot planning default", "MissionDepotPlanning", "Chọn kho và vật phẩm phù hợp cho mission", seed.AnchorUtc));
-        }
-
         if (!await _db.SosPriorityRuleConfigs.AnyAsync(cancellationToken))
         {
             _db.SosPriorityRuleConfigs.Add(new SosPriorityRuleConfig
@@ -2055,26 +2047,6 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             IsActive = true,
             CreatedAt = now,
             UpdatedAt = now
-        };
-    }
-
-    private static Prompt Prompt(string name, string type, string purpose, DateTime now)
-    {
-        return new Prompt
-        {
-            Name = name,
-            PromptType = type,
-            Provider = "Gemini",
-            Purpose = purpose,
-            SystemPrompt = "Bạn là trợ lý điều phối cứu hộ miền Trung. Chỉ dùng mức Low, Medium, High, Critical khi đánh giá ưu tiên.",
-            UserPromptTemplate = "Phân tích dữ liệu đầu vào và trả về JSON hợp lệ theo schema của hệ thống.",
-            Model = "gemini-2.5-flash",
-            Temperature = 0.3,
-            MaxTokens = 2048,
-            Version = "v1",
-            ApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}",
-            IsActive = true,
-            CreatedAt = now
         };
     }
 
