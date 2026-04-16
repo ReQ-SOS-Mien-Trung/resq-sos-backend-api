@@ -265,13 +265,16 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>[Admin] Xem quỹ tất cả kho.</summary>
+        /// <summary>[Admin] Xem quỹ tất cả kho (có phân trang).</summary>
         [HttpGet("funds")]
-    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
-        [ProducesResponseType(typeof(List<DepotFundsResponseDto>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAllFunds()
+        [Authorize(Policy = PermissionConstants.SystemConfigManage)]
+        [ProducesResponseType(typeof(PagedResult<DepotFundsResponseDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAllFunds(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? search = null)
         {
-            var result = await _mediator.Send(new GetAllDepotFundsQuery());
+            var result = await _mediator.Send(new GetAllDepotFundsQuery(pageNumber, pageSize, search));
             return Ok(result);
         }
 

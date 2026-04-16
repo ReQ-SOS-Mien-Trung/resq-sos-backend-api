@@ -30,6 +30,9 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Create([FromBody] CreateFundingRequestRequest request, [FromQuery] int depotId)
     {
+        if (depotId <= 0)
+            return BadRequest("depotId là bắt buộc và phải là số nguyên dương.");
+
         var command = new CreateFundingRequestCommand(
             request.Description,
             request.Items.Select(i => new FundingRequestItemDto

@@ -32,13 +32,20 @@ namespace RESQ.Infrastructure.Services.Logistics
                 return null;
             }
 
-            if (requestedDepotId.HasValue)
+            // Treat 0 as "not specified" (default int value when query param is omitted)
+            var effectiveDepotId = requestedDepotId.HasValue && requestedDepotId.Value > 0
+                ? requestedDepotId
+                : null;
+
+            if (effectiveDepotId.HasValue)
             {
-                if (!depotIds.Contains(requestedDepotId.Value))
+                if (!depotIds.Contains(effectiveDepotId.Value))
                 {
-                    throw new ForbiddenException($"Người dùng không có quyền (hoặc chưa được phân công) thao tác với kho ID = {requestedDepotId.Value}.");
+                    var depot = await _depotRepository.GetByIdAsync(effectiveDepotId.Value, cancellationToken);
+                    var depotLabel = depot != null ? $"\"{depot.Name}\"" : $"ID = {effectiveDepotId.Value}";
+                    throw new ForbiddenException($"Người dùng không có quyền (hoặc chưa được phân công) thao tác với kho {depotLabel}.");
                 }
-                return requestedDepotId.Value;
+                return effectiveDepotId.Value;
             }
 
             // Nếu không cung cấp DepotId cụ thể nhưng quản lý nhiều kho -> Bắt buộc phải chọn 1 kho
