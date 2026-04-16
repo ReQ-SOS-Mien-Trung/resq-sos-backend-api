@@ -2,12 +2,14 @@ using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 
 namespace RESQ.Application.UseCases.Personnel.RescueTeams.Handlers;
 
 public class ChangeTeamMissionStateCommandHandler(
     IRescueTeamRepository teamRepository,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork) : IRequestHandler<ChangeTeamMissionStateCommand>
 {
     public async Task Handle(ChangeTeamMissionStateCommand request, CancellationToken ct)
@@ -28,5 +30,6 @@ public class ChangeTeamMissionStateCommandHandler(
 
         await teamRepository.UpdateAsync(team, ct);
         await unitOfWork.SaveAsync();
+        await operationalHubService.PushLogisticsUpdateAsync("rescue-teams", cancellationToken: ct);
     }
 }
