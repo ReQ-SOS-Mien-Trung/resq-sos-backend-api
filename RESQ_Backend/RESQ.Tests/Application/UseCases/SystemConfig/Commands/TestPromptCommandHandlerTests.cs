@@ -17,9 +17,10 @@ public class TestPromptCommandHandlerTests
     {
         var storedPrompt = BuildPrompt(PromptType.MissionPlanning);
         var promptRepository = new StubPromptRepository(storedPrompt);
+        var aiConfigRepository = new StubAiConfigRepository(BuildAiConfig());
         var contextService = new StubMissionContextService();
         var suggestionService = new StubSuggestionService(BuildSuggestion());
-        var handler = BuildHandler(promptRepository, contextService, suggestionService);
+        var handler = BuildHandler(promptRepository, aiConfigRepository, contextService, suggestionService);
 
         var response = await handler.Handle(new TestPromptCommand(
             storedPrompt.Id,
@@ -27,33 +28,26 @@ public class TestPromptCommandHandlerTests
             7,
             Name: null,
             PromptType: PromptType.MissionDepotPlanning,
-            Provider: null,
             Purpose: null,
             SystemPrompt: "draft system",
             UserPromptTemplate: "draft user",
-            Model: "draft-model",
-            Temperature: 0.7,
-            MaxTokens: null,
             Version: null,
-            ApiUrl: null,
-            ApiKey: null,
-            IsActive: false), CancellationToken.None);
+            IsActive: false,
+            AiConfigId: null), CancellationToken.None);
 
         Assert.True(response.IsSuccess);
         Assert.Equal(storedPrompt.Id, response.PromptId);
         Assert.Equal(7, response.ClusterId);
         Assert.Equal("Preview plan", response.SuggestedMissionTitle);
+        Assert.Equal(aiConfigRepository.ActiveConfig?.Id, response.AiConfigId);
         Assert.NotSame(storedPrompt, suggestionService.PromptOverride);
         Assert.Equal(PromptType.MissionDepotPlanning, suggestionService.PromptOverride?.PromptType);
         Assert.Equal("draft system", suggestionService.PromptOverride?.SystemPrompt);
         Assert.Equal("draft user", suggestionService.PromptOverride?.UserPromptTemplate);
-        Assert.Equal("draft-model", suggestionService.PromptOverride?.Model);
-        Assert.Equal(0.7, suggestionService.PromptOverride?.Temperature);
         Assert.False(suggestionService.PromptOverride?.IsActive);
         Assert.Equal(PromptType.MissionPlanning, storedPrompt.PromptType);
         Assert.Equal("stored system", storedPrompt.SystemPrompt);
         Assert.Equal("stored user", storedPrompt.UserPromptTemplate);
-        Assert.Equal("stored-model", storedPrompt.Model);
         Assert.Equal(0, promptRepository.CreateCalls);
         Assert.Equal(0, promptRepository.UpdateCalls);
         Assert.Equal(0, promptRepository.DeactivateOthersCalls);
@@ -65,7 +59,10 @@ public class TestPromptCommandHandlerTests
     {
         var storedPrompt = BuildPrompt(PromptType.MissionTeamPlanning);
         var suggestionService = new StubSuggestionService(BuildSuggestion());
-        var handler = BuildHandler(new StubPromptRepository(storedPrompt), suggestionService: suggestionService);
+        var handler = BuildHandler(
+            new StubPromptRepository(storedPrompt),
+            new StubAiConfigRepository(BuildAiConfig()),
+            suggestionService: suggestionService);
 
         await handler.Handle(new TestPromptCommand(
             storedPrompt.Id,
@@ -73,31 +70,29 @@ public class TestPromptCommandHandlerTests
             7,
             Name: null,
             PromptType: null,
-            Provider: null,
             Purpose: null,
             SystemPrompt: null,
             UserPromptTemplate: null,
-            Model: null,
-            Temperature: null,
-            MaxTokens: null,
             Version: null,
-            ApiUrl: null,
-            ApiKey: null,
-            IsActive: null), CancellationToken.None);
+            IsActive: null,
+            AiConfigId: null), CancellationToken.None);
 
         Assert.Equal(storedPrompt.Id, suggestionService.PromptOverride?.Id);
         Assert.Equal(storedPrompt.Name, suggestionService.PromptOverride?.Name);
         Assert.Equal(storedPrompt.PromptType, suggestionService.PromptOverride?.PromptType);
         Assert.Equal(storedPrompt.SystemPrompt, suggestionService.PromptOverride?.SystemPrompt);
         Assert.Equal(storedPrompt.UserPromptTemplate, suggestionService.PromptOverride?.UserPromptTemplate);
-        Assert.Equal(storedPrompt.Model, suggestionService.PromptOverride?.Model);
     }
 
     [Fact]
     public async Task Handle_NewPromptDraft_BuildsInMemoryPromptAndReturnsNullPromptId()
     {
         var suggestionService = new StubSuggestionService(BuildSuggestion());
-        var handler = BuildHandler(new StubPromptRepository(null), suggestionService: suggestionService);
+        var aiConfig = BuildAiConfig(id: 9, model: "test-model");
+        var handler = BuildHandler(
+            new StubPromptRepository(null),
+            new StubAiConfigRepository(aiConfig),
+            suggestionService: suggestionService);
 
         var response = await handler.Handle(BuildNewPromptCommand(), CancellationToken.None);
 
@@ -106,17 +101,45 @@ public class TestPromptCommandHandlerTests
         Assert.Equal(0, suggestionService.PromptOverride?.Id);
         Assert.Equal("Draft create prompt", suggestionService.PromptOverride?.Name);
         Assert.Equal(PromptType.MissionPlanValidation, suggestionService.PromptOverride?.PromptType);
-        Assert.Equal(AiProvider.Gemini, suggestionService.PromptOverride?.Provider);
         Assert.Equal("new system", suggestionService.PromptOverride?.SystemPrompt);
         Assert.Equal("new user", suggestionService.PromptOverride?.UserPromptTemplate);
-        Assert.Equal("new-model", suggestionService.PromptOverride?.Model);
+        Assert.Equal(aiConfig.Id, response.AiConfigId);
+        Assert.Equal(aiConfig.Model, response.Model);
+    }
+
+    [Fact]
+    public async Task Handle_ExplicitAiConfigId_UsesRequestedVersion()
+    {
+        var aiConfig = BuildAiConfig(id: 99, model: "override-model");
+        var handler = BuildHandler(
+            new StubPromptRepository(BuildPrompt(PromptType.MissionPlanning)),
+            new StubAiConfigRepository(aiConfig),
+            suggestionService: new StubSuggestionService(BuildSuggestion()));
+
+        var response = await handler.Handle(new TestPromptCommand(
+            1,
+            TestPromptDraftMode.ExistingPromptDraft,
+            7,
+            Name: null,
+            PromptType: null,
+            Purpose: null,
+            SystemPrompt: null,
+            UserPromptTemplate: null,
+            Version: null,
+            IsActive: null,
+            AiConfigId: 99), CancellationToken.None);
+
+        Assert.Equal(99, response.AiConfigId);
+        Assert.Equal("override-model", response.Model);
     }
 
     [Fact]
     public async Task Handle_DraftPromptTypeSosPriority_RejectsMissionPreview()
     {
         var storedPrompt = BuildPrompt(PromptType.MissionPlanning);
-        var handler = BuildHandler(new StubPromptRepository(storedPrompt));
+        var handler = BuildHandler(
+            new StubPromptRepository(storedPrompt),
+            new StubAiConfigRepository(BuildAiConfig()));
 
         await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(new TestPromptCommand(
@@ -125,30 +148,38 @@ public class TestPromptCommandHandlerTests
                 7,
                 Name: null,
                 PromptType: PromptType.SosPriorityAnalysis,
-                Provider: null,
                 Purpose: null,
                 SystemPrompt: null,
                 UserPromptTemplate: null,
-                Model: null,
-                Temperature: null,
-                MaxTokens: null,
                 Version: null,
-                ApiUrl: null,
-                ApiKey: null,
-                IsActive: null), CancellationToken.None));
+                IsActive: null,
+                AiConfigId: null), CancellationToken.None));
     }
 
     [Fact]
     public async Task Handle_MissingExistingPrompt_ThrowsNotFound()
     {
-        var handler = BuildHandler(new StubPromptRepository(null));
+        var handler = BuildHandler(
+            new StubPromptRepository(null),
+            new StubAiConfigRepository(BuildAiConfig()));
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.Handle(BuildExistingPromptCommand(999, 7), CancellationToken.None));
     }
 
     [Fact]
-    public void Validator_RejectsInvalidClusterAndPromptFields()
+    public async Task Handle_MissingAiConfig_ThrowsClearError()
+    {
+        var handler = BuildHandler(
+            new StubPromptRepository(BuildPrompt(PromptType.MissionPlanning)),
+            new StubAiConfigRepository(null));
+
+        await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(BuildExistingPromptCommand(1, 7), CancellationToken.None));
+    }
+
+    [Fact]
+    public void Validator_RejectsInvalidClusterAndAiConfigId()
     {
         var validator = new TestPromptCommandValidator();
 
@@ -158,22 +189,16 @@ public class TestPromptCommandHandlerTests
             0,
             Name: null,
             PromptType: null,
-            Provider: null,
             Purpose: null,
             SystemPrompt: null,
             UserPromptTemplate: null,
-            Model: null,
-            Temperature: 3,
-            MaxTokens: 0,
             Version: null,
-            ApiUrl: null,
-            ApiKey: null,
-            IsActive: null));
+            IsActive: null,
+            AiConfigId: 0));
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(TestPromptCommand.ClusterId));
-        Assert.Contains(result.Errors, error => error.PropertyName == nameof(TestPromptCommand.Temperature));
-        Assert.Contains(result.Errors, error => error.PropertyName == nameof(TestPromptCommand.MaxTokens));
+        Assert.Contains(result.Errors, error => error.PropertyName == nameof(TestPromptCommand.AiConfigId));
     }
 
     [Fact]
@@ -187,33 +212,29 @@ public class TestPromptCommandHandlerTests
             7,
             Name: null,
             PromptType: null,
-            Provider: (AiProvider)999,
             Purpose: null,
             SystemPrompt: null,
             UserPromptTemplate: null,
-            Model: null,
-            Temperature: null,
-            MaxTokens: null,
             Version: null,
-            ApiUrl: null,
-            ApiKey: null,
-            IsActive: true));
+            IsActive: true,
+            AiConfigId: null));
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(TestPromptCommand.Name));
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(TestPromptCommand.PromptType));
-        Assert.Contains(result.Errors, error => error.PropertyName == nameof(TestPromptCommand.Provider));
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(TestPromptCommand.SystemPrompt));
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(TestPromptCommand.UserPromptTemplate));
     }
 
     private static TestPromptCommandHandler BuildHandler(
         StubPromptRepository promptRepository,
+        StubAiConfigRepository aiConfigRepository,
         StubMissionContextService? contextService = null,
         StubSuggestionService? suggestionService = null)
     {
         return new TestPromptCommandHandler(
             promptRepository,
+            aiConfigRepository,
             contextService ?? new StubMissionContextService(),
             suggestionService ?? new StubSuggestionService(BuildSuggestion()),
             NullLogger<TestPromptCommandHandler>.Instance);
@@ -225,17 +246,12 @@ public class TestPromptCommandHandlerTests
         clusterId,
         Name: null,
         PromptType: null,
-        Provider: null,
         Purpose: null,
         SystemPrompt: null,
         UserPromptTemplate: null,
-        Model: null,
-        Temperature: null,
-        MaxTokens: null,
         Version: null,
-        ApiUrl: null,
-        ApiKey: null,
-        IsActive: null);
+        IsActive: null,
+        AiConfigId: null);
 
     private static TestPromptCommand BuildNewPromptCommand() => new(
         null,
@@ -243,33 +259,36 @@ public class TestPromptCommandHandlerTests
         7,
         Name: "Draft create prompt",
         PromptType: PromptType.MissionPlanValidation,
-        Provider: AiProvider.Gemini,
         Purpose: "Preview new prompt",
         SystemPrompt: "new system",
         UserPromptTemplate: "new user",
-        Model: "new-model",
-        Temperature: 0.3,
-        MaxTokens: 2048,
         Version: "1.0",
-        ApiUrl: null,
-        ApiKey: null,
-        IsActive: true);
+        IsActive: true,
+        AiConfigId: null);
 
     private static PromptModel BuildPrompt(PromptType promptType) => new()
     {
         Id = 1,
         Name = "Prompt under test",
         PromptType = promptType,
-        Provider = AiProvider.OpenRouter,
         Purpose = "Stored purpose",
         SystemPrompt = "stored system",
         UserPromptTemplate = "stored user",
-        Model = "stored-model",
-        Temperature = 0.2,
-        MaxTokens = 4096,
         Version = "stored-version",
-        ApiUrl = "https://stored.example",
-        ApiKey = "stored-key",
+        IsActive = true
+    };
+
+    private static AiConfigModel BuildAiConfig(int id = 1, string model = "gemini-preview") => new()
+    {
+        Id = id,
+        Name = "AI config under test",
+        Provider = AiProvider.Gemini,
+        Model = model,
+        Temperature = 0.3,
+        MaxTokens = 2048,
+        ApiUrl = "https://example.test/{0}/{1}",
+        ApiKey = "test-key",
+        Version = "v1.0",
         IsActive = true
     };
 
@@ -348,6 +367,28 @@ public class TestPromptCommandHandlerTests
             => throw new NotImplementedException();
     }
 
+    private sealed class StubAiConfigRepository(AiConfigModel? activeConfig) : IAiConfigRepository
+    {
+        public AiConfigModel? ActiveConfig { get; } = activeConfig;
+
+        public Task<AiConfigModel?> GetActiveAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(ActiveConfig);
+
+        public Task<AiConfigModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+            => Task.FromResult(ActiveConfig?.Id == id ? ActiveConfig : null);
+
+        public Task CreateAsync(AiConfigModel config, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateAsync(AiConfigModel config, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> ExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> ExistsVersionAsync(string version, int? excludeId = null, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<IReadOnlyList<AiConfigModel>> GetVersionsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AiConfigModel>>(ActiveConfig is null ? [] : [ActiveConfig]);
+        public Task DeactivateOthersAsync(int currentConfigId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<PagedResult<AiConfigModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+    }
+
     private sealed class StubMissionContextService : IMissionContextService
     {
         public int RequestedClusterId { get; private set; }
@@ -370,6 +411,7 @@ public class TestPromptCommandHandlerTests
     {
         public int? ClusterId { get; private set; }
         public PromptModel? PromptOverride { get; private set; }
+        public AiConfigModel? AiConfigOverride { get; private set; }
 
         public Task<RescueMissionSuggestionResult> GenerateSuggestionAsync(
             List<SosRequestSummary> sosRequests,
@@ -387,10 +429,12 @@ public class TestPromptCommandHandlerTests
             bool isMultiDepotRecommended,
             int clusterId,
             PromptModel promptOverride,
+            AiConfigModel? aiConfigOverride = null,
             CancellationToken cancellationToken = default)
         {
             ClusterId = clusterId;
             PromptOverride = promptOverride;
+            AiConfigOverride = aiConfigOverride;
             return Task.FromResult(result);
         }
 

@@ -264,7 +264,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
         public Task<RescueMissionSuggestionResult> PreviewSuggestionAsync(
             List<SosRequestSummary> sos, List<DepotSummary>? depots,
             List<AgentTeamInfo>? teams, bool isMultiDepot, int clusterId,
-            PromptModel promptOverride, CancellationToken ct = default)
+            PromptModel promptOverride, AiConfigModel? aiConfigOverride = null, CancellationToken ct = default)
             => throw new NotImplementedException();
 
         public IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(
@@ -285,7 +285,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
         public Task<RescueMissionSuggestionResult> PreviewSuggestionAsync(
             List<SosRequestSummary> sos, List<DepotSummary>? depots,
             List<AgentTeamInfo>? teams, bool isMultiDepot, int clusterId,
-            PromptModel promptOverride, CancellationToken ct = default)
+            PromptModel promptOverride, AiConfigModel? aiConfigOverride = null, CancellationToken ct = default)
             => throw new NotImplementedException();
 
         public async IAsyncEnumerable<SseMissionEvent> GenerateSuggestionStreamAsync(

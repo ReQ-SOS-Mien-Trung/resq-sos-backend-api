@@ -104,7 +104,7 @@ public class InitiateDepotClosureCommandHandlerTests
         {
             Id = 6,
             Name = "Depot 6",
-            Status = DepotStatus.Closing
+            Status = DepotStatus.Unavailable
         };
 
         depot.AddHistory(

@@ -46,16 +46,10 @@ public class CreatePromptDraftCommandHandler(
         {
             Name = source.Name,
             PromptType = source.PromptType,
-            Provider = source.Provider,
             Purpose = source.Purpose,
             SystemPrompt = source.SystemPrompt,
             UserPromptTemplate = source.UserPromptTemplate,
-            Model = source.Model,
-            Temperature = source.Temperature,
-            MaxTokens = source.MaxTokens,
             Version = candidateVersion,
-            ApiUrl = source.ApiUrl,
-            ApiKey = source.ApiKey,
             IsActive = false,
             CreatedAt = now,
             UpdatedAt = now

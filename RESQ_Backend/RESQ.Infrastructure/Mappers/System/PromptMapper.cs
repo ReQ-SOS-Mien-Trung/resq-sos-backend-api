@@ -1,5 +1,4 @@
 using RESQ.Domain.Entities.System;
-using RESQ.Domain.Enum.System;
 using RESQ.Infrastructure.Entities.System;
 
 namespace RESQ.Infrastructure.Mappers.System;
@@ -12,16 +11,10 @@ public static class PromptMapper
         {
             Name = model.Name,
             PromptType = model.PromptType.ToString(),
-            Provider = model.Provider.ToString(),
             Purpose = model.Purpose,
             SystemPrompt = model.SystemPrompt,
             UserPromptTemplate = model.UserPromptTemplate,
-            Model = model.Model,
-            Temperature = model.Temperature,
-            MaxTokens = model.MaxTokens,
             Version = model.Version,
-            ApiUrl = model.ApiUrl,
-            ApiKey = model.ApiKey,
             IsActive = model.IsActive,
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt
@@ -41,19 +34,13 @@ public static class PromptMapper
         {
             Id = entity.Id,
             Name = entity.Name ?? string.Empty,
-            PromptType = Enum.TryParse<PromptType>(entity.PromptType, out var pt) ? pt : default,
-            Provider = Enum.TryParse<AiProvider>(entity.Provider, true, out var provider)
-                ? provider
-                : AiProvider.Gemini,
+            PromptType = Enum.TryParse<RESQ.Domain.Enum.System.PromptType>(entity.PromptType, out var pt)
+                ? pt
+                : RESQ.Domain.Enum.System.PromptType.SosPriorityAnalysis,
             Purpose = entity.Purpose,
             SystemPrompt = entity.SystemPrompt,
             UserPromptTemplate = entity.UserPromptTemplate,
-            Model = entity.Model,
-            Temperature = entity.Temperature,
-            MaxTokens = entity.MaxTokens,
             Version = entity.Version,
-            ApiUrl = entity.ApiUrl,
-            ApiKey = entity.ApiKey,
             IsActive = entity.IsActive,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt

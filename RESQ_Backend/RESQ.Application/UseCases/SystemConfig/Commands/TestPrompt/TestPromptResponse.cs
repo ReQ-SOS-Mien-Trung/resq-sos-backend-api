@@ -11,7 +11,12 @@ public class TestPromptResponse
     public PromptType PromptType { get; set; }
     public int ClusterId { get; set; }
     public int? SuggestionId { get; set; }
+    public int? AiConfigId { get; set; }
+    public string? AiConfigVersion { get; set; }
+    public AiProvider Provider { get; set; }
     public string Model { get; set; } = string.Empty;
+    public double Temperature { get; set; }
+    public int MaxTokens { get; set; }
     public string? ModelName { get; set; }
     public string? AiResponse { get; set; }
     public string? RawAiResponse { get; set; }

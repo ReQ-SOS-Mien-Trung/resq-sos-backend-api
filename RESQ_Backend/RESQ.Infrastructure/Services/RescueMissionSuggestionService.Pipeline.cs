@@ -41,6 +41,7 @@ public partial class RescueMissionSuggestionService
         int? clusterId,
         int? suggestionId,
         MissionSuggestionMetadata metadata,
+        AiConfigModel aiConfig,
         MissionSuggestionExecutionOptions options,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -62,6 +63,7 @@ public partial class RescueMissionSuggestionService
                     },
                     "Analyze SOS requests and return JSON for mission requirements only."),
                 "No tools are available. Return JSON only.",
+                aiConfig,
                 options,
                 cancellationToken);
 
@@ -114,6 +116,7 @@ public partial class RescueMissionSuggestionService
                 BuildAllowedTools("searchInventory"),
                 nearbyDepots,
                 nearbyTeams,
+                aiConfig,
                 options,
                 cancellationToken);
 
@@ -166,6 +169,7 @@ public partial class RescueMissionSuggestionService
                 BuildAllowedTools("getTeams", "getAssemblyPoints"),
                 nearbyDepots,
                 nearbyTeams,
+                aiConfig,
                 options,
                 cancellationToken);
 
@@ -234,6 +238,7 @@ public partial class RescueMissionSuggestionService
                     },
                     "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields. Preserve any inventory-backed transport or reusable equipment inside supplies_to_collect. If rescue or evacuation work is mixed with supply collection or delivery, write the safety warning only into special_notes and keep the JSON contract unchanged."),
                 "No tools are available. Return the full mission JSON only. Do not introduce a second depot. Do not add warnings[] or any new warning schema.",
+                aiConfig,
                 options,
                 cancellationToken);
 
@@ -302,10 +307,11 @@ public partial class RescueMissionSuggestionService
         PromptType promptType,
         string userMessage,
         string systemAppendix,
+        AiConfigModel aiConfig,
         MissionSuggestionExecutionOptions options,
         CancellationToken cancellationToken)
     {
-        var (prompt, settings) = await GetStagePromptAsync(promptType, options, cancellationToken);
+        var (prompt, settings) = await GetStagePromptAsync(promptType, aiConfig, options, cancellationToken);
         var providerClient = _aiProviderClientFactory.GetClient(settings.Provider);
         var stopwatch = Stopwatch.StartNew();
 
@@ -342,10 +348,11 @@ public partial class RescueMissionSuggestionService
         IReadOnlyList<AiToolDefinition> tools,
         IReadOnlyCollection<DepotSummary>? nearbyDepots,
         IReadOnlyCollection<AgentTeamInfo> nearbyTeams,
+        AiConfigModel aiConfig,
         MissionSuggestionExecutionOptions options,
         CancellationToken cancellationToken)
     {
-        var (prompt, settings) = await GetStagePromptAsync(promptType, options, cancellationToken);
+        var (prompt, settings) = await GetStagePromptAsync(promptType, aiConfig, options, cancellationToken);
         var providerClient = _aiProviderClientFactory.GetClient(settings.Provider);
         var messages = new List<AiChatMessage>
         {
@@ -413,6 +420,7 @@ public partial class RescueMissionSuggestionService
 
     private async Task<(PromptModel Prompt, AiPromptExecutionSettings Settings)> GetStagePromptAsync(
         PromptType promptType,
+        AiConfigModel aiConfig,
         MissionSuggestionExecutionOptions options,
         CancellationToken cancellationToken)
     {
@@ -423,13 +431,7 @@ public partial class RescueMissionSuggestionService
         if (prompt is null)
             throw new MissionSuggestionPipelineFallbackException($"Missing active prompt '{promptType}'.");
 
-        var settings = _settingsResolver.Resolve(
-            prompt,
-            new AiPromptExecutionFallback(
-                FallbackModel,
-                FallbackApiUrl,
-                FallbackTemperature,
-                FallbackMaxTokens));
+        var settings = _settingsResolver.Resolve(aiConfig);
 
         return (prompt, settings);
     }

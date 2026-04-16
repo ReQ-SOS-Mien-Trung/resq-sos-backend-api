@@ -41,9 +41,7 @@ public class GetPromptVersionsQueryHandler(
                 Status = PromptLifecycleStatusResolver.DetermineStatus(p),
                 Name = p.Name,
                 PromptType = p.PromptType,
-                Provider = p.Provider,
                 Version = p.Version,
-                Model = p.Model,
                 IsActive = p.IsActive,
                 CreatedAt = p.CreatedAt,
                 UpdatedAt = p.UpdatedAt

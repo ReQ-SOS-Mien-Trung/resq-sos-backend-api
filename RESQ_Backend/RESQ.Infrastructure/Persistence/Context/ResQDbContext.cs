@@ -24,6 +24,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<AbilityCategory> AbilityCategories { get; set; }
     public virtual DbSet<AbilitySubgroup> AbilitySubgroups { get; set; }
     public virtual DbSet<ActivityAiSuggestion> ActivityAiSuggestions { get; set; }
+    public virtual DbSet<AiConfig> AiConfigs { get; set; }
     public virtual DbSet<AssemblyPoint> AssemblyPoints { get; set; }
     public virtual DbSet<AssemblyEvent> AssemblyEvents { get; set; }
     public virtual DbSet<AssemblyParticipant> AssemblyParticipants { get; set; }

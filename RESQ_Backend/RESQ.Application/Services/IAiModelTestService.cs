@@ -11,7 +11,7 @@ public interface IAiModelTestService
     /// Gửi một tin nhắn test đến AI API để xác nhận model hoạt động đúng.
     /// </summary>
     Task<AiModelTestResult> TestModelAsync(
-        PromptModel prompt,
+        AiConfigModel aiConfig,
         CancellationToken cancellationToken = default);
 }
 

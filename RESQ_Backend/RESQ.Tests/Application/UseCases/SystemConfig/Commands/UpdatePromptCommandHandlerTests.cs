@@ -11,38 +11,30 @@ namespace RESQ.Tests.Application.UseCases.SystemConfig.Commands;
 
 public class UpdatePromptCommandHandlerTests
 {
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("abcd...5678")]
-    [InlineData("*******")]
-    public async Task Handle_ShouldKeepStoredApiKey_WhenSubmittedApiKeyIsMissingMaskedOrWhitespace(string? submittedApiKey)
-    {
-        var storedPrompt = BuildPrompt();
-        var promptRepository = new RecordingPromptRepository(storedPrompt);
-        var unitOfWork = new StubUnitOfWork();
-        var handler = BuildHandler(promptRepository, unitOfWork);
-
-        await handler.Handle(BuildCommand(storedPrompt.Id, submittedApiKey), CancellationToken.None);
-
-        Assert.Equal("stored-key", storedPrompt.ApiKey);
-        Assert.Same(storedPrompt, promptRepository.UpdatedPrompt);
-        Assert.Equal(1, promptRepository.UpdateCalls);
-        Assert.Equal(1, unitOfWork.SaveCalls);
-    }
-
     [Fact]
-    public async Task Handle_ShouldUpdateStoredApiKey_WhenSubmittedApiKeyIsRawValue()
+    public async Task Handle_ShouldUpdateDraftFields_WhenRequestIsValid()
     {
         var storedPrompt = BuildPrompt();
         var promptRepository = new RecordingPromptRepository(storedPrompt);
         var unitOfWork = new StubUnitOfWork();
         var handler = BuildHandler(promptRepository, unitOfWork);
 
-        await handler.Handle(BuildCommand(storedPrompt.Id, "new-raw-key"), CancellationToken.None);
+        await handler.Handle(new UpdatePromptCommand(
+            storedPrompt.Id,
+            Name: "Updated prompt",
+            PromptType: null,
+            Purpose: "Updated purpose",
+            SystemPrompt: "updated system",
+            UserPromptTemplate: "updated user",
+            Version: "v1.1-D26041612",
+            IsActive: null), CancellationToken.None);
 
-        Assert.Equal("new-raw-key", storedPrompt.ApiKey);
+        Assert.Equal("Updated prompt", storedPrompt.Name);
+        Assert.Equal("Updated purpose", storedPrompt.Purpose);
+        Assert.Equal("updated system", storedPrompt.SystemPrompt);
+        Assert.Equal("updated user", storedPrompt.UserPromptTemplate);
+        Assert.Equal("v1.1-D26041612", storedPrompt.Version);
+        Assert.False(storedPrompt.IsActive);
         Assert.Same(storedPrompt, promptRepository.UpdatedPrompt);
         Assert.Equal(1, promptRepository.UpdateCalls);
         Assert.Equal(1, unitOfWork.SaveCalls);
@@ -60,7 +52,15 @@ public class UpdatePromptCommandHandlerTests
         var handler = BuildHandler(promptRepository, unitOfWork);
 
         await Assert.ThrowsAsync<BadRequestException>(() =>
-            handler.Handle(BuildCommand(storedPrompt.Id, "new-key"), CancellationToken.None));
+            handler.Handle(new UpdatePromptCommand(
+                storedPrompt.Id,
+                Name: "Updated",
+                PromptType: null,
+                Purpose: null,
+                SystemPrompt: null,
+                UserPromptTemplate: null,
+                Version: null,
+                IsActive: null), CancellationToken.None));
 
         Assert.Equal(0, promptRepository.UpdateCalls);
         Assert.Equal(0, unitOfWork.SaveCalls);
@@ -79,16 +79,10 @@ public class UpdatePromptCommandHandlerTests
                 storedPrompt.Id,
                 Name: null,
                 PromptType: PromptType.MissionDepotPlanning,
-                Provider: null,
                 Purpose: null,
                 SystemPrompt: null,
                 UserPromptTemplate: null,
-                Model: null,
-                Temperature: null,
-                MaxTokens: null,
                 Version: null,
-                ApiUrl: null,
-                ApiKey: null,
                 IsActive: null), CancellationToken.None));
 
         Assert.Equal(PromptType.MissionPlanning, storedPrompt.PromptType);
@@ -112,16 +106,10 @@ public class UpdatePromptCommandHandlerTests
                 storedPrompt.Id,
                 Name: null,
                 PromptType: null,
-                Provider: null,
                 Purpose: null,
                 SystemPrompt: null,
                 UserPromptTemplate: null,
-                Model: null,
-                Temperature: null,
-                MaxTokens: null,
                 Version: " v1.1-D26041612 ",
-                ApiUrl: null,
-                ApiKey: null,
                 IsActive: null), CancellationToken.None));
 
         Assert.Equal(0, promptRepository.UpdateCalls);
@@ -138,37 +126,15 @@ public class UpdatePromptCommandHandlerTests
             NullLogger<UpdatePromptCommandHandler>.Instance);
     }
 
-    private static UpdatePromptCommand BuildCommand(int promptId, string? apiKey) => new(
-        promptId,
-        Name: null,
-        PromptType: null,
-        Provider: null,
-        Purpose: null,
-        SystemPrompt: null,
-        UserPromptTemplate: null,
-        Model: null,
-        Temperature: null,
-        MaxTokens: null,
-        Version: null,
-        ApiUrl: null,
-        ApiKey: apiKey,
-        IsActive: null);
-
     private static PromptModel BuildPrompt() => new()
     {
         Id = 1,
         Name = "Stored prompt",
         PromptType = PromptType.MissionPlanning,
-        Provider = AiProvider.Gemini,
         Purpose = "Stored purpose",
         SystemPrompt = "stored system",
         UserPromptTemplate = "stored user",
-        Model = "stored-model",
-        Temperature = 0.2,
-        MaxTokens = 4096,
         Version = "v1-D26041612",
-        ApiUrl = "https://stored.example",
-        ApiKey = "stored-key",
         IsActive = false
     };
 

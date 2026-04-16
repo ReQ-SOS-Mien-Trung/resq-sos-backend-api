@@ -20,6 +20,7 @@ public interface IRescueMissionSuggestionService
         bool isMultiDepotRecommended,
         int clusterId,
         PromptModel promptOverride,
+        AiConfigModel? aiConfigOverride = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

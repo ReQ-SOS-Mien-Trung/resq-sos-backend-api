@@ -67,16 +67,10 @@ namespace RESQ.Presentation.Controllers.System
             var command = new CreatePromptCommand(
                 dto.Name,
                 dto.PromptType,
-                dto.Provider,
                 dto.Purpose,
                 dto.SystemPrompt,
                 dto.UserPromptTemplate,
-                dto.Model,
-                dto.Temperature,
-                dto.MaxTokens,
                 dto.Version,
-                dto.ApiUrl,
-                dto.ApiKey,
                 dto.IsActive
             );
 
@@ -101,16 +95,10 @@ namespace RESQ.Presentation.Controllers.System
                 id,
                 dto.Name,
                 dto.PromptType,
-                dto.Provider,
                 dto.Purpose,
                 dto.SystemPrompt,
                 dto.UserPromptTemplate,
-                dto.Model,
-                dto.Temperature,
-                dto.MaxTokens,
                 dto.Version,
-                dto.ApiUrl,
-                dto.ApiKey,
                 dto.IsActive
             );
 
@@ -155,17 +143,12 @@ namespace RESQ.Presentation.Controllers.System
                 dto.ClusterId,
                 dto.Name,
                 dto.PromptType,
-                dto.Provider,
                 dto.Purpose,
                 dto.SystemPrompt,
                 dto.UserPromptTemplate,
-                dto.Model,
-                dto.Temperature,
-                dto.MaxTokens,
                 dto.Version,
-                dto.ApiUrl,
-                dto.ApiKey,
-                dto.IsActive));
+                dto.IsActive,
+                dto.AiConfigId));
 
             return Ok(result);
         }
@@ -182,17 +165,12 @@ namespace RESQ.Presentation.Controllers.System
                 dto.ClusterId,
                 dto.Name,
                 dto.PromptType,
-                dto.Provider,
                 dto.Purpose,
                 dto.SystemPrompt,
                 dto.UserPromptTemplate,
-                dto.Model,
-                dto.Temperature,
-                dto.MaxTokens,
                 dto.Version,
-                dto.ApiUrl,
-                dto.ApiKey,
-                dto.IsActive));
+                dto.IsActive,
+                dto.AiConfigId));
 
             return Ok(result);
         }

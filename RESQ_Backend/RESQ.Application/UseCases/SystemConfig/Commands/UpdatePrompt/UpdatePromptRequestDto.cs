@@ -11,9 +11,6 @@ public class UpdatePromptRequestDto
     [JsonPropertyName("prompt_type")]
     public PromptType? PromptType { get; set; }
 
-    [JsonPropertyName("provider")]
-    public AiProvider? Provider { get; set; }
-
     [JsonPropertyName("purpose")]
     public string? Purpose { get; set; }
 
@@ -23,23 +20,8 @@ public class UpdatePromptRequestDto
     [JsonPropertyName("user_prompt_template")]
     public string? UserPromptTemplate { get; set; }
 
-    [JsonPropertyName("model")]
-    public string? Model { get; set; }
-
-    [JsonPropertyName("temperature")]
-    public double? Temperature { get; set; }
-
-    [JsonPropertyName("max_tokens")]
-    public int? MaxTokens { get; set; }
-
     [JsonPropertyName("version")]
     public string? Version { get; set; }
-
-    [JsonPropertyName("api_url")]
-    public string? ApiUrl { get; set; }
-
-    [JsonPropertyName("api_key")]
-    public string? ApiKey { get; set; }
 
     [JsonPropertyName("is_active")]
     public bool? IsActive { get; set; }
