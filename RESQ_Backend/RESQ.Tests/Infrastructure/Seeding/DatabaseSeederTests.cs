@@ -114,7 +114,6 @@ public class DatabaseSeederTests
     {
         var options = Options.Create(new SeedDataOptions
         {
-            Enabled = true,
             Profile = "Demo",
             AnchorDate = new DateOnly(2026, 4, 16),
             RandomSeed = 20260416,

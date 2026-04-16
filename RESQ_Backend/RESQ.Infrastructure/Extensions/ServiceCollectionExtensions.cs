@@ -49,7 +49,7 @@ public static class ServiceCollectionExtensions
                 ? aiSecretsSection
                 : configuration.GetSection("PromptSecrets"));
         services.Configure<MissionSuggestionPipelineOptions>(configuration.GetSection("MissionSuggestionPipeline"));
-        services.Configure<SeedDataOptions>(configuration.GetSection("SeedData"));
+        services.AddOptions<SeedDataOptions>();
         services.AddHttpClient("Goong", client =>
         {
             client.DefaultRequestHeaders.Add("Accept", "application/json");

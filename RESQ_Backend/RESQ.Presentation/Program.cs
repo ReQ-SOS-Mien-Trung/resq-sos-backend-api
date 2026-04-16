@@ -207,27 +207,11 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Ensure database schema exists at startup.
-// If migrations are available, apply them; otherwise create schema from the model.
-using (var scope = app.Services.CreateScope())
+await InitializeDatabaseAsync(app);
+
+if (IsDatabaseSeedOnlyMode(args))
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-    var hasMigrations = dbContext.Database.GetMigrations().Any();
-
-    if (hasMigrations)
-    {
-        dbContext.Database.Migrate();
-    }
-    else
-    {
-        dbContext.Database.EnsureCreated();
-    }
-
-    if (builder.Configuration.GetValue<bool>("SeedData:Enabled"))
-    {
-        var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
-        await seeder.SeedAsync();
-    }
+    return;
 }
 
 // Middleware pipeline
@@ -259,5 +243,32 @@ app.MapHub<DashboardHub>("/hubs/dashboard");
 app.MapHub<OperationalHub>("/hubs/operational");
 
 app.Run();
+
+static bool IsDatabaseSeedOnlyMode(string[] args)
+{
+    return args.Any(arg =>
+        string.Equals(arg, "seed", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(arg, "--seed-only", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(arg, "--migrate-seed", StringComparison.OrdinalIgnoreCase));
+}
+
+static async Task InitializeDatabaseAsync(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
+    var hasMigrations = dbContext.Database.GetMigrations().Any();
+
+    if (hasMigrations)
+    {
+        dbContext.Database.Migrate();
+    }
+    else
+    {
+        dbContext.Database.EnsureCreated();
+    }
+
+    var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
+    await seeder.SeedAsync();
+}
 
 public partial class Program;

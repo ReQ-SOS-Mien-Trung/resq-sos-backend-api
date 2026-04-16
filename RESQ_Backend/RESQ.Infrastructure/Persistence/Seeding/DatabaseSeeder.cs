@@ -41,7 +41,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        if (!_options.Enabled || !_options.IsDemoProfile)
+        if (!_options.IsDemoProfile)
         {
             return;
         }
