@@ -15,8 +15,11 @@ public class GetSosRequestsSummaryHandler(
     {
         logger.LogInformation("GetSosRequestsSummary: fetching today and yesterday sos counts");
 
-        var today = DateTime.UtcNow.Date;
-        var yesterday = today.AddDays(-1);
+        // Boundary theo giờ Việt Nam (UTC+7): nửa đêm VN = 17:00 UTC hôm trước
+        var vnOffset = TimeSpan.FromHours(7);
+        var todayStartUtc = DateTime.SpecifyKind((DateTime.UtcNow + vnOffset).Date - vnOffset, DateTimeKind.Utc);
+        var yesterday = todayStartUtc.AddDays(-1);
+        var today = todayStartUtc;
 
         var (todayCount, yesterdayCount) = await dashboardRepository.GetSosRequestDailyCountsAsync(today, yesterday, cancellationToken);
 
@@ -28,7 +31,7 @@ public class GetSosRequestsSummaryHandler(
         {
             changeDirection = "new";
             changePercent = null;
-            comparisonLabel = "mới hôm nay";
+            comparisonLabel = "Mới hôm nay";
         }
         else
         {
@@ -40,7 +43,7 @@ public class GetSosRequestsSummaryHandler(
                 < 0 => "decrease",
                 _ => "no_change"
             };
-            comparisonLabel = "so với hôm qua";
+            comparisonLabel = "So với hôm qua";
         }
 
         return new GetSosRequestsSummaryResponse

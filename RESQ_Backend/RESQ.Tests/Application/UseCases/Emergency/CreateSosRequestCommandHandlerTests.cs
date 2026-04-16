@@ -153,6 +153,7 @@ public class CreateSosRequestCommandHandlerTests
         public Task<PagedResult<UserModel>> GetPagedAsync(int pn, int ps, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, CancellationToken ct = default) => Task.FromResult(new PagedResult<UserModel>([], 0, pn, ps));
         public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pn, int ps, int? roleId = null, string? search = null, CancellationToken ct = default) => Task.FromResult(new PagedResult<UserModel>([], 0, pn, ps));
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken ct = default) => Task.FromResult(new List<Guid>());
+        public Task<List<Guid>> GetActiveCoordinatorUserIdsAsync(CancellationToken ct = default) => Task.FromResult(new List<Guid>());
         public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken ct = default) => Task.FromResult(new List<AvailableManagerDto>());
     }
 

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -18,7 +19,9 @@ public class ImportReliefItemsCommandHandler(
     IItemModelMetadataRepository itemModelMetadataRepository,
     IUnitOfWork unitOfWork,
     ILogger<ImportReliefItemsCommandHandler> logger,
-    IManagerDepotAccessService managerDepotAccessService)
+    IManagerDepotAccessService managerDepotAccessService,
+    IUserRepository userRepository,
+    IFirebaseService firebaseService)
     : IRequestHandler<ImportReliefItemsCommand, ImportReliefItemsResponse>
 {
     private readonly IItemCategoryRepository _categoryRepository = categoryRepository;
@@ -30,6 +33,8 @@ public class ImportReliefItemsCommandHandler(
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<ImportReliefItemsCommandHandler> _logger = logger;
     private readonly IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+    private readonly IUserRepository _userRepository = userRepository;
+    private readonly IFirebaseService _firebaseService = firebaseService;
 
     public async Task<ImportReliefItemsResponse> Handle(ImportReliefItemsCommand request, CancellationToken cancellationToken)
     {
@@ -293,6 +298,35 @@ public class ImportReliefItemsCommandHandler(
             await _unitOfWork.SaveChangesWithTransactionAsync();
 
             response.Imported = donationModels.Count;
+
+            // Gửi thông báo đến toàn bộ Coordinator sau khi commit thành công
+            try
+            {
+                var depot = await _depotRepository.GetByIdAsync(depotId, cancellationToken);
+                var depotName = depot?.Name ?? $"Kho #{depotId}";
+                var coordinatorIds = await _userRepository.GetActiveCoordinatorUserIdsAsync(cancellationToken);
+                var notifTitle = "Thông báo nhập hàng mới";
+                var notifBody = $"Kho {depotName} vừa hoàn tất nhập hàng quyên góp ({response.Imported} mặt hàng). Đề nghị kiểm tra và xác nhận tình trạng tồn kho.";
+                var notifData = new Dictionary<string, string>
+                {
+                    ["depotId"] = depotId.ToString(),
+                    ["type"] = "depot_relief_imported"
+                };
+                foreach (var coordinatorId in coordinatorIds)
+                {
+                    _ = _firebaseService.SendNotificationToUserAsync(
+                        coordinatorId,
+                        notifTitle,
+                        notifBody,
+                        "depot_relief_imported",
+                        notifData,
+                        cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to notify coordinators after relief import | DepotId={DepotId}", depotId);
+            }
         }
         catch (Exception ex)
         {

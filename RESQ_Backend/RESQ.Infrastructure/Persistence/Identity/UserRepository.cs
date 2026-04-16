@@ -165,6 +165,15 @@ namespace RESQ.Infrastructure.Persistence.Identity
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<List<Guid>> GetActiveCoordinatorUserIdsAsync(CancellationToken cancellationToken = default)
+        {
+            return await _unitOfWork.GetRepository<User>()
+                .AsQueryable(tracked: false)
+                .Where(u => u.RoleId == 2 && !u.IsBanned)
+                .Select(u => u.Id)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken cancellationToken = default)
         {
             return await _unitOfWork.GetRepository<User>()

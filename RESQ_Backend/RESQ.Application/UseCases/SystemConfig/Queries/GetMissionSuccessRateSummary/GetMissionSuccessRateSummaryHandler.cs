@@ -15,8 +15,11 @@ public class GetMissionSuccessRateSummaryHandler(
     {
         logger.LogInformation("GetMissionSuccessRateSummary: fetching today and yesterday mission stats");
 
-        var today = DateTime.UtcNow.Date;
-        var yesterday = today.AddDays(-1);
+        // Boundary theo giờ Việt Nam (UTC+7): nửa đêm VN = 17:00 UTC hôm trước
+        var vnOffset = TimeSpan.FromHours(7);
+        var todayStartUtc = DateTime.SpecifyKind((DateTime.UtcNow + vnOffset).Date - vnOffset, DateTimeKind.Utc);
+        var yesterday = todayStartUtc.AddDays(-1);
+        var today = todayStartUtc;
 
         var (todayCompleted, todayTotal, yesterdayCompleted, yesterdayTotal) =
             await dashboardRepository.GetMissionFinishedCountsAsync(today, yesterday, cancellationToken);
@@ -38,7 +41,7 @@ public class GetMissionSuccessRateSummaryHandler(
             SuccessRate = todayRate,
             ChangePercent = Math.Abs(changePercent),
             ChangeDirection = changeDirection,
-            ComparisonLabel = "so với hôm qua"
+            ComparisonLabel = "So với hôm qua"
         };
     }
 }
