@@ -276,7 +276,28 @@ public class MissionPendingActivityUpdateService(
         !patch.Step.HasValue || patch.Step == activity.Step;
 
     private static bool IsSameTarget(MissionActivityModel activity, UpdateMissionActivityPatch patch) =>
-        patch.Target is null || string.Equals(patch.Target, activity.Target, StringComparison.Ordinal);
+        patch.Target is null || string.Equals(
+            NormalizeTargetForComparison(patch.Target),
+            NormalizeTargetForComparison(activity.Target),
+            StringComparison.Ordinal);
+
+    private static string? NormalizeTargetForComparison(string? target)
+    {
+        if (string.IsNullOrWhiteSpace(target))
+            return target;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(target);
+            return doc.RootElement.ValueKind == JsonValueKind.String
+                ? doc.RootElement.GetString()
+                : target;
+        }
+        catch (JsonException)
+        {
+            return target;
+        }
+    }
 
     private static bool IsSameCoordinates(MissionActivityModel activity, UpdateMissionActivityPatch patch)
     {
