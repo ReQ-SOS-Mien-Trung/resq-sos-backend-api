@@ -1,11 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
+using Npgsql;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Finance;
@@ -46,6 +48,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             return;
         }
 
+        await EnsurePostGisExtensionAsync(cancellationToken);
+
         if (await _db.SystemMigrationAudits.AnyAsync(a => a.MigrationName == MarkerName, cancellationToken))
         {
             _logger.LogInformation("Runtime demo seed skipped because marker {MarkerName} already exists.", MarkerName);
@@ -69,11 +73,13 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         await strategy.ExecuteAsync(async () =>
         {
             IDbContextTransaction? transaction = null;
+            var ownsTransaction = false;
             try
             {
-                if (_db.Database.IsRelational())
+                if (_db.Database.IsRelational() && _db.Database.CurrentTransaction is null)
                 {
                     transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+                    ownsTransaction = true;
                 }
 
                 var seed = CreateContext();
@@ -110,7 +116,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 });
                 await _db.SaveChangesAsync(cancellationToken);
 
-                if (transaction is not null)
+                if (ownsTransaction && transaction is not null)
                 {
                     await transaction.CommitAsync(cancellationToken);
                 }
@@ -119,12 +125,71 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
             finally
             {
-                if (transaction is not null)
+                if (ownsTransaction && transaction is not null)
                 {
                     await transaction.DisposeAsync();
                 }
             }
         });
+    }
+
+    private async Task EnsurePostGisExtensionAsync(CancellationToken cancellationToken)
+    {
+        if (!_db.Database.IsRelational())
+        {
+            return;
+        }
+
+        var providerName = _db.Database.ProviderName;
+        if (string.IsNullOrWhiteSpace(providerName)
+            || !providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var hasPostGis = await _db.Database
+            .SqlQueryRaw<int>("SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis') THEN 1 ELSE 0 END AS \"Value\"")
+            .SingleAsync(cancellationToken) == 1;
+
+        if (hasPostGis)
+        {
+            await ReloadPostgresTypesAsync(cancellationToken);
+            return;
+        }
+
+        try
+        {
+            await _db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS postgis;", cancellationToken);
+            await ReloadPostgresTypesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                "PostGIS extension is required for RESQ geography columns. Ensure your PostgreSQL server has PostGIS installed and run CREATE EXTENSION postgis on database RESQ.",
+                ex);
+        }
+    }
+
+    private async Task ReloadPostgresTypesAsync(CancellationToken cancellationToken)
+    {
+        var connection = _db.Database.GetDbConnection();
+        if (connection is not NpgsqlConnection npgsqlConnection)
+        {
+            return;
+        }
+
+        var wasClosed = npgsqlConnection.State == ConnectionState.Closed;
+        if (wasClosed)
+        {
+            await npgsqlConnection.OpenAsync(cancellationToken);
+        }
+
+        await npgsqlConnection.ReloadTypesAsync();
+
+        if (wasClosed)
+        {
+            await npgsqlConnection.CloseAsync();
+        }
     }
 
     private async Task<bool> HasOperationalDataAsync(CancellationToken cancellationToken)
@@ -1801,7 +1866,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        var configs = await _db.InventoryStockThresholdConfigs.Where(c => c.Id != 1).Take(90).ToListAsync(cancellationToken);
+        var configs = await _db.InventoryStockThresholdConfigs
+            .Where(c => c.Id != 1)
+            .OrderBy(c => c.Id)
+            .Take(90)
+            .ToListAsync(cancellationToken);
         foreach (var config in configs)
         {
             _db.InventoryStockThresholdConfigHistories.Add(new InventoryStockThresholdConfigHistory

@@ -16,6 +16,11 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (EF.IsDesignTime)
+{
+    builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Connection", LogLevel.None);
+}
+
 // Controllers + JSON enum
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
