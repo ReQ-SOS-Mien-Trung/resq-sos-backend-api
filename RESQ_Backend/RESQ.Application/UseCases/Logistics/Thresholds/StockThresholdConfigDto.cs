@@ -9,8 +9,6 @@ public class StockThresholdConfigDto
     public int? DepotId { get; set; }
     public int? CategoryId { get; set; }
     public int? ItemModelId { get; set; }
-    public decimal? DangerRatio { get; set; }
-    public decimal? WarningRatio { get; set; }
     public int? MinimumThreshold { get; set; }
     public bool IsActive { get; set; }
     public uint RowVersion { get; set; }
