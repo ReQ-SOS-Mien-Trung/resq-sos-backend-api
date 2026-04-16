@@ -865,7 +865,9 @@ public partial class ResQDbContext : DbContext
     {
         var result = new Dictionary<int, int?>();
         var inventoryById = ChangeTracker.Entries<SupplyInventory>()
-            .ToDictionary(x => x.Entity.Id, x => x.Entity.DepotId);
+            .Where(x => x.Entity.Id > 0)
+            .GroupBy(x => x.Entity.Id)
+            .ToDictionary(x => x.Key, x => x.First().Entity.DepotId);
 
         var logEntries = ChangeTracker.Entries<InventoryLog>()
             .Where(e => e.State == EntityState.Added)

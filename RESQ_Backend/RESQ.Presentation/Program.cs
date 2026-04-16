@@ -6,6 +6,7 @@ using RESQ.Application.Extensions;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Extensions;
 using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Infrastructure.Persistence.Seeding;
 using RESQ.Presentation.Extensions;
 using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
@@ -205,11 +206,27 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Ensure database schema is applied when the API starts in Docker/production.
+// Ensure database schema exists at startup.
+// If migrations are available, apply them; otherwise create schema from the model.
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-    dbContext.Database.Migrate();
+    var hasMigrations = dbContext.Database.GetMigrations().Any();
+
+    if (hasMigrations)
+    {
+        dbContext.Database.Migrate();
+    }
+    else
+    {
+        dbContext.Database.EnsureCreated();
+    }
+
+    if (builder.Configuration.GetValue<bool>("SeedData:Enabled"))
+    {
+        var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
+        await seeder.SeedAsync();
+    }
 }
 
 // Middleware pipeline

@@ -18,6 +18,7 @@ using RESQ.Domain.Entities.Logistics.Services;
 using RESQ.Infrastructure.Options;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Infrastructure.Persistence.Seeding;
 using RESQ.Infrastructure.Persistence.Emergency;
 using RESQ.Infrastructure.Persistence.Finance;
 using RESQ.Infrastructure.Persistence.Identity;
@@ -44,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.Configure<AiProvidersOptions>(configuration.GetSection("AiProviders"));
         services.Configure<PromptSecretsOptions>(configuration.GetSection("PromptSecrets"));
         services.Configure<MissionSuggestionPipelineOptions>(configuration.GetSection("MissionSuggestionPipeline"));
+        services.Configure<SeedDataOptions>(configuration.GetSection("SeedData"));
         services.AddHttpClient("Goong", client =>
         {
             client.DefaultRequestHeaders.Add("Accept", "application/json");
@@ -172,6 +174,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInventoryQueryService, InventoryQueryService>();
         services.AddScoped<IStockThresholdResolver, StockThresholdResolver>();
         services.AddScoped<IStockWarningEvaluatorService, StockWarningEvaluatorService>();
+        services.AddScoped<DemoSeedValidator>();
+        services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 
         // Payment Services
         services.AddScoped<PayOSService>();
