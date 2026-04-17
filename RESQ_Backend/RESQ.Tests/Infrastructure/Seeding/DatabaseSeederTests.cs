@@ -59,8 +59,31 @@ public class DatabaseSeederTests
             Assert.Contains(rescuer.Id, eligibleRescuerIds);
         }
 
+        var hueStadium = await context.AssemblyPoints
+            .SingleAsync(point => point.Code == "AP-HUE-TD-241015");
+        Assert.Equal("Sân vận động Tự Do (Thừa Thiên Huế)", hueStadium.Name);
+
+        var depotHue = await context.Depots.SingleAsync(depot => depot.Name == "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế");
+        var depotDaNang = await context.Depots.SingleAsync(depot => depot.Name == "Ủy ban MTTQVN TP Đà Nẵng");
+        var depotHaTinh = await context.Depots.SingleAsync(depot => depot.Name == "Ủy Ban MTTQ Tỉnh Hà Tĩnh");
+        Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg", depotHue.ImageUrl);
+        Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg", depotDaNang.ImageUrl);
+        Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg", depotHaTinh.ImageUrl);
+
+        var unclusteredHueSos = await context.SosRequests
+            .Where(s => s.ClusterId == null && s.Location != null)
+            .Where(s => s.Location!.Y >= 16.455 && s.Location.Y <= 16.479)
+            .Where(s => s.Location!.X >= 107.586 && s.Location.X <= 107.609)
+            .ToListAsync();
+
+        Assert.Equal(10, unclusteredHueSos.Count);
         Assert.DoesNotContain(await context.SosRequests.Select(s => s.PriorityLevel).Distinct().ToListAsync(), value => value == "Moderate");
-        Assert.All(await context.Users.Select(u => u.Phone).ToListAsync(), phone => Assert.Matches("^0[0-9]{9}$", phone ?? ""));
+        Assert.All(
+            await context.Users.Where(u => u.RoleId == 5).Select(u => u.Phone).ToListAsync(),
+            phone => Assert.Matches("^\\+84[0-9]{9}$", phone ?? ""));
+        Assert.All(
+            await context.Users.Where(u => u.RoleId != 5).Select(u => u.Phone).ToListAsync(),
+            phone => Assert.Matches("^0[0-9]{9}$", phone ?? ""));
         Assert.All(await context.SosRequests.Where(s => s.Location != null).Select(s => s.Location!).Take(40).ToListAsync(), point =>
         {
             Assert.InRange(point.Y, 14.9, 16.95);

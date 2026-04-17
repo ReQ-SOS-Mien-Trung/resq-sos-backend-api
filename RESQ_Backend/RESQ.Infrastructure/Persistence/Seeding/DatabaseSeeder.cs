@@ -27,6 +27,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int TotalRescuerCount = 106;
     private const int UnassignedRescuerCount = 20;
     private const int EligibleAssignedRescuerCount = 78;
+    private const int HueStadiumUnclusteredSosCount = 10;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ResQDbContext _db;
     private readonly SeedDataOptions _options;
@@ -527,30 +528,30 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         var points = new[]
         {
-            ("AP-HUE-01", "Điểm tập kết Phú Hội", 16.4637, 107.5962, "Available"),
-            ("AP-HUE-02", "Trường THCS Hương Sơ", 16.4952, 107.5860, "Available"),
-            ("AP-HUE-03", "Nhà văn hóa Quảng Điền", 16.5790, 107.5128, "Unavailable"),
-            ("AP-DNG-01", "Cung thể thao Tiên Sơn", 16.0471, 108.2188, "Available"),
-            ("AP-DNG-02", "Trung tâm Hòa Vang", 15.9886, 108.1210, "Available"),
-            ("AP-QTR-01", "Nhà văn hóa Đông Hà", 16.8175, 107.1003, "Available"),
-            ("AP-QTR-02", "Trường THPT Hải Lăng", 16.6766, 107.2284, "Closed"),
-            ("AP-QNM-01", "Trung tâm Tam Kỳ", 15.5736, 108.4740, "Available"),
-            ("AP-QNM-02", "Điểm tập kết Hội An", 15.8801, 108.3380, "Created"),
-            ("AP-QNG-01", "Trung tâm Quảng Ngãi", 15.1214, 108.8044, "Available")
+            ("AP-HUE-TD-241015", "Sân vận động Tự Do (Thừa Thiên Huế)", 16.46751083681696, 107.59761456770599, "Available", 20, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774499522/SVDTD_TTH_sqdeoa.jpg"),
+            ("AP-HUE-02", "Trường THCS Hương Sơ", 16.4952, 107.5860, "Available", (int?)null, (string?)null),
+            ("AP-HUE-03", "Nhà văn hóa Quảng Điền", 16.5790, 107.5128, "Unavailable", (int?)null, (string?)null),
+            ("AP-DNG-01", "Cung thể thao Tiên Sơn", 16.0471, 108.2188, "Available", (int?)null, (string?)null),
+            ("AP-DNG-02", "Trung tâm Hòa Vang", 15.9886, 108.1210, "Available", (int?)null, (string?)null),
+            ("AP-QTR-01", "Nhà văn hóa Đông Hà", 16.8175, 107.1003, "Available", (int?)null, (string?)null),
+            ("AP-QTR-02", "Trường THPT Hải Lăng", 16.6766, 107.2284, "Closed", (int?)null, (string?)null),
+            ("AP-QNM-01", "Trung tâm Tam Kỳ", 15.5736, 108.4740, "Available", (int?)null, (string?)null),
+            ("AP-QNM-02", "Điểm tập kết Hội An", 15.8801, 108.3380, "Created", (int?)null, (string?)null),
+            ("AP-QNG-01", "Trung tâm Quảng Ngãi", 15.1214, 108.8044, "Available", (int?)null, (string?)null)
         };
 
-        foreach (var (code, name, lat, lon, status) in points)
+        foreach (var (code, name, lat, lon, status, maxCapacity, imageUrl) in points)
         {
             seed.AssemblyPoints.Add(new AssemblyPoint
             {
                 Code = code,
                 Name = name,
-                MaxCapacity = 90 + seed.AssemblyPoints.Count * 15,
+                MaxCapacity = maxCapacity ?? 90 + seed.AssemblyPoints.Count * 15,
                 Status = status,
                 Location = Point(lon, lat),
                 CreatedAt = seed.StartUtc.AddDays(seed.AssemblyPoints.Count * 12),
                 UpdatedAt = seed.AnchorUtc.AddDays(-seed.AssemblyPoints.Count),
-                ImageUrl = $"https://cdn.resq.vn/assembly/{code.ToLowerInvariant()}.jpg",
+                ImageUrl = imageUrl ?? $"https://cdn.resq.vn/assembly/{code.ToLowerInvariant()}.jpg",
                 StatusReason = status == "Unavailable" ? "Đang sửa mái che và máy phát điện" : null,
                 StatusChangedAt = seed.AnchorUtc.AddDays(-10 + seed.AssemblyPoints.Count),
                 StatusChangedBy = seed.Coordinators[seed.AssemblyPoints.Count % seed.Coordinators.Count].Id
@@ -839,34 +840,35 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         var depotDefs = new[]
         {
-            ("Kho cứu trợ Phú Bài", "KCN Phú Bài, Hương Thủy, Huế", 16.3990, 107.7010, "Available"),
-            ("Kho trung chuyển Phú Hội", "25 Lê Lợi, Phú Hội, Huế", 16.4637, 107.5962, "Available"),
-            ("Kho Đà Nẵng Hải Châu", "02 Tháng 9, Hải Châu, Đà Nẵng", 16.0471, 108.2188, "Available"),
-            ("Kho Đông Hà Quảng Trị", "Lê Duẩn, Đông Hà, Quảng Trị", 16.8175, 107.1003, "Available"),
-            ("Kho Tam Kỳ Quảng Nam", "Hùng Vương, Tam Kỳ, Quảng Nam", 15.5736, 108.4740, "Unavailable"),
-            ("Kho Quảng Ngãi", "Quang Trung, TP Quảng Ngãi", 15.1214, 108.8044, "Closing")
+            ("Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", "46 Đống Đa, TP. Huế, Thừa Thiên Huế", 16.454572773043417, 107.56799781003454, "Available", 1_100_000m, 831_777.9m, 440_000m, 330_877.49m, 80_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg"),
+            ("Ủy ban MTTQVN TP Đà Nẵng", "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", 16.080298466000496, 108.22283205420794, "Available", 1_000_000m, 754_700.9m, 480_000m, 365_265.69m, 60_000_000m, 10_000_000m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy Ban MTTQ Tỉnh Hà Tĩnh", "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", 18.349622333272194, 105.90102499916586, "Available", 600_000m, 443_207.6m, 260_000m, 195_723.64m, 40_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg"),
+            ("Ủy ban MTTQVN Việt Nam", "46 Tràng Thi, Hoàn Kiếm, Hà Nội", 21.027819, 105.842191, "Available", 1_400_000m, 1_064_369.2m, 650_000m, 472_365.44m, 100_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy ban MTTQVN Huyện Thăng Bình", "282 Tiểu La, thị trấn Hà Lam, huyện Thăng Bình, Quảng Nam", 15.6949, 108.4587, "Available", 250_000m, 1_890m, 120_000m, 581m, 12_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy ban MTTQVN Huyện Quảng Ninh", "TT. Quán Hàu, huyện Quảng Ninh, Quảng Bình", 17.4619, 106.6175, "Available", 280_000m, 2_400m, 140_000m, 732.5m, 14_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy ban MTTQVN Tỉnh Nghệ An", "1 Phan Đăng Lưu, TP. Vinh, Nghệ An", 18.6732581, 105.6936046, "Available", 300_000m, 0m, 150_000m, 0m, 5_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg")
         };
 
         for (var i = 0; i < depotDefs.Length; i++)
         {
-            var (name, address, lat, lon, status) = depotDefs[i];
+            var (name, address, lat, lon, status, capacity, currentUtilization, weightCapacity, currentWeightUtilization, advanceLimit, outstandingAdvanceAmount, imageUrl) = depotDefs[i];
             seed.Depots.Add(new Depot
             {
                 Name = name,
                 Address = address,
                 Location = Point(lon, lat),
                 Status = status,
-                Capacity = 12000 + i * 1800,
-                CurrentUtilization = 6500 + i * 700,
-                WeightCapacity = 180000 + i * 20000,
-                CurrentWeightUtilization = 90000 + i * 11000,
-                AdvanceLimit = 500_000_000,
-                OutstandingAdvanceAmount = i % 3 == 0 ? 120_000_000 : 35_000_000,
+                Capacity = capacity,
+                CurrentUtilization = currentUtilization,
+                WeightCapacity = weightCapacity,
+                CurrentWeightUtilization = currentWeightUtilization,
+                AdvanceLimit = advanceLimit,
+                OutstandingAdvanceAmount = outstandingAdvanceAmount,
                 LastUpdatedAt = seed.AnchorUtc.AddDays(-i),
                 CreatedBy = seed.Admins[0].Id,
                 LastUpdatedBy = seed.Managers[i % seed.Managers.Count].Id,
                 LastStatusChangedBy = seed.Managers[i % seed.Managers.Count].Id,
-                ImageUrl = $"https://cdn.resq.vn/depots/depot-{i + 1}.jpg"
+                ImageUrl = imageUrl
             });
         }
 
@@ -1035,7 +1037,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedEmergencyAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
-        var clusterSosCounts = Enumerable.Range(0, 110).Select(i => i < 30 ? 4 : 3).ToArray();
+        var clusterSosCounts = Enumerable.Range(0, 110).Select(i => i < 20 ? 4 : 3).ToArray();
         var createdSos = new List<SosRequest>();
 
         for (var i = 0; i < clusterSosCounts.Length; i++)
@@ -1121,6 +1123,97 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     ReviewedAt = status == "Pending" ? null : createdAt.AddMinutes(20 + i % 30),
                     ReviewedById = status == "Pending" ? null : coordinator.Id,
                     CreatedByCoordinatorId = onBehalf ? coordinator.Id : null
+                });
+            }
+        }
+
+        var hueStadium = GetHueStadiumAssemblyPoint(seed);
+        if (hueStadium?.Location is not null)
+        {
+            var stadiumLat = hueStadium.Location.Y;
+            var stadiumLon = hueStadium.Location.X;
+            var offsets = new[]
+            {
+                (0.0068, -0.0045),
+                (-0.0059, 0.0062),
+                (0.0041, 0.0086),
+                (-0.0076, -0.0033),
+                (0.0091, 0.0019),
+                (-0.0038, -0.0087),
+                (0.0024, -0.0101),
+                (-0.0094, 0.0041),
+                (0.0107, -0.0018),
+                (-0.0063, 0.0094)
+            };
+            var nearbyAddresses = new[]
+            {
+                "12 Hà Huy Tập, Phú Nhuận, Huế",
+                "37 Nguyễn Huệ, Phú Nhuận, Huế",
+                "18 Lê Quý Đôn, Vĩnh Ninh, Huế",
+                "54 Nguyễn Trường Tộ, Phước Vĩnh, Huế",
+                "29 Đống Đa, Phú Nhuận, Huế",
+                "8 Nguyễn Công Trứ, Phú Hội, Huế",
+                "41 Trần Cao Vân, Vĩnh Ninh, Huế",
+                "66 Bà Triệu, Xuân Phú, Huế",
+                "23 Hoàng Hoa Thám, Phú Nhuận, Huế",
+                "15 Phan Bội Châu, Vĩnh Ninh, Huế"
+            };
+
+            for (var i = 0; i < HueStadiumUnclusteredSosCount; i++)
+            {
+                var victim = seed.Victims[110 + i];
+                var coordinator = seed.Coordinators[i % seed.Coordinators.Count];
+                var situation = (i % 4) switch
+                {
+                    0 => "STRANDED",
+                    1 => "FLOODING",
+                    2 => "CANNOT_MOVE",
+                    _ => "NEED_SUPPLIES"
+                };
+                var status = i < 4 ? "Pending" : i < 7 ? "Assigned" : i < 9 ? "InProgress" : "Resolved";
+                var people = 2 + i % 4;
+                var hasInjured = i % 3 == 0;
+                var localDate = new DateTime(2026, 4, 6 + i, 6 + i % 5, 15 + i * 3 % 35, 0, DateTimeKind.Unspecified);
+                var createdAt = VnToUtc(localDate);
+                var location = Point(stadiumLon + offsets[i].Item2, stadiumLat + offsets[i].Item1);
+
+                createdSos.Add(new SosRequest
+                {
+                    PacketId = StableGuid($"packet-hue-stadium-scatter-{i}"),
+                    ClusterId = null,
+                    UserId = victim.Id,
+                    Location = location,
+                    LocationAccuracy = 9 + i,
+                    SosType = situation is "NEED_SUPPLIES" ? "RELIEF" : situation is "FLOODING" ? "BOTH" : "RESCUE",
+                    RawMessage = SosMessage(situation, people, hasInjured),
+                    StructuredData = Json(new
+                    {
+                        incident = new { situation, water_level = i % 2 == 0 ? "Ngập cục bộ quanh sân vận động" : "Ngập sâu ở kiệt nhỏ quanh khu dân cư" },
+                        people_count = new { adult = Math.Max(1, people - 1), child = i % 2, elderly = i % 3 == 0 ? 1 : 0, pregnant = i == 7 ? 1 : 0 },
+                        has_injured = hasInjured,
+                        can_move = situation is not "CANNOT_MOVE" and not "STRANDED",
+                        medical_issues = hasInjured ? new[] { "trầy xước", "mệt do ngâm nước lâu" } : Array.Empty<string>(),
+                        supplies = SuppliesFor(situation),
+                        address = nearbyAddresses[i],
+                        assembly_point_reference = new { assembly_point_code = hueStadium.Code, assembly_point_name = hueStadium.Name }
+                    }),
+                    NetworkMetadata = Json(new { source = "mobile", network = i % 4 == 0 ? "4g" : "wifi", battery = 36 + i * 5 }),
+                    SenderInfo = Json(new { user_id = victim.Id, phone = victim.Phone }),
+                    VictimInfo = Json(new { user_name = FullName(victim), user_phone = victim.Phone }),
+                    ReporterInfo = Json(new { user_name = FullName(victim), user_phone = victim.Phone, is_online = true }),
+                    IsSentOnBehalf = false,
+                    OriginId = $"mobile-hue-stadium-{i + 1:000}",
+                    PriorityLevel = i < 3 ? "High" : i < 8 ? "Medium" : "Low",
+                    PriorityScore = i < 3 ? 69 + i : i < 8 ? 48 + i : 28 + i,
+                    Status = status,
+                    AiAnalysis = null,
+                    ReceivedAt = createdAt,
+                    Timestamp = new DateTimeOffset(createdAt).ToUnixTimeMilliseconds(),
+                    CreatedAt = createdAt,
+                    LastUpdatedAt = createdAt.AddHours(status == "Resolved" ? 6 : 2),
+                    ReviewedAt = status == "Pending" ? null : createdAt.AddMinutes(16 + i),
+                    ReviewedById = status == "Pending" ? null : coordinator.Id,
+                    CreatedByCoordinatorId = null
                 });
             }
         }
@@ -2373,7 +2466,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             5 => 904,
             _ => 905
         };
-        return $"0{prefix}{number:000000}";
+        return roleId == 5
+            ? $"+84{prefix}{number:000000}"
+            : $"0{prefix}{number:000000}";
     }
 
     private static Guid StableGuid(string value)
@@ -2525,6 +2620,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static List<User> GetDeployableRescuers(DemoSeedContext seed) =>
         seed.Rescuers.Take(seed.Rescuers.Count - UnassignedRescuerCount).ToList();
+
+    private static AssemblyPoint? GetHueStadiumAssemblyPoint(DemoSeedContext seed) =>
+        seed.AssemblyPoints.FirstOrDefault(point =>
+            string.Equals(point.Code, "AP-HUE-TD-241015", StringComparison.Ordinal)
+            || string.Equals(point.Name, "Sân vận động Tự Do (Thừa Thiên Huế)", StringComparison.Ordinal));
 
     private static IEnumerable<ServiceZone> ServiceZones(DateTime now)
     {
