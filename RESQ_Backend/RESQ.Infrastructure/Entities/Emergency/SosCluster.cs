@@ -47,8 +47,9 @@ public partial class SosCluster
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime? LastUpdatedAt { get; set; }
 
-    [Column("is_mission_created")]
-    public bool IsMissionCreated { get; set; } = false;
+    [Column("status")]
+    [StringLength(30)]
+    public string Status { get; set; } = "Pending";
 
     [InverseProperty("Cluster")]
     public virtual ICollection<ActivityAiSuggestion> ActivityAiSuggestions { get; set; } = new List<ActivityAiSuggestion>();

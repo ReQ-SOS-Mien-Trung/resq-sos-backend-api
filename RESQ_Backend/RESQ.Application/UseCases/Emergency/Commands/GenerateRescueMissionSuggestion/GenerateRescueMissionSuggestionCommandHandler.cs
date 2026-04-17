@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Services;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
 
@@ -39,9 +40,11 @@ public class GenerateRescueMissionSuggestionCommandHandler(
             request.ClusterId,
             cancellationToken);
 
-        if (result.IsSuccess && result.SuggestionId.HasValue)
+        if (result.IsSuccess &&
+            result.SuggestionId.HasValue &&
+            context.Cluster.Status == SosClusterStatus.Pending)
         {
-            context.Cluster.IsMissionCreated = true;
+            context.Cluster.Status = SosClusterStatus.Suggested;
             await _sosClusterRepository.UpdateAsync(context.Cluster, cancellationToken);
             await _unitOfWork.SaveAsync();
         }

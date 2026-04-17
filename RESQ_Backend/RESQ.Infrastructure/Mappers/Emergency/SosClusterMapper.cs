@@ -1,5 +1,6 @@
 using NetTopologySuite.Geometries;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 
 namespace RESQ.Infrastructure.Mappers.Emergency;
@@ -18,7 +19,8 @@ public static class SosClusterMapper
             ElderlyCount = model.ElderlyCount,
             MedicalUrgencyScore = model.MedicalUrgencyScore,
             CreatedAt = model.CreatedAt,
-            LastUpdatedAt = model.LastUpdatedAt
+            LastUpdatedAt = model.LastUpdatedAt,
+            Status = model.Status.ToString()
         };
 
         if (model.CenterLatitude.HasValue && model.CenterLongitude.HasValue)
@@ -45,8 +47,13 @@ public static class SosClusterMapper
             MedicalUrgencyScore = entity.MedicalUrgencyScore,
             CreatedAt = entity.CreatedAt,
             LastUpdatedAt = entity.LastUpdatedAt,
-            IsMissionCreated = entity.IsMissionCreated,
+            Status = ToStatus(entity.Status),
             SosRequestIds = sosRequestIds?.ToList() ?? entity.SosRequests.Select(s => s.Id).ToList()
         };
     }
+
+    private static SosClusterStatus ToStatus(string? status) =>
+        Enum.TryParse<SosClusterStatus>(status, ignoreCase: true, out var parsed)
+            ? parsed
+            : SosClusterStatus.Pending;
 }

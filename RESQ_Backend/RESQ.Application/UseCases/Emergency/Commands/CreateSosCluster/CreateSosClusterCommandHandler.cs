@@ -160,6 +160,7 @@ public class CreateSosClusterCommandHandler(
             MedicalUrgencyScore = null,
             CreatedAt = DateTime.UtcNow,
             LastUpdatedAt = DateTime.UtcNow,
+            Status = SosClusterStatus.Pending,
             SosRequestIds = resolvedRequests.Select(r => r.Id).ToList()
         };
 

@@ -219,8 +219,7 @@ public class CreateMissionCommandHandler(
         {
             missionId = await _missionRepository.CreateAsync(mission, request.CreatedById, cancellationToken);
 
-            // Mark cluster as having a mission created
-            cluster.IsMissionCreated = true;
+            cluster.Status = SosClusterStatus.InProgress;
             await _sosClusterRepository.UpdateAsync(cluster, cancellationToken);
 
             // Update all SOS requests in cluster to Assigned

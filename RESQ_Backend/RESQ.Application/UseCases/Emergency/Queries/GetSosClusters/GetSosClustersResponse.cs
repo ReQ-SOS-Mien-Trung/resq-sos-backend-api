@@ -1,3 +1,5 @@
+using RESQ.Domain.Enum.Emergency;
+
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 
 public class GetSosClustersResponse
@@ -19,7 +21,7 @@ public class SosClusterDto
     public double? MedicalUrgencyScore { get; set; }
     public int SosRequestCount { get; set; }
     public List<int> SosRequestIds { get; set; } = [];
-    public bool IsMissionCreated { get; set; }
+    public SosClusterStatus Status { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? LastUpdatedAt { get; set; }
 }
