@@ -2240,6 +2240,133 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         await _unitOfWork.SaveAsync();
     }
+
+    // -- Dispose / Decommission ------------------------------------------------
+
+    public async Task DisposeConsumableLotAsync(
+        int lotId,
+        int quantity,
+        string reason,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        var lot = await _unitOfWork.SetTracked<SupplyInventoryLot>()
+            .Include(l => l.SupplyInventory)
+            .FirstOrDefaultAsync(l => l.Id == lotId, cancellationToken)
+            ?? throw new InvalidOperationException($"Không tìm thấy lô hàng #{lotId}.");
+
+        if (lot.RemainingQuantity <= 0)
+            throw new InvalidOperationException($"Lô hàng #{lotId} đã hết hàng (remaining = 0).");
+
+        if (quantity > lot.RemainingQuantity)
+            throw new InvalidOperationException(
+                $"Lô hàng #{lotId}: số lượng yêu cầu ({quantity}) vượt quá tồn kho lô ({lot.RemainingQuantity}).");
+
+        var inventory = lot.SupplyInventory
+            ?? throw new InvalidOperationException($"Không tìm thấy tồn kho tổng hợp cho lô #{lotId}.");
+
+        // Deduct lot
+        lot.RemainingQuantity -= quantity;
+
+        // Deduct aggregate
+        inventory.Quantity = (inventory.Quantity ?? 0) - quantity;
+        inventory.LastStockedAt = now;
+
+        // Resolve source type from reason string
+        var sourceType = reason.Equals("Expired", StringComparison.OrdinalIgnoreCase)
+            ? InventorySourceType.Expired.ToString()
+            : InventorySourceType.Damaged.ToString();
+
+        await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+        {
+            DepotSupplyInventoryId = inventory.Id,
+            SupplyInventoryLotId = lot.Id,
+            ActionType = InventoryActionType.Adjust.ToString(),
+            QuantityChange = -quantity,
+            SourceType = sourceType,
+            PerformedBy = performedBy,
+            Note = !string.IsNullOrWhiteSpace(note)
+                ? $"{note} [lô #{lot.Id}, SL -{quantity}, lý do: {reason}]"
+                : $"Xử lý lô #{lot.Id} SL {quantity}: {reason}",
+            ExpiredDate = lot.ExpiredDate,
+            CreatedAt = now
+        });
+
+        await _unitOfWork.SaveAsync();
+    }
+
+    public async Task DecommissionReusableItemAsync(
+        int reusableItemId,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        var item = await _unitOfWork.SetTracked<ReusableItem>()
+            .FirstOrDefaultAsync(r => r.Id == reusableItemId && !r.IsDeleted, cancellationToken)
+            ?? throw new InvalidOperationException($"Không tìm thấy thiết bị #{reusableItemId}.");
+
+        if (item.Status == ReusableItemStatus.InUse.ToString())
+            throw new InvalidOperationException(
+                $"Thiết bị #{reusableItemId} đang được sử dụng trong nhiệm vụ. Không thể ngừng sử dụng.");
+
+        if (item.Status == ReusableItemStatus.Decommissioned.ToString())
+            throw new InvalidOperationException(
+                $"Thiết bị #{reusableItemId} đã được ngừng sử dụng trước đó.");
+
+        item.Status = ReusableItemStatus.Decommissioned.ToString();
+        item.UpdatedAt = now;
+        if (!string.IsNullOrWhiteSpace(note))
+            item.Note = note;
+
+        await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+        {
+            ReusableItemId = item.Id,
+            ActionType = InventoryActionType.Adjust.ToString(),
+            QuantityChange = -1,
+            SourceType = InventorySourceType.Damaged.ToString(),
+            PerformedBy = performedBy,
+            Note = !string.IsNullOrWhiteSpace(note)
+                ? $"{note} [decommission thiết bị #{item.Id}]"
+                : $"Ngừng sử dụng thiết bị #{item.Id} (hư hỏng)",
+            CreatedAt = now
+        });
+
+        await _unitOfWork.SaveAsync();
+    }
+
+    public async Task<List<ExpiringLotModel>> GetExpiringLotsAsync(
+        int depotId,
+        int daysAhead,
+        CancellationToken cancellationToken = default)
+    {
+        var threshold = DateTime.UtcNow.AddDays(daysAhead);
+
+        return await _unitOfWork.Set<SupplyInventoryLot>()
+            .Where(l => l.RemainingQuantity > 0
+                && l.ExpiredDate.HasValue
+                && l.ExpiredDate.Value <= threshold
+                && l.SupplyInventory.DepotId == depotId
+                && !l.SupplyInventory.IsDeleted)
+            .OrderBy(l => l.ExpiredDate)
+            .Select(l => new ExpiringLotModel
+            {
+                LotId = l.Id,
+                SupplyInventoryId = l.SupplyInventoryId,
+                ItemModelId = l.SupplyInventory.ItemModelId ?? 0,
+                ItemModelName = l.SupplyInventory.ItemModel != null ? l.SupplyInventory.ItemModel.Name : null,
+                RemainingQuantity = l.RemainingQuantity,
+                ExpiredDate = l.ExpiredDate,
+                ReceivedDate = l.ReceivedDate,
+                SourceType = l.SourceType,
+                IsExpired = l.ExpiredDate.HasValue && l.ExpiredDate.Value < DateTime.UtcNow
+            })
+            .ToListAsync(cancellationToken);
+    }
 }
 
 

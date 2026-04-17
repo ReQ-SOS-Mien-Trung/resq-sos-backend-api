@@ -616,6 +616,9 @@ public sealed class AuthFlowHandlerTests
         public Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
         public Task ZeroOutForClosureAsync(int a, int b, Guid c, string? d, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<bool> HasActiveInventoryCommitmentsAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task DisposeConsumableLotAsync(int lotId, int quantity, string reason, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DecommissionReusableItemAsync(int reusableItemId, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<List<ExpiringLotModel>> GetExpiringLotsAsync(int depotId, int daysAhead, CancellationToken cancellationToken = default) => Task.FromResult(new List<ExpiringLotModel>());
     }
 
     private sealed class StubDepotRepository(DepotModel? depot = null) : IDepotRepository
