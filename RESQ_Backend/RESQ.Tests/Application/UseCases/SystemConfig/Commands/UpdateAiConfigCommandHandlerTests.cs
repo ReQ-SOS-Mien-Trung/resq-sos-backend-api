@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services.Ai;
 using RESQ.Application.UseCases.SystemConfig.Commands.UpdateAiConfig;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.System;
@@ -33,7 +34,6 @@ public class UpdateAiConfigCommandHandlerTests
             Model: null,
             Temperature: null,
             MaxTokens: null,
-            ApiUrl: null,
             ApiKey: submittedApiKey,
             Version: null,
             IsActive: null), CancellationToken.None);
@@ -62,13 +62,40 @@ public class UpdateAiConfigCommandHandlerTests
             Model: null,
             Temperature: null,
             MaxTokens: null,
-            ApiUrl: null,
             ApiKey: "new-raw-key",
             Version: null,
             IsActive: null), CancellationToken.None);
 
         Assert.Equal("new-raw-key", storedConfig.ApiKey);
         Assert.Same(storedConfig, repository.UpdatedConfig);
+        Assert.Equal(1, repository.UpdateCalls);
+        Assert.Equal(1, unitOfWork.SaveCalls);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldNormalizeApiUrl_WhenProviderChanges()
+    {
+        var storedConfig = BuildConfig();
+        var repository = new RecordingAiConfigRepository(storedConfig);
+        var unitOfWork = new StubUnitOfWork();
+        var handler = new UpdateAiConfigCommandHandler(
+            repository,
+            unitOfWork,
+            NullLogger<UpdateAiConfigCommandHandler>.Instance);
+
+        await handler.Handle(new UpdateAiConfigCommand(
+            storedConfig.Id,
+            Name: null,
+            Provider: AiProvider.OpenRouter,
+            Model: null,
+            Temperature: null,
+            MaxTokens: null,
+            ApiKey: null,
+            Version: null,
+            IsActive: null), CancellationToken.None);
+
+        Assert.Equal(AiProvider.OpenRouter, storedConfig.Provider);
+        Assert.Equal(AiProviderDefaults.OpenRouterApiUrl, storedConfig.ApiUrl);
         Assert.Equal(1, repository.UpdateCalls);
         Assert.Equal(1, unitOfWork.SaveCalls);
     }

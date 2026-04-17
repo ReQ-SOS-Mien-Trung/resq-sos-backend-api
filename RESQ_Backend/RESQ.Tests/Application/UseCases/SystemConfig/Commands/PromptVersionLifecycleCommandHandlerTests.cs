@@ -75,7 +75,7 @@ public class PromptVersionLifecycleCommandHandlerTests
             handler.Handle(new ActivatePromptVersionCommand(draft.Id), CancellationToken.None));
 
         Assert.Equal(
-            "Version phat hanh 'v1.0' cua prompt type 'MissionPlanning' da ton tai. Hay doi version draft truoc khi kich hoat.",
+            "Version phát hành 'v1.0' của prompt type 'MissionPlanning' đã tồn tại. Hãy đổi version draft trước khi kích hoạt.",
             exception.Message);
         Assert.False(draft.IsActive);
         Assert.Equal("v1.0-D26041612", draft.Version);
@@ -130,7 +130,7 @@ public class PromptVersionLifecycleCommandHandlerTests
                     IsActive: false),
                 CancellationToken.None));
 
-        Assert.Equal("Prompt type 'MissionPlanning' da ton tai version 'v1.0'.", exception.Message);
+        Assert.Equal("Prompt type 'MissionPlanning' đã tồn tại version 'v1.0'.", exception.Message);
         Assert.Equal(0, unitOfWork.SaveCalls);
     }
 

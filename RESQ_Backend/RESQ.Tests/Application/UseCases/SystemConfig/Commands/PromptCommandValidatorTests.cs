@@ -22,7 +22,7 @@ public class PromptCommandValidatorTests
         var result = validator.Validate(command);
 
         var error = Assert.Single(result.Errors, x => x.PropertyName == nameof(CreatePromptCommand.Version));
-        Assert.Equal("Version tao moi khong duoc dung dinh dang draft '-D'. Hay dung endpoint tao draft.", error.ErrorMessage);
+        Assert.Equal("Version tạo mới không được dùng định dạng draft '-D'. Hãy dùng endpoint tạo draft.", error.ErrorMessage);
     }
 
     [Fact]
@@ -60,6 +60,6 @@ public class PromptCommandValidatorTests
         var result = validator.Validate(command);
 
         var error = Assert.Single(result.Errors, x => x.PropertyName == nameof(UpdatePromptCommand.Version));
-        Assert.Equal("Version cua draft phai chua dau hieu '-D'.", error.ErrorMessage);
+        Assert.Equal("Version của draft phải chứa dấu hiệu '-D'.", error.ErrorMessage);
     }
 }

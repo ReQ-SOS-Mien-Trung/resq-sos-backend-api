@@ -10,7 +10,7 @@ public class AiPromptExecutionSettingsResolver : IAiPromptExecutionSettingsResol
         return new AiPromptExecutionSettings(
             aiConfig.Provider,
             aiConfig.Model ?? string.Empty,
-            aiConfig.ApiUrl ?? string.Empty,
+            AiProviderDefaults.ResolveApiUrl(aiConfig.Provider),
             aiConfig.ApiKey ?? string.Empty,
             aiConfig.Temperature,
             aiConfig.MaxTokens);

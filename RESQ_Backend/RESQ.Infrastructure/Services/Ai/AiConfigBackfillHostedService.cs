@@ -66,7 +66,6 @@ public class AiConfigBackfillHostedService(
                     config.Model,
                     config.Temperature,
                     config.MaxTokens,
-                    config.ApiUrl,
                     config.ApiKey))
                 .Select(group => new
                 {
@@ -100,7 +99,6 @@ public class AiConfigBackfillHostedService(
                         activeSource.Model,
                         activeSource.Temperature,
                         activeSource.MaxTokens,
-                        activeSource.ApiUrl,
                         activeSource.ApiKey));
 
                 dbContext.AiConfigs.Add(new Infrastructure.Entities.System.AiConfig
@@ -112,7 +110,7 @@ public class AiConfigBackfillHostedService(
                     Model = representative.Model,
                     Temperature = representative.Temperature,
                     MaxTokens = representative.MaxTokens,
-                    ApiUrl = representative.ApiUrl,
+                    ApiUrl = AiProviderDefaults.ResolveApiUrl(representative.Provider),
                     ApiKey = _aiSecretProtector.Protect(representative.ApiKey),
                     Version = normalizedVersion,
                     IsActive = isActive,
@@ -286,7 +284,6 @@ public class AiConfigBackfillHostedService(
                && string.Equals(left.Model, right.Model, StringComparison.OrdinalIgnoreCase)
                && left.Temperature.Equals(right.Temperature)
                && left.MaxTokens == right.MaxTokens
-               && string.Equals(left.ApiUrl, right.ApiUrl, StringComparison.OrdinalIgnoreCase)
                && string.Equals(left.ApiKey, right.ApiKey, StringComparison.Ordinal);
     }
 
@@ -295,7 +292,6 @@ public class AiConfigBackfillHostedService(
         string Model,
         double Temperature,
         int MaxTokens,
-        string ApiUrl,
         string? ApiKey);
 
     private sealed class LegacyPromptConfigRow

@@ -4,6 +4,7 @@ using RESQ.Application.Common;
 using RESQ.Application.Common.Security;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services.Ai;
 
 namespace RESQ.Application.UseCases.SystemConfig.Queries.GetAiConfigById;
 
@@ -33,7 +34,7 @@ public class GetAiConfigByIdQueryHandler(
             Model = aiConfig.Model,
             Temperature = aiConfig.Temperature,
             MaxTokens = aiConfig.MaxTokens,
-            ApiUrl = aiConfig.ApiUrl,
+            ApiUrl = AiProviderDefaults.ResolveApiUrl(aiConfig.Provider),
             HasApiKey = !string.IsNullOrWhiteSpace(aiConfig.ApiKey),
             ApiKeyMasked = SecretMasker.Mask(aiConfig.ApiKey),
             Version = aiConfig.Version,

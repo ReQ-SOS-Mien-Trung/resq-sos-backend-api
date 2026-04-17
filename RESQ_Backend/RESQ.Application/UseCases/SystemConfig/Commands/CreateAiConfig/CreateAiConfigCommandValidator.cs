@@ -24,20 +24,10 @@ public class CreateAiConfigCommandValidator : AbstractValidator<CreateAiConfigCo
         RuleFor(x => x.MaxTokens)
             .GreaterThan(0).WithMessage("MaxTokens phải lớn hơn 0.");
 
-        RuleFor(x => x.ApiUrl)
-            .NotEmpty().WithMessage("ApiUrl không được để trống.")
-            .MaximumLength(500).WithMessage("ApiUrl không được vượt quá 500 ký tự.")
-            .Must(BeAbsoluteUri).WithMessage("ApiUrl phải là URL tuyệt đối hợp lệ.");
-
         RuleFor(x => x.Version)
             .NotEmpty().WithMessage("Phiên bản không được để trống.")
             .MaximumLength(20).WithMessage("Phiên bản không được vượt quá 20 ký tự.")
             .Must(version => !PromptLifecycleStatusResolver.IsDraftVersion(version))
             .WithMessage("Version tạo mới không được dùng định dạng draft '-D'. Hãy dùng endpoint tạo draft.");
-    }
-
-    private static bool BeAbsoluteUri(string value)
-    {
-        return Uri.TryCreate(value, UriKind.Absolute, out _);
     }
 }

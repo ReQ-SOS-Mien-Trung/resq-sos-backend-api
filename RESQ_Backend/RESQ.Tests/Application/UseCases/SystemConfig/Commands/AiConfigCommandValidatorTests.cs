@@ -16,7 +16,6 @@ public class AiConfigCommandValidatorTests
             Model: "gemini-2.5-flash",
             Temperature: 0.5,
             MaxTokens: 256,
-            ApiUrl: "https://example.com/ai",
             ApiKey: "secret",
             Version: "v1",
             IsActive: true);
@@ -24,7 +23,7 @@ public class AiConfigCommandValidatorTests
         var result = validator.Validate(command);
 
         var error = Assert.Single(result.Errors, x => x.PropertyName == nameof(CreateAiConfigCommand.Provider));
-        Assert.Equal("Provider khong hop le. Gia tri hop le: \"Gemini\" hoac \"OpenRouter\".", error.ErrorMessage);
+        Assert.Equal("Provider không hợp lệ. Giá trị hợp lệ: \"Gemini\" hoặc \"OpenRouter\".", error.ErrorMessage);
     }
 
     [Fact]
@@ -38,7 +37,6 @@ public class AiConfigCommandValidatorTests
             Model: null,
             Temperature: null,
             MaxTokens: null,
-            ApiUrl: null,
             ApiKey: null,
             Version: null,
             IsActive: null);
@@ -46,6 +44,6 @@ public class AiConfigCommandValidatorTests
         var result = validator.Validate(command);
 
         var error = Assert.Single(result.Errors, x => x.PropertyName == nameof(UpdateAiConfigCommand.Provider));
-        Assert.Equal("Provider khong hop le. Gia tri hop le: \"Gemini\" hoac \"OpenRouter\".", error.ErrorMessage);
+        Assert.Equal("Provider không hợp lệ. Giá trị hợp lệ: \"Gemini\" hoặc \"OpenRouter\".", error.ErrorMessage);
     }
 }
