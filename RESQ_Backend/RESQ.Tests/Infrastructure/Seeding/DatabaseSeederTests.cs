@@ -30,7 +30,7 @@ public class DatabaseSeederTests
 
         Assert.Equal(firstCounts, secondCounts);
         Assert.Empty(validationErrors);
-        Assert.Equal(260, firstCounts.Users);
+        Assert.Equal(274, firstCounts.Users);
         Assert.Equal(360, firstCounts.SosRequests);
         Assert.Equal(110, firstCounts.SosClusters);
         Assert.Equal(100, firstCounts.Missions);
@@ -54,11 +54,37 @@ public class DatabaseSeederTests
             .Select(profile => profile.UserId)
             .ToListAsync();
 
+        Assert.Equal(120, await context.Users.CountAsync(u => u.RoleId == 3));
         Assert.Equal(20, unassignedRescuers.Count);
         foreach (var rescuer in unassignedRescuers)
         {
             Assert.Contains(rescuer.Id, eligibleRescuerIds);
         }
+
+        var duplicateRescuerIdsAcrossNonDisbandedTeams = await context.RescueTeamMembers
+            .Where(member => member.Team != null && member.Team.Status != "Disbanded")
+            .GroupBy(member => member.UserId)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToListAsync();
+        Assert.Empty(duplicateRescuerIdsAcrossNonDisbandedTeams);
+
+        var rescueTeams = await context.RescueTeams.ToListAsync();
+        var missionTeams = await context.MissionTeams.ToListAsync();
+        Assert.All(
+            rescueTeams.Where(team => team.Status == "Assigned"),
+            team => Assert.Contains(
+                missionTeams,
+                missionTeam => missionTeam.RescuerTeamId == team.Id
+                    && missionTeam.UnassignedAt == null
+                    && missionTeam.Status == "Assigned"));
+        Assert.All(
+            rescueTeams.Where(team => team.Status == "OnMission"),
+            team => Assert.Contains(
+                missionTeams,
+                missionTeam => missionTeam.RescuerTeamId == team.Id
+                    && missionTeam.UnassignedAt == null
+                    && missionTeam.Status == "InProgress"));
 
         var hueStadium = await context.AssemblyPoints
             .SingleAsync(point => point.Code == "AP-HUE-TD-241015");

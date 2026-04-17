@@ -24,7 +24,7 @@ namespace RESQ.Infrastructure.Persistence.Seeding;
 public sealed class DatabaseSeeder : IDatabaseSeeder
 {
     private const string MarkerName = "demo-seed-v1-2026-04-16";
-    private const int TotalRescuerCount = 106;
+    private const int TotalRescuerCount = 120;
     private const int UnassignedRescuerCount = 20;
     private const int EligibleAssignedRescuerCount = 78;
     private const int HueStadiumUnclusteredSosCount = 10;
@@ -701,10 +701,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var deployableRescuers = GetDeployableRescuers(seed);
         var statuses = new[]
         {
-            "Available", "Available", "Gathering", "Assigned", "OnMission",
-            "Available", "Gathering", "Assigned", "OnMission", "Stuck",
-            "Available", "Assigned", "OnMission", "Gathering", "Available",
-            "Assigned", "OnMission", "Unavailable", "Disbanded", "Disbanded"
+            "Available", "Available", "Gathering", "Available", "Gathering",
+            "Available", "Gathering", "Available", "Available", "Stuck",
+            "Available", "Gathering", "Available", "Gathering", "Available",
+            "Available", "Available", "Unavailable", "Disbanded", "Disbanded"
         };
         var types = new[] { "Mixed", "Rescue", "Medical", "Transportation" };
 
@@ -737,7 +737,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             var count = teamIndex < 16 ? 5 : teamIndex == 16 ? 6 : 10;
             for (var i = 0; i < count; i++)
             {
-                var rescuer = teamIndex < 17
+                var rescuer = teamIndex < 18
                     ? deployableRescuers[memberIndex++ % deployableRescuers.Count]
                     : deployableRescuers[(teamIndex * 13 + i) % deployableRescuers.Count];
                 var invitedAt = (team.CreatedAt ?? seed.StartUtc).AddHours(2 + i);
@@ -1377,6 +1377,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         _db.MissionTeams.AddRange(seed.MissionTeams);
         await _db.SaveChangesAsync(cancellationToken);
+
+        SyncRescueTeamStatusesFromAssignments(seed);
 
         foreach (var missionTeam in seed.MissionTeams)
         {
@@ -3091,8 +3093,53 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             "Mixed" => "Mixed",
             _ => "Rescue"
         };
-        return seed.RescueTeams.FirstOrDefault(t => t.TeamType == required && t.Status != "Disbanded" && t.Status != "Unavailable")
-            ?? seed.RescueTeams[(missionIndex + teamOffset) % seed.RescueTeams.Count];
+        var candidates = seed.RescueTeams
+            .Where(t => t.TeamType == required && t.Status is "Available" or "Gathering")
+            .ToList();
+
+        if (candidates.Count > 0)
+        {
+            return candidates[(missionIndex + teamOffset) % candidates.Count];
+        }
+
+        candidates = seed.RescueTeams
+            .Where(t => t.TeamType == required && t.Status != "Disbanded" && t.Status != "Unavailable")
+            .ToList();
+
+        if (candidates.Count > 0)
+        {
+            return candidates[(missionIndex + teamOffset) % candidates.Count];
+        }
+
+        return seed.RescueTeams[(missionIndex + teamOffset) % seed.RescueTeams.Count];
+    }
+
+    private static void SyncRescueTeamStatusesFromAssignments(DemoSeedContext seed)
+    {
+        var activeMissionTeamsByRescueTeam = seed.MissionTeams
+            .Where(team => team.RescuerTeamId.HasValue && team.UnassignedAt is null && team.Status != "Cancelled")
+            .GroupBy(team => team.RescuerTeamId!.Value)
+            .ToDictionary(group => group.Key, group => group.ToList());
+
+        foreach (var rescueTeam in seed.RescueTeams)
+        {
+            if (rescueTeam.Status is "Disbanded" or "Unavailable" or "Stuck")
+            {
+                continue;
+            }
+
+            if (!activeMissionTeamsByRescueTeam.TryGetValue(rescueTeam.Id, out var missionTeams))
+            {
+                rescueTeam.Status = rescueTeam.Status == "Gathering" ? "Gathering" : "Available";
+                continue;
+            }
+
+            rescueTeam.Status = missionTeams.Any(team => team.Status == "InProgress")
+                ? "OnMission"
+                : missionTeams.Any(team => team.Status == "Assigned")
+                    ? "Assigned"
+                    : "Available";
+        }
     }
 
     private static string ActivityType(int step, int total, string? missionType)

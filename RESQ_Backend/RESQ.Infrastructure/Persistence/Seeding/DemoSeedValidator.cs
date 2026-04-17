@@ -162,13 +162,35 @@ public sealed class DemoSeedValidator
         }
 
         var duplicateActiveTeamMembers = await db.RescueTeamMembers
-            .Where(m => m.Team != null && m.Team.Status != "Disbanded" && m.Team.Status != "Unavailable")
+            .Where(m => m.Team != null && m.Team.Status != "Disbanded")
             .GroupBy(m => m.UserId)
             .Where(g => g.Count() > 1)
             .CountAsync(cancellationToken);
         if (duplicateActiveTeamMembers > 0)
         {
             errors.Add($"{duplicateActiveTeamMembers} rescuers are assigned to more than one active rescue team.");
+        }
+
+        var assignedTeamsWithoutAssignments = await db.RescueTeams
+            .CountAsync(team => team.Status == "Assigned"
+                && !db.MissionTeams.Any(missionTeam =>
+                    missionTeam.RescuerTeamId == team.Id
+                    && missionTeam.UnassignedAt == null
+                    && missionTeam.Status == "Assigned"), cancellationToken);
+        if (assignedTeamsWithoutAssignments > 0)
+        {
+            errors.Add($"{assignedTeamsWithoutAssignments} rescue teams are marked Assigned without an active assigned mission.");
+        }
+
+        var missionTeamsWithoutExecution = await db.RescueTeams
+            .CountAsync(team => team.Status == "OnMission"
+                && !db.MissionTeams.Any(missionTeam =>
+                    missionTeam.RescuerTeamId == team.Id
+                    && missionTeam.UnassignedAt == null
+                    && missionTeam.Status == "InProgress"), cancellationToken);
+        if (missionTeamsWithoutExecution > 0)
+        {
+            errors.Add($"{missionTeamsWithoutExecution} rescue teams are marked OnMission without an in-progress mission.");
         }
 
         return errors;
