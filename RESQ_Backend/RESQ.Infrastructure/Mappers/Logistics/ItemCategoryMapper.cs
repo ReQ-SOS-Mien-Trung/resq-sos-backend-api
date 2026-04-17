@@ -31,12 +31,33 @@ public static class ItemCategoryMapper
         entity.UpdatedBy = model.UpdatedBy;
     }
 
+    // Explicit mapping from legacy DB string codes to enum values.
+    // Existing DB rows may still store codes in uppercase snake_case ("MEDICINE", "REPAIR_TOOLS")
+    // from before the seed was corrected. Enum.TryParse alone cannot bridge that gap.
+    private static readonly Dictionary<string, ItemCategoryCode> DbCodeOverrides =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["FOOD"]              = ItemCategoryCode.Food,
+            ["WATER"]             = ItemCategoryCode.Water,
+            ["MEDICINE"]          = ItemCategoryCode.Medical,
+            ["HYGIENE"]           = ItemCategoryCode.Hygiene,
+            ["CLOTHING"]          = ItemCategoryCode.Clothing,
+            ["SHELTER"]           = ItemCategoryCode.Shelter,
+            ["REPAIR_TOOLS"]      = ItemCategoryCode.RepairTools,
+            ["RESCUE_EQUIPMENT"]  = ItemCategoryCode.RescueEquipment,
+            ["HEATING"]           = ItemCategoryCode.Heating,
+            ["VEHICLE"]           = ItemCategoryCode.Vehicle,
+            ["OTHERS"]            = ItemCategoryCode.Others,
+        };
+
     public static ItemCategoryModel ToDomain(Category entity)
     {
-        // Handle parsing string back to Enum safely
-        if (!Enum.TryParse<ItemCategoryCode>(entity.Code, ignoreCase: true, out var code))
+        // Try the legacy override map first (covers old uppercase/snake_case DB codes),
+        // then fall back to Enum.TryParse for new PascalCase codes, then default to Others.
+        if (!DbCodeOverrides.TryGetValue(entity.Code ?? string.Empty, out var code)
+            && !Enum.TryParse<ItemCategoryCode>(entity.Code, ignoreCase: true, out code))
         {
-            code = ItemCategoryCode.Others; // Fallback or handle error
+            code = ItemCategoryCode.Others;
         }
 
         return new ItemCategoryModel
