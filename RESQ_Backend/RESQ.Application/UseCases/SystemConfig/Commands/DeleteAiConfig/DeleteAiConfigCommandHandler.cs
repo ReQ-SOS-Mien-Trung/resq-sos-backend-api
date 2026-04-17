@@ -23,12 +23,12 @@ public class DeleteAiConfigCommandHandler(
         var aiConfig = await _aiConfigRepository.GetByIdAsync(request.Id, cancellationToken);
         if (aiConfig == null)
         {
-            throw new NotFoundException($"Khong tim thay AI config voi Id={request.Id}");
+            throw new NotFoundException($"Không tìm thấy AI config với Id={request.Id}");
         }
 
         if (!PromptLifecycleStatusResolver.IsDraft(aiConfig))
         {
-            throw new BadRequestException("Chi draft AI config moi co the xoa.");
+            throw new BadRequestException("Chỉ draft AI config mới có thể xóa.");
         }
 
         await _aiConfigRepository.DeleteAsync(request.Id, cancellationToken);

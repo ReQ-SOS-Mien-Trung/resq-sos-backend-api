@@ -24,11 +24,11 @@ public class ActivatePromptVersionCommandHandler(
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             var target = await _promptRepository.GetByIdAsync(request.Id, cancellationToken)
-                ?? throw new NotFoundException($"Khong tim thay prompt voi Id={request.Id}");
+                ?? throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
 
             if (target.IsActive)
             {
-                throw new BadRequestException("Prompt nay dang o trang thai active.");
+                throw new BadRequestException("Prompt này đang ở trạng thái active.");
             }
 
             var normalizedVersion = PromptLifecycleStatusResolver.NormalizeReleasedVersion(target.Version);
@@ -40,7 +40,7 @@ public class ActivatePromptVersionCommandHandler(
             if (releasedVersionExists)
             {
                 throw new ConflictException(
-                    $"Version phat hanh '{normalizedVersion}' cua prompt type '{target.PromptType}' da ton tai. Hay doi version draft truoc khi kich hoat.");
+                    $"Version phát hành '{normalizedVersion}' của prompt type '{target.PromptType}' đã tồn tại. Hãy đổi version draft trước khi kích hoạt.");
             }
 
             var now = DateTime.UtcNow;
@@ -67,12 +67,12 @@ public class ActivatePromptVersionCommandHandler(
                 PromptType = target.PromptType,
                 Version = target.Version,
                 Status = PromptLifecycleStatusResolver.DetermineStatus(target),
-                Message = "Kich hoat prompt version thanh cong."
+                Message = "Kích hoạt prompt version thành công."
             };
         });
 
         _logger.LogInformation("Activated prompt version Id={Id}", request.Id);
 
-        return response ?? throw new NotFoundException($"Khong tim thay prompt voi Id={request.Id}");
+        return response ?? throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
     }
 }

@@ -7,6 +7,6 @@ public class RollbackPromptVersionCommandValidator : AbstractValidator<RollbackP
     public RollbackPromptVersionCommandValidator()
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("Id prompt khong hop le.");
+            .GreaterThan(0).WithMessage("Id prompt không hợp lệ.");
     }
 }

@@ -43,7 +43,7 @@ internal class UpdateMissionActivityPatchValidator : AbstractValidator<UpdateMis
             .When(x => x.Step.HasValue);
 
         RuleFor(x => x.AssemblyPointId)
-            .GreaterThan(0).WithMessage("AssemblyPointId phai lon hon 0")
+            .GreaterThan(0).WithMessage("AssemblyPointId phải lớn hơn 0")
             .When(x => x.AssemblyPointId.HasValue);
 
         RuleFor(x => x)

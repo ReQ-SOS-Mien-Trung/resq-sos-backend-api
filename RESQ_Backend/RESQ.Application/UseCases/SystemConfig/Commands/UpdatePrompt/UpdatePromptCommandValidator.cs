@@ -9,23 +9,23 @@ public class UpdatePromptCommandValidator : AbstractValidator<UpdatePromptComman
     public UpdatePromptCommandValidator()
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("Id prompt khong hop le.");
+            .GreaterThan(0).WithMessage("Id prompt không hợp lệ.");
 
         RuleFor(x => x.Name)
-            .MaximumLength(255).WithMessage("Ten prompt khong duoc vuot qua 255 ky tu.")
+            .MaximumLength(255).WithMessage("Tên prompt không được vượt quá 255 ký tự.")
             .When(x => x.Name != null);
 
         RuleFor(x => x.PromptType)
             .Must(promptType => !promptType.HasValue || Enum.IsDefined(typeof(PromptType), promptType.Value))
-            .WithMessage("Loai prompt (PromptType) khong hop le.");
+            .WithMessage("Loại prompt (PromptType) không hợp lệ.");
 
         RuleFor(x => x.Version)
-            .MaximumLength(20).WithMessage("Phien ban khong duoc vuot qua 20 ky tu.")
+            .MaximumLength(20).WithMessage("Phiên bản không được vượt quá 20 ký tự.")
             .When(x => x.Version != null);
 
         RuleFor(x => x.Version)
             .Must(v => v == null || PromptLifecycleStatusResolver.IsDraftVersion(v))
-            .WithMessage("Version cua draft phai chua dau hieu '-D'.")
+            .WithMessage("Version của draft phải chứa dấu hiệu '-D'.")
             .When(x => x.Version != null);
 
     }

@@ -7,6 +7,6 @@ public class ActivateAiConfigVersionCommandValidator : AbstractValidator<Activat
     public ActivateAiConfigVersionCommandValidator()
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("Id AI config khong hop le.");
+            .GreaterThan(0).WithMessage("Id AI config không hợp lệ.");
     }
 }

@@ -7,6 +7,6 @@ public class CreatePromptDraftCommandValidator : AbstractValidator<CreatePromptD
     public CreatePromptDraftCommandValidator()
     {
         RuleFor(x => x.SourcePromptId)
-            .GreaterThan(0).WithMessage("Id prompt nguon khong hop le.");
+            .GreaterThan(0).WithMessage("Id prompt nguồn không hợp lệ.");
     }
 }

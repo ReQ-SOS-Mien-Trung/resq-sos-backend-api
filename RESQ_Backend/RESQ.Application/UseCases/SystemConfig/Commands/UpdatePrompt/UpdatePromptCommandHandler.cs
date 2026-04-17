@@ -23,22 +23,22 @@ public class UpdatePromptCommandHandler(
         var prompt = await _promptRepository.GetByIdAsync(request.Id, cancellationToken);
         if (prompt == null)
         {
-            throw new NotFoundException($"Khong tim thay prompt voi Id={request.Id}");
+            throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
         }
 
         if (!PromptLifecycleStatusResolver.IsDraft(prompt))
         {
-            throw new BadRequestException("Chi co the cap nhat draft prompt. Hay tao draft moi tu version hien co.");
+            throw new BadRequestException("Chỉ có thể cập nhật draft prompt. Hãy tạo draft mới từ version hiện có.");
         }
 
         if (request.IsActive == true)
         {
-            throw new BadRequestException("Khong the kich hoat prompt qua endpoint update. Hay dung endpoint activate.");
+            throw new BadRequestException("Không thể kích hoạt prompt qua endpoint update. Hãy dùng endpoint activate.");
         }
 
         if (request.PromptType.HasValue && request.PromptType.Value != prompt.PromptType)
         {
-            throw new BadRequestException("Khong the doi PromptType cua draft prompt. Hay tao draft moi cho loai prompt khac.");
+            throw new BadRequestException("Không thể đổi PromptType của draft prompt. Hãy tạo draft mới cho loại prompt khác.");
         }
 
         var normalizedDraftVersion = request.Version?.Trim();
@@ -46,7 +46,7 @@ public class UpdatePromptCommandHandler(
         if (!string.IsNullOrWhiteSpace(normalizedDraftVersion)
             && !PromptLifecycleStatusResolver.IsDraftVersion(normalizedDraftVersion))
         {
-            throw new BadRequestException("Version cua draft phai chua dau hieu '-D'.");
+            throw new BadRequestException("Version của draft phải chứa dấu hiệu '-D'.");
         }
 
         if (!string.IsNullOrWhiteSpace(normalizedDraftVersion))
@@ -59,7 +59,7 @@ public class UpdatePromptCommandHandler(
             if (versionExists)
             {
                 throw new ConflictException(
-                    $"Da ton tai draft prompt khac cua type '{prompt.PromptType}' voi version '{normalizedDraftVersion}'.");
+                    $"Đã tồn tại draft prompt khác của type '{prompt.PromptType}' với version '{normalizedDraftVersion}'.");
             }
         }
 

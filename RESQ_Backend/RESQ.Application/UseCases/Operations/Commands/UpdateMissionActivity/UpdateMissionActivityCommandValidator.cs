@@ -18,11 +18,11 @@ public class UpdateMissionActivityCommandValidator : AbstractValidator<UpdateMis
             .When(x => x.Step.HasValue);
 
         RuleFor(x => x.AssemblyPointId)
-            .GreaterThan(0).WithMessage("AssemblyPointId phai lon hon 0")
+            .GreaterThan(0).WithMessage("AssemblyPointId phải lớn hơn 0")
             .When(x => x.AssemblyPointId.HasValue);
 
         RuleFor(x => x)
             .Must(x => !x.AssemblyPointId.HasValue || (!x.TargetLatitude.HasValue && !x.TargetLongitude.HasValue))
-            .WithMessage("Khong duoc gui TargetLatitude/TargetLongitude khi cap nhat AssemblyPointId.");
+            .WithMessage("Không được gửi TargetLatitude/TargetLongitude khi cập nhật AssemblyPointId.");
     }
 }

@@ -9,25 +9,25 @@ public class CreatePromptCommandValidator : AbstractValidator<CreatePromptComman
     public CreatePromptCommandValidator()
     {
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Ten prompt khong duoc de trong.")
-            .MaximumLength(255).WithMessage("Ten prompt khong duoc vuot qua 255 ky tu.");
+            .NotEmpty().WithMessage("Tên prompt không được để trống.")
+            .MaximumLength(255).WithMessage("Tên prompt không được vượt quá 255 ký tự.");
 
         RuleFor(x => x.PromptType)
-            .IsInEnum().WithMessage("Loai prompt (PromptType) khong hop le.");
+            .IsInEnum().WithMessage("Loại prompt (PromptType) không hợp lệ.");
 
         RuleFor(x => x.Purpose)
-            .NotEmpty().WithMessage("Muc dich khong duoc de trong.");
+            .NotEmpty().WithMessage("Mục đích không được để trống.");
 
         RuleFor(x => x.SystemPrompt)
-            .NotEmpty().WithMessage("System prompt khong duoc de trong.");
+            .NotEmpty().WithMessage("System prompt không được để trống.");
 
         RuleFor(x => x.UserPromptTemplate)
-            .NotEmpty().WithMessage("User prompt template khong duoc de trong.");
+            .NotEmpty().WithMessage("User prompt template không được để trống.");
 
         RuleFor(x => x.Version)
-            .NotEmpty().WithMessage("Phien ban khong duoc de trong.")
-            .MaximumLength(20).WithMessage("Phien ban khong duoc vuot qua 20 ky tu.")
+            .NotEmpty().WithMessage("Phiên bản không được để trống.")
+            .MaximumLength(20).WithMessage("Phiên bản không được vượt quá 20 ký tự.")
             .Must(version => !PromptLifecycleStatusResolver.IsDraftVersion(version))
-            .WithMessage("Version tao moi khong duoc dung dinh dang draft '-D'. Hay dung endpoint tao draft.");
+            .WithMessage("Version tạo mới không được dùng định dạng draft '-D'. Hãy dùng endpoint tạo draft.");
     }
 }
