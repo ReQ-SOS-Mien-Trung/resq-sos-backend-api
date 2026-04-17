@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
 using Npgsql;
 using RESQ.Domain.Enum.Finance;
+using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Entities.Identity;
@@ -23,6 +24,9 @@ namespace RESQ.Infrastructure.Persistence.Seeding;
 public sealed class DatabaseSeeder : IDatabaseSeeder
 {
     private const string MarkerName = "demo-seed-v1-2026-04-16";
+    private const int TotalRescuerCount = 106;
+    private const int UnassignedRescuerCount = 20;
+    private const int EligibleAssignedRescuerCount = 78;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ResQDbContext _db;
     private readonly SeedDataOptions _options;
@@ -440,7 +444,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             users.Add(CreateUser($"manager{i + 1:00}", 4, i + 1, name.Last, name.First, SeedConstants.ManagerPasswordHash, Area(i + 2), seed));
         }
 
-        for (var i = 0; i < 86; i++)
+        for (var i = 0; i < TotalRescuerCount; i++)
         {
             var name = VietnameseName(i + 40);
             users.Add(CreateUser($"rescuer{i + 1:000}", 3, i + 1, name.Last, name.First, SeedConstants.RescuerPasswordHash, Area(i), seed));
@@ -529,17 +533,21 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         _db.AssemblyPoints.AddRange(seed.AssemblyPoints);
         await _db.SaveChangesAsync(cancellationToken);
 
-        for (var i = 0; i < seed.Rescuers.Count; i++)
+        var deployableRescuers = seed.Rescuers.Take(seed.Rescuers.Count - UnassignedRescuerCount).ToList();
+        var standbyRescuers = seed.Rescuers.Skip(deployableRescuers.Count).ToList();
+        var standbyRescuerIds = standbyRescuers.Select(r => r.Id).ToHashSet();
+
+        for (var i = 0; i < deployableRescuers.Count; i++)
         {
-            seed.Rescuers[i].AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id;
+            deployableRescuers[i].AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id;
         }
 
         var profiles = seed.Rescuers.Select((user, index) => new RescuerProfile
         {
             UserId = user.Id,
             RescuerType = index % 4 == 0 ? "Core" : "Volunteer",
-            IsEligibleRescuer = index < 78,
-            Step = index < 78 ? 5 : 4,
+            IsEligibleRescuer = index < EligibleAssignedRescuerCount || standbyRescuerIds.Contains(user.Id),
+            Step = index < EligibleAssignedRescuerCount || standbyRescuerIds.Contains(user.Id) ? 5 : 4,
             ApprovedBy = seed.Admins[0].Id,
             ApprovedAt = seed.StartUtc.AddDays(20 + index)
         }).ToList();
@@ -586,7 +594,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         _db.RescuerApplicationDocuments.AddRange(documents);
 
-        var scores = seed.Rescuers.Take(72).Select((rescuer, index) =>
+        var scores = deployableRescuers.Take(72).Select((rescuer, index) =>
         {
             var a = 6.5m + (index % 30) / 10m;
             var b = 6.2m + (index % 25) / 10m;
@@ -616,6 +624,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedAssemblyEventsAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
+        var deployableRescuers = GetDeployableRescuers(seed);
         var events = new List<AssemblyEvent>();
         for (var i = 0; i < 45; i++)
         {
@@ -640,7 +649,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             for (var i = 0; i < 7; i++)
             {
-                var rescuer = seed.Rescuers[(assemblyEvent.Id * 11 + i) % seed.Rescuers.Count];
+                var rescuer = deployableRescuers[(assemblyEvent.Id * 11 + i) % deployableRescuers.Count];
                 var absent = (assemblyEvent.Id + i) % 10 == 0;
                 var late = (assemblyEvent.Id + i) % 6 == 0;
                 participants.Add(new AssemblyParticipant
@@ -661,6 +670,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedRescueTeamsAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
+        var deployableRescuers = GetDeployableRescuers(seed);
         var statuses = new[]
         {
             "Available", "Available", "Gathering", "Assigned", "OnMission",
@@ -700,8 +710,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             for (var i = 0; i < count; i++)
             {
                 var rescuer = teamIndex < 17
-                    ? seed.Rescuers[memberIndex++ % seed.Rescuers.Count]
-                    : seed.Rescuers[(teamIndex * 13 + i) % seed.Rescuers.Count];
+                    ? deployableRescuers[memberIndex++ % deployableRescuers.Count]
+                    : deployableRescuers[(teamIndex * 13 + i) % deployableRescuers.Count];
                 var invitedAt = (team.CreatedAt ?? seed.StartUtc).AddHours(2 + i);
                 seed.RescueTeamMembers.Add(new RescueTeamMember
                 {
@@ -1779,38 +1789,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedAuditAndHistoryAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
-        var vatInvoiceIds = await _db.VatInvoices
-            .OrderBy(v => v.Id)
-            .Select(v => v.Id)
-            .ToListAsync(cancellationToken);
-
-        for (var i = 0; i < 820; i++)
-        {
-            var inventory = seed.Inventories[i % seed.Inventories.Count];
-            var lot = seed.Lots.Count == 0 ? null : seed.Lots[i % seed.Lots.Count];
-            var reusable = seed.ReusableItems.Count == 0 ? null : seed.ReusableItems[i % seed.ReusableItems.Count];
-            var mission = seed.Missions.Count == 0 ? null : seed.Missions[i % seed.Missions.Count];
-            var action = InventoryAction(i);
-            _db.InventoryLogs.Add(new InventoryLog
-            {
-                DepotSupplyInventoryId = action == "Return" && i % 4 == 0 ? null : inventory.Id,
-                ReusableItemId = action == "Return" && reusable is not null ? reusable.Id : null,
-                VatInvoiceId = i % 9 == 0 && vatInvoiceIds.Count > 0
-                    ? vatInvoiceIds[i % vatInvoiceIds.Count]
-                    : null,
-                ActionType = action,
-                QuantityChange = InventoryQuantityChange(action, i),
-                SourceType = InventorySource(action),
-                SourceId = action is "Export" or "Return" ? mission?.Id : i + 1,
-                MissionId = action is "Export" or "Return" ? mission?.Id : null,
-                PerformedBy = seed.Managers[i % seed.Managers.Count].Id,
-                Note = InventoryNote(action),
-                ReceivedDate = action == "Import" ? seed.StartUtc.AddDays(100 + i) : null,
-                ExpiredDate = lot?.ExpiredDate,
-                CreatedAt = seed.StartUtc.AddDays(90 + i % 1000),
-                SupplyInventoryLotId = lot?.Id
-            });
-        }
+        await SeedInventoryMovementHistoryAsync(seed, cancellationToken);
 
         foreach (var depot in seed.Depots)
         {
@@ -1892,6 +1871,435 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SeedInventoryMovementHistoryAsync(DemoSeedContext seed, CancellationToken cancellationToken)
+    {
+        var vatInvoices = await _db.VatInvoices
+            .OrderBy(v => v.Id)
+            .ToListAsync(cancellationToken);
+        var requestItems = await _db.DepotSupplyRequestItems
+            .AsNoTracking()
+            .OrderBy(i => i.Id)
+            .ToListAsync(cancellationToken);
+        var missionItems = await _db.MissionItems
+            .AsNoTracking()
+            .OrderBy(i => i.Id)
+            .ToListAsync(cancellationToken);
+
+        var vatInvoiceIds = vatInvoices.Select(v => v.Id).ToArray();
+        var itemModelsById = seed.ItemModels.ToDictionary(i => i.Id);
+        var missionsById = seed.Missions.ToDictionary(m => m.Id);
+        var lotsByInventoryId = seed.Lots
+            .GroupBy(l => l.SupplyInventoryId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(l => l.Id).ToList());
+        var inventoriesByDepotItem = seed.Inventories
+            .Where(i => i.DepotId.HasValue && i.ItemModelId.HasValue)
+            .ToDictionary(i => (i.DepotId!.Value, i.ItemModelId!.Value));
+
+        var consumablePlans = seed.Inventories
+            .Where(i => i.DepotId.HasValue
+                && i.ItemModelId.HasValue
+                && itemModelsById.TryGetValue(i.ItemModelId.Value, out var itemModel)
+                && string.Equals(itemModel.ItemType, "Consumable", StringComparison.Ordinal)
+                && lotsByInventoryId.ContainsKey(i.Id))
+            .Select(i => new ConsumableInventoryHistoryPlan
+            {
+                Inventory = i,
+                ItemModel = itemModelsById[i.ItemModelId!.Value],
+                BaseLot = lotsByInventoryId[i.Id][0],
+                PerformedBy = ManagerForDepot(seed, i.DepotId!.Value)
+            })
+            .ToDictionary(plan => plan.Inventory.Id);
+
+        var transferLogCount = BuildCompletedTransferHistory(
+            seed,
+            requestItems,
+            itemModelsById,
+            inventoriesByDepotItem,
+            consumablePlans);
+
+        var missionExportTarget = 100 - transferLogCount;
+        BuildMissionExportHistory(
+            seed,
+            missionItems,
+            itemModelsById,
+            missionsById,
+            inventoriesByDepotItem,
+            consumablePlans,
+            missionExportTarget);
+
+        BuildAdjustmentHistory(consumablePlans.Values.ToList());
+
+        var inventoryLogs = new List<InventoryLog>(820);
+        BuildConsumableInventoryHistory(seed, vatInvoiceIds, consumablePlans.Values.ToList(), inventoryLogs);
+        BuildReusableInventoryHistory(seed, vatInvoiceIds, inventoryLogs);
+
+        _db.InventoryLogs.AddRange(inventoryLogs);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private int BuildCompletedTransferHistory(
+        DemoSeedContext seed,
+        IReadOnlyList<DepotSupplyRequestItem> requestItems,
+        IReadOnlyDictionary<int, ItemModel> itemModelsById,
+        IReadOnlyDictionary<(int DepotId, int ItemModelId), SupplyInventory> inventoriesByDepotItem,
+        IReadOnlyDictionary<int, ConsumableInventoryHistoryPlan> consumablePlans)
+    {
+        var requestItemsByRequestId = requestItems
+            .GroupBy(i => i.DepotSupplyRequestId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(i => i.Id).ToList());
+        var inboundCapacity = consumablePlans.Values.ToDictionary(plan => plan.Inventory.Id, plan => plan.FinalQuantity);
+        var transferLogs = 0;
+
+        foreach (var request in seed.SupplyRequests
+                     .Where(r => string.Equals(r.SourceStatus, "Completed", StringComparison.Ordinal))
+                     .OrderBy(r => r.Id))
+        {
+            if (transferLogs >= 100 || !requestItemsByRequestId.TryGetValue(request.Id, out var items))
+            {
+                continue;
+            }
+
+            foreach (var item in items)
+            {
+                if (transferLogs >= 100
+                    || !itemModelsById.TryGetValue(item.ItemModelId, out var itemModel)
+                    || !string.Equals(itemModel.ItemType, "Consumable", StringComparison.Ordinal)
+                    || !inventoriesByDepotItem.TryGetValue((request.SourceDepotId, item.ItemModelId), out var sourceInventory)
+                    || !inventoriesByDepotItem.TryGetValue((request.RequestingDepotId, item.ItemModelId), out var destinationInventory)
+                    || !consumablePlans.TryGetValue(sourceInventory.Id, out var sourcePlan)
+                    || !consumablePlans.TryGetValue(destinationInventory.Id, out var destinationPlan))
+                {
+                    continue;
+                }
+
+                var remainingInboundCapacity = inboundCapacity[destinationPlan.Inventory.Id];
+                var quantity = Math.Min(item.Quantity, 10 + item.Id % 18);
+                quantity = Math.Min(quantity, Math.Max(0, Math.Min(32, remainingInboundCapacity / 4)));
+                if (quantity < 6)
+                {
+                    continue;
+                }
+
+                var shippedAt = request.ShippedAt ?? request.CompletedAt ?? request.CreatedAt.AddHours(3);
+                var completedAt = request.CompletedAt ?? shippedAt.AddHours(4);
+
+                sourcePlan.OutboundEvents.Add(new ConsumableOutboundEvent
+                {
+                    ActionType = InventoryActionType.TransferOut.ToString(),
+                    SourceType = InventorySourceType.Transfer.ToString(),
+                    SourceId = request.Id,
+                    Quantity = quantity,
+                    CreatedAt = shippedAt,
+                    PerformedBy = request.ShippedBy ?? request.PreparedBy ?? sourcePlan.PerformedBy,
+                    MissionId = null,
+                    Note = $"Xuất chuyển {itemModel.Name} từ {request.SourceDepot?.Name ?? $"kho #{request.SourceDepotId}"} sang {request.RequestingDepot?.Name ?? $"kho #{request.RequestingDepotId}"} theo phiếu #{request.Id}"
+                });
+
+                destinationPlan.InboundTransfers.Add(new ConsumableInboundTransferEvent
+                {
+                    Quantity = quantity,
+                    SourceId = request.Id,
+                    CreatedAt = completedAt,
+                    PerformedBy = request.ConfirmedBy ?? request.CompletedBy ?? destinationPlan.PerformedBy,
+                    ReceivedDate = completedAt,
+                    ExpiredDate = sourcePlan.BaseLot.ExpiredDate,
+                    Note = $"Nhận chuyển {itemModel.Name} tại {request.RequestingDepot?.Name ?? $"kho #{request.RequestingDepotId}"} từ phiếu điều phối #{request.Id}"
+                });
+
+                inboundCapacity[destinationPlan.Inventory.Id] -= quantity;
+                transferLogs += 2;
+            }
+        }
+
+        return transferLogs;
+    }
+
+    private void BuildMissionExportHistory(
+        DemoSeedContext seed,
+        IReadOnlyList<MissionItem> missionItems,
+        IReadOnlyDictionary<int, ItemModel> itemModelsById,
+        IReadOnlyDictionary<int, Mission> missionsById,
+        IReadOnlyDictionary<(int DepotId, int ItemModelId), SupplyInventory> inventoriesByDepotItem,
+        IReadOnlyDictionary<int, ConsumableInventoryHistoryPlan> consumablePlans,
+        int missionExportTarget)
+    {
+        if (missionExportTarget <= 0)
+        {
+            return;
+        }
+
+        var added = 0;
+        foreach (var missionItem in missionItems)
+        {
+            if (added >= missionExportTarget
+                || missionItem.SourceDepotId is null
+                || missionItem.ItemModelId is null
+                || !itemModelsById.TryGetValue(missionItem.ItemModelId.Value, out var itemModel)
+                || !string.Equals(itemModel.ItemType, "Consumable", StringComparison.Ordinal)
+                || !inventoriesByDepotItem.TryGetValue((missionItem.SourceDepotId.Value, missionItem.ItemModelId.Value), out var inventory)
+                || !consumablePlans.TryGetValue(inventory.Id, out var plan)
+                || missionItem.MissionId is null
+                || !missionsById.TryGetValue(missionItem.MissionId.Value, out var mission)
+                || string.Equals(mission.Status, "Planned", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var quantity = missionItem.AllocatedQuantity ?? missionItem.RequiredQuantity ?? 0;
+            quantity = Math.Min(quantity, 14 + missionItem.Id % 24);
+            if (quantity <= 0)
+            {
+                continue;
+            }
+
+            plan.OutboundEvents.Add(new ConsumableOutboundEvent
+            {
+                ActionType = InventoryActionType.Export.ToString(),
+                SourceType = InventorySourceType.Mission.ToString(),
+                SourceId = mission.Id,
+                Quantity = quantity,
+                CreatedAt = (mission.StartTime ?? mission.CreatedAt ?? seed.StartUtc).AddMinutes(25 + missionItem.Id % 40),
+                PerformedBy = plan.PerformedBy,
+                MissionId = mission.Id,
+                Note = $"Xuất {itemModel.Name} cho mission #{mission.Id} thuộc cụm SOS #{mission.ClusterId}"
+            });
+            added++;
+        }
+    }
+
+    private static void BuildAdjustmentHistory(IReadOnlyList<ConsumableInventoryHistoryPlan> plans)
+    {
+        foreach (var plan in plans
+                     .OrderBy(p => p.Inventory.Id)
+                     .Where(p => p.Inventory.Id % 3 == 0)
+                     .Take(45))
+        {
+            var quantity = Math.Min(3 + plan.Inventory.Id % 8, Math.Max(2, Math.Max(1, plan.FinalQuantity / 30)));
+            plan.Adjustments.Add(new ConsumableAdjustmentEvent
+            {
+                Quantity = quantity,
+                CreatedAt = (plan.Inventory.LastStockedAt ?? plan.BaseLot.ReceivedDate ?? DateTime.UtcNow).AddDays(18 + plan.Inventory.Id % 40),
+                PerformedBy = plan.PerformedBy,
+                Note = $"Điều chỉnh giảm {plan.ItemModel.Name} sau kiểm kê do hư hỏng hoặc quá hạn"
+            });
+        }
+    }
+
+    private void BuildConsumableInventoryHistory(
+        DemoSeedContext seed,
+        IReadOnlyList<int> vatInvoiceIds,
+        IReadOnlyList<ConsumableInventoryHistoryPlan> plans,
+        ICollection<InventoryLog> inventoryLogs)
+    {
+        foreach (var plan in plans.OrderBy(p => p.Inventory.Id))
+        {
+            var inboundQuantity = plan.InboundTransfers.Sum(t => t.Quantity);
+            var outboundQuantity = plan.OutboundEvents.Sum(t => t.Quantity) + plan.Adjustments.Sum(t => t.Quantity);
+            var baseRemaining = Math.Max(0, plan.FinalQuantity - inboundQuantity);
+            var baseQuantity = Math.Max(1, baseRemaining + outboundQuantity);
+            var receivedDate = plan.BaseLot.ReceivedDate ?? seed.StartUtc.AddDays(120 + plan.Inventory.Id % 520);
+            var expiredDate = plan.BaseLot.ExpiredDate ?? receivedDate.AddMonths(6 + plan.Inventory.Id % 15);
+            var sourceType = string.Equals(plan.BaseLot.SourceType, InventorySourceType.Purchase.ToString(), StringComparison.Ordinal)
+                ? InventorySourceType.Purchase.ToString()
+                : InventorySourceType.Donation.ToString();
+            var sourceId = plan.BaseLot.SourceId ?? plan.Inventory.Id;
+
+            plan.BaseLot.Quantity = baseQuantity;
+            plan.BaseLot.RemainingQuantity = baseRemaining;
+            plan.BaseLot.ReceivedDate = receivedDate;
+            plan.BaseLot.ExpiredDate = expiredDate;
+            plan.BaseLot.SourceType = sourceType;
+            plan.BaseLot.SourceId = sourceId;
+            plan.BaseLot.CreatedAt = receivedDate;
+            plan.Inventory.LastStockedAt = plan.InboundTransfers.Count == 0
+                ? receivedDate
+                : plan.InboundTransfers.Max(t => t.CreatedAt);
+
+            inventoryLogs.Add(new InventoryLog
+            {
+                DepotSupplyInventoryId = plan.Inventory.Id,
+                SupplyInventoryLot = plan.BaseLot,
+                VatInvoiceId = ResolveVatInvoiceId(vatInvoiceIds, sourceType, sourceId),
+                ActionType = InventoryActionType.Import.ToString(),
+                QuantityChange = baseQuantity,
+                SourceType = sourceType,
+                SourceId = sourceId,
+                PerformedBy = plan.PerformedBy,
+                Note = $"Nhập gốc {plan.ItemModel.Name} vào {plan.Inventory.Depot?.Name ?? $"kho #{plan.Inventory.DepotId}"}",
+                ReceivedDate = receivedDate,
+                ExpiredDate = expiredDate,
+                CreatedAt = receivedDate
+            });
+
+            foreach (var outbound in plan.OutboundEvents.OrderBy(e => e.CreatedAt))
+            {
+                inventoryLogs.Add(new InventoryLog
+                {
+                    DepotSupplyInventoryId = plan.Inventory.Id,
+                    SupplyInventoryLot = plan.BaseLot,
+                    ActionType = outbound.ActionType,
+                    QuantityChange = outbound.Quantity,
+                    SourceType = outbound.SourceType,
+                    SourceId = outbound.SourceId,
+                    MissionId = outbound.MissionId,
+                    PerformedBy = outbound.PerformedBy,
+                    Note = outbound.Note,
+                    ReceivedDate = plan.BaseLot.ReceivedDate,
+                    ExpiredDate = plan.BaseLot.ExpiredDate,
+                    CreatedAt = outbound.CreatedAt
+                });
+            }
+
+            foreach (var adjustment in plan.Adjustments.OrderBy(a => a.CreatedAt))
+            {
+                inventoryLogs.Add(new InventoryLog
+                {
+                    DepotSupplyInventoryId = plan.Inventory.Id,
+                    SupplyInventoryLot = plan.BaseLot,
+                    ActionType = InventoryActionType.Adjust.ToString(),
+                    QuantityChange = -adjustment.Quantity,
+                    SourceType = InventorySourceType.Adjustment.ToString(),
+                    PerformedBy = adjustment.PerformedBy,
+                    Note = adjustment.Note,
+                    ReceivedDate = plan.BaseLot.ReceivedDate,
+                    ExpiredDate = plan.BaseLot.ExpiredDate,
+                    CreatedAt = adjustment.CreatedAt
+                });
+            }
+
+            foreach (var inbound in plan.InboundTransfers.OrderBy(t => t.CreatedAt))
+            {
+                var transferLot = new SupplyInventoryLot
+                {
+                    SupplyInventoryId = plan.Inventory.Id,
+                    Quantity = inbound.Quantity,
+                    RemainingQuantity = inbound.Quantity,
+                    ReceivedDate = inbound.ReceivedDate,
+                    ExpiredDate = inbound.ExpiredDate,
+                    SourceType = InventorySourceType.Transfer.ToString(),
+                    SourceId = inbound.SourceId,
+                    CreatedAt = inbound.CreatedAt
+                };
+
+                seed.Lots.Add(transferLot);
+                _db.SupplyInventoryLots.Add(transferLot);
+
+                inventoryLogs.Add(new InventoryLog
+                {
+                    DepotSupplyInventoryId = plan.Inventory.Id,
+                    SupplyInventoryLot = transferLot,
+                    ActionType = InventoryActionType.TransferIn.ToString(),
+                    QuantityChange = inbound.Quantity,
+                    SourceType = InventorySourceType.Transfer.ToString(),
+                    SourceId = inbound.SourceId,
+                    PerformedBy = inbound.PerformedBy,
+                    Note = inbound.Note,
+                    ReceivedDate = inbound.ReceivedDate,
+                    ExpiredDate = inbound.ExpiredDate,
+                    CreatedAt = inbound.CreatedAt
+                });
+            }
+        }
+    }
+
+    private void BuildReusableInventoryHistory(
+        DemoSeedContext seed,
+        IReadOnlyList<int> vatInvoiceIds,
+        ICollection<InventoryLog> inventoryLogs)
+    {
+        foreach (var reusableItem in seed.ReusableItems.OrderBy(item => item.Id))
+        {
+            var sourceType = reusableItem.Id % 3 == 0
+                ? InventorySourceType.Purchase.ToString()
+                : InventorySourceType.Donation.ToString();
+            var sourceId = reusableItem.Id % 3 == 0
+                ? vatInvoiceIds[(reusableItem.Id - 1) % vatInvoiceIds.Count]
+                : reusableItem.Id;
+            var createdAt = reusableItem.CreatedAt ?? seed.StartUtc.AddDays(140 + reusableItem.Id % 480);
+
+            inventoryLogs.Add(new InventoryLog
+            {
+                ReusableItemId = reusableItem.Id,
+                VatInvoiceId = sourceType == InventorySourceType.Purchase.ToString()
+                    ? sourceId
+                    : null,
+                ActionType = InventoryActionType.Import.ToString(),
+                QuantityChange = 1,
+                SourceType = sourceType,
+                SourceId = sourceId,
+                PerformedBy = ManagerForDepot(seed, reusableItem.DepotId ?? seed.Depots[reusableItem.Id % seed.Depots.Count].Id),
+                Note = $"Nhập thiết bị {reusableItem.ItemModel?.Name ?? $"vật phẩm #{reusableItem.ItemModelId}"} vào kho ban đầu",
+                ReceivedDate = createdAt,
+                CreatedAt = createdAt
+            });
+        }
+
+        var reusableMissionUnits = seed.ReusableItems
+            .Where(item => item.DepotId.HasValue && !string.Equals(item.Status, "Maintenance", StringComparison.Ordinal))
+            .OrderBy(item => item.Id)
+            .Take(30)
+            .ToList();
+        var completedMissions = seed.Missions
+            .Where(m => string.Equals(m.Status, "Completed", StringComparison.Ordinal))
+            .OrderBy(m => m.Id)
+            .ToList();
+
+        for (var index = 0; index < reusableMissionUnits.Count && completedMissions.Count > 0; index++)
+        {
+            var reusableItem = reusableMissionUnits[index];
+            var mission = completedMissions[index % completedMissions.Count];
+            var performedBy = ManagerForDepot(seed, reusableItem.DepotId!.Value);
+            var exportedAt = (mission.StartTime ?? mission.CreatedAt ?? seed.StartUtc).AddMinutes(35 + index);
+            var returnedAt = (mission.CompletedAt ?? exportedAt.AddHours(5)).AddMinutes(-20 + index % 6);
+
+            inventoryLogs.Add(new InventoryLog
+            {
+                ReusableItemId = reusableItem.Id,
+                ActionType = InventoryActionType.Export.ToString(),
+                QuantityChange = 1,
+                SourceType = InventorySourceType.Mission.ToString(),
+                SourceId = mission.Id,
+                MissionId = mission.Id,
+                PerformedBy = performedBy,
+                Note = $"Xuất {reusableItem.ItemModel?.Name ?? $"thiết bị #{reusableItem.ItemModelId}"} cho mission #{mission.Id}",
+                CreatedAt = exportedAt
+            });
+
+            inventoryLogs.Add(new InventoryLog
+            {
+                ReusableItemId = reusableItem.Id,
+                ActionType = InventoryActionType.Return.ToString(),
+                QuantityChange = 1,
+                SourceType = InventorySourceType.Mission.ToString(),
+                SourceId = mission.Id,
+                MissionId = mission.Id,
+                PerformedBy = performedBy,
+                Note = $"Nhận lại {reusableItem.ItemModel?.Name ?? $"thiết bị #{reusableItem.ItemModelId}"} sau mission #{mission.Id}",
+                CreatedAt = returnedAt
+            });
+        }
+    }
+
+    private static Guid ManagerForDepot(DemoSeedContext seed, int depotId)
+    {
+        return seed.Managers[(depotId - 1) % seed.Managers.Count].Id;
+    }
+
+    private static int? ResolveVatInvoiceId(IReadOnlyList<int> vatInvoiceIds, string sourceType, int? sourceId)
+    {
+        if (!string.Equals(sourceType, InventorySourceType.Purchase.ToString(), StringComparison.Ordinal) || vatInvoiceIds.Count == 0)
+        {
+            return null;
+        }
+
+        if (sourceId.HasValue && vatInvoiceIds.Contains(sourceId.Value))
+        {
+            return sourceId.Value;
+        }
+
+        return vatInvoiceIds[Math.Abs((sourceId ?? 1) - 1) % vatInvoiceIds.Count];
     }
 
     private static User CreateUser(string username, int roleId, int number, string lastName, string firstName, string password, SeedArea area, DemoSeedContext seed)
@@ -2087,6 +2495,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
         return builder.ToString();
     }
+
+    private static List<User> GetDeployableRescuers(DemoSeedContext seed) =>
+        seed.Rescuers.Take(seed.Rescuers.Count - UnassignedRescuerCount).ToList();
 
     private static IEnumerable<ServiceZone> ServiceZones(DateTime now)
     {
@@ -2714,45 +3125,47 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         return names[index % names.Length] + $" #{index + 1}";
     }
 
-    private static string InventoryAction(int index)
+    private sealed class ConsumableInventoryHistoryPlan
     {
-        var actions = new[] { "Import", "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" };
-        return actions[index % actions.Length];
+        public required SupplyInventory Inventory { get; init; }
+        public required ItemModel ItemModel { get; init; }
+        public required SupplyInventoryLot BaseLot { get; init; }
+        public required Guid PerformedBy { get; init; }
+        public int FinalQuantity => Inventory.Quantity ?? 0;
+        public List<ConsumableOutboundEvent> OutboundEvents { get; } = [];
+        public List<ConsumableInboundTransferEvent> InboundTransfers { get; } = [];
+        public List<ConsumableAdjustmentEvent> Adjustments { get; } = [];
     }
 
-    private static string InventorySource(string action)
+    private sealed class ConsumableOutboundEvent
     {
-        return action switch
-        {
-            "Import" => "Donation",
-            "Export" => "Mission",
-            "TransferOut" or "TransferIn" => "Transfer",
-            "Return" => "Mission",
-            _ => "Adjustment"
-        };
+        public required string ActionType { get; init; }
+        public required string SourceType { get; init; }
+        public int? SourceId { get; init; }
+        public required int Quantity { get; init; }
+        public required DateTime CreatedAt { get; init; }
+        public required Guid PerformedBy { get; init; }
+        public int? MissionId { get; init; }
+        public required string Note { get; init; }
     }
 
-    private static int InventoryQuantityChange(string action, int index)
+    private sealed class ConsumableInboundTransferEvent
     {
-        return action switch
-        {
-            "Export" or "TransferOut" => -(5 + index % 40),
-            "Adjust" => index % 2 == 0 ? 3 : -2,
-            _ => 5 + index % 90
-        };
+        public required int Quantity { get; init; }
+        public int? SourceId { get; init; }
+        public required DateTime CreatedAt { get; init; }
+        public required Guid PerformedBy { get; init; }
+        public DateTime? ReceivedDate { get; init; }
+        public DateTime? ExpiredDate { get; init; }
+        public required string Note { get; init; }
     }
 
-    private static string InventoryNote(string action)
+    private sealed class ConsumableAdjustmentEvent
     {
-        return action switch
-        {
-            "Import" => "Nhập kho từ quyên góp hoặc mua hàng",
-            "Export" => "Cấp phát cho mission cứu hộ",
-            "TransferOut" => "Điều chuyển sang kho đang thiếu hàng",
-            "TransferIn" => "Nhận điều chuyển từ kho nguồn",
-            "Return" => "Hoàn trả vật phẩm tái sử dụng",
-            _ => "Điều chỉnh kiểm kê định kỳ"
-        };
+        public required int Quantity { get; init; }
+        public required DateTime CreatedAt { get; init; }
+        public required Guid PerformedBy { get; init; }
+        public required string Note { get; init; }
     }
 
     private sealed record SeedArea(string Code, string Province, string Ward, string Address, double Lat, double Lon);

@@ -22,12 +22,14 @@ public class DatabaseSeederTests
 
         await seeder.SeedAsync();
         var firstCounts = await CountsAsync(context);
+        var validationErrors = await new DemoSeedValidator().ValidateAsync(context, CancellationToken.None);
 
         await seeder.SeedAsync();
         var secondCounts = await CountsAsync(context);
 
         Assert.Equal(firstCounts, secondCounts);
-        Assert.Equal(240, firstCounts.Users);
+        Assert.Empty(validationErrors);
+        Assert.Equal(260, firstCounts.Users);
         Assert.Equal(360, firstCounts.SosRequests);
         Assert.Equal(110, firstCounts.SosClusters);
         Assert.Equal(100, firstCounts.Missions);
@@ -38,6 +40,24 @@ public class DatabaseSeederTests
         Assert.Equal(95, firstCounts.SupplyRequests);
         Assert.Equal(820, firstCounts.InventoryLogs);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v1-2026-04-16"));
+        Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
+            Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
+
+        var unassignedRescuers = await context.Users
+            .Where(u => u.RoleId == 3 && u.AssemblyPointId == null)
+            .Where(u => !context.RescueTeamMembers.Any(member => member.UserId == u.Id))
+            .Where(u => !context.AssemblyParticipants.Any(participant => participant.RescuerId == u.Id))
+            .ToListAsync();
+        var eligibleRescuerIds = await context.RescuerProfiles
+            .Where(profile => profile.IsEligibleRescuer)
+            .Select(profile => profile.UserId)
+            .ToListAsync();
+
+        Assert.Equal(20, unassignedRescuers.Count);
+        foreach (var rescuer in unassignedRescuers)
+        {
+            Assert.Contains(rescuer.Id, eligibleRescuerIds);
+        }
 
         Assert.DoesNotContain(await context.SosRequests.Select(s => s.PriorityLevel).Distinct().ToListAsync(), value => value == "Moderate");
         Assert.All(await context.Users.Select(u => u.Phone).ToListAsync(), phone => Assert.Matches("^0[0-9]{9}$", phone ?? ""));

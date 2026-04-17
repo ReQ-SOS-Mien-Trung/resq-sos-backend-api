@@ -86,6 +86,48 @@ public sealed class DemoSeedValidator
             errors.Add($"Inventory lots have {invalidLots} rows with invalid remaining quantity.");
         }
 
+        var consumableInventories = await db.SupplyInventories
+            .Include(i => i.ItemModel)
+            .Include(i => i.Lots)
+            .Include(i => i.InventoryLogs)
+            .Where(i => i.ItemModel != null && i.ItemModel.ItemType == "Consumable")
+            .ToListAsync(cancellationToken);
+
+        var inventoriesWithoutInboundHistory = consumableInventories
+            .Count(i => !i.InventoryLogs.Any(log =>
+                log.ActionType == "Import"
+                || log.ActionType == "TransferIn"
+                || log.ActionType == "Return"
+                || (log.ActionType == "Adjust" && (log.QuantityChange ?? 0) > 0)));
+        if (inventoriesWithoutInboundHistory > 0)
+        {
+            errors.Add($"{inventoriesWithoutInboundHistory} consumable inventories are missing inbound history.");
+        }
+
+        var lotBalanceMismatches = consumableInventories
+            .Count(i => i.Lots.Sum(lot => lot.RemainingQuantity) != (i.Quantity ?? 0));
+        if (lotBalanceMismatches > 0)
+        {
+            errors.Add($"{lotBalanceMismatches} consumable inventories do not match lot remaining totals.");
+        }
+
+        var inventoryLogBalanceMismatches = consumableInventories
+            .Count(i => CalculateConsumableBalance(i.InventoryLogs) != (i.Quantity ?? 0));
+        if (inventoryLogBalanceMismatches > 0)
+        {
+            errors.Add($"{inventoryLogBalanceMismatches} consumable inventories do not match inventory log balance.");
+        }
+
+        var inventoryLogs = await db.InventoryLogs.ToListAsync(cancellationToken);
+        var requiredInventoryActions = new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" };
+        var missingActions = requiredInventoryActions
+            .Where(action => !inventoryLogs.Any(log => log.ActionType == action))
+            .ToList();
+        if (missingActions.Count > 0)
+        {
+            errors.Add($"Inventory logs are missing action types: {string.Join(", ", missingActions)}.");
+        }
+
         var conversationsWithoutVictimParticipant = await db.Conversations
             .Where(c => c.VictimId != null)
             .CountAsync(c => !db.ConversationParticipants.Any(p =>
@@ -116,5 +158,20 @@ public sealed class DemoSeedValidator
         }
 
         errors.Add($"{field} contains invalid values: {string.Join(", ", values)}.");
+    }
+
+    private static int CalculateConsumableBalance(IEnumerable<RESQ.Infrastructure.Entities.Logistics.InventoryLog> logs)
+    {
+        return logs.Sum(log =>
+        {
+            var quantity = log.QuantityChange ?? 0;
+            return log.ActionType switch
+            {
+                "Import" or "TransferIn" or "Return" => quantity,
+                "Export" or "TransferOut" => -quantity,
+                "Adjust" => quantity,
+                _ => 0
+            };
+        });
     }
 }
