@@ -20,7 +20,7 @@ public class GetPromptVersionsQueryHandler(
         var source = await _promptRepository.GetByIdAsync(request.Id, cancellationToken);
         if (source == null)
         {
-            throw new NotFoundException($"Khong tim thay prompt voi Id={request.Id}");
+            throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
         }
 
         var versions = await _promptRepository.GetVersionsByTypeAsync(source.PromptType, cancellationToken);

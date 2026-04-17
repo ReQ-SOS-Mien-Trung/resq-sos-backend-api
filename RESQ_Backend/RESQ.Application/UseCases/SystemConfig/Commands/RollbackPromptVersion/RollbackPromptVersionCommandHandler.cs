@@ -24,11 +24,11 @@ public class RollbackPromptVersionCommandHandler(
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             var target = await _promptRepository.GetByIdAsync(request.Id, cancellationToken)
-                ?? throw new NotFoundException($"Khong tim thay prompt voi Id={request.Id}");
+                ?? throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
 
             if (target.IsActive)
             {
-                throw new BadRequestException("Prompt nay da o trang thai active.");
+                throw new BadRequestException("Prompt này đã ở trạng thái active.");
             }
 
             var now = DateTime.UtcNow;
@@ -55,12 +55,12 @@ public class RollbackPromptVersionCommandHandler(
                 PromptType = target.PromptType,
                 Version = target.Version,
                 Status = PromptLifecycleStatusResolver.DetermineStatus(target),
-                Message = "Rollback prompt version thanh cong."
+                Message = "Rollback prompt version thành công."
             };
         });
 
         _logger.LogInformation("Rolled back to prompt version Id={Id}", request.Id);
 
-        return response ?? throw new NotFoundException($"Khong tim thay prompt voi Id={request.Id}");
+        return response ?? throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
     }
 }

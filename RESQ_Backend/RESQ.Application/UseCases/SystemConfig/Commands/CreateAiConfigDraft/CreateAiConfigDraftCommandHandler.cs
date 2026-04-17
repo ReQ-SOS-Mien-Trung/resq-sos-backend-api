@@ -25,12 +25,12 @@ public class CreateAiConfigDraftCommandHandler(
         var source = await _aiConfigRepository.GetByIdAsync(request.SourceAiConfigId, cancellationToken);
         if (source == null)
         {
-            throw new NotFoundException($"Khong tim thay AI config voi Id={request.SourceAiConfigId}");
+            throw new NotFoundException($"Không tìm thấy AI config với Id={request.SourceAiConfigId}");
         }
 
         if (PromptLifecycleStatusResolver.IsDraft(source))
         {
-            throw new BadRequestException("Khong the clone draft thanh draft moi. Hay chon version active hoac archived.");
+            throw new BadRequestException("Không thể clone draft thành draft mới. Hãy chọn version active hoặc archived.");
         }
 
         var now = DateTime.UtcNow;
@@ -66,7 +66,7 @@ public class CreateAiConfigDraftCommandHandler(
             Name = draft.Name,
             Version = draft.Version,
             Status = PromptLifecycleStatusResolver.DetermineStatus(draft),
-            Message = "Tao draft AI config thanh cong."
+            Message = "Tạo draft AI config thành công."
         };
     }
 }

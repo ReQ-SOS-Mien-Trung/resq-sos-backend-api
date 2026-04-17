@@ -24,16 +24,16 @@ public class ActivateAiConfigVersionCommandHandler(
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             var target = await _aiConfigRepository.GetByIdAsync(request.Id, cancellationToken)
-                ?? throw new NotFoundException($"Khong tim thay AI config voi Id={request.Id}");
+                ?? throw new NotFoundException($"Không tìm thấy AI config với Id={request.Id}");
 
             if (target.IsActive)
             {
-                throw new BadRequestException("AI config nay dang o trang thai active.");
+                throw new BadRequestException("AI config này đang ở trạng thái active.");
             }
 
             if (string.IsNullOrWhiteSpace(target.ApiKey))
             {
-                throw new BadRequestException("Khong the kich hoat AI config khi chua cau hinh api_key.");
+                throw new BadRequestException("Không thể kích hoạt AI config khi chưa cấu hình api_key.");
             }
 
             var normalizedVersion = PromptLifecycleStatusResolver.NormalizeReleasedVersion(target.Version);
@@ -44,7 +44,7 @@ public class ActivateAiConfigVersionCommandHandler(
             if (releasedVersionExists)
             {
                 throw new ConflictException(
-                    $"AI config version '{normalizedVersion}' da ton tai. Hay doi version draft truoc khi kich hoat.");
+                    $"AI config version '{normalizedVersion}' đã tồn tại. Hãy đổi version draft trước khi kích hoạt.");
             }
 
             var now = DateTime.UtcNow;
@@ -70,12 +70,12 @@ public class ActivateAiConfigVersionCommandHandler(
                 Name = target.Name,
                 Version = target.Version,
                 Status = PromptLifecycleStatusResolver.DetermineStatus(target),
-                Message = "Kich hoat AI config version thanh cong."
+                Message = "Kích hoạt AI config version thành công."
             };
         });
 
         _logger.LogInformation("Activated AI config version Id={Id}", request.Id);
 
-        return response ?? throw new NotFoundException($"Khong tim thay AI config voi Id={request.Id}");
+        return response ?? throw new NotFoundException($"Không tìm thấy AI config với Id={request.Id}");
     }
 }

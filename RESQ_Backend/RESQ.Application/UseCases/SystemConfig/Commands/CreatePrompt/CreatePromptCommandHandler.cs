@@ -24,12 +24,12 @@ public class CreatePromptCommandHandler(
         var exists = await _promptRepository.ExistsAsync(request.Name, cancellationToken: cancellationToken);
         if (exists)
         {
-            throw new ConflictException($"Prompt voi ten '{request.Name}' da ton tai.");
+            throw new ConflictException($"Prompt với tên '{request.Name}' đã tồn tại.");
         }
 
         if (PromptLifecycleStatusResolver.IsDraftVersion(request.Version))
         {
-            throw new BadRequestException("Version tao moi khong duoc dung dinh dang draft '-D'. Hay dung endpoint tao draft.");
+            throw new BadRequestException("Version tạo mới không được dùng định dạng draft '-D'. Hãy dùng endpoint tạo draft.");
         }
 
         var normalizedVersion = PromptLifecycleStatusResolver.NormalizeReleasedVersion(request.Version);
@@ -40,7 +40,7 @@ public class CreatePromptCommandHandler(
         if (versionExists)
         {
             throw new ConflictException(
-                $"Prompt type '{request.PromptType}' da ton tai version '{normalizedVersion}'.");
+                $"Prompt type '{request.PromptType}' đã tồn tại version '{normalizedVersion}'.");
         }
 
         var prompt = PromptModel.Create(
@@ -69,7 +69,7 @@ public class CreatePromptCommandHandler(
             Id = prompt.Id,
             Name = prompt.Name,
             PromptType = prompt.PromptType,
-            Message = "Tao prompt thanh cong."
+            Message = "Tạo prompt thành công."
         };
     }
 }

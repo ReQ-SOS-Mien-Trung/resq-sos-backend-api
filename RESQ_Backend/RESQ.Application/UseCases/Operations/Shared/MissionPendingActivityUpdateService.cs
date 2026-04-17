@@ -245,10 +245,10 @@ public class MissionPendingActivityUpdateService(
         CancellationToken cancellationToken)
     {
         var assemblyPoint = await _assemblyPointRepository.GetByIdAsync(assemblyPointId, cancellationToken)
-            ?? throw new BadRequestException($"Khong tim thay diem tap ket #{assemblyPointId}.");
+            ?? throw new BadRequestException($"Không tìm thấy điểm tập kết #{assemblyPointId}.");
 
         if (assemblyPoint.Location is null)
-            throw new BadRequestException($"Diem tap ket #{assemblyPointId} chua co toa do hop le.");
+            throw new BadRequestException($"Điểm tập kết #{assemblyPointId} chưa có tọa độ hợp lệ.");
 
         return assemblyPoint;
     }

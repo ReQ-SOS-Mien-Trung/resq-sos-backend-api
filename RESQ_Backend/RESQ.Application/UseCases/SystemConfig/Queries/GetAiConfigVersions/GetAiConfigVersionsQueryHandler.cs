@@ -22,7 +22,7 @@ public class GetAiConfigVersionsQueryHandler(
         var source = await _aiConfigRepository.GetByIdAsync(request.Id, cancellationToken);
         if (source == null)
         {
-            throw new NotFoundException($"Khong tim thay AI config voi Id={request.Id}");
+            throw new NotFoundException($"Không tìm thấy AI config với Id={request.Id}");
         }
 
         var versions = await _aiConfigRepository.GetVersionsAsync(cancellationToken);

@@ -8,60 +8,60 @@ public class TestPromptCommandValidator : AbstractValidator<TestPromptCommand>
     public TestPromptCommandValidator()
     {
         RuleFor(x => x.ClusterId)
-            .GreaterThan(0).WithMessage("ClusterId khong hop le.");
+            .GreaterThan(0).WithMessage("ClusterId không hợp lệ.");
 
         RuleFor(x => x.Mode)
-            .IsInEnum().WithMessage("Che do test prompt khong hop le.");
+            .IsInEnum().WithMessage("Chế độ test prompt không hợp lệ.");
 
         RuleFor(x => x.AiConfigId)
-            .GreaterThan(0).WithMessage("AiConfigId khong hop le.")
+            .GreaterThan(0).WithMessage("AiConfigId không hợp lệ.")
             .When(x => x.AiConfigId.HasValue);
 
         When(x => x.Mode == TestPromptDraftMode.ExistingPromptDraft, () =>
         {
             RuleFor(x => x.Id)
-                .NotNull().WithMessage("PromptId khong duoc de trong.")
-                .GreaterThan(0).WithMessage("PromptId khong hop le.");
+                .NotNull().WithMessage("PromptId không được để trống.")
+                .GreaterThan(0).WithMessage("PromptId không hợp lệ.");
 
             RuleFor(x => x.Name)
-                .MaximumLength(255).WithMessage("Ten prompt khong duoc vuot qua 255 ky tu.")
+                .MaximumLength(255).WithMessage("Tên prompt không được vượt quá 255 ký tự.")
                 .When(x => x.Name != null);
 
             RuleFor(x => x.PromptType)
                 .Must(x => !x.HasValue || Enum.IsDefined(typeof(PromptType), x.Value))
-                .WithMessage("Loai prompt khong hop le.");
+                .WithMessage("Loại prompt không hợp lệ.");
 
             RuleFor(x => x.Version)
-                .MaximumLength(20).WithMessage("Phien ban khong duoc vuot qua 20 ky tu.")
+                .MaximumLength(20).WithMessage("Phiên bản không được vượt quá 20 ký tự.")
                 .When(x => x.Version != null);
         });
 
         When(x => x.Mode == TestPromptDraftMode.NewPromptDraft, () =>
         {
             RuleFor(x => x.Id)
-                .Null().WithMessage("PromptId phai de trong khi test prompt moi.");
+                .Null().WithMessage("PromptId phải để trống khi test prompt mới.");
 
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("Ten prompt khong duoc de trong.")
-                .MaximumLength(255).WithMessage("Ten prompt khong duoc vuot qua 255 ky tu.");
+                .NotEmpty().WithMessage("Tên prompt không được để trống.")
+                .MaximumLength(255).WithMessage("Tên prompt không được vượt quá 255 ký tự.");
 
             RuleFor(x => x.PromptType)
-                .NotNull().WithMessage("Loai prompt khong duoc de trong.")
+                .NotNull().WithMessage("Loại prompt không được để trống.")
                 .Must(x => x.HasValue && Enum.IsDefined(typeof(PromptType), x.Value))
-                .WithMessage("Loai prompt khong hop le.");
+                .WithMessage("Loại prompt không hợp lệ.");
 
             RuleFor(x => x.Purpose)
-                .NotEmpty().WithMessage("Muc dich khong duoc de trong.");
+                .NotEmpty().WithMessage("Mục đích không được để trống.");
 
             RuleFor(x => x.SystemPrompt)
-                .NotEmpty().WithMessage("System prompt khong duoc de trong.");
+                .NotEmpty().WithMessage("System prompt không được để trống.");
 
             RuleFor(x => x.UserPromptTemplate)
-                .NotEmpty().WithMessage("User prompt template khong duoc de trong.");
+                .NotEmpty().WithMessage("User prompt template không được để trống.");
 
             RuleFor(x => x.Version)
-                .NotEmpty().WithMessage("Phien ban khong duoc de trong.")
-                .MaximumLength(20).WithMessage("Phien ban khong duoc vuot qua 20 ky tu.");
+                .NotEmpty().WithMessage("Phiên bản không được để trống.")
+                .MaximumLength(20).WithMessage("Phiên bản không được vượt quá 20 ký tự.");
         });
     }
 }

@@ -8,32 +8,32 @@ public class CreateAiConfigCommandValidator : AbstractValidator<CreateAiConfigCo
     public CreateAiConfigCommandValidator()
     {
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Ten AI config khong duoc de trong.")
-            .MaximumLength(255).WithMessage("Ten AI config khong duoc vuot qua 255 ky tu.");
+            .NotEmpty().WithMessage("Tên AI config không được để trống.")
+            .MaximumLength(255).WithMessage("Tên AI config không được vượt quá 255 ký tự.");
 
         RuleFor(x => x.Provider)
-            .IsInEnum().WithMessage("Provider khong hop le. Gia tri hop le: \"Gemini\" hoac \"OpenRouter\".");
+            .IsInEnum().WithMessage("Provider không hợp lệ. Giá trị hợp lệ: \"Gemini\" hoặc \"OpenRouter\".");
 
         RuleFor(x => x.Model)
-            .NotEmpty().WithMessage("Model khong duoc de trong.")
-            .MaximumLength(100).WithMessage("Model khong duoc vuot qua 100 ky tu.");
+            .NotEmpty().WithMessage("Model không được để trống.")
+            .MaximumLength(100).WithMessage("Model không được vượt quá 100 ký tự.");
 
         RuleFor(x => x.Temperature)
-            .InclusiveBetween(0d, 2d).WithMessage("Temperature phai nam trong khoang tu 0 den 2.");
+            .InclusiveBetween(0d, 2d).WithMessage("Temperature phải nằm trong khoảng từ 0 đến 2.");
 
         RuleFor(x => x.MaxTokens)
-            .GreaterThan(0).WithMessage("MaxTokens phai lon hon 0.");
+            .GreaterThan(0).WithMessage("MaxTokens phải lớn hơn 0.");
 
         RuleFor(x => x.ApiUrl)
-            .NotEmpty().WithMessage("ApiUrl khong duoc de trong.")
-            .MaximumLength(500).WithMessage("ApiUrl khong duoc vuot qua 500 ky tu.")
-            .Must(BeAbsoluteUri).WithMessage("ApiUrl phai la URL tuyet doi hop le.");
+            .NotEmpty().WithMessage("ApiUrl không được để trống.")
+            .MaximumLength(500).WithMessage("ApiUrl không được vượt quá 500 ký tự.")
+            .Must(BeAbsoluteUri).WithMessage("ApiUrl phải là URL tuyệt đối hợp lệ.");
 
         RuleFor(x => x.Version)
-            .NotEmpty().WithMessage("Phien ban khong duoc de trong.")
-            .MaximumLength(20).WithMessage("Phien ban khong duoc vuot qua 20 ky tu.")
+            .NotEmpty().WithMessage("Phiên bản không được để trống.")
+            .MaximumLength(20).WithMessage("Phiên bản không được vượt quá 20 ký tự.")
             .Must(version => !PromptLifecycleStatusResolver.IsDraftVersion(version))
-            .WithMessage("Version tao moi khong duoc dung dinh dang draft '-D'. Hay dung endpoint tao draft.");
+            .WithMessage("Version tạo mới không được dùng định dạng draft '-D'. Hãy dùng endpoint tạo draft.");
     }
 
     private static bool BeAbsoluteUri(string value)

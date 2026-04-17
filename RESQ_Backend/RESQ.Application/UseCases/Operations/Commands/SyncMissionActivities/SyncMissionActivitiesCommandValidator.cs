@@ -7,46 +7,46 @@ public class SyncMissionActivitiesCommandValidator : AbstractValidator<SyncMissi
     public SyncMissionActivitiesCommandValidator()
     {
         RuleFor(x => x.UserId)
-            .NotEmpty().WithMessage("UserId khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng");
+            .NotEmpty().WithMessage("UserId không được để trống");
 
         RuleFor(x => x.Items)
-            .NotNull().WithMessage("Items khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
+            .NotNull().WithMessage("Items không được để trống")
             .Must(items => items is { Count: >= 1 and <= 100 })
-            .WithMessage("Items pháº£i cÃ³ tá»« 1 Ä‘áº¿n 100 pháº§n tá»­");
+            .WithMessage("Items phải có từ 1 đến 100 phần tử");
 
         RuleForEach(x => x.Items)
             .ChildRules(item =>
             {
                 item.RuleFor(x => x.ClientMutationId)
-                    .NotEmpty().WithMessage("ClientMutationId khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng");
+                    .NotEmpty().WithMessage("ClientMutationId không được để trống");
 
                 item.RuleFor(x => x.MissionId)
-                    .GreaterThan(0).WithMessage("MissionId pháº£i lá»›n hÆ¡n 0");
+                    .GreaterThan(0).WithMessage("MissionId phải lớn hơn 0");
 
                 item.RuleFor(x => x.ActivityId)
-                    .GreaterThan(0).WithMessage("ActivityId pháº£i lá»›n hÆ¡n 0");
+                    .GreaterThan(0).WithMessage("ActivityId phải lớn hơn 0");
 
                 item.RuleFor(x => x.TargetStatus)
-                    .IsInEnum().WithMessage("TargetStatus khÃ´ng há»£p lá»‡");
+                    .IsInEnum().WithMessage("TargetStatus không hợp lệ");
 
                 item.RuleFor(x => x.BaseServerStatus)
-                    .IsInEnum().WithMessage("BaseServerStatus khÃ´ng há»£p lá»‡");
+                    .IsInEnum().WithMessage("BaseServerStatus không hợp lệ");
 
                 item.RuleFor(x => x.QueuedAt)
-                    .NotEqual(default(DateTimeOffset)).WithMessage("QueuedAt khÃ´ng há»£p lá»‡");
+                    .NotEqual(default(DateTimeOffset)).WithMessage("QueuedAt không hợp lệ");
 
                 item.RuleFor(x => x.ImageUrl)
                     .Must(url => string.IsNullOrWhiteSpace(url) || Uri.TryCreate(url.Trim(), UriKind.Absolute, out _))
-                    .WithMessage("ImageUrl pháº£i lÃ  má»™t URL tuyá»‡t Ä‘á»‘i há»£p lá»‡.");
+                    .WithMessage("ImageUrl phải là một URL tuyệt đối hợp lệ.");
             });
 
         RuleFor(x => x.Items)
             .Must(HaveUniqueClientMutationIds)
-            .WithMessage("Items cÃ³ clientMutationId bá»‹ trÃ¹ng láº·p trong cÃ¹ng request");
+            .WithMessage("Items có clientMutationId bị trùng lặp trong cùng request");
 
         RuleFor(x => x.Items)
             .Must(HaveUniqueMissionActivityPairs)
-            .WithMessage("Items cÃ³ cáº·p missionId/activityId bá»‹ trÃ¹ng láº·p trong cÃ¹ng request");
+            .WithMessage("Items có cặp missionId/activityId bị trùng lặp trong cùng request");
     }
 
     private static bool HaveUniqueClientMutationIds(IReadOnlyList<MissionActivitySyncItemDto>? items) =>

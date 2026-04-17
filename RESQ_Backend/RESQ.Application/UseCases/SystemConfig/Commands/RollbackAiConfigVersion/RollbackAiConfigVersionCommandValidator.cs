@@ -7,6 +7,6 @@ public class RollbackAiConfigVersionCommandValidator : AbstractValidator<Rollbac
     public RollbackAiConfigVersionCommandValidator()
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("Id AI config khong hop le.");
+            .GreaterThan(0).WithMessage("Id AI config không hợp lệ.");
     }
 }

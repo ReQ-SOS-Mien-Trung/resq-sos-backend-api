@@ -40,19 +40,19 @@ public class TestPromptCommandHandler(
             request.AiConfigId);
 
         if (request.ClusterId <= 0)
-            throw new BadRequestException("ClusterId khong hop le.");
+            throw new BadRequestException("ClusterId không hợp lệ.");
 
         var prompt = request.Mode switch
         {
             TestPromptDraftMode.ExistingPromptDraft => await BuildExistingPromptDraftAsync(request, cancellationToken),
             TestPromptDraftMode.NewPromptDraft => BuildNewPromptDraft(request),
-            _ => throw new BadRequestException("Che do test prompt khong hop le.")
+            _ => throw new BadRequestException("Chế độ test prompt không hợp lệ.")
         };
 
         if (!MissionPromptTypes.Contains(prompt.PromptType))
         {
             throw new BadRequestException(
-                $"Prompt type '{prompt.PromptType}' khong thuoc luong goi y mission nen khong the preview ke hoach mission.");
+                $"Prompt type '{prompt.PromptType}' không thuộc luồng gợi ý mission nên không thể preview kế hoạch mission.");
         }
 
         var aiConfig = await ResolveAiConfigAsync(request, cancellationToken);
@@ -75,11 +75,11 @@ public class TestPromptCommandHandler(
         CancellationToken cancellationToken)
     {
         if (!request.Id.HasValue || request.Id.Value <= 0)
-            throw new BadRequestException("PromptId khong hop le.");
+            throw new BadRequestException("PromptId không hợp lệ.");
 
         var existingPrompt = await _promptRepository.GetByIdAsync(request.Id.Value, cancellationToken);
         if (existingPrompt == null)
-            throw new NotFoundException($"Khong tim thay prompt voi Id={request.Id.Value}");
+            throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id.Value}");
 
         var draft = ClonePrompt(existingPrompt);
         ApplyDraftFields(draft, request);
@@ -135,11 +135,11 @@ public class TestPromptCommandHandler(
         if (request.AiConfigId.HasValue)
         {
             return await _aiConfigRepository.GetByIdAsync(request.AiConfigId.Value, cancellationToken)
-                ?? throw new NotFoundException($"Khong tim thay AI config voi Id={request.AiConfigId.Value}");
+                ?? throw new NotFoundException($"Không tìm thấy AI config với Id={request.AiConfigId.Value}");
         }
 
         return await _aiConfigRepository.GetActiveAsync(cancellationToken)
-            ?? throw new BadRequestException("Chua co AI config active trong he thong.");
+            ?? throw new BadRequestException("Chưa có AI config active trong hệ thống.");
     }
 
     private static TestPromptResponse MapResponse(

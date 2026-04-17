@@ -24,24 +24,24 @@ public class UpdateAiConfigCommandHandler(
         var aiConfig = await _aiConfigRepository.GetByIdAsync(request.Id, cancellationToken);
         if (aiConfig == null)
         {
-            throw new NotFoundException($"Khong tim thay AI config voi Id={request.Id}");
+            throw new NotFoundException($"Không tìm thấy AI config với Id={request.Id}");
         }
 
         if (!PromptLifecycleStatusResolver.IsDraft(aiConfig))
         {
-            throw new BadRequestException("Chi co the cap nhat draft AI config. Hay tao draft moi tu version hien co.");
+            throw new BadRequestException("Chỉ có thể cập nhật draft AI config. Hãy tạo draft mới từ version hiện có.");
         }
 
         if (request.IsActive == true)
         {
-            throw new BadRequestException("Khong the kich hoat AI config qua endpoint update. Hay dung endpoint activate.");
+            throw new BadRequestException("Không thể kích hoạt AI config qua endpoint update. Hãy dùng endpoint activate.");
         }
 
         var normalizedDraftVersion = request.Version?.Trim();
         if (!string.IsNullOrWhiteSpace(normalizedDraftVersion)
             && !PromptLifecycleStatusResolver.IsDraftVersion(normalizedDraftVersion))
         {
-            throw new BadRequestException("Version cua draft phai chua dau hieu '-D'.");
+            throw new BadRequestException("Version của draft phải chứa dấu hiệu '-D'.");
         }
 
         if (!string.IsNullOrWhiteSpace(normalizedDraftVersion))
@@ -53,7 +53,7 @@ public class UpdateAiConfigCommandHandler(
             if (versionExists)
             {
                 throw new ConflictException(
-                    $"Da ton tai draft AI config khac voi version '{normalizedDraftVersion}'.");
+                    $"Đã tồn tại draft AI config khác với version '{normalizedDraftVersion}'.");
             }
         }
 

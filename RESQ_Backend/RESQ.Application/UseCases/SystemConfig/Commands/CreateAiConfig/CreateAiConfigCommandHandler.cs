@@ -24,12 +24,12 @@ public class CreateAiConfigCommandHandler(
         var exists = await _aiConfigRepository.ExistsAsync(request.Name, cancellationToken: cancellationToken);
         if (exists)
         {
-            throw new ConflictException($"AI config voi ten '{request.Name}' da ton tai.");
+            throw new ConflictException($"AI config với tên '{request.Name}' đã tồn tại.");
         }
 
         if (PromptLifecycleStatusResolver.IsDraftVersion(request.Version))
         {
-            throw new BadRequestException("Version tao moi khong duoc dung dinh dang draft '-D'. Hay dung endpoint tao draft.");
+            throw new BadRequestException("Version tạo mới không được dùng định dạng draft '-D'. Hãy dùng endpoint tạo draft.");
         }
 
         var normalizedVersion = PromptLifecycleStatusResolver.NormalizeReleasedVersion(request.Version);
@@ -38,12 +38,12 @@ public class CreateAiConfigCommandHandler(
             cancellationToken: cancellationToken);
         if (versionExists)
         {
-            throw new ConflictException($"AI config da ton tai version '{normalizedVersion}'.");
+            throw new ConflictException($"AI config đã tồn tại version '{normalizedVersion}'.");
         }
 
         if (request.IsActive && string.IsNullOrWhiteSpace(request.ApiKey))
         {
-            throw new BadRequestException("AI config active phai co api_key.");
+            throw new BadRequestException("AI config active phải có api_key.");
         }
 
         var aiConfig = AiConfigModel.Create(
@@ -72,7 +72,7 @@ public class CreateAiConfigCommandHandler(
         {
             Id = aiConfig.Id,
             Name = aiConfig.Name,
-            Message = "Tao AI config thanh cong."
+            Message = "Tạo AI config thành công."
         };
     }
 

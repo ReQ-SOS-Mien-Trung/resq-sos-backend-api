@@ -24,16 +24,16 @@ public class RollbackAiConfigVersionCommandHandler(
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             var target = await _aiConfigRepository.GetByIdAsync(request.Id, cancellationToken)
-                ?? throw new NotFoundException($"Khong tim thay AI config voi Id={request.Id}");
+                ?? throw new NotFoundException($"Không tìm thấy AI config với Id={request.Id}");
 
             if (target.IsActive)
             {
-                throw new BadRequestException("AI config nay da o trang thai active.");
+                throw new BadRequestException("AI config này đã ở trạng thái active.");
             }
 
             if (string.IsNullOrWhiteSpace(target.ApiKey))
             {
-                throw new BadRequestException("Khong the rollback AI config khi chua cau hinh api_key.");
+                throw new BadRequestException("Không thể rollback AI config khi chưa cấu hình api_key.");
             }
 
             var now = DateTime.UtcNow;
@@ -59,12 +59,12 @@ public class RollbackAiConfigVersionCommandHandler(
                 Name = target.Name,
                 Version = target.Version,
                 Status = PromptLifecycleStatusResolver.DetermineStatus(target),
-                Message = "Rollback AI config version thanh cong."
+                Message = "Rollback AI config version thành công."
             };
         });
 
         _logger.LogInformation("Rolled back to AI config version Id={Id}", request.Id);
 
-        return response ?? throw new NotFoundException($"Khong tim thay AI config voi Id={request.Id}");
+        return response ?? throw new NotFoundException($"Không tìm thấy AI config với Id={request.Id}");
     }
 }

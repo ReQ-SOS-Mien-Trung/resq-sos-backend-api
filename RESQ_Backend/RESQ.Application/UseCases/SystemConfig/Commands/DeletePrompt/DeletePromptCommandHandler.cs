@@ -28,7 +28,7 @@ public class DeletePromptCommandHandler(
 
             if (!PromptLifecycleStatusResolver.IsDraft(prompt))
         {
-                throw new BadRequestException("Chi draft prompt moi co the xoa.");
+                throw new BadRequestException("Chỉ draft prompt mới có thể xóa.");
         }
 
         await _promptRepository.DeleteAsync(request.Id, cancellationToken);

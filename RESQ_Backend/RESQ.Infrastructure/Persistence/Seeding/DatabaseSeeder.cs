@@ -1039,7 +1039,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 MedicalUrgencyScore = Math.Round(0.35 + (i % 60) / 100.0, 2),
                 CreatedAt = VnToUtc(localDate),
                 LastUpdatedAt = VnToUtc(localDate.AddHours(3)),
-                IsMissionCreated = i < 100
+                Status = i < 100 ? "InProgress" : "Pending"
             };
             seed.SosClusters.Add(cluster);
 

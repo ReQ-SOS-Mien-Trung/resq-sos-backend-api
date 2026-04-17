@@ -9,46 +9,46 @@ public class UpdateAiConfigCommandValidator : AbstractValidator<UpdateAiConfigCo
     public UpdateAiConfigCommandValidator()
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("Id AI config khong hop le.");
+            .GreaterThan(0).WithMessage("Id AI config không hợp lệ.");
 
         RuleFor(x => x.Name)
             .Must(value => !string.IsNullOrWhiteSpace(value))
-            .WithMessage("Ten AI config khong duoc de trong.")
-            .MaximumLength(255).WithMessage("Ten AI config khong duoc vuot qua 255 ky tu.")
+            .WithMessage("Tên AI config không được để trống.")
+            .MaximumLength(255).WithMessage("Tên AI config không được vượt quá 255 ký tự.")
             .When(x => x.Name != null);
 
         RuleFor(x => x.Provider)
             .Must(provider => !provider.HasValue || Enum.IsDefined(typeof(AiProvider), provider.Value))
-            .WithMessage("Provider khong hop le. Gia tri hop le: \"Gemini\" hoac \"OpenRouter\".");
+            .WithMessage("Provider không hợp lệ. Giá trị hợp lệ: \"Gemini\" hoặc \"OpenRouter\".");
 
         RuleFor(x => x.Model)
             .Must(value => !string.IsNullOrWhiteSpace(value))
-            .WithMessage("Model khong duoc de trong.")
-            .MaximumLength(100).WithMessage("Model khong duoc vuot qua 100 ky tu.")
+            .WithMessage("Model không được để trống.")
+            .MaximumLength(100).WithMessage("Model không được vượt quá 100 ký tự.")
             .When(x => x.Model != null);
 
         RuleFor(x => x.Temperature)
-            .InclusiveBetween(0d, 2d).WithMessage("Temperature phai nam trong khoang tu 0 den 2.")
+            .InclusiveBetween(0d, 2d).WithMessage("Temperature phải nằm trong khoảng từ 0 đến 2.")
             .When(x => x.Temperature.HasValue);
 
         RuleFor(x => x.MaxTokens)
-            .GreaterThan(0).WithMessage("MaxTokens phai lon hon 0.")
+            .GreaterThan(0).WithMessage("MaxTokens phải lớn hơn 0.")
             .When(x => x.MaxTokens.HasValue);
 
         RuleFor(x => x.ApiUrl)
             .Must(value => !string.IsNullOrWhiteSpace(value))
-            .WithMessage("ApiUrl khong duoc de trong.")
-            .MaximumLength(500).WithMessage("ApiUrl khong duoc vuot qua 500 ky tu.")
-            .Must(BeAbsoluteUri).WithMessage("ApiUrl phai la URL tuyet doi hop le.")
+            .WithMessage("ApiUrl không được để trống.")
+            .MaximumLength(500).WithMessage("ApiUrl không được vượt quá 500 ký tự.")
+            .Must(BeAbsoluteUri).WithMessage("ApiUrl phải là URL tuyệt đối hợp lệ.")
             .When(x => x.ApiUrl != null);
 
         RuleFor(x => x.Version)
-            .MaximumLength(20).WithMessage("Phien ban khong duoc vuot qua 20 ky tu.")
+            .MaximumLength(20).WithMessage("Phiên bản không được vượt quá 20 ký tự.")
             .When(x => x.Version != null);
 
         RuleFor(x => x.Version)
             .Must(v => v == null || PromptLifecycleStatusResolver.IsDraftVersion(v))
-            .WithMessage("Version cua draft phai chua dau hieu '-D'.")
+            .WithMessage("Version của draft phải chứa dấu hiệu '-D'.")
             .When(x => x.Version != null);
     }
 

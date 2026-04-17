@@ -71,12 +71,12 @@ public class CreateMissionCommandHandler(
         {
             var suggestion = await _missionAiSuggestionRepository.GetByIdAsync(request.AiSuggestionId.Value, cancellationToken);
             if (suggestion is null)
-                throw new NotFoundException($"Khong tim thay AI mission suggestion #{request.AiSuggestionId.Value}.");
+                throw new NotFoundException($"Không tìm thấy AI mission suggestion #{request.AiSuggestionId.Value}.");
 
             if (suggestion.ClusterId != request.ClusterId)
             {
                 throw new BadRequestException(
-                    $"AI mission suggestion #{request.AiSuggestionId.Value} khong thuoc cluster #{request.ClusterId}.");
+                    $"AI mission suggestion #{request.AiSuggestionId.Value} không thuộc cluster #{request.ClusterId}.");
             }
         }
 
@@ -96,25 +96,25 @@ public class CreateMissionCommandHandler(
                 var assemblyPoint = await _assemblyPointRepository.GetByIdAsync(assemblyPointId, cancellationToken);
                 if (assemblyPoint is null)
                 {
-                    assemblyPointErrors.Add($"Khong tim thay diem tap ket #{assemblyPointId}.");
+                    assemblyPointErrors.Add($"Không tìm thấy điểm tập kết #{assemblyPointId}.");
                     continue;
                 }
 
                 if (assemblyPoint.Status == AssemblyPointStatus.Unavailable
                     || assemblyPoint.Status == AssemblyPointStatus.Closed)
                 {
-                    assemblyPointErrors.Add($"Khong the dieu phoi den diem tap ket #{assemblyPointId} vi dang dong hoac khong kha dung.");
+                    assemblyPointErrors.Add($"Không thể điều phối đến điểm tập kết #{assemblyPointId} vì đang đóng hoặc không khả dụng.");
                 }
 
                 if (assemblyPoint.Location is null)
                 {
-                    assemblyPointErrors.Add($"Diem tap ket #{assemblyPointId} chua co toa do hop le.");
+                    assemblyPointErrors.Add($"Điểm tập kết #{assemblyPointId} chưa có tọa độ hợp lệ.");
                 }
             }
 
             if (assemblyPointErrors.Count > 0)
             {
-                throw new BadRequestException($"Ke hoach mission chua hop le voi diem tap ket:\n{string.Join("\n", assemblyPointErrors)}");
+                throw new BadRequestException($"Kế hoạch mission chưa hợp lệ với điểm tập kết:\n{string.Join("\n", assemblyPointErrors)}");
             }
         }
         var activities = (request.Activities ?? [])
@@ -342,7 +342,7 @@ public class CreateMissionCommandHandler(
         if (missingItemIds.Count > 0)
         {
             throw new BadRequestException(
-                $"Khong tim thay metadata cho cac item_id: {string.Join(", ", missingItemIds)}.");
+                $"Không tìm thấy metadata cho các item_id: {string.Join(", ", missingItemIds)}.");
         }
 
         return itemLookup;
@@ -362,14 +362,14 @@ public class CreateMissionCommandHandler(
         if (!ignoreMixedMissionWarning)
         {
             throw new BadRequestException(
-                "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat. " +
-                "Nguyen tac an toan la phai dua nan nhan ve diem tap ket (Safe Zone/Assembly Point) ngay sau khi cuu, " +
-                "khong tiep tuc cho nan nhan di phat do. Neu coordinator van muon tiep tuc, hay gui IgnoreMixedMissionWarning=true kem OverrideReason.");
+                "Kế hoạch đang gộp chung cứu hộ/cấp cứu với cứu trợ cấp phát. " +
+                "Nguyên tắc an toàn là phải đưa nạn nhân về điểm tập kết (Safe Zone/Assembly Point) ngay sau khi cứu, " +
+                "không tiếp tục cho nạn nhân đi phát đồ. Nếu coordinator vẫn muốn tiếp tục, hãy gửi IgnoreMixedMissionWarning=true kèm OverrideReason.");
         }
 
         if (string.IsNullOrWhiteSpace(overrideReason))
         {
-            throw new BadRequestException("OverrideReason bat buoc khi bo qua canh bao mixed mission.");
+            throw new BadRequestException("OverrideReason bắt buộc khi bỏ qua cảnh báo mixed mission.");
         }
 
         return true;
@@ -405,7 +405,7 @@ public class CreateMissionCommandHandler(
             if (seenReturnAssemblyActivity)
             {
                 errors.Add(
-                    $"RETURN_ASSEMBLY_POINT phai nam o cuoi ke hoach, nhung phat hien activity '{activity.ActivityType}' sau buoc nay (step {activity.Step ?? 0}).");
+                    $"RETURN_ASSEMBLY_POINT phải nằm ở cuối kế hoạch, nhưng phát hiện activity '{activity.ActivityType}' sau bước này (step {activity.Step ?? 0}).");
             }
         }
 
@@ -414,19 +414,19 @@ public class CreateMissionCommandHandler(
             .ToList();
 
         if (returnActivities.Count == 0)
-            errors.Add("Mission phai co RETURN_ASSEMBLY_POINT o cuoi ke hoach.");
+            errors.Add("Mission phải có RETURN_ASSEMBLY_POINT ở cuối kế hoạch.");
 
         foreach (var group in returnActivities.GroupBy(activity => activity.RescueTeamId))
         {
             if (!group.Key.HasValue)
             {
                 var stepLabel = group.First().Step?.ToString() ?? "?";
-                errors.Add($"RETURN_ASSEMBLY_POINT step {stepLabel} phai co RescueTeamId.");
+                errors.Add($"RETURN_ASSEMBLY_POINT step {stepLabel} phải có RescueTeamId.");
                 continue;
             }
 
             if (group.Count() > 1)
-                errors.Add($"Mission chi duoc co mot RETURN_ASSEMBLY_POINT cho doi #{group.Key.Value}.");
+                errors.Add($"Mission chỉ được có một RETURN_ASSEMBLY_POINT cho đội #{group.Key.Value}.");
         }
 
         var returnTeamIds = returnActivities
@@ -437,26 +437,26 @@ public class CreateMissionCommandHandler(
         foreach (var teamId in teamIds)
         {
             if (!returnTeamIds.Contains(teamId))
-                errors.Add($"Thieu RETURN_ASSEMBLY_POINT o cuoi ke hoach cho doi #{teamId}.");
+                errors.Add($"Thiếu RETURN_ASSEMBLY_POINT ở cuối kế hoạch cho đội #{teamId}.");
         }
 
         foreach (var activity in returnActivities)
         {
             if (!activity.AssemblyPointId.HasValue || activity.AssemblyPointId.Value <= 0)
             {
-                errors.Add($"RETURN_ASSEMBLY_POINT step {activity.Step ?? 0} phai co AssemblyPointId hop le.");
+                errors.Add($"RETURN_ASSEMBLY_POINT step {activity.Step ?? 0} phải có AssemblyPointId hợp lệ.");
             }
 
             if (activity.DepotId.HasValue)
-                errors.Add($"RETURN_ASSEMBLY_POINT step {activity.Step ?? 0} khong duoc co DepotId.");
+                errors.Add($"RETURN_ASSEMBLY_POINT step {activity.Step ?? 0} không được có DepotId.");
 
             if (activity.SuppliesToCollect is { Count: > 0 })
-                errors.Add($"RETURN_ASSEMBLY_POINT step {activity.Step ?? 0} khong duoc co SuppliesToCollect.");
+                errors.Add($"RETURN_ASSEMBLY_POINT step {activity.Step ?? 0} không được có SuppliesToCollect.");
         }
 
         if (errors.Count > 0)
         {
-            throw new BadRequestException($"Ke hoach mission chua hop le voi RETURN_ASSEMBLY_POINT:\n{string.Join("\n", errors)}");
+            throw new BadRequestException($"Kế hoạch mission chưa hợp lệ với RETURN_ASSEMBLY_POINT:\n{string.Join("\n", errors)}");
         }
 
         return Task.CompletedTask;

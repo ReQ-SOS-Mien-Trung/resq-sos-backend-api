@@ -43,13 +43,13 @@ public class UpdateMissionActivityCommandHandler(
             && !CanUpdateOngoingReturnAssemblyPoint(activity, request))
         {
             throw new BadRequestException(
-                $"Chi duoc cap nhat activity Planned. Rieng RETURN_ASSEMBLY_POINT dang OnGoing chi duoc doi AssemblyPointId va/hoac Description. Activity #{activity.Id} hien o trang thai {activity.Status}.");
+                $"Chỉ được cập nhật activity Planned. Riêng RETURN_ASSEMBLY_POINT đang OnGoing chỉ được đổi AssemblyPointId và/hoặc Description. Activity #{activity.Id} hiện ở trạng thái {activity.Status}.");
         }
 
         if (request.AssemblyPointId.HasValue
             && (request.TargetLatitude.HasValue || request.TargetLongitude.HasValue))
         {
-            throw new BadRequestException("Khong duoc gui TargetLatitude/TargetLongitude khi cap nhat AssemblyPointId.");
+            throw new BadRequestException("Không được gửi TargetLatitude/TargetLongitude khi cập nhật AssemblyPointId.");
         }
 
         // 1. Release old reservations if they exist
@@ -121,10 +121,10 @@ public class UpdateMissionActivityCommandHandler(
         if (request.AssemblyPointId.HasValue)
         {
             var assemblyPoint = await _assemblyPointRepository.GetByIdAsync(request.AssemblyPointId.Value, cancellationToken)
-                ?? throw new BadRequestException($"Khong tim thay diem tap ket #{request.AssemblyPointId.Value}.");
+                ?? throw new BadRequestException($"Không tìm thấy điểm tập kết #{request.AssemblyPointId.Value}.");
 
             if (assemblyPoint.Location is null)
-                throw new BadRequestException($"Diem tap ket #{request.AssemblyPointId.Value} chua co toa do hop le.");
+                throw new BadRequestException($"Điểm tập kết #{request.AssemblyPointId.Value} chưa có tọa độ hợp lệ.");
 
             activity.AssemblyPointId = assemblyPoint.Id;
             activity.AssemblyPointName = assemblyPoint.Name;

@@ -7,6 +7,6 @@ public class ActivatePromptVersionCommandValidator : AbstractValidator<ActivateP
     public ActivatePromptVersionCommandValidator()
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("Id prompt khong hop le.");
+            .GreaterThan(0).WithMessage("Id prompt không hợp lệ.");
     }
 }

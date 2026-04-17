@@ -25,12 +25,12 @@ public class CreatePromptDraftCommandHandler(
         var source = await _promptRepository.GetByIdAsync(request.SourcePromptId, cancellationToken);
         if (source == null)
         {
-            throw new NotFoundException($"Khong tim thay prompt voi Id={request.SourcePromptId}");
+            throw new NotFoundException($"Không tìm thấy prompt với Id={request.SourcePromptId}");
         }
 
         if (PromptLifecycleStatusResolver.IsDraft(source))
         {
-            throw new BadRequestException("Khong the clone draft thanh draft moi. Hay chon version active hoac archived.");
+            throw new BadRequestException("Không thể clone draft thành draft mới. Hãy chọn version active hoặc archived.");
         }
 
         var now = DateTime.UtcNow;
@@ -65,7 +65,7 @@ public class CreatePromptDraftCommandHandler(
             PromptType = draft.PromptType,
             Version = draft.Version,
             Status = PromptLifecycleStatusResolver.DetermineStatus(draft),
-            Message = "Tao draft prompt thanh cong."
+            Message = "Tạo draft prompt thành công."
         };
     }
 }
