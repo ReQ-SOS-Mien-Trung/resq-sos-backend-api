@@ -11,6 +11,7 @@ using RESQ.Presentation.Extensions;
 using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
 using RESQ.Presentation.Services;
+using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
 
@@ -265,6 +266,12 @@ static void InitializeDatabase(WebApplication app)
 
     if (hasMigrations)
     {
+        // Guard against the "relation already exists" error that occurs when the schema
+        // was partially applied (e.g. app crashed mid-migration) but EF never recorded
+        // the migration in __EFMigrationsHistory.
+        // Strategy: if our sentinel sequence exists → schema is already in place →
+        // mark all un-recorded migrations as applied before calling Migrate().
+        RecoverPartialMigrations(dbContext);
         dbContext.Database.Migrate();
     }
     else
@@ -275,6 +282,58 @@ static void InitializeDatabase(WebApplication app)
     // Gọi seeder SAU migrate/EnsureCreated để tránh EF nested execution strategy conflict
     RESQ.Infrastructure.Extensions.ServiceCollectionExtensions.RunSeedAsync(dbContext)
         .GetAwaiter().GetResult();
+}
+
+// If the schema already exists but __EFMigrationsHistory is missing or incomplete
+// (e.g. after a crash between DDL execution and history write), insert the missing
+// migration records so EF's Migrate() skips those DDL statements.
+static void RecoverPartialMigrations(ResQDbContext dbContext)
+{
+    try
+    {
+        // Check for our sentinel object that gets created early in the first migration.
+        var conn = dbContext.Database.GetDbConnection();
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT COUNT(1) FROM information_schema.sequences
+            WHERE sequence_schema = 'public'
+              AND sequence_name    = 'depot_realtime_version_seq'";
+        var exists = (long)(cmd.ExecuteScalar() ?? 0L) > 0;
+        conn.Close();
+
+        if (!exists) return; // Fresh DB — let Migrate() do its job normally.
+
+        // Schema is already present. Ensure __EFMigrationsHistory exists and
+        // contains records for every migration that's already been applied.
+        dbContext.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS ""__EFMigrationsHistory"" (
+                ""MigrationId""    character varying(150) NOT NULL,
+                ""ProductVersion"" character varying(32)  NOT NULL,
+                CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY (""MigrationId"")
+            )");
+
+        var productVersion = (typeof(Microsoft.EntityFrameworkCore.DbContext).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? "9.0.0").Split('+')[0];
+
+        foreach (var migrationId in dbContext.Database.GetMigrations())
+        {
+            // migrationId is an internal EF-generated constant (e.g. "20260417103131_AddNewSeeds"),
+            // not user input — safe to interpolate directly.
+#pragma warning disable EF1002
+            dbContext.Database.ExecuteSqlRaw($"""
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ('{migrationId}', '{productVersion}')
+                ON CONFLICT DO NOTHING
+                """);
+#pragma warning restore EF1002
+        }
+    }
+    catch
+    {
+        // Non-fatal: if this check itself fails, let Migrate() attempt normally.
+    }
 }
 
 public partial class Program;
