@@ -151,35 +151,54 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             return;
         }
 
-        // Phải wrap trong ExecutionStrategy vì có EnableRetryOnFailure
-        var strategy = _db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        // Dùng ADO.NET trực tiếp để tránh NpgsqlRetryingExecutionStrategy conflict
+        var connection = _db.Database.GetDbConnection();
+        if (connection is not NpgsqlConnection npgsqlConn)
+            return;
+
+        var wasClosed = npgsqlConn.State == ConnectionState.Closed;
+        if (wasClosed)
+            await npgsqlConn.OpenAsync(cancellationToken);
+
+        try
         {
-            var hasPostGis = await _db.Database
-                .SqlQueryRaw<int>("SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis') THEN 1 ELSE 0 END AS \"Value\"")
-                .SingleAsync(cancellationToken) == 1;
+            // Kiểm tra PostGIS đã tồn tại chưa
+            bool hasPostGis;
+            await using (var checkCmd = npgsqlConn.CreateCommand())
+            {
+                checkCmd.CommandText = "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis');";
+                var result = await checkCmd.ExecuteScalarAsync(cancellationToken);
+                hasPostGis = result is true;
+            }
 
             if (hasPostGis)
             {
-                await ReloadPostgresTypesAsync(cancellationToken);
+                await npgsqlConn.ReloadTypesAsync();
                 return;
             }
 
+            // Thử tạo extension
             try
             {
-                await _db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS postgis;", cancellationToken);
-                await ReloadPostgresTypesAsync(cancellationToken);
+                await using var createCmd = npgsqlConn.CreateCommand();
+                createCmd.CommandText = "CREATE EXTENSION IF NOT EXISTS postgis;";
+                await createCmd.ExecuteNonQueryAsync(cancellationToken);
+                await npgsqlConn.ReloadTypesAsync();
             }
             catch (Exception ex)
             {
-                // Neon.tech và một số managed PostgreSQL đã cài PostGIS sẵn nhưng không cho phép
-                // tạo extension qua lệnh (superuser only). Nếu PostGIS không tồn tại thì geography
-                // columns sẽ fail khi query - log warning thay vì crash startup.
+                // Neon.tech / managed PostgreSQL thường đã cài sẵn PostGIS nhưng không cho phép
+                // CREATE EXTENSION (superuser only). Log warning thay vì crash startup.
                 _logger.LogWarning(ex,
                     "Could not create PostGIS extension (may require superuser). " +
-                    "If geography columns are used, ensure PostGIS is pre-installed on the server.");
+                    "Ensure PostGIS is pre-installed on the server if geography columns are used.");
             }
-        });
+        }
+        finally
+        {
+            if (wasClosed)
+                await npgsqlConn.CloseAsync();
+        }
     }
 
     private async Task ReloadPostgresTypesAsync(CancellationToken cancellationToken)
