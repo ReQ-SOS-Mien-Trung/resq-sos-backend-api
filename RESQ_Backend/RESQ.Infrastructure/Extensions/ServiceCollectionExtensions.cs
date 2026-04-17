@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
@@ -18,6 +20,7 @@ using RESQ.Domain.Entities.Logistics.Services;
 using RESQ.Infrastructure.Options;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Infrastructure.Persistence.Seeding;
 using RESQ.Infrastructure.Persistence.Emergency;
 using RESQ.Infrastructure.Persistence.Finance;
 using RESQ.Infrastructure.Persistence.Identity;
@@ -48,6 +51,7 @@ public static class ServiceCollectionExtensions
                 ? aiSecretsSection
                 : configuration.GetSection("PromptSecrets"));
         services.Configure<MissionSuggestionPipelineOptions>(configuration.GetSection("MissionSuggestionPipeline"));
+        services.AddOptions<SeedDataOptions>();
         services.AddHttpClient("Goong", client =>
         {
             client.DefaultRequestHeaders.Add("Accept", "application/json");
@@ -71,6 +75,14 @@ public static class ServiceCollectionExtensions
                         errorCodesToAdd: null);
                 }
             )
+            .UseSeeding((context, _) =>
+            {
+                SeedDatabase((ResQDbContext)context);
+            })
+            .UseAsyncSeeding(async (context, _, cancellationToken) =>
+            {
+                await SeedDatabaseAsync((ResQDbContext)context, cancellationToken);
+            })
         );
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -178,6 +190,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInventoryQueryService, InventoryQueryService>();
         services.AddScoped<IStockThresholdResolver, StockThresholdResolver>();
         services.AddScoped<IStockWarningEvaluatorService, StockWarningEvaluatorService>();
+        services.AddScoped<DemoSeedValidator>();
+        services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 
         // Payment Services
         services.AddScoped<PayOSService>();
@@ -200,5 +214,21 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<DepotRealtimeDeadLetterRetryBackgroundService>();
         services.AddHostedService<SupplyRequestDeadlineBackgroundService>();
         return services;
+    }
+
+    private static void SeedDatabase(ResQDbContext context)
+    {
+        SeedDatabaseAsync(context, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    private static async Task SeedDatabaseAsync(ResQDbContext context, CancellationToken cancellationToken)
+    {
+        var seeder = new DatabaseSeeder(
+            context,
+            Microsoft.Extensions.Options.Options.Create(new SeedDataOptions()),
+            new DemoSeedValidator(),
+            NullLogger<DatabaseSeeder>.Instance);
+
+        await seeder.SeedAsync(cancellationToken);
     }
 }

@@ -40,7 +40,7 @@ public static class SystemSeeder
         );
     }
 
-    private static void SeedPrompts(ModelBuilder modelBuilder)
+    public static void SeedPrompts(this ModelBuilder modelBuilder)
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 

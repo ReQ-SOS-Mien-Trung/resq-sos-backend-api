@@ -267,12 +267,16 @@ public partial class ResQDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("supply_inventory_lots_pkey");
             entity.HasIndex(e => new { e.SupplyInventoryId, e.RemainingQuantity, e.ExpiredDate })
                   .HasDatabaseName("ix_supply_inventory_lots_fefo");
-            entity.Property<uint>("xmin").IsRowVersion();
+            entity.Property<uint>("xmin")
+                .HasColumnName("xmin")
+                .IsRowVersion();
         });
 
         modelBuilder.Entity<SupplyInventory>(entity =>
         {
-            entity.Property<uint>("xmin").IsRowVersion();
+            entity.Property<uint>("xmin")
+                .HasColumnName("xmin")
+                .IsRowVersion();
             entity.Ignore(e => e.TotalReservedQuantity);
         });
 
@@ -865,7 +869,9 @@ public partial class ResQDbContext : DbContext
     {
         var result = new Dictionary<int, int?>();
         var inventoryById = ChangeTracker.Entries<SupplyInventory>()
-            .ToDictionary(x => x.Entity.Id, x => x.Entity.DepotId);
+            .Where(x => x.Entity.Id > 0)
+            .GroupBy(x => x.Entity.Id)
+            .ToDictionary(x => x.Key, x => x.First().Entity.DepotId);
 
         var logEntries = ChangeTracker.Entries<InventoryLog>()
             .Where(e => e.State == EntityState.Added)

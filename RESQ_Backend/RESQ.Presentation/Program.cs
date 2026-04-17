@@ -6,6 +6,7 @@ using RESQ.Application.Extensions;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Extensions;
 using RESQ.Infrastructure.Persistence.Context;
+using RESQ.Infrastructure.Persistence.Seeding;
 using RESQ.Presentation.Extensions;
 using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
@@ -14,6 +15,11 @@ using System.Text;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+if (EF.IsDesignTime)
+{
+    builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Connection", LogLevel.None);
+}
 
 // Controllers + JSON enum
 builder.Services.AddControllers()
@@ -206,11 +212,11 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Ensure database schema is applied when the API starts in Docker/production.
-using (var scope = app.Services.CreateScope())
+InitializeDatabase(app);
+
+if (IsDatabaseSeedOnlyMode(args))
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-    dbContext.Database.Migrate();
+    return;
 }
 
 // Middleware pipeline
@@ -242,5 +248,29 @@ app.MapHub<DashboardHub>("/hubs/dashboard");
 app.MapHub<OperationalHub>("/hubs/operational");
 
 app.Run();
+
+static bool IsDatabaseSeedOnlyMode(string[] args)
+{
+    return args.Any(arg =>
+        string.Equals(arg, "seed", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(arg, "--seed-only", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(arg, "--migrate-seed", StringComparison.OrdinalIgnoreCase));
+}
+
+static void InitializeDatabase(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
+    var hasMigrations = dbContext.Database.GetMigrations().Any();
+
+    if (hasMigrations)
+    {
+        dbContext.Database.Migrate();
+    }
+    else
+    {
+        dbContext.Database.EnsureCreated();
+    }
+}
 
 public partial class Program;
