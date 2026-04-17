@@ -6,6 +6,9 @@ public class CreateFundingRequestValidator : AbstractValidator<CreateFundingRequ
 {
     public CreateFundingRequestValidator()
     {
+        RuleFor(x => x.DepotId)
+            .GreaterThan(0).WithMessage("DepotId là bắt buộc và phải là số nguyên dương.");
+
         RuleFor(x => x.Items)
             .NotEmpty().WithMessage("Danh sách vật phẩm không được để trống.");
 

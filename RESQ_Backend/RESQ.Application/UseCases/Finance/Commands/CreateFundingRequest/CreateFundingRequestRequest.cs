@@ -4,6 +4,10 @@ namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
 
 public class CreateFundingRequestRequest
 {
+    /// <summary>ID kho cần cấp quỹ. Bắt buộc nhập.</summary>
+    [Required]
+    public int DepotId { get; set; }
+
     public string? Description { get; set; }
 
     /// <summary>

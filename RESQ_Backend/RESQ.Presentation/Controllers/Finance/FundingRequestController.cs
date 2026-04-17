@@ -28,11 +28,8 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(int), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Create([FromBody] CreateFundingRequestRequest request, [FromQuery] int depotId)
+    public async Task<IActionResult> Create([FromBody] CreateFundingRequestRequest request)
     {
-        if (depotId <= 0)
-            return BadRequest("depotId là bắt buộc và phải là số nguyên dương.");
-
         var command = new CreateFundingRequestCommand(
             request.Description,
             request.Items.Select(i => new FundingRequestItemDto
@@ -51,7 +48,7 @@ public class FundingRequestController(IMediator mediator) : ControllerBase
                 WeightPerUnit = i.WeightPerUnit
             }).ToList(),
             GetUserId(),
-            depotId
+            request.DepotId
         );
 
         var id = await _mediator.Send(command);
