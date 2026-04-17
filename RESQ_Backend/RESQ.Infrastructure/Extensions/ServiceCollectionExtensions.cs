@@ -75,14 +75,6 @@ public static class ServiceCollectionExtensions
                         errorCodesToAdd: null);
                 }
             )
-            .UseSeeding((context, _) =>
-            {
-                SeedDatabase((ResQDbContext)context);
-            })
-            .UseAsyncSeeding(async (context, _, cancellationToken) =>
-            {
-                await SeedDatabaseAsync((ResQDbContext)context, cancellationToken);
-            })
         );
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -230,5 +222,11 @@ public static class ServiceCollectionExtensions
             NullLogger<DatabaseSeeder>.Instance);
 
         await seeder.SeedAsync(cancellationToken);
+    }
+
+    /// <summary>Gọi seeder độc lập, ngoài EF execution strategy của EnsureCreated/Migrate.</summary>
+    public static async Task RunSeedAsync(ResQDbContext context, CancellationToken cancellationToken = default)
+    {
+        await SeedDatabaseAsync(context, cancellationToken);
     }
 }

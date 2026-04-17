@@ -271,6 +271,10 @@ static void InitializeDatabase(WebApplication app)
     {
         dbContext.Database.EnsureCreated();
     }
+
+    // Gọi seeder SAU migrate/EnsureCreated để tránh EF nested execution strategy conflict
+    RESQ.Infrastructure.Extensions.ServiceCollectionExtensions.RunSeedAsync(dbContext)
+        .GetAwaiter().GetResult();
 }
 
 public partial class Program;
