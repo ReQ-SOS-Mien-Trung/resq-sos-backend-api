@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.UseCases.Finance.Queries.GetDepotFundMovementChart;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
@@ -412,5 +413,92 @@ public class DepotFundRepository : IDepotFundRepository
             }
         }
     }
-}
 
+    /// <inheritdoc/>
+    public async Task<List<FundMovementDataPoint>> GetDailyFundMovementChartAsync(
+        int depotId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        // IN types:  Allocation, Refund, LiquidationRevenue, AdvanceRepayment, PersonalAdvance
+        //            (PersonalAdvance = tiền ứng ngoài vào quỹ kho → cộng quỹ)
+        // OUT types: Deduction (trừ quỹ khi mua hàng), ClosureFundReturn (hoàn về hệ thống)
+        //
+        // Always use TransactionType to determine direction – never rely on Amount sign
+        // because most transactions store a positive Amount regardless of direction.
+        static bool IsFundIn(string type) =>
+            DepotFundTransactionTypeAlias.TryParse(type, out var t) &&
+            t is DepotFundTransactionType.Allocation
+              or DepotFundTransactionType.Refund
+              or DepotFundTransactionType.LiquidationRevenue
+              or DepotFundTransactionType.PersonalAdvance
+              or DepotFundTransactionType.AdvanceRepayment;
+
+        static bool IsFundOut(string type) =>
+            DepotFundTransactionTypeAlias.TryParse(type, out var t) &&
+            t is DepotFundTransactionType.Deduction
+              or DepotFundTransactionType.ClosureFundReturn;
+
+        // Build base query with depot filter
+        var query = _unitOfWork.Set<DepotFundTransaction>()
+            .Where(x => x.DepotFund.DepotId == depotId);
+
+        if (fromUtc.HasValue)
+            query = query.Where(x => x.CreatedAt >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(x => x.CreatedAt <= toUtc.Value);
+
+        // Pull CreatedAt as DateTime, convert to DateOnly in memory (safe Npgsql translation)
+        var rawRows = (await query
+            .Select(x => new
+            {
+                x.CreatedAt,
+                x.TransactionType,
+                Amount = Math.Abs(x.Amount)
+            })
+            .ToListAsync(cancellationToken))
+            .Select(x => new
+            {
+                Date            = DateOnly.FromDateTime(x.CreatedAt),
+                x.TransactionType,
+                x.Amount
+            })
+            .ToList();
+
+        if (rawRows.Count == 0)
+            return [];
+
+        // Determine the date range from actual data when caller didn’t provide bounds
+        var effectiveFrom = fromUtc.HasValue
+            ? DateOnly.FromDateTime(fromUtc.Value)
+            : rawRows.Min(x => x.Date);
+        var effectiveTo = toUtc.HasValue
+            ? DateOnly.FromDateTime(toUtc.Value)
+            : rawRows.Max(x => x.Date);
+
+        var grouped = rawRows.GroupBy(x => x.Date)
+                             .ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = new List<FundMovementDataPoint>();
+        for (var d = effectiveFrom; d <= effectiveTo; d = d.AddDays(1))
+        {
+            var point = new FundMovementDataPoint { Date = d };
+
+            if (grouped.TryGetValue(d, out var rows))
+            {
+                foreach (var r in rows)
+                {
+                    if (IsFundIn(r.TransactionType))
+                        point.TotalIn  += r.Amount;
+                    else if (IsFundOut(r.TransactionType))
+                        point.TotalOut += r.Amount;
+                }
+            }
+
+            result.Add(point);
+        }
+
+        return result;
+    }
+}

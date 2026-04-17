@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Finance.Queries.GetDepotFundMovementChart;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 
@@ -49,5 +50,14 @@ public interface IDepotFundRepository
         IEnumerable<int> depotFundIds,
         IEnumerable<ContributorDebtModel> contributors,
         CancellationToken cancellationToken = default);
-}
 
+    /// <summary>
+    /// Lấy dữ liệu biến động quỹ kho theo ngày (in/out) cho point styling line chart.
+    /// from/to null = không lọc thời gian.
+    /// </summary>
+    Task<List<FundMovementDataPoint>> GetDailyFundMovementChartAsync(
+        int depotId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        CancellationToken cancellationToken = default);
+}

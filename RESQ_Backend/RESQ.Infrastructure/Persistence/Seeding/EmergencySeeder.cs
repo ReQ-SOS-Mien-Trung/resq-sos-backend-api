@@ -35,7 +35,7 @@ public static class EmergencySeeder
                 MedicalUrgencyScore = 0.9,
                 CreatedAt = now,
                 LastUpdatedAt = now,
-                IsMissionCreated = false
+                Status = SosClusterStatus.Pending.ToString()
             },
             // Cluster 2: Đà Nẵng - Sử dụng cho AI analysis, không có SOS request gắn trực tiếp
             new SosCluster
@@ -51,7 +51,7 @@ public static class EmergencySeeder
                 MedicalUrgencyScore = 0.6,
                 CreatedAt = now,
                 LastUpdatedAt = now,
-                IsMissionCreated = true
+                Status = SosClusterStatus.InProgress.ToString()
             },
             // Cluster 3: Hà Tĩnh - Sạt lở + cô lập
             // Tâm cụm gần cặp SOS B (Id=3, Id=4) - PENDING: chờ coordinator gom SOS và tạo mission
@@ -67,7 +67,8 @@ public static class EmergencySeeder
                 ElderlyCount = 25,
                 MedicalUrgencyScore = 0.7,
                 CreatedAt = now,
-                LastUpdatedAt = now
+                LastUpdatedAt = now,
+                Status = SosClusterStatus.Pending.ToString()
             },
             // Cluster 4: Phong Điền, Thừa Thiên Huế - đã có Mission #3 Completed
             // Tâm cụm gần SOS G (Id=7, Id=8)
@@ -84,7 +85,7 @@ public static class EmergencySeeder
                 MedicalUrgencyScore = 0.65,
                 CreatedAt = new DateTime(2026, 3, 1, 7, 0, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2026, 3, 1, 15, 0, 0, DateTimeKind.Utc),
-                IsMissionCreated = true
+                Status = SosClusterStatus.InProgress.ToString()
             }
         );
     }

@@ -1,3 +1,5 @@
+using RESQ.Domain.Enum.Emergency;
+
 namespace RESQ.Domain.Entities.Emergency;
 
 public class SosClusterModel
@@ -14,6 +16,6 @@ public class SosClusterModel
     public double? MedicalUrgencyScore { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? LastUpdatedAt { get; set; }
-    public bool IsMissionCreated { get; set; }
+    public SosClusterStatus Status { get; set; } = SosClusterStatus.Pending;
     public List<int> SosRequestIds { get; set; } = [];
 }

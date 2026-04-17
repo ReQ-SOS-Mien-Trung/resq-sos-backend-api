@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.UseCases.Finance.Queries.GetCampaignFundFlowChart;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
@@ -59,5 +60,43 @@ public class FundTransactionRepository(IUnitOfWork unitOfWork) : IFundTransactio
         var entity = FundTransactionMapper.ToEntity(model);
         var repo = _unitOfWork.GetRepository<FundTransaction>();
         await repo.AddAsync(entity);
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<(DateTime Period, decimal TotalIn, decimal TotalOut)>> GetPeriodFundFlowAsync(
+        int campaignId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _unitOfWork.Set<FundTransaction>()
+            .Where(x => x.FundCampaignId == campaignId && x.Amount != null);
+
+        if (fromUtc.HasValue)
+            query = query.Where(x => x.CreatedAt >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(x => x.CreatedAt <= toUtc.Value);
+
+        var rows = await query
+            .Select(x => new
+            {
+                x.CreatedAt,
+                Direction = x.Direction ?? string.Empty,
+                Amount    = x.Amount!.Value
+            })
+            .ToListAsync(cancellationToken);
+
+        // Group by month (truncate to first day of month)
+        var grouped = rows
+            .GroupBy(x => new DateTime(x.CreatedAt!.Value.Year, x.CreatedAt.Value.Month, 1, 0, 0, 0, DateTimeKind.Utc))
+            .Select(g => (
+                Period:   g.Key,
+                TotalIn:  g.Where(r => r.Direction.Equals("In",  StringComparison.OrdinalIgnoreCase)).Sum(r => r.Amount),
+                TotalOut: g.Where(r => r.Direction.Equals("Out", StringComparison.OrdinalIgnoreCase)).Sum(r => r.Amount)
+            ))
+            .OrderBy(x => x.Period)
+            .ToList();
+
+        return grouped;
     }
 }

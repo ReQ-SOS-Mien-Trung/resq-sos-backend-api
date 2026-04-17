@@ -1,10 +1,11 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Finance.Queries.GetAllDepotFunds;
 
-public class GetAllDepotFundsHandler : IRequestHandler<GetAllDepotFundsQuery, List<DepotFundsResponseDto>>
+public class GetAllDepotFundsHandler : IRequestHandler<GetAllDepotFundsQuery, PagedResult<DepotFundsResponseDto>>
 {
     private readonly IDepotFundRepository _depotFundRepo;
     private readonly IDepotRepository _depotRepo;
@@ -15,7 +16,7 @@ public class GetAllDepotFundsHandler : IRequestHandler<GetAllDepotFundsQuery, Li
         _depotRepo = depotRepo;
     }
 
-    public async Task<List<DepotFundsResponseDto>> Handle(GetAllDepotFundsQuery request, CancellationToken cancellationToken)
+    public async Task<PagedResult<DepotFundsResponseDto>> Handle(GetAllDepotFundsQuery request, CancellationToken cancellationToken)
     {
         var funds = await _depotFundRepo.GetAllWithDepotInfoAsync(cancellationToken);
         var depots = (await _depotRepo.GetAllAsync(cancellationToken)).ToDictionary(d => d.Id);
@@ -40,8 +41,22 @@ public class GetAllDepotFundsHandler : IRequestHandler<GetAllDepotFundsQuery, Li
                     LastUpdatedAt = f.LastUpdatedAt == DateTime.MinValue ? null : f.LastUpdatedAt
                 }).OrderBy(f => f.Id).ToList()
             };
-        }).OrderBy(g => g.DepotId).ToList();
+        }).OrderBy(g => g.DepotId);
 
-        return grouped;
+        // Lọc theo tên kho nếu có
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var keyword = request.Search.Trim().ToLower();
+            grouped = grouped.Where(g => g.DepotName != null && g.DepotName.ToLower().Contains(keyword))
+                             .OrderBy(g => g.DepotId);
+        }
+
+        var allItems = grouped.ToList();
+        var totalCount = allItems.Count;
+        var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
+        var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
+        var pagedItems = allItems.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+
+        return new PagedResult<DepotFundsResponseDto>(pagedItems, totalCount, pageNumber, pageSize);
     }
 }

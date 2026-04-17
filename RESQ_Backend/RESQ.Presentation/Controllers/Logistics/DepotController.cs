@@ -265,13 +265,16 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
-        /// <summary>[Admin] Xem quỹ tất cả kho.</summary>
+        /// <summary>[Admin] Xem quỹ tất cả kho (có phân trang).</summary>
         [HttpGet("funds")]
-    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
-        [ProducesResponseType(typeof(List<DepotFundsResponseDto>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAllFunds()
+        [Authorize(Policy = PermissionConstants.SystemConfigManage)]
+        [ProducesResponseType(typeof(PagedResult<DepotFundsResponseDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAllFunds(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? search = null)
         {
-            var result = await _mediator.Send(new GetAllDepotFundsQuery());
+            var result = await _mediator.Send(new GetAllDepotFundsQuery(pageNumber, pageSize, search));
             return Ok(result);
         }
 
@@ -554,6 +557,43 @@ namespace RESQ.Presentation.Controllers.Logistics
                 return userId;
             }
             throw new Application.Exceptions.UnauthorizedException("Token không hợp lệ hoặc thiếu thông tin người dùng.");
+        }
+
+        // ─────────────────── CHART ENDPOINTS ───────────────────
+
+        /// <summary>
+        /// [Chart 1] Biểu đồ tiến trình sức chứa kho (thể tích &amp; cân nặng hiện tại / tối đa).
+        /// Dùng cho progress chart.
+        /// </summary>
+        [HttpGet("{id}/chart/capacity")]
+        [Authorize(Policy = PermissionConstants.PolicyDepotView)]
+        [ProducesResponseType(typeof(RESQ.Application.UseCases.Logistics.Queries.GetDepotCapacityChart.DepotCapacityChartDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetCapacityChart(int id)
+        {
+            var result = await _mediator.Send(
+                new RESQ.Application.UseCases.Logistics.Queries.GetDepotCapacityChart.GetDepotCapacityChartQuery(id));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// [Chart 2] Biểu đồ biến động kho (số lượng nhập/xuất theo ngày) – line chart.
+        /// </summary>
+        [HttpGet("{id}/chart/inventory-movement")]
+        [Authorize(Policy = PermissionConstants.PolicyDepotView)]
+        [ProducesResponseType(typeof(RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryMovementChart.DepotInventoryMovementChartDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetInventoryMovementChart(
+            int id,
+            [FromQuery] DateTime? from = null,
+            [FromQuery] DateTime? to   = null)
+        {
+            var result = await _mediator.Send(
+                new RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryMovementChart.GetDepotInventoryMovementChartQuery
+                {
+                    DepotId = id,
+                    From    = from,
+                    To      = to
+                });
+            return Ok(result);
         }
     }
 }
