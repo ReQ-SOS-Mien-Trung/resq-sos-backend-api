@@ -6,6 +6,7 @@ using RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggesti
 using RESQ.Application.UseCases.Emergency.Queries.StreamRescueMissionSuggestion;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.System;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Tests.Application.UseCases.Emergency;
 
@@ -13,10 +14,10 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
 {
     private static readonly Guid CoordinatorId = Guid.Parse("dddddddd-0000-0000-0000-000000000004");
 
-    // ─── Success sets Cluster.IsMissionCreated = true and saves ───
+    // ─── Success sets Cluster.Status = Suggested and saves ───
 
     [Fact]
-    public async Task Handle_Success_SetsClusterIsMissionCreatedAndSaves()
+    public async Task Handle_Success_SetsClusterStatusSuggestedAndSaves()
     {
         var cluster = BuildCluster(1);
         var clusterRepo = new StubClusterRepository(cluster);
@@ -33,7 +34,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.SuggestionId);
-        Assert.True(clusterRepo.UpdatedCluster?.IsMissionCreated);
+        Assert.Equal(SosClusterStatus.Suggested, clusterRepo.UpdatedCluster?.Status);
         Assert.True(unitOfWork.SaveCalls >= 1);
     }
 
@@ -109,7 +110,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
         Assert.Equal("loading_context", events[0].Data);
         Assert.Equal("status", events.Last().EventType);
         Assert.Equal("done", events.Last().Data);
-        Assert.True(clusterRepo.UpdatedCluster?.IsMissionCreated);
+        Assert.Equal(SosClusterStatus.Suggested, clusterRepo.UpdatedCluster?.Status);
     }
 
     // ─── Stream: error event stops stream ─────────────────────────
@@ -168,7 +169,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
         CenterLongitude = 106.66,
         RadiusKm = 5,
         SeverityLevel = "High",
-        IsMissionCreated = false,
+        Status = SosClusterStatus.Pending,
         SosRequestIds = [1, 2]
     };
 

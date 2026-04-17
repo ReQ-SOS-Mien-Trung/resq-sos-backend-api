@@ -139,24 +139,24 @@ public class Flow4_SosDuplicateSpamTests
         Assert.Equal(userId, sos2.UserId);
     }
 
-    // ────────── Cluster model: IsMissionCreated prevents re-use ──────────
+    // ────────── Cluster model: InProgress status tracks active mission ──────────
 
     [Fact]
-    public void SosClusterModel_IsMissionCreated_PreventsReuse()
+    public void SosClusterModel_InProgressStatus_TracksActiveMission()
     {
         var cluster = new SosClusterModel
         {
             Id = 1,
             SosRequestIds = [1, 2, 3],
-            IsMissionCreated = true
+            Status = SosClusterStatus.InProgress
         };
 
-        // Handler validates IsMissionCreated trước khi tạo mission mới
-        Assert.True(cluster.IsMissionCreated);
+        // Handler validates active status trước khi tạo mission mới
+        Assert.Equal(SosClusterStatus.InProgress, cluster.Status);
     }
 
     [Fact]
-    public void SosClusterModel_DefaultIsMissionCreated_IsFalse()
+    public void SosClusterModel_DefaultStatus_IsPending()
     {
         var cluster = new SosClusterModel
         {
@@ -164,6 +164,6 @@ public class Flow4_SosDuplicateSpamTests
             SosRequestIds = [1, 2]
         };
 
-        Assert.False(cluster.IsMissionCreated);
+        Assert.Equal(SosClusterStatus.Pending, cluster.Status);
     }
 }

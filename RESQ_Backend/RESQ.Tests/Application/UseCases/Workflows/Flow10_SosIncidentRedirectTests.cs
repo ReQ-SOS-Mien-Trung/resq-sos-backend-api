@@ -224,9 +224,9 @@ public class Flow10_SosIncidentRedirectTests
         {
             Id = 2,
             SosRequestIds = [originalSos.Id],
-            IsMissionCreated = false
+            Status = SosClusterStatus.Pending
         };
-        Assert.False(newCluster.IsMissionCreated);
+        Assert.Equal(SosClusterStatus.Pending, newCluster.Status);
 
         // 10. SOS → Assigned again
         originalSos.SetStatus(SosRequestStatus.Assigned);

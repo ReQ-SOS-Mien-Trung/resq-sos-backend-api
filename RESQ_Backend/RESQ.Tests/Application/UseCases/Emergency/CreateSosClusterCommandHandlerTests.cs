@@ -189,6 +189,7 @@ public class CreateSosClusterCommandHandlerTests
         Assert.NotNull(clusterRepo.LastCreatedCluster);
         Assert.Equal(10.001, clusterRepo.LastCreatedCluster!.CenterLatitude!.Value, precision: 5);
         Assert.Equal(106.001, clusterRepo.LastCreatedCluster!.CenterLongitude!.Value, precision: 5);
+        Assert.Equal(SosClusterStatus.Pending, clusterRepo.LastCreatedCluster!.Status);
     }
 
     // -- Stubs ------------------------------------------------------------------

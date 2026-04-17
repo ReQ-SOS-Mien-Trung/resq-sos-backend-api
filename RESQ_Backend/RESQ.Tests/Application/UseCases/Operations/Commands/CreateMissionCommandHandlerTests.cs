@@ -99,6 +99,7 @@ public class CreateMissionCommandHandlerTests
         Assert.Equal(2, reservedItem.ItemModelId);
         Assert.Equal(11, reservedItem.Quantity);
         Assert.Single(depotInventoryRepository.AvailabilityChecks);
+        Assert.Equal(SosClusterStatus.InProgress, clusterRepository.UpdatedCluster?.Status);
     }
 
     [Fact]
@@ -546,6 +547,7 @@ public class CreateMissionCommandHandlerTests
     {
         private readonly SosClusterModel? _cluster = cluster;
         public int UpdateCalls { get; private set; }
+        public SosClusterModel? UpdatedCluster { get; private set; }
 
         public Task<SosClusterModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
             => Task.FromResult(_cluster?.Id == id ? _cluster : null);
@@ -559,6 +561,7 @@ public class CreateMissionCommandHandlerTests
         public Task UpdateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default)
         {
             UpdateCalls++;
+            UpdatedCluster = cluster;
             return Task.CompletedTask;
         }
     }
