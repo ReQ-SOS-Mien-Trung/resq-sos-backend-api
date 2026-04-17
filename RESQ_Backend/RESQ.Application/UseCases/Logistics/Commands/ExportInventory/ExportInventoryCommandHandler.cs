@@ -20,7 +20,7 @@ public class ExportInventoryCommandHandler(
     public async Task<ExportInventoryResponse> Handle(ExportInventoryCommand request, CancellationToken cancellationToken)
     {
         var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
-            ?? throw new BadRequestException("Ti kho?n khng qu?n l kho no dang ho?t d?ng.");
+            ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)

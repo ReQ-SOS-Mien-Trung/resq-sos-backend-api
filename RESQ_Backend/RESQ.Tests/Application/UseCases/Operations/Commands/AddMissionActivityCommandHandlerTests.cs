@@ -154,7 +154,7 @@ public class AddMissionActivityCommandHandlerTests
         DepotName: depotId.HasValue ? "Kho 1" : null,
         DepotAddress: null,
         SuppliesToCollect: supplies,
-        Target: "Khu v?c ng?p",
+        Target: "Khu vực ngập",
         TargetLatitude: 10.76,
         TargetLongitude: 106.66,
         RescueTeamId: rescueTeamId,

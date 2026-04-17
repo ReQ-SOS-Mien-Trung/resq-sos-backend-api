@@ -40,7 +40,7 @@ public class ShipSupplyRequestCommandHandler(
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
             throw new ConflictException("Kho nguồn ngưng hoạt động hoặc đã đóng. Không thể xuất hàng cho yêu cầu tiếp tế.");
 
-        // Wrap trong transaction d? d?m b?o TransferOut + UpdateStatus d?ng b?
+        // Wrap trong transaction để đảm bảo TransferOut + UpdateStatus đồng bộ
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             await supplyRequestRepository.TransferOutAsync(
@@ -52,7 +52,7 @@ public class ShipSupplyRequestCommandHandler(
         // Notify requesting manager
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
-            "v?t ph?m dang du?c v?n chuy?n",
+            "Vật phẩm đang được vận chuyển",
             $"Yêu cầu tiếp tế số {sr.Id}: hàng đã xuất kho và đang vận chuyển đến kho của bạn.",
             "supply_shipped",
             cancellationToken);
