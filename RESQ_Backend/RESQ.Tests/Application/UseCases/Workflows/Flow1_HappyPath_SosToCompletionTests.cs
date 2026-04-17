@@ -59,7 +59,7 @@ public class Flow1_HappyPath_SosToCompletionTests
             SosRequestIds = [101, 102, 103]
         };
 
-        Assert.False(cluster.IsMissionCreated);
+        Assert.Equal(SosClusterStatus.Pending, cluster.Status);
         Assert.Equal(3, cluster.SosRequestIds.Count);
     }
 

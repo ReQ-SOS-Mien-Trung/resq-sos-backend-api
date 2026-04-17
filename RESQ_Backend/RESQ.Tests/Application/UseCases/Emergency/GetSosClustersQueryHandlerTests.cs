@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Tests.Application.UseCases.Emergency;
 
@@ -60,7 +61,7 @@ public class GetSosClustersQueryHandlerTests
             ChildrenCount = 10,
             ElderlyCount = 8,
             MedicalUrgencyScore = 85.5,
-            IsMissionCreated = true,
+            Status = SosClusterStatus.InProgress,
             CreatedAt = new DateTime(2026, 1, 15, 10, 0, 0, DateTimeKind.Utc),
             SosRequestIds = [1, 2]
         };
@@ -78,7 +79,7 @@ public class GetSosClustersQueryHandlerTests
         Assert.Equal(10, dto.ChildrenCount);
         Assert.Equal(8, dto.ElderlyCount);
         Assert.Equal(85.5, dto.MedicalUrgencyScore);
-        Assert.True(dto.IsMissionCreated);
+        Assert.Equal(SosClusterStatus.InProgress, dto.Status);
     }
 
     [Fact]
