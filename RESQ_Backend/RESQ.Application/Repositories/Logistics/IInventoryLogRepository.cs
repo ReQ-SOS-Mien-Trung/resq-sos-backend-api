@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryMovementChart;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 using RESQ.Domain.Entities.Logistics.Models;
 
@@ -25,5 +26,14 @@ public interface IInventoryLogRepository
         DateOnly? toDate,
         int pageNumber,
         int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy dữ liệu biến động kho theo ngày (in/out/adjust) cho line chart.
+    /// </summary>
+    Task<List<InventoryMovementDataPoint>> GetDailyMovementChartAsync(
+        int depotId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
         CancellationToken cancellationToken = default);
 }

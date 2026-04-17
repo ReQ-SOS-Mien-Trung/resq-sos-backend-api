@@ -3,6 +3,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryMovementChart;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Infrastructure.Entities.Logistics;
@@ -354,6 +355,108 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
         // Handle historical values saved with literal "\\n" characters
         return text.Replace("\\r\\n", "\n").Replace("\\n", "\n");
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<InventoryMovementDataPoint>> GetDailyMovementChartAsync(
+        int depotId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
+
+        // Build depot filter query
+        var query = _unitOfWork.Set<InventoryLog>()
+            .Where(x =>
+                // Consumable: SupplyInventory.DepotId is stable
+                (x.DepotSupplyInventoryId != null && x.SupplyInventory!.DepotId == depotId)
+
+                // Reusable – SupplyRequest: Reserve + TransferOut belong to SOURCE depot
+                || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
+                    && (x.ActionType == "Reserve" || x.ActionType == "TransferOut")
+                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.SourceDepotId == depotId))
+
+                // Reusable – SupplyRequest: TransferIn belongs to REQUESTING depot
+                || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
+                    && x.ActionType == "TransferIn"
+                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.RequestingDepotId == depotId))
+
+                // Reusable – non-SupplyRequest: use current DepotId
+                || (x.ReusableItemId != null && x.SourceType != "SupplyRequest"
+                    && x.ReusableItem!.DepotId == depotId)
+            );
+
+        // Apply time range filters only if provided
+        if (fromUtc.HasValue)
+            query = query.Where(x => x.CreatedAt >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(x => x.CreatedAt <= toUtc.Value);
+
+        // Pull CreatedAt as DateTime, convert to DateOnly in memory to avoid EF/Npgsql
+        // translation issues with DateOnly.FromDateTime() inside SELECT.
+        var rawRows = (await query
+            .Select(x => new
+            {
+                CreatedAt      = x.CreatedAt!.Value,
+                ActionType     = x.ActionType ?? string.Empty,
+                QuantityChange = x.QuantityChange ?? 0
+            })
+            .ToListAsync(cancellationToken))
+            .Select(x => new
+            {
+                Date           = DateOnly.FromDateTime(x.CreatedAt),
+                x.ActionType,
+                x.QuantityChange
+            })
+            .ToList();
+
+        if (rawRows.Count == 0)
+            return [];
+
+        // Determine the date range from actual data when caller didn’t provide bounds
+        var effectiveFrom = fromUtc.HasValue
+            ? DateOnly.FromDateTime(fromUtc.Value)
+            : rawRows.Min(x => x.Date);
+        var effectiveTo = toUtc.HasValue
+            ? DateOnly.FromDateTime(toUtc.Value)
+            : rawRows.Max(x => x.Date);
+
+        // Group by date and categorise
+        var grouped = rawRows
+            .GroupBy(x => x.Date)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Action types that indicate goods leaving the depot (OUT)
+        static bool IsIn(string action) => action is "import" or "transferin" or "return" or "advancereturn";
+        static bool IsOut(string action) => action is "export" or "transferout" or "reserve" or "pickup" or "distribute";
+
+        // Fill every day in the range, even empty ones
+        var result = new List<InventoryMovementDataPoint>();
+        for (var d = effectiveFrom; d <= effectiveTo; d = d.AddDays(1))
+        {
+            var point = new InventoryMovementDataPoint { Date = d };
+
+            if (grouped.TryGetValue(d, out var rows))
+            {
+                foreach (var r in rows)
+                {
+                    var action = r.ActionType.ToLowerInvariant();
+                    var qty    = Math.Abs(r.QuantityChange);
+
+                    if (IsIn(action))
+                        point.TotalIn += qty;
+                    else if (IsOut(action))
+                        point.TotalOut += qty;
+                    else if (action == "adjust")
+                        point.TotalAdjust += r.QuantityChange; // preserve sign
+                }
+            }
+
+            result.Add(point);
+        }
+
+        return result;
     }
 
     

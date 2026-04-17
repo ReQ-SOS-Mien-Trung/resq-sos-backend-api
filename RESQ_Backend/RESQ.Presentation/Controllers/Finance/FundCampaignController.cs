@@ -249,4 +249,28 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         // or throw exception if strict.
         throw new UnauthorizedAccessException("Invalid User Token");
     }
+
+    /// <summary>
+    /// [Chart 4] Biểu đồ biến động quỹ chiến dịch (tiền vào / tiền ra / số dư thuần theo kỳ) – bar chart 3 cột.
+    /// Granularity: "month" (mặc định) hoặc "week".
+    /// </summary>
+    [HttpGet("{id}/chart/fund-flow")]
+    [ProducesResponseType(typeof(RESQ.Application.UseCases.Finance.Queries.GetCampaignFundFlowChart.CampaignFundFlowChartDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCampaignFundFlowChart(
+        int id,
+        [FromQuery] DateTime? from         = null,
+        [FromQuery] DateTime? to           = null,
+        [FromQuery] string    granularity  = "month",
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _mediator.Send(
+            new RESQ.Application.UseCases.Finance.Queries.GetCampaignFundFlowChart.GetCampaignFundFlowChartQuery
+            {
+                CampaignId  = id,
+                From        = from,
+                To          = to,
+                Granularity = granularity
+            }, cancellationToken);
+        return Ok(result);
+    }
 }

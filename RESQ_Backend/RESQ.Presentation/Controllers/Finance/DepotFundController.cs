@@ -225,5 +225,26 @@ public class DepotFundController(IMediator mediator) : ControllerBase
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }
-}
 
+    /// <summary>
+    /// [Chart 3] Biểu đồ biến động quỹ kho (tiền vào/tiền ra theo ngày) – point styling line chart.
+    /// </summary>
+    [HttpGet("{depotId}/chart/fund-movement")]
+    [Authorize(Policy = PermissionConstants.PolicyDepotView)]
+    [ProducesResponseType(typeof(RESQ.Application.UseCases.Finance.Queries.GetDepotFundMovementChart.DepotFundMovementChartDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFundMovementChart(
+        int depotId,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to   = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _mediator.Send(
+            new RESQ.Application.UseCases.Finance.Queries.GetDepotFundMovementChart.GetDepotFundMovementChartQuery
+            {
+                DepotId = depotId,
+                From    = from,
+                To      = to
+            }, cancellationToken);
+        return Ok(result);
+    }
+}
