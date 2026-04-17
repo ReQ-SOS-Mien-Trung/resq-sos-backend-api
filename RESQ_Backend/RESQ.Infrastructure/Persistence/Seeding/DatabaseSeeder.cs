@@ -151,27 +151,35 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             return;
         }
 
-        var hasPostGis = await _db.Database
-            .SqlQueryRaw<int>("SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis') THEN 1 ELSE 0 END AS \"Value\"")
-            .SingleAsync(cancellationToken) == 1;
+        // Phải wrap trong ExecutionStrategy vì có EnableRetryOnFailure
+        var strategy = _db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            var hasPostGis = await _db.Database
+                .SqlQueryRaw<int>("SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis') THEN 1 ELSE 0 END AS \"Value\"")
+                .SingleAsync(cancellationToken) == 1;
 
-        if (hasPostGis)
-        {
-            await ReloadPostgresTypesAsync(cancellationToken);
-            return;
-        }
+            if (hasPostGis)
+            {
+                await ReloadPostgresTypesAsync(cancellationToken);
+                return;
+            }
 
-        try
-        {
-            await _db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS postgis;", cancellationToken);
-            await ReloadPostgresTypesAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException(
-                "PostGIS extension is required for RESQ geography columns. Ensure your PostgreSQL server has PostGIS installed and run CREATE EXTENSION postgis on database RESQ.",
-                ex);
-        }
+            try
+            {
+                await _db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS postgis;", cancellationToken);
+                await ReloadPostgresTypesAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Neon.tech và một số managed PostgreSQL đã cài PostGIS sẵn nhưng không cho phép
+                // tạo extension qua lệnh (superuser only). Nếu PostGIS không tồn tại thì geography
+                // columns sẽ fail khi query - log warning thay vì crash startup.
+                _logger.LogWarning(ex,
+                    "Could not create PostGIS extension (may require superuser). " +
+                    "If geography columns are used, ensure PostGIS is pre-installed on the server.");
+            }
+        });
     }
 
     private async Task ReloadPostgresTypesAsync(CancellationToken cancellationToken)
