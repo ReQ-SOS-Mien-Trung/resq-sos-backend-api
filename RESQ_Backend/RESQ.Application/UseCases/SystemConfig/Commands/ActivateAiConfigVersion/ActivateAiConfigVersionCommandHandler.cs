@@ -4,6 +4,7 @@ using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services.Ai;
 using RESQ.Application.UseCases.SystemConfig.Commands.AiConfigVersioning;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.ActivateAiConfigVersion;
@@ -53,12 +54,14 @@ public class ActivateAiConfigVersionCommandHandler(
             {
                 version.IsActive = false;
                 version.Version = PromptLifecycleStatusResolver.NormalizeReleasedVersion(version.Version);
+                version.ApiUrl = AiProviderDefaults.ResolveApiUrl(version.Provider);
                 version.UpdatedAt = now;
                 await _aiConfigRepository.UpdateAsync(version, cancellationToken);
             }
 
             target.IsActive = true;
             target.Version = normalizedVersion;
+            target.ApiUrl = AiProviderDefaults.ResolveApiUrl(target.Provider);
             target.UpdatedAt = now;
             await _aiConfigRepository.UpdateAsync(target, cancellationToken);
 

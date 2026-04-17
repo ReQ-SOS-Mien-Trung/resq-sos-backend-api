@@ -35,13 +35,6 @@ public class UpdateAiConfigCommandValidator : AbstractValidator<UpdateAiConfigCo
             .GreaterThan(0).WithMessage("MaxTokens phải lớn hơn 0.")
             .When(x => x.MaxTokens.HasValue);
 
-        RuleFor(x => x.ApiUrl)
-            .Must(value => !string.IsNullOrWhiteSpace(value))
-            .WithMessage("ApiUrl không được để trống.")
-            .MaximumLength(500).WithMessage("ApiUrl không được vượt quá 500 ký tự.")
-            .Must(BeAbsoluteUri).WithMessage("ApiUrl phải là URL tuyệt đối hợp lệ.")
-            .When(x => x.ApiUrl != null);
-
         RuleFor(x => x.Version)
             .MaximumLength(20).WithMessage("Phiên bản không được vượt quá 20 ký tự.")
             .When(x => x.Version != null);
@@ -50,10 +43,5 @@ public class UpdateAiConfigCommandValidator : AbstractValidator<UpdateAiConfigCo
             .Must(v => v == null || PromptLifecycleStatusResolver.IsDraftVersion(v))
             .WithMessage("Version của draft phải chứa dấu hiệu '-D'.")
             .When(x => x.Version != null);
-    }
-
-    private static bool BeAbsoluteUri(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value) && Uri.TryCreate(value, UriKind.Absolute, out _);
     }
 }

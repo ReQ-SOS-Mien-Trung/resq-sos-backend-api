@@ -20,9 +20,6 @@ public class CreateAiConfigRequestDto
     [JsonPropertyName("max_tokens")]
     public int MaxTokens { get; set; }
 
-    [JsonPropertyName("api_url")]
-    public string ApiUrl { get; set; } = null!;
-
     [JsonPropertyName("api_key")]
     public string? ApiKey { get; set; }
 

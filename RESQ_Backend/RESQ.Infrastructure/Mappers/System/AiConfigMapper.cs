@@ -1,5 +1,6 @@
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.System;
+using RESQ.Application.Services.Ai;
 using RESQ.Infrastructure.Entities.System;
 
 namespace RESQ.Infrastructure.Mappers.System;
@@ -8,6 +9,8 @@ public static class AiConfigMapper
 {
     public static AiConfig ToEntity(AiConfigModel model)
     {
+        var normalizedApiUrl = AiProviderDefaults.ResolveApiUrl(model.Provider);
+
         var entity = new AiConfig
         {
             Name = model.Name,
@@ -15,7 +18,7 @@ public static class AiConfigMapper
             Model = model.Model,
             Temperature = model.Temperature,
             MaxTokens = model.MaxTokens,
-            ApiUrl = model.ApiUrl,
+            ApiUrl = normalizedApiUrl,
             ApiKey = model.ApiKey,
             Version = model.Version,
             IsActive = model.IsActive,
@@ -33,17 +36,19 @@ public static class AiConfigMapper
 
     public static AiConfigModel ToDomain(AiConfig entity)
     {
+        var provider = Enum.TryParse<AiProvider>(entity.Provider, true, out var parsedProvider)
+            ? parsedProvider
+            : AiProvider.Gemini;
+
         return new AiConfigModel
         {
             Id = entity.Id,
             Name = entity.Name ?? string.Empty,
-            Provider = Enum.TryParse<AiProvider>(entity.Provider, true, out var provider)
-                ? provider
-                : AiProvider.Gemini,
+            Provider = provider,
             Model = entity.Model ?? string.Empty,
             Temperature = entity.Temperature,
             MaxTokens = entity.MaxTokens,
-            ApiUrl = entity.ApiUrl ?? string.Empty,
+            ApiUrl = AiProviderDefaults.ResolveApiUrl(provider),
             ApiKey = entity.ApiKey,
             Version = entity.Version,
             IsActive = entity.IsActive,

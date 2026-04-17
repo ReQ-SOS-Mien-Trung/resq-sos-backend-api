@@ -4,6 +4,7 @@ using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services.Ai;
 using RESQ.Application.UseCases.SystemConfig.Commands.AiConfigVersioning;
 using RESQ.Domain.Entities.System;
 
@@ -49,7 +50,7 @@ public class CreateAiConfigDraftCommandHandler(
             Model = source.Model,
             Temperature = source.Temperature,
             MaxTokens = source.MaxTokens,
-            ApiUrl = source.ApiUrl,
+            ApiUrl = AiProviderDefaults.ResolveApiUrl(source.Provider),
             ApiKey = source.ApiKey,
             Version = candidateVersion,
             IsActive = false,

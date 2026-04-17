@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services.Ai;
 using RESQ.Application.UseCases.SystemConfig.Commands.ActivateAiConfigVersion;
 using RESQ.Application.UseCases.SystemConfig.Commands.CreateAiConfig;
 using RESQ.Application.UseCases.SystemConfig.Commands.CreateAiConfigDraft;
@@ -30,6 +31,7 @@ public class AiConfigVersionLifecycleCommandHandlerTests
         var draft = Assert.Single(repository.Items, config => config.Id != source.Id);
         Assert.False(draft.IsActive);
         Assert.StartsWith("v1.0-D", draft.Version, StringComparison.Ordinal);
+        Assert.Equal(AiProviderDefaults.ResolveApiUrl(source.Provider), draft.ApiUrl);
         Assert.Equal("Draft", response.Status);
         Assert.Equal(draft.Id, response.Id);
         Assert.Equal(1, unitOfWork.SaveCalls);
@@ -51,8 +53,10 @@ public class AiConfigVersionLifecycleCommandHandlerTests
 
         Assert.False(currentActive.IsActive);
         Assert.Equal("v1.0", currentActive.Version);
+        Assert.Equal(AiProviderDefaults.ResolveApiUrl(currentActive.Provider), currentActive.ApiUrl);
         Assert.True(targetDraft.IsActive);
         Assert.Equal("v1.1", targetDraft.Version);
+        Assert.Equal(AiProviderDefaults.ResolveApiUrl(targetDraft.Provider), targetDraft.ApiUrl);
         Assert.Equal("Active", response.Status);
         Assert.Equal("v1.1", response.Version);
         Assert.Equal(1, unitOfWork.ExecuteInTransactionCalls);
@@ -74,7 +78,7 @@ public class AiConfigVersionLifecycleCommandHandlerTests
         var exception = await Assert.ThrowsAsync<ConflictException>(() =>
             handler.Handle(new ActivateAiConfigVersionCommand(draft.Id), CancellationToken.None));
 
-        Assert.Equal("AI config version 'v1.0' da ton tai. Hay doi version draft truoc khi kich hoat.", exception.Message);
+        Assert.Equal("AI config version 'v1.0' đã tồn tại. Hãy đổi version draft trước khi kích hoạt.", exception.Message);
         Assert.False(draft.IsActive);
         Assert.Equal("v1.0-D26041612", draft.Version);
         Assert.Equal(1, unitOfWork.ExecuteInTransactionCalls);
@@ -97,7 +101,9 @@ public class AiConfigVersionLifecycleCommandHandlerTests
 
         Assert.True(archived.IsActive);
         Assert.Equal("v1.0", archived.Version);
+        Assert.Equal(AiProviderDefaults.ResolveApiUrl(archived.Provider), archived.ApiUrl);
         Assert.False(currentActive.IsActive);
+        Assert.Equal(AiProviderDefaults.ResolveApiUrl(currentActive.Provider), currentActive.ApiUrl);
         Assert.Equal("Active", response.Status);
         Assert.Equal("v1.0", response.Version);
         Assert.Equal(1, unitOfWork.ExecuteInTransactionCalls);
@@ -123,13 +129,12 @@ public class AiConfigVersionLifecycleCommandHandlerTests
                     Model: "gemini-2.5-flash",
                     Temperature: 0.3,
                     MaxTokens: 2048,
-                    ApiUrl: "https://example.com/ai",
                     ApiKey: "secret",
                     Version: " v1.0 ",
                     IsActive: false),
                 CancellationToken.None));
 
-        Assert.Equal("AI config da ton tai version 'v1.0'.", exception.Message);
+        Assert.Equal("AI config đã tồn tại version 'v1.0'.", exception.Message);
         Assert.Equal(0, unitOfWork.SaveCalls);
     }
 
@@ -141,7 +146,7 @@ public class AiConfigVersionLifecycleCommandHandlerTests
         Model = "gemini-2.5-flash",
         Temperature = 0.3,
         MaxTokens = 4096,
-        ApiUrl = "https://example.com/ai",
+        ApiUrl = "https://stale.example.com/ai",
         ApiKey = "secret-key",
         Version = version,
         IsActive = isActive,

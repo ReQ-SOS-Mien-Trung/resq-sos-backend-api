@@ -54,7 +54,6 @@ public class AiConfigController(IMediator mediator) : ControllerBase
             dto.Model,
             dto.Temperature,
             dto.MaxTokens,
-            dto.ApiUrl,
             dto.ApiKey,
             dto.Version,
             dto.IsActive);
@@ -81,7 +80,6 @@ public class AiConfigController(IMediator mediator) : ControllerBase
             dto.Model,
             dto.Temperature,
             dto.MaxTokens,
-            dto.ApiUrl,
             dto.ApiKey,
             dto.Version,
             dto.IsActive);

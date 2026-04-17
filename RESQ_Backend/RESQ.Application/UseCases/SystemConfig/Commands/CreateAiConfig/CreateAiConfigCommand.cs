@@ -9,7 +9,6 @@ public record CreateAiConfigCommand(
     string Model,
     double Temperature,
     int MaxTokens,
-    string ApiUrl,
     string? ApiKey,
     string Version,
     bool IsActive = true

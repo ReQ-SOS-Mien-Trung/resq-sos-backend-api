@@ -10,7 +10,6 @@ public record UpdateAiConfigCommand(
     string? Model,
     double? Temperature,
     int? MaxTokens,
-    string? ApiUrl,
     string? ApiKey,
     string? Version,
     bool? IsActive

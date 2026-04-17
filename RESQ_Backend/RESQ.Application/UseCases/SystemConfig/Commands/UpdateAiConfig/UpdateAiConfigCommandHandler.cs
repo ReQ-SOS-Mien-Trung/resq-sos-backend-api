@@ -5,6 +5,7 @@ using RESQ.Application.Common.Security;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services.Ai;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.UpdateAiConfig;
 
@@ -63,7 +64,7 @@ public class UpdateAiConfigCommandHandler(
             model: request.Model?.Trim(),
             temperature: request.Temperature,
             maxTokens: request.MaxTokens,
-            apiUrl: request.ApiUrl?.Trim(),
+            apiUrl: AiProviderDefaults.ResolveApiUrl(request.Provider ?? aiConfig.Provider),
             apiKey: NormalizeUpdatedSecret(request.ApiKey),
             version: string.IsNullOrWhiteSpace(normalizedDraftVersion) ? null : normalizedDraftVersion,
             isActive: false);

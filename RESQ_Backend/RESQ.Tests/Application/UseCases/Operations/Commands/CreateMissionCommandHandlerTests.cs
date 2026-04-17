@@ -129,7 +129,7 @@ public class CreateMissionCommandHandlerTests
         var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(BuildCommand(collect, deliver), CancellationToken.None));
 
-        Assert.Contains("Thieu RETURN_ASSEMBLY_POINT", ex.Message);
+        Assert.Contains("Thiếu RETURN_ASSEMBLY_POINT ở cuối kế hoạch cho đội #12.", ex.Message);
         Assert.Null(missionRepository.CreatedMission);
     }
 
@@ -201,7 +201,7 @@ public class CreateMissionCommandHandlerTests
         var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(BuildCommand(collect, deliver, returnAssembly), CancellationToken.None));
 
-        Assert.Contains("Khong tim thay diem tap ket #999.", ex.Message);
+        Assert.Contains("Không tìm thấy điểm tập kết #999.", ex.Message);
     }
 
     [Fact]

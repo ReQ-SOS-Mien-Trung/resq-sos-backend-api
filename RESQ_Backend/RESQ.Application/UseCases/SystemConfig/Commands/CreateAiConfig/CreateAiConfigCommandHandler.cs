@@ -4,6 +4,7 @@ using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services.Ai;
 using RESQ.Domain.Entities.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.CreateAiConfig;
@@ -52,7 +53,7 @@ public class CreateAiConfigCommandHandler(
             model: request.Model.Trim(),
             temperature: request.Temperature,
             maxTokens: request.MaxTokens,
-            apiUrl: request.ApiUrl.Trim(),
+            apiUrl: AiProviderDefaults.ResolveApiUrl(request.Provider),
             apiKey: NormalizeSecret(request.ApiKey),
             version: normalizedVersion);
         aiConfig.IsActive = request.IsActive;
