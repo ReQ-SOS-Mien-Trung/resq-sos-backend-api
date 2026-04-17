@@ -245,7 +245,9 @@ public class ExcelExportService : IExcelExportService
         }
 
         // Named range "Categories" → DM_DanhMuc!$A$2:$A${n+1}
-        int lastRow = categories.Count + 1;
+        // Use Math.Max to ensure lastRow >= 2 when categories list is empty,
+        // preventing an inverted range (startRow > endRow) which ClosedXML rejects.
+        int lastRow = Math.Max(categories.Count + 1, 2);
         workbook.NamedRanges.Add("Categories", ws.Range(2, 1, lastRow, 1));
     }
 
@@ -278,13 +280,15 @@ public class ExcelExportService : IExcelExportService
                 // Named range: Cat_Food, Cat_Water, etc.
                 int lastRow = catItems.Count + 1;
                 var rangeName = $"Cat_{cat.Code}";
-                workbook.NamedRanges.Add(rangeName, ws.Range(2, col, lastRow, col));
+                if (!workbook.NamedRanges.TryGetValue(rangeName, out _))
+                    workbook.NamedRanges.Add(rangeName, ws.Range(2, col, lastRow, col));
             }
             else
             {
                 // Empty category - still create named range pointing to a single blank cell
                 var rangeName = $"Cat_{cat.Code}";
-                workbook.NamedRanges.Add(rangeName, ws.Range(2, col, 2, col));
+                if (!workbook.NamedRanges.TryGetValue(rangeName, out _))
+                    workbook.NamedRanges.Add(rangeName, ws.Range(2, col, 2, col));
             }
 
             col++;
