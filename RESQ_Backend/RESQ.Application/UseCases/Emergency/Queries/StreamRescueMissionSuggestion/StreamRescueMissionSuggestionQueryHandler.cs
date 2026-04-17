@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Services;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.StreamRescueMissionSuggestion;
 
@@ -66,17 +67,20 @@ public class StreamRescueMissionSuggestionQueryHandler(
         if (hasError)
             yield break;
 
-        if (aiResult is not null && aiResult.IsSuccess && aiResult.SuggestionId.HasValue)
+        if (aiResult is not null &&
+            aiResult.IsSuccess &&
+            aiResult.SuggestionId.HasValue &&
+            context!.Cluster.Status == SosClusterStatus.Pending)
         {
             try
             {
-                context!.Cluster.IsMissionCreated = true;
+                context.Cluster.Status = SosClusterStatus.Suggested;
                 await _sosClusterRepository.UpdateAsync(context.Cluster, cancellationToken);
                 await _unitOfWork.SaveAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to update cluster mission-created flag for ClusterId={clusterId}", request.ClusterId);
+                _logger.LogWarning(ex, "Failed to update cluster status for ClusterId={clusterId}", request.ClusterId);
             }
         }
 
