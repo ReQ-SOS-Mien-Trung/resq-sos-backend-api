@@ -10,9 +10,19 @@ public sealed class DemoSeedValidator
         "Low", "Medium", "High", "Critical"
     };
 
+    private static readonly HashSet<string> SosTypes = new(StringComparer.Ordinal)
+    {
+        "Rescue", "Relief", "Both"
+    };
+
     private static readonly HashSet<string> SosStatuses = new(StringComparer.Ordinal)
     {
         "Pending", "Assigned", "InProgress", "Incident", "Resolved", "Cancelled"
+    };
+
+    private static readonly HashSet<string> MissionTypes = new(StringComparer.Ordinal)
+    {
+        "Rescue", "Medical", "Supply", "Mixed"
     };
 
     private static readonly HashSet<string> MissionStatuses = new(StringComparer.Ordinal)
@@ -47,6 +57,20 @@ public sealed class DemoSeedValidator
             .Distinct()
             .ToListAsync(cancellationToken);
         AddInvalidValues(errors, "sos_requests.status", badSosStatuses);
+
+        var badSosTypes = await db.SosRequests
+            .Where(s => s.SosType != null && !SosTypes.Contains(s.SosType))
+            .Select(s => s.SosType!)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        AddInvalidValues(errors, "sos_requests.sos_type", badSosTypes);
+
+        var badMissionTypes = await db.Missions
+            .Where(m => m.MissionType != null && !MissionTypes.Contains(m.MissionType))
+            .Select(m => m.MissionType!)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        AddInvalidValues(errors, "missions.mission_type", badMissionTypes);
 
         var badMissionStatuses = await db.Missions
             .Where(m => m.Status != null && !MissionStatuses.Contains(m.Status))

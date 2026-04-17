@@ -8,6 +8,7 @@ using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Seeding;
+using System.Text.Json;
 
 namespace RESQ.Tests.Infrastructure.Seeding;
 
@@ -79,6 +80,25 @@ public class DatabaseSeederTests
         Assert.Equal(10, unclusteredHueSos.Count);
         Assert.DoesNotContain(await context.SosRequests.Select(s => s.PriorityLevel).Distinct().ToListAsync(), value => value == "Moderate");
         Assert.All(
+            await context.SosRequests.Select(s => s.SosType).Distinct().ToListAsync(),
+            sosType => Assert.False(IsCapsLockToken(sosType), $"Expected PascalCase sos_type but found '{sosType}'."));
+        Assert.All(
+            await context.Missions.Select(m => m.MissionType).Distinct().ToListAsync(),
+            missionType => Assert.False(IsCapsLockToken(missionType), $"Expected PascalCase mission_type but found '{missionType}'."));
+        Assert.All(
+            await context.SosRequests.Where(s => s.StructuredData != null).Select(s => s.StructuredData!).Take(40).ToListAsync(),
+            structuredData =>
+            {
+                using var document = JsonDocument.Parse(structuredData);
+                var incidentSituation = document.RootElement.GetProperty("incident").GetProperty("situation").GetString();
+                Assert.False(IsCapsLockToken(incidentSituation), $"Expected PascalCase situation but found '{incidentSituation}'.");
+
+                foreach (var supply in document.RootElement.GetProperty("supplies").EnumerateArray().Select(element => element.GetString()))
+                {
+                    Assert.False(IsCapsLockToken(supply), $"Expected PascalCase supply but found '{supply}'.");
+                }
+            });
+        Assert.All(
             await context.Users.Where(u => u.RoleId == 5).Select(u => u.Phone).ToListAsync(),
             phone => Assert.Matches("^\\+84[0-9]{9}$", phone ?? ""));
         Assert.All(
@@ -111,11 +131,12 @@ public class DatabaseSeederTests
         {
             Id = 1,
             UserId = victimId,
+            SosType = "RESCUE",
             PriorityLevel = "Moderate",
             Status = "Completed",
             Location = new Point(107.6, 16.4) { SRID = 4326 }
         });
-        context.Missions.Add(new Mission { Id = 1, Status = "Cancelled" });
+        context.Missions.Add(new Mission { Id = 1, MissionType = "SUPPLY", Status = "Cancelled" });
         context.MissionActivities.Add(new MissionActivity { Id = 1, MissionId = 1, Status = "Done" });
         context.TeamIncidents.Add(new TeamIncident { Id = 1, Status = "Acknowledged" });
         context.SupplyInventories.Add(new SupplyInventory
@@ -145,6 +166,8 @@ public class DatabaseSeederTests
 
         Assert.Contains(errors, error => error.Contains("sos_requests.priority_level", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("sos_requests.status", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("sos_requests.sos_type", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("missions.mission_type", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("missions.status", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("mission_activities.status", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("team_incidents.status", StringComparison.Ordinal));
@@ -193,6 +216,11 @@ public class DatabaseSeederTests
             await context.DepotSupplyRequests.CountAsync(),
             await context.InventoryLogs.CountAsync());
     }
+
+    private static bool IsCapsLockToken(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.Any(char.IsLetter)
+        && string.Equals(value, value.ToUpperInvariant(), StringComparison.Ordinal);
 
     private sealed record SeedCounts(
         int Users,
