@@ -35,7 +35,7 @@ public class CreateSupplyRequestCommandHandler(
 
     public async Task<CreateSupplyRequestResponse> Handle(CreateSupplyRequestCommand request, CancellationToken cancellationToken)
     {
-        // 1. L?y kho c?a manager dang dang nh?p
+        // 1. Lấy kho của manager đang đăng nhập
         var requestingDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.RequestingUserId, request.DepotId, cancellationToken);
         if (requestingDepotId == null)
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
@@ -151,7 +151,7 @@ public class CreateSupplyRequestCommandHandler(
             }
         });
 
-        // 6. G?i notification cho manager c?a kho ngu?n
+        // 6. Gửi notification cho manager của kho nguồn
         foreach (var created in createdRequests)
         {
             var sourceManagerUserId = await _supplyRequestRepository.GetActiveManagerUserIdByDepotIdAsync(created.SourceDepotId, cancellationToken);

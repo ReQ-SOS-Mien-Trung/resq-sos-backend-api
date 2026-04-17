@@ -55,7 +55,7 @@ public static class PermissionConstants
     /// <summary>Admin + DepotManager: Toàn quyền xuất/nhập/tồn, điều chuyển giữa các kho được phân công</summary>
     public const string InventoryGlobalManage = "inventory.global.manage";
 
-    /// <summary>Admin + Coordinator + DepotManager: Xem t?ng quan t?n kho</summary>
+    /// <summary>Admin + Coordinator + DepotManager: Xem tổng quan tồn kho</summary>
     public const string InventoryGlobalView = "inventory.global.view";
 
     /// <summary>Admin + Coordinator_Point: Xem tồn kho tại điểm tập kết của mình</summary>
@@ -86,7 +86,7 @@ public static class PermissionConstants
     /// <summary>Admin + Coordinator + Rescuer: Quản lý trạng thái sẵn sàng của đội</summary>
     public const string PersonnelTeamAvailabilityManage = "personnel.team.availability.manage";
 
-    /// <summary>Admin + Coordinator + Rescuer: Xem di?m t?p k?t ph?c v? mobile rescuer</summary>
+    /// <summary>Admin + Coordinator + Rescuer: Xem điểm tập kết phục vụ mobile rescuer</summary>
     public const string PersonnelAssemblyPointView = "personnel.assembly_point.view";
 
     /// <summary>Admin + Coordinator + Rescuer: Xem sự kiện tập trung của chính mình</summary>
@@ -99,7 +99,7 @@ public static class PermissionConstants
     /// <summary>Admin + Coordinator_Global: Nhận yêu cầu cứu hộ, tạo và duyệt Mission tổng</summary>
     public const string MissionGlobalManage = "mission.global.manage";
 
-    /// <summary>Admin + Coordinator_Point: T?o Mission c?p co s?, giao Mission cho Team thu?c di?m</summary>
+    /// <summary>Admin + Coordinator_Point: Tạo Mission cấp cơ sở, giao Mission cho Team thuộc điểm</summary>
     public const string MissionPointManage = "mission.point.manage";
 
     /// <summary>Admin + Rescuer_Core: Nhận Mission, cập nhật trạng thái tổng của Mission</summary>
@@ -108,23 +108,23 @@ public static class PermissionConstants
     /// <summary>Admin + Rescuer_Core + Rescuer_Volunteer: Xem thông tin, bối cảnh Mission của đội</summary>
     public const string MissionView = "mission.view";
 
-    /// <summary>Admin + Coordinator + Rescuer: Xem mission c?a d?i hi?n t?i</summary>
+    /// <summary>Admin + Coordinator + Rescuer: Xem mission của đội hiện tại</summary>
     public const string MissionSelfView = "mission.self.view";
 
-    // -- Th?c thi Th?c d?a (Activities) -------------------------------
+    // -- Thực thi Thực địa (Activities) -------------------------------
     /// <summary>Admin + Coordinator_Global: Theo dõi tiến độ chung toàn hệ thống</summary>
     public const string ActivityGlobalView = "activity.global.view";
 
     /// <summary>Admin + Coordinator_Point: Theo dõi tiến độ đội nhà tại điểm</summary>
     public const string ActivityPointView = "activity.point.view";
 
-    /// <summary>Admin + Rescuer_Core: T?o Activity, assign cho Volunteer, duy?t k?t qu? (trong Team)</summary>
+    /// <summary>Admin + Rescuer_Core: Tạo Activity, assign cho Volunteer, duyệt kết quả (trong Team)</summary>
     public const string ActivityTeamManage = "activity.team.manage";
 
     /// <summary>Admin + Rescuer_Volunteer: Nhận Activity được assign, báo cáo, cập nhật trạng thái</summary>
     public const string ActivityOwnManage = "activity.own.manage";
 
-    /// <summary>Admin + Coordinator + Rescuer: Xem activity c?a d?i hi?n t?i</summary>
+    /// <summary>Admin + Coordinator + Rescuer: Xem activity của đội hiện tại</summary>
     public const string ActivitySelfView = "activity.self.view";
 
     /// <summary>Admin + Coordinator + Rescuer: Xác nhận hoàn tất thực thi của mission team</summary>
@@ -142,7 +142,7 @@ public static class PermissionConstants
     /// <summary>Admin + Coordinator + Rescuer: Báo incident trong mission/activity</summary>
     public const string MissionIncidentReport = "mission.incident.report";
 
-    /// <summary>Admin + Coordinator + Rescuer: Xem incident c?a mission/team</summary>
+    /// <summary>Admin + Coordinator + Rescuer: Xem incident của mission/team</summary>
     public const string MissionIncidentView = "mission.incident.view";
 
     /// <summary>Admin + Coordinator + Rescuer: Quản lý trạng thái incident</summary>

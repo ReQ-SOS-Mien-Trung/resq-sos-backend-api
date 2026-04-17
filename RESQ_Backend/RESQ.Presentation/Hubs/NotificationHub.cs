@@ -8,7 +8,7 @@ namespace RESQ.Presentation.Hubs;
 
 /// <summary>
 /// Hub thông báo thời gian thực.
-/// M?i user t? d?ng join group "notification_user_{userId}" khi k?t n?i.
+/// Mỗi user tự động join group "notification_user_{userId}" khi kết nối.
 /// Server push event "ReceiveNotification" khi có notification mới.
 /// Client kết nối với JWT Bearer token qua query string ?access_token=...
 /// </summary>
@@ -34,7 +34,7 @@ public class NotificationHub : Hub
     }
 
     /// <summary>
-    /// Join group realtime theo mission + depot d? nh?n DepotUpdated event.
+    /// Join group realtime theo mission + depot để nhận DepotUpdated event.
     /// </summary>
     public Task JoinDepotGroup(int? missionId, int depotId)
     {

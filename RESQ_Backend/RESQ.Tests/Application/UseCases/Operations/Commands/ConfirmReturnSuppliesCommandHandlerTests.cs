@@ -278,7 +278,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         var depotInventoryRepository = new StubDepotInventoryRepository
         {
             ManagerDepotIds = [depotId],
-            ExceptionFactory = () => new InvalidOperationException("Reusable unit #171 kh�ng ? tr?ng th�i InUse.")
+            ExceptionFactory = () => new InvalidOperationException("Reusable unit #171 không ở trạng thái InUse.")
         };
         var metadataRepository = new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
         {
@@ -309,7 +309,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 ],
                 null), CancellationToken.None));
 
-        Assert.Equal("Reusable unit #171 kh�ng ? tr?ng th�i InUse.", ex.Message);
+        Assert.Equal("Reusable unit #171 không ở trạng thái InUse.", ex.Message);
     }
 
     [Fact]

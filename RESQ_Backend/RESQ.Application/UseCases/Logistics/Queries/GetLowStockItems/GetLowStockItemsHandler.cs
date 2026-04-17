@@ -25,7 +25,7 @@ public class GetLowStockItemsHandler(
             var result = await _evaluatorService.EvaluateAsync(
                 raw.DepotId, raw.CategoryId, raw.ItemModelId, raw.AvailableQuantity, cancellationToken);
 
-            // B? qua v?t ph?m dang OK
+            // Bỏ qua vật phẩm đang OK
             if (result.Level == StockWarningLevel.Ok)
                 continue;
 

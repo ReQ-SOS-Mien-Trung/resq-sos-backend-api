@@ -33,14 +33,14 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
 
     public async Task<int> Handle(CreateFundingRequestCommand request, CancellationToken cancellationToken)
     {
-        // 1. L?y depotId t? manager token
+        // 1. Lấy depotId từ manager token
         var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.RequestedBy, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Bạn không có kho đang hoạt động. Vui lòng liên hệ admin.");
 
         // 2. Tính tổng tiền tự động từ danh sách items
         var totalAmount = request.Items.Sum(i => i.Quantity * i.UnitPrice);
 
-        // 3. T?o FundingRequest domain model
+        // 3. Tạo FundingRequest domain model
         var fundingRequest = new FundingRequestModel(
             depotId,
             request.RequestedBy,

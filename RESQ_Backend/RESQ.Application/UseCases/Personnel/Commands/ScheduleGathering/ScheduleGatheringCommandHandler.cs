@@ -31,7 +31,7 @@ public class ScheduleGatheringCommandHandler(
         var assemblyDateUtc = request.AssemblyDate.ToUtcForStorage();
         var checkInDeadlineUtc = request.CheckInDeadline.ToUtcForStorage();
 
-        // 3. Không cho phép l?p l?ch vào ngày quá kh? theo gi? Vi?t Nam.
+        // 3. Không cho phép lập lịch vào ngày quá khứ theo giờ Việt Nam.
         var assemblyDateInVietnam = assemblyDateUtc.ToVietnamTime().Date;
         var todayInVietnam = DateTime.UtcNow.ToVietnamTime().Date;
         if (assemblyDateInVietnam < todayInVietnam)
