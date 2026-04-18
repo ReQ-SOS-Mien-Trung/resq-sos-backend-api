@@ -214,6 +214,15 @@ public class DatabaseSeederTests
             .ToListAsync();
         Assert.Empty(incompleteRequestsForOtherDepots);
 
+        var closureTestDepot = await context.Depots.SingleAsync(depot => depot.Name == "Ủy ban MTTQVN Tỉnh Nghệ An");
+        Assert.False(await context.DepotSupplyRequests.AnyAsync(request =>
+            request.RequestingDepotId == closureTestDepot.Id || request.SourceDepotId == closureTestDepot.Id));
+        Assert.False(await context.MissionActivities.AnyAsync(activity =>
+            activity.DepotId == closureTestDepot.Id
+            && (activity.ActivityType == "COLLECT_SUPPLIES"
+                || activity.ActivityType == "DELIVER_SUPPLIES"
+                || activity.ActivityType == "RETURN_SUPPLIES")));
+
         var depotFundCounts = await context.DepotFunds
             .GroupBy(fund => fund.DepotId)
             .OrderBy(group => group.Key)

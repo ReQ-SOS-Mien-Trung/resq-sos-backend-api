@@ -30,6 +30,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int EligibleAssignedRescuerCount = 78;
     private const int HueStadiumUnclusteredSosCount = 10;
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
+    private const string DepotClosureTestDepotName = "Ủy ban MTTQVN Tỉnh Nghệ An";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ResQDbContext _db;
     private readonly SeedDataOptions _options;
@@ -1495,11 +1496,13 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             {
                 var team = missionTeams[(step - 1) % missionTeams.Count];
                 var sos = clusterSos[(step - 1) % clusterSos.Count];
-                var depot = seed.Depots[(mission.Id + step) % seed.Depots.Count];
                 var type = ActivityType(step, activities, mission.MissionType);
+                var hasDepot = type is "COLLECT_SUPPLIES" or "DELIVER_SUPPLIES" or "RETURN_SUPPLIES";
+                var depot = hasDepot
+                    ? OperationalDepotForActivity(seed, mission.Id, step)
+                    : seed.Depots[(mission.Id + step) % seed.Depots.Count];
                 var activityStatus = ActivityStatusFor(mission.Status, step, activities);
                 var assigned = (mission.StartTime ?? mission.CreatedAt)?.AddMinutes(step * 35);
-                var hasDepot = type is "COLLECT_SUPPLIES" or "DELIVER_SUPPLIES" or "RETURN_SUPPLIES";
                 seed.MissionActivities.Add(new MissionActivity
                 {
                     MissionId = mission.Id,
@@ -1652,7 +1655,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         const int depotOneTwoRequestCount = 24;
         const int depotOneTwoIncompleteRequestCount = 12;
         var completedStatus = ("Completed", "Received");
-        var completedOnlyDepots = seed.Depots.Skip(2).ToList();
+        var completedOnlyDepots = seed.Depots
+            .Skip(2)
+            .Where(depot => !IsDepotClosureTestCandidate(depot))
+            .ToList();
 
         for (var i = 0; i < 95; i++)
         {
@@ -2567,6 +2573,18 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         return seed.Managers[(depotId - 1) % seed.Managers.Count].Id;
     }
+
+    private static Depot OperationalDepotForActivity(DemoSeedContext seed, int missionId, int step)
+    {
+        var operationalDepots = seed.Depots
+            .Where(depot => !IsDepotClosureTestCandidate(depot))
+            .ToList();
+
+        return operationalDepots[(missionId + step) % operationalDepots.Count];
+    }
+
+    private static bool IsDepotClosureTestCandidate(Depot depot) =>
+        string.Equals(depot.Name, DepotClosureTestDepotName, StringComparison.Ordinal);
 
     private static void EnsureEssentialDepotStock(DemoSeedContext seed, ItemModel lifeJacketModel, ItemModel blanketModel)
     {
