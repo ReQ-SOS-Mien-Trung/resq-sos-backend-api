@@ -5,8 +5,8 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Domain.Entities.Identity;
 using RESQ.Infrastructure.Entities.Identity;
-using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Mappers.Identity;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Infrastructure.Persistence.Identity
 {
@@ -134,8 +134,9 @@ namespace RESQ.Infrastructure.Persistence.Identity
             }
         }
 
-        public async Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, RescuerType? rescuerType = null, CancellationToken cancellationToken = default)
         {
+            var rescuerTypeString = rescuerType?.ToString();
             var paged = await _unitOfWork.GetRepository<User>().GetPagedAsync(
                 pageNumber,
                 pageSize,
@@ -144,6 +145,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     (excludeRoleId == null || u.RoleId != excludeRoleId) &&
                     (isBanned == null || u.IsBanned == isBanned) &&
                     (isEligible == null || (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer == isEligible)) &&
+                    (rescuerTypeString == null || (u.RescuerProfile != null && u.RescuerProfile.RescuerType == rescuerTypeString)) &&
                     (search == null || (u.Phone != null && u.Phone.ToLower().Contains(search.ToLower())) ||
                      (u.Email != null && u.Email.ToLower().Contains(search.ToLower())) ||
                      (u.FirstName != null && u.FirstName.ToLower().Contains(search.ToLower())) ||

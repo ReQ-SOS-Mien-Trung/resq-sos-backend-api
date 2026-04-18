@@ -280,7 +280,7 @@ public class RescuerAuthSessionAndProfileHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, CancellationToken cancellationToken = default)
+        public Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pageNumber, int pageSize, int? roleId = null, string? search = null, CancellationToken cancellationToken = default)
@@ -493,7 +493,7 @@ public class RescuerAuthSessionAndProfileHandlerTests
         public Task<RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications.RescuerApplicationDto?> GetLatestByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task<PagedResult<RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications.RescuerApplicationListItemDto>> GetPagedAsync(int pageNumber, int pageSize, string? status = null, string? name = null, string? email = null, string? phone = null, string? rescuerType = null, CancellationToken cancellationToken = default)
+        public Task<PagedResult<RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications.RescuerApplicationListItemDto>> GetPagedAsync(int pageNumber, int pageSize, RESQ.Domain.Enum.Identity.RescuerApplicationStatus? status = null, string? name = null, string? email = null, string? phone = null, string? rescuerType = null, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task<RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications.RescuerApplicationDto?> GetDetailByIdAsync(int id, CancellationToken cancellationToken = default)

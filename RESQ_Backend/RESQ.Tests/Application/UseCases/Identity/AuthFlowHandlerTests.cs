@@ -518,7 +518,7 @@ public sealed class AuthFlowHandlerTests
         { _usersById[user.Id] = user; CreatedUsers.Add(user); return Task.CompletedTask; }
         public Task UpdateAsync(UserModel user, CancellationToken ct = default)
         { LastUpdatedUser = user; _usersById[user.Id] = user; return Task.CompletedTask; }
-        public Task<PagedResult<UserModel>> GetPagedAsync(int pn, int ps, int? r = null, bool? b = null, string? s = null, int? er = null, bool? ie = null, CancellationToken ct = default)
+        public Task<PagedResult<UserModel>> GetPagedAsync(int pn, int ps, int? r = null, bool? b = null, string? s = null, int? er = null, bool? ie = null, RESQ.Domain.Enum.Identity.RescuerType? rt = null, CancellationToken ct = default)
             => throw new NotImplementedException();
         public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pn, int ps, int? r = null, string? s = null, CancellationToken ct = default)
             => throw new NotImplementedException();

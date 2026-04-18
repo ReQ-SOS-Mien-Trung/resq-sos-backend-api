@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication;
+using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplicationStatusMetadata;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplicationDetail;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Presentation.Controllers.Identity
 {
@@ -21,7 +23,7 @@ namespace RESQ.Presentation.Controllers.Identity
         public async Task<IActionResult> GetRescuerApplications(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
-            [FromQuery] string? status = null,
+            [FromQuery] RescuerApplicationStatus? status = null,
             [FromQuery] string? name = null,
             [FromQuery] string? email = null,
             [FromQuery] string? phone = null,
@@ -29,6 +31,14 @@ namespace RESQ.Presentation.Controllers.Identity
         {
             var query = new GetRescuerApplicationsQuery(pageNumber, pageSize, status, name, email, phone, rescuerType);
             var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        [HttpGet("metadata/statuses")]
+        [Authorize(Policy = PermissionConstants.SystemUserView)]
+        public async Task<IActionResult> GetRescuerApplicationStatuses()
+        {
+            var result = await _mediator.Send(new GetRescuerApplicationStatusMetadataQuery());
             return Ok(result);
         }
 

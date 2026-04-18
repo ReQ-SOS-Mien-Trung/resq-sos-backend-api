@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
-using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Services;
@@ -10,6 +9,7 @@ using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Identity;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Emergency;
+using RESQ.Domain.Enum.Identity;
 using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Emergency;
@@ -150,7 +150,7 @@ public class CreateSosRequestCommandHandlerTests
         public Task<UserModel?> GetByPasswordResetTokenAsync(string t, CancellationToken ct = default) => Task.FromResult<UserModel?>(null);
         public Task CreateAsync(UserModel u, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateAsync(UserModel u, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<PagedResult<UserModel>> GetPagedAsync(int pn, int ps, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, CancellationToken ct = default) => Task.FromResult(new PagedResult<UserModel>([], 0, pn, ps));
+        public Task<PagedResult<UserModel>> GetPagedAsync(int pn, int ps, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, RescuerType? rescuerType = null, CancellationToken ct = default) => Task.FromResult(new PagedResult<UserModel>([], 0, pn, ps));
         public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pn, int ps, int? roleId = null, string? search = null, CancellationToken ct = default) => Task.FromResult(new PagedResult<UserModel>([], 0, pn, ps));
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken ct = default) => Task.FromResult(new List<Guid>());
         public Task<List<Guid>> GetActiveCoordinatorUserIdsAsync(CancellationToken ct = default) => Task.FromResult(new List<Guid>());

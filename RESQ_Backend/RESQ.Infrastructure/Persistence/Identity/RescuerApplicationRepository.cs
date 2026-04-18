@@ -5,6 +5,7 @@ using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications;
 using RESQ.Domain.Entities.Identity;
 using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Mappers.Identity;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Infrastructure.Persistence.Identity
 {
@@ -54,14 +55,15 @@ namespace RESQ.Infrastructure.Persistence.Identity
             return entity is null ? null : MapToDto(entity);
         }
 
-        public async Task<PagedResult<RescuerApplicationListItemDto>> GetPagedAsync(int pageNumber, int pageSize, string? status = null, string? name = null, string? email = null, string? phone = null, string? rescuerType = null, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<RescuerApplicationListItemDto>> GetPagedAsync(int pageNumber, int pageSize, RescuerApplicationStatus? status = null, string? name = null, string? email = null, string? phone = null, string? rescuerType = null, CancellationToken cancellationToken = default)
         {
+            var statusString = status?.ToString();
             var pagedResult = await _unitOfWork.GetRepository<RescuerApplication>()
                 .GetPagedAsync(
                     pageNumber,
                     pageSize,
                     filter: x =>
-                        (status == null || x.Status == status) &&
+                        (statusString == null || x.Status == statusString) &&
                         (name == null || (x.User != null && (
                             (x.User.FirstName != null && x.User.FirstName.ToLower().Contains(name.ToLower())) ||
                             (x.User.LastName != null && x.User.LastName.ToLower().Contains(name.ToLower()))))) &&
