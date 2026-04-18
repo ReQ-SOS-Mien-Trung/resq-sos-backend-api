@@ -3,6 +3,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosCluster;
@@ -46,9 +47,13 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
-    public async Task<IActionResult> GetClusters()
+    [ProducesResponseType(typeof(PagedResult<SosClusterDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetClusters(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] int? sosRequestId = null)
     {
-        var result = await _mediator.Send(new GetSosClustersQuery());
+        var result = await _mediator.Send(new GetSosClustersQuery(pageNumber, pageSize, sosRequestId));
         return Ok(result);
     }
 

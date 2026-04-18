@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
@@ -7,20 +8,26 @@ namespace RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 public class GetSosClustersQueryHandler(
     ISosClusterRepository sosClusterRepository,
     ILogger<GetSosClustersQueryHandler> logger
-) : IRequestHandler<GetSosClustersQuery, GetSosClustersResponse>
+) : IRequestHandler<GetSosClustersQuery, PagedResult<SosClusterDto>>
 {
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ILogger<GetSosClustersQueryHandler> _logger = logger;
 
-    public async Task<GetSosClustersResponse> Handle(GetSosClustersQuery request, CancellationToken cancellationToken)
+    public async Task<PagedResult<SosClusterDto>> Handle(GetSosClustersQuery request, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Handling GetSosClustersQuery");
 
-        var clusters = await _sosClusterRepository.GetAllAsync(cancellationToken);
+        var pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;
+        var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
 
-        return new GetSosClustersResponse
-        {
-            Clusters = clusters.Select(c => new SosClusterDto
+        var pagedClusters = await _sosClusterRepository.GetPagedAsync(
+            pageNumber,
+            pageSize,
+            request.SosRequestId,
+            cancellationToken);
+
+        var items = pagedClusters.Items
+            .Select(c => new SosClusterDto
             {
                 Id = c.Id,
                 CenterLatitude = c.CenterLatitude,
@@ -37,7 +44,13 @@ public class GetSosClustersQueryHandler(
                 Status = c.Status,
                 CreatedAt = c.CreatedAt,
                 LastUpdatedAt = c.LastUpdatedAt
-            }).ToList()
-        };
+            })
+            .ToList();
+
+        return new PagedResult<SosClusterDto>(
+            items,
+            pagedClusters.TotalCount,
+            pagedClusters.PageNumber,
+            pagedClusters.PageSize);
     }
 }

@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Entities.Emergency;
@@ -25,7 +27,40 @@ public class SosClusterRepository(IUnitOfWork unitOfWork) : ISosClusterRepositor
 
         return entities
             .OrderByDescending(x => x.CreatedAt)
-            .Select(e => SosClusterMapper.ToDomain(e));
+            .Select(entity => SosClusterMapper.ToDomain(entity));
+    }
+
+    public async Task<PagedResult<SosClusterModel>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        int? sosRequestId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var repository = _unitOfWork.GetRepository<SosCluster>();
+        Expression<Func<SosCluster, bool>>? filter = null;
+
+        if (sosRequestId.HasValue)
+        {
+            var requestId = sosRequestId.Value;
+            filter = cluster => cluster.SosRequests.Any(sosRequest => sosRequest.Id == requestId);
+        }
+
+        var pagedEntities = await repository.GetPagedAsync(
+            pageNumber,
+            pageSize,
+            filter: filter,
+            orderBy: query => query.OrderByDescending(cluster => cluster.CreatedAt),
+            includeProperties: "SosRequests");
+
+        var models = pagedEntities.Items
+            .Select(entity => SosClusterMapper.ToDomain(entity))
+            .ToList();
+
+        return new PagedResult<SosClusterModel>(
+            models,
+            pagedEntities.TotalCount,
+            pagedEntities.PageNumber,
+            pagedEntities.PageSize);
     }
 
     public async Task<int> CreateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default)
