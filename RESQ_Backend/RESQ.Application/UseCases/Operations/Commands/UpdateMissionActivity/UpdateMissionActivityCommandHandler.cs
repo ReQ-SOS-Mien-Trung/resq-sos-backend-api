@@ -1,9 +1,11 @@
 ﻿using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
@@ -16,6 +18,8 @@ namespace RESQ.Application.UseCases.Operations.Commands.UpdateMissionActivity;
 
 public class UpdateMissionActivityCommandHandler(
     IMissionActivityRepository activityRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IAssemblyPointRepository assemblyPointRepository,
     IUnitOfWork unitOfWork,
@@ -23,6 +27,8 @@ public class UpdateMissionActivityCommandHandler(
 ) : IRequestHandler<UpdateMissionActivityCommand, UpdateMissionActivityResponse>
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IAssemblyPointRepository _assemblyPointRepository = assemblyPointRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
@@ -132,6 +138,12 @@ public class UpdateMissionActivityCommandHandler(
             activity.AssemblyPointLongitude = assemblyPoint.Location.Longitude;
         }
 
+        var victimContext = await LoadVictimContextAsync(activity.SosRequestId, cancellationToken);
+        activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
+            activity.ActivityType,
+            activity.Description,
+            victimContext?.Summary);
+
         await _activityRepository.UpdateAsync(activity, cancellationToken);
         await _unitOfWork.SaveAsync();
 
@@ -188,6 +200,22 @@ public class UpdateMissionActivityCommandHandler(
                 ? null
                 : JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items, _jsonOpts)
         };
+    }
+
+    private async Task<MissionActivityVictimContext?> LoadVictimContextAsync(
+        int? sosRequestId,
+        CancellationToken cancellationToken)
+    {
+        if (!sosRequestId.HasValue)
+            return null;
+
+        var victimContexts = await MissionActivityVictimContextLoader.LoadAsync(
+            [sosRequestId.Value],
+            _sosRequestRepository,
+            _sosRequestUpdateRepository,
+            cancellationToken);
+
+        return victimContexts.GetValueOrDefault(sosRequestId.Value);
     }
 
     private static bool CanUpdateOngoingReturnAssemblyPoint(

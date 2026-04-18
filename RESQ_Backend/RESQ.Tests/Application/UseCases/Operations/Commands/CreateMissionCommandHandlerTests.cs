@@ -331,6 +331,57 @@ public class CreateMissionCommandHandlerTests
         Assert.Equal(10, reservedItem.Quantity);
     }
 
+    [Fact]
+    public async Task Handle_EnrichesSosBoundActivityDescriptions_WithVictimSummary()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository(
+            new SosRequestModel
+            {
+                Id = 4,
+                StructuredData =
+                    """
+                    {
+                      "incident": {},
+                      "victims": [
+                        { "person_type": "CHILD", "custom_name": "Khoa" },
+                        { "person_type": "ELDERLY", "custom_name": "Chu" }
+                      ]
+                    }
+                    """
+            });
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork,
+            assemblyPointRepository: new StubAssemblyPointRepository(CreateAssemblyPoint(3)));
+
+        var rescue = CreateRescueActivity(step: 1);
+        rescue.SosRequestId = 4;
+
+        await handler.Handle(
+            BuildCommandWithOptions(
+                [
+                    rescue,
+                    CreateReturnAssemblyPointActivity(step: 2, assemblyPointId: 3, rescueTeamId: 12)
+                ]),
+            CancellationToken.None);
+
+        var persistedRescue = Assert.Single(missionRepository.CreatedMission!.Activities, activity =>
+            string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Contains("Đối tượng cần hỗ trợ: Khoa (trẻ em), Chu (người già).", persistedRescue.Description);
+    }
+
     private static CreateMissionCommandHandler BuildHandler(
         IMissionRepository missionRepository,
         IMissionActivityRepository missionActivityRepository,
@@ -339,6 +390,7 @@ public class CreateMissionCommandHandlerTests
         IDepotInventoryRepository depotInventoryRepository,
         IItemModelMetadataRepository itemModelMetadataRepository,
         IUnitOfWork unitOfWork,
+        ISosRequestUpdateRepository? sosRequestUpdateRepository = null,
         IMissionAiSuggestionRepository? missionAiSuggestionRepository = null,
         IRescueTeamRepository? rescueTeamRepository = null,
         IAssemblyPointRepository? assemblyPointRepository = null)
@@ -348,6 +400,7 @@ public class CreateMissionCommandHandlerTests
             missionActivityRepository,
             clusterRepository,
             sosRequestRepository,
+            sosRequestUpdateRepository ?? new StubSosRequestUpdateRepository(),
             missionAiSuggestionRepository ?? new StubMissionAiSuggestionRepository(),
             depotInventoryRepository,
             new StubDepotRepository(),
@@ -566,8 +619,9 @@ public class CreateMissionCommandHandlerTests
         }
     }
 
-    private sealed class StubSosRequestRepository : ISosRequestRepository
+    private sealed class StubSosRequestRepository(params RESQ.Domain.Entities.Emergency.SosRequestModel[] requests) : ISosRequestRepository
     {
+        private readonly Dictionary<int, RESQ.Domain.Entities.Emergency.SosRequestModel> _requests = requests.ToDictionary(request => request.Id);
         public int UpdateStatusByClusterCalls { get; private set; }
 
         public Task CreateAsync(RESQ.Domain.Entities.Emergency.SosRequestModel sosRequest, CancellationToken cancellationToken = default)
@@ -586,7 +640,7 @@ public class CreateMissionCommandHandlerTests
             => Task.FromResult(new PagedResult<RESQ.Domain.Entities.Emergency.SosRequestModel>([], 0, pageNumber, pageSize));
 
         public Task<RESQ.Domain.Entities.Emergency.SosRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
-            => Task.FromResult<RESQ.Domain.Entities.Emergency.SosRequestModel?>(null);
+            => Task.FromResult(_requests.GetValueOrDefault(id));
 
         public Task<IEnumerable<RESQ.Domain.Entities.Emergency.SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default)
             => Task.FromResult(Enumerable.Empty<RESQ.Domain.Entities.Emergency.SosRequestModel>());
@@ -602,6 +656,20 @@ public class CreateMissionCommandHandlerTests
 
         public Task<IEnumerable<RESQ.Domain.Entities.Emergency.SosRequestModel>> GetByCompanionUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult(Enumerable.Empty<RESQ.Domain.Entities.Emergency.SosRequestModel>());
+    }
+
+    private sealed class StubSosRequestUpdateRepository : ISosRequestUpdateRepository
+    {
+        public Task AddVictimUpdateAsync(SosRequestVictimUpdateModel update, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task AddIncidentRangeAsync(IEnumerable<SosRequestIncidentUpdateModel> updates, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetSosRequestIdsByTeamIncidentIdsAsync(IEnumerable<int> teamIncidentIds, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<int, IReadOnlyCollection<int>>>(new Dictionary<int, IReadOnlyCollection<int>>());
+        public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetTeamIncidentIdsBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<int, IReadOnlyCollection<int>>>(new Dictionary<int, IReadOnlyCollection<int>>());
+        public Task<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>> GetLatestVictimUpdatesBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>>(new Dictionary<int, SosRequestVictimUpdateModel>());
+        public Task<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>> GetIncidentHistoryBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>>(new Dictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>());
     }
 
     private sealed class StubMissionAiSuggestionRepository(params MissionAiSuggestionModel[] suggestions)

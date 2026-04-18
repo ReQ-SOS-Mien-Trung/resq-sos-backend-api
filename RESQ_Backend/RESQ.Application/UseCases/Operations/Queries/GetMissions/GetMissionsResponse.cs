@@ -1,5 +1,8 @@
 using System.Text.Json;
+using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Logistics;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Shared;
@@ -45,6 +48,8 @@ public class MissionActivityDto
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
+    public string? TargetVictimSummary { get; set; }
+    public List<MissionActivityTargetVictimDto> TargetVictims { get; set; } = [];
     public string? Priority { get; set; }
     public int? EstimatedTime { get; set; }
     public int? SosRequestId { get; set; }
@@ -188,6 +193,39 @@ internal static class MissionActivityDtoHelper
             (supply, imageUrl) => supply.ImageUrl = imageUrl ?? supply.ImageUrl,
             itemModelMetadataRepository,
             cancellationToken);
+    }
+
+    internal static async Task EnrichVictimContextAsync(
+        IEnumerable<MissionActivityDto> activities,
+        ISosRequestRepository sosRequestRepository,
+        ISosRequestUpdateRepository sosRequestUpdateRepository,
+        CancellationToken cancellationToken)
+    {
+        var activityList = activities.ToList();
+        var victimContexts = await MissionActivityVictimContextLoader.LoadAsync(
+            activityList
+                .Where(activity => activity.SosRequestId.HasValue)
+                .Select(activity => activity.SosRequestId!.Value),
+            sosRequestRepository,
+            sosRequestUpdateRepository,
+            cancellationToken);
+
+        foreach (var activity in activityList)
+        {
+            if (!activity.SosRequestId.HasValue
+                || !victimContexts.TryGetValue(activity.SosRequestId.Value, out var victimContext))
+            {
+                activity.TargetVictims = [];
+                continue;
+            }
+
+            activity.TargetVictimSummary = victimContext.Summary;
+            activity.TargetVictims = MissionActivityVictimContextHelper.CloneVictims(victimContext.Victims);
+            activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
+                activity.ActivityType,
+                activity.Description,
+                victimContext.Summary);
+        }
     }
 }
 

@@ -93,6 +93,8 @@ public class SosRequestSummary
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public string? TargetVictimSummary { get; set; }
+    public List<MissionActivityTargetVictimDto> TargetVictims { get; set; } = [];
 }
 
 public class RescueMissionSuggestionResult
@@ -195,6 +197,8 @@ public class SuggestedActivityDto
     public int Step { get; set; }
     public string ActivityType { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string? TargetVictimSummary { get; set; }
+    public List<MissionActivityTargetVictimDto> TargetVictims { get; set; } = [];
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
     /// <summary>`SingleTeam` nếu một đội tự hoàn thành được, `SplitAcrossTeams` nếu đây là một nhánh trong kế hoạch nhiều đội.</summary>

@@ -12,6 +12,8 @@ public class GetMissionsQueryHandler(
     IMissionRepository missionRepository,
     IMissionTeamRepository missionTeamRepository,
     IMissionAiSuggestionRepository aiSuggestionRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     ILogger<GetMissionsQueryHandler> logger
 ) : IRequestHandler<GetMissionsQuery, GetMissionsResponse>
@@ -19,6 +21,8 @@ public class GetMissionsQueryHandler(
     private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IMissionAiSuggestionRepository _aiSuggestionRepository = aiSuggestionRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly ILogger<GetMissionsQueryHandler> _logger = logger;
 
@@ -156,6 +160,12 @@ public class GetMissionsQueryHandler(
             if (missionLookup.TryGetValue(missionDto.Id, out var sourceMission))
                 MissionActivityDtoHelper.EnrichSupplyExecutionContext(sourceMission.Activities, missionDto.Activities);
         }
+
+        await MissionActivityDtoHelper.EnrichVictimContextAsync(
+            response.Missions.SelectMany(mission => mission.Activities),
+            _sosRequestRepository,
+            _sosRequestUpdateRepository,
+            cancellationToken);
 
         await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(
             response.Missions.SelectMany(mission => mission.Activities),
