@@ -1743,7 +1743,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         result.NeedsManualReview = true;
         result.SpecialNotes = AppendSpecialNote(
             result.SpecialNotes,
-            "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat. Nguyen tac an toan: sau khi cuu nan nhan phai dua ho ve Safe Zone/Assembly Point ngay de cap cuu, khong tiep tuc cho nan nhan di phat do. Khuyen nghi tach thanh mission rieng; coordinator chi nen bo qua canh bao nay khi chu dong chap nhan trach nhiem.");
+            "Kế hoạch đang gộp chung cứu hộ/cấp cứu với cứu trợ cấp phát. Nguyên tắc an toàn: sau khi cứu nạn nhân phải đưa họ về Safe Zone/Assembly Point ngay để cấp cứu, không tiếp tục chở nạn nhân đi phát đồ. Khuyến nghị tách thành mission riêng; coordinator chỉ nên bỏ qua cảnh báo này khi chủ động chấp nhận trách nhiệm.");
     }
 
     private static void BackfillSosRequestIds(List<SuggestedActivityDto> activities, List<SosRequestSummary> sosRequests)
