@@ -622,16 +622,23 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         List<int> depotIds,
         string? sourceStatus,
         string? requestingStatus,
+        string? roleFilter,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.Set<DepotSupplyRequest>()
+        var set = _unitOfWork.Set<DepotSupplyRequest>()
             .Include(r => r.RequestingDepot)
             .Include(r => r.SourceDepot)
             .Include(r => r.Items)
-                .ThenInclude(i => i.ItemModel)
-            .Where(r => depotIds.Contains(r.RequestingDepotId) || depotIds.Contains(r.SourceDepotId));
+                .ThenInclude(i => i.ItemModel);
+
+        IQueryable<DepotSupplyRequest> query = roleFilter switch
+        {
+            "Requester" => set.Where(r => depotIds.Contains(r.RequestingDepotId)),
+            "Source"    => set.Where(r => depotIds.Contains(r.SourceDepotId)),
+            _           => set.Where(r => depotIds.Contains(r.RequestingDepotId) || depotIds.Contains(r.SourceDepotId))
+        };
 
         if (sourceStatus != null)
             query = query.Where(r => r.SourceStatus == sourceStatus);

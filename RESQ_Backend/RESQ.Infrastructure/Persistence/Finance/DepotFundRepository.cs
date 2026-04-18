@@ -388,7 +388,7 @@ public class DepotFundRepository : IDepotFundRepository
         var systemFundName = await _unitOfWork.Set<SystemFund>()
             .OrderBy(x => x.Id)
             .Select(x => x.Name)
-            .FirstOrDefaultAsync(cancellationToken) ?? "Qu? h? th?ng";
+            .FirstOrDefaultAsync(cancellationToken) ?? "Quỹ hệ thống";
 
         foreach (var fund in funds)
         {

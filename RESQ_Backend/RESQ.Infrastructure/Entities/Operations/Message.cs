@@ -23,7 +23,7 @@ public partial class Message
     [Column("content")]
     public string? Content { get; set; }
 
-    /// <summary>Lo?i tin nh?n: UserMessage | AiMessage | SystemMessage</summary>
+    /// <summary>Loại tin nhắn: UserMessage | AiMessage | SystemMessage</summary>
     [Column("message_type")]
     [StringLength(30)]
     public string? MessageType { get; set; }

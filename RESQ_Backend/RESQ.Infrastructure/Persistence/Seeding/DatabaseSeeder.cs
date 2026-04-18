@@ -24,7 +24,7 @@ namespace RESQ.Infrastructure.Persistence.Seeding;
 public sealed class DatabaseSeeder : IDatabaseSeeder
 {
     private const string MarkerName = "demo-seed-v1-2026-04-16";
-    private const int TotalRescuerCount = 106;
+    private const int TotalRescuerCount = 120;
     private const int UnassignedRescuerCount = 20;
     private const int EligibleAssignedRescuerCount = 78;
     private const int HueStadiumUnclusteredSosCount = 10;
@@ -426,12 +426,12 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 IssueWeightsJson = Json(new { unconscious = 5, drowning = 5, breathingDifficulty = 4, fever = 2, trauma = 4 }),
                 MedicalSevereIssuesJson = Json(new[] { "unconscious", "drowning", "breathingDifficulty", "trauma" }),
                 AgeWeightsJson = Json(new { child = 1.4, elderly = 1.3, adult = 1.0, pregnant = 1.35 }),
-                RequestTypeScoresJson = Json(new { RESCUE = 30, RELIEF = 18, BOTH = 40 }),
+                RequestTypeScoresJson = Json(new { Rescue = 30, Relief = 18, Both = 40 }),
                 SituationMultipliersJson = Json(new[]
                 {
-                    new { keys = new[] { "FLOODING", "STRANDED" }, multiplier = 1.4, severe = true },
-                    new { keys = new[] { "LANDSLIDE" }, multiplier = 1.5, severe = true },
-                    new { keys = new[] { "CANNOT_MOVE", "MEDICAL" }, multiplier = 1.3, severe = true }
+                    new { keys = new[] { "Flooding", "Stranded" }, multiplier = 1.4, severe = true },
+                    new { keys = new[] { "Landslide" }, multiplier = 1.5, severe = true },
+                    new { keys = new[] { "CannotMove", "Medical" }, multiplier = 1.3, severe = true }
                 }),
                 PriorityThresholdsJson = Json(new
                 {
@@ -701,10 +701,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var deployableRescuers = GetDeployableRescuers(seed);
         var statuses = new[]
         {
-            "Available", "Available", "Gathering", "Assigned", "OnMission",
-            "Available", "Gathering", "Assigned", "OnMission", "Stuck",
-            "Available", "Assigned", "OnMission", "Gathering", "Available",
-            "Assigned", "OnMission", "Unavailable", "Disbanded", "Disbanded"
+            "Available", "Available", "Gathering", "Available", "Gathering",
+            "Available", "Gathering", "Available", "Available", "Stuck",
+            "Available", "Gathering", "Available", "Gathering", "Available",
+            "Available", "Available", "Unavailable", "Disbanded", "Disbanded"
         };
         var types = new[] { "Mixed", "Rescue", "Medical", "Transportation" };
 
@@ -737,7 +737,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             var count = teamIndex < 16 ? 5 : teamIndex == 16 ? 6 : 10;
             for (var i = 0; i < count; i++)
             {
-                var rescuer = teamIndex < 17
+                var rescuer = teamIndex < 18
                     ? deployableRescuers[memberIndex++ % deployableRescuers.Count]
                     : deployableRescuers[(teamIndex * 13 + i) % deployableRescuers.Count];
                 var invitedAt = (team.CreatedAt ?? seed.StartUtc).AddHours(2 + i);
@@ -1084,7 +1084,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 var coordinator = seed.Coordinators[(i + j) % seed.Coordinators.Count];
                 var status = i < 12 ? "Pending" : i < 70 ? "Resolved" : i < 95 ? "InProgress" : i < 104 ? "Assigned" : "Cancelled";
                 var people = 1 + (i + j) % 6;
-                var hasInjured = situation is "MEDICAL" or "LANDSLIDE" || (i + j) % 11 == 0;
+                var hasInjured = situation is "Medical" or "Landslide" || (i + j) % 11 == 0;
 
                 createdSos.Add(new SosRequest
                 {
@@ -1093,14 +1093,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     UserId = victim.Id,
                     Location = Point(offsets[j].Lon, offsets[j].Lat),
                     LocationAccuracy = 12 + (i + j) % 35,
-                    SosType = situation is "NEED_SUPPLIES" ? "RELIEF" : hasInjured || situation is "FLOODING" ? "BOTH" : "RESCUE",
+                    SosType = situation is "NeedSupplies" ? "Relief" : hasInjured || situation is "Flooding" ? "Both" : "Rescue",
                     RawMessage = SosMessage(situation, people, hasInjured),
                     StructuredData = Json(new
                     {
                         incident = new { situation, water_level = cluster.WaterLevel },
                         people_count = new { adult = Math.Max(1, people - 2), child = (i + j) % 3, elderly = (i + j) % 2, pregnant = (i + j) % 17 == 0 ? 1 : 0 },
                         has_injured = hasInjured,
-                        can_move = situation is not "CANNOT_MOVE" and not "STRANDED",
+                        can_move = situation is not "CannotMove" and not "Stranded",
                         medical_issues = hasInjured ? new[] { "chấn thương nhẹ", "hạ thân nhiệt" } : Array.Empty<string>(),
                         supplies = SuppliesFor(situation),
                         address = $"{12 + i % 80} {area.Address}",
@@ -1165,10 +1165,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 var coordinator = seed.Coordinators[i % seed.Coordinators.Count];
                 var situation = (i % 4) switch
                 {
-                    0 => "STRANDED",
-                    1 => "FLOODING",
-                    2 => "CANNOT_MOVE",
-                    _ => "NEED_SUPPLIES"
+                    0 => "Stranded",
+                    1 => "Flooding",
+                    2 => "CannotMove",
+                    _ => "NeedSupplies"
                 };
                 var status = i < 4 ? "Pending" : i < 7 ? "Assigned" : i < 9 ? "InProgress" : "Resolved";
                 var people = 2 + i % 4;
@@ -1184,14 +1184,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     UserId = victim.Id,
                     Location = location,
                     LocationAccuracy = 9 + i,
-                    SosType = situation is "NEED_SUPPLIES" ? "RELIEF" : situation is "FLOODING" ? "BOTH" : "RESCUE",
+                    SosType = situation is "NeedSupplies" ? "Relief" : situation is "Flooding" ? "Both" : "Rescue",
                     RawMessage = SosMessage(situation, people, hasInjured),
                     StructuredData = Json(new
                     {
                         incident = new { situation, water_level = i % 2 == 0 ? "Ngập cục bộ quanh sân vận động" : "Ngập sâu ở kiệt nhỏ quanh khu dân cư" },
                         people_count = new { adult = Math.Max(1, people - 1), child = i % 2, elderly = i % 3 == 0 ? 1 : 0, pregnant = i == 7 ? 1 : 0 },
                         has_injured = hasInjured,
-                        can_move = situation is not "CANNOT_MOVE" and not "STRANDED",
+                        can_move = situation is not "CannotMove" and not "Stranded",
                         medical_issues = hasInjured ? new[] { "trầy xước", "mệt do ngâm nước lâu" } : Array.Empty<string>(),
                         supplies = SuppliesFor(situation),
                         address = nearbyAddresses[i],
@@ -1258,7 +1258,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 TotalScore = sos.PriorityScore,
                 PriorityLevel = sos.PriorityLevel,
                 RuleVersion = "v1.0",
-                ItemsNeeded = Json(new[] { "WATER", "FOOD", "MEDICINE" }),
+                ItemsNeeded = Json(new[] { "Water", "Food", "Medicine" }),
                 BreakdownJson = Json(new { priority = sos.PriorityLevel, reason = "Generated by deterministic demo seed" }),
                 DetailsJson = sos.StructuredData,
                 CreatedAt = createdAt.AddMinutes(1)
@@ -1284,7 +1284,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 SosRequestId = sos.Id,
                 ModelName = "GeminiPro",
                 ModelVersion = "v1.0",
-                AnalysisType = "SOS_ASSESSMENT",
+                AnalysisType = "SosAssessment",
                 SuggestedSeverityLevel = sos.PriorityLevel,
                 SuggestedPriority = sos.PriorityLevel,
                 Explanation = $"Đề xuất {sos.PriorityLevel} dựa trên vị trí, khả năng di chuyển và nhóm dễ tổn thương.",
@@ -1377,6 +1377,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         _db.MissionTeams.AddRange(seed.MissionTeams);
         await _db.SaveChangesAsync(cancellationToken);
+
+        SyncRescueTeamStatusesFromAssignments(seed);
 
         foreach (var missionTeam in seed.MissionTeams)
         {
@@ -3029,7 +3031,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static string Situation(int index)
     {
-        var situations = new[] { "FLOODING", "LANDSLIDE", "STRANDED", "CANNOT_MOVE", "MEDICAL", "NEED_SUPPLIES", "EVACUATION" };
+        var situations = new[] { "Flooding", "Landslide", "Stranded", "CannotMove", "Medical", "NeedSupplies", "Evacuation" };
         return situations[index % situations.Length];
     }
 
@@ -3037,10 +3039,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         return situation switch
         {
-            "MEDICAL" => ["MEDICINE", "WATER"],
-            "NEED_SUPPLIES" => ["WATER", "FOOD", "BLANKET"],
-            "EVACUATION" => ["LIFEJACKET", "WATER"],
-            _ => ["WATER", "FOOD", "MEDICINE"]
+            "Medical" => ["Medicine", "Water"],
+            "NeedSupplies" => ["Water", "Food", "Blanket"],
+            "Evacuation" => ["Lifejacket", "Water"],
+            _ => ["Water", "Food", "Medicine"]
         };
     }
 
@@ -3049,12 +3051,12 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var injury = injured ? " có người bị thương nhẹ," : "";
         return situation switch
         {
-            "FLOODING" => $"Nhà tôi đang ngập sâu,{injury} có {people} người cần xuồng vào hỗ trợ.",
-            "LANDSLIDE" => $"Sạt lở sau nhà, đường bị chắn,{injury} gia đình {people} người đang mắc kẹt.",
-            "STRANDED" => $"Chúng tôi bị cô lập trên tầng hai,{injury} cần đội cứu hộ tiếp cận.",
-            "CANNOT_MOVE" => $"Có người già không thể di chuyển,{injury} nước đang lên nhanh.",
-            "MEDICAL" => $"Có ca y tế cần hỗ trợ,{injury} cần thuốc và sơ cứu tại chỗ.",
-            "NEED_SUPPLIES" => $"Khu sơ tán thiếu nước uống và thức ăn cho {people} người.",
+            "Flooding" => $"Nhà tôi đang ngập sâu,{injury} có {people} người cần xuồng vào hỗ trợ.",
+            "Landslide" => $"Sạt lở sau nhà, đường bị chắn,{injury} gia đình {people} người đang mắc kẹt.",
+            "Stranded" => $"Chúng tôi bị cô lập trên tầng hai,{injury} cần đội cứu hộ tiếp cận.",
+            "CannotMove" => $"Có người già không thể di chuyển,{injury} nước đang lên nhanh.",
+            "Medical" => $"Có ca y tế cần hỗ trợ,{injury} cần thuốc và sơ cứu tại chỗ.",
+            "NeedSupplies" => $"Khu sơ tán thiếu nước uống và thức ăn cho {people} người.",
             _ => $"Cần sơ tán {people} người ra khỏi vùng ngập bằng xuồng hoặc xe tải."
         };
     }
@@ -3074,10 +3076,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         if (severity == "Critical" && index % 2 == 0)
         {
-            return "MIXED";
+            return "Mixed";
         }
 
-        var types = new[] { "RESCUE", "MEDICAL", "SUPPLY", "MIXED" };
+        var types = new[] { "Rescue", "Medical", "Supply", "Mixed" };
         return types[index % types.Length];
     }
 
@@ -3086,13 +3088,58 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var missionType = seed.Missions[missionIndex].MissionType;
         var required = missionType switch
         {
-            "MEDICAL" => "Medical",
-            "SUPPLY" => "Transportation",
-            "MIXED" => "Mixed",
+            "Medical" => "Medical",
+            "Supply" => "Transportation",
+            "Mixed" => "Mixed",
             _ => "Rescue"
         };
-        return seed.RescueTeams.FirstOrDefault(t => t.TeamType == required && t.Status != "Disbanded" && t.Status != "Unavailable")
-            ?? seed.RescueTeams[(missionIndex + teamOffset) % seed.RescueTeams.Count];
+        var candidates = seed.RescueTeams
+            .Where(t => t.TeamType == required && t.Status is "Available" or "Gathering")
+            .ToList();
+
+        if (candidates.Count > 0)
+        {
+            return candidates[(missionIndex + teamOffset) % candidates.Count];
+        }
+
+        candidates = seed.RescueTeams
+            .Where(t => t.TeamType == required && t.Status != "Disbanded" && t.Status != "Unavailable")
+            .ToList();
+
+        if (candidates.Count > 0)
+        {
+            return candidates[(missionIndex + teamOffset) % candidates.Count];
+        }
+
+        return seed.RescueTeams[(missionIndex + teamOffset) % seed.RescueTeams.Count];
+    }
+
+    private static void SyncRescueTeamStatusesFromAssignments(DemoSeedContext seed)
+    {
+        var activeMissionTeamsByRescueTeam = seed.MissionTeams
+            .Where(team => team.RescuerTeamId.HasValue && team.UnassignedAt is null && team.Status != "Cancelled")
+            .GroupBy(team => team.RescuerTeamId!.Value)
+            .ToDictionary(group => group.Key, group => group.ToList());
+
+        foreach (var rescueTeam in seed.RescueTeams)
+        {
+            if (rescueTeam.Status is "Disbanded" or "Unavailable" or "Stuck")
+            {
+                continue;
+            }
+
+            if (!activeMissionTeamsByRescueTeam.TryGetValue(rescueTeam.Id, out var missionTeams))
+            {
+                rescueTeam.Status = rescueTeam.Status == "Gathering" ? "Gathering" : "Available";
+                continue;
+            }
+
+            rescueTeam.Status = missionTeams.Any(team => team.Status == "InProgress")
+                ? "OnMission"
+                : missionTeams.Any(team => team.Status == "Assigned")
+                    ? "Assigned"
+                    : "Available";
+        }
     }
 
     private static string ActivityType(int step, int total, string? missionType)
@@ -3107,12 +3154,12 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             return "RETURN_SUPPLIES";
         }
 
-        if (step == 2 && missionType is "SUPPLY" or "MIXED")
+        if (step == 2 && missionType is "Supply" or "Mixed")
         {
             return "DELIVER_SUPPLIES";
         }
 
-        if (missionType == "MEDICAL")
+        if (missionType == "Medical")
         {
             return "MEDICAL_AID";
         }

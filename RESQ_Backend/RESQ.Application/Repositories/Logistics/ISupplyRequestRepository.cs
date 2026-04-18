@@ -22,6 +22,7 @@ public interface ISupplyRequestRepository
         List<int> depotIds,
         string? sourceStatus,
         string? requestingStatus,
+        string? roleFilter,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);

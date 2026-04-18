@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Notifications;
 using RESQ.Infrastructure.Entities.Notifications;
@@ -42,25 +43,29 @@ public class NotificationRepository(IUnitOfWork unitOfWork) : INotificationRepos
     public async Task<(IEnumerable<UserNotificationRecord> Items, int TotalCount)> GetPagedByUserIdAsync(
         Guid userId, int page, int pageSize, CancellationToken ct = default)
     {
-        var all = await _unitOfWork.GetRepository<UserNotification>()
-            .GetAllByPropertyAsync(x => x.UserId == userId, includeProperties: "Notification");
+        var query = _unitOfWork.GetRepository<UserNotification>()
+            .AsQueryable(tracked: false)
+            .Include(x => x.Notification)
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.Id);
 
-        var ordered = all.OrderByDescending(x => x.Id).ToList();
-        var totalCount = ordered.Count;
+        var totalCount = await query.CountAsync(ct);
 
-        var items = ordered
+        var pagedItems = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new UserNotificationRecord(
-                x.Id,
-                x.NotificationId ?? 0,
-                x.Notification?.Title,
-                x.Notification?.Type,
-                x.Notification?.Content,
-                x.IsRead ?? false,
-                x.ReadAt,
-                x.DeliveredAt,
-                x.Notification?.CreatedAt));
+            .ToListAsync(ct);
+
+        var items = pagedItems.Select(x => new UserNotificationRecord(
+            x.Id,
+            x.NotificationId ?? 0,
+            x.Notification?.Title,
+            x.Notification?.Type,
+            x.Notification?.Content,
+            x.IsRead ?? false,
+            x.ReadAt,
+            x.DeliveredAt,
+            x.Notification?.CreatedAt));
 
         return (items, totalCount);
     }

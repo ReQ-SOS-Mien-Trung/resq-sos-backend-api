@@ -6,9 +6,10 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
 
 public record GetSupplyRequestsQuery : IRequest<GetSupplyRequestsResponse>
 {
-    public Guid                   UserId           { get; init; }
-    public SourceDepotStatus?     SourceStatus     { get; init; }
-    public RequestingDepotStatus? RequestingStatus { get; init; }
-    public int                    PageNumber       { get; init; } = 1;
-    public int                    PageSize         { get; init; } = 10;
+    public Guid                      UserId           { get; init; }
+    public SourceDepotStatus?        SourceStatus     { get; init; }
+    public RequestingDepotStatus?    RequestingStatus { get; init; }
+    public SupplyRequestRoleFilter?  RoleFilter       { get; init; }
+    public int                       PageNumber       { get; init; } = 1;
+    public int                       PageSize         { get; init; } = 10;
 }

@@ -30,12 +30,34 @@ public class GetSupplyRequestsQueryHandler(
             depotIds,
             request.SourceStatus?.ToString(),
             request.RequestingStatus?.ToString(),
+            request.RoleFilter?.ToString(),
             request.PageNumber,
             request.PageSize,
             cancellationToken);
 
         // Snapshot một lần để RemainingSeconds nhất quán trong toàn bộ response
         var nowUtc = DateTime.UtcNow;
+        const string autoRejectReason = "Hệ thống tự động từ chối do quá thời gian phản hồi.";
+
+        // Eagerly auto-reject any expired pending requests so the caller sees the correct status
+        // without waiting for the background service (which runs every 1 minute).
+        foreach (var item in paged.Items)
+        {
+            if (item.SourceStatus == "Pending"
+                && item.RequestingStatus == "WaitingForApproval"
+                && item.AutoRejectAt.HasValue
+                && item.AutoRejectAt.Value <= nowUtc)
+            {
+                var rejected = await _supplyRequestRepository.AutoRejectIfPendingAsync(
+                    item.Id, autoRejectReason, cancellationToken);
+                if (rejected)
+                {
+                    item.SourceStatus      = "Rejected";
+                    item.RequestingStatus  = "Rejected";
+                    item.RejectedReason    = autoRejectReason;
+                }
+            }
+        }
 
         var dtos = paged.Items.Select(item =>
         {
@@ -62,8 +84,8 @@ public class GetSupplyRequestsQueryHandler(
                 SourceDepotId       = item.SourceDepotId,
                 SourceDepotName     = item.SourceDepotName,
                 PriorityLevel       = item.PriorityLevel,
-                SourceStatus        = TranslateSourceStatus(item.SourceStatus),
-                RequestingStatus    = TranslateRequestingStatus(item.RequestingStatus),
+                SourceStatus        = item.SourceStatus,
+                RequestingStatus    = item.RequestingStatus,
                 Note                = item.Note,
                 RejectedReason      = item.RejectedReason,
                 RequestedBy         = item.RequestedBy,
@@ -93,24 +115,4 @@ public class GetSupplyRequestsQueryHandler(
         };
     }
 
-    private static string TranslateSourceStatus(string? status) => status switch
-    {
-        "Pending"   => "Chờ xử lý",
-        "Accepted"  => "Đã chấp nhận",
-        "Preparing" => "Đang chuẩn bị",
-        "Shipping"  => "Đang vận chuyển",
-        "Completed" => "Đã hoàn tất giao",
-        "Rejected"  => "Đã từ chối",
-        _           => status ?? string.Empty
-    };
-
-    private static string TranslateRequestingStatus(string? status) => status switch
-    {
-        "WaitingForApproval" => "Chờ duyệt",
-        "Approved"           => "Đã được chấp nhận",
-        "InTransit"          => "Đang vận chuyển",
-        "Received"           => "Đã nhận hàng",
-        "Rejected"           => "Đã bị từ chối",
-        _                    => status ?? string.Empty
-    };
 }

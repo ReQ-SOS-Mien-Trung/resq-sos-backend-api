@@ -23,6 +23,7 @@ using RESQ.Application.UseCases.Personnel.Queries.GetRescuersByAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
+using RESQ.Application.UseCases.Personnel.Queries.GetMyUpcomingAssemblyEvents;
 using RESQ.Domain.Enum.Identity;
 using RESQ.Domain.Enum.Personnel;
 
@@ -323,6 +324,23 @@ namespace RESQ.Presentation.Controllers.Personnel
                 return Unauthorized();
 
             var query = new GetMyAssemblyEventsQuery(userId, pageNumber, pageSize);
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Rescuer xem danh sách sự kiện tập trung sắp tới (trạng thái Scheduled hoặc Gathering)
+        /// mà mình được gán vào. Kết quả sắp xếp theo thời gian triệu tập tăng dần (gần nhất trước).
+        /// </summary>
+        [HttpGet("events/my/upcoming")]
+        [Authorize(Policy = PermissionConstants.PersonnelAssemblyEventSelfView)]
+        public async Task<IActionResult> GetMyUpcomingAssemblyEvents()
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var query = new GetMyUpcomingAssemblyEventsQuery(userId);
             var result = await _mediator.Send(query);
             return Ok(result);
         }

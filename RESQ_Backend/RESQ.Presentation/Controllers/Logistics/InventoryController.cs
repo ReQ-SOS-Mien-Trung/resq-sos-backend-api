@@ -869,6 +869,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     public async Task<IActionResult> GetSupplyRequests(
         [FromQuery] SourceDepotStatus? sourceStatus,
         [FromQuery] RequestingDepotStatus? requestingStatus,
+        [FromQuery] SupplyRequestRoleFilter? roleFilter,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -879,6 +880,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             UserId = userId,
             SourceStatus = sourceStatus,
             RequestingStatus = requestingStatus,
+            RoleFilter = roleFilter,
             PageNumber = pageNumber,
             PageSize = pageSize
         };
