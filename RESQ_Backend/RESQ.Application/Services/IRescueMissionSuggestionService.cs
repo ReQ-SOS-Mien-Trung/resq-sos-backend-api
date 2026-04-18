@@ -166,8 +166,14 @@ public class SupplyToCollectDto
     public List<SupplyExecutionLotDto>? PickupLotAllocations { get; set; }
     /// <summary>Chỉ có sau khi pickup succeed: reusable units thực tế đã lấy khỏi kho.</summary>
     public List<SupplyExecutionReusableUnitDto>? PickedReusableUnits { get; set; }
+    public List<SupplyExecutionLotDto>? AvailableDeliveryLotAllocations { get; set; }
+    public List<SupplyExecutionReusableUnitDto>? AvailableDeliveryReusableUnits { get; set; }
+    public List<SupplyExecutionLotDto>? DeliveredLotAllocations { get; set; }
+    public List<SupplyExecutionReusableUnitDto>? DeliveredReusableUnits { get; set; }
+    public List<SupplyExecutionLotDto>? ExpectedReturnLotAllocations { get; set; }
     /// <summary>Chỉ có với RETURN_SUPPLIES: tập reusable units dự kiến phải trả lại kho.</summary>
     public List<SupplyExecutionReusableUnitDto>? ExpectedReturnUnits { get; set; }
+    public List<SupplyExecutionLotDto>? ReturnedLotAllocations { get; set; }
     /// <summary>Chỉ có sau khi depot manager confirm return: reusable units thực tế đã nhận lại.</summary>
     public List<SupplyExecutionReusableUnitDto>? ReturnedReusableUnits { get; set; }
     /// <summary>Chỉ có sau khi depot manager confirm return: số lượng thực tế được nhập lại cho item này.</summary>

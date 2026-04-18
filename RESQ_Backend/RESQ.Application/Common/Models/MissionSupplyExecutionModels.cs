@@ -46,6 +46,8 @@ public class MissionSupplyReturnExecutionItemDto
     public string? Unit { get; set; }
     public int ExpectedQuantity { get; set; }
     public int ActualQuantity { get; set; }
+    public List<SupplyExecutionLotDto> ExpectedReturnLotAllocations { get; set; } = [];
+    public List<SupplyExecutionLotDto> ReturnedLotAllocations { get; set; } = [];
     public List<SupplyExecutionReusableUnitDto> ExpectedReusableUnits { get; set; } = [];
     public List<SupplyExecutionReusableUnitDto> ReturnedReusableUnits { get; set; } = [];
 }

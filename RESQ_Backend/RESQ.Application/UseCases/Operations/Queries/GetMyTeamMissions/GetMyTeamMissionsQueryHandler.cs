@@ -47,6 +47,13 @@ public class GetMyTeamMissionsQueryHandler(
             Missions = missions.Select(m => ToMissionDto(m, assignedByMission.TryGetValue(m.Id, out var teams) ? teams : [])).ToList()
         };
 
+        var missionLookup = missions.ToDictionary(mission => mission.Id);
+        foreach (var missionDto in response.Missions)
+        {
+            if (missionLookup.TryGetValue(missionDto.Id, out var sourceMission))
+                MissionActivityDtoHelper.EnrichSupplyExecutionContext(sourceMission.Activities, missionDto.Activities);
+        }
+
         await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(
             response.Missions.SelectMany(mission => mission.Activities),
             _itemModelMetadataRepository,

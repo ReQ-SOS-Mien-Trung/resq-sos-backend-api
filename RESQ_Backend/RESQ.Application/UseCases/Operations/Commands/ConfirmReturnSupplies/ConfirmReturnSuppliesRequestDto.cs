@@ -1,3 +1,5 @@
+using RESQ.Application.Common.Models;
+
 namespace RESQ.Application.UseCases.Operations.Commands.ConfirmReturnSupplies;
 
 public class ConfirmReturnSuppliesRequestDto
@@ -11,6 +13,7 @@ public class ActualReturnedConsumableItemDto
 {
     public int ItemModelId { get; set; }
     public int Quantity { get; set; }
+    public List<SupplyExecutionLotDto>? LotAllocations { get; set; }
     /// <summary>
     /// Hạn sử dụng in trên bao bì của sản phẩm trả về.
     /// Nếu cung cấp, hệ thống sẽ tìm lô có expired_date khớp và cộng số lượng vào đó.

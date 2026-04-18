@@ -150,6 +150,13 @@ public class GetMissionsQueryHandler(
             }).ToList()
         };
 
+        var missionLookup = missionList.ToDictionary(mission => mission.Id);
+        foreach (var missionDto in response.Missions)
+        {
+            if (missionLookup.TryGetValue(missionDto.Id, out var sourceMission))
+                MissionActivityDtoHelper.EnrichSupplyExecutionContext(sourceMission.Activities, missionDto.Activities);
+        }
+
         await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(
             response.Missions.SelectMany(mission => mission.Activities),
             _itemModelMetadataRepository,

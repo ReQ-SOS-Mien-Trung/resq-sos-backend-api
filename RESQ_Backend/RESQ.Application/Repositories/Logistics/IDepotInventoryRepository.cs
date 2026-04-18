@@ -116,6 +116,29 @@ public interface IDepotInventoryRepository
         string? discrepancyNote,
         CancellationToken cancellationToken = default);
 
+    Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnByLotAsync(
+        int depotId,
+        int missionId,
+        int activityId,
+        Guid performedBy,
+        List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)> consumableItems,
+        List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
+        List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+        string? discrepancyNote,
+        CancellationToken cancellationToken = default)
+    {
+        return ReceiveMissionReturnAsync(
+            depotId,
+            missionId,
+            activityId,
+            performedBy,
+            consumableItems.Select(item => (item.ItemModelId, item.Quantity, item.ExpiredDate)).ToList(),
+            reusableItems,
+            legacyReusableQuantities,
+            discrepancyNote,
+            cancellationToken);
+    }
+
     /// <summary>
     /// Lấy dữ liệu thô vật phẩm tiêu hao để application/domain tự resolve threshold và phân loại mức tồn.
     /// </summary>
