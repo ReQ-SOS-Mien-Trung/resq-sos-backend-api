@@ -1,5 +1,6 @@
 ﻿using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.Identity;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Application.Repositories.Identity
 {
@@ -14,7 +15,7 @@ namespace RESQ.Application.Repositories.Identity
         Task<UserModel?> GetByPasswordResetTokenAsync(string token, CancellationToken cancellationToken = default);
         Task CreateAsync(UserModel user, CancellationToken cancellationToken = default);
         Task UpdateAsync(UserModel user, CancellationToken cancellationToken = default);
-        Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, CancellationToken cancellationToken = default);
+        Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, RescuerType? rescuerType = null, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Lấy user cho trang phân quyền admin: loại trừ user bị ban và những
