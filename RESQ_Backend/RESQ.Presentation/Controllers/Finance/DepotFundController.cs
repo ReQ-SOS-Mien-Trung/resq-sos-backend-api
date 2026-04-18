@@ -99,9 +99,15 @@ public class DepotFundController(IMediator mediator) : ControllerBase
         int fundId,
         [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate   = null,
+        [FromQuery] decimal? minAmount = null,
+        [FromQuery] decimal? maxAmount = null,
+        [FromQuery] List<DepotFundReferenceType>? referenceTypes = null,
+        [FromQuery] string? search     = null)
     {
-        var query = new GetFundTransactionsByFundIdQuery(fundId, pageNumber, pageSize, GetUserId(), depotId);
+        var query = new GetFundTransactionsByFundIdQuery(fundId, pageNumber, pageSize, GetUserId(), depotId, fromDate, toDate, minAmount, maxAmount, referenceTypes, search);
         var result = await _mediator.Send(query);
         return Ok(result);
     }
@@ -122,9 +128,15 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetTransactionsByDepot(
         int depotId,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate   = null,
+        [FromQuery] decimal? minAmount = null,
+        [FromQuery] decimal? maxAmount = null,
+        [FromQuery] List<DepotFundReferenceType>? referenceTypes = null,
+        [FromQuery] string? search     = null)
     {
-        var query = new GetDepotFundTransactionsQuery(depotId, pageNumber, pageSize);
+        var query = new GetDepotFundTransactionsQuery(depotId, pageNumber, pageSize, fromDate, toDate, minAmount, maxAmount, referenceTypes, search);
         var result = await _mediator.Send(query);
         return Ok(result);
     }
@@ -136,9 +148,15 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMyTransactions(
         [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate   = null,
+        [FromQuery] decimal? minAmount = null,
+        [FromQuery] decimal? maxAmount = null,
+        [FromQuery] List<DepotFundReferenceType>? referenceTypes = null,
+        [FromQuery] string? search     = null)
     {
-        var query = new GetMyDepotFundTransactionsQuery(GetUserId(), pageNumber, pageSize, depotId);
+        var query = new GetMyDepotFundTransactionsQuery(GetUserId(), pageNumber, pageSize, depotId, fromDate, toDate, minAmount, maxAmount, referenceTypes, search);
         var result = await _mediator.Send(query);
         return Ok(result);
     }
@@ -150,9 +168,15 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMyAdvanceTransactions(
         [FromQuery] int depotId,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate   = null,
+        [FromQuery] decimal? minAmount = null,
+        [FromQuery] decimal? maxAmount = null,
+        [FromQuery] List<DepotFundReferenceType>? referenceTypes = null,
+        [FromQuery] string? search     = null)
     {
-        var query = new GetMyDepotAdvanceTransactionsQuery(GetUserId(), pageNumber, pageSize, depotId);
+        var query = new GetMyDepotAdvanceTransactionsQuery(GetUserId(), pageNumber, pageSize, depotId, fromDate, toDate, minAmount, maxAmount, referenceTypes, search);
         var result = await _mediator.Send(query);
         return Ok(result);
     }

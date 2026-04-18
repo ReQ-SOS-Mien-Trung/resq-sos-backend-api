@@ -21,6 +21,10 @@ public class FundTransactionRepository(IUnitOfWork unitOfWork) : IFundTransactio
         List<TransactionType>?          types          = null,
         List<TransactionDirection>?     directions     = null,
         List<TransactionReferenceType>? referenceTypes = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate   = null,
+        decimal? minAmount = null,
+        decimal? maxAmount = null,
         CancellationToken cancellationToken = default)
     {
         // Lowercase cả filter lẫn cột DB để so sánh case-insensitive (PostgreSQL phân biệt hoa/thường)

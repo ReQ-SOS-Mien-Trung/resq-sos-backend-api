@@ -66,6 +66,12 @@ public class GetFundTransactionsByFundIdHandler
             request.FundId,
             request.PageNumber,
             request.PageSize,
+            fromDate: request.FromDate,
+            toDate: request.ToDate,
+            minAmount: request.MinAmount,
+            maxAmount: request.MaxAmount,
+            referenceTypes: request.ReferenceTypes,
+            search: request.Search,
             cancellationToken: cancellationToken);
 
         var contributorInputs = pagedResult.Items

@@ -57,9 +57,15 @@ public class SystemFundController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(PagedResult<SystemFundTransactionDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTransactions(
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate   = null,
+        [FromQuery] decimal? minAmount = null,
+        [FromQuery] decimal? maxAmount = null,
+        [FromQuery] List<SystemFundTransactionType>? transactionTypes = null,
+        [FromQuery] string? search     = null)
     {
-        var result = await _mediator.Send(new GetSystemFundTransactionsQuery(pageNumber, pageSize));
+        var result = await _mediator.Send(new GetSystemFundTransactionsQuery(pageNumber, pageSize, fromDate, toDate, minAmount, maxAmount, transactionTypes, search));
         return Ok(result);
     }
 }

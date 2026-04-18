@@ -21,8 +21,9 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         List<string>? sourceTypes,
         DateOnly? fromDate,
         DateOnly? toDate,
-        int pageNumber,
-        int pageSize,
+        string? search = null,
+        int pageNumber = 1,
+        int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.Set<InventoryLog>()
@@ -100,6 +101,21 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         if (toDate.HasValue)
         {
             query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt!.Value) <= toDate.Value);
+        }
+
+        // Tìm kiếm tự do: ghi chú, tên người thực hiện, thông tin hóa đơn VAT
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(x =>
+                (x.Note != null && x.Note.ToLower().Contains(s))
+                || (x.PerformedByUser != null &&
+                    (x.PerformedByUser.LastName + " " + x.PerformedByUser.FirstName).ToLower().Contains(s))
+                || (x.VatInvoice != null && x.VatInvoice.SupplierName != null && x.VatInvoice.SupplierName.ToLower().Contains(s))
+                || (x.VatInvoice != null && x.VatInvoice.InvoiceNumber != null && x.VatInvoice.InvoiceNumber.ToLower().Contains(s))
+                || (x.VatInvoice != null && x.VatInvoice.InvoiceSerial != null && x.VatInvoice.InvoiceSerial.ToLower().Contains(s))
+                || (x.VatInvoice != null && x.VatInvoice.SupplierTaxCode != null && x.VatInvoice.SupplierTaxCode.ToLower().Contains(s))
+            );
         }
 
         // Order by most recent first

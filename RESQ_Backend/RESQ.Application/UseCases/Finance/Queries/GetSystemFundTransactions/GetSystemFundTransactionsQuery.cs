@@ -1,5 +1,6 @@
 using MediatR;
 using RESQ.Application.Common.Models;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Queries.GetSystemFundTransactions;
 
@@ -8,5 +9,11 @@ namespace RESQ.Application.UseCases.Finance.Queries.GetSystemFundTransactions;
 /// </summary>
 public record GetSystemFundTransactionsQuery(
     int PageNumber,
-    int PageSize
+    int PageSize,
+    DateOnly? FromDate   = null,
+    DateOnly? ToDate     = null,
+    decimal? MinAmount   = null,
+    decimal? MaxAmount   = null,
+    List<SystemFundTransactionType>? TransactionTypes = null,
+    string? Search       = null
 ) : IRequest<PagedResult<SystemFundTransactionDto>>;

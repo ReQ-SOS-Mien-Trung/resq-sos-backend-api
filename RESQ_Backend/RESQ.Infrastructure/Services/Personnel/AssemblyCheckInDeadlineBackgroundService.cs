@@ -47,14 +47,32 @@ public class AssemblyCheckInDeadlineBackgroundService(
         var assemblyEventRepo = scope.ServiceProvider.GetRequiredService<IAssemblyEventRepository>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-        // Lấy danh sách event Gathering đã quá deadline
+        // ── Bước 1: Scheduled → Gathering khi assemblyDate đã đến ──────────────
+        var readyToGatherIds = await assemblyEventRepo.GetScheduledEventsReadyForGatheringAsync(cancellationToken);
+
+        if (readyToGatherIds.Count > 0)
+        {
+            logger.LogInformation(
+                "Found {Count} Scheduled assembly event(s) whose assemblyDate has passed. Transitioning to Gathering...",
+                readyToGatherIds.Count);
+
+            foreach (var eventId in readyToGatherIds)
+            {
+                try
+                {
+                    await assemblyEventRepo.StartGatheringAsync(eventId, cancellationToken);
+                    await unitOfWork.SaveAsync();
+                    logger.LogInformation("Assembly event #{EventId}: transitioned Scheduled → Gathering.", eventId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to transition assembly event #{EventId} to Gathering.", eventId);
+                }
+            }
+        }
+
+        // ── Bước 2: Auto-mark Absent khi CheckInDeadline đã hết ─────────────────
         var expiredEventIds = await assemblyEventRepo.GetGatheringEventsWithExpiredDeadlineAsync(cancellationToken);
-
-        if (expiredEventIds.Count == 0) return;
-
-        logger.LogInformation(
-            "Found {Count} assembly event(s) with expired check-in deadline. Auto-marking absent...",
-            expiredEventIds.Count);
 
         foreach (var eventId in expiredEventIds)
         {
@@ -72,8 +90,31 @@ public class AssemblyCheckInDeadlineBackgroundService(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex,
-                    "Failed to auto-mark absent for assembly event #{EventId}.", eventId);
+                logger.LogError(ex, "Failed to auto-mark absent for assembly event #{EventId}.", eventId);
+            }
+        }
+
+        // ── Bước 3: Auto-complete sự kiện Gathering khi CheckInDeadline đã qua ──
+        var toCompleteIds = await assemblyEventRepo.GetGatheringEventsExpiredAsync(cancellationToken);
+
+        if (toCompleteIds.Count > 0)
+        {
+            logger.LogInformation(
+                "Found {Count} Gathering assembly event(s) whose check-in deadline has passed. Auto-completing...",
+                toCompleteIds.Count);
+
+            foreach (var eventId in toCompleteIds)
+            {
+                try
+                {
+                    await assemblyEventRepo.CompleteEventAsync(eventId, cancellationToken);
+                    await unitOfWork.SaveAsync();
+                    logger.LogInformation("Assembly event #{EventId}: auto-completed (check-in deadline passed).", eventId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to auto-complete assembly event #{EventId}.", eventId);
+                }
             }
         }
     }

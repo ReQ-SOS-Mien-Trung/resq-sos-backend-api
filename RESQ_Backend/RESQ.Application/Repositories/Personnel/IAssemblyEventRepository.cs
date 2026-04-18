@@ -92,10 +92,25 @@ public interface IAssemblyEventRepository
         Guid rescuerId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lấy danh sách ID sự kiện Scheduled mà assemblyDate đã đến hoặc đã qua.
+    /// Dùng cho background service tự động chuyển trạng thái Scheduled → Gathering.
+    /// </summary>
+    Task<List<int>> GetScheduledEventsReadyForGatheringAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Lấy danh sách ID sự kiện (Gathering) đã quá CheckInDeadline mà vẫn còn participant chưa check-in.
     /// Dùng cho background service tự động đánh dấu vắng mặt.
     /// </summary>
     Task<List<int>> GetGatheringEventsWithExpiredDeadlineAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách ID sự kiện Gathering đã quá CheckInDeadline (bất kể participant đã xử lý xong hay chưa).
+    /// Dùng cho background service tự động chuyển sang Completed.
+    /// </summary>
+    Task<List<int>> GetGatheringEventsExpiredAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Chuyển trạng thái sự kiện sang Completed. Idempotent.</summary>
+    Task CompleteEventAsync(int eventId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Tự động đánh dấu Absent tất cả participant trong sự kiện chưa check-in (IsCheckedIn = false).
