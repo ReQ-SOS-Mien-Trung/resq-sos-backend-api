@@ -6,6 +6,7 @@ using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
+using RESQ.Application.UseCases.Personnel.Queries.GetMyUpcomingAssemblyEvents;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Personnel;
@@ -72,8 +73,10 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
 
         if (participant == null) return false;
 
-        // Một khi đã check-out thì không được check-in lại.
-        if (participant.IsCheckedOut) return false;
+        // Chỉ block nếu rescuer tự rời sự kiện (CheckedOut).
+        // Nếu CheckedOutForMission thì phải dùng ReturnCheckInAsync.
+        var checkedOutStatus = AssemblyParticipantStatus.CheckedOut.ToString();
+        if (participant.Status == checkedOutStatus) return false;
 
         MarkCheckedIn(participant);
         await MirrorActiveTeamMemberCheckedInAsync(rescuerId, checkedIn: true, cancellationToken);
@@ -100,6 +103,8 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         {
             participant.IsCheckedOut = true;
             participant.CheckOutTime = DateTime.UtcNow;
+            // Check-out do đi làm nhiệm vụ: có thể trở về bằng ReturnCheckIn
+            participant.Status = AssemblyParticipantStatus.CheckedOutForMission.ToString();
         }
 
         await MirrorActiveTeamMemberCheckedInAsync(rescuerId, checkedIn: false, cancellationToken);
@@ -143,6 +148,30 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         participant.IsCheckedOut = false;
         participant.CheckOutTime = null;
         participant.Status = AssemblyParticipantStatus.CheckedIn.ToString();
+    }
+
+    /// <summary>
+    /// Check-out do rescuer tự rời sự kiện (không phải đi nhiệm vụ). Không cho phép check-in lại.
+    /// </summary>
+    public async Task<bool> CheckOutVoluntaryAsync(int eventId, Guid rescuerId,
+        CancellationToken cancellationToken = default)
+    {
+        var participant = await _unitOfWork.SetTracked<AssemblyParticipant>()
+            .FirstOrDefaultAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId, cancellationToken);
+
+        if (participant == null) return false;
+        if (!participant.IsCheckedIn) return false;
+
+        if (!participant.IsCheckedOut)
+        {
+            participant.IsCheckedOut = true;
+            participant.CheckOutTime = DateTime.UtcNow;
+            // Check-out tự nguyện: KHÔNG thể check-in lại
+            participant.Status = AssemblyParticipantStatus.CheckedOut.ToString();
+        }
+
+        await MirrorActiveTeamMemberCheckedInAsync(rescuerId, checkedIn: false, cancellationToken);
+        return true;
     }
 
     private async Task MirrorActiveTeamMemberCheckedInAsync(
@@ -383,8 +412,9 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task<bool> HasParticipantCheckedOutAsync(int eventId, Guid rescuerId,
         CancellationToken cancellationToken = default)
     {
+        var checkedOutStatus = AssemblyParticipantStatus.CheckedOut.ToString();
         return await _unitOfWork.Set<AssemblyParticipant>()
-            .AnyAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId && p.IsCheckedOut, cancellationToken);
+            .AnyAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId && p.Status == checkedOutStatus, cancellationToken);
     }
 
     public async Task<Guid?> GetEventCreatedByAsync(int eventId, CancellationToken cancellationToken = default)
@@ -411,6 +441,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             await MirrorActiveTeamMemberCheckedInAsync(rescuerId, checkedIn: false, cancellationToken);
         }
 
+        // Absent ghi đè mọi trạng thái trước đó
         participant.Status = AssemblyParticipantStatus.Absent.ToString();
         return true;
     }
@@ -479,5 +510,95 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         }).ToList();
 
         return new PagedResult<MyAssemblyEventDto>(items, total, pageNumber, pageSize);
+    }
+
+    public async Task<List<UpcomingAssemblyEventDto>> GetUpcomingEventsForRescuerAsync(
+        Guid rescuerId, CancellationToken cancellationToken = default)
+    {
+        var scheduledStatus = AssemblyEventStatus.Scheduled.ToString();
+        var gatheringStatus = AssemblyEventStatus.Gathering.ToString();
+
+        var rawItems = await _unitOfWork.Set<AssemblyParticipant>()
+            .Where(p => p.RescuerId == rescuerId)
+            .Join(_unitOfWork.Set<AssemblyEvent>(),
+                p => p.AssemblyEventId,
+                e => e.Id,
+                (p, e) => new { Participant = p, Event = e })
+            .Where(x => x.Event.Status == scheduledStatus || x.Event.Status == gatheringStatus)
+            .OrderBy(x => x.Event.AssemblyDate)
+            .Select(x => new
+            {
+                x.Participant.IsCheckedIn,
+                x.Participant.IsCheckedOut,
+                x.Participant.CheckInTime,
+                x.Event.Id,
+                x.Event.AssemblyPointId,
+                x.Event.AssemblyDate,
+                x.Event.CheckInDeadline,
+                x.Event.Status,
+            })
+            .ToListAsync(cancellationToken);
+
+        if (rawItems.Count == 0)
+            return [];
+
+        var apIds = rawItems.Select(x => x.AssemblyPointId).Distinct().ToList();
+        var assemblyPoints = await _unitOfWork.Set<AssemblyPoint>()
+            .Where(ap => apIds.Contains(ap.Id))
+            .ToListAsync(cancellationToken);
+        var apDict = assemblyPoints.ToDictionary(ap => ap.Id);
+
+        return rawItems.Select(x =>
+        {
+            apDict.TryGetValue(x.AssemblyPointId, out var ap);
+            return new UpcomingAssemblyEventDto
+            {
+                EventId = x.Id,
+                AssemblyPointId = x.AssemblyPointId,
+                AssemblyPointName = ap?.Name ?? string.Empty,
+                AssemblyPointCode = ap?.Code,
+                AssemblyPointImageUrl = ap?.ImageUrl,
+                AssemblyPointLatitude = ap?.Location != null ? ap.Location.Y : null,
+                AssemblyPointLongitude = ap?.Location != null ? ap.Location.X : null,
+                AssemblyDate = x.AssemblyDate.ToVietnamTime(),
+                CheckInDeadline = x.CheckInDeadline.HasValue ? x.CheckInDeadline.Value.ToVietnamTime() : null,
+                EventStatus = x.Status,
+                IsCheckedIn = x.IsCheckedIn && !x.IsCheckedOut,
+                CheckInTime = x.CheckInTime.HasValue ? x.CheckInTime.Value.ToVietnamTime() : null,
+            };
+        }).ToList();
+    }
+
+    public async Task<List<int>> GetGatheringEventsWithExpiredDeadlineAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var gatheringStatus = AssemblyEventStatus.Gathering.ToString();
+        var absentStatus = AssemblyParticipantStatus.Absent.ToString();
+        var now = DateTime.UtcNow;
+
+        // Sự kiện Gathering đã quá CheckInDeadline VÀ còn ít nhất 1 participant chưa check-in (không phải Absent)
+        return await _unitOfWork.Set<AssemblyEvent>()
+            .Where(e => e.Status == gatheringStatus
+                        && e.CheckInDeadline.HasValue
+                        && e.CheckInDeadline.Value < now)
+            .Where(e => e.Participants.Any(p => !p.IsCheckedIn && p.Status != absentStatus))
+            .Select(e => e.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<int> AutoMarkAbsentForEventAsync(int eventId, CancellationToken cancellationToken = default)
+    {
+        var absentStatus = AssemblyParticipantStatus.Absent.ToString();
+
+        var participants = await _unitOfWork.SetTracked<AssemblyParticipant>()
+            .Where(p => p.AssemblyEventId == eventId && !p.IsCheckedIn && p.Status != absentStatus)
+            .ToListAsync(cancellationToken);
+
+        foreach (var p in participants)
+        {
+            p.Status = absentStatus;
+        }
+
+        return participants.Count;
     }
 }
