@@ -35,7 +35,7 @@ using RESQ.Infrastructure.Services.Identity;
 using RESQ.Infrastructure.Services.Logistics;
 using RESQ.Infrastructure.Services.Payments;
 using RESQ.Infrastructure.Services.Ai;
-//using RESQ.Infrastructure.Services.Personnel;
+using RESQ.Infrastructure.Services.Personnel;
 
 namespace RESQ.Infrastructure.Extensions;
 
@@ -205,6 +205,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<DepotRealtimeOutboxDispatcherBackgroundService>();
         services.AddHostedService<DepotRealtimeDeadLetterRetryBackgroundService>();
         services.AddHostedService<SupplyRequestDeadlineBackgroundService>();
+        services.AddHostedService<AssemblyCheckInDeadlineBackgroundService>();
         return services;
     }
 

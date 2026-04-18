@@ -32,7 +32,7 @@ namespace RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint
             if (stillInTeam)
                 throw new BadRequestException("Bạn cần rời khỏi đội cứu hộ trước khi thực hiện check-out khỏi sự kiện tập trung.");
 
-            var success = await assemblyEventRepository.CheckOutAsync(request.EventId, request.RescuerId, cancellationToken);
+            var success = await assemblyEventRepository.CheckOutVoluntaryAsync(request.EventId, request.RescuerId, cancellationToken);
             if (!success)
                 throw new BadRequestException("Bạn chưa check-in hoặc không nằm trong danh sách tham gia.");
 

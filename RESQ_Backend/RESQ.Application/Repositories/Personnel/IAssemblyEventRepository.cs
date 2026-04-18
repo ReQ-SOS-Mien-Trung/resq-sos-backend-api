@@ -2,6 +2,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
+using RESQ.Application.UseCases.Personnel.Queries.GetMyUpcomingAssemblyEvents;
 
 namespace RESQ.Application.Repositories.Personnel;
 
@@ -15,7 +16,18 @@ public interface IAssemblyEventRepository
 
     /// <summary>Check-in rescuer tại sự kiện. Trả về false nếu không tìm thấy participant.</summary>
     Task<bool> CheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Check-out do hệ thống tự động khi đội xuất phát làm nhiệm vụ (Status = CheckedOutForMission).
+    /// Rescuer có thể trở về và check-in lại qua ReturnCheckInAsync.
+    /// </summary>
     Task<bool> CheckOutAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Check-out do rescuer tự rời sự kiện tập trung (Status = CheckedOut).
+    /// Rescuer KHÔNG thể check-in lại sau thao tác này.
+    /// </summary>
+    Task<bool> CheckOutVoluntaryAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Check-in rescuer khi trở về điểm tập kết sau nhiệm vụ.
@@ -71,4 +83,23 @@ public interface IAssemblyEventRepository
     /// <summary>Lấy danh sách sự kiện triệu tập mà rescuer được gán vào (phân trang, mới nhất trước).</summary>
     Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(
         Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách sự kiện sắp tới (Scheduled hoặc Gathering) mà rescuer được gán,
+    /// sắp xếp theo thời gian triệu tập tăng dần (gần nhất trước).
+    /// </summary>
+    Task<List<UpcomingAssemblyEventDto>> GetUpcomingEventsForRescuerAsync(
+        Guid rescuerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách ID sự kiện (Gathering) đã quá CheckInDeadline mà vẫn còn participant chưa check-in.
+    /// Dùng cho background service tự động đánh dấu vắng mặt.
+    /// </summary>
+    Task<List<int>> GetGatheringEventsWithExpiredDeadlineAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tự động đánh dấu Absent tất cả participant trong sự kiện chưa check-in (IsCheckedIn = false).
+    /// Trả về số lượng participant bị đánh dấu.
+    /// </summary>
+    Task<int> AutoMarkAbsentForEventAsync(int eventId, CancellationToken cancellationToken = default);
 }

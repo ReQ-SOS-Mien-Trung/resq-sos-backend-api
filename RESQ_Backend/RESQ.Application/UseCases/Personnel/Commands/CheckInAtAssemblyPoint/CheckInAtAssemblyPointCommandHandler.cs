@@ -77,11 +77,11 @@ public class CheckInAtAssemblyPointCommandHandler(
 
         if (!success)
         {
-            // Phân biệt: đã check-out (không thể check-in lại) vs không có trong danh sách
+            // Phân biệt: đã tự rời sự kiện (CheckedOut) vs không có trong danh sách
             var hasCheckedOut = await assemblyEventRepository.HasParticipantCheckedOutAsync(
                 request.AssemblyEventId, request.UserId, cancellationToken);
             if (hasCheckedOut)
-                throw new BadRequestException("Bạn đã check-out khỏi sự kiện này. Không thể check-in lại sau khi đã check-out.");
+                throw new BadRequestException("Bạn đã tự rời sự kiện này. Không thể check-in lại sau khi đã check-out.");
 
             throw new BadRequestException("Bạn không nằm trong danh sách tham gia sự kiện tập trung này.");
         }
