@@ -181,9 +181,113 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
         Assert.DoesNotContain("Bổ sung vật phẩm giao thiếu", returnActivity.Description);
     }
 
+    [Fact]
+    public async Task Handle_SavesDeliveryNoteIntoMatchingDraftActivityReportSummary()
+    {
+        const int missionId = 7;
+        const int missionTeamId = 6;
+        const int deliverActivityId = 17;
+        const int riceItemId = 1;
+        var userId = Guid.NewGuid();
+
+        var deliverActivity = new MissionActivityModel
+        {
+            Id = deliverActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            Step = 6,
+            ActivityType = "DELIVER_SUPPLIES",
+            Status = MissionActivityStatus.OnGoing,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new() { ItemId = riceItemId, ItemName = "Gao", Quantity = 10, Unit = "kg" }
+            })
+        };
+
+        var reportRepository = new StubMissionTeamReportRepository(new MissionTeamReportModel
+        {
+            MissionTeamId = missionTeamId,
+            ReportStatus = MissionTeamReportStatus.Draft,
+            ActivityReports =
+            [
+                new MissionActivityReportModel
+                {
+                    MissionActivityId = deliverActivityId,
+                    ActivityType = "DELIVER_SUPPLIES",
+                    Summary = "Đã tiếp cận người nhận"
+                }
+            ]
+        });
+
+        var handler = CreateHandler(
+            new StubMissionActivityRepository([deliverActivity]),
+            new Dictionary<int, ItemModelRecord>
+            {
+                [riceItemId] = new() { Id = riceItemId, Name = "Gao", Unit = "kg", ItemType = "Consumable" }
+            },
+            reportRepository);
+
+        await handler.Handle(new ConfirmDeliverySuppliesCommand(
+            deliverActivityId,
+            missionId,
+            userId,
+            [new ActualDeliveredItemDto { ItemId = riceItemId, ActualQuantity = 8 }],
+            "  Giao thiếu 2kg vì nước dâng nhanh  "), CancellationToken.None);
+
+        Assert.Equal(1, reportRepository.UpsertDraftCallCount);
+
+        var savedActivityReport = Assert.Single(reportRepository.CurrentReport!.ActivityReports);
+        Assert.Equal("Đã tiếp cận người nhận" + Environment.NewLine + "Giao thiếu 2kg vì nước dâng nhanh", savedActivityReport.Summary);
+        Assert.Equal(MissionActivityStatus.Succeed.ToString(), savedActivityReport.ExecutionStatus);
+    }
+
+    [Fact]
+    public async Task Handle_DoesNotTouchDraftReportWhenDeliveryNoteIsMissing()
+    {
+        const int missionId = 7;
+        const int missionTeamId = 6;
+        const int deliverActivityId = 17;
+        const int riceItemId = 1;
+        var userId = Guid.NewGuid();
+
+        var deliverActivity = new MissionActivityModel
+        {
+            Id = deliverActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            Step = 6,
+            ActivityType = "DELIVER_SUPPLIES",
+            Status = MissionActivityStatus.OnGoing,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new() { ItemId = riceItemId, ItemName = "Gao", Quantity = 10, Unit = "kg" }
+            })
+        };
+
+        var reportRepository = new StubMissionTeamReportRepository();
+        var handler = CreateHandler(
+            new StubMissionActivityRepository([deliverActivity]),
+            new Dictionary<int, ItemModelRecord>
+            {
+                [riceItemId] = new() { Id = riceItemId, Name = "Gao", Unit = "kg", ItemType = "Consumable" }
+            },
+            reportRepository);
+
+        await handler.Handle(new ConfirmDeliverySuppliesCommand(
+            deliverActivityId,
+            missionId,
+            userId,
+            [new ActualDeliveredItemDto { ItemId = riceItemId, ActualQuantity = 10 }],
+            null), CancellationToken.None);
+
+        Assert.Equal(0, reportRepository.UpsertDraftCallCount);
+        Assert.Null(reportRepository.CurrentReport);
+    }
+
     private static ConfirmDeliverySuppliesCommandHandler CreateHandler(
         StubMissionActivityRepository activityRepository,
-        Dictionary<int, ItemModelRecord> metadata)
+        Dictionary<int, ItemModelRecord> metadata,
+        StubMissionTeamReportRepository? reportRepository = null)
     {
         var mediator = new RecordingMediator(request =>
         {
@@ -206,6 +310,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
         return new ConfirmDeliverySuppliesCommandHandler(
             activityRepository,
             new StubItemModelMetadataRepository(metadata),
+            reportRepository ?? new StubMissionTeamReportRepository(),
             mediator,
             new StubOperationalHubService(),
             new StubUnitOfWork(),
@@ -321,6 +426,28 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
             => throw new NotImplementedException();
 
         public Task<bool> UpdateItemModelAsync(ItemModelRecord model, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+    }
+
+    private sealed class StubMissionTeamReportRepository(MissionTeamReportModel? report = null) : IMissionTeamReportRepository
+    {
+        public MissionTeamReportModel? CurrentReport { get; private set; } = report;
+        public int UpsertDraftCallCount { get; private set; }
+
+        public Task<MissionTeamReportModel?> GetByMissionTeamIdAsync(int missionTeamId, CancellationToken cancellationToken = default)
+            => Task.FromResult(CurrentReport?.MissionTeamId == missionTeamId ? CurrentReport : null);
+
+        public Task<int> UpsertDraftAsync(MissionTeamReportModel model, CancellationToken cancellationToken = default)
+        {
+            UpsertDraftCallCount++;
+            CurrentReport = model;
+            return Task.FromResult(model.Id);
+        }
+
+        public Task SubmitAsync(int missionTeamId, Guid submittedBy, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task UpdateReportStatusAsync(int missionTeamId, MissionTeamReportStatus status, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
 
