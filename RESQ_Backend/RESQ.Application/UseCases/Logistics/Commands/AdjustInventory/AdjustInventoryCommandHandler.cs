@@ -34,7 +34,7 @@ public class AdjustInventoryCommandHandler(
             request.ExpiredDate,
             cancellationToken);
 
-        var direction = request.QuantityChange > 0 ? "tang" : "gi?m";
+        var direction = request.QuantityChange > 0 ? "tăng" : "giảm";
         var absQty    = Math.Abs(request.QuantityChange);
         return new AdjustInventoryResponse(
             $"Đã điều chỉnh {direction} {absQty} đơn vị vật phẩm #{request.ItemModelId} tại kho #{depotId}.");

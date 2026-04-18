@@ -237,8 +237,8 @@ namespace RESQ.Presentation.Controllers.Personnel
             return Ok(new { EventId = eventId });
         }
 
-                // [UN-DEPRECATED] M? l?i endpoint d? test StartGathering
-        /// <summary>M? check-in cho s? ki?n t?p trung (Scheduled -> Gathering).</summary>
+                // [UN-DEPRECATED] Mở lại endpoint để test StartGathering
+        /// <summary>Mở check-in cho sự kiện tập trung (Scheduled -> Gathering).</summary>
         [HttpPost("events/{eventId}/start-gathering")]
         [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
         public async Task<IActionResult> StartGathering(int eventId)
