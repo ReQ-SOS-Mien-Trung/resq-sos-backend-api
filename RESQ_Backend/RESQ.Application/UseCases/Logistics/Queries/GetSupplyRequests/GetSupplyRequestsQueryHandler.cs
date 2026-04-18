@@ -30,6 +30,7 @@ public class GetSupplyRequestsQueryHandler(
             depotIds,
             request.SourceStatus?.ToString(),
             request.RequestingStatus?.ToString(),
+            request.RoleFilter?.ToString(),
             request.PageNumber,
             request.PageSize,
             cancellationToken);
