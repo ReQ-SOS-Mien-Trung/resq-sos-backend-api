@@ -2,11 +2,6 @@ using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 
-public class GetSosClustersResponse
-{
-    public List<SosClusterDto> Clusters { get; set; } = [];
-}
-
 public class SosClusterDto
 {
     public int Id { get; set; }
