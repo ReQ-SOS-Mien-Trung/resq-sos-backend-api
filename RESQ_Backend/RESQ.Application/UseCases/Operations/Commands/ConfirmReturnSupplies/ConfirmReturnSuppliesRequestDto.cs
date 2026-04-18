@@ -11,6 +11,12 @@ public class ActualReturnedConsumableItemDto
 {
     public int ItemModelId { get; set; }
     public int Quantity { get; set; }
+    /// <summary>
+    /// Hạn sử dụng in trên bao bì của sản phẩm trả về.
+    /// Nếu cung cấp, hệ thống sẽ tìm lô có expired_date khớp và cộng số lượng vào đó.
+    /// Nếu null hoặc không tìm thấy lô phù hợp, hệ thống sẽ tạo lô mới.
+    /// </summary>
+    public DateTime? ExpiredDate { get; set; }
 }
 
 public class ActualReturnedReusableItemDto

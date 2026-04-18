@@ -63,4 +63,5 @@ public class ReturnSupplyActivityItemDetail
     public int? ActualReturnedQuantity { get; set; }
     public List<SupplyExecutionReusableUnitDto> ExpectedReturnUnits { get; set; } = [];
     public List<SupplyExecutionReusableUnitDto> ReturnedReusableUnits { get; set; } = [];
+    public List<SupplyExecutionLotDto> PickupLotAllocations { get; set; } = [];
 }

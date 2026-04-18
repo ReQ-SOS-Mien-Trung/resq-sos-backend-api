@@ -8,6 +8,8 @@ using RESQ.Application.UseCases.Logistics.Commands.ImportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.ImportPurchasedInventory;
 using RESQ.Application.UseCases.Logistics.Commands.AcceptSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.AdjustInventory;
+using RESQ.Application.UseCases.Logistics.Commands.DecommissionReusableItem;
+using RESQ.Application.UseCases.Logistics.Commands.DisposeConsumableLot;
 using RESQ.Application.UseCases.Logistics.Commands.ExportInventory;
 using RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
@@ -26,6 +28,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetItemCategoryByCode;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryActionTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
+using RESQ.Application.UseCases.Logistics.Queries.GetExpiringLots;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLots;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventorySourceTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
@@ -948,6 +951,51 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var userId = GetCurrentUserId();
 
         var result = await _mediator.Send(new CompleteSupplyRequestCommand(id, userId, depotId));
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xử lý (dispose) đồ tiêu hao theo lô cụ thể: hết hạn hoặc hư hỏng.
+    /// Reason chỉ cho phép: Expired hoặc Damaged.</summary>
+    [HttpPost("my-depot/lots/{lotId:int}/dispose")]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+    [ProducesResponseType(typeof(DisposeConsumableLotResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DisposeConsumableLot(int lotId, [FromBody] DisposeConsumableLotRequest request, [FromQuery] int depotId)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new DisposeConsumableLotCommand(
+            userId, lotId, request.Quantity, request.Reason, request.Note, depotId));
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Ngừng sử dụng (decommission) thiết bị tái sử dụng bị hư hỏng.</summary>
+    [HttpPost("my-depot/reusables/{itemId:int}/decommission")]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+    [ProducesResponseType(typeof(DecommissionReusableItemResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DecommissionReusableItem(int itemId, [FromBody] DecommissionReusableItemRequest request, [FromQuery] int depotId)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new DecommissionReusableItemCommand(
+            userId, itemId, request.Note, depotId));
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xem danh sách lô hàng sắp hết hạn hoặc đã hết hạn tại kho.</summary>
+    [HttpGet("my-depot/expiring-lots")]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+    [ProducesResponseType(typeof(List<ExpiringLotDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetExpiringLots([FromQuery] int daysAhead = 30, [FromQuery] int? depotId = null)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetExpiringLotsQuery
+        {
+            UserId = userId,
+            DepotId = depotId,
+            DaysAhead = daysAhead
+        });
         return Ok(result);
     }
 

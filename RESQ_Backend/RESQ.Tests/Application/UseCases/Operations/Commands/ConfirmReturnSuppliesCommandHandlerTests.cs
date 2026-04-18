@@ -511,7 +511,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             => throw new NotImplementedException();
 
         public Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(int depotId, int missionId, int activityId, Guid performedBy,
-            List<(int ItemModelId, int Quantity)> consumableItems,
+            List<(int ItemModelId, int Quantity, DateTime? ExpiredDate)> consumableItems,
             List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
             List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
             string? discrepancyNote,
@@ -556,6 +556,9 @@ public class ConfirmReturnSuppliesCommandHandlerTests
 
         public Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+        public Task DisposeConsumableLotAsync(int lotId, int quantity, string reason, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DecommissionReusableItemAsync(int reusableItemId, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<List<ExpiringLotModel>> GetExpiringLotsAsync(int depotId, int daysAhead, CancellationToken cancellationToken = default) => Task.FromResult(new List<ExpiringLotModel>());
     }
 
     private sealed class StubUnitOfWork : IUnitOfWork

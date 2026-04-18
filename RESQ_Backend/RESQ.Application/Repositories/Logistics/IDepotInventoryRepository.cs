@@ -110,7 +110,7 @@ public interface IDepotInventoryRepository
         int missionId,
         int activityId,
         Guid performedBy,
-        List<(int ItemModelId, int Quantity)> consumableItems,
+        List<(int ItemModelId, int Quantity, DateTime? ExpiredDate)> consumableItems,
         List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
         List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
         string? discrepancyNote,
@@ -210,6 +210,41 @@ public interface IDepotInventoryRepository
     /// Dùng để chặn chuyển sang Unavailable khi còn hoạt động đang diễn ra.
     /// </summary>
     Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default);
+
+    // -- Dispose / Decommission helpers ----------------------------------------
+
+    /// <summary>
+    /// Xử lý (dispose) đồ tiêu hao theo lô cụ thể: giảm RemainingQuantity trong lô,
+    /// giảm TotalQuantity trong SupplyInventory, ghi InventoryLog với ActionType=Adjust
+    /// và SourceType=Expired hoặc Damaged.
+    /// </summary>
+    Task DisposeConsumableLotAsync(
+        int lotId,
+        int quantity,
+        string reason,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ngừng sử dụng (decommission) thiết bị tái sử dụng: đặt Status=Decommissioned,
+    /// ghi InventoryLog với ActionType=Adjust và SourceType=Damaged.
+    /// Không cho phép decommission khi Status=InUse hoặc đã Decommissioned.
+    /// </summary>
+    Task DecommissionReusableItemAsync(
+        int reusableItemId,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách lô hàng sắp hết hạn (ExpiredDate ≤ now + daysAhead) và còn hàng (RemainingQuantity > 0)
+    /// tại một kho cụ thể.
+    /// </summary>
+    Task<List<ExpiringLotModel>> GetExpiringLotsAsync(
+        int depotId,
+        int daysAhead,
+        CancellationToken cancellationToken = default);
 }
 
 public class DepotClosureTransferItemMoveDto

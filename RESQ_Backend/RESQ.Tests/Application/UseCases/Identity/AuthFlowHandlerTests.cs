@@ -606,7 +606,7 @@ public sealed class AuthFlowHandlerTests
         public Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(int a, List<(int, string, int)> b, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<MissionSupplyReservationResult> ReserveSuppliesAsync(int a, List<(int, int)> b, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<MissionSupplyPickupExecutionResult> ConsumeReservedSuppliesAsync(int a, List<(int, int)> b, Guid c, int d, int e, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(int a, int b, int c, Guid d, List<(int, int)> e, List<(int, string?, string?)> f, List<(int, int)> g, string? h, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(int a, int b, int c, Guid d, List<(int, int, DateTime?)> e, List<(int, string?, string?)> f, List<(int, int)> g, string? h, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(int? a, CancellationToken ct = default) => throw new NotImplementedException();
         public Task ReleaseReservedSuppliesAsync(int a, List<(int, int)> b, CancellationToken ct = default) => throw new NotImplementedException();
         public Task ExportInventoryAsync(int a, int b, int c, Guid d, string? e, CancellationToken ct = default) => throw new NotImplementedException();
@@ -616,6 +616,9 @@ public sealed class AuthFlowHandlerTests
         public Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
         public Task ZeroOutForClosureAsync(int a, int b, Guid c, string? d, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<bool> HasActiveInventoryCommitmentsAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task DisposeConsumableLotAsync(int lotId, int quantity, string reason, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DecommissionReusableItemAsync(int reusableItemId, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<List<ExpiringLotModel>> GetExpiringLotsAsync(int depotId, int daysAhead, CancellationToken cancellationToken = default) => Task.FromResult(new List<ExpiringLotModel>());
     }
 
     private sealed class StubDepotRepository(DepotModel? depot = null) : IDepotRepository

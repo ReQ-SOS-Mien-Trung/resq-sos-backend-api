@@ -264,7 +264,15 @@ public class ReturnSupplyActivityRepository(IUnitOfWork unitOfWork) : IReturnSup
                 Unit = x.Unit,
                 ActualReturnedQuantity = x.ActualReturnedQuantity,
                 ExpectedReturnUnits = x.ExpectedReturnUnits?.Select(CloneReusableUnit).ToList() ?? [],
-                ReturnedReusableUnits = x.ReturnedReusableUnits?.Select(CloneReusableUnit).ToList() ?? []
+                ReturnedReusableUnits = x.ReturnedReusableUnits?.Select(CloneReusableUnit).ToList() ?? [],
+                PickupLotAllocations = x.PickupLotAllocations?.Select(l => new SupplyExecutionLotDto
+                {
+                    LotId = l.LotId,
+                    QuantityTaken = l.QuantityTaken,
+                    ReceivedDate = l.ReceivedDate,
+                    ExpiredDate = l.ExpiredDate,
+                    RemainingQuantityAfterExecution = l.RemainingQuantityAfterExecution
+                }).ToList() ?? []
             }).ToList();
         }
         catch (JsonException)
