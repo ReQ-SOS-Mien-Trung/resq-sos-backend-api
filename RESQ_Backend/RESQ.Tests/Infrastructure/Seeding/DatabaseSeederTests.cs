@@ -30,16 +30,16 @@ public class DatabaseSeederTests
 
         Assert.Equal(firstCounts, secondCounts);
         Assert.Empty(validationErrors);
-        Assert.Equal(294, firstCounts.Users);
+        Assert.Equal(295, firstCounts.Users);
         Assert.Equal(360, firstCounts.SosRequests);
         Assert.Equal(110, firstCounts.SosClusters);
         Assert.Equal(100, firstCounts.Missions);
         Assert.Equal(420, firstCounts.MissionActivities);
         Assert.Equal(140, firstCounts.Conversations);
         Assert.Equal(1900, firstCounts.Messages);
-        Assert.Equal(620, firstCounts.SupplyInventories);
+        Assert.Equal(622, firstCounts.SupplyInventories);
         Assert.Equal(95, firstCounts.SupplyRequests);
-        Assert.Equal(820, firstCounts.InventoryLogs);
+        Assert.Equal(1377, firstCounts.InventoryLogs);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v1-2026-04-16"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
@@ -166,6 +166,42 @@ public class DatabaseSeederTests
         Assert.Equal(expectedFillRatios, depotFillRatios.Select(ratio => ratio.VolumeRatio));
         Assert.Equal(expectedFillRatios, depotFillRatios.Select(ratio => ratio.WeightRatio));
 
+        var essentialDepotStock = await context.SupplyInventories
+            .Include(inventory => inventory.ItemModel)
+            .Where(inventory => inventory.ItemModel != null
+                && (inventory.ItemModel.Name == "Áo phao cứu sinh" || inventory.ItemModel.Name == "Chăn ấm giữ nhiệt"))
+            .OrderBy(inventory => inventory.DepotId)
+            .ThenBy(inventory => inventory.ItemModel!.Name)
+            .ToListAsync();
+        Assert.Equal(await context.Depots.CountAsync() * 2, essentialDepotStock.Count);
+        Assert.All(essentialDepotStock, inventory => Assert.InRange(inventory.Quantity ?? 0, 50, 100));
+
+        var lifeJacketModelId = await context.ItemModels
+            .Where(model => model.Name == "Áo phao cứu sinh")
+            .Select(model => model.Id)
+            .SingleAsync();
+        var lifeJacketUnitsByDepot = await context.ReusableItems
+            .Where(item => item.ItemModelId == lifeJacketModelId && item.DepotId.HasValue)
+            .GroupBy(item => item.DepotId!.Value)
+            .Select(group => new { DepotId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.DepotId, group => group.Count);
+        Assert.All(
+            essentialDepotStock.Where(inventory => inventory.ItemModel!.Name == "Áo phao cứu sinh"),
+            inventory => Assert.Equal(inventory.Quantity, lifeJacketUnitsByDepot[inventory.DepotId!.Value]));
+
+        var blanketInventoryIds = essentialDepotStock
+            .Where(inventory => inventory.ItemModel!.Name == "Chăn ấm giữ nhiệt")
+            .Select(inventory => inventory.Id)
+            .ToList();
+        var blanketLotRemainingByInventory = await context.SupplyInventoryLots
+            .Where(lot => blanketInventoryIds.Contains(lot.SupplyInventoryId))
+            .GroupBy(lot => lot.SupplyInventoryId)
+            .Select(group => new { InventoryId = group.Key, Remaining = group.Sum(lot => lot.RemainingQuantity) })
+            .ToDictionaryAsync(group => group.InventoryId, group => group.Remaining);
+        Assert.All(
+            essentialDepotStock.Where(inventory => inventory.ItemModel!.Name == "Chăn ấm giữ nhiệt"),
+            inventory => Assert.Equal(inventory.Quantity, blanketLotRemainingByInventory[inventory.Id]));
+
         var incompleteRequestsForDepotOneAndTwo = await context.DepotSupplyRequests
             .Where(request => request.RequestingDepotId <= 2 || request.SourceDepotId <= 2)
             .Where(request => request.SourceStatus != "Completed" || request.RequestingStatus != "Received")
@@ -223,6 +259,29 @@ public class DatabaseSeederTests
         Assert.All(
             await context.Users.Where(u => u.RoleId != 5).Select(u => u.Phone).ToListAsync(),
             phone => Assert.Matches("^0[0-9]{9}$", phone ?? ""));
+
+        var demoVictim = await context.Users.SingleAsync(u => u.Phone == "+84374745872");
+        Assert.Equal(5, demoVictim.RoleId);
+        Assert.False(demoVictim.IsBanned);
+        Assert.True(BCrypt.Net.BCrypt.Verify("142200", demoVictim.Password));
+
+        var demoVictimRelatives = await context.UserRelativeProfiles
+            .Where(profile => profile.UserId == demoVictim.Id)
+            .OrderBy(profile => profile.DisplayName)
+            .ToListAsync();
+        Assert.Equal(4, demoVictimRelatives.Count);
+        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "Châu" && profile.PersonType == "ELDERLY" && profile.RelationGroup == "gia_dinh");
+        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "An" && profile.PersonType == "ADULT" && profile.Gender == "FEMALE");
+        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "Thảo" && profile.TagsJson.Contains("biet_so_cuu", StringComparison.Ordinal));
+        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "Khoa" && profile.PhoneNumber == "+84911224567");
+        Assert.All(demoVictimRelatives, profile =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(profile.MedicalProfileJson));
+            using var medicalProfile = JsonDocument.Parse(profile.MedicalProfileJson);
+            Assert.True(medicalProfile.RootElement.TryGetProperty("bloodType", out _));
+            Assert.True(medicalProfile.RootElement.TryGetProperty("specialSituation", out _));
+        });
+
         Assert.All(await context.SosRequests.Where(s => s.Location != null).Select(s => s.Location!).Take(40).ToListAsync(), point =>
         {
             Assert.InRange(point.Y, 14.9, 16.95);

@@ -8,6 +8,7 @@ public static class SeedConstants
     public const string RescuerPasswordHash = "$2a$11$RipGftiyzl4tYLZZdLLJ4ufKnogeR8kWp1DeKlpj44eQcWlzNk3.u"; // Rescuer@123
     public const string ManagerPasswordHash = "$2a$11$mIi0t6MBeHaLRz8X/EUAvOn0RsbZs4pnJ4weyoVkusnCf2grE45oG"; // Manager@123
     public const string VictimPasswordHash = "$2a$11$on1XCfJiZ.y.280Rx2rKkOFOPn2UnX42ay7V8pZ2QJUkDW4IbD38O"; // Victim@123
+    public const string DemoVictimPinPasswordHash = "$2a$11$ZzbWM8IJCOXubz5XuI/g8euSE0/zM7islhebwX.SiGK/ilJx3ieEy"; // 142200
 
     // User GUIDs
     public static readonly Guid AdminUserId       = Guid.Parse("11111111-1111-1111-1111-111111111111");

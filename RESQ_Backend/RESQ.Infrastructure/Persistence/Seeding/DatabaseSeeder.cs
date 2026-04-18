@@ -506,6 +506,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         users[^2].BannedAt = seed.AnchorUtc.AddDays(-48);
         users[^2].BanReason = "Spam chat hỗ trợ";
 
+        var demoVictim = CreateDemoVictimWithPin(seed);
+        users.Add(demoVictim);
+
         _db.Users.AddRange(users);
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -514,6 +517,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         seed.Managers.AddRange(users.Where(u => u.RoleId == 4));
         seed.Rescuers.AddRange(users.Where(u => u.RoleId == 3));
         seed.Victims.AddRange(users.Where(u => u.RoleId == 5));
+
+        _db.UserRelativeProfiles.AddRange(CreateDemoVictimRelativeProfiles(demoVictim.Id, seed));
+        await _db.SaveChangesAsync(cancellationToken);
 
         var abilities = await _db.Abilities.OrderBy(a => a.Id).ToListAsync(cancellationToken);
         var userAbilities = new List<UserAbility>();
@@ -1023,6 +1029,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
         }
 
+        var lifeJacketModel = seed.ItemModels.Single(m => m.Name == "Áo phao cứu sinh");
+        var blanketModel = seed.ItemModels.Single(m => m.Name == "Chăn ấm giữ nhiệt");
+        EnsureEssentialDepotStock(seed, lifeJacketModel, blanketModel);
+
         _db.SupplyInventories.AddRange(seed.Inventories);
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -1046,6 +1056,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 CreatedAt = received
             });
         }
+        EnsureEssentialBlanketLots(seed, blanketModel);
         _db.SupplyInventoryLots.AddRange(seed.Lots);
 
         var reusableModels = seed.ItemModels.Where(m => m.ItemType == "Reusable").ToList();
@@ -1066,6 +1077,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 IsDeleted = false
             });
         }
+        EnsureLifeJacketReusableUnits(seed, lifeJacketModel);
         _db.ReusableItems.AddRange(seed.ReusableItems);
 
         await SeedVatInvoicesAsync(seed);
@@ -2556,6 +2568,120 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         return seed.Managers[(depotId - 1) % seed.Managers.Count].Id;
     }
 
+    private static void EnsureEssentialDepotStock(DemoSeedContext seed, ItemModel lifeJacketModel, ItemModel blanketModel)
+    {
+        for (var depotIndex = 0; depotIndex < seed.Depots.Count; depotIndex++)
+        {
+            var depot = seed.Depots[depotIndex];
+            EnsureDepotInventory(seed, depot.Id, lifeJacketModel.Id, EssentialLifeJacketQuantity(depotIndex), depotIndex);
+            EnsureDepotInventory(seed, depot.Id, blanketModel.Id, EssentialBlanketQuantity(depotIndex), depotIndex);
+        }
+    }
+
+    private static void EnsureDepotInventory(DemoSeedContext seed, int depotId, int itemModelId, int quantity, int depotIndex)
+    {
+        var inventory = seed.Inventories.FirstOrDefault(i => i.DepotId == depotId && i.ItemModelId == itemModelId);
+        if (inventory is null)
+        {
+            seed.Inventories.Add(new SupplyInventory
+            {
+                DepotId = depotId,
+                ItemModelId = itemModelId,
+                Quantity = quantity,
+                MissionReservedQuantity = Math.Min(quantity / 10, 8),
+                TransferReservedQuantity = Math.Min(quantity / 12, 6),
+                LastStockedAt = seed.AnchorUtc.AddDays(-12 - depotIndex),
+                IsDeleted = false
+            });
+            return;
+        }
+
+        inventory.Quantity = quantity;
+        inventory.MissionReservedQuantity = Math.Min(quantity / 10, 8);
+        inventory.TransferReservedQuantity = Math.Min(quantity / 12, 6);
+        inventory.LastStockedAt = seed.AnchorUtc.AddDays(-12 - depotIndex);
+        inventory.IsDeleted = false;
+    }
+
+    private static void EnsureEssentialBlanketLots(DemoSeedContext seed, ItemModel blanketModel)
+    {
+        var lotInventoryIds = seed.Lots
+            .Select(l => l.SupplyInventoryId)
+            .ToHashSet();
+        var blanketInventories = seed.Inventories
+            .Where(i => i.ItemModelId == blanketModel.Id)
+            .OrderBy(i => i.DepotId)
+            .ToList();
+
+        foreach (var inventory in blanketInventories)
+        {
+            if (lotInventoryIds.Contains(inventory.Id))
+            {
+                continue;
+            }
+
+            var received = seed.AnchorUtc.AddDays(-45 - (inventory.DepotId ?? 0));
+            seed.Lots.Add(new SupplyInventoryLot
+            {
+                SupplyInventoryId = inventory.Id,
+                Quantity = inventory.Quantity ?? 0,
+                RemainingQuantity = Math.Max(0, (inventory.Quantity ?? 0) - inventory.MissionReservedQuantity - inventory.TransferReservedQuantity),
+                ReceivedDate = received,
+                ExpiredDate = received.AddMonths(18),
+                SourceType = InventorySourceType.Donation.ToString(),
+                SourceId = 4_000 + inventory.Id,
+                CreatedAt = received
+            });
+        }
+    }
+
+    private static void EnsureLifeJacketReusableUnits(DemoSeedContext seed, ItemModel lifeJacketModel)
+    {
+        var existingSerials = seed.ReusableItems
+            .Where(item => item.SerialNumber != null)
+            .Select(item => item.SerialNumber!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        for (var depotIndex = 0; depotIndex < seed.Depots.Count; depotIndex++)
+        {
+            var depot = seed.Depots[depotIndex];
+            var targetQuantity = seed.Inventories
+                .Where(i => i.DepotId == depot.Id && i.ItemModelId == lifeJacketModel.Id)
+                .Select(i => i.Quantity ?? 0)
+                .Single();
+            var existingCount = seed.ReusableItems.Count(item =>
+                item.DepotId == depot.Id && item.ItemModelId == lifeJacketModel.Id);
+
+            for (var unitIndex = existingCount; unitIndex < targetQuantity; unitIndex++)
+            {
+                var serialNumber = $"LIFEJACKET-D{depot.Id:00}-{unitIndex + 1:000}";
+                if (!existingSerials.Add(serialNumber))
+                {
+                    continue;
+                }
+
+                seed.ReusableItems.Add(new ReusableItem
+                {
+                    DepotId = depot.Id,
+                    ItemModelId = lifeJacketModel.Id,
+                    SerialNumber = serialNumber,
+                    Status = unitIndex % 19 == 0 ? "Maintenance" : unitIndex % 11 == 0 ? "Reserved" : "Available",
+                    Condition = unitIndex % 23 == 0 ? "Fair" : "Good",
+                    Note = unitIndex % 19 == 0 ? "Kiểm tra định kỳ trước mùa mưa bão" : null,
+                    CreatedAt = seed.AnchorUtc.AddDays(-90 + (depotIndex * 7 + unitIndex) % 60),
+                    UpdatedAt = seed.AnchorUtc.AddDays(-((depotIndex + unitIndex) % 25)),
+                    IsDeleted = false
+                });
+            }
+        }
+    }
+
+    private static int EssentialLifeJacketQuantity(int depotIndex) =>
+        50 + (35 + depotIndex * 13) % 51;
+
+    private static int EssentialBlanketQuantity(int depotIndex) =>
+        50 + (42 + depotIndex * 17) % 51;
+
     private static int? ResolveVatInvoiceId(IReadOnlyList<int> vatInvoiceIds, string sourceType, int? sourceId)
     {
         if (!string.Equals(sourceType, InventorySourceType.Purchase.ToString(), StringComparison.Ordinal) || vatInvoiceIds.Count == 0)
@@ -2602,6 +2728,183 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             UpdatedAt = seed.AnchorUtc.AddDays(-(number % 60)),
             IsBanned = false
         };
+    }
+
+    private static User CreateDemoVictimWithPin(DemoSeedContext seed)
+    {
+        var area = Area(0);
+        var user = CreateUser(
+            "victim.demo.374745872",
+            5,
+            999,
+            "Lê",
+            "Minh Anh",
+            SeedConstants.DemoVictimPinPasswordHash,
+            area,
+            seed);
+
+        user.Phone = "+84374745872";
+        user.Email = "victim.demo.374745872@resq.vn";
+        user.Address = "32 Nguyễn Huệ, phường Phú Hội, Huế";
+        user.Ward = "Phú Hội";
+        user.Province = "Thừa Thiên Huế";
+        user.Location = Point(107.5948, 16.4642);
+        user.CreatedAt = new DateTime(2026, 4, 18, 10, 45, 0, DateTimeKind.Utc);
+        user.UpdatedAt = new DateTime(2026, 4, 18, 10, 53, 8, DateTimeKind.Utc);
+        user.IsEmailVerified = true;
+
+        return user;
+    }
+
+    private static IEnumerable<UserRelativeProfile> CreateDemoVictimRelativeProfiles(Guid userId, DemoSeedContext seed)
+    {
+        var createdAt = new DateTime(2026, 4, 18, 10, 53, 8, DateTimeKind.Utc);
+        var relatives = new[]
+        {
+            new RelativeProfileSeed(
+                "Châu",
+                "+84972513978",
+                "ELDERLY",
+                "FEMALE",
+                ["me_gia", "can_diu", "uu_tien_so_tan"],
+                "Mẹ 72 tuổi, huyết áp cao, hay đau khớp gối.",
+                "Cần người dìu khi đi bộ xa hoặc leo cầu thang.",
+                "Ăn mềm, hạn chế muối và đường.",
+                Json(new
+                {
+                    bloodType = "UNKNOWN",
+                    allergyDetails = "Dị ứng nhẹ với một số thuốc giảm đau nhóm NSAID.",
+                    allergyOptions = new[] { "MEDICATION" },
+                    medicalDevices = new[] { "WALKING_CANE" },
+                    medicalHistory = new[] { "BONE_FRACTURE", "JOINT_PAIN" },
+                    mobilityStatus = "NEEDS_ASSISTANCE",
+                    specialSituation = new
+                    {
+                        isSenior = true,
+                        isPregnant = false,
+                        isYoungChild = false,
+                        hasDisability = false
+                    },
+                    chronicConditions = new[] { "HYPERTENSION", "DIABETES" },
+                    otherMedicalDevice = "",
+                    longTermMedications = new[] { "Thuốc huyết áp buổi sáng", "Thuốc tiểu đường sau ăn" },
+                    hasLongTermMedication = true,
+                    medicalHistoryDetails = "Từng gãy xương cổ tay phải, đi lại chậm khi trời mưa.",
+                    otherChronicCondition = ""
+                })),
+            new RelativeProfileSeed(
+                "An",
+                "+84908112233",
+                "ADULT",
+                "FEMALE",
+                ["vo", "lien_he_chinh", "di_chuyen_duoc"],
+                "Sức khỏe ổn định, có tiền sử hen nhẹ khi lạnh.",
+                "Cần mang theo thuốc xịt hen dự phòng.",
+                "Không ăn hải sản sống.",
+                Json(new
+                {
+                    bloodType = "O",
+                    allergyDetails = "Dị ứng hải sản sống.",
+                    allergyOptions = new[] { "FOOD" },
+                    medicalDevices = Array.Empty<string>(),
+                    medicalHistory = new[] { "ASTHMA" },
+                    mobilityStatus = "NORMAL",
+                    specialSituation = new
+                    {
+                        isSenior = false,
+                        isPregnant = false,
+                        isYoungChild = false,
+                        hasDisability = false
+                    },
+                    chronicConditions = Array.Empty<string>(),
+                    otherMedicalDevice = "",
+                    longTermMedications = new[] { "Thuốc xịt hen dự phòng" },
+                    hasLongTermMedication = true,
+                    medicalHistoryDetails = "Hen nhẹ, thường xuất hiện khi thời tiết lạnh hoặc ẩm.",
+                    otherChronicCondition = ""
+                })),
+            new RelativeProfileSeed(
+                "Thảo",
+                "+84933668120",
+                "ADULT",
+                "FEMALE",
+                ["chi_gai", "biet_so_cuu", "co_the_ho_tro"],
+                "Chị gái sống gần nhà, có thể hỗ trợ chăm sóc người già.",
+                null,
+                "Không ăn cay.",
+                Json(new
+                {
+                    bloodType = "B",
+                    allergyDetails = "",
+                    allergyOptions = Array.Empty<string>(),
+                    medicalDevices = Array.Empty<string>(),
+                    medicalHistory = Array.Empty<string>(),
+                    mobilityStatus = "NORMAL",
+                    specialSituation = new
+                    {
+                        isSenior = false,
+                        isPregnant = false,
+                        isYoungChild = false,
+                        hasDisability = false
+                    },
+                    chronicConditions = Array.Empty<string>(),
+                    otherMedicalDevice = "",
+                    longTermMedications = Array.Empty<string>(),
+                    hasLongTermMedication = false,
+                    medicalHistoryDetails = "",
+                    otherChronicCondition = ""
+                })),
+            new RelativeProfileSeed(
+                "Khoa",
+                "+84911224567",
+                "ADULT",
+                "MALE",
+                ["em_trai", "can_lien_lac", "di_chuyen_duoc"],
+                "Em trai thường đi làm xa, cần báo sớm khi có sơ tán.",
+                "Cần hỗ trợ định vị nếu mất sóng điện thoại.",
+                null,
+                Json(new
+                {
+                    bloodType = "A",
+                    allergyDetails = "",
+                    allergyOptions = new[] { "DUST" },
+                    medicalDevices = Array.Empty<string>(),
+                    medicalHistory = new[] { "MIGRAINE" },
+                    mobilityStatus = "NORMAL",
+                    specialSituation = new
+                    {
+                        isSenior = false,
+                        isPregnant = false,
+                        isYoungChild = false,
+                        hasDisability = false
+                    },
+                    chronicConditions = Array.Empty<string>(),
+                    otherMedicalDevice = "",
+                    longTermMedications = Array.Empty<string>(),
+                    hasLongTermMedication = false,
+                    medicalHistoryDetails = "Đôi khi đau nửa đầu khi thiếu ngủ.",
+                    otherChronicCondition = ""
+                }))
+        };
+
+        return relatives.Select((relative, index) => new UserRelativeProfile
+        {
+            Id = StableGuid($"demo-victim-relative-{index + 1}"),
+            UserId = userId,
+            DisplayName = relative.DisplayName,
+            PhoneNumber = relative.PhoneNumber,
+            PersonType = relative.PersonType,
+            RelationGroup = "gia_dinh",
+            Gender = relative.Gender,
+            TagsJson = Json(relative.Tags),
+            MedicalBaselineNote = relative.MedicalBaselineNote,
+            SpecialNeedsNote = relative.SpecialNeedsNote,
+            SpecialDietNote = relative.SpecialDietNote,
+            MedicalProfileJson = relative.MedicalProfileJson,
+            ProfileUpdatedAt = createdAt.AddMinutes(index),
+            CreatedAt = createdAt.AddSeconds(index * 12),
+            UpdatedAt = createdAt.AddSeconds(index * 12 + 4)
+        });
     }
 
     private static bool IsRecentRescuerNumber(int number) =>
@@ -3491,6 +3794,17 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     }
 
     private sealed record SeedArea(string Code, string Province, string Ward, string Address, double Lat, double Lon);
+
+    private sealed record RelativeProfileSeed(
+        string DisplayName,
+        string PhoneNumber,
+        string PersonType,
+        string Gender,
+        IReadOnlyList<string> Tags,
+        string? MedicalBaselineNote,
+        string? SpecialNeedsNote,
+        string? SpecialDietNote,
+        string MedicalProfileJson);
 
     private sealed record ItemTemplate(
         string CategoryCode,
