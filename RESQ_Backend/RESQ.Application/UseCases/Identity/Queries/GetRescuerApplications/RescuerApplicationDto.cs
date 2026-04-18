@@ -1,0 +1,74 @@
+namespace RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications
+{
+    /// <summary>Lightweight DTO dùng cho danh sách – không kèm documents/abilities.</summary>
+    public class RescuerApplicationListItemDto
+    {
+        public int Id { get; set; }
+        public Guid UserId { get; set; }
+        public string? Status { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+        public DateTime? ReviewedAt { get; set; }
+
+        // User info
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? AvatarUrl { get; set; }
+        public string? RescuerType { get; set; }
+        public string? Province { get; set; }
+    }
+
+    /// <summary>Full DTO dùng cho chi tiết – kèm documents và abilities.</summary>
+    public class RescuerApplicationDto
+    {
+        public int Id { get; set; }
+        public Guid UserId { get; set; }
+        public string? Status { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+        public DateTime? ReviewedAt { get; set; }
+        public Guid? ReviewedBy { get; set; }
+        public string? AdminNote { get; set; }
+
+        // User info
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? AvatarUrl { get; set; }
+        public string? RescuerType { get; set; }
+        public string? Address { get; set; }
+        public string? Ward { get; set; }
+        public string? Province { get; set; }
+
+        // Documents
+        public List<RescuerApplicationDocumentDto> Documents { get; set; } = new();
+
+        // Abilities
+        public List<RescuerApplicationAbilityDto> Abilities { get; set; } = new();
+    }
+
+    public class RescuerApplicationAbilityDto
+    {
+        public int AbilityId { get; set; }
+        public string? Code { get; set; }
+        public string? Description { get; set; }
+        public int? Level { get; set; }
+        public int? SubgroupId { get; set; }
+        public string? SubgroupCode { get; set; }
+        public string? SubgroupDescription { get; set; }
+        public int? CategoryId { get; set; }
+        public string? CategoryCode { get; set; }
+        public string? CategoryDescription { get; set; }
+    }
+
+    public class RescuerApplicationDocumentDto
+    {
+        public int Id { get; set; }
+        public string? FileUrl { get; set; }
+        public int? FileTypeId { get; set; }
+        public string? FileTypeCode { get; set; }
+        public string? FileTypeName { get; set; }
+        public DateTime? UploadedAt { get; set; }
+    }
+}

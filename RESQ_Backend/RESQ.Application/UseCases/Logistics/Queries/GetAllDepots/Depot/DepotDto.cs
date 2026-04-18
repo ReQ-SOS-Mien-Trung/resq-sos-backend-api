@@ -1,0 +1,25 @@
+namespace RESQ.Application.UseCases.Logistics.Queries.GetAllDepots.Depot
+{
+    public class DepotDto
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+        public string? Address { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public decimal? Capacity { get; set; }
+        public decimal? CurrentUtilization { get; set; }
+        public decimal? WeightCapacity { get; set; }
+        public decimal? CurrentWeightUtilization { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        
+        // Changed from DepotManagerId (Guid) to Manager object
+        public ManagerDto? Manager { get; set; }
+        
+        public DateTime? LastUpdatedAt { get; set; }
+
+        /// <summary>Danh sách yêu cầu tiếp tế liên quan đến kho này (cả 2 chiều, bao gồm đã hoàn thành).</summary>
+        public List<DepotRequestDto> Requests { get; set; } = [];
+    }
+}

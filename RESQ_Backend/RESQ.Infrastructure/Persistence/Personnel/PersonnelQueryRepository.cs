@@ -1,0 +1,326 @@
+using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Common.Models;
+using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Personnel;
+using RESQ.Domain.Entities.Personnel;
+using RESQ.Domain.Enum.Personnel;
+using RESQ.Infrastructure.Entities.Identity;
+using RESQ.Infrastructure.Entities.Personnel;
+using RESQ.Infrastructure.Mappers.Personnel;
+
+namespace RESQ.Infrastructure.Persistence.Personnel;
+
+public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryRepository
+{
+    public async Task<PagedResult<FreeRescuerModel>> GetFreeRescuersAsync(
+        int pageNumber, int pageSize,
+        string? firstName = null, string? lastName = null,
+        string? phone = null, string? email = null,
+        RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
+        CancellationToken cancellationToken = default)
+    {
+        var activeTeamStatus = TeamMemberStatus.Accepted.ToString().ToLower();
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString().ToLower();
+        var rescuerTypeStr = rescuerType?.ToString().ToLower();
+
+        // 1. Get User IDs of users who are currently in active teams
+        var teamMembers = await unitOfWork.GetRepository<RescueTeamMember>().GetAllByPropertyAsync(
+            filter: m => m.Status.ToLower() == activeTeamStatus && m.Team != null && m.Team.Status!.ToLower() != disbandedStatus,
+            includeProperties: "Team"
+        );
+        
+        var activeTeamUserIds = teamMembers.Select(m => m.UserId).Distinct().ToList();
+
+        // 2. Fetch Paginated Users who are eligible, have role = 3 (Rescuer), and not in the active teams list
+        var pagedUsers = await unitOfWork.GetRepository<User>().GetPagedAsync(
+            pageNumber,
+            pageSize,
+            filter: u => u.RoleId == 3 && u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer && !activeTeamUserIds.Contains(u.Id)
+                && (firstName == null || (u.FirstName != null && u.FirstName.Contains(firstName)))
+                && (lastName == null || (u.LastName != null && u.LastName.Contains(lastName)))
+                && (phone == null || (u.Phone != null && u.Phone.Contains(phone)))
+                && (email == null || (u.Email != null && u.Email.Contains(email)))
+                && (rescuerTypeStr == null || (u.RescuerProfile != null && u.RescuerProfile.RescuerType!.ToLower() == rescuerTypeStr)),
+            orderBy: q => q.OrderByDescending(u => u.CreatedAt),
+            includeProperties: "RescuerProfile"
+        );
+
+        // 3. Map to Domain Models using Mapper
+        var userModels = pagedUsers.Items.Select(FreeRescuerMapper.ToModel).ToList();
+
+        // 4. Populate top abilities for the fetched users
+        if (userModels.Any())
+        {
+            var userIds = userModels.Select(u => u.Id).ToList();
+            var abilities = await unitOfWork.GetRepository<UserAbility>().GetAllByPropertyAsync(
+                filter: ua => userIds.Contains(ua.UserId),
+                includeProperties: "Ability"
+            );
+
+            var groupedAbilities = abilities.GroupBy(ua => ua.UserId).ToList();
+
+            foreach (var user in userModels)
+            {
+                var userAbilities = groupedAbilities.FirstOrDefault(a => a.Key == user.Id);
+                if (userAbilities != null)
+                {
+                    user.TopAbilities = userAbilities
+                        .OrderByDescending(ua => ua.Level)
+                        .Select(ua => ua.Ability.Code)
+                        .Take(3)
+                        .ToList();
+                }
+            }
+        }
+
+        return new PagedResult<FreeRescuerModel>(userModels, pagedUsers.TotalCount, pageNumber, pageSize);
+    }
+
+    public async Task<PagedResult<RescueTeamModel>> GetAllRescueTeamsAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        // 1. Fetch Paginated Teams including related data
+        var pagedTeams = await unitOfWork.GetRepository<RescueTeam>().GetPagedAsync(
+            pageNumber,
+            pageSize,
+            filter: null,
+            orderBy: q => q.OrderByDescending(t => t.CreatedAt),
+            includeProperties: "AssemblyPoint,RescueTeamMembers"
+        );
+
+        // 2. Map to Domain Models using Mapper
+        var teamModels = pagedTeams.Items.Select(t => RescueTeamMapper.ToDomain(t, t.RescueTeamMembers.ToList())).ToList();
+
+        return new PagedResult<RescueTeamModel>(teamModels, pagedTeams.TotalCount, pageNumber, pageSize);
+    }
+
+    public async Task<RescueTeamModel?> GetRescueTeamDetailAsync(int teamId, CancellationToken cancellationToken = default)
+    {
+        // 1. Fetch Single Team with detailed members (User info included for Profile Value Object mapping)
+        var team = await unitOfWork.GetRepository<RescueTeam>().GetByPropertyAsync(
+            filter: t => t.Id == teamId,
+            tracked: false,
+            includeProperties: "AssemblyPoint,RescueTeamMembers,RescueTeamMembers.User,RescueTeamMembers.User.RescuerProfile"
+        );
+
+        if (team == null) return null;
+
+        // 2. Map to Domain Model with loaded profiles
+        return RescueTeamMapper.ToDomain(team, team.RescueTeamMembers.ToList());
+    }
+
+    public async Task<RescueTeamModel?> GetActiveRescueTeamByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var accepted = TeamMemberStatus.Accepted.ToString().ToLower();
+        var disbanded = RescueTeamStatus.Disbanded.ToString().ToLower();
+
+        // Query from RescueTeam side to avoid a cycle: RescueTeamMember → Team → RescueTeamMembers (same root type)
+        var team = await unitOfWork.GetRepository<RescueTeam>().GetByPropertyAsync(
+            filter: t => t.Status!.ToLower() != disbanded
+                         && t.RescueTeamMembers.Any(m => m.UserId == userId && m.Status.ToLower() == accepted),
+            tracked: false,
+            includeProperties: "AssemblyPoint,RescueTeamMembers,RescueTeamMembers.User"
+        );
+
+        if (team is null) return null;
+
+        return RescueTeamMapper.ToDomain(team, team.RescueTeamMembers.ToList());
+    }
+
+    public async Task<PagedResult<FreeRescuerModel>> GetRescuersByAssemblyPointAsync(
+        int assemblyPointId,
+        int pageNumber, int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString().ToLower();
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString().ToLower();
+
+        // Subquery: active team IDs thuộc assembly point này
+        var activeTeamIds = unitOfWork.GetRepository<RescueTeam>().AsQueryable()
+            .Where(t => t.AssemblyPointId == assemblyPointId && t.Status!.ToLower() != disbandedStatus)
+            .Select(t => t.Id);
+
+        // Query distinct users từ DB (deduplicate bằng GroupBy trên DB)
+        var query = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Where(m => activeTeamIds.Contains(m.TeamId) && m.Status.ToLower() == acceptedStatus && m.User != null)
+            .GroupBy(m => m.UserId)
+            .Select(g => g.First())
+            .Include(m => m.User)
+                .ThenInclude(u => u!.RescuerProfile)
+            .Select(m => m.User!);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var pagedUsers = await query
+            .OrderBy(u => u.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var models = pagedUsers.Select(FreeRescuerMapper.ToModel).ToList();
+
+        return new PagedResult<FreeRescuerModel>(models, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<PagedResult<RescuerModel>> GetRescuersAsync(
+        int pageNumber, int pageSize,
+        bool? hasAssemblyPoint = null,
+        bool? hasTeam = null,
+        RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
+        string? abilitySubgroupCode = null,
+        string? abilityCategoryCode = null,
+        string? search = null,
+        List<string>? assemblyPointCodes = null,
+        CancellationToken cancellationToken = default)
+    {
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString().ToLower();
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString().ToLower();
+        var rescuerTypeStr = rescuerType?.ToString().ToLower();
+
+        // Subquery: user IDs đang trong đội active
+        var inTeamUserIds = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Where(m => m.Status.ToLower() == acceptedStatus && m.Team!.Status!.ToLower() != disbandedStatus)
+            .Select(m => m.UserId);
+
+        // Subquery: user IDs đang trong đội active có assembly point
+        var inApUserIds = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Where(m => m.Status.ToLower() == acceptedStatus && m.Team!.Status!.ToLower() != disbandedStatus && m.Team.AssemblyPointId != null)
+            .Select(m => m.UserId);
+
+        // Base: eligible rescuers (roleId = 3)
+        var query = unitOfWork.GetRepository<User>().AsQueryable()
+            .Include(u => u.RescuerProfile)
+            .Where(u => u.RoleId == 3 && u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer);
+
+        // Filter: rescuerType
+        if (rescuerTypeStr != null)
+            query = query.Where(u => u.RescuerProfile != null && u.RescuerProfile.RescuerType!.ToLower() == rescuerTypeStr);
+
+        // Filter: search (OR across firstName, lastName, phone, email)
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(u =>
+                (u.FirstName != null && u.FirstName.ToLower().Contains(term)) ||
+                (u.LastName  != null && u.LastName.ToLower().Contains(term))  ||
+                (u.Phone     != null && u.Phone.ToLower().Contains(term))     ||
+                (u.Email     != null && u.Email.ToLower().Contains(term)));
+        }
+
+        // Filter: ability subgroup
+        if (abilitySubgroupCode != null)
+            query = query.Where(u => u.UserAbilities.Any(ua =>
+                ua.Ability.AbilitySubgroup != null &&
+                ua.Ability.AbilitySubgroup.Code == abilitySubgroupCode));
+
+        // Filter: ability category
+        if (abilityCategoryCode != null)
+            query = query.Where(u => u.UserAbilities.Any(ua =>
+                ua.Ability.AbilitySubgroup != null &&
+                ua.Ability.AbilitySubgroup.AbilityCategory != null &&
+                ua.Ability.AbilitySubgroup.AbilityCategory.Code == abilityCategoryCode));
+
+        // Filter: hasTeam
+        if (hasTeam.HasValue)
+        {
+            if (hasTeam.Value)
+                query = query.Where(u => inTeamUserIds.Contains(u.Id));
+            else
+                query = query.Where(u => !inTeamUserIds.Contains(u.Id));
+        }
+
+        // Filter: hasAssemblyPoint
+        if (hasAssemblyPoint.HasValue)
+        {
+            if (hasAssemblyPoint.Value)
+                query = query.Where(u => inApUserIds.Contains(u.Id));
+            else
+                query = query.Where(u => !inApUserIds.Contains(u.Id));
+        }
+
+        // Filter: assemblyPointCodes (lọc theo danh sách mã điểm tập kết)
+        if (assemblyPointCodes != null && assemblyPointCodes.Count > 0)
+        {
+            var apIdsFromCodes = unitOfWork.GetRepository<AssemblyPoint>().AsQueryable()
+                .Where(ap => ap.Code != null && assemblyPointCodes.Contains(ap.Code))
+                .Select(ap => ap.Id);
+
+            var inApCodeUserIds = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+                .Where(m => m.Status.ToLower() == acceptedStatus &&
+                            m.Team!.Status!.ToLower() != disbandedStatus &&
+                            m.Team.AssemblyPointId != null &&
+                            apIdsFromCodes.Contains(m.Team.AssemblyPointId!.Value))
+                .Select(m => m.UserId);
+
+            query = query.Where(u =>
+                (u.AssemblyPointId != null && apIdsFromCodes.Contains(u.AssemblyPointId.Value)) ||
+                inApCodeUserIds.Contains(u.Id));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var users = await query
+            .OrderByDescending(u => u.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Include(u => u.UserAbilities)
+                .ThenInclude(ua => ua.Ability)
+            .ToListAsync(cancellationToken);
+
+        var userIds = users.Select(u => u.Id).ToList();
+
+        // Load team + assembly point info for the fetched users
+        var teamMemberData = await unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Where(m => userIds.Contains(m.UserId) &&
+                        m.Status.ToLower() == acceptedStatus &&
+                        m.Team!.Status!.ToLower() != disbandedStatus)
+            .Include(m => m.Team)
+            .ToListAsync(cancellationToken);
+
+        var teamByUser = teamMemberData
+            .GroupBy(m => m.UserId)
+            .ToDictionary(g => g.Key, g => g.Select(m => m.Team).FirstOrDefault());
+
+        var models = users.Select(u =>
+        {
+            teamByUser.TryGetValue(u.Id, out var activeTeam);
+            return new RescuerModel
+            {
+                Id = u.Id,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Phone = u.Phone,
+                Email = u.Email,
+                AvatarUrl = u.AvatarUrl,
+                RescuerType = u.RescuerProfile?.RescuerType,
+                Address = u.Address,
+                Ward = u.Ward,
+                Province = u.Province,
+                HasTeam = activeTeam != null,
+                HasAssemblyPoint = activeTeam?.AssemblyPointId != null || u.AssemblyPointId != null,
+                AssemblyPointId = activeTeam?.AssemblyPointId ?? u.AssemblyPointId,
+                TopAbilities = u.UserAbilities
+                    .OrderByDescending(ua => ua.Level)
+                    .Select(ua => ua.Ability.Code)
+                    .Take(3)
+                    .ToList()
+            };
+        }).ToList();
+
+        return new PagedResult<RescuerModel>(models, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<List<RescueTeamModel>> GetAllAvailableTeamsAsync(CancellationToken cancellationToken = default)
+    {
+        var availableStatus = RescueTeamStatus.Available.ToString().ToLower();
+
+        var teams = await unitOfWork.GetRepository<RescueTeam>().GetAllByPropertyAsync(
+            filter: t => t.Status!.ToLower() == availableStatus,
+            includeProperties: "AssemblyPoint,RescueTeamMembers"
+        );
+
+        return teams
+            .OrderBy(t => t.CreatedAt)
+            .Select(t => RescueTeamMapper.ToDomain(t, t.RescueTeamMembers.ToList()))
+            .ToList();
+    }
+}

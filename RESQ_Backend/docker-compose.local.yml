@@ -1,0 +1,81 @@
+services:
+  resq-db:
+    image: resq-postgis-local:16-arm64
+    build:
+      context: .
+      dockerfile: Dockerfile.postgis-arm64
+    platform: linux/arm64
+    pull_policy: never
+    container_name: resq-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: RESQ
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - resq-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  resq-redis:
+    image: redis:7-alpine
+    container_name: resq-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - resq-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  resq-api:
+    image: resq-backend-local:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/arm64
+    pull_policy: never
+    container_name: resq-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - type: bind
+        source: ./firebase-admin.json
+        target: /app/PRM PE 142 Firebase Admin SDK.json
+        read_only: true
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__ResQDb=Host=resq-db;Port=5432;Database=RESQ;Username=postgres;Password=postgres123
+      - Redis__ConnectionString=resq-redis:6379
+      - JwtSettings__SecretKey=YourSuperSecretKeyForJwtTokenGeneration_AtLeast32Characters!
+      - JwtSettings__Issuer=RESQ.API
+      - JwtSettings__Audience=RESQ.Client
+      - JwtSettings__AccessTokenExpirationMinutes=60
+      - JwtSettings__RefreshTokenExpirationDays=7
+    depends_on:
+      resq-db:
+        condition: service_healthy
+      resq-redis:
+        condition: service_healthy
+    networks:
+      - resq-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  resq-network:
+    driver: bridge

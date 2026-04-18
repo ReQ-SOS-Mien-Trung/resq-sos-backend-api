@@ -1,0 +1,562 @@
+﻿using Microsoft.EntityFrameworkCore;
+using RESQ.Infrastructure.Entities.Finance;
+using RESQ.Domain.Enum.Finance;
+
+namespace RESQ.Infrastructure.Persistence.Seeding;
+
+public static class FinanceSeed
+{
+    public static void SeedFinance(this ModelBuilder modelBuilder)
+    {
+        var fundSeedTime = new DateTime(2026, 3, 25, 0, 0, 0, DateTimeKind.Utc);
+        var campaign1CreatedAt = new DateTime(2026, 2, 12, 9, 43, 42, 480, DateTimeKind.Utc).AddTicks(3636);
+        var campaign2CreatedAt = new DateTime(2025, 8, 13, 9, 43, 42, 480, DateTimeKind.Utc).AddTicks(3648);
+
+        // 0.1 Depot Funds (ví kho)
+        // Hạn mức ứng và dư nợ ứng được quản lý ở cấp Depot.
+        // FundSourceType = "Campaign", FundSourceId = 1 → đến từ chiến dịch FLOOD_RELIEF_2026
+        var depotFunds = new List<DepotFund>
+        {
+            new DepotFund { Id = 1, DepotId = 1, Balance = 120_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 2, DepotId = 2, Balance = 130_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 3, DepotId = 3, Balance = 70_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 4, DepotId = 4, Balance = 150_000_000m, LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 5, DepotId = 5, Balance = 18_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 6, DepotId = 6, Balance = 22_000_000m,  LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 7, DepotId = 7, Balance = 8_000_000m,   LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 1 },
+            new DepotFund { Id = 8, DepotId = 6, Balance = 1_500_000m,   LastUpdatedAt = fundSeedTime, FundSourceType = "Campaign", FundSourceId = 2 }
+        };
+        modelBuilder.Entity<DepotFund>().HasData(depotFunds);
+
+        // 0.2 Depot Fund Transactions - dữ liệu mẫu lịch sử ví kho
+        var depotFundTransactions = new List<DepotFundTransaction>
+        {
+            new DepotFundTransaction
+            {
+                Id = 1,
+                DepotFundId = 1,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 200_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1001,
+                Note = "Admin cấp quỹ đầu kỳ cho kho Huế",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 5, 2, 0, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 2,
+                DepotFundId = 1,
+                TransactionType = DepotFundTransactionType.Deduction.ToString(),
+                Amount = 80_000_000m,
+                ReferenceType = "VatInvoice",
+                ReferenceId = 1,
+                Note = "Nhập hàng quý I",
+                CreatedBy = SeedConstants.ManagerUserId,
+                CreatedAt = new DateTime(2026, 2, 2, 3, 30, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 3,
+                DepotFundId = 2,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 120_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1002,
+                Note = "Admin cấp quỹ kho Đà Nẵng",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 8, 2, 15, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 4,
+                DepotFundId = 2,
+                TransactionType = DepotFundTransactionType.PersonalAdvance.ToString(),
+                Amount = 30_000_000m,
+                ReferenceType = "VatInvoice",
+                ReferenceId = 2,
+                Note = "Kho tự ứng khi nhập hàng vượt số dư",
+                CreatedBy = SeedConstants.Manager2UserId,
+                CreatedAt = new DateTime(2026, 2, 20, 4, 0, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 5,
+                DepotFundId = 2,
+                TransactionType = DepotFundTransactionType.AdvanceRepayment.ToString(),
+                Amount = 20_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1003,
+                Note = "Trả một phần nợ tự ứng sau khi được cấp bổ sung",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 3, 1, 1, 45, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 6,
+                DepotFundId = 3,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 90_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1004,
+                Note = "Admin cấp quỹ kho Hà Tĩnh",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 10, 2, 10, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 7,
+                DepotFundId = 4,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 260_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1005,
+                Note = "Admin cấp quỹ kho trung tâm",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 3, 1, 30, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 8,
+                DepotFundId = 4,
+                TransactionType = DepotFundTransactionType.Deduction.ToString(),
+                Amount = 110_000_000m,
+                ReferenceType = "VatInvoice",
+                ReferenceId = 3,
+                Note = "Nhập vật phẩm y tế và cứu hộ",
+                CreatedBy = SeedConstants.Manager4UserId,
+                CreatedAt = new DateTime(2026, 2, 14, 3, 20, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 9,
+                DepotFundId = 5,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 18_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1006,
+                Note = "Admin cấp quỹ kho Thăng Bình để test đóng kho xử lý bên ngoài",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 12, 2, 0, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 10,
+                DepotFundId = 6,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 22_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1007,
+                Note = "Admin cấp quỹ kho Quảng Ninh để test đóng kho chuyển kho",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 14, 2, 15, 0, DateTimeKind.Utc)
+            },
+            new DepotFundTransaction
+            {
+                Id = 11,
+                DepotFundId = 7,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = 8_000_000m,
+                ReferenceType = "FundingRequest",
+                ReferenceId = 1008,
+                Note = "Admin cấp quỹ kho Nghệ An để test đóng kho trống",
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 1, 16, 1, 45, 0, DateTimeKind.Utc)
+            }
+        };
+        modelBuilder.Entity<DepotFundTransaction>().HasData(depotFundTransactions);
+
+        // 1. Fund Campaigns
+        var fundCampaigns = new List<FundCampaign>
+        {
+            new FundCampaign
+            {
+                Id = 1,
+                Code = "FLOOD_RELIEF_2026",
+                Name = "Quỹ Hỗ Trợ Nạn Nhân Lũ Lụt Miền Trung 2026",
+                Region = "Miền Trung",
+                CampaignStartDate = new DateOnly(2026, 1, 1),
+                CampaignEndDate = new DateOnly(2026, 12, 31),
+                TargetAmount = 1000000000, // 1 tỷ VND
+                TotalAmount = 7500000,     // Tổng demo
+                CurrentBalance = 3000000,  // Số dư sau khi giải ngân 4.5M
+                Status = FundCampaignStatus.Active.ToString(),
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = campaign1CreatedAt
+            },
+            new FundCampaign
+            {
+                Id = 2,
+                Code = "MEDICAL_SUPPLY_HN",
+                Name = "Quỹ Cung Cấp Thiết Bị Y Tế Huế",
+                Region = "Huế",
+                CampaignStartDate = new DateOnly(2025, 1, 15),
+                CampaignEndDate = new DateOnly(2025, 3, 31),
+                TargetAmount = 500000000, // 500 triệu VND
+                TotalAmount = 520000000,   // Đã đạt mục tiêu
+                CurrentBalance = 500000000, // Số dư sau khi giải ngân 20M
+                Status = FundCampaignStatus.Closed.ToString(),
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = campaign2CreatedAt
+            }
+        };
+
+        modelBuilder.Entity<FundCampaign>().HasData(fundCampaigns);
+
+        // 2. Donations
+        var donations = new List<Donation>
+        {
+            // Donations for Campaign 1
+            new Donation
+            {
+                Id = 1,
+                FundCampaignId = 1,
+                DonorName = "Nguyễn Văn A",
+                DonorEmail = "nguyenvana@example.com",
+                Amount = 500000,
+                OrderId = "2607150001",
+                TransactionId = "TRX-001",
+                Status = Status.Succeed.ToString(),
+                PaymentMethodCode = PaymentMethodCode.PAYOS,
+                PaidAt = new DateTime(2026, 1, 15, 10, 30, 0, DateTimeKind.Utc),
+                Note = "Mong bà con sớm vượt qua khó khăn.",
+                PaymentAuditInfo = "[Bank:MBBANK-1234567890]", 
+                IsPrivate = false,
+                CreatedAt = new DateTime(2026, 1, 15, 10, 25, 0, DateTimeKind.Utc)
+            },
+            new Donation
+            {
+                Id = 2,
+                FundCampaignId = 1,
+                DonorName = "Trần Thị B",
+                DonorEmail = "tranthib@example.com",
+                Amount = 2000000,
+                OrderId = "2607160002",
+                TransactionId = "TRX-002",
+                Status = Status.Succeed.ToString(),
+                PaymentMethodCode = PaymentMethodCode.PAYOS,
+                PaidAt = new DateTime(2026, 1, 16, 14, 15, 0, DateTimeKind.Utc),
+                Note = "Ủng hộ miền Trung ruột thịt.",
+                PaymentAuditInfo = "[Bank:VIETCOMBANK-0987654321]", 
+                IsPrivate = true, 
+                CreatedAt = new DateTime(2026, 1, 16, 14, 10, 0, DateTimeKind.Utc)
+            },
+            new Donation
+            {
+                Id = 3,
+                FundCampaignId = 1,
+                DonorName = "Lê Văn C",
+                DonorEmail = "levanc@example.com",
+                Amount = 5000000,
+                OrderId = "2608010003",
+                TransactionId = "TRX-003",
+                Status = Status.Succeed.ToString(),
+                PaymentMethodCode = PaymentMethodCode.MOMO,
+                PaidAt = new DateTime(2026, 2, 1, 09, 00, 0, DateTimeKind.Utc),
+                Note = "Góp một phần nhỏ bé.",
+                PaymentAuditInfo = "[MoMo:TransId=99887766,Type=captureWallet]", 
+                IsPrivate = false,
+                CreatedAt = new DateTime(2026, 2, 1, 08, 55, 0, DateTimeKind.Utc)
+            },
+
+            // Donations for Campaign 2 (Closed)
+            new Donation
+            {
+                Id = 4,
+                FundCampaignId = 2,
+                DonorName = "Công ty TNHH ABC",
+                DonorEmail = "contact@abc.vn",
+                Amount = 50000000,
+                OrderId = "2502100004",
+                TransactionId = "TRX-004",
+                Status = Status.Succeed.ToString(),
+                PaymentMethodCode = PaymentMethodCode.PAYOS,
+                PaidAt = new DateTime(2025, 2, 10, 11, 20, 0, DateTimeKind.Utc),
+                Note = "Hỗ trợ thiết bị y tế cho bệnh viện.",
+                PaymentAuditInfo = "[Bank:BIDV-555666777]", 
+                IsPrivate = false,
+                CreatedAt = new DateTime(2025, 2, 10, 11, 15, 0, DateTimeKind.Utc)
+            },
+            new Donation
+            {
+                Id = 5,
+                FundCampaignId = 2,
+                DonorName = "Phạm Văn D",
+                DonorEmail = "phamvand@example.com",
+                Amount = 200000,
+                OrderId = "2502150005",
+                TransactionId = "TRX-005",
+                Status = Status.Succeed.ToString(),
+                PaymentMethodCode = PaymentMethodCode.MOMO,
+                PaidAt = new DateTime(2025, 2, 15, 16, 45, 0, DateTimeKind.Utc),
+                Note = "Chúc các bác sĩ nhiều sức khỏe.",
+                PaymentAuditInfo = "[MoMo:TransId=55443322,Type=qr]",
+                IsPrivate = true,
+                CreatedAt = new DateTime(2025, 2, 15, 16, 40, 0, DateTimeKind.Utc)
+            }
+        };
+
+        modelBuilder.Entity<Donation>().HasData(donations);
+
+        // 3. Fund Transactions
+        var transactions = new List<FundTransaction>
+        {
+            new FundTransaction
+            {
+                Id = 1,
+                FundCampaignId = 1,
+                Type = TransactionType.Donation.ToString(),
+                Direction = "in",
+                Amount = 500000,
+                ReferenceType = TransactionReferenceType.Donation.ToString(),
+                ReferenceId = 1, 
+                CreatedBy = null,
+                CreatedAt = new DateTime(2026, 1, 15, 10, 30, 0, DateTimeKind.Utc)
+            },
+            new FundTransaction
+            {
+                Id = 2,
+                FundCampaignId = 1,
+                Type = TransactionType.Donation.ToString(),
+                Direction = "in",
+                Amount = 2000000,
+                ReferenceType = TransactionReferenceType.Donation.ToString(),
+                ReferenceId = 2, 
+                CreatedBy = null,
+                CreatedAt = new DateTime(2026, 1, 16, 14, 15, 0, DateTimeKind.Utc)
+            },
+            new FundTransaction
+            {
+                Id = 3,
+                FundCampaignId = 1,
+                Type = TransactionType.Donation.ToString(),
+                Direction = "in",
+                Amount = 5000000,
+                ReferenceType = TransactionReferenceType.Donation.ToString(),
+                ReferenceId = 3, 
+                CreatedBy = null,
+                CreatedAt = new DateTime(2026, 2, 1, 09, 00, 0, DateTimeKind.Utc)
+            },
+            new FundTransaction
+            {
+                Id = 4,
+                FundCampaignId = 2,
+                Type = TransactionType.Donation.ToString(),
+                Direction = "in",
+                Amount = 50000000,
+                ReferenceType = TransactionReferenceType.Donation.ToString(),
+                ReferenceId = 4, 
+                CreatedBy = null,
+                CreatedAt = new DateTime(2025, 2, 10, 11, 20, 0, DateTimeKind.Utc)
+            },
+            new FundTransaction
+            {
+                Id = 5,
+                FundCampaignId = 2,
+                Type = TransactionType.Donation.ToString(),
+                Direction = "in",
+                Amount = 200000,
+                ReferenceType = TransactionReferenceType.Donation.ToString(),
+                ReferenceId = 5, 
+                CreatedBy = null,
+                CreatedAt = new DateTime(2025, 2, 15, 16, 45, 0, DateTimeKind.Utc)
+            }
+        };
+
+        modelBuilder.Entity<FundTransaction>().HasData(transactions);
+
+        // 4. Campaign Disbursements
+        var disbursements = new List<CampaignDisbursement>
+        {
+            // Campaign 1 – AdminAllocation: cấp tiền cho kho Huế mua lương thực
+            new CampaignDisbursement
+            {
+                Id = 1,
+                FundCampaignId = 1,
+                DepotId = 1,
+                Amount = 1_500_000m,
+                Purpose = "Cấp tiền mua lương thực cứu trợ khẩn cấp cho kho Huế",
+                Type = DisbursementType.AdminAllocation.ToString(),
+                FundingRequestId = null,
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 2, 5, 8, 0, 0, DateTimeKind.Utc)
+            },
+            // Campaign 1 – AdminAllocation: cấp tiền cho kho Đà Nẵng mua vật tư y tế
+            new CampaignDisbursement
+            {
+                Id = 2,
+                FundCampaignId = 1,
+                DepotId = 2,
+                Amount = 2_000_000m,
+                Purpose = "Cấp tiền mua vật tư y tế cho kho Đà Nẵng",
+                Type = DisbursementType.AdminAllocation.ToString(),
+                FundingRequestId = null,
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 2, 15, 9, 30, 0, DateTimeKind.Utc)
+            },
+            // Campaign 1 – FundingRequestApproval: duyệt yêu cầu cấp quỹ kho Hà Tĩnh
+            new CampaignDisbursement
+            {
+                Id = 3,
+                FundCampaignId = 1,
+                DepotId = 3,
+                Amount = 1_000_000m,
+                Purpose = "Duyệt yêu cầu cấp quỹ mua nước uống cho kho Hà Tĩnh",
+                Type = DisbursementType.FundingRequestApproval.ToString(),
+                FundingRequestId = null,
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 3, 1, 10, 0, 0, DateTimeKind.Utc)
+            },
+            // Campaign 2 – AdminAllocation: cấp ngân sách mua thiết bị y tế kho trung tâm
+            new CampaignDisbursement
+            {
+                Id = 4,
+                FundCampaignId = 2,
+                DepotId = 4,
+                Amount = 20_000_000m,
+                Purpose = "Cấp ngân sách mua thiết bị y tế và cứu hộ cho kho trung tâm Hà Nội",
+                Type = DisbursementType.AdminAllocation.ToString(),
+                FundingRequestId = null,
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2025, 3, 10, 8, 0, 0, DateTimeKind.Utc)
+            }
+        };
+        modelBuilder.Entity<CampaignDisbursement>().HasData(disbursements);
+
+        // 5. Disbursement Items
+        var disbursementItems = new List<DisbursementItem>
+        {
+            // Items for Disbursement 1 (kho Huế, mua lương thực)
+            new DisbursementItem
+            {
+                Id = 1,
+                CampaignDisbursementId = 1,
+                ItemName = "Mì tôm các loại",
+                Unit = "thùng",
+                Quantity = 100,
+                UnitPrice = 15_000m,
+                TotalPrice = 1_500_000m,
+                Note = "Mì tôm 30 gói/thùng, ưu tiên loại nhiều calo",
+                CreatedAt = new DateTime(2026, 2, 5, 8, 0, 0, DateTimeKind.Utc)
+            },
+            // Items for Disbursement 2 (kho Đà Nẵng, mua vật tư y tế)
+            new DisbursementItem
+            {
+                Id = 2,
+                CampaignDisbursementId = 2,
+                ItemName = "Thuốc hạ sốt Paracetamol 500mg",
+                Unit = "hộp",
+                Quantity = 500,
+                UnitPrice = 2_000m,
+                TotalPrice = 1_000_000m,
+                Note = "Hộp 10 viên, dùng cho nạn nhân lũ lụt",
+                CreatedAt = new DateTime(2026, 2, 15, 9, 30, 0, DateTimeKind.Utc)
+            },
+            new DisbursementItem
+            {
+                Id = 3,
+                CampaignDisbursementId = 2,
+                ItemName = "Băng gạc y tế vô khuẩn",
+                Unit = "cuộn",
+                Quantity = 100,
+                UnitPrice = 10_000m,
+                TotalPrice = 1_000_000m,
+                Note = "Băng gạc 10cm x 5m",
+                CreatedAt = new DateTime(2026, 2, 15, 9, 30, 0, DateTimeKind.Utc)
+            },
+            // Items for Disbursement 3 (kho Hà Tĩnh, mua nước uống)
+            new DisbursementItem
+            {
+                Id = 4,
+                CampaignDisbursementId = 3,
+                ItemName = "Nước uống tinh khiết 500ml",
+                Unit = "thùng",
+                Quantity = 200,
+                UnitPrice = 5_000m,
+                TotalPrice = 1_000_000m,
+                Note = "Thùng 24 chai, nước đóng chai cho vùng thiếu nước sạch",
+                CreatedAt = new DateTime(2026, 3, 1, 10, 0, 0, DateTimeKind.Utc)
+            },
+            // Items for Disbursement 4 (kho Hà Nội, mua thiết bị y tế)
+            new DisbursementItem
+            {
+                Id = 5,
+                CampaignDisbursementId = 4,
+                ItemName = "Bộ sơ cứu cơ bản",
+                Unit = "bộ",
+                Quantity = 100,
+                UnitPrice = 150_000m,
+                TotalPrice = 15_000_000m,
+                Note = "Bộ sơ cứu đầy đủ dụng cụ y tế cơ bản",
+                CreatedAt = new DateTime(2025, 3, 10, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new DisbursementItem
+            {
+                Id = 6,
+                CampaignDisbursementId = 4,
+                ItemName = "Khẩu trang y tế",
+                Unit = "hộp",
+                Quantity = 500,
+                UnitPrice = 10_000m,
+                TotalPrice = 5_000_000m,
+                Note = "Hộp 50 chiếc, khẩu trang 3 lớp",
+                CreatedAt = new DateTime(2025, 3, 10, 8, 0, 0, DateTimeKind.Utc)
+            }
+        };
+        modelBuilder.Entity<DisbursementItem>().HasData(disbursementItems);
+
+        // 6. Fund Transactions – outgoing disbursements from campaign
+        var disbursementTransactions = new List<FundTransaction>
+        {
+            new FundTransaction
+            {
+                Id = 6,
+                FundCampaignId = 1,
+                Type = TransactionType.Allocation.ToString(),
+                Direction = "out",
+                Amount = 1_500_000m,
+                ReferenceType = TransactionReferenceType.CampaignDisbursement.ToString(),
+                ReferenceId = 1,
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 2, 5, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new FundTransaction
+            {
+                Id = 7,
+                FundCampaignId = 1,
+                Type = TransactionType.Allocation.ToString(),
+                Direction = "out",
+                Amount = 2_000_000m,
+                ReferenceType = TransactionReferenceType.CampaignDisbursement.ToString(),
+                ReferenceId = 2,
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 2, 15, 9, 30, 0, DateTimeKind.Utc)
+            },
+            new FundTransaction
+            {
+                Id = 8,
+                FundCampaignId = 1,
+                Type = TransactionType.Allocation.ToString(),
+                Direction = "out",
+                Amount = 1_000_000m,
+                ReferenceType = TransactionReferenceType.CampaignDisbursement.ToString(),
+                ReferenceId = 3,
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2026, 3, 1, 10, 0, 0, DateTimeKind.Utc)
+            },
+            new FundTransaction
+            {
+                Id = 9,
+                FundCampaignId = 2,
+                Type = TransactionType.Allocation.ToString(),
+                Direction = "out",
+                Amount = 20_000_000m,
+                ReferenceType = TransactionReferenceType.CampaignDisbursement.ToString(),
+                ReferenceId = 4,
+                CreatedBy = SeedConstants.AdminUserId,
+                CreatedAt = new DateTime(2025, 3, 10, 8, 0, 0, DateTimeKind.Utc)
+            }
+        };
+        modelBuilder.Entity<FundTransaction>().HasData(disbursementTransactions);
+    }
+}

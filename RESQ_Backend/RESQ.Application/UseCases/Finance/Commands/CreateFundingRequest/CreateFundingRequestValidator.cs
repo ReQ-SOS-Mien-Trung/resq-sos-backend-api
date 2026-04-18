@@ -1,0 +1,39 @@
+﻿using FluentValidation;
+
+namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
+
+public class CreateFundingRequestValidator : AbstractValidator<CreateFundingRequestCommand>
+{
+    public CreateFundingRequestValidator()
+    {
+        RuleFor(x => x.DepotId)
+            .GreaterThan(0).WithMessage("DepotId là bắt buộc và phải là số nguyên dương.");
+
+        RuleFor(x => x.Items)
+            .NotEmpty().WithMessage("Danh sách vật phẩm không được để trống.");
+
+        RuleForEach(x => x.Items).ChildRules(item =>
+        {
+            item.RuleFor(i => i.ItemName)
+                .NotEmpty().WithMessage("Tên vật phẩm không được để trống.");
+            item.RuleFor(i => i.CategoryCode)
+                .NotEmpty().WithMessage("Mã danh mục không được để trống.");
+            item.RuleFor(i => i.ItemType)
+                .NotEmpty().WithMessage("Loại vật phẩm không được để trống.");
+            item.RuleFor(i => i.TargetGroup)
+                .NotEmpty().WithMessage("Nhóm đối tượng không được để trống.");
+            item.RuleFor(i => i.Quantity)
+                .GreaterThan(0).WithMessage("Số lượng phải lớn hơn 0.");
+            item.RuleFor(i => i.UnitPrice)
+                .GreaterThan(0).WithMessage("Đơn giá phải lớn hơn 0.");
+            item.RuleFor(i => i.VolumePerUnit)
+                .GreaterThanOrEqualTo(0).WithMessage("Thể tích mỗi đơn vị không được âm.");
+            item.RuleFor(i => i.WeightPerUnit)
+                .GreaterThanOrEqualTo(0).WithMessage("Cân nặng mỗi đơn vị không được âm.");
+        });
+
+        RuleFor(x => x.RequestedBy)
+            .NotEmpty().WithMessage("Người yêu cầu không hợp lệ.");
+    }
+}
+

@@ -1,0 +1,57 @@
+using MediatR;
+using Microsoft.Extensions.Logging;
+using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots.Depot;
+
+namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotById;
+
+public class GetDepotByIdQueryHandler(
+    IDepotRepository depotRepository, 
+    ILogger<GetDepotByIdQueryHandler> logger) 
+    : IRequestHandler<GetDepotByIdQuery, DepotDto>
+{
+    private readonly IDepotRepository _depotRepository = depotRepository;
+    private readonly ILogger<GetDepotByIdQueryHandler> _logger = logger;
+
+    public async Task<DepotDto> Handle(GetDepotByIdQuery request, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Handling GetDepotByIdQuery for Id={Id}", request.Id);
+
+        var depot = await _depotRepository.GetByIdAsync(request.Id, cancellationToken);
+
+        if (depot == null)
+        {
+            throw new NotFoundException($"Không tìm thấy kho cứu trợ với id = {request.Id}");
+        }
+
+        var manager = depot.CurrentManager;
+
+        return new DepotDto
+        {
+            Id = depot.Id,
+            Name = depot.Name,
+            Address = depot.Address,
+            Latitude = depot.Location?.Latitude,
+            Longitude = depot.Location?.Longitude,
+            Capacity = depot.Capacity,
+            CurrentUtilization = depot.CurrentUtilization,
+            WeightCapacity = depot.WeightCapacity,
+            CurrentWeightUtilization = depot.CurrentWeightUtilization,
+            Status = depot.Status.ToString(),
+            
+            // Map Manager details
+            Manager = manager != null ? new ManagerDto
+            {
+                Id = manager.UserId,
+                FirstName = manager.FirstName,
+                LastName = manager.LastName,
+                Email = manager.Email,
+                Phone = manager.Phone
+            } : null,
+            
+            ImageUrl = depot.ImageUrl,
+            LastUpdatedAt = depot.LastUpdatedAt
+        };
+    }
+}

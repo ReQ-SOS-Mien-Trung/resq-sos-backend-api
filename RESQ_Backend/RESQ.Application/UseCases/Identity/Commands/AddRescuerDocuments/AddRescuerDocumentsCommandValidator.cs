@@ -1,0 +1,34 @@
+using FluentValidation;
+
+namespace RESQ.Application.UseCases.Identity.Commands.AddRescuerDocuments
+{
+    public class AddRescuerDocumentsCommandValidator : AbstractValidator<AddRescuerDocumentsCommand>
+    {
+        public AddRescuerDocumentsCommandValidator()
+        {
+            RuleFor(x => x.UserId)
+                .NotEmpty().WithMessage("UserId là bắt buộc");
+
+            RuleFor(x => x.Documents)
+                .NotNull().WithMessage("Danh sách tài liệu là bắt buộc")
+                .Must(docs => docs != null && docs.Count > 0)
+                .WithMessage("Phải có ít nhất 1 tài liệu")
+                .Must(docs => docs == null || docs.Count <= 10)
+                .WithMessage("Số lượng tài liệu không được vượt quá 10");
+
+            RuleForEach(x => x.Documents)
+                .ChildRules(doc =>
+                {
+                    doc.RuleFor(d => d.FileUrl)
+                        .NotEmpty().WithMessage("URL tài liệu là bắt buộc")
+                        .MaximumLength(2000).WithMessage("URL không được vượt quá 2000 ký tự")
+                        .Must(url => Uri.TryCreate(url, UriKind.Absolute, out _))
+                        .WithMessage("URL không hợp lệ");
+
+                    doc.RuleFor(d => d.FileTypeId)
+                        .GreaterThan(0).WithMessage("Loại tài liệu (FileTypeId) phải lớn hơn 0");
+                })
+                .When(x => x.Documents is not null && x.Documents.Count > 0);
+        }
+    }
+}

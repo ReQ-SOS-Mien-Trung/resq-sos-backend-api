@@ -1,0 +1,311 @@
+﻿using MediatR;
+using Microsoft.Extensions.Logging;
+using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
+using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Enum.Logistics;
+
+namespace RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosureTransfer;
+
+/// <summary>
+/// Admin phân bổ hàng tồn sang một hoặc nhiều kho đích để hoàn tất đóng kho nguồn.
+/// Tự động tạo một DepotClosureRecord và nhiều DepotClosureTransferRecord tương ứng.
+/// </summary>
+public class InitiateDepotClosureTransferCommandHandler(
+    IDepotRepository depotRepository,
+    IDepotClosureRepository closureRepository,
+    IDepotClosureTransferRepository transferRepository,
+    IDepotInventoryRepository inventoryRepository,
+    IFirebaseService firebaseService,
+    IUnitOfWork unitOfWork,
+    ILogger<InitiateDepotClosureTransferCommandHandler> logger)
+    : IRequestHandler<InitiateDepotClosureTransferCommand, InitiateDepotClosureTransferResponse>
+{
+    public async Task<InitiateDepotClosureTransferResponse> Handle(
+        InitiateDepotClosureTransferCommand request,
+        CancellationToken cancellationToken)
+    {
+        logger.LogInformation(
+            "InitiateDepotClosureTransfer | SourceDepot={Src} Targets={Targets} By={By}",
+            request.DepotId,
+            string.Join(",", request.Assignments.Select(x => x.TargetDepotId).Distinct()),
+            request.InitiatedBy);
+
+        var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
+            ?? throw new NotFoundException("Không tìm thấy kho nguồn.");
+
+        if (depot.Status != DepotStatus.Unavailable)
+        {
+            throw new ConflictException(
+                $"Kho đang ở trạng thái '{depot.Status}'. Phải chuyển sang Unavailable trước khi chuyển hàng.");
+        }
+
+        var activeCount = await depotRepository.GetActiveDepotCountExcludingAsync(request.DepotId, cancellationToken);
+        if (activeCount == 0)
+        {
+            throw new ConflictException("Không thể đóng kho duy nhất còn đang hoạt động trong hệ thống.");
+        }
+
+        var existingClosure = await closureRepository.GetActiveClosureByDepotIdAsync(request.DepotId, cancellationToken);
+        if (existingClosure != null)
+        {
+            throw new ConflictException("Kho đang có phiên chuyển kho chưa hoàn tất. Hủy phiên cũ trước khi tạo mới.");
+        }
+
+        var remainingItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
+        var inventoryLookup = remainingItems.ToDictionary(
+            item => BuildItemKey(item.ItemModelId, item.ItemType),
+            item => item);
+
+        var normalizedAssignments = request.Assignments
+            .SelectMany(targetAssignment => targetAssignment.Items.Select(item => new NormalizedAssignment(
+                targetAssignment.TargetDepotId,
+                item.ItemModelId,
+                item.ItemType.Trim(),
+                item.Quantity)))
+            .GroupBy(x => BuildAssignmentKey(x.TargetDepotId, x.ItemModelId, x.ItemType))
+            .Select(g => new NormalizedAssignment(
+                g.First().TargetDepotId,
+                g.First().ItemModelId,
+                g.First().ItemType,
+                g.Sum(x => x.Quantity)))
+            .ToList();
+
+        ValidateAssignments(request.DepotId, normalizedAssignments, inventoryLookup);
+
+        var targetDepotIds = normalizedAssignments
+            .Select(x => x.TargetDepotId)
+            .Distinct()
+            .ToList();
+
+        var targetDepots = new Dictionary<int, DepotModel>();
+        foreach (var targetDepotId in targetDepotIds)
+        {
+            var targetDepot = await depotRepository.GetByIdAsync(targetDepotId, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy kho đích #{targetDepotId}.");
+
+            if (targetDepot.Status is DepotStatus.Unavailable or DepotStatus.Closed)
+            {
+                throw new ConflictException(
+                    $"Kho đích '{targetDepot.Name}' không khả dụng (trạng thái: {targetDepot.Status}). Vui lòng chọn kho khác.");
+            }
+
+            targetDepots[targetDepotId] = targetDepot;
+        }
+
+        foreach (var targetGroup in normalizedAssignments.GroupBy(x => x.TargetDepotId))
+        {
+            var targetDepot = targetDepots[targetGroup.Key];
+            var requiredVolume = targetGroup
+                .Where(x => string.Equals(x.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
+                .Sum(x =>
+                {
+                    var item = inventoryLookup[BuildItemKey(x.ItemModelId, x.ItemType)];
+                    return (item.VolumePerUnit ?? 0m) * x.Quantity;
+                });
+
+            var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
+            if (requiredVolume > availableVolumeCapacity)
+            {
+                throw new ConflictException(
+                    $"Kho đích '{targetDepot.Name}' không đủ sức chứa thể tích cho phần hàng được phân bổ. " +
+                    $"Cần: {requiredVolume:N0} — Còn trống: {availableVolumeCapacity:N0} dm³.");
+            }
+
+            var requiredWeight = targetGroup
+                .Where(x => string.Equals(x.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
+                .Sum(x =>
+                {
+                    var item = inventoryLookup[BuildItemKey(x.ItemModelId, x.ItemType)];
+                    return (item.WeightPerUnit ?? 0m) * x.Quantity;
+                });
+
+            var availableWeightCapacity = targetDepot.WeightCapacity - targetDepot.CurrentWeightUtilization;
+            if (requiredWeight > availableWeightCapacity)
+            {
+                throw new ConflictException(
+                    $"Kho đích '{targetDepot.Name}' không đủ sức chứa cân nặng cho phần hàng được phân bổ. " +
+                    $"Cần: {requiredWeight:N0} — Còn trống: {availableWeightCapacity:N0} kg.");
+            }
+        }
+
+        var consumableVolume = await depotRepository.GetConsumableTransferVolumeAsync(request.DepotId, cancellationToken);
+        var consumableRowCount = await depotRepository.GetConsumableInventoryRowCountAsync(request.DepotId, cancellationToken);
+        var (reusableAvailable, reusableInUse) = await depotRepository.GetReusableItemCountsAsync(request.DepotId, cancellationToken);
+
+        var closure = DepotClosureRecord.Create(
+            depotId: request.DepotId,
+            initiatedBy: request.InitiatedBy,
+            closeReason: request.Reason,
+            previousStatus: depot.Status,
+            snapshotConsumableUnits: (int)consumableVolume,
+            snapshotReusableUnits: reusableAvailable + reusableInUse,
+            totalConsumableRows: consumableRowCount,
+            totalReusableUnits: reusableAvailable + reusableInUse);
+        closure.SetTransferResolution(targetDepotIds.Count == 1 ? targetDepotIds[0] : null);
+
+        var transferSummaries = new List<InitiateDepotClosureTransferSummaryDto>();
+
+        await unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var closureId = await closureRepository.CreateAsync(closure, cancellationToken);
+            closure.SetGeneratedId(closureId);
+
+            foreach (var targetGroup in normalizedAssignments.GroupBy(x => x.TargetDepotId))
+            {
+                var targetDepot = targetDepots[targetGroup.Key];
+                var transferItems = targetGroup
+                    .Select(x =>
+                    {
+                        var item = inventoryLookup[BuildItemKey(x.ItemModelId, x.ItemType)];
+                        return new
+                        {
+                            Assignment = x,
+                            Item = item,
+                            Record = DepotClosureTransferItemRecord.Create(
+                                x.ItemModelId,
+                                item.ItemName,
+                                item.ItemType,
+                                item.Unit,
+                                x.Quantity)
+                        };
+                    })
+                    .ToList();
+
+                var transfer = DepotClosureTransferRecord.Create(
+                    closureId: closureId,
+                    sourceDepotId: request.DepotId,
+                    targetDepotId: targetGroup.Key,
+                    snapshotConsumableUnits: transferItems
+                        .Where(x => string.Equals(x.Assignment.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
+                        .Sum(x => x.Assignment.Quantity),
+                    snapshotReusableUnits: transferItems
+                        .Where(x => string.Equals(x.Assignment.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
+                        .Sum(x => x.Assignment.Quantity));
+
+                var transferId = await transferRepository.CreateAsync(
+                    transfer,
+                    transferItems.Select(x => x.Record).ToList(),
+                    cancellationToken);
+
+                transferSummaries.Add(new InitiateDepotClosureTransferSummaryDto
+                {
+                    TransferId = transferId,
+                    TargetDepotId = targetDepot.Id,
+                    TargetDepotName = targetDepot.Name,
+                    TransferStatus = transfer.Status,
+                    SnapshotConsumableUnits = transfer.SnapshotConsumableUnits,
+                    SnapshotReusableUnits = transfer.SnapshotReusableUnits,
+                    Items = transferItems.Select(x => new InitiateDepotClosureTransferItemDto
+                    {
+                        ItemModelId = x.Record.ItemModelId,
+                        ItemName = x.Record.ItemName,
+                        ItemType = x.Record.ItemType,
+                        Unit = x.Record.Unit,
+                        Quantity = x.Record.Quantity
+                    }).ToList()
+                });
+            }
+
+            closure.MarkTransferPending();
+            await closureRepository.UpdateAsync(closure, cancellationToken);
+            await unitOfWork.SaveAsync();
+        });
+
+        foreach (var transferSummary in transferSummaries)
+        {
+            try
+            {
+                var targetManagerId = await inventoryRepository.GetActiveManagerUserIdByDepotIdAsync(
+                    transferSummary.TargetDepotId, cancellationToken);
+
+                if (targetManagerId.HasValue)
+                {
+                    await firebaseService.SendNotificationToUserAsync(
+                        targetManagerId.Value,
+                        "Kho của bạn sắp tiếp nhận hàng chuyển kho",
+                        $"Admin đã chỉ định '{transferSummary.TargetDepotName}' tiếp nhận một phần hàng từ kho '{depot.Name}' đang đóng cửa.",
+                        "depot_closure_transfer_assigned",
+                        new Dictionary<string, string>
+                        {
+                            ["sourceDepotId"] = request.DepotId.ToString(),
+                            ["transferId"] = transferSummary.TransferId.ToString()
+                        },
+                        cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to notify target manager | TransferId={Id}", transferSummary.TransferId);
+            }
+        }
+
+        return new InitiateDepotClosureTransferResponse
+        {
+            ClosureId = closure.Id,
+            SourceDepotId = request.DepotId,
+            SourceDepotName = depot.Name,
+            Transfers = transferSummaries.OrderBy(x => x.TargetDepotName).ThenBy(x => x.TransferId).ToList(),
+            ReusableItemsSkipped = reusableInUse,
+            Message = transferSummaries.Count == 1
+                ? $"Đã tạo kế hoạch chuyển hàng sang kho '{transferSummaries[0].TargetDepotName}'. Manager kho nguồn và kho đích tiếp tục xác nhận theo từng bước."
+                : $"Đã tạo kế hoạch phân bổ hàng tồn sang {transferSummaries.Count} kho đích. Mỗi kho sẽ nhận một transfer riêng để xác nhận."
+        };
+    }
+
+    private static void ValidateAssignments(
+        int sourceDepotId,
+        IReadOnlyCollection<NormalizedAssignment> assignments,
+        IReadOnlyDictionary<string, ClosureInventoryItemDto> inventoryLookup)
+    {
+        foreach (var assignment in assignments)
+        {
+            var key = BuildItemKey(assignment.ItemModelId, assignment.ItemType);
+            if (!inventoryLookup.TryGetValue(key, out var item))
+            {
+                throw new ConflictException(
+                    $"vật phẩm #{assignment.ItemModelId} ({assignment.ItemType}) không tồn tại trong tồn kho của kho nguồn.");
+            }
+
+            if (assignment.TargetDepotId == sourceDepotId)
+            {
+                throw new ConflictException($"vật phẩm '{item.ItemName}' không được phân bổ về chính kho nguồn.");
+            }
+
+            if (assignment.Quantity > item.TransferableQuantity)
+            {
+                throw new ConflictException(
+                    $"vật phẩm '{item.ItemName}' chỉ có thể chuyển {item.TransferableQuantity} đơn vị nhưng yêu cầu phân bổ {assignment.Quantity}.");
+            }
+        }
+
+        foreach (var item in inventoryLookup.Values.Where(x => x.TransferableQuantity > 0))
+        {
+            var assignedQuantity = assignments
+                .Where(x => x.ItemModelId == item.ItemModelId &&
+                            string.Equals(x.ItemType, item.ItemType, StringComparison.OrdinalIgnoreCase))
+                .Sum(x => x.Quantity);
+
+            if (assignedQuantity != item.TransferableQuantity)
+            {
+                throw new ConflictException(
+                    $"vật phẩm '{item.ItemName}' cần được phân bổ đủ {item.TransferableQuantity} đơn vị có thể chuyển. Hiện mới phân bổ {assignedQuantity}.");
+            }
+        }
+    }
+
+    private static string BuildItemKey(int itemModelId, string itemType)
+        => $"{itemModelId}:{itemType.Trim().ToUpperInvariant()}";
+
+    private static string BuildAssignmentKey(int targetDepotId, int itemModelId, string itemType)
+        => $"{targetDepotId}:{BuildItemKey(itemModelId, itemType)}";
+
+    private sealed record NormalizedAssignment(
+        int TargetDepotId,
+        int ItemModelId,
+        string ItemType,
+        int Quantity);
+}

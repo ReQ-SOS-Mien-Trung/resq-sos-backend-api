@@ -1,0 +1,66 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
+using RESQ.Domain.Enum.Finance;
+
+namespace RESQ.Infrastructure.Entities.Finance;
+
+[Table("donations")]
+public partial class Donation
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+
+    [Column("fund_campaign_id")]
+    public int? FundCampaignId { get; set; }
+
+    [Column("donor_name")]
+    [StringLength(255)]
+    public string? DonorName { get; set; }
+
+    [Column("donor_email")]
+    [StringLength(255)]
+    public string? DonorEmail { get; set; }
+
+    [Column("amount")]
+    public decimal? Amount { get; set; }
+
+    [Column("order_id")]
+    [StringLength(100)]
+    public string? OrderId { get; set; }
+
+    [Column("transaction_id")]
+    [StringLength(100)]
+    public string? TransactionId { get; set; }
+
+    [Column("status")]
+    [StringLength(50)]
+    public string? Status { get; set; }
+
+    [Column("payment_method_code")]
+    [StringLength(50)]
+    public PaymentMethodCode? PaymentMethodCode { get; set; }
+
+    [Column("paid_at", TypeName = "timestamp with time zone")]
+    public DateTime? PaidAt { get; set; }
+
+    [Column("note")]
+    public string? Note { get; set; }
+
+    [Column("payment_audit_info")]
+    public string? PaymentAuditInfo { get; set; }
+
+    [Column("is_private")]
+    public bool IsPrivate { get; set; } = false;
+
+    [Column("created_at", TypeName = "timestamp with time zone")]
+    public DateTime? CreatedAt { get; set; }
+
+    [ForeignKey("FundCampaignId")]
+    [InverseProperty("Donations")]
+    public virtual FundCampaign? FundCampaign { get; set; }
+}
+

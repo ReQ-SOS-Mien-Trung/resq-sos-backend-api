@@ -7,3 +7,25 @@ RESQ_Backend/RESQ.Application/bin
 RESQ_Backend/RESQ.Domain/bin
 RESQ_Backend/RESQ.Infrastructure/bin
 RESQ_Backend/RESQ.Presentation/bin
+RESQ_Backend/RESQ.Infrastructure/Migrations
+.vs
+RESQ_Backend/RESQ.Presentation/appsettings.Development.json
+RESQ_Backend/RESQ.Presentation/appsettings.json
+RESQ_Backend/RESQ.Presentation/appsettings.Development.json
+RESQ_Backend/RESQ.Presentation/appsettings.json
+RESQ_Backend/RESQ.Presentation/appsettings.Production.json
+RESQ_Backend/RESQ.Presentation/PRM PE 142 Firebase Admin SDK.json
+RESQ_Backend/firebase-admin.json
+RESQ_Backend/.vscode
+RESQ_Backend/RESQ.Presentation/appsettings.Development.json
+RESQ_Backend/RESQ.Presentation/appsettings.Development.json
+RESQ_Backend/RESQ.Presentation/appsettings.json
+RESQ_Backend/RESQ.Presentation/appsettings.Production.json
+RESQ_Backend/RESQ.Presentation/appsettings.Production.json
+RESQ_Backend/RESQ.Tests/bin
+RESQ_Backend/RESQ.Tests/obj
+RESQ_Backend/tools/UnitTestReportGenerator/bin
+RESQ_Backend/tools/UnitTestReportGenerator/obj
+RESQ_Backend/RESQ_UnitTest.__tmp_depotinv.xlsx
+RESQ_Backend/RESQ_UnitTest.__tmp_sheetmap2.xlsx
+RESQ_Backend/obj

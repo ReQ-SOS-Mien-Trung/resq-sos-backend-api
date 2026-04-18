@@ -1,0 +1,9 @@
+namespace RESQ.Application.UseCases.Finance.Commands.CreateAdvanceTransaction;
+
+public class CreateAdvanceTransactionItemRequest
+{
+    public decimal Amount { get; set; }
+    public string ContributorName { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
+}
+

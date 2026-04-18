@@ -1,0 +1,8 @@
+using MediatR;
+
+namespace RESQ.Application.UseCases.Logistics.Queries.GetClosureTransferSuggestions;
+
+public class GetClosureTransferSuggestionsQuery : IRequest<ClosureTransferSuggestionsResponse>
+{
+    public int DepotId { get; set; }
+}

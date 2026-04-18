@@ -1,0 +1,55 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
+
+namespace RESQ.Infrastructure.Entities.Personnel;
+
+[Table("assembly_points")]
+public partial class AssemblyPoint
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+
+    [Column("code")]
+    [StringLength(50)]
+    public string? Code { get; set; }
+
+    [Column("name")]
+    [StringLength(255)]
+    public string? Name { get; set; }
+
+    [Column("max_capacity")]
+    public int? MaxCapacity { get; set; }
+
+    [Column("status")]
+    [StringLength(50)]
+    public string? Status { get; set; }
+
+    [Column("location", TypeName = "geography(Point,4326)")]
+    public Point? Location { get; set; }
+
+    [Column("created_at", TypeName = "timestamp with time zone")]
+    public DateTime? CreatedAt { get; set; }
+
+    [Column("updated_at", TypeName = "timestamp with time zone")]
+    public DateTime? UpdatedAt { get; set; }
+
+    [Column("image_url")]
+    public string? ImageUrl { get; set; }
+
+    [Column("status_reason")]
+    public string? StatusReason { get; set; }
+
+    [Column("status_changed_at", TypeName = "timestamp with time zone")]
+    public DateTime? StatusChangedAt { get; set; }
+
+    [Column("status_changed_by")]
+    public Guid? StatusChangedBy { get; set; }
+
+    [InverseProperty("AssemblyPoint")]
+    public virtual ICollection<RescueTeam> RescueTeams { get; set; } = new List<RescueTeam>();
+}

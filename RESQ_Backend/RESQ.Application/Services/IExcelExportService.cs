@@ -1,0 +1,90 @@
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
+using RESQ.Domain.Entities.Logistics.Models;
+
+namespace RESQ.Application.Services;
+
+public interface IExcelExportService
+{
+    /// <summary>
+    /// Tạo file Excel báo cáo biến động kho.
+    /// </summary>
+    /// <param name="rows">Danh sách dòng biến động đã được phân trang/lọc.</param>
+    /// <param name="title">Tiêu đề kỳ báo cáo (VD: "Tháng 03/2026").</param>
+    /// <param name="depotName">Tên kho (dùng cho tiêu đề và tên file).</param>
+    /// <returns>Mảng byte nội dung file .xlsx.</returns>
+    byte[] GenerateInventoryMovementReport(IReadOnlyList<InventoryMovementRow> rows, string title, string depotName);
+
+    /// <summary>
+    /// Tạo file Excel mẫu để nhập kho từ thiện (donation import).
+    /// File có dropdown chọn danh mục → dependent dropdown chọn vật phẩm,
+    /// và auto-fill VLOOKUP cho Đối tượng / Loại vật phẩm / Đơn vị.
+    /// </summary>
+    /// <param name="categories">Danh sách danh mục (Id, Code, Name).</param>
+    /// <param name="items">Danh sách vật phẩm kèm target groups.</param>
+    /// <param name="targetGroups">Danh sách đối tượng lấy trực tiếp từ bảng target_groups.</param>
+    /// <returns>Mảng byte nội dung file .xlsx.</returns>
+    byte[] GenerateDonationImportTemplate(
+        IReadOnlyList<DonationImportCategoryInfo> categories,
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups);
+
+    /// <summary>
+    /// Tạo file Excel mẫu để nhập kho mua sắm (purchase import).
+    /// Tương tự donation template nhưng có thêm cột thông tin hóa đơn VAT và đơn giá.
+    /// </summary>
+    /// <param name="categories">Danh sách danh mục (Id, Code, Name).</param>
+    /// <param name="items">Danh sách vật phẩm kèm target groups.</param>
+    /// <param name="targetGroups">Danh sách đối tượng lấy trực tiếp từ bảng target_groups.</param>
+    /// <returns>Mảng byte nội dung file .xlsx.</returns>
+    byte[] GeneratePurchaseImportTemplate(
+        IReadOnlyList<DonationImportCategoryInfo> categories,
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups);
+
+    /// <summary>
+    /// Tạo file Excel mẫu yêu cầu cấp tiền (funding request).
+    /// Giống purchase template nhưng không có cột Ngày hết hạn và Ngày nhận.
+    /// Gồm 9 cột: STT, Tên vật phẩm, Danh mục, Đối tượng, Loại vật phẩm, Đơn vị, Mô tả vật phẩm, Số lượng (*), Đơn giá (VNĐ).
+    /// </summary>
+    /// <param name="categories">Danh sách danh mục (Id, Code, Name).</param>
+    /// <param name="items">Danh sách vật phẩm kèm target groups.</param>
+    /// <param name="targetGroups">Danh sách đối tượng lấy trực tiếp từ bảng target_groups.</param>
+    /// <returns>Mảng byte nội dung file .xlsx.</returns>
+    byte[] GenerateFundingRequestTemplate(
+        IReadOnlyList<DonationImportCategoryInfo> categories,
+        IReadOnlyList<DonationImportItemInfo> items,
+        IReadOnlyList<DonationImportTargetGroupInfo> targetGroups);
+
+    //  Depot Closure - External Resolution
+
+    /// <summary>
+    /// Tạo file Excel template để depot manager ghi nhận cách xử lý tồn kho bên ngoài hệ thống.
+    /// Các cột pre-fill: STT, Tên vật phẩm, Danh mục, Đối tượng, Loại, Đơn vị, Ngày nhập, Hạn sử dụng, Số lượng.
+    /// Các cột để manager điền: Đơn giá, Thành tiền (formula), Hình thức xử lý, Người nhận, Ghi chú.
+    /// Dữ liệu được chia theo từng lô (consumable) hoặc nhóm (reusable).
+    /// </summary>
+    byte[] GenerateClosureExternalTemplate(string depotName, IReadOnlyList<ClosureInventoryLotItemDto> items);
+}
+
+/// <summary>Thông tin danh mục cho Excel template nhập kho.</summary>
+public record DonationImportCategoryInfo(int Id, string Code, string Name);
+
+/// <summary>Thông tin đối tượng (target group) cho Excel template nhập kho.</summary>
+public record DonationImportTargetGroupInfo(
+    int Id,
+    string Name,
+    string NameDisplay);
+
+/// <summary>Thông tin vật phẩm cho Excel template nhập kho.</summary>
+public record DonationImportItemInfo(
+    int Id,
+    string Name,
+    string CategoryCode,
+    string TargetGroupDisplay,
+    string TargetGroupRaw,
+    string ItemTypeDisplay,
+    string ItemTypeRaw,
+    string Unit,
+    string Description = "",
+    decimal VolumePerUnit = 0,
+    decimal WeightPerUnit = 0);

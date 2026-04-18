@@ -1,0 +1,151 @@
+using MediatR;
+using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.UseCases.Operations.Queries.GetMissions;
+using RESQ.Application.UseCases.Operations.Shared;
+using RESQ.Domain.Entities.Operations;
+
+namespace RESQ.Application.UseCases.Operations.Queries.GetMyTeamMissions;
+
+public class GetMyTeamMissionsQueryHandler(
+    IPersonnelQueryRepository personnelQueryRepository,
+    IMissionRepository missionRepository,
+    IMissionTeamRepository missionTeamRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
+    IItemModelMetadataRepository itemModelMetadataRepository)
+    : IRequestHandler<GetMyTeamMissionsQuery, GetMissionsResponse>
+{
+    private readonly IPersonnelQueryRepository _personnelQueryRepository = personnelQueryRepository;
+    private readonly IMissionRepository _missionRepository = missionRepository;
+    private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
+    private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
+
+    public async Task<GetMissionsResponse> Handle(GetMyTeamMissionsQuery request, CancellationToken cancellationToken)
+    {
+        var team = await _personnelQueryRepository.GetActiveRescueTeamByUserIdAsync(request.UserId, cancellationToken);
+        if (team is null)
+            return new GetMissionsResponse { Missions = [] };
+
+        var assignments = (await _missionTeamRepository.GetActiveByRescuerTeamIdAsync(team.Id, cancellationToken)).ToList();
+        var missionIds = assignments
+            .Select(a => a.MissionId)
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+
+        if (missionIds.Count == 0)
+            return new GetMissionsResponse { Missions = [] };
+
+        var missions = (await _missionRepository.GetByIdsAsync(missionIds, cancellationToken)).ToList();
+
+        var assignedByMission = assignments
+            .GroupBy(a => a.MissionId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var response = new GetMissionsResponse
+        {
+            Missions = missions.Select(m => ToMissionDto(m, assignedByMission.TryGetValue(m.Id, out var teams) ? teams : [])).ToList()
+        };
+
+        var missionLookup = missions.ToDictionary(mission => mission.Id);
+        foreach (var missionDto in response.Missions)
+        {
+            if (missionLookup.TryGetValue(missionDto.Id, out var sourceMission))
+                MissionActivityDtoHelper.EnrichSupplyExecutionContext(sourceMission.Activities, missionDto.Activities);
+        }
+
+        await MissionActivityDtoHelper.EnrichVictimContextAsync(
+            response.Missions.SelectMany(mission => mission.Activities),
+            _sosRequestRepository,
+            _sosRequestUpdateRepository,
+            cancellationToken);
+
+        await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(
+            response.Missions.SelectMany(mission => mission.Activities),
+            _itemModelMetadataRepository,
+            cancellationToken);
+
+        return response;
+    }
+
+    private static MissionDto ToMissionDto(MissionModel m, List<MissionTeamModel> assignedTeams)
+    {
+        return new MissionDto
+        {
+            Id = m.Id,
+            ClusterId = m.ClusterId,
+            MissionType = m.MissionType,
+            PriorityScore = m.PriorityScore,
+            Status = m.Status.ToString(),
+            StartTime = m.StartTime,
+            ExpectedEndTime = m.ExpectedEndTime,
+            CreatedAt = m.CreatedAt,
+            CompletedAt = m.CompletedAt,
+            ActivityCount = m.Activities.Count,
+            Teams = assignedTeams.Select(t => new AssignedTeamDto
+            {
+                MissionTeamId = t.Id,
+                RescueTeamId = t.RescuerTeamId,
+                TeamName = t.TeamName,
+                TeamCode = t.TeamCode,
+                AssemblyPointId = t.AssemblyPointId,
+                AssemblyPointName = t.AssemblyPointName,
+                TeamType = t.TeamType,
+                Status = t.Status,
+                TeamStatus = t.TeamStatus,
+                MemberCount = t.MemberCount,
+                Latitude = t.Latitude,
+                Longitude = t.Longitude,
+                LocationUpdatedAt = t.LocationUpdatedAt,
+                AssignedAt = t.AssignedAt,
+                ReportStatus = t.ReportStatus,
+                ReportLastEditedAt = t.ReportLastEditedAt,
+                ReportSubmittedAt = t.ReportSubmittedAt,
+                Members = t.RescueTeamMembers.Select(m => new RescueTeamMemberDto
+                {
+                    UserId = m.UserId,
+                    FullName = m.FullName,
+                    AvatarUrl = m.AvatarUrl,
+                    RescuerType = m.RescuerType,
+                    RoleInTeam = m.RoleInTeam,
+                    IsLeader = m.IsLeader,
+                    Status = m.Status,
+                    CheckedIn = m.CheckedIn
+                }).ToList()
+            }).ToList(),
+            AiSuggestionId = m.AiSuggestionId,
+            ManualOverride = MissionManualOverrideJsonHelper.Parse(m.ManualOverrideMetadata),
+            Activities = m.Activities.Select(a => new MissionActivityDto
+            {
+                Id = a.Id,
+                Step = a.Step,
+                ActivityType = a.ActivityType,
+                Description = a.Description,
+                ImageUrl = a.ImageUrl,
+                Priority = a.Priority,
+                EstimatedTime = a.EstimatedTime,
+                SosRequestId = a.SosRequestId,
+                DepotId = a.DepotId,
+                DepotName = a.DepotName,
+                DepotAddress = a.DepotAddress,
+                AssemblyPointId = a.AssemblyPointId,
+                AssemblyPointName = a.AssemblyPointName,
+                AssemblyPointLatitude = a.AssemblyPointLatitude,
+                AssemblyPointLongitude = a.AssemblyPointLongitude,
+                SuppliesToCollect = MissionActivityDtoHelper.ParseSupplies(a.Items),
+                TargetLatitude = a.TargetLatitude,
+                TargetLongitude = a.TargetLongitude,
+                Status = a.Status.ToString(),
+                MissionTeamId = a.MissionTeamId,
+                AssignedAt = a.AssignedAt,
+                CompletedAt = a.CompletedAt,
+                CompletedBy = a.CompletedBy
+            }).ToList()
+        };
+    }
+}
