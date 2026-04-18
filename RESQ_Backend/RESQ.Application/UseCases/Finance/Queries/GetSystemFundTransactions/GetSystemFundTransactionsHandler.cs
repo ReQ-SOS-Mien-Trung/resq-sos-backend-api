@@ -20,6 +20,12 @@ public class GetSystemFundTransactionsHandler(ISystemFundRepository systemFundRe
         var pagedResult = await _systemFundRepo.GetPagedTransactionsAsync(
             request.PageNumber,
             request.PageSize,
+            request.FromDate,
+            request.ToDate,
+            request.MinAmount,
+            request.MaxAmount,
+            request.TransactionTypes,
+            request.Search,
             cancellationToken);
 
         var dtos = pagedResult.Items.Select(t => new SystemFundTransactionDto

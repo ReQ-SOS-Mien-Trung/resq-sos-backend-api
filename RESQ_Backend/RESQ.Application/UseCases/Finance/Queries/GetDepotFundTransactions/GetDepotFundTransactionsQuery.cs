@@ -1,5 +1,6 @@
 using MediatR;
 using RESQ.Application.Common.Models;
+using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Queries.GetDepotFundTransactions;
 
@@ -9,5 +10,11 @@ namespace RESQ.Application.UseCases.Finance.Queries.GetDepotFundTransactions;
 public record GetDepotFundTransactionsQuery(
     int DepotId,
     int PageNumber,
-    int PageSize
+    int PageSize,
+    DateOnly? FromDate = null,
+    DateOnly? ToDate   = null,
+    decimal? MinAmount = null,
+    decimal? MaxAmount = null,
+    List<DepotFundReferenceType>? ReferenceTypes = null,
+    string? Search     = null
 ) : IRequest<PagedResult<DepotFundTransactionDto>>;
