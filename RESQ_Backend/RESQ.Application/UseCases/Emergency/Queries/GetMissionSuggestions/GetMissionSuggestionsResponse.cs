@@ -24,6 +24,7 @@ public class MissionSuggestionDto
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public string MixedRescueReliefWarning { get; set; } = string.Empty;
     public bool NeedsManualReview { get; set; }
     public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }

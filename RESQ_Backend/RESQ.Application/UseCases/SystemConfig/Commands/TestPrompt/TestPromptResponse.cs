@@ -35,6 +35,7 @@ public class TestPromptResponse
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public string MixedRescueReliefWarning { get; set; } = string.Empty;
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public double ConfidenceScore { get; set; }

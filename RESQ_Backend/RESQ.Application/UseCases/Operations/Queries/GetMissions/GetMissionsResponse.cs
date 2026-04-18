@@ -83,6 +83,7 @@ public class MissionAiSuggestionSection
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public string MixedRescueReliefWarning { get; set; } = string.Empty;
     public bool NeedsManualReview { get; set; }
     public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
@@ -114,6 +115,7 @@ public class MissionAiSuggestionSection
             section.OverallAssessment = meta.OverallAssessment;
             section.EstimatedDuration = meta.EstimatedDuration;
             section.SpecialNotes = meta.SpecialNotes;
+            section.MixedRescueReliefWarning = meta.MixedRescueReliefWarning ?? string.Empty;
             section.NeedsManualReview = meta.NeedsManualReview;
             section.LowConfidenceWarning = meta.LowConfidenceWarning;
             section.NeedsAdditionalDepot = meta.NeedsAdditionalDepot;

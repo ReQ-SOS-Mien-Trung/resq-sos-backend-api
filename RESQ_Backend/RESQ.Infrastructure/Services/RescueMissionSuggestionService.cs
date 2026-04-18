@@ -243,19 +243,19 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
             Bạn có thể gọi ba công cụ để lấy dữ liệu thực trước khi lập kế hoạch:
 
-            - **searchInventory(category, type?, page)**: Tìm vật phẩm khả dụng trong **các kho hợp lệ của cluster hiện tại**. Kết quả chỉ chứa các kho backend đã cho phép trong phạm vi lập kế hoạch này. Mỗi dòng là một cặp (vật phẩm, kho) với item_id, item_name, item_type, available_quantity, depot_id, depot_name, depot_address, depot_latitude, depot_longitude. Cong cu nay bao gom ca consumable, reusable, vehicle va cac phuong tien/thiet bi neu ton kho co san.
+            - **searchInventory(category, type?, page)**: Tìm vật phẩm khả dụng trong **các kho hợp lệ của cluster hiện tại**. Kết quả chỉ chứa các kho backend đã cho phép trong phạm vi lập kế hoạch này. Mỗi dòng là một cặp (vật phẩm, kho) với item_id, item_name, item_type, available_quantity, depot_id, depot_name, depot_address, depot_latitude, depot_longitude. Công cụ này bao gồm cả consumable, reusable, vehicle và các phương tiện/thiết bị nếu tồn kho có sẵn.
             - **getTeams(ability?, available?, page)**: Trả về nearby teams đang Available trong bán kính cluster hiện tại.
             - **getAssemblyPoints(page)**: Trả về các assembly point đang hoạt động.
 
             ## QUY TẮC KHO — CHỈ CHỌN MỘT KHO CHO TOÀN BỘ MISSION
             - BẮT BUỘC gọi **searchInventory** cho từng danh mục phù hợp: Thực phẩm, Nước, Y tế, Cứu hộ, Quần áo, nơi trú ẩn... Không bỏ sót danh mục liên quan.
-            - Neu mission can phuong tien di chuyen, xe tai, xuong, ca no, caang, may phat, hoac bat ky reusable equipment nao, bat buoc phai goi `searchInventory` cho nhom phuong tien/thiet bi huu hinh truoc khi quyet dinh.
+            - Nếu mission cần phương tiện di chuyển, xe tải, xuồng, ca nô, càng, máy phát, hoặc bất kỳ reusable equipment nào, bắt buộc phải gọi `searchInventory` cho nhóm phương tiện/thiết bị hữu hình trước khi quyết định.
             - Sau khi có kết quả, so sánh các `depot_id` xuất hiện và chọn **đúng một kho phù hợp nhất cho toàn bộ mission**.
             - Tiêu chí chọn kho: ưu tiên kho đáp ứng được nhiều nhu cầu SOS nhất và có tổng số lượng phù hợp cao nhất. Nếu tương đương, chọn kho có vị trí thuận lợi hơn trong kết quả đã trả về.
             - Toàn bộ activity có dùng kho trong mission này phải dùng cùng một `depot_id`, `depot_name`, `depot_address` của kho đã chọn.
             - **TUYỆT ĐỐI KHÔNG** tạo kế hoạch lấy vật phẩm từ kho thứ hai, không chia vật phẩm giữa nhiều kho, không gộp nhiều kho.
             - Nếu kho đã chọn không đủ đồ, vẫn chỉ lấy những gì kho đó hiện có rồi báo thiếu. Không được chuyển sang kho khác.
-            - Day chi la buoc AI suggestion. Khong duoc gia dinh ton kho da bi reserve; reserve that chi xay ra khi coordinator tao mission.
+            - Đây chỉ là bước AI suggestion. Không được giả định tồn kho đã bị reserve; reserve thật chỉ xảy ra khi coordinator tạo mission.
 
             ## BÁO CÁO THIẾU HỤT vật phẩm
             - Nếu sau khi đối chiếu với kho đã chọn mà còn thiếu bất kỳ vật phẩm nào, đặt `needs_additional_depot = true`.
@@ -281,26 +281,25 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - `COLLECT_SUPPLIES` phải đứng trước activity hiện trường sử dụng số vật phẩm đó.
             - Không được tạo thêm `COLLECT_SUPPLIES` cho cùng SOS sau khi đã bắt đầu `DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, hoặc `EVACUATE` của SOS đó.
             - Nếu có vật phẩm reusable được lấy ở `COLLECT_SUPPLIES`, phải có `RETURN_SUPPLIES` ở cuối kế hoạch để trả đúng về cùng kho đã chọn.
-            - Neu lay phuong tien/reusable tu kho, phai giu chung no trong `supplies_to_collect` cua `COLLECT_SUPPLIES` va `RETURN_SUPPLIES`. Khong day xuong `resources[]` neu da map duoc item trong kho.
+            - Nếu lấy phương tiện/reusable từ kho, phải giữ chúng trong `supplies_to_collect` của `COLLECT_SUPPLIES` và `RETURN_SUPPLIES`. Không đẩy xuống `resources[]` nếu đã map được item trong kho.
             - Không tạo `COLLECT_SUPPLIES` ở cuối kế hoạch nếu phía sau không có activity nào dùng số hàng đó.
 
             ## QUY TẮC TỪNG LOẠI ACTIVITY
-            - `COLLECT_SUPPLIES`: chỉ tạo cho vật phẩm thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó. Neu kho co xe/phuong tien/reusable phu hop thi dua thang vao day nhu mot inventory-backed item.
+            - `COLLECT_SUPPLIES`: chỉ tạo cho vật phẩm thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó. Nếu kho có xe/phương tiện/reusable phù hợp thì đưa thẳng vào đây như một inventory-backed item.
             - `DELIVER_SUPPLIES`: giao đúng các vật phẩm vừa lấy từ kho đã chọn cho SOS tương ứng.
             - `RESCUE`: luôn tạo nếu hiện trường cần cứu người, kể cả khi thiết bị cứu hộ bị thiếu; thiếu gì thì ghi vào `supply_shortages` và `special_notes`.
             - `MEDICAL_AID`: nếu thiếu vật phẩm y tế thì vẫn có thể tạo activity, nhưng phải ghi rõ thiếu hụt.
             - `EVACUATE`: không lấy vật phẩm ở bước này; phải chọn `assembly_point_id` gần nạn nhân nhất.
-            - `resources[]`: chi dung cho nang luc tong quat khi khong map duoc thanh item ton kho cu the. Neu kho da co item phu hop, uu tien hien no trong activity lay do.
+            - `resources[]`: chỉ dùng cho năng lực tổng quát khi không map được thành item tồn kho cụ thể. Nếu kho đã có item phù hợp, ưu tiên hiện nó trong activity lấy đồ.
 
             ## QUY TẮC TEAM VÀ ASSEMBLY POINT
             - Gọi `getTeams` để lấy `team_id`; không tự bịa team ngoài kết quả công cụ.
             - Nếu lọc theo `ability` mà không thấy team, gọi lại `getTeams` không truyền ability trước khi chấp nhận `suggested_team = null`.
             - Với `RESCUE` hoặc `EVACUATE`, bắt buộc gọi `getAssemblyPoints` và chọn `assembly_point_id` gần nạn nhân nhất.
 
-            ## QUY TAC AN TOAN MISSION GHEP CUU HO + CUU TRO
-            - Neu mission co ca nhanh `RESCUE|EVACUATE|MEDICAL_AID` va nhanh `COLLECT_SUPPLIES|DELIVER_SUPPLIES`, chi duoc ghi canh bao trong `special_notes`.
-            - Noi dung `special_notes` phai neu ro: sau khi cuu nan nhan phai dua ho ve Safe Zone/Assembly Point ngay de cap cuu, khong tiep tuc cho nan nhan di phat do; khuyen nghi tach thanh mission khac.
-            - Khong tao `warnings[]`, khong tao warning code rieng trong JSON.
+            ## QUY TẮC AN TOÀN MISSION GHÉP CỨU HỘ + CỨU TRỢ
+            - Nếu mission có cả nhánh `RESCUE|EVACUATE|MEDICAL_AID` và nhánh `COLLECT_SUPPLIES|DELIVER_SUPPLIES`, backend sẽ tự thêm cảnh báo an toàn sau khi parse kết quả.
+            - Không tạo `warnings[]`, không tạo warning code riêng, không chèn warning schema mới vào JSON.
 
             ## ĐỊNH DẠNG overall_assessment
             - Toàn bộ nội dung phải nằm trên một dòng duy nhất.
@@ -311,7 +310,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - Ngoài các field mission hiện có, luôn trả thêm:
               - `needs_additional_depot`: boolean
               - `supply_shortages`: array
-            - Dung `special_notes` de ghi canh bao mixed mission neu co.
+                        - Dùng `special_notes` để ghi cảnh báo mixed mission nếu có.
             """;
     }
 
@@ -1741,9 +1740,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             return;
 
         result.NeedsManualReview = true;
-        result.SpecialNotes = AppendSpecialNote(
-            result.SpecialNotes,
-            "Kế hoạch đang gộp chung cứu hộ/cấp cứu với cứu trợ cấp phát. Nguyên tắc an toàn: sau khi cứu nạn nhân phải đưa họ về Safe Zone/Assembly Point ngay để cấp cứu, không tiếp tục chở nạn nhân đi phát đồ. Khuyến nghị tách thành mission riêng; coordinator chỉ nên bỏ qua cảnh báo này khi chủ động chấp nhận trách nhiệm.");
+        result.MixedRescueReliefWarning = MissionSuggestionWarningHelper.MixedRescueReliefWarningMessage;
     }
 
     private static void BackfillSosRequestIds(List<SuggestedActivityDto> activities, List<SosRequestSummary> sosRequests)
@@ -2005,7 +2002,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         var aiConfig = await GetEffectiveAiConfigAsync(options, cancellationToken);
         if (aiConfig == null)
         {
-            yield return Error("Chua co AI config active trong he thong. Vui long kich hoat AI config truoc khi chay prompt.");
+            yield return Error("Chưa có AI config active trong hệ thống. Vui lòng kích hoạt AI config trước khi chạy prompt.");
             yield break;
         }
 

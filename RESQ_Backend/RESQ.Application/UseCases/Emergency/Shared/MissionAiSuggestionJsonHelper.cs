@@ -8,6 +8,7 @@ internal sealed class MissionAiSuggestionMetadataView
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public string? MixedRescueReliefWarning { get; set; }
     public bool NeedsManualReview { get; set; }
     public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
@@ -33,11 +34,28 @@ internal static class MissionAiSuggestionJsonHelper
         if (string.IsNullOrWhiteSpace(metadataJson))
             return null;
 
-        return DeserializeWithNamingFallback<MissionAiSuggestionMetadataView>(
+        var metadata = DeserializeWithNamingFallback<MissionAiSuggestionMetadataView>(
             metadataJson,
+            "special_notes",
+            "mixed_rescue_relief_warning",
             "needs_additional_depot",
             "supply_shortages",
             "overall_assessment");
+
+        if (metadata is null)
+            return null;
+
+        var normalizedWarning = MissionSuggestionWarningHelper.NormalizeMixedRescueReliefWarning(
+            metadata.SpecialNotes,
+            metadata.MixedRescueReliefWarning,
+            allowFallbackFromSpecialNotes: true);
+
+        metadata.SpecialNotes = string.IsNullOrWhiteSpace(normalizedWarning.SpecialNotes)
+            ? null
+            : normalizedWarning.SpecialNotes;
+        metadata.MixedRescueReliefWarning = normalizedWarning.MixedRescueReliefWarning;
+
+        return metadata;
     }
 
     internal static List<SuggestedActivityDto> ParseActivities(string? activitiesJson)

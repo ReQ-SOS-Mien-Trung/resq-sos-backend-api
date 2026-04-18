@@ -136,9 +136,8 @@ public class RescueMissionSuggestionServiceInternalTests
         InvokeStatic(nameof(RescueMissionSuggestionService), "ApplyMixedRescueReliefSafetyNote", result);
 
         Assert.True(result.NeedsManualReview);
-        Assert.Contains("Kế hoạch đang gộp chung cứu hộ/cấp cứu", result.SpecialNotes);
-        Assert.Contains("Safe Zone/Assembly Point", result.SpecialNotes);
-        Assert.Contains("Khuyến nghị tách thành mission riêng", result.SpecialNotes);
+        Assert.Equal(MissionSuggestionWarningHelper.MixedRescueReliefWarningMessage, result.MixedRescueReliefWarning);
+        Assert.True(string.IsNullOrWhiteSpace(result.SpecialNotes));
     }
 
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)

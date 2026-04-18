@@ -32,6 +32,7 @@ public class GetMissionSuggestionsQueryHandlerTests
                           "overall_assessment": "[SOS ID 77]: urgent support is required",
                           "estimated_duration": "2 gio 10 phut",
                           "special_notes": "Split rescue victims to safe zone before any relief delivery.",
+                          "mixed_rescue_relief_warning": "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat.",
                           "needs_manual_review": true,
                           "low_confidence_warning": "Coordinator should verify the mixed mission plan.",
                           "needs_additional_depot": true,
@@ -129,6 +130,7 @@ public class GetMissionSuggestionsQueryHandlerTests
         Assert.Equal("[SOS ID 77]: urgent support is required", mission.OverallAssessment);
         Assert.Equal("2 gio 10 phut", mission.EstimatedDuration);
         Assert.Equal("Split rescue victims to safe zone before any relief delivery.", mission.SpecialNotes);
+        Assert.Equal(MissionSuggestionWarningHelper.MixedRescueReliefWarningMessage, mission.MixedRescueReliefWarning);
         Assert.True(mission.NeedsManualReview);
         Assert.Equal("Coordinator should verify the mixed mission plan.", mission.LowConfidenceWarning);
         Assert.True(mission.NeedsAdditionalDepot);

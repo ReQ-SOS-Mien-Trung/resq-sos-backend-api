@@ -40,6 +40,7 @@ public class TestPromptCommandHandlerTests
         Assert.Equal(7, response.ClusterId);
         Assert.Equal("Preview plan", response.SuggestedMissionTitle);
         Assert.Equal(aiConfigRepository.ActiveConfig?.Id, response.AiConfigId);
+        Assert.Equal("warning riêng", response.MixedRescueReliefWarning);
         Assert.NotSame(storedPrompt, suggestionService.PromptOverride);
         Assert.Equal(PromptType.MissionDepotPlanning, suggestionService.PromptOverride?.PromptType);
         Assert.Equal("draft system", suggestionService.PromptOverride?.SystemPrompt);
@@ -301,6 +302,7 @@ public class TestPromptCommandHandlerTests
         SuggestedMissionType = "MIXED",
         ConfidenceScore = 0.82,
         RawAiResponse = "{\"mission_title\":\"Preview plan\"}",
+        MixedRescueReliefWarning = "warning riêng",
         PipelineMetadata = new MissionSuggestionPipelineMetadata
         {
             ExecutionMode = "pipeline",
