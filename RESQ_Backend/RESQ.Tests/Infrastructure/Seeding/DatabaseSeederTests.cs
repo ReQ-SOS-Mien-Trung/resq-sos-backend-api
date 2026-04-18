@@ -55,7 +55,7 @@ public class DatabaseSeederTests
             .ToListAsync();
 
         Assert.Equal(120, await context.Users.CountAsync(u => u.RoleId == 3));
-        Assert.Equal(20, unassignedRescuers.Count);
+        Assert.Equal(10, unassignedRescuers.Count);
         foreach (var rescuer in unassignedRescuers)
         {
             Assert.Contains(rescuer.Id, eligibleRescuerIds);
@@ -89,6 +89,28 @@ public class DatabaseSeederTests
         var hueStadium = await context.AssemblyPoints
             .SingleAsync(point => point.Code == "AP-HUE-TD-241015");
         Assert.Equal("Sân vận động Tự Do (Thừa Thiên Huế)", hueStadium.Name);
+
+        var nowUtc = DateTime.UtcNow;
+        var overdueOpenEvents = await context.AssemblyEvents
+            .Where(e => e.CheckInDeadline <= nowUtc && e.Status != "Completed")
+            .ToListAsync();
+        Assert.Empty(overdueOpenEvents);
+
+        var hueActiveEvent = await context.AssemblyEvents
+            .SingleAsync(e => e.AssemblyPointId == hueStadium.Id && e.Status == "Gathering");
+        Assert.True(hueActiveEvent.CheckInDeadline > nowUtc);
+
+        var hueCheckedInStandbyRescuers = await context.Users
+            .Where(u => u.RoleId == 3 && u.AssemblyPointId == hueStadium.Id)
+            .Where(u => !context.RescueTeamMembers.Any(member => member.UserId == u.Id))
+            .Where(u => !context.MissionTeamMembers.Any(member => member.RescuerId == u.Id))
+            .Where(u => context.AssemblyParticipants.Any(participant =>
+                participant.AssemblyEventId == hueActiveEvent.Id
+                && participant.RescuerId == u.Id
+                && participant.IsCheckedIn
+                && !participant.IsCheckedOut))
+            .ToListAsync();
+        Assert.Equal(10, hueCheckedInStandbyRescuers.Count);
 
         var depotHue = await context.Depots.SingleAsync(depot => depot.Name == "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế");
         var depotDaNang = await context.Depots.SingleAsync(depot => depot.Name == "Ủy ban MTTQVN TP Đà Nẵng");
