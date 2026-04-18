@@ -1,8 +1,10 @@
 ﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
@@ -16,6 +18,8 @@ namespace RESQ.Application.UseCases.Operations.Shared;
 
 public class MissionPendingActivityUpdateService(
     IMissionActivityRepository activityRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IAssemblyPointRepository assemblyPointRepository,
     IUnitOfWork unitOfWork,
@@ -23,6 +27,8 @@ public class MissionPendingActivityUpdateService(
 ) : IMissionPendingActivityUpdateService
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IAssemblyPointRepository _assemblyPointRepository = assemblyPointRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
@@ -51,6 +57,13 @@ public class MissionPendingActivityUpdateService(
 
         var missionActivities = (await _activityRepository.GetByMissionIdAsync(mission.Id, cancellationToken)).ToList();
         var activityLookup = missionActivities.ToDictionary(activity => activity.Id);
+        var victimContexts = await MissionActivityVictimContextLoader.LoadAsync(
+            missionActivities
+                .Where(activity => activity.SosRequestId.HasValue)
+                .Select(activity => activity.SosRequestId!.Value),
+            _sosRequestRepository,
+            _sosRequestUpdateRepository,
+            cancellationToken);
         var plans = new List<ActivityUpdatePlan>(activities.Count);
 
         foreach (var patch in activities)
@@ -82,6 +95,14 @@ public class MissionPendingActivityUpdateService(
 
             var projectedActivity = CloneActivity(activity);
             ApplyPatch(projectedActivity, patch, nextItemsJson, nextAssemblyPoint, updatedBy);
+            if (projectedActivity.SosRequestId.HasValue
+                && victimContexts.TryGetValue(projectedActivity.SosRequestId.Value, out var victimContext))
+            {
+                projectedActivity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
+                    projectedActivity.ActivityType,
+                    projectedActivity.Description,
+                    victimContext.Summary);
+            }
 
             plans.Add(new ActivityUpdatePlan(activity, projectedActivity, patch, currentItems, nextItems, shouldReplaceItems));
         }

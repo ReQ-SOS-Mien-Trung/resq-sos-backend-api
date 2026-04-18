@@ -12,6 +12,8 @@ public class GetMissionByIdQueryHandler(
     IMissionRepository missionRepository,
     IMissionTeamRepository missionTeamRepository,
     IMissionAiSuggestionRepository aiSuggestionRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     ILogger<GetMissionByIdQueryHandler> logger
 ) : IRequestHandler<GetMissionByIdQuery, MissionDto?>
@@ -19,6 +21,8 @@ public class GetMissionByIdQueryHandler(
     private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IMissionAiSuggestionRepository _aiSuggestionRepository = aiSuggestionRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly ILogger<GetMissionByIdQueryHandler> _logger = logger;
 
@@ -126,6 +130,11 @@ public class GetMissionByIdQueryHandler(
         };
 
         MissionActivityDtoHelper.EnrichSupplyExecutionContext(mission.Activities, result.Activities);
+        await MissionActivityDtoHelper.EnrichVictimContextAsync(
+            result.Activities,
+            _sosRequestRepository,
+            _sosRequestUpdateRepository,
+            cancellationToken);
         await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(result.Activities, _itemModelMetadataRepository, cancellationToken);
 
         return result;

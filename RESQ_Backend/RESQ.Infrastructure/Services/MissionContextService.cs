@@ -60,6 +60,7 @@ public class MissionContextService(
         var sosRequestSummaries = effectiveSosRequests.Select(sos =>
         {
             incidentLookup.TryGetValue(sos.Id, out var incidentHistory);
+            var victimContext = MissionActivityVictimContextHelper.BuildContext(sos.StructuredData, sos.Id);
 
             return new SosRequestSummary
             {
@@ -73,7 +74,9 @@ public class MissionContextService(
                 IncidentNotes = incidentHistory?.Select(x => x.Note).ToList() ?? [],
                 Latitude = sos.Location?.Latitude,
                 Longitude = sos.Location?.Longitude,
-                CreatedAt = sos.CreatedAt
+                CreatedAt = sos.CreatedAt,
+                TargetVictimSummary = victimContext.Summary,
+                TargetVictims = MissionActivityVictimContextHelper.CloneVictims(victimContext.Victims)
             };
         }).ToList();
 

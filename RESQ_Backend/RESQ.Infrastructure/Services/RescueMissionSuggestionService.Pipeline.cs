@@ -844,6 +844,13 @@ public partial class RescueMissionSuggestionService
             isMultiDepotRecommended,
             cancellationToken);
 
+        if (draftActivities is { Count: > 0 })
+        {
+            var sosLookup = sosRequests.ToDictionary(sos => sos.Id);
+            BackfillSosRequestIds(draftActivities, sosRequests);
+            EnrichVictimTargets(draftActivities, sosLookup);
+        }
+
         var effectiveMetadata = metadata ?? CreateSuggestionMetadataForLegacy();
         effectiveMetadata.OverallAssessment = result.OverallAssessment;
         effectiveMetadata.EstimatedDuration = result.EstimatedDuration;
@@ -901,6 +908,7 @@ public partial class RescueMissionSuggestionService
         ApplySingleDepotConstraint(result);
         RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(result, nearbyTeams);
         EnsureReturnAssemblyPointActivities(result);
+        EnrichVictimTargets(result.SuggestedActivities, sosLookup);
         ApplyMixedRescueReliefSafetyNote(result);
         NormalizeEstimatedDurations(result);
 

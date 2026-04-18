@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
@@ -12,12 +13,16 @@ public class GetMyTeamMissionsQueryHandler(
     IPersonnelQueryRepository personnelQueryRepository,
     IMissionRepository missionRepository,
     IMissionTeamRepository missionTeamRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IItemModelMetadataRepository itemModelMetadataRepository)
     : IRequestHandler<GetMyTeamMissionsQuery, GetMissionsResponse>
 {
     private readonly IPersonnelQueryRepository _personnelQueryRepository = personnelQueryRepository;
     private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
 
     public async Task<GetMissionsResponse> Handle(GetMyTeamMissionsQuery request, CancellationToken cancellationToken)
@@ -53,6 +58,12 @@ public class GetMyTeamMissionsQueryHandler(
             if (missionLookup.TryGetValue(missionDto.Id, out var sourceMission))
                 MissionActivityDtoHelper.EnrichSupplyExecutionContext(sourceMission.Activities, missionDto.Activities);
         }
+
+        await MissionActivityDtoHelper.EnrichVictimContextAsync(
+            response.Missions.SelectMany(mission => mission.Activities),
+            _sosRequestRepository,
+            _sosRequestUpdateRepository,
+            cancellationToken);
 
         await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(
             response.Missions.SelectMany(mission => mission.Activities),

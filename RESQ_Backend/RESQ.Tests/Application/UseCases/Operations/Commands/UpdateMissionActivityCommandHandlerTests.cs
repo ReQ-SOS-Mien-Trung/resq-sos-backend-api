@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionActivity;
+using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Entities.Personnel.ValueObjects;
@@ -162,6 +164,44 @@ public class UpdateMissionActivityCommandHandlerTests
                 CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Handle_ReappliesVictimSummary_ToDescription()
+    {
+        var activity = BuildActivity(activityType: "RESCUE");
+        activity.SosRequestId = 77;
+        var handler = BuildHandler(
+            activityRepo: new StubActivityRepo(activity),
+            sosRequestRepo: new StubSosRequestRepo(
+                new SosRequestModel
+                {
+                    Id = 77,
+                    StructuredData =
+                        """
+                        {
+                          "incident": {},
+                          "victims": [
+                            { "person_type": "CHILD", "custom_name": "Khoa" }
+                          ]
+                        }
+                        """
+                }));
+
+        var result = await handler.Handle(
+            new UpdateMissionActivityCommand(
+                ActivityId: 1,
+                Step: null,
+                ActivityType: null,
+                Description: "Tiếp cận mái nhà",
+                Target: null,
+                Items: null,
+                AssemblyPointId: null,
+                TargetLatitude: null,
+                TargetLongitude: null),
+            CancellationToken.None);
+
+        Assert.Contains("Đối tượng cần hỗ trợ: Khoa (trẻ em).", result.Description);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────
 
     private static UpdateMissionActivityCommand BuildCommand(
@@ -184,10 +224,14 @@ public class UpdateMissionActivityCommandHandlerTests
     private static UpdateMissionActivityCommandHandler BuildHandler(
         StubActivityRepo? activityRepo = null,
         StubDepotRepo? depotRepo = null,
-        StubAssemblyPointRepo? assemblyPointRepo = null)
+        StubAssemblyPointRepo? assemblyPointRepo = null,
+        StubSosRequestRepo? sosRequestRepo = null,
+        StubSosRequestUpdateRepo? sosRequestUpdateRepo = null)
     {
         return new UpdateMissionActivityCommandHandler(
             activityRepo ?? new StubActivityRepo(BuildActivity()),
+            sosRequestRepo ?? new StubSosRequestRepo(),
+            sosRequestUpdateRepo ?? new StubSosRequestUpdateRepo(),
             depotRepo ?? new StubDepotRepo(),
             assemblyPointRepo ?? new StubAssemblyPointRepo(null),
             new StubUnitOfWork(),
@@ -208,6 +252,33 @@ public class UpdateMissionActivityCommandHandlerTests
         public Task AssignTeamAsync(int aid, int mtid, CancellationToken ct = default) => Task.CompletedTask;
         public Task ResetAssignmentsToPlannedAsync(IEnumerable<int> aids, Guid db, CancellationToken ct = default) => Task.CompletedTask;
         public Task DeleteAsync(int id, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
+    private sealed class StubSosRequestRepo(params SosRequestModel[] requests) : ISosRequestRepository
+    {
+        private readonly Dictionary<int, SosRequestModel> _requests = requests.ToDictionary(request => request.Id);
+
+        public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult(_requests.GetValueOrDefault(id));
+        public Task CreateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IEnumerable<SosRequestModel>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateStatusAsync(int id, RESQ.Domain.Enum.Emergency.SosRequestStatus status, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateStatusByClusterIdAsync(int clusterId, RESQ.Domain.Enum.Emergency.SosRequestStatus status, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IEnumerable<SosRequestModel>> GetByCompanionUserIdAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    }
+
+    private sealed class StubSosRequestUpdateRepo : ISosRequestUpdateRepository
+    {
+        public Task AddVictimUpdateAsync(SosRequestVictimUpdateModel update, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task AddIncidentRangeAsync(IEnumerable<SosRequestIncidentUpdateModel> updates, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetSosRequestIdsByTeamIncidentIdsAsync(IEnumerable<int> teamIncidentIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetTeamIncidentIdsBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>> GetLatestVictimUpdatesBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>>(new Dictionary<int, SosRequestVictimUpdateModel>());
+        public Task<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>> GetIncidentHistoryBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class StubDepotRepo : IDepotInventoryRepository

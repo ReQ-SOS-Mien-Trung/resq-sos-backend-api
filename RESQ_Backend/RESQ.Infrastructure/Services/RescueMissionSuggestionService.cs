@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RESQ.Application.Common;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Personnel;
@@ -193,24 +194,38 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private static string BuildSosRequestsData(List<SosRequestSummary> sosRequests)
     {
         var now = DateTime.UtcNow;
-        var entries = sosRequests.Select((sos, index) => new
+        var entries = sosRequests.Select((sos, index) =>
         {
-            stt = index + 1,
-            id = sos.Id,
-            loai_sos = sos.SosType ?? "Không xác định",
-            tin_nhan = sos.RawMessage,
-            du_lieu_chi_tiet = sos.StructuredData ?? "Không có",
-            muc_uu_tien = sos.PriorityLevel ?? "Chưa đánh giá",
-            trang_thai = sos.Status ?? "Không rõ",
-            ghi_chu_su_co_moi_nhat = sos.LatestIncidentNote,
-            lich_su_su_co = sos.IncidentNotes,
-            vi_tri = sos.Latitude.HasValue && sos.Longitude.HasValue
-                ? $"{sos.Latitude}, {sos.Longitude}"
-                : "Không xác định",
-            thoi_gian_cho_doi_phut = sos.CreatedAt.HasValue
-                ? (int)(now - sos.CreatedAt.Value).TotalMinutes
-                : (int?)null,
-            thoi_gian_tao = sos.CreatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
+            var victimContext = ResolveVictimContext(sos);
+            return new
+            {
+                stt = index + 1,
+                id = sos.Id,
+                loai_sos = sos.SosType ?? "Không xác định",
+                tin_nhan = sos.RawMessage,
+                du_lieu_chi_tiet = sos.StructuredData ?? "Không có",
+                muc_uu_tien = sos.PriorityLevel ?? "Chưa đánh giá",
+                trang_thai = sos.Status ?? "Không rõ",
+                ghi_chu_su_co_moi_nhat = sos.LatestIncidentNote,
+                lich_su_su_co = sos.IncidentNotes,
+                doi_tuong_can_ho_tro = victimContext.Summary,
+                danh_sach_nan_nhan = victimContext.Victims.Select(victim => new
+                {
+                    ten = victim.DisplayName,
+                    loai = victim.PersonType,
+                    muc_do = victim.Severity,
+                    bi_thuong = victim.IsInjured,
+                    van_de_y_te = victim.MedicalIssues,
+                    so_dien_thoai = victim.PersonPhone
+                }),
+                vi_tri = sos.Latitude.HasValue && sos.Longitude.HasValue
+                    ? $"{sos.Latitude}, {sos.Longitude}"
+                    : "Không xác định",
+                thoi_gian_cho_doi_phut = sos.CreatedAt.HasValue
+                    ? (int)(now - sos.CreatedAt.Value).TotalMinutes
+                    : (int?)null,
+                thoi_gian_tao = sos.CreatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
+            };
         });
 
         return JsonSerializer.Serialize(entries, new JsonSerializerOptions
@@ -949,6 +964,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             Step = activity.Step,
             ActivityType = activity.ActivityType,
             Description = activity.Description,
+            TargetVictimSummary = activity.TargetVictimSummary,
+            TargetVictims = MissionActivityVictimContextHelper.CloneVictims(activity.TargetVictims),
             Priority = activity.Priority,
             EstimatedTime = activity.EstimatedTime,
             ExecutionMode = activity.ExecutionMode,
@@ -983,6 +1000,44 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 DistanceKm = activity.SuggestedTeam.DistanceKm
             }
         };
+    }
+
+    private static MissionActivityVictimContext ResolveVictimContext(SosRequestSummary sosRequest)
+    {
+        if (!string.IsNullOrWhiteSpace(sosRequest.TargetVictimSummary)
+            || sosRequest.TargetVictims.Count > 0)
+        {
+            return new MissionActivityVictimContext
+            {
+                Summary = sosRequest.TargetVictimSummary,
+                Victims = MissionActivityVictimContextHelper.CloneVictims(sosRequest.TargetVictims)
+            };
+        }
+
+        return MissionActivityVictimContextHelper.BuildContext(sosRequest.StructuredData, sosRequest.Id);
+    }
+
+    private static void EnrichVictimTargets(
+        List<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, SosRequestSummary> sosLookup)
+    {
+        foreach (var activity in activities)
+        {
+            if (!activity.SosRequestId.HasValue
+                || !sosLookup.TryGetValue(activity.SosRequestId.Value, out var sosRequest))
+            {
+                activity.TargetVictims = [];
+                continue;
+            }
+
+            var victimContext = ResolveVictimContext(sosRequest);
+            activity.TargetVictimSummary = victimContext.Summary;
+            activity.TargetVictims = MissionActivityVictimContextHelper.CloneVictims(victimContext.Victims);
+            activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
+                activity.ActivityType,
+                activity.Description,
+                victimContext.Summary);
+        }
     }
 
     private static List<SuggestedActivityDto> ExpandCombinedEvacuations(

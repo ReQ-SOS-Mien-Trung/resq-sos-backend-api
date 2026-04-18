@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using RESQ.Application.Extensions;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -25,6 +26,7 @@ public class CreateMissionCommandHandler(
     IMissionActivityRepository missionActivityRepository,
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IMissionAiSuggestionRepository missionAiSuggestionRepository,
     IDepotInventoryRepository depotInventoryRepository, IDepotRepository depotRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
@@ -40,6 +42,7 @@ public class CreateMissionCommandHandler(
     private readonly IMissionActivityRepository _missionActivityRepository = missionActivityRepository;
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly IMissionAiSuggestionRepository _missionAiSuggestionRepository = missionAiSuggestionRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IDepotRepository _depotRepository = depotRepository;
@@ -121,6 +124,7 @@ public class CreateMissionCommandHandler(
             .Select(CloneActivity)
             .OrderBy(activity => activity.Step ?? int.MaxValue)
             .ToList();
+        await EnrichVictimDescriptionsAsync(activities, cancellationToken);
 
         var itemLookup = await LoadReferencedItemMetadataAsync(activities, cancellationToken);
 
@@ -319,6 +323,33 @@ public class CreateMissionCommandHandler(
         TargetLongitude = activity.TargetLongitude,
         RescueTeamId = activity.RescueTeamId
     };
+
+    private async Task EnrichVictimDescriptionsAsync(
+        IEnumerable<CreateActivityItemDto> activities,
+        CancellationToken cancellationToken)
+    {
+        var victimContexts = await MissionActivityVictimContextLoader.LoadAsync(
+            activities
+                .Where(activity => activity.SosRequestId.HasValue)
+                .Select(activity => activity.SosRequestId!.Value),
+            _sosRequestRepository,
+            _sosRequestUpdateRepository,
+            cancellationToken);
+
+        foreach (var activity in activities)
+        {
+            if (!activity.SosRequestId.HasValue
+                || !victimContexts.TryGetValue(activity.SosRequestId.Value, out var victimContext))
+            {
+                continue;
+            }
+
+            activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
+                activity.ActivityType,
+                activity.Description,
+                victimContext.Summary);
+        }
+    }
 
     private async Task<IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord>> LoadReferencedItemMetadataAsync(
         List<CreateActivityItemDto> activities,

@@ -1,8 +1,10 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
@@ -22,6 +24,8 @@ public class AddMissionActivityCommandHandler(
     IMissionActivityRepository activityRepository,
     IMissionTeamRepository missionTeamRepository,
     IRescueTeamRepository rescueTeamRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IDepotInventoryRepository depotInventoryRepository, IDepotRepository depotRepository,
     IMediator mediator,
     IUnitOfWork unitOfWork,
@@ -32,6 +36,8 @@ public class AddMissionActivityCommandHandler(
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IDepotRepository _depotRepository = depotRepository;
     private readonly IMediator _mediator = mediator;
@@ -93,12 +99,18 @@ public class AddMissionActivityCommandHandler(
             }
         }
 
+        var victimContext = await LoadVictimContextAsync(request.SosRequestId, cancellationToken);
+        var enrichedDescription = MissionActivityVictimContextHelper.ApplySummaryToDescription(
+            request.ActivityType,
+            request.Description,
+            victimContext?.Summary);
+
         var activity = new MissionActivityModel
         {
             MissionId = request.MissionId,
             Step = request.Step,
             ActivityType = request.ActivityType,
-            Description = request.Description,
+            Description = enrichedDescription,
             Priority = request.Priority,
             EstimatedTime = request.EstimatedTime,
             SosRequestId = request.SosRequestId,
@@ -199,6 +211,22 @@ public class AddMissionActivityCommandHandler(
             : JsonSerializer.Deserialize<List<SupplyToCollectDto>>(savedActivity.Items, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         return response;
+    }
+
+    private async Task<MissionActivityVictimContext?> LoadVictimContextAsync(
+        int? sosRequestId,
+        CancellationToken cancellationToken)
+    {
+        if (!sosRequestId.HasValue)
+            return null;
+
+        var victimContexts = await MissionActivityVictimContextLoader.LoadAsync(
+            [sosRequestId.Value],
+            _sosRequestRepository,
+            _sosRequestUpdateRepository,
+            cancellationToken);
+
+        return victimContexts.GetValueOrDefault(sosRequestId.Value);
     }
 }
 

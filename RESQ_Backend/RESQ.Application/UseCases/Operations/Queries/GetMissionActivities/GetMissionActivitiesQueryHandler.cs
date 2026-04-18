@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
@@ -8,11 +9,15 @@ namespace RESQ.Application.UseCases.Operations.Queries.GetMissionActivities;
 
 public class GetMissionActivitiesQueryHandler(
     IMissionActivityRepository activityRepository,
+    ISosRequestRepository sosRequestRepository,
+    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
     ILogger<GetMissionActivitiesQueryHandler> logger
 ) : IRequestHandler<GetMissionActivitiesQuery, List<MissionActivityDto>>
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly ILogger<GetMissionActivitiesQueryHandler> _logger = logger;
 
@@ -50,6 +55,11 @@ public class GetMissionActivitiesQueryHandler(
         }).ToList();
 
         MissionActivityDtoHelper.EnrichSupplyExecutionContext(activities, result);
+        await MissionActivityDtoHelper.EnrichVictimContextAsync(
+            result,
+            _sosRequestRepository,
+            _sosRequestUpdateRepository,
+            cancellationToken);
         await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(result, _itemModelMetadataRepository, cancellationToken);
 
         return result;
