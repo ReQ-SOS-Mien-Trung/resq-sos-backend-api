@@ -46,6 +46,7 @@ public class GetMissionSuggestionsQueryHandler(
                 OverallAssessment = metadata?.OverallAssessment,
                 EstimatedDuration = metadata?.EstimatedDuration,
                 SpecialNotes = metadata?.SpecialNotes,
+                MixedRescueReliefWarning = metadata?.MixedRescueReliefWarning ?? string.Empty,
                 NeedsManualReview = metadata?.NeedsManualReview ?? false,
                 LowConfidenceWarning = metadata?.LowConfidenceWarning,
                 NeedsAdditionalDepot = metadata?.NeedsAdditionalDepot ?? false,

@@ -85,6 +85,7 @@ public class MissionAiSuggestionSectionTests
                   "overall_assessment": "[SOS ID 1]: need water",
                   "estimated_duration": "1 gio 5 phut",
                   "special_notes": "Coordinator needs backup stock",
+                  "mixed_rescue_relief_warning": "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat.",
                   "needs_manual_review": true,
                   "low_confidence_warning": "Confidence is below review threshold.",
                   "needs_additional_depot": true,
@@ -124,6 +125,7 @@ public class MissionAiSuggestionSectionTests
         Assert.Equal("[SOS ID 1]: need water", section!.OverallAssessment);
         Assert.Equal("1 gio 5 phut", section.EstimatedDuration);
         Assert.Equal("Coordinator needs backup stock", section.SpecialNotes);
+        Assert.Equal(MissionSuggestionWarningHelper.MixedRescueReliefWarningMessage, section.MixedRescueReliefWarning);
         Assert.True(section.NeedsManualReview);
         Assert.Equal("Confidence is below review threshold.", section.LowConfidenceWarning);
         Assert.True(section.NeedsAdditionalDepot);
@@ -141,6 +143,26 @@ public class MissionAiSuggestionSectionTests
         Assert.Equal("snake-activity", activity.Description);
         Assert.Equal("COLLECT_SUPPLIES", activity.ActivityType);
         Assert.Equal(9, activity.DepotId);
+    }
+
+    [Fact]
+    public void From_BackfillsMixedRescueReliefWarning_FromLegacySpecialNotes()
+    {
+        var model = new MissionAiSuggestionModel
+        {
+            Id = 105,
+            Metadata = """
+                {
+                  "special_notes": "Coordinator note\nKe hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat. Nguyen tac an toan: sau khi cuu nan nhan phai dua ho ve Safe Zone/Assembly Point ngay de cap cuu, khong tiep tuc cho nan nhan di phat do. Khuyen nghi tach thanh mission rieng; coordinator chi nen bo qua canh bao nay khi chu dong chap nhan trach nhiem."
+                }
+                """
+        };
+
+        var section = InvokeFrom(model);
+
+        Assert.NotNull(section);
+        Assert.Equal("Coordinator note", section!.SpecialNotes);
+        Assert.Equal(MissionSuggestionWarningHelper.MixedRescueReliefWarningMessage, section.MixedRescueReliefWarning);
     }
 
     private static MissionAiSuggestionSection? InvokeFrom(MissionAiSuggestionModel model)

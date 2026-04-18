@@ -180,6 +180,7 @@ public class TestPromptCommandHandler(
             SuggestedResources = result.SuggestedResources,
             EstimatedDuration = result.EstimatedDuration,
             SpecialNotes = result.SpecialNotes,
+            MixedRescueReliefWarning = result.MixedRescueReliefWarning,
             NeedsAdditionalDepot = result.NeedsAdditionalDepot,
             SupplyShortages = result.SupplyShortages,
             ConfidenceScore = result.ConfidenceScore,

@@ -236,7 +236,7 @@ public partial class RescueMissionSuggestionService
                         ["sos_requests_data"] = BuildSosRequestsData(sosRequests),
                         ["mission_draft_body"] = draftJson
                     },
-                    "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields. Preserve any inventory-backed transport or reusable equipment inside supplies_to_collect. If rescue or evacuation work is mixed with supply collection or delivery, write the safety warning only into special_notes and keep the JSON contract unchanged."),
+                    "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields. Preserve any inventory-backed transport or reusable equipment inside supplies_to_collect. Keep the JSON contract unchanged."),
                 "No tools are available. Return the full mission JSON only. Do not introduce a second depot. Do not add warnings[] or any new warning schema.",
                 aiConfig,
                 options,
@@ -855,6 +855,7 @@ public partial class RescueMissionSuggestionService
         effectiveMetadata.OverallAssessment = result.OverallAssessment;
         effectiveMetadata.EstimatedDuration = result.EstimatedDuration;
         effectiveMetadata.SpecialNotes = result.SpecialNotes;
+        effectiveMetadata.MixedRescueReliefWarning = result.MixedRescueReliefWarning;
         effectiveMetadata.NeedsManualReview = result.NeedsManualReview;
         effectiveMetadata.LowConfidenceWarning = result.LowConfidenceWarning;
         effectiveMetadata.NeedsAdditionalDepot = result.NeedsAdditionalDepot;
@@ -910,6 +911,7 @@ public partial class RescueMissionSuggestionService
         EnsureReturnAssemblyPointActivities(result);
         EnrichVictimTargets(result.SuggestedActivities, sosLookup);
         ApplyMixedRescueReliefSafetyNote(result);
+        NormalizeMixedRescueReliefWarning(result, allowFallbackFromSpecialNotes: !string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning));
         NormalizeEstimatedDurations(result);
 
         if (result.ConfidenceScore < LowConfidenceThreshold)
@@ -922,6 +924,21 @@ public partial class RescueMissionSuggestionService
 
         result.IsSuccess = true;
         result.MultiDepotRecommended = false;
+    }
+
+    private static void NormalizeMixedRescueReliefWarning(
+        RescueMissionSuggestionResult result,
+        bool allowFallbackFromSpecialNotes)
+    {
+        var normalized = MissionSuggestionWarningHelper.NormalizeMixedRescueReliefWarning(
+            result.SpecialNotes,
+            result.MixedRescueReliefWarning,
+            allowFallbackFromSpecialNotes);
+
+        result.SpecialNotes = string.IsNullOrWhiteSpace(normalized.SpecialNotes)
+            ? null
+            : normalized.SpecialNotes;
+        result.MixedRescueReliefWarning = normalized.MixedRescueReliefWarning;
     }
 
     private async Task<int?> PersistSuggestionAsync(

@@ -115,6 +115,7 @@ public class RescueMissionSuggestionResult
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public string MixedRescueReliefWarning { get; set; } = string.Empty;
     /// <summary>true khi coordinator cần bổ sung thêm kho/nguồn cấp phát vì kho được chọn chưa đủ đồ.</summary>
     public bool NeedsAdditionalDepot { get; set; }
     /// <summary>Danh sách vật phẩm còn thiếu sau khi đối chiếu với kho phù hợp nhất mà AI đã chọn cho mission.</summary>

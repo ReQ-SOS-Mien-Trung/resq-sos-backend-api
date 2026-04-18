@@ -70,6 +70,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
         successResult.SuggestedMissionTitle = "Cứu hộ khu vực ngập";
         successResult.SuggestedMissionType = "RESCUE";
         successResult.ConfidenceScore = 0.85;
+        successResult.MixedRescueReliefWarning = "tach warning rieng";
 
         var handler = BuildHandler(
             suggestionService: new StubSuggestionService(successResult));
@@ -81,6 +82,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
         Assert.Equal("Cứu hộ khu vực ngập", result.SuggestedMissionTitle);
         Assert.Equal("RESCUE", result.SuggestedMissionType);
         Assert.Equal(0.85, result.ConfidenceScore);
+        Assert.Equal("tach warning rieng", result.MixedRescueReliefWarning);
     }
 
     // ═══ Stream handler tests ═════════════════════════════════════
