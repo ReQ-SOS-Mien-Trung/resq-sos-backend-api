@@ -13,5 +13,9 @@ public record GetCampaignTransactionsQuery(
     int PageSize,
     List<TransactionType>?          Types          = null,
     List<TransactionDirection>?     Directions     = null,
-    List<TransactionReferenceType>? ReferenceTypes = null
+    List<TransactionReferenceType>? ReferenceTypes = null,
+    DateOnly? FromDate = null,
+    DateOnly? ToDate   = null,
+    decimal? MinAmount = null,
+    decimal? MaxAmount = null
 ) : IRequest<PagedResult<FundTransactionDto>>;

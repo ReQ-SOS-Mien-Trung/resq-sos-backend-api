@@ -3,6 +3,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Domain.Entities.Finance;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Mappers.Finance;
 
@@ -57,10 +58,42 @@ public class SystemFundRepository : ISystemFundRepository
     }
 
     public async Task<PagedResult<SystemFundTransactionModel>> GetPagedTransactionsAsync(
-        int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+        int pageNumber,
+        int pageSize,
+        DateOnly? fromDate   = null,
+        DateOnly? toDate     = null,
+        decimal? minAmount   = null,
+        decimal? maxAmount   = null,
+        IReadOnlyCollection<SystemFundTransactionType>? transactionTypes = null,
+        string? search       = null,
+        CancellationToken cancellationToken = default)
     {
-        var query = _unitOfWork.Set<SystemFundTransaction>()
-            .OrderByDescending(x => x.CreatedAt);
+        var query = _unitOfWork.Set<SystemFundTransaction>().AsQueryable();
+
+        if (transactionTypes is { Count: > 0 })
+        {
+            var typeNames = transactionTypes.Select(t => t.ToString()).ToList();
+            query = query.Where(x => typeNames.Contains(x.TransactionType));
+        }
+
+        if (fromDate.HasValue)
+            query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) >= fromDate.Value);
+        if (toDate.HasValue)
+            query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) <= toDate.Value);
+        if (minAmount.HasValue)
+            query = query.Where(x => x.Amount >= minAmount.Value);
+        if (maxAmount.HasValue)
+            query = query.Where(x => x.Amount <= maxAmount.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(x =>
+                (x.Note != null && x.Note.ToLower().Contains(s))
+                || (x.ReferenceType != null && x.ReferenceType.ToLower().Contains(s))
+            );
+        }
+
+        query = query.OrderByDescending(x => x.CreatedAt);
 
         var totalCount = await query.CountAsync(cancellationToken);
 

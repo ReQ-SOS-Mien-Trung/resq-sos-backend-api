@@ -14,6 +14,8 @@ public class GetInventoryLogsQuery : IRequest<PagedResult<InventoryLogDto>>
     public List<InventorySourceType>? SourceTypes { get; set; }
     public DateOnly? FromDate { get; set; }
     public DateOnly? ToDate { get; set; }
+    /// <summary>Tìm kiếm tự do: ghi chú, tên người thực hiện, tên nhà cung cấp, số hóa đơn.</summary>
+    public string? Search { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

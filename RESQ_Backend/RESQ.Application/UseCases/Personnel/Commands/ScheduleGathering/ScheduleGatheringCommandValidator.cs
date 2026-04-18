@@ -18,8 +18,8 @@ public class ScheduleGatheringCommandValidator : AbstractValidator<ScheduleGathe
         RuleFor(x => x.CheckInDeadline)
             .Must(d => d.ToUtcForStorage() > DateTime.UtcNow)
             .WithMessage("Thời hạn check-in phải là thời điểm trong tương lai.")
-            .Must((cmd, deadline) => deadline.ToUtcForStorage() <= cmd.AssemblyDate.ToUtcForStorage())
-            .WithMessage("Thời hạn check-in phải trước hoặc bằng thời gian tập trung.");
+            .Must((cmd, deadline) => deadline.ToUtcForStorage() >= cmd.AssemblyDate.ToUtcForStorage())
+            .WithMessage("Thời hạn check-in phải sau hoặc bằng thời gian triệu tập (assemblyDate) — có thể đặt buffer thêm giờ để rescuer vẫn có thể check-in muộn.");
     }
 
     private static bool BeOnOrAfterTodayInVietnam(DateTime assemblyDate)

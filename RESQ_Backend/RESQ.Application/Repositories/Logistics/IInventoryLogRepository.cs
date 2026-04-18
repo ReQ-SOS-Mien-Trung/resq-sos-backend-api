@@ -14,8 +14,9 @@ public interface IInventoryLogRepository
         List<string>? sourceTypes,
         DateOnly? fromDate,
         DateOnly? toDate,
-        int pageNumber,
-        int pageSize,
+        string? search = null,
+        int pageNumber = 1,
+        int pageSize = 10,
         CancellationToken cancellationToken = default);
 
     Task<PagedResult<InventoryTransactionDto>> GetTransactionHistoryAsync(

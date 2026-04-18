@@ -42,6 +42,7 @@ public class GetInventoryLogsQueryHandler(
             sourceTypeStrings,
             request.FromDate,
             request.ToDate,
+            request.Search,
             request.PageNumber,
             request.PageSize,
             cancellationToken);

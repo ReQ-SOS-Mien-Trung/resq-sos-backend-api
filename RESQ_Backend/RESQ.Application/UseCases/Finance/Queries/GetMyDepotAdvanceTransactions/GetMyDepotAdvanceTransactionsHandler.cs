@@ -32,7 +32,13 @@ public class GetMyDepotAdvanceTransactionsHandler(
             request.PageNumber,
             request.PageSize,
             [DepotFundTransactionType.PersonalAdvance, DepotFundTransactionType.AdvanceRepayment],
-            cancellationToken);
+            fromDate: request.FromDate,
+            toDate: request.ToDate,
+            minAmount: request.MinAmount,
+            maxAmount: request.MaxAmount,
+            referenceTypes: request.ReferenceTypes,
+            search: request.Search,
+            cancellationToken: cancellationToken);
 
         var contributorInputs = pagedResult.Items
             .Where(x => !string.IsNullOrWhiteSpace(x.ContributorName) && !string.IsNullOrWhiteSpace(x.ContributorPhoneNumber))

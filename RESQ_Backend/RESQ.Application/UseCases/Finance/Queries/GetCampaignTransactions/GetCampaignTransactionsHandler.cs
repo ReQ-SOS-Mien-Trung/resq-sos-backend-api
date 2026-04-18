@@ -21,6 +21,10 @@ public class GetCampaignTransactionsHandler(IFundTransactionRepository transacti
             request.Types,
             request.Directions,
             request.ReferenceTypes,
+            request.FromDate,
+            request.ToDate,
+            request.MinAmount,
+            request.MaxAmount,
             cancellationToken);
 
         var dtos = pagedResult.Items.Select(t => new FundTransactionDto

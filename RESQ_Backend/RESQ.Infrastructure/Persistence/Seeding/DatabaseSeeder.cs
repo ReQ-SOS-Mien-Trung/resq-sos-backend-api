@@ -28,6 +28,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int UnassignedRescuerCount = 20;
     private const int EligibleAssignedRescuerCount = 78;
     private const int HueStadiumUnclusteredSosCount = 10;
+    private const int HueStadiumCheckedInStandbyRescuerCount = 10;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ResQDbContext _db;
     private readonly SeedDataOptions _options;
@@ -653,19 +654,58 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private async Task SeedAssemblyEventsAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
         var deployableRescuers = GetDeployableRescuers(seed);
+        var standbyRescuers = seed.Rescuers.Skip(deployableRescuers.Count).ToList();
         var events = new List<AssemblyEvent>();
-        for (var i = 0; i < 45; i++)
+        var hueStadium = GetHueStadiumAssemblyPoint(seed);
+        AssemblyEvent? activeHueEvent = null;
+        var currentUtc = DateTime.UtcNow;
+        var currentVietnamLocal = currentUtc.AddHours(7);
+
+        if (hueStadium is not null)
+        {
+            var activeAssemblyLocal = currentVietnamLocal.Date.AddDays(1).AddHours(6).AddMinutes(30);
+            var assemblyDate = VnToUtc(activeAssemblyLocal);
+            var checkInDeadline = VnToUtc(activeAssemblyLocal.AddMinutes(45));
+            activeHueEvent = new AssemblyEvent
+            {
+                AssemblyPointId = hueStadium.Id,
+                AssemblyDate = assemblyDate,
+                Status = "Gathering",
+                CreatedBy = seed.Coordinators[0].Id,
+                CreatedAt = currentUtc.AddHours(-2),
+                UpdatedAt = currentUtc.AddMinutes(-5),
+                CheckInDeadline = checkInDeadline
+            };
+            events.Add(activeHueEvent);
+
+            foreach (var rescuer in standbyRescuers.Take(HueStadiumCheckedInStandbyRescuerCount))
+            {
+                rescuer.AssemblyPointId = hueStadium.Id;
+            }
+        }
+
+        for (var i = 0; i < 44; i++)
         {
             var assemblyDate = RandomEventUtc(seed, i).AddHours(6 + i % 3);
+            var checkInDeadline = assemblyDate.AddMinutes(45);
+            var status = checkInDeadline <= currentUtc
+                ? "Completed"
+                : assemblyDate <= currentUtc
+                    ? "Gathering"
+                    : "Scheduled";
             events.Add(new AssemblyEvent
             {
                 AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id,
                 AssemblyDate = assemblyDate,
-                Status = i % 9 == 0 ? "Scheduled" : i % 5 == 0 ? "Gathering" : "Completed",
+                Status = status,
                 CreatedBy = seed.Coordinators[i % seed.Coordinators.Count].Id,
                 CreatedAt = assemblyDate.AddHours(-8),
-                UpdatedAt = assemblyDate.AddHours(3),
-                CheckInDeadline = assemblyDate.AddMinutes(45)
+                UpdatedAt = status == "Completed"
+                    ? assemblyDate.AddHours(8)
+                    : status == "Gathering"
+                        ? currentUtc.AddMinutes(-10)
+                        : assemblyDate.AddHours(-2),
+                CheckInDeadline = checkInDeadline
             });
         }
 
@@ -673,8 +713,30 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         await _db.SaveChangesAsync(cancellationToken);
 
         var participants = new List<AssemblyParticipant>();
+        if (activeHueEvent is not null)
+        {
+            foreach (var (rescuer, index) in standbyRescuers.Take(HueStadiumCheckedInStandbyRescuerCount).Select((rescuer, index) => (rescuer, index)))
+            {
+                participants.Add(new AssemblyParticipant
+                {
+                    AssemblyEventId = activeHueEvent.Id,
+                    RescuerId = rescuer.Id,
+                    Status = "CheckedIn",
+                    IsCheckedIn = true,
+                    CheckInTime = activeHueEvent.AssemblyDate.AddMinutes(5 + index * 2),
+                    IsCheckedOut = false,
+                    CheckOutTime = null
+                });
+            }
+        }
+
         foreach (var assemblyEvent in events)
         {
+            if (activeHueEvent is not null && assemblyEvent.Id == activeHueEvent.Id)
+            {
+                continue;
+            }
+
             for (var i = 0; i < 7; i++)
             {
                 var rescuer = deployableRescuers[(assemblyEvent.Id * 11 + i) % deployableRescuers.Count];

@@ -641,6 +641,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         [FromQuery] List<InventorySourceType>? sourceTypes,
         [FromQuery] DateOnly? fromDate,
         [FromQuery] DateOnly? toDate,
+        [FromQuery] string? search = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -665,6 +666,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             SourceTypes = sourceTypes,
             FromDate = fromDate,
             ToDate = toDate,
+            Search = search,
             PageNumber = pageNumber,
             PageSize = pageSize
         };

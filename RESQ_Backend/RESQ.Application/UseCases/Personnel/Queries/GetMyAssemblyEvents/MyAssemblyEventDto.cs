@@ -11,7 +11,10 @@ public class MyAssemblyEventDto
     public string? AssemblyPointImageUrl { get; set; }
     public double? AssemblyPointLatitude { get; set; }
     public double? AssemblyPointLongitude { get; set; }
+    /// <summary>Thời gian có mặt bắt buộc (giờ Việt Nam).</summary>
     public DateTime AssemblyDate { get; set; }
+    /// <summary>Hạn chốt check-in (có thể buffer sau AssemblyDate). Null nếu không đặt. Giờ Việt Nam.</summary>
+    public DateTime? CheckInDeadline { get; set; }
     public string EventStatus { get; set; } = string.Empty;
     public bool IsCheckedIn { get; set; }
     public DateTime? CheckInTime { get; set; }

@@ -188,6 +188,12 @@ public class DepotFundRepository : IDepotFundRepository
         int pageNumber,
         int pageSize,
         IReadOnlyCollection<DepotFundTransactionType>? transactionTypes = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate   = null,
+        decimal? minAmount = null,
+        decimal? maxAmount = null,
+        IReadOnlyCollection<DepotFundReferenceType>? referenceTypes = null,
+        string? search     = null,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.Set<DepotFundTransaction>()
@@ -197,6 +203,30 @@ public class DepotFundRepository : IDepotFundRepository
         {
             var typeNames = DepotFundTransactionTypeAlias.Expand(transactionTypes);
             query = query.Where(x => typeNames.Contains(x.TransactionType));
+        }
+
+        if (referenceTypes is { Count: > 0 })
+        {
+            var refNames = referenceTypes.Select(r => r.ToString()).ToList();
+            query = query.Where(x => x.ReferenceType != null && refNames.Contains(x.ReferenceType));
+        }
+
+        if (fromDate.HasValue)
+            query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) >= fromDate.Value);
+        if (toDate.HasValue)
+            query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) <= toDate.Value);
+        if (minAmount.HasValue)
+            query = query.Where(x => x.Amount >= minAmount.Value);
+        if (maxAmount.HasValue)
+            query = query.Where(x => x.Amount <= maxAmount.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(x =>
+                (x.Note != null && x.Note.ToLower().Contains(s))
+                || (x.ContributorName != null && x.ContributorName.ToLower().Contains(s))
+                || (x.ContributorPhoneNumber != null && x.ContributorPhoneNumber.ToLower().Contains(s))
+            );
         }
 
         query = query
@@ -219,6 +249,12 @@ public class DepotFundRepository : IDepotFundRepository
         int pageNumber,
         int pageSize,
         IReadOnlyCollection<DepotFundTransactionType>? transactionTypes = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate   = null,
+        decimal? minAmount = null,
+        decimal? maxAmount = null,
+        IReadOnlyCollection<DepotFundReferenceType>? referenceTypes = null,
+        string? search     = null,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.Set<DepotFundTransaction>()
@@ -228,6 +264,30 @@ public class DepotFundRepository : IDepotFundRepository
         {
             var typeNames = DepotFundTransactionTypeAlias.Expand(transactionTypes);
             query = query.Where(x => typeNames.Contains(x.TransactionType));
+        }
+
+        if (referenceTypes is { Count: > 0 })
+        {
+            var refNames = referenceTypes.Select(r => r.ToString()).ToList();
+            query = query.Where(x => x.ReferenceType != null && refNames.Contains(x.ReferenceType));
+        }
+
+        if (fromDate.HasValue)
+            query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) >= fromDate.Value);
+        if (toDate.HasValue)
+            query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) <= toDate.Value);
+        if (minAmount.HasValue)
+            query = query.Where(x => x.Amount >= minAmount.Value);
+        if (maxAmount.HasValue)
+            query = query.Where(x => x.Amount <= maxAmount.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(x =>
+                (x.Note != null && x.Note.ToLower().Contains(s))
+                || (x.ContributorName != null && x.ContributorName.ToLower().Contains(s))
+                || (x.ContributorPhoneNumber != null && x.ContributorPhoneNumber.ToLower().Contains(s))
+            );
         }
 
         query = query

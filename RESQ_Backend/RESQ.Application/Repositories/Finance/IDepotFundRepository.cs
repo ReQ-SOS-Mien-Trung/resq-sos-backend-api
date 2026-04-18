@@ -29,6 +29,12 @@ public interface IDepotFundRepository
         int pageNumber,
         int pageSize,
         IReadOnlyCollection<DepotFundTransactionType>? transactionTypes = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate   = null,
+        decimal? minAmount = null,
+        decimal? maxAmount = null,
+        IReadOnlyCollection<DepotFundReferenceType>? referenceTypes = null,
+        string? search     = null,
         CancellationToken cancellationToken = default);
 
     Task<PagedResult<DepotFundTransactionModel>> GetPagedTransactionsByFundIdAsync(
@@ -36,9 +42,19 @@ public interface IDepotFundRepository
         int pageNumber,
         int pageSize,
         IReadOnlyCollection<DepotFundTransactionType>? transactionTypes = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate   = null,
+        decimal? minAmount = null,
+        decimal? maxAmount = null,
+        IReadOnlyCollection<DepotFundReferenceType>? referenceTypes = null,
+        string? search     = null,
         CancellationToken cancellationToken = default);
 
-    Task<PagedResult<ContributorDebtModel>> GetPagedAdvancersByDepotIdAsync(int depotId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+    Task<PagedResult<ContributorDebtModel>> GetPagedAdvancersByDepotIdAsync(
+        int depotId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 
     Task<List<ContributorDebtModel>> GetContributorDebtsByDepotAsync(
         int depotId,

@@ -230,9 +230,13 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
         [FromQuery] int pageSize = 10,
         [FromQuery] List<TransactionType>?          types          = null,
         [FromQuery] List<TransactionDirection>?     directions     = null,
-        [FromQuery] List<TransactionReferenceType>? referenceTypes = null)
+        [FromQuery] List<TransactionReferenceType>? referenceTypes = null,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate   = null,
+        [FromQuery] decimal? minAmount = null,
+        [FromQuery] decimal? maxAmount = null)
     {
-        var query = new GetCampaignTransactionsQuery(id, pageNumber, pageSize, types, directions, referenceTypes);
+        var query = new GetCampaignTransactionsQuery(id, pageNumber, pageSize, types, directions, referenceTypes, fromDate, toDate, minAmount, maxAmount);
         var result = await _mediator.Send(query);
         return Ok(result);
     }

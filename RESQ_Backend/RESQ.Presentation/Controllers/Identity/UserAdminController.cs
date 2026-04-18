@@ -15,6 +15,7 @@ using RESQ.Application.UseCases.Identity.Queries.GetUsers;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuers;
 using RESQ.Application.UseCases.Identity.Queries.GetUsersForPermission;
 using RESQ.Application.UseCases.Identity.Commands.SetUserPermissions;
+using RESQ.Domain.Enum.Identity;
 
 namespace RESQ.Presentation.Controllers.Identity
 {
@@ -63,9 +64,10 @@ namespace RESQ.Presentation.Controllers.Identity
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] bool? isBanned = null,
-            [FromQuery] string? search = null)
+            [FromQuery] string? search = null,
+            [FromQuery] RescuerType? rescuerType = null)
         {
-            var query = new GetRescuersQuery(pageNumber, pageSize, isBanned, search);
+            var query = new GetRescuersQuery(pageNumber, pageSize, isBanned, search, rescuerType);
             var result = await _mediator.Send(query);
             return Ok(result);
         }

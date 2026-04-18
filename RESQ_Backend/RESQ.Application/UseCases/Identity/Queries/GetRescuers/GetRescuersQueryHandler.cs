@@ -24,6 +24,7 @@ public class GetRescuersQueryHandler(
             isBanned: request.IsBanned,
             search: request.Search,
             isEligible: true,
+            rescuerType: request.RescuerType,
             cancellationToken: cancellationToken);
 
         var minimumEvaluationCount = (await _rescuerScoreVisibilityConfigRepository.GetAsync(cancellationToken))?.MinimumEvaluationCount ?? 0;

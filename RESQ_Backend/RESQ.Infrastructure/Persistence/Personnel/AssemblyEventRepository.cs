@@ -34,7 +34,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             AssemblyPointId = assemblyPointId,
             AssemblyDate = assemblyDate,
             CheckInDeadline = checkInDeadline,
-            Status = AssemblyEventStatus.Gathering.ToString(),
+            Status = AssemblyEventStatus.Scheduled.ToString(),
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow
         };
@@ -334,6 +334,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 EventId = e.Id,
                 AssemblyPointId = e.AssemblyPointId,
                 AssemblyDate = e.AssemblyDate,
+                CheckInDeadline = e.CheckInDeadline,
                 Status = e.Status,
                 CreatedBy = e.CreatedBy,
                 CreatedAt = e.CreatedAt,
@@ -472,6 +473,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 x.Event.Id,
                 x.Event.AssemblyPointId,
                 x.Event.AssemblyDate,
+                x.Event.CheckInDeadline,
                 x.Event.Status,
                 x.Event.CreatedAt
             })
@@ -501,10 +503,11 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 AssemblyPointImageUrl = ap?.ImageUrl,
                 AssemblyPointLatitude = ap?.Location != null ? ap.Location.Y : null,
                 AssemblyPointLongitude = ap?.Location != null ? ap.Location.X : null,
-                AssemblyDate = x.AssemblyDate,
+                AssemblyDate = x.AssemblyDate.ToVietnamTime(),
+                CheckInDeadline = x.CheckInDeadline.HasValue ? x.CheckInDeadline.Value.ToVietnamTime() : null,
                 EventStatus = x.Status,
                 IsCheckedIn = x.IsCheckedIn && !x.IsCheckedOut,
-                CheckInTime = x.CheckInTime,
+                CheckInTime = x.CheckInTime.HasValue ? x.CheckInTime.Value.ToVietnamTime() : null,
                 CreatedAt = x.CreatedAt
             };
         }).ToList();
@@ -569,6 +572,19 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         }).ToList();
     }
 
+    public async Task<List<int>> GetScheduledEventsReadyForGatheringAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var scheduledStatus = AssemblyEventStatus.Scheduled.ToString();
+        var now = DateTime.UtcNow;
+
+        // Sự kiện Scheduled mà assemblyDate đã đến hoặc đã qua → nên chuyển sang Gathering
+        return await _unitOfWork.Set<AssemblyEvent>()
+            .Where(e => e.Status == scheduledStatus && e.AssemblyDate <= now)
+            .Select(e => e.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<List<int>> GetGatheringEventsWithExpiredDeadlineAsync(
         CancellationToken cancellationToken = default)
     {
@@ -576,11 +592,11 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         var absentStatus = AssemblyParticipantStatus.Absent.ToString();
         var now = DateTime.UtcNow;
 
-        // Sự kiện Gathering đã quá CheckInDeadline VÀ còn ít nhất 1 participant chưa check-in (không phải Absent)
+        // Sự kiện Gathering đã đến hoặc qua CheckInDeadline VÀ còn ít nhất 1 participant chưa check-in (không phải Absent)
         return await _unitOfWork.Set<AssemblyEvent>()
             .Where(e => e.Status == gatheringStatus
                         && e.CheckInDeadline.HasValue
-                        && e.CheckInDeadline.Value < now)
+                        && e.CheckInDeadline.Value <= now)
             .Where(e => e.Participants.Any(p => !p.IsCheckedIn && p.Status != absentStatus))
             .Select(e => e.Id)
             .ToListAsync(cancellationToken);
@@ -600,5 +616,33 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         }
 
         return participants.Count;
+    }
+
+    public async Task<List<int>> GetGatheringEventsExpiredAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var gatheringStatus = AssemblyEventStatus.Gathering.ToString();
+        var now = DateTime.UtcNow;
+
+        // Tất cả sự kiện Gathering đã qua CheckInDeadline → sẵn sàng Completed
+        return await _unitOfWork.Set<AssemblyEvent>()
+            .Where(e => e.Status == gatheringStatus
+                        && e.CheckInDeadline.HasValue
+                        && e.CheckInDeadline.Value <= now)
+            .Select(e => e.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task CompleteEventAsync(int eventId, CancellationToken cancellationToken = default)
+    {
+        var evt = await _unitOfWork.SetTracked<AssemblyEvent>()
+            .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken)
+            ?? throw new InvalidOperationException($"Không tìm thấy sự kiện tập trung id = {eventId}");
+
+        // Idempotent
+        if (evt.Status == AssemblyEventStatus.Completed.ToString()) return;
+
+        evt.Status = AssemblyEventStatus.Completed.ToString();
+        evt.UpdatedAt = DateTime.UtcNow;
     }
 }
