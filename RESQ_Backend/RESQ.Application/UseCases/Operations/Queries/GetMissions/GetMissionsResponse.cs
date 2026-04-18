@@ -4,6 +4,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Application.UseCases.Operations.Shared;
+using RESQ.Domain.Entities.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Queries.GetMissions;
 
@@ -137,6 +138,43 @@ internal static class MissionActivityDtoHelper
         if (string.IsNullOrWhiteSpace(itemsJson)) return null;
         try { return JsonSerializer.Deserialize<List<SupplyToCollectDto>>(itemsJson, JsonOpts); }
         catch { return null; }
+    }
+
+    internal static void EnrichSupplyExecutionContext(
+        IEnumerable<MissionActivityModel> sourceActivities,
+        IEnumerable<MissionActivityDto> activityDtos)
+    {
+        var sourceList = sourceActivities.ToList();
+        var sourceLookup = sourceList.ToDictionary(activity => activity.Id);
+
+        foreach (var dto in activityDtos)
+        {
+            if (!sourceLookup.TryGetValue(dto.Id, out var sourceActivity) || dto.SuppliesToCollect is null)
+                continue;
+
+            if (string.Equals(dto.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+            {
+                var balance = MissionSupplyCarriedBalanceHelper.CalculateBeforeActivity(sourceList, sourceActivity);
+                foreach (var supply in dto.SuppliesToCollect.Where(supply => supply.ItemId.HasValue))
+                {
+                    var itemId = supply.ItemId!.Value;
+                    var lots = balance.GetLots(itemId);
+                    var units = balance.GetReusableUnits(itemId);
+                    supply.AvailableDeliveryLotAllocations = lots.Count == 0 ? null : lots;
+                    supply.AvailableDeliveryReusableUnits = units.Count == 0 ? null : units;
+                }
+
+                continue;
+            }
+
+            if (string.Equals(dto.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+            {
+                dto.SuppliesToCollect = MissionSupplyCarriedBalanceHelper.BuildExpectedReturnSupplies(
+                    sourceActivity,
+                    sourceList,
+                    dto.SuppliesToCollect);
+            }
+        }
     }
 
     internal static Task EnrichSupplyImageUrlsAsync(

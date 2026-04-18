@@ -82,46 +82,21 @@ internal static class MissionSupplyExecutionSnapshotHelper
         if (returnActivity is null)
             return;
 
-        var expectedByItem = missionActivities
-            .Where(activity => activity.MissionTeamId == referenceActivity.MissionTeamId
-                && activity.DepotId == referenceActivity.DepotId
-                && string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(activity.Items))
-            .SelectMany(activity => DeserializeSupplies(activity.Items!))
-            .Where(supply => supply.ItemId.HasValue)
-            .GroupBy(supply => supply.ItemId!.Value)
-            .ToDictionary(
-                group => group.Key,
-                BuildExpectedReturnUnits);
-
         var returnSupplies = DeserializeSupplies(returnActivity.Items!);
-        var changed = false;
-        foreach (var supply in returnSupplies)
-        {
-            if (!supply.ItemId.HasValue)
-                continue;
+        var expectedReturnSupplies = MissionSupplyCarriedBalanceHelper.BuildExpectedReturnSupplies(
+            returnActivity,
+            missionActivities,
+            returnSupplies);
 
-            expectedByItem.TryGetValue(supply.ItemId.Value, out var expectedUnits);
-            expectedUnits ??= [];
-
-            var currentUnits = supply.ExpectedReturnUnits?
-                .OrderBy(unit => unit.ReusableItemId)
-                .ToList() ?? [];
-            if (!AreSameUnits(currentUnits, expectedUnits))
-            {
-                supply.ExpectedReturnUnits = expectedUnits.Count == 0 ? null : expectedUnits;
-                changed = true;
-            }
-        }
-
-        if (!changed)
+        var nextItemsJson = JsonSerializer.Serialize(expectedReturnSupplies);
+        if (string.Equals(returnActivity.Items, nextItemsJson, StringComparison.Ordinal))
             return;
 
-        returnActivity.Items = JsonSerializer.Serialize(returnSupplies);
+        returnActivity.Items = nextItemsJson;
         await activityRepository.UpdateAsync(returnActivity, cancellationToken);
 
         logger.LogInformation(
-            "Rebuilt expected return units for ReturnActivityId={ReturnActivityId} from collect activities of MissionTeamId={MissionTeamId} DepotId={DepotId}",
+            "Rebuilt expected return snapshot for ReturnActivityId={ReturnActivityId} from carried balance of MissionTeamId={MissionTeamId} DepotId={DepotId}",
             returnActivity.Id,
             referenceActivity.MissionTeamId,
             referenceActivity.DepotId);
@@ -248,9 +223,18 @@ internal static class MissionSupplyExecutionSnapshotHelper
                 continue;
 
             supply.ActualReturnedQuantity = executionItem.ActualQuantity;
+            supply.ReturnedLotAllocations = executionItem.ReturnedLotAllocations.Count == 0
+                ? null
+                : executionItem.ReturnedLotAllocations.Select(CloneLot).ToList();
+            supply.ExpectedReturnLotAllocations = executionItem.ExpectedReturnLotAllocations.Count == 0
+                ? supply.ExpectedReturnLotAllocations
+                : executionItem.ExpectedReturnLotAllocations.Select(CloneLot).ToList();
             supply.ReturnedReusableUnits = executionItem.ReturnedReusableUnits.Count == 0
                 ? null
                 : executionItem.ReturnedReusableUnits.Select(CloneReusableUnit).ToList();
+            supply.ExpectedReturnUnits = executionItem.ExpectedReusableUnits.Count == 0
+                ? supply.ExpectedReturnUnits
+                : executionItem.ExpectedReusableUnits.Select(CloneReusableUnit).ToList();
         }
     }
 

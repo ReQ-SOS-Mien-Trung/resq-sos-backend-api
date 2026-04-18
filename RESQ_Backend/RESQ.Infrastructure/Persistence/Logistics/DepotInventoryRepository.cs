@@ -1651,6 +1651,142 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         return result;
     }
 
+    public async Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnByLotAsync(
+        int depotId,
+        int missionId,
+        int activityId,
+        Guid performedBy,
+        List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)> consumableItems,
+        List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
+        List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+        string? discrepancyNote,
+        CancellationToken cancellationToken = default)
+    {
+        var lotBackedConsumables = consumableItems
+            .Where(item => item.Quantity > 0 && item.SupplyInventoryLotId.HasValue)
+            .GroupBy(item => (item.ItemModelId, item.SupplyInventoryLotId))
+            .Select(group => (
+                ItemModelId: group.Key.ItemModelId,
+                Quantity: group.Sum(item => item.Quantity),
+                SupplyInventoryLotId: group.Key.SupplyInventoryLotId!.Value))
+            .ToList();
+
+        var fallbackConsumables = consumableItems
+            .Where(item => item.Quantity > 0 && !item.SupplyInventoryLotId.HasValue)
+            .Select(item => (item.ItemModelId, item.Quantity, item.ExpiredDate))
+            .ToList();
+
+        if (lotBackedConsumables.Count == 0)
+        {
+            return await ReceiveMissionReturnAsync(
+                depotId,
+                missionId,
+                activityId,
+                performedBy,
+                fallbackConsumables,
+                reusableItems,
+                legacyReusableQuantities,
+                discrepancyNote,
+                cancellationToken);
+        }
+
+        var now = DateTime.UtcNow;
+        var result = new MissionSupplyReturnExecutionResult
+        {
+            UsedLegacyFallback = legacyReusableQuantities.Any(item => item.Quantity > 0),
+            DiscrepancyRecorded = !string.IsNullOrWhiteSpace(discrepancyNote)
+        };
+        var resultLookup = new Dictionary<int, MissionSupplyReturnExecutionItemDto>();
+
+        foreach (var item in lotBackedConsumables)
+        {
+            var lot = await _unitOfWork.SetTracked<SupplyInventoryLot>()
+                .Include(l => l.SupplyInventory)
+                    .ThenInclude(inventory => inventory.ItemModel)
+                .FirstOrDefaultAsync(l => l.Id == item.SupplyInventoryLotId, cancellationToken)
+                ?? throw new InvalidOperationException($"Không tìm thấy lot #{item.SupplyInventoryLotId}.");
+
+            var inventory = lot.SupplyInventory;
+            if (inventory.DepotId != depotId)
+                throw new InvalidOperationException($"Lot #{lot.Id} không thuộc kho #{depotId}.");
+
+            if (inventory.ItemModelId != item.ItemModelId)
+                throw new InvalidOperationException($"Lot #{lot.Id} không khớp item #{item.ItemModelId}.");
+
+            var itemModel = inventory.ItemModel
+                ?? throw new InvalidOperationException($"Lot #{lot.Id} không có metadata vật phẩm.");
+
+            lot.RemainingQuantity += item.Quantity;
+            inventory.Quantity = (inventory.Quantity ?? 0) + item.Quantity;
+            inventory.LastStockedAt = now;
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                DepotSupplyInventoryId = inventory.Id,
+                SupplyInventoryLotId = lot.Id,
+                ActionType = InventoryActionType.Return.ToString(),
+                QuantityChange = item.Quantity,
+                SourceType = InventorySourceType.Mission.ToString(),
+                SourceId = activityId,
+                MissionId = missionId,
+                PerformedBy = performedBy,
+                Note = BuildMissionReturnNote(
+                    $"Nhập lại {itemModel.Name} vào lô gốc #{lot.Id} từ activity #{activityId}, mission #{missionId}",
+                    discrepancyNote),
+                CreatedAt = now
+            });
+
+            var resultItem = GetOrCreateReturnResultItem(resultLookup, itemModel);
+            resultItem.ActualQuantity += item.Quantity;
+            resultItem.ReturnedLotAllocations.Add(new SupplyExecutionLotDto
+            {
+                LotId = lot.Id,
+                QuantityTaken = item.Quantity,
+                ReceivedDate = lot.ReceivedDate,
+                ExpiredDate = lot.ExpiredDate,
+                RemainingQuantityAfterExecution = lot.RemainingQuantity
+            });
+        }
+
+        await _unitOfWork.SaveAsync();
+
+        if (fallbackConsumables.Count > 0
+            || reusableItems.Any(item => item.ReusableItemId > 0)
+            || legacyReusableQuantities.Any(item => item.Quantity > 0))
+        {
+            var fallbackResult = await ReceiveMissionReturnAsync(
+                depotId,
+                missionId,
+                activityId,
+                performedBy,
+                fallbackConsumables,
+                reusableItems,
+                legacyReusableQuantities,
+                discrepancyNote,
+                cancellationToken);
+
+            result.UsedLegacyFallback |= fallbackResult.UsedLegacyFallback;
+            result.DiscrepancyRecorded |= fallbackResult.DiscrepancyRecorded;
+            foreach (var item in fallbackResult.Items)
+            {
+                if (!resultLookup.TryGetValue(item.ItemModelId, out var existing))
+                {
+                    resultLookup[item.ItemModelId] = item;
+                    continue;
+                }
+
+                existing.ActualQuantity += item.ActualQuantity;
+                existing.ReturnedLotAllocations.AddRange(item.ReturnedLotAllocations);
+                existing.ReturnedReusableUnits.AddRange(item.ReturnedReusableUnits);
+            }
+        }
+
+        result.Items = resultLookup.Values
+            .OrderBy(item => item.ItemModelId)
+            .ToList();
+        return result;
+    }
+
     private static string BuildMissionReturnNote(string baseNote, string? discrepancyNote)
     {
         if (string.IsNullOrWhiteSpace(discrepancyNote))

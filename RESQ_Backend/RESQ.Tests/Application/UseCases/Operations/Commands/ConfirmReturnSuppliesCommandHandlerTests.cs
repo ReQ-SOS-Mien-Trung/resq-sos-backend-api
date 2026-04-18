@@ -21,6 +21,153 @@ namespace RESQ.Tests.Application.UseCases.Operations.Commands;
 public class ConfirmReturnSuppliesCommandHandlerTests
 {
     [Fact]
+    public async Task Handle_ReturnsConsumableToExpectedLot_WhenLotAllocationsAreProvided()
+    {
+        const int activityId = 24;
+        const int missionId = 7;
+        const int depotId = 2;
+        const int itemId = 111;
+        const int lotId = 68;
+        var userId = Guid.NewGuid();
+
+        var expectedLot = new SupplyExecutionLotDto
+        {
+            LotId = lotId,
+            QuantityTaken = 5,
+            ReceivedDate = new DateTime(2026, 4, 13, 0, 0, 0, DateTimeKind.Utc),
+            ExpiredDate = new DateTime(2028, 4, 13, 0, 0, 0, DateTimeKind.Utc)
+        };
+
+        var activity = new MissionActivityModel
+        {
+            Id = activityId,
+            MissionId = missionId,
+            DepotId = depotId,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Thuoc huyet ap",
+                    Quantity = 5,
+                    Unit = "vien",
+                    ExpectedReturnLotAllocations = [expectedLot]
+                }
+            })
+        };
+
+        var activityRepository = new StubMissionActivityRepository(activity);
+        var depotInventoryRepository = new StubDepotInventoryRepository
+        {
+            ManagerDepotIds = [depotId],
+            ReturnResult = new MissionSupplyReturnExecutionResult
+            {
+                Items =
+                [
+                    new MissionSupplyReturnExecutionItemDto
+                    {
+                        ItemModelId = itemId,
+                        ItemName = "Thuoc huyet ap",
+                        Unit = "vien",
+                        ActualQuantity = 5,
+                        ReturnedLotAllocations = [expectedLot]
+                    }
+                ]
+            }
+        };
+        var metadataRepository = new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
+        {
+            [itemId] = new() { Id = itemId, Name = "Thuoc huyet ap", Unit = "vien", ItemType = "Consumable" }
+        });
+        var handler = new ConfirmReturnSuppliesCommandHandler(
+            activityRepository,
+            depotInventoryRepository,
+            metadataRepository,
+            new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+
+        var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
+            activityId,
+            missionId,
+            userId,
+            [
+                new ActualReturnedConsumableItemDto
+                {
+                    ItemModelId = itemId,
+                    Quantity = 5,
+                    LotAllocations = [expectedLot]
+                }
+            ],
+            [],
+            null), CancellationToken.None);
+
+        var received = Assert.Single(depotInventoryRepository.ReceivedConsumableItemsByLot);
+        var restoredItem = Assert.Single(response.RestoredItems);
+        var restoredExpectedLot = Assert.Single(restoredItem.ExpectedReturnLotAllocations);
+
+        Assert.False(response.DiscrepancyRecorded);
+        Assert.Equal(itemId, received.ItemModelId);
+        Assert.Equal(5, received.Quantity);
+        Assert.Equal(lotId, received.SupplyInventoryLotId);
+        Assert.Equal(5, restoredItem.ExpectedQuantity);
+        Assert.Equal(lotId, restoredExpectedLot.LotId);
+    }
+
+    [Fact]
+    public async Task Handle_RejectsConsumableQuantityFallback_WhenExpectedLotSnapshotExists()
+    {
+        const int activityId = 24;
+        const int missionId = 7;
+        const int depotId = 2;
+        const int itemId = 111;
+        var userId = Guid.NewGuid();
+
+        var activity = new MissionActivityModel
+        {
+            Id = activityId,
+            MissionId = missionId,
+            DepotId = depotId,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Thuoc huyet ap",
+                    Quantity = 5,
+                    Unit = "vien",
+                    ExpectedReturnLotAllocations =
+                    [
+                        new SupplyExecutionLotDto { LotId = 68, QuantityTaken = 5 }
+                    ]
+                }
+            })
+        };
+
+        var handler = new ConfirmReturnSuppliesCommandHandler(
+            new StubMissionActivityRepository(activity),
+            new StubDepotInventoryRepository { ManagerDepotIds = [depotId] },
+            new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
+            {
+                [itemId] = new() { Id = itemId, Name = "Thuoc huyet ap", Unit = "vien", ItemType = "Consumable" }
+            }),
+            new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+
+        var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
+            handler.Handle(new ConfirmReturnSuppliesCommand(
+                activityId,
+                missionId,
+                userId,
+                [new ActualReturnedConsumableItemDto { ItemModelId = itemId, Quantity = 5 }],
+                [],
+                null), CancellationToken.None));
+
+        Assert.Contains("xac nhan tra theo tung lot", RemoveDiacritics(ex.Message), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Handle_UsesExpectedReusableUnitCount_WhenQuantitySnapshotIsStale()
     {
         const int activityId = 23;
@@ -466,6 +613,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
     {
         public List<int> ManagerDepotIds { get; set; } = [];
         public MissionSupplyReturnExecutionResult ReturnResult { get; set; } = new();
+        public List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)> ReceivedConsumableItemsByLot { get; private set; } = [];
         public List<(int ReusableItemId, string? Condition, string? Note)> ReceivedReusableItems { get; private set; } = [];
         public Func<Exception>? ExceptionFactory { get; set; }
 
@@ -520,6 +668,21 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             if (ExceptionFactory is not null)
                 throw ExceptionFactory();
 
+            ReceivedReusableItems = reusableItems;
+            return Task.FromResult(ReturnResult);
+        }
+
+        public Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnByLotAsync(int depotId, int missionId, int activityId, Guid performedBy,
+            List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)> consumableItems,
+            List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
+            List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+            string? discrepancyNote,
+            CancellationToken cancellationToken = default)
+        {
+            if (ExceptionFactory is not null)
+                throw ExceptionFactory();
+
+            ReceivedConsumableItemsByLot = consumableItems;
             ReceivedReusableItems = reusableItems;
             return Task.FromResult(ReturnResult);
         }

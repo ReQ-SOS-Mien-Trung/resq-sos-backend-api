@@ -87,6 +87,8 @@ public class ConfirmReturnSuppliesCommandHandler(
         var itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(itemIds, cancellationToken);
 
         var plannedConsumableQuantities = new Dictionary<int, int>();
+        var expectedConsumableLotsByItem = new Dictionary<int, List<SupplyExecutionLotDto>>();
+        var expectedConsumableLotIdsByItem = new Dictionary<int, HashSet<int>>();
         var plannedReusableQuantities = new Dictionary<int, int>();
         var expectedReusableUnitsByItem = new Dictionary<int, List<SupplyExecutionReusableUnitDto>>();
         var expectedReusableUnitById = new Dictionary<int, SupplyExecutionReusableUnitDto>();
@@ -121,25 +123,118 @@ public class ConfirmReturnSuppliesCommandHandler(
             }
             else
             {
-                plannedConsumableQuantities[itemId] = item.Quantity;
+                var expectedLots = item.ExpectedReturnLotAllocations?
+                    .Where(lot => lot.LotId > 0 && lot.QuantityTaken > 0)
+                    .GroupBy(lot => lot.LotId)
+                    .Select(group =>
+                    {
+                        var first = group.First();
+                        return new SupplyExecutionLotDto
+                        {
+                            LotId = group.Key,
+                            QuantityTaken = group.Sum(lot => lot.QuantityTaken),
+                            ReceivedDate = first.ReceivedDate,
+                            ExpiredDate = first.ExpiredDate,
+                            RemainingQuantityAfterExecution = first.RemainingQuantityAfterExecution
+                        };
+                    })
+                    .OrderBy(lot => lot.ExpiredDate ?? DateTime.MaxValue)
+                    .ThenBy(lot => lot.ReceivedDate ?? DateTime.MaxValue)
+                    .ThenBy(lot => lot.LotId)
+                    .ToList() ?? [];
+
+                if (expectedLots.Count > 0)
+                {
+                    expectedConsumableLotsByItem[itemId] = expectedLots;
+                    expectedConsumableLotIdsByItem[itemId] = expectedLots
+                        .Select(lot => lot.LotId)
+                        .ToHashSet();
+                    plannedConsumableQuantities[itemId] = expectedLots.Sum(lot => lot.QuantityTaken);
+                }
+                else
+                {
+                    plannedConsumableQuantities[itemId] = item.Quantity;
+                }
             }
         }
 
         var hasExpectedReusableSnapshot = expectedReusableUnitById.Count > 0;
-        var actualConsumables = consumableItems
-            .Where(item => item.Quantity > 0)
-            .GroupBy(item => item.ItemModelId)
-            .Select(group => new ActualReturnedConsumableItemDto
-            {
-                ItemModelId = group.Key,
-                Quantity = group.Sum(item => item.Quantity)
-            })
-            .ToList();
+        var actualConsumables = new List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)>();
+        var actualConsumableQuantities = new Dictionary<int, int>();
+        var actualConsumableLotQuantities = new Dictionary<(int ItemModelId, int LotId), int>();
 
-        foreach (var actualConsumable in actualConsumables)
+        foreach (var consumableItem in consumableItems)
         {
-            if (!plannedConsumableQuantities.ContainsKey(actualConsumable.ItemModelId))
-                throw new BadRequestException($"Item consumable #{actualConsumable.ItemModelId} không thuộc kế hoạch RETURN_SUPPLIES này.");
+            if (!plannedConsumableQuantities.ContainsKey(consumableItem.ItemModelId))
+                throw new BadRequestException($"Item consumable #{consumableItem.ItemModelId} không thuộc kế hoạch RETURN_SUPPLIES này.");
+
+            if (consumableItem.Quantity < 0)
+                throw new BadRequestException($"Số lượng consumable trả về cho item #{consumableItem.ItemModelId} không hợp lệ.");
+
+            var requestedLots = (consumableItem.LotAllocations ?? [])
+                .Where(lot => lot.QuantityTaken > 0)
+                .ToList();
+            var requiresLotReturn = expectedConsumableLotsByItem.ContainsKey(consumableItem.ItemModelId);
+
+            if (requestedLots.Count > 0)
+            {
+                var lotQuantity = requestedLots.Sum(lot => lot.QuantityTaken);
+                if (consumableItem.Quantity > 0 && consumableItem.Quantity != lotQuantity)
+                    throw new BadRequestException(
+                        $"Item consumable #{consumableItem.ItemModelId}: quantity không khớp tổng số lượng lotAllocations.");
+
+                foreach (var requestedLot in requestedLots)
+                {
+                    if (requestedLot.LotId <= 0)
+                        throw new BadRequestException($"Item consumable #{consumableItem.ItemModelId}: lotId không hợp lệ.");
+
+                    if (requiresLotReturn
+                        && !expectedConsumableLotIdsByItem[consumableItem.ItemModelId].Contains(requestedLot.LotId))
+                    {
+                        throw new BadRequestException(
+                            $"Lot #{requestedLot.LotId} không nằm trong danh sách expected return của item #{consumableItem.ItemModelId}.");
+                    }
+
+                    actualConsumables.Add((
+                        consumableItem.ItemModelId,
+                        requestedLot.QuantityTaken,
+                        requestedLot.ExpiredDate,
+                        requestedLot.LotId));
+                    actualConsumableQuantities[consumableItem.ItemModelId] =
+                        actualConsumableQuantities.GetValueOrDefault(consumableItem.ItemModelId) + requestedLot.QuantityTaken;
+
+                    var lotKey = (consumableItem.ItemModelId, requestedLot.LotId);
+                    actualConsumableLotQuantities[lotKey] =
+                        actualConsumableLotQuantities.GetValueOrDefault(lotKey) + requestedLot.QuantityTaken;
+                }
+            }
+            else if (consumableItem.Quantity > 0)
+            {
+                if (requiresLotReturn)
+                    throw new BadRequestException(
+                        $"Item consumable #{consumableItem.ItemModelId}: mission này yêu cầu xác nhận trả theo từng lot, không cho quantity fallback.");
+
+                actualConsumables.Add((
+                    consumableItem.ItemModelId,
+                    consumableItem.Quantity,
+                    consumableItem.ExpiredDate,
+                    null));
+                actualConsumableQuantities[consumableItem.ItemModelId] =
+                    actualConsumableQuantities.GetValueOrDefault(consumableItem.ItemModelId) + consumableItem.Quantity;
+            }
+        }
+
+        foreach (var expectedLots in expectedConsumableLotsByItem)
+        {
+            foreach (var expectedLot in expectedLots.Value)
+            {
+                var actualLotQuantity = actualConsumableLotQuantities.GetValueOrDefault((expectedLots.Key, expectedLot.LotId));
+                if (actualLotQuantity > expectedLot.QuantityTaken)
+                {
+                    throw new BadRequestException(
+                        $"Lot #{expectedLot.LotId} của item #{expectedLots.Key} trả về vượt số lượng expected return ({actualLotQuantity}/{expectedLot.QuantityTaken}).");
+                }
+            }
         }
 
         var explicitReusableItems = new List<(int ReusableItemId, string? Condition, string? Note)>();
@@ -201,9 +296,7 @@ public class ConfirmReturnSuppliesCommandHandler(
 
         foreach (var plannedConsumable in plannedConsumableQuantities)
         {
-            var actualQuantity = actualConsumables
-                .FirstOrDefault(item => item.ItemModelId == plannedConsumable.Key)
-                ?.Quantity ?? 0;
+            var actualQuantity = actualConsumableQuantities.GetValueOrDefault(plannedConsumable.Key);
             if (actualQuantity != plannedConsumable.Value)
             {
                 discrepancyDetected = true;
@@ -230,12 +323,12 @@ public class ConfirmReturnSuppliesCommandHandler(
         MissionSupplyReturnExecutionResult executionResult;
         try
         {
-            executionResult = await _depotInventoryRepository.ReceiveMissionReturnAsync(
+            executionResult = await _depotInventoryRepository.ReceiveMissionReturnByLotAsync(
                 depotId,
                 missionId,
                 request.ActivityId,
                 request.ConfirmedBy,
-                actualConsumables.Select(item => (item.ItemModelId, item.Quantity, item.ExpiredDate)).ToList(),
+                actualConsumables,
                 explicitReusableItems,
                 legacyReusableQuantities,
                 request.DiscrepancyNote,
@@ -308,14 +401,23 @@ public class ConfirmReturnSuppliesCommandHandler(
                 .Select(CloneReusableUnit)
                 .OrderBy(unit => unit.ReusableItemId)
                 .ToList() ?? [];
+            var expectedReturnLots = plannedItem.ExpectedReturnLotAllocations?
+                .Select(CloneLot)
+                .OrderBy(lot => lot.ExpiredDate ?? DateTime.MaxValue)
+                .ThenBy(lot => lot.ReceivedDate ?? DateTime.MaxValue)
+                .ThenBy(lot => lot.LotId)
+                .ToList() ?? [];
 
-            resultItem.ExpectedQuantity = expectedReusableUnits.Count > 0
+            resultItem.ExpectedQuantity = expectedReturnLots.Count > 0
+                ? expectedReturnLots.Sum(lot => lot.QuantityTaken)
+                : expectedReusableUnits.Count > 0
                 ? expectedReusableUnits.Count
                 : plannedItem.Quantity;
             resultItem.ItemName = string.IsNullOrWhiteSpace(resultItem.ItemName)
                 ? plannedItem.ItemName
                 : resultItem.ItemName;
             resultItem.Unit ??= plannedItem.Unit;
+            resultItem.ExpectedReturnLotAllocations = expectedReturnLots;
             resultItem.ExpectedReusableUnits = expectedReusableUnits;
         }
 
@@ -334,5 +436,14 @@ public class ConfirmReturnSuppliesCommandHandler(
         ItemName = unit.ItemName,
         SerialNumber = unit.SerialNumber,
         Condition = unit.Condition
+    };
+
+    private static SupplyExecutionLotDto CloneLot(SupplyExecutionLotDto lot) => new()
+    {
+        LotId = lot.LotId,
+        QuantityTaken = lot.QuantityTaken,
+        ReceivedDate = lot.ReceivedDate,
+        ExpiredDate = lot.ExpiredDate,
+        RemainingQuantityAfterExecution = lot.RemainingQuantityAfterExecution
     };
 }

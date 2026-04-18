@@ -20,6 +20,196 @@ using RESQ.Tests.TestDoubles;
 public class ConfirmDeliverySuppliesCommandHandlerTests
 {
     [Fact]
+    public async Task Handle_DeliversConsumableByLot_AndRefreshesReturnWithRemainingLotBalance()
+    {
+        const int missionId = 7;
+        const int depotId = 3;
+        const int missionTeamId = 6;
+        const int collectActivityId = 16;
+        const int deliverActivityId = 17;
+        const int returnActivityId = 18;
+        const int riceItemId = 1;
+        const int lotId = 501;
+        var userId = Guid.NewGuid();
+
+        var collectActivity = new MissionActivityModel
+        {
+            Id = collectActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            Step = 1,
+            ActivityType = "COLLECT_SUPPLIES",
+            Status = MissionActivityStatus.Succeed,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = riceItemId,
+                    ItemName = "Gao",
+                    Quantity = 10,
+                    Unit = "kg",
+                    PickupLotAllocations =
+                    [
+                        new SupplyExecutionLotDto
+                        {
+                            LotId = lotId,
+                            QuantityTaken = 10,
+                            ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc)
+                        }
+                    ]
+                }
+            })
+        };
+
+        var deliverActivity = new MissionActivityModel
+        {
+            Id = deliverActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            Step = 2,
+            ActivityType = "DELIVER_SUPPLIES",
+            Status = MissionActivityStatus.OnGoing,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new() { ItemId = riceItemId, ItemName = "Gao", Quantity = 8, Unit = "kg" }
+            })
+        };
+
+        var returnActivity = new MissionActivityModel
+        {
+            Id = returnActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            Step = 3,
+            ActivityType = "RETURN_SUPPLIES",
+            Description = "Hoan tat nhiem vu, tra vat pham ve kho.",
+            Status = MissionActivityStatus.Planned,
+            Items = "[]"
+        };
+
+        var activityRepository = new StubMissionActivityRepository([collectActivity, deliverActivity, returnActivity]);
+        var handler = CreateHandler(
+            activityRepository,
+            new Dictionary<int, ItemModelRecord>
+            {
+                [riceItemId] = new() { Id = riceItemId, Name = "Gao", Unit = "kg", ItemType = "Consumable" }
+            });
+
+        var response = await handler.Handle(new ConfirmDeliverySuppliesCommand(
+            deliverActivityId,
+            missionId,
+            userId,
+            [
+                new ActualDeliveredItemDto
+                {
+                    ItemId = riceItemId,
+                    ActualQuantity = 3,
+                    LotAllocations =
+                    [
+                        new SupplyExecutionLotDto { LotId = lotId, QuantityTaken = 3 }
+                    ]
+                }
+            ],
+            null), CancellationToken.None);
+
+        var deliveredItem = Assert.Single(response.DeliveredItems);
+        var deliveredLot = Assert.Single(deliveredItem.DeliveredLotAllocations);
+        var returnItem = Assert.Single(DeserializeSupplies(returnActivity.Items!));
+        var expectedReturnLot = Assert.Single(returnItem.ExpectedReturnLotAllocations!);
+
+        Assert.Equal(returnActivityId, response.SurplusReturnActivityId);
+        Assert.Equal(lotId, deliveredLot.LotId);
+        Assert.Equal(3, deliveredLot.QuantityTaken);
+        Assert.Equal(riceItemId, returnItem.ItemId);
+        Assert.Equal(7, returnItem.Quantity);
+        Assert.Equal(lotId, expectedReturnLot.LotId);
+        Assert.Equal(7, expectedReturnLot.QuantityTaken);
+    }
+
+    [Fact]
+    public async Task Handle_RejectsLotDelivery_WhenQuantityExceedsCarriedLotBalance()
+    {
+        const int missionId = 7;
+        const int depotId = 3;
+        const int missionTeamId = 6;
+        const int collectActivityId = 16;
+        const int deliverActivityId = 17;
+        const int riceItemId = 1;
+        const int lotId = 501;
+        var userId = Guid.NewGuid();
+
+        var collectActivity = new MissionActivityModel
+        {
+            Id = collectActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            Step = 1,
+            ActivityType = "COLLECT_SUPPLIES",
+            Status = MissionActivityStatus.Succeed,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = riceItemId,
+                    ItemName = "Gao",
+                    Quantity = 5,
+                    Unit = "kg",
+                    PickupLotAllocations =
+                    [
+                        new SupplyExecutionLotDto { LotId = lotId, QuantityTaken = 5 }
+                    ]
+                }
+            })
+        };
+
+        var deliverActivity = new MissionActivityModel
+        {
+            Id = deliverActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            Step = 2,
+            ActivityType = "DELIVER_SUPPLIES",
+            Status = MissionActivityStatus.OnGoing,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new() { ItemId = riceItemId, ItemName = "Gao", Quantity = 10, Unit = "kg" }
+            })
+        };
+
+        var handler = CreateHandler(
+            new StubMissionActivityRepository([collectActivity, deliverActivity]),
+            new Dictionary<int, ItemModelRecord>
+            {
+                [riceItemId] = new() { Id = riceItemId, Name = "Gao", Unit = "kg", ItemType = "Consumable" }
+            });
+
+        var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
+            handler.Handle(new ConfirmDeliverySuppliesCommand(
+                deliverActivityId,
+                missionId,
+                userId,
+                [
+                    new ActualDeliveredItemDto
+                    {
+                        ItemId = riceItemId,
+                        ActualQuantity = 6,
+                        LotAllocations =
+                        [
+                            new SupplyExecutionLotDto { LotId = lotId, QuantityTaken = 6 }
+                        ]
+                    }
+                ],
+                null), CancellationToken.None));
+
+        Assert.Contains("vuot qua so dang mang theo", ex.Message);
+    }
+
+    [Fact]
     public async Task Handle_MergesConsumableSurplusIntoExistingReturnActivity()
     {
         const int missionId = 7;

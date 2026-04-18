@@ -61,6 +61,7 @@ public class GetMyTeamActivitiesQueryHandler(
                 CompletedBy = a.CompletedBy
             }).ToList();
 
+        MissionActivityDtoHelper.EnrichSupplyExecutionContext(activities, result);
         await MissionActivityDtoHelper.EnrichSupplyImageUrlsAsync(result, _itemModelMetadataRepository, cancellationToken);
 
         return result;
