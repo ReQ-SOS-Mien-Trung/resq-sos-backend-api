@@ -134,35 +134,27 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         var disbandedStatus = RescueTeamStatus.Disbanded.ToString().ToLower();
         var acceptedStatus = TeamMemberStatus.Accepted.ToString().ToLower();
 
-        // 1. Lấy tất cả đội (chưa Disbanded) thuộc điểm tập kết
-        var teams = await unitOfWork.GetRepository<RescueTeam>().GetAllByPropertyAsync(
-            filter: t => t.AssemblyPointId == assemblyPointId && t.Status!.ToLower() != disbandedStatus
-        );
+        // Subquery: active team IDs thuộc assembly point này
+        var activeTeamIds = unitOfWork.GetRepository<RescueTeam>().AsQueryable()
+            .Where(t => t.AssemblyPointId == assemblyPointId && t.Status!.ToLower() != disbandedStatus)
+            .Select(t => t.Id);
 
-        var teamIds = teams.Select(t => t.Id).ToList();
-
-        if (teamIds.Count == 0)
-            return new PagedResult<FreeRescuerModel>([], 0, pageNumber, pageSize);
-
-        // 2. Lấy các member đã Accepted trong những đội đó, kèm thông tin User
-        var members = await unitOfWork.GetRepository<RescueTeamMember>().GetAllByPropertyAsync(
-            filter: m => teamIds.Contains(m.TeamId) && m.Status.ToLower() == acceptedStatus,
-            includeProperties: "User,User.RescuerProfile"
-        );
-
-        // 3. Deduplicate theo UserId (một user có thể trong nhiều đội)
-        var users = members
-            .Where(m => m.User != null)
-            .Select(m => m.User!)
-            .GroupBy(u => u.Id)
+        // Query distinct users từ DB (deduplicate bằng GroupBy trên DB)
+        var query = unitOfWork.GetRepository<RescueTeamMember>().AsQueryable()
+            .Where(m => activeTeamIds.Contains(m.TeamId) && m.Status.ToLower() == acceptedStatus && m.User != null)
+            .GroupBy(m => m.UserId)
             .Select(g => g.First())
-            .ToList();
+            .Include(m => m.User)
+                .ThenInclude(u => u!.RescuerProfile)
+            .Select(m => m.User!);
 
-        var totalCount = users.Count;
-        var pagedUsers = users
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var pagedUsers = await query
+            .OrderBy(u => u.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .ToList();
+            .ToListAsync(cancellationToken);
 
         var models = pagedUsers.Select(FreeRescuerMapper.ToModel).ToList();
 
