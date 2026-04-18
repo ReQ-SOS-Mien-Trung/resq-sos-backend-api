@@ -24,8 +24,9 @@ namespace RESQ.Infrastructure.Persistence.Seeding;
 public sealed class DatabaseSeeder : IDatabaseSeeder
 {
     private const string MarkerName = "demo-seed-v1-2026-04-16";
-    private const int TotalRescuerCount = 120;
-    private const int UnassignedRescuerCount = 20;
+    private const int TotalRescuerCount = 140;
+    private const int RecentRescuerCount = 20;
+    private const int UnassignedRescuerCount = 40;
     private const int EligibleAssignedRescuerCount = 78;
     private const int HueStadiumUnclusteredSosCount = 10;
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
@@ -476,7 +477,18 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         for (var i = 0; i < TotalRescuerCount; i++)
         {
             var name = VietnameseName(i + 40);
-            users.Add(CreateUser($"rescuer{i + 1:000}", 3, i + 1, name.Last, name.First, SeedConstants.RescuerPasswordHash, Area(i), seed));
+            var rescuerNumber = i + 1;
+            var user = CreateUser($"rescuer{rescuerNumber:000}", 3, rescuerNumber, name.Last, name.First, SeedConstants.RescuerPasswordHash, Area(i), seed);
+            if (IsRecentRescuerNumber(rescuerNumber))
+            {
+                var recentIndex = RecentRescuerIndex(rescuerNumber);
+                var createdAt = RecentRescuerCreatedAt(seed, recentIndex);
+                user.CreatedAt = createdAt;
+                user.UpdatedAt = createdAt.AddHours(8 + recentIndex % 18);
+                user.IsEmailVerified = true;
+            }
+
+            users.Add(user);
         }
 
         for (var i = 0; i < 140; i++)
@@ -578,7 +590,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             IsEligibleRescuer = index < EligibleAssignedRescuerCount || standbyRescuerIds.Contains(user.Id),
             Step = index < EligibleAssignedRescuerCount || standbyRescuerIds.Contains(user.Id) ? 5 : 4,
             ApprovedBy = seed.Admins[0].Id,
-            ApprovedAt = seed.StartUtc.AddDays(20 + index)
+            ApprovedAt = IsRecentRescuerNumber(index + 1)
+                ? RecentRescuerApprovedAt(seed, user.CreatedAt, RecentRescuerIndex(index + 1))
+                : seed.StartUtc.AddDays(20 + index)
         }).ToList();
 
         _db.RescuerProfiles.AddRange(profiles);
@@ -1816,17 +1830,37 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             CreatedAt = donation.PaidAt ?? donation.CreatedAt
         }));
 
+        var depotFundCounts = new[] { 3, 2, 1, 3, 2, 1, 1 };
+        var depotFundBalanceRatios = new[]
+        {
+            new[] { 0.50m, 0.30m, 0.20m },
+            new[] { 0.65m, 0.35m },
+            new[] { 1.00m }
+        };
         foreach (var depot in seed.Depots)
         {
-            var fund = new DepotFund
+            var fundCount = depotFundCounts[(depot.Id - 1) % depotFundCounts.Length];
+            var ratios = depotFundBalanceRatios[fundCount == 3 ? 0 : fundCount == 2 ? 1 : 2];
+            var totalDepotBalance = 85_000_000 + depot.Id * 12_000_000;
+
+            for (var fundIndex = 0; fundIndex < fundCount; fundIndex++)
             {
-                DepotId = depot.Id,
-                Balance = 85_000_000 + depot.Id * 12_000_000,
-                LastUpdatedAt = seed.AnchorUtc,
-                FundSourceType = "Campaign",
-                FundSourceId = seed.FundCampaigns[depot.Id % seed.FundCampaigns.Count].Id
-            };
-            _db.DepotFunds.Add(fund);
+                var fundSourceType = fundIndex == 1
+                    ? FundSourceType.SystemFund.ToString()
+                    : FundSourceType.Campaign.ToString();
+                var fundSourceId = fundSourceType == FundSourceType.SystemFund.ToString()
+                    ? systemFund.Id
+                    : seed.FundCampaigns[(depot.Id + fundIndex) % seed.FundCampaigns.Count].Id;
+
+                _db.DepotFunds.Add(new DepotFund
+                {
+                    DepotId = depot.Id,
+                    Balance = decimal.Round(totalDepotBalance * ratios[fundIndex], 0, MidpointRounding.AwayFromZero),
+                    LastUpdatedAt = seed.AnchorUtc.AddHours(-fundIndex),
+                    FundSourceType = fundSourceType,
+                    FundSourceId = fundSourceId
+                });
+            }
         }
         await _db.SaveChangesAsync(cancellationToken);
         var depotFunds = await _db.DepotFunds.OrderBy(f => f.Id).ToListAsync(cancellationToken);
@@ -1971,16 +2005,36 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         foreach (var fund in depotFunds)
         {
-            for (var i = 0; i < 12; i++)
+            for (var i = 0; i < 10; i++)
             {
+                var transactionType = (i % 5) switch
+                {
+                    0 => DepotFundTransactionType.Allocation.ToString(),
+                    1 => DepotFundTransactionType.Deduction.ToString(),
+                    2 => DepotFundTransactionType.PersonalAdvance.ToString(),
+                    3 => DepotFundTransactionType.AdvanceRepayment.ToString(),
+                    _ => DepotFundTransactionType.Refund.ToString()
+                };
+
                 _db.DepotFundTransactions.Add(new DepotFundTransaction
                 {
                     DepotFundId = fund.Id,
-                    TransactionType = i % 3 == 0 ? "Expense" : "Income",
-                    Amount = 2_000_000 + i * 750_000,
-                    ReferenceType = i % 3 == 0 ? "VatInvoice" : "CampaignDisbursement",
+                    TransactionType = transactionType,
+                    Amount = 1_500_000 + fund.Id * 180_000 + i * 650_000,
+                    ReferenceType = transactionType == DepotFundTransactionType.Deduction.ToString()
+                        ? "VatInvoice"
+                        : transactionType == DepotFundTransactionType.Allocation.ToString()
+                            ? "CampaignDisbursement"
+                            : "DepotFundAllocation",
                     ReferenceId = i + 1,
-                    Note = i % 3 == 0 ? "Mua bổ sung hàng cứu trợ" : "Nhận giải ngân chiến dịch",
+                    Note = transactionType switch
+                    {
+                        "Deduction" => "Thanh toán mua bổ sung hàng cứu trợ từ quỹ kho",
+                        "PersonalAdvance" => "Cá nhân ứng trước cho kho khi cần nhập hàng nhanh",
+                        "AdvanceRepayment" => "Kho hoàn trả một phần tiền ứng cá nhân",
+                        "Refund" => "Hoàn quỹ sau đối soát chi phí",
+                        _ => "Nhận giải ngân vào quỹ kho"
+                    },
                     CreatedBy = seed.Managers[i % seed.Managers.Count].Id,
                     CreatedAt = seed.StartUtc.AddDays(220 + fund.Id * 3 + i)
                 });
@@ -2548,6 +2602,35 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             UpdatedAt = seed.AnchorUtc.AddDays(-(number % 60)),
             IsBanned = false
         };
+    }
+
+    private static bool IsRecentRescuerNumber(int number) =>
+        number > TotalRescuerCount - RecentRescuerCount;
+
+    private static int RecentRescuerIndex(int number) =>
+        number - (TotalRescuerCount - RecentRescuerCount) - 1;
+
+    private static DateTime RecentRescuerCreatedAt(DemoSeedContext seed, int recentIndex)
+    {
+        var anchorVietnamDate = seed.AnchorUtc.AddHours(7).Date;
+        var dayOffset = -29 + recentIndex * 27 / Math.Max(1, RecentRescuerCount - 1);
+        var localCreatedAt = anchorVietnamDate
+            .AddDays(dayOffset)
+            .AddHours(8 + recentIndex % 10)
+            .AddMinutes(recentIndex * 17 % 60);
+
+        return VnToUtc(localCreatedAt);
+    }
+
+    private static DateTime RecentRescuerApprovedAt(DemoSeedContext seed, DateTime? createdAt, int recentIndex)
+    {
+        var approvedAt = (createdAt ?? RecentRescuerCreatedAt(seed, recentIndex))
+            .AddDays(1 + recentIndex % 3)
+            .AddHours(2);
+
+        return approvedAt <= seed.AnchorUtc
+            ? approvedAt
+            : seed.AnchorUtc.AddHours(-(recentIndex % 12 + 1));
     }
 
     private static string Phone(int roleId, int number)

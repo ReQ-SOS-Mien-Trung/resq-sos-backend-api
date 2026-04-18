@@ -30,7 +30,7 @@ public class DatabaseSeederTests
 
         Assert.Equal(firstCounts, secondCounts);
         Assert.Empty(validationErrors);
-        Assert.Equal(274, firstCounts.Users);
+        Assert.Equal(294, firstCounts.Users);
         Assert.Equal(360, firstCounts.SosRequests);
         Assert.Equal(110, firstCounts.SosClusters);
         Assert.Equal(100, firstCounts.Missions);
@@ -54,12 +54,31 @@ public class DatabaseSeederTests
             .Select(profile => profile.UserId)
             .ToListAsync();
 
-        Assert.Equal(120, await context.Users.CountAsync(u => u.RoleId == 3));
-        Assert.Equal(10, unassignedRescuers.Count);
+        Assert.Equal(140, await context.Users.CountAsync(u => u.RoleId == 3));
+        Assert.Equal(30, unassignedRescuers.Count);
         foreach (var rescuer in unassignedRescuers)
         {
             Assert.Contains(rescuer.Id, eligibleRescuerIds);
         }
+
+        var recentRescuerCutoff = new DateTime(2026, 3, 16, 0, 0, 0, DateTimeKind.Utc);
+        var seedAnchorUtc = new DateTime(2026, 4, 16, 16, 59, 59, DateTimeKind.Utc);
+        var recentRescuers = await context.Users
+            .Where(u => u.RoleId == 3 && u.CreatedAt >= recentRescuerCutoff && u.CreatedAt <= seedAnchorUtc)
+            .OrderBy(u => u.CreatedAt)
+            .ToListAsync();
+        var recentRescuerIds = recentRescuers.Select(u => u.Id).ToList();
+        Assert.Equal(20, recentRescuers.Count);
+        Assert.True(recentRescuers.Select(u => DateOnly.FromDateTime(u.CreatedAt!.Value)).Distinct().Count() >= 10);
+        Assert.True(recentRescuers.Select(u => u.Province).Distinct().Count() >= 5);
+        Assert.Equal(
+            20,
+            await context.RescuerProfiles.CountAsync(profile =>
+                recentRescuerIds.Contains(profile.UserId)
+                && profile.IsEligibleRescuer
+                && profile.Step == 5
+                && profile.ApprovedAt >= recentRescuerCutoff
+                && profile.ApprovedAt <= seedAnchorUtc));
 
         var duplicateRescuerIdsAcrossNonDisbandedTeams = await context.RescueTeamMembers
             .Where(member => member.Team != null && member.Team.Status != "Disbanded")
@@ -158,6 +177,18 @@ public class DatabaseSeederTests
             .Where(request => request.SourceStatus != "Completed" || request.RequestingStatus != "Received")
             .ToListAsync();
         Assert.Empty(incompleteRequestsForOtherDepots);
+
+        var depotFundCounts = await context.DepotFunds
+            .GroupBy(fund => fund.DepotId)
+            .OrderBy(group => group.Key)
+            .Select(group => group.Count())
+            .ToListAsync();
+        Assert.Equal(new[] { 3, 2, 1, 3, 2, 1, 1 }, depotFundCounts);
+        Assert.All(
+            await context.DepotFunds.ToListAsync(),
+            fund => Assert.True(
+                context.DepotFundTransactions.Any(transaction => transaction.DepotFundId == fund.Id),
+                $"Expected depot fund #{fund.Id} to have transactions."));
 
         var unclusteredHueSos = await context.SosRequests
             .Where(s => s.ClusterId == null && s.Location != null)
