@@ -83,7 +83,8 @@ public class GetMyReturnHistoryActivitiesQueryHandler(
         Unit = item.Unit,
         ActualReturnedQuantity = item.ActualReturnedQuantity,
         ExpectedReturnUnits = item.ExpectedReturnUnits.Select(CloneUnit).ToList(),
-        ReturnedReusableUnits = item.ReturnedReusableUnits.Select(CloneUnit).ToList()
+        ReturnedReusableUnits = item.ReturnedReusableUnits.Select(CloneUnit).ToList(),
+        PickupLotAllocations = item.PickupLotAllocations
     };
 
     private static SupplyExecutionReusableUnitDto CloneUnit(SupplyExecutionReusableUnitDto unit) => new()

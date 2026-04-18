@@ -1409,7 +1409,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int missionId,
         int activityId,
         Guid performedBy,
-        List<(int ItemModelId, int Quantity)> consumableItems,
+        List<(int ItemModelId, int Quantity, DateTime? ExpiredDate)> consumableItems,
         List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
         List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
         string? discrepancyNote,
@@ -1418,8 +1418,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var now = DateTime.UtcNow;
         var normalizedConsumables = consumableItems
             .Where(x => x.Quantity > 0)
-            .GroupBy(x => x.ItemModelId)
-            .Select(group => (ItemModelId: group.Key, Quantity: group.Sum(x => x.Quantity)))
+            .GroupBy(x => (x.ItemModelId, x.ExpiredDate))
+            .Select(group => (ItemModelId: group.Key.ItemModelId, Quantity: group.Sum(x => x.Quantity), ExpiredDate: group.Key.ExpiredDate))
             .ToList();
         var normalizedLegacyReusable = legacyReusableQuantities
             .Where(x => x.Quantity > 0)
@@ -1454,7 +1454,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         };
         var resultLookup = new Dictionary<int, MissionSupplyReturnExecutionItemDto>();
 
-        foreach (var (itemModelId, quantity) in normalizedConsumables)
+        foreach (var (itemModelId, quantity, expiredDate) in normalizedConsumables)
         {
             if (!itemLookup.TryGetValue(itemModelId, out var itemModel))
                 throw new InvalidOperationException($"Không tìm thấy metadata vật phẩm #{itemModelId}.");
@@ -1464,19 +1464,39 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 ?? throw new InvalidOperationException(
                     $"Không tìm thấy tồn kho vật phẩm #{itemModelId} tại kho #{depotId} để nhập lại từ mission.");
 
-            var lot = new SupplyInventoryLot
+            SupplyInventoryLot lot;
+
+            // Nếu có ExpiredDate → tìm lô có expiry khớp (theo ngày) để cộng lại, ngược lại tạo lô mới
+            var matchedLot = expiredDate.HasValue
+                ? await _unitOfWork.SetTracked<SupplyInventoryLot>()
+                    .Where(l => l.SupplyInventoryId == inventory.Id
+                        && l.ExpiredDate.HasValue
+                        && l.ExpiredDate.Value.Date == expiredDate.Value.Date)
+                    .OrderByDescending(l => l.ReceivedDate)
+                    .FirstOrDefaultAsync(cancellationToken)
+                : null;
+
+            if (matchedLot != null)
             {
-                SupplyInventoryId = inventory.Id,
-                Quantity = quantity,
-                RemainingQuantity = quantity,
-                ReceivedDate = now,
-                ExpiredDate = null,
-                SourceType = InventorySourceType.Mission.ToString(),
-                SourceId = activityId,
-                CreatedAt = now
-            };
-            await _unitOfWork.GetRepository<SupplyInventoryLot>().AddAsync(lot);
-            await _unitOfWork.SaveAsync();
+                matchedLot.RemainingQuantity += quantity;
+                lot = matchedLot;
+            }
+            else
+            {
+                lot = new SupplyInventoryLot
+                {
+                    SupplyInventoryId = inventory.Id,
+                    Quantity = quantity,
+                    RemainingQuantity = quantity,
+                    ReceivedDate = now,
+                    ExpiredDate = expiredDate,
+                    SourceType = InventorySourceType.Mission.ToString(),
+                    SourceId = activityId,
+                    CreatedAt = now
+                };
+                await _unitOfWork.GetRepository<SupplyInventoryLot>().AddAsync(lot);
+                await _unitOfWork.SaveAsync();
+            }
 
             inventory.Quantity = (inventory.Quantity ?? 0) + quantity;
             inventory.LastStockedAt = now;
@@ -2255,6 +2275,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         var lot = await _unitOfWork.SetTracked<SupplyInventoryLot>()
             .Include(l => l.SupplyInventory)
+                .ThenInclude(inv => inv!.ItemModel)
+                    .ThenInclude(im => im!.Category)
             .FirstOrDefaultAsync(l => l.Id == lotId, cancellationToken)
             ?? throw new InvalidOperationException($"Không tìm thấy lô hàng #{lotId}.");
 
@@ -2268,12 +2290,33 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var inventory = lot.SupplyInventory
             ?? throw new InvalidOperationException($"Không tìm thấy tồn kho tổng hợp cho lô #{lotId}.");
 
+        var itemModel = inventory.ItemModel
+            ?? throw new InvalidOperationException($"Không tìm thấy metadata vật phẩm cho lô #{lotId}.");
+
         // Deduct lot
         lot.RemainingQuantity -= quantity;
 
-        // Deduct aggregate
+        // Deduct aggregate inventory
         inventory.Quantity = (inventory.Quantity ?? 0) - quantity;
         inventory.LastStockedAt = now;
+
+        // Deduct category quantity
+        if (itemModel.Category != null)
+        {
+            itemModel.Category.Quantity = Math.Max(0, (itemModel.Category.Quantity ?? 0) - quantity);
+            itemModel.Category.UpdatedAt = now;
+        }
+
+        // Deduct depot utilization (volume + weight)
+        var depotEntity = await _unitOfWork.GetRepository<Depot>()
+            .GetByPropertyAsync(d => d.Id == inventory.DepotId, tracked: true);
+        if (depotEntity != null)
+        {
+            var volumeDelta = (itemModel.VolumePerUnit ?? 0m) * quantity;
+            var weightDelta = (itemModel.WeightPerUnit ?? 0m) * quantity;
+            depotEntity.CurrentUtilization = Math.Max(0m, (depotEntity.CurrentUtilization ?? 0m) - volumeDelta);
+            depotEntity.CurrentWeightUtilization = Math.Max(0m, (depotEntity.CurrentWeightUtilization ?? 0m) - weightDelta);
+        }
 
         // Resolve source type from reason string
         var sourceType = reason.Equals("Expired", StringComparison.OrdinalIgnoreCase)
@@ -2307,21 +2350,58 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var now = DateTime.UtcNow;
 
         var item = await _unitOfWork.SetTracked<ReusableItem>()
+            .Include(r => r.ItemModel)
+                .ThenInclude(im => im!.Category)
             .FirstOrDefaultAsync(r => r.Id == reusableItemId && !r.IsDeleted, cancellationToken)
             ?? throw new InvalidOperationException($"Không tìm thấy thiết bị #{reusableItemId}.");
 
-        if (item.Status == ReusableItemStatus.InUse.ToString())
-            throw new InvalidOperationException(
-                $"Thiết bị #{reusableItemId} đang được sử dụng trong nhiệm vụ. Không thể ngừng sử dụng.");
+        // Atomic conditional UPDATE: chỉ đổi status nếu DB vẫn đang ở trạng thái hợp lệ.
+        // Guard này chống race condition (TOCTOU): nếu request khác Reserve/InUse thiết bị cùng lúc,
+        // rowsAffected = 0 → throw thay vì ghi đè sai status.
+        // Blocked: InUse (đang trong nhiệm vụ), Reserved (đã được đặt cho mission), Decommissioned (đã loại biên)
+        var blockedStatuses = new[]
+        {
+            ReusableItemStatus.InUse.ToString(),
+            ReusableItemStatus.Reserved.ToString(),
+            ReusableItemStatus.Decommissioned.ToString()
+        };
 
-        if (item.Status == ReusableItemStatus.Decommissioned.ToString())
-            throw new InvalidOperationException(
-                $"Thiết bị #{reusableItemId} đã được ngừng sử dụng trước đó.");
+        var rowsAffected = await _unitOfWork.SetTracked<ReusableItem>()
+            .Where(r => r.Id == reusableItemId
+                && !r.IsDeleted
+                && !blockedStatuses.Contains(r.Status!))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.Status, ReusableItemStatus.Decommissioned.ToString())
+                .SetProperty(r => r.UpdatedAt, now)
+                .SetProperty(r => r.Note, !string.IsNullOrWhiteSpace(note) ? note : item.Note),
+                cancellationToken);
 
-        item.Status = ReusableItemStatus.Decommissioned.ToString();
-        item.UpdatedAt = now;
-        if (!string.IsNullOrWhiteSpace(note))
-            item.Note = note;
+        if (rowsAffected == 0)
+            throw new InvalidOperationException(
+                $"Thiết bị #{reusableItemId} không thể loại biên: hiện đang ở trạng thái '{item.Status}' " +
+                $"(có thể vừa được đặt cho nhiệm vụ). Vui lòng tải lại danh sách và kiểm tra lại.");
+
+        // Deduct category quantity
+        var itemModel = item.ItemModel;
+        if (itemModel?.Category != null)
+        {
+            itemModel.Category.Quantity = Math.Max(0, (itemModel.Category.Quantity ?? 0) - 1);
+            itemModel.Category.UpdatedAt = now;
+        }
+
+        // Deduct depot utilization (volume + weight) — 1 unit
+        if (item.DepotId.HasValue)
+        {
+            var depotEntity = await _unitOfWork.GetRepository<Depot>()
+                .GetByPropertyAsync(d => d.Id == item.DepotId.Value, tracked: true);
+            if (depotEntity != null && itemModel != null)
+            {
+                var volumeDelta = itemModel.VolumePerUnit ?? 0m;
+                var weightDelta = itemModel.WeightPerUnit ?? 0m;
+                depotEntity.CurrentUtilization = Math.Max(0m, (depotEntity.CurrentUtilization ?? 0m) - volumeDelta);
+                depotEntity.CurrentWeightUtilization = Math.Max(0m, (depotEntity.CurrentWeightUtilization ?? 0m) - weightDelta);
+            }
+        }
 
         await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
         {

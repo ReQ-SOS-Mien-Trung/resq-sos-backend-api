@@ -235,7 +235,7 @@ public class ConfirmReturnSuppliesCommandHandler(
                 missionId,
                 request.ActivityId,
                 request.ConfirmedBy,
-                actualConsumables.Select(item => (item.ItemModelId, item.Quantity)).ToList(),
+                actualConsumables.Select(item => (item.ItemModelId, item.Quantity, item.ExpiredDate)).ToList(),
                 explicitReusableItems,
                 legacyReusableQuantities,
                 request.DiscrepancyNote,

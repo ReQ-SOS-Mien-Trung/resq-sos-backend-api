@@ -82,7 +82,8 @@ public class GetMyUpcomingReturnActivitiesQueryHandler(
             Unit = item.Unit,
             ActualReturnedQuantity = item.ActualReturnedQuantity,
             ExpectedReturnUnits = expectedReturnUnits,
-            ReturnedReusableUnits = item.ReturnedReusableUnits.Select(CloneUnit).ToList()
+            ReturnedReusableUnits = item.ReturnedReusableUnits.Select(CloneUnit).ToList(),
+            PickupLotAllocations = item.PickupLotAllocations
         };
     }
 

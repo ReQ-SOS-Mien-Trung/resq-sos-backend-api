@@ -110,7 +110,7 @@ public interface IDepotInventoryRepository
         int missionId,
         int activityId,
         Guid performedBy,
-        List<(int ItemModelId, int Quantity)> consumableItems,
+        List<(int ItemModelId, int Quantity, DateTime? ExpiredDate)> consumableItems,
         List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
         List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
         string? discrepancyNote,
