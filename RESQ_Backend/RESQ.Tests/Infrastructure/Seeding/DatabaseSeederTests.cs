@@ -90,6 +90,17 @@ public class DatabaseSeederTests
             .SingleAsync(point => point.Code == "AP-HUE-TD-241015");
         Assert.Equal("Sân vận động Tự Do (Thừa Thiên Huế)", hueStadium.Name);
 
+        var serviceZones = await context.ServiceZones
+            .OrderBy(zone => zone.Id)
+            .ToListAsync();
+        Assert.Equal(3, serviceZones.Count);
+        Assert.Collection(
+            serviceZones,
+            zone => Assert.Equal("Thành phố Huế", zone.Name),
+            zone => Assert.Equal("Thành phố Đà Nẵng", zone.Name),
+            zone => Assert.Equal("Thành phố Hồ Chí Minh", zone.Name));
+        Assert.All(serviceZones, zone => Assert.False(string.IsNullOrWhiteSpace(zone.CoordinatesJson)));
+
         var nowUtc = DateTime.UtcNow;
         var overdueOpenEvents = await context.AssemblyEvents
             .Where(e => e.CheckInDeadline <= nowUtc && e.Status != "Completed")
@@ -118,6 +129,35 @@ public class DatabaseSeederTests
         Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg", depotHue.ImageUrl);
         Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg", depotDaNang.ImageUrl);
         Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg", depotHaTinh.ImageUrl);
+
+        var depotFillRatios = await context.Depots
+            .OrderBy(depot => depot.Id)
+            .Select(depot => new
+            {
+                depot.Id,
+                VolumeRatio = depot.Capacity > 0
+                    ? Math.Round((depot.CurrentUtilization ?? 0m) / depot.Capacity!.Value, 2)
+                    : 0m,
+                WeightRatio = depot.WeightCapacity > 0
+                    ? Math.Round((depot.CurrentWeightUtilization ?? 0m) / depot.WeightCapacity!.Value, 2)
+                    : 0m
+            })
+            .ToListAsync();
+        var expectedFillRatios = new[] { 0.95m, 0.70m, 0.33m, 0.95m, 0.70m, 0.33m, 0.95m };
+        Assert.Equal(expectedFillRatios, depotFillRatios.Select(ratio => ratio.VolumeRatio));
+        Assert.Equal(expectedFillRatios, depotFillRatios.Select(ratio => ratio.WeightRatio));
+
+        var incompleteRequestsForDepotOneAndTwo = await context.DepotSupplyRequests
+            .Where(request => request.RequestingDepotId <= 2 || request.SourceDepotId <= 2)
+            .Where(request => request.SourceStatus != "Completed" || request.RequestingStatus != "Received")
+            .ToListAsync();
+        Assert.Equal(12, incompleteRequestsForDepotOneAndTwo.Count);
+
+        var incompleteRequestsForOtherDepots = await context.DepotSupplyRequests
+            .Where(request => request.RequestingDepotId > 2 || request.SourceDepotId > 2)
+            .Where(request => request.SourceStatus != "Completed" || request.RequestingStatus != "Received")
+            .ToListAsync();
+        Assert.Empty(incompleteRequestsForOtherDepots);
 
         var unclusteredHueSos = await context.SosRequests
             .Where(s => s.ClusterId == null && s.Location != null)

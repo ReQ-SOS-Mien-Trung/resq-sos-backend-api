@@ -902,18 +902,20 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         var depotDefs = new[]
         {
-            ("Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", "46 Đống Đa, TP. Huế, Thừa Thiên Huế", 16.454572773043417, 107.56799781003454, "Available", 1_100_000m, 831_777.9m, 440_000m, 330_877.49m, 80_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg"),
-            ("Ủy ban MTTQVN TP Đà Nẵng", "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", 16.080298466000496, 108.22283205420794, "Available", 1_000_000m, 754_700.9m, 480_000m, 365_265.69m, 60_000_000m, 10_000_000m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            ("Ủy Ban MTTQ Tỉnh Hà Tĩnh", "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", 18.349622333272194, 105.90102499916586, "Available", 600_000m, 443_207.6m, 260_000m, 195_723.64m, 40_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg"),
-            ("Ủy ban MTTQVN Việt Nam", "46 Tràng Thi, Hoàn Kiếm, Hà Nội", 21.027819, 105.842191, "Available", 1_400_000m, 1_064_369.2m, 650_000m, 472_365.44m, 100_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            ("Ủy ban MTTQVN Huyện Thăng Bình", "282 Tiểu La, thị trấn Hà Lam, huyện Thăng Bình, Quảng Nam", 15.6949, 108.4587, "Available", 250_000m, 1_890m, 120_000m, 581m, 12_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            ("Ủy ban MTTQVN Huyện Quảng Ninh", "TT. Quán Hàu, huyện Quảng Ninh, Quảng Bình", 17.4619, 106.6175, "Available", 280_000m, 2_400m, 140_000m, 732.5m, 14_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            ("Ủy ban MTTQVN Tỉnh Nghệ An", "1 Phan Đăng Lưu, TP. Vinh, Nghệ An", 18.6732581, 105.6936046, "Available", 300_000m, 0m, 150_000m, 0m, 5_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg")
+            ("Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", "46 Đống Đa, TP. Huế, Thừa Thiên Huế", 16.454572773043417, 107.56799781003454, "Available", 1_100_000m, 440_000m, 80_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg"),
+            ("Ủy ban MTTQVN TP Đà Nẵng", "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", 16.080298466000496, 108.22283205420794, "Available", 1_000_000m, 480_000m, 60_000_000m, 10_000_000m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy Ban MTTQ Tỉnh Hà Tĩnh", "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", 18.349622333272194, 105.90102499916586, "Available", 600_000m, 260_000m, 40_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg"),
+            ("Ủy ban MTTQVN Việt Nam", "46 Tràng Thi, Hoàn Kiếm, Hà Nội", 21.027819, 105.842191, "Available", 1_400_000m, 650_000m, 100_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy ban MTTQVN Huyện Thăng Bình", "282 Tiểu La, thị trấn Hà Lam, huyện Thăng Bình, Quảng Nam", 15.6949, 108.4587, "Available", 250_000m, 120_000m, 12_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy ban MTTQVN Huyện Quảng Ninh", "TT. Quán Hàu, huyện Quảng Ninh, Quảng Bình", 17.4619, 106.6175, "Available", 280_000m, 140_000m, 14_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy ban MTTQVN Tỉnh Nghệ An", "1 Phan Đăng Lưu, TP. Vinh, Nghệ An", 18.6732581, 105.6936046, "Available", 300_000m, 150_000m, 5_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg")
         };
+        var fillRatios = new[] { 0.95m, 0.70m, 0.33m, 0.95m, 0.70m, 0.33m, 0.95m };
 
         for (var i = 0; i < depotDefs.Length; i++)
         {
-            var (name, address, lat, lon, status, capacity, currentUtilization, weightCapacity, currentWeightUtilization, advanceLimit, outstandingAdvanceAmount, imageUrl) = depotDefs[i];
+            var (name, address, lat, lon, status, capacity, weightCapacity, advanceLimit, outstandingAdvanceAmount, imageUrl) = depotDefs[i];
+            var fillRatio = fillRatios[i % fillRatios.Length];
             seed.Depots.Add(new Depot
             {
                 Name = name,
@@ -921,9 +923,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 Location = Point(lon, lat),
                 Status = status,
                 Capacity = capacity,
-                CurrentUtilization = currentUtilization,
+                CurrentUtilization = decimal.Round(capacity * fillRatio, 2, MidpointRounding.AwayFromZero),
                 WeightCapacity = weightCapacity,
-                CurrentWeightUtilization = currentWeightUtilization,
+                CurrentWeightUtilization = decimal.Round(weightCapacity * fillRatio, 2, MidpointRounding.AwayFromZero),
                 AdvanceLimit = advanceLimit,
                 OutstandingAdvanceAmount = outstandingAdvanceAmount,
                 LastUpdatedAt = seed.AnchorUtc.AddDays(-i),
@@ -1614,50 +1616,79 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedSupplyRequestsAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
-        var statuses = new[]
+        var inProgressStatuses = new[]
         {
             ("Pending", "WaitingForApproval"),
             ("Accepted", "Approved"),
             ("Preparing", "Approved"),
-            ("Shipping", "InTransit"),
-            ("Completed", "Received"),
-            ("Rejected", "Rejected")
+            ("Shipping", "InTransit")
         };
+        const int depotOneTwoRequestCount = 24;
+        const int depotOneTwoIncompleteRequestCount = 12;
+        var completedStatus = ("Completed", "Received");
+        var completedOnlyDepots = seed.Depots.Skip(2).ToList();
 
         for (var i = 0; i < 95; i++)
         {
-            var requesting = seed.Depots[i % seed.Depots.Count];
-            var source = seed.Depots[(i + 2) % seed.Depots.Count];
-            var status = statuses[i % statuses.Length];
+            Depot requesting;
+            Depot source;
+            (string SourceStatus, string RequestingStatus) status;
+
+            if (i < depotOneTwoRequestCount)
+            {
+                requesting = seed.Depots[i % 2];
+                source = seed.Depots[(i + 1) % 2];
+                status = i < depotOneTwoIncompleteRequestCount
+                    ? inProgressStatuses[i % inProgressStatuses.Length]
+                    : completedStatus;
+            }
+            else
+            {
+                var completedIndex = i - depotOneTwoRequestCount;
+                requesting = completedOnlyDepots[completedIndex % completedOnlyDepots.Count];
+                source = completedOnlyDepots[(completedIndex + 2) % completedOnlyDepots.Count];
+                status = completedStatus;
+            }
+
             var created = RandomEventUtc(seed, i + 220);
-            var sourceManager = seed.Managers[(i + 2) % seed.Managers.Count];
-            var requestingManager = seed.Managers[i % seed.Managers.Count];
+            var sourceManager = seed.Managers[(source.Id - 1) % seed.Managers.Count];
+            var requestingManager = seed.Managers[(requesting.Id - 1) % seed.Managers.Count];
             seed.SupplyRequests.Add(new DepotSupplyRequest
             {
                 RequestingDepotId = requesting.Id,
                 SourceDepotId = source.Id,
                 Note = SupplyRequestNote(i),
-                PriorityLevel = i % 9 == 0 ? "Urgent" : i % 3 == 0 ? "High" : "Medium",
-                SourceStatus = status.Item1,
-                RequestingStatus = status.Item2,
-                RejectedReason = status.Item1 == "Rejected" ? "Kho nguồn đang giữ hàng cho mission ưu tiên cao hơn" : null,
+                PriorityLevel = status.SourceStatus == "Pending"
+                    ? "Urgent"
+                    : status.SourceStatus is "Accepted" or "Preparing" or "Shipping"
+                        ? "High"
+                        : i % 5 == 0 ? "High" : "Medium",
+                SourceStatus = status.SourceStatus,
+                RequestingStatus = status.RequestingStatus,
+                RejectedReason = null,
                 RequestedBy = requestingManager.Id,
                 CreatedAt = created,
-                AutoRejectAt = created.AddHours(i % 9 == 0 ? 2 : 12),
-                HighEscalationNotified = i % 3 == 0,
-                HighEscalationNotifiedAt = i % 3 == 0 ? created.AddMinutes(90) : null,
-                UrgentEscalationNotified = i % 9 == 0,
-                UrgentEscalationNotifiedAt = i % 9 == 0 ? created.AddMinutes(25) : null,
-                RespondedAt = status.Item1 == "Pending" ? null : created.AddMinutes(30),
-                ShippedAt = status.Item1 is "Shipping" or "Completed" ? created.AddHours(3) : null,
-                CompletedAt = status.Item1 == "Completed" ? created.AddHours(7) : null,
-                UpdatedAt = created.AddHours(1),
-                AcceptedBy = status.Item1 is "Accepted" or "Preparing" or "Shipping" or "Completed" ? sourceManager.Id : null,
-                RejectedBy = status.Item1 == "Rejected" ? sourceManager.Id : null,
-                PreparedBy = status.Item1 is "Preparing" or "Shipping" or "Completed" ? sourceManager.Id : null,
-                ShippedBy = status.Item1 is "Shipping" or "Completed" ? sourceManager.Id : null,
-                CompletedBy = status.Item1 == "Completed" ? sourceManager.Id : null,
-                ConfirmedBy = status.Item1 == "Completed" ? requestingManager.Id : null
+                AutoRejectAt = status.SourceStatus == "Pending" ? created.AddHours(i % 3 == 0 ? 2 : 6) : null,
+                HighEscalationNotified = status.SourceStatus is "Accepted" or "Preparing" or "Shipping" or "Pending",
+                HighEscalationNotifiedAt = status.SourceStatus is "Accepted" or "Preparing" or "Shipping" or "Pending"
+                    ? created.AddMinutes(60)
+                    : null,
+                UrgentEscalationNotified = status.SourceStatus == "Pending",
+                UrgentEscalationNotifiedAt = status.SourceStatus == "Pending" ? created.AddMinutes(25) : null,
+                RespondedAt = status.SourceStatus == "Pending" ? null : created.AddMinutes(30),
+                ShippedAt = status.SourceStatus is "Shipping" or "Completed" ? created.AddHours(3) : null,
+                CompletedAt = status.SourceStatus == "Completed" ? created.AddHours(7) : null,
+                UpdatedAt = status.SourceStatus == "Completed"
+                    ? created.AddHours(7)
+                    : status.SourceStatus == "Shipping"
+                        ? created.AddHours(3)
+                        : created.AddHours(1),
+                AcceptedBy = status.SourceStatus is "Accepted" or "Preparing" or "Shipping" or "Completed" ? sourceManager.Id : null,
+                RejectedBy = null,
+                PreparedBy = status.SourceStatus is "Preparing" or "Shipping" or "Completed" ? sourceManager.Id : null,
+                ShippedBy = status.SourceStatus is "Shipping" or "Completed" ? sourceManager.Id : null,
+                CompletedBy = status.SourceStatus == "Completed" ? sourceManager.Id : null,
+                ConfirmedBy = status.SourceStatus == "Completed" ? requestingManager.Id : null
             });
         }
 
@@ -2691,35 +2722,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             || string.Equals(point.Name, "Sân vận động Tự Do (Thừa Thiên Huế)", StringComparison.Ordinal));
 
     private static IEnumerable<ServiceZone> ServiceZones(DateTime now)
-    {
-        return new[]
-        {
-            Zone("Khu vực phục vụ Huế Bắc sông Hương", now, (16.47, 107.55), (16.55, 107.63)),
-            Zone("Khu vực phục vụ Huế Nam sông Hương", now, (16.39, 107.55), (16.47, 107.70)),
-            Zone("Khu vực phục vụ Đà Nẵng", now, (15.96, 108.10), (16.10, 108.30)),
-            Zone("Khu vực phục vụ Quảng Trị", now, (16.70, 106.95), (16.90, 107.25)),
-            Zone("Khu vực phục vụ Quảng Nam", now, (15.45, 108.25), (15.95, 108.55)),
-            Zone("Khu vực phục vụ Quảng Ngãi", now, (15.00, 108.65), (15.25, 108.90))
-        };
-    }
-
-    private static ServiceZone Zone(string name, DateTime now, (double Lat, double Lon) southWest, (double Lat, double Lon) northEast)
-    {
-        return new ServiceZone
-        {
-            Name = name,
-            CoordinatesJson = Json(new[]
-            {
-                new { lat = southWest.Lat, lon = southWest.Lon },
-                new { lat = southWest.Lat, lon = northEast.Lon },
-                new { lat = northEast.Lat, lon = northEast.Lon },
-                new { lat = northEast.Lat, lon = southWest.Lon }
-            }),
-            IsActive = true,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
-    }
+        => ServiceZoneSeedData.CreateZones(now);
 
     private static IReadOnlyList<ItemTemplate> BaseItemModels()
     {

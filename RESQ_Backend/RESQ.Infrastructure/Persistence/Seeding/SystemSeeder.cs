@@ -601,28 +601,7 @@ Quy tắc kiểm tra:
     private static void SeedServiceZone(ModelBuilder modelBuilder)
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-        // Polygon bao phủ Miền Trung Việt Nam (Thanh Hoá → Bình Thuận + Tây Nguyên)
-        // theo thứ tự: SW → NW → NE → SE (đóng lại ở SW)
-        var defaultCoords = new[]
-        {
-            new { latitude = 10.3, longitude = 103.0 },
-            new { latitude = 20.5, longitude = 103.0 },
-            new { latitude = 20.5, longitude = 109.5 },
-            new { latitude = 10.3, longitude = 109.5 }
-        };
-
-        modelBuilder.Entity<ServiceZone>().HasData(
-            new ServiceZone
-            {
-                Id = 1,
-                Name = "Vùng phục vụ Miền Trung Việt Nam",
-                CoordinatesJson = JsonSerializer.Serialize(defaultCoords),
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now
-            }
-        );
+        modelBuilder.Entity<ServiceZone>().HasData(ServiceZoneSeedData.CreateZones(now));
     }
 
     private static void SeedRescuerScoreVisibilityConfig(ModelBuilder modelBuilder)
