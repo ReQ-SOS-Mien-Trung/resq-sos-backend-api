@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
 using Npgsql;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Emergency;
@@ -1138,6 +1139,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             var area = Area(i);
             var localDate = RandomEventLocal(seed, i);
             var severity = i < 22 ? "Critical" : i < 80 ? "High" : i < 101 ? "Medium" : "Low";
+            var clusterStatus = ClusterStatusForSeedIndex(i);
             var offsets = new List<(double Lat, double Lon)>();
             for (var j = 0; j < clusterSosCounts[i]; j++)
             {
@@ -1160,8 +1162,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ElderlyCount = i % 7,
                 MedicalUrgencyScore = Math.Round(0.35 + (i % 60) / 100.0, 2),
                 CreatedAt = VnToUtc(localDate),
-                LastUpdatedAt = VnToUtc(localDate.AddHours(3)),
-                Status = i < 100 ? "InProgress" : "Pending"
+                LastUpdatedAt = VnToUtc(localDate.AddHours(clusterStatus == SosClusterStatus.Completed.ToString() ? 8 : 3)),
+                Status = clusterStatus
             };
             seed.SosClusters.Add(cluster);
 
@@ -1175,7 +1177,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 var reporterOther = !onBehalf && (i + j) % 10 == 0;
                 var reporter = reporterOther ? seed.Victims[(i * 7 + j + 11) % seed.Victims.Count] : victim;
                 var coordinator = seed.Coordinators[(i + j) % seed.Coordinators.Count];
-                var status = i < 12 ? "Pending" : i < 70 ? "Resolved" : i < 95 ? "InProgress" : i < 104 ? "Assigned" : "Cancelled";
+                var status = SosRequestStatusForClusterSeedIndex(i);
                 var people = 1 + (i + j) % 6;
                 var hasInjured = situation is "Medical" or "Landslide" || (i + j) % 11 == 0;
 
@@ -3872,6 +3874,26 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             unit.Note = "Đang được đội giữ để trả về kho trong đơn RETURN_SUPPLIES demo manager01.";
         }
     }
+
+    private static string ClusterStatusForSeedIndex(int index) => index switch
+    {
+        < 20 => SosClusterStatus.Pending.ToString(),
+        < 45 => SosClusterStatus.InProgress.ToString(),
+        < 95 => SosClusterStatus.Completed.ToString(),
+        < 100 => SosClusterStatus.InProgress.ToString(),
+        _ => SosClusterStatus.Pending.ToString()
+    };
+
+    private static string SosRequestStatusForClusterSeedIndex(int index) => index switch
+    {
+        < 20 => SosRequestStatus.Pending.ToString(),
+        < 30 => SosRequestStatus.Assigned.ToString(),
+        < 45 => SosRequestStatus.InProgress.ToString(),
+        < 95 => SosRequestStatus.Resolved.ToString(),
+        < 100 => SosRequestStatus.Incident.ToString(),
+        < 104 => SosRequestStatus.Pending.ToString(),
+        _ => SosRequestStatus.Cancelled.ToString()
+    };
 
     private static string ActivityType(int step, int total, string? missionType)
     {
