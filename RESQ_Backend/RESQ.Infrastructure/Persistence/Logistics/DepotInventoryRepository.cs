@@ -14,6 +14,8 @@ using RESQ.Domain.Entities.Logistics.Services;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
 using DomainTargetGroup = RESQ.Domain.Enum.Logistics.TargetGroup;
+using System.Globalization;
+using System.Text;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
@@ -301,10 +303,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (allowedDepotIds is not null && allowedDepotIdList.Count == 0)
             return ([], 0);
 
-        var categoryPattern = $"%{categoryKeyword.Trim()}%";
-        var typePattern = string.IsNullOrWhiteSpace(typeKeyword)
-            ? null
-            : $"%{typeKeyword.Trim()}%";
+        var resolvedCategoryCodes = ResolveAgentSearchCategoryCodes(categoryKeyword, typeKeyword);
 
         var consumableQuery = from dsi in _unitOfWork.Set<SupplyInventory>()
                               join ri in _unitOfWork.Set<ItemModel>() on dsi.ItemModelId equals ri.Id
@@ -313,11 +312,11 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                               where depot.Status == "Available"
                                     && ri.ItemType == nameof(ItemType.Consumable)
                                     && (dsi.Quantity ?? 0) - (dsi.MissionReservedQuantity + dsi.TransferReservedQuantity) > 0
-                                    && EF.Functions.ILike(cat.Name ?? string.Empty, categoryPattern)
                               select new AgentInventorySearchRow
                               {
                                   ItemId = ri.Id,
                                   ItemName = ri.Name ?? string.Empty,
+                                  CategoryCode = cat.Code,
                                   CategoryName = cat.Name ?? string.Empty,
                                   ItemType = ri.ItemType,
                                   Unit = ri.Unit,
@@ -333,12 +332,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (allowedDepotIdList.Count > 0)
             consumableQuery = consumableQuery.Where(x => allowedDepotIdList.Contains(x.DepotId));
 
-        if (typePattern is not null)
-        {
-            consumableQuery = consumableQuery.Where(x =>
-                EF.Functions.ILike(x.ItemName, typePattern)
-                || EF.Functions.ILike(x.ItemType ?? string.Empty, typePattern));
-        }
+        if (resolvedCategoryCodes.Count > 0)
+            consumableQuery = consumableQuery.Where(x => x.CategoryCode != null && resolvedCategoryCodes.Contains(x.CategoryCode));
 
         var reusableBaseQuery = from reusable in _unitOfWork.Set<ReusableItem>()
                                 join ri in _unitOfWork.Set<ItemModel>() on reusable.ItemModelId equals ri.Id
@@ -349,24 +344,20 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                                       && depot.Status == "Available"
                                       && ri.ItemType == nameof(ItemType.Reusable)
                                       && reusable.Status == nameof(ReusableItemStatus.Available)
-                                      && EF.Functions.ILike(cat.Name ?? string.Empty, categoryPattern)
                                 select new { reusable, ri, cat, depot };
 
         if (allowedDepotIdList.Count > 0)
             reusableBaseQuery = reusableBaseQuery.Where(x => allowedDepotIdList.Contains(x.depot.Id));
 
-        if (typePattern is not null)
-        {
-            reusableBaseQuery = reusableBaseQuery.Where(x =>
-                EF.Functions.ILike(x.ri.Name ?? string.Empty, typePattern)
-                || EF.Functions.ILike(x.ri.ItemType ?? string.Empty, typePattern));
-        }
+        if (resolvedCategoryCodes.Count > 0)
+            reusableBaseQuery = reusableBaseQuery.Where(x => x.cat.Code != null && resolvedCategoryCodes.Contains(x.cat.Code));
 
         var reusableQuery = reusableBaseQuery
             .GroupBy(x => new
             {
                 ItemId = x.ri.Id,
                 ItemName = x.ri.Name ?? string.Empty,
+                CategoryCode = x.cat.Code,
                 CategoryName = x.cat.Name ?? string.Empty,
                 ItemType = x.ri.ItemType,
                 Unit = x.ri.Unit,
@@ -378,6 +369,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             {
                 ItemId = group.Key.ItemId,
                 ItemName = group.Key.ItemName,
+                CategoryCode = group.Key.CategoryCode,
                 CategoryName = group.Key.CategoryName,
                 ItemType = group.Key.ItemType,
                 Unit = group.Key.Unit,
@@ -390,31 +382,16 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 PoorAvailableCount = group.Count(x => x.reusable.Condition == nameof(ReusableItemCondition.Poor))
             });
 
-        var consumableTotal = await consumableQuery.CountAsync(ct);
-        var reusableTotal = await reusableQuery.CountAsync(ct);
+        var consumableRows = await consumableQuery.ToListAsync(ct);
+        var reusableRows = await reusableQuery.ToListAsync(ct);
 
-        var consumableRows = await consumableQuery
-            .OrderByDescending(x => x.AvailableQuantity)
-            .ThenBy(x => x.ItemName)
-            .ThenBy(x => x.DepotName)
-            .ThenBy(x => x.ItemId)
-            .ThenBy(x => x.DepotId)
-            .Take(takeFromEachSource)
-            .ToListAsync(ct);
-
-        var reusableRows = await reusableQuery
-            .OrderByDescending(x => x.AvailableQuantity)
-            .ThenByDescending(x => x.GoodAvailableCount ?? 0)
-            .ThenByDescending(x => x.FairAvailableCount ?? 0)
-            .ThenBy(x => x.ItemName)
-            .ThenBy(x => x.DepotName)
-            .ThenBy(x => x.ItemId)
-            .ThenBy(x => x.DepotId)
-            .Take(takeFromEachSource)
-            .ToListAsync(ct);
-
-        var mergedRows = consumableRows
+        var allFilteredRows = consumableRows
             .Concat(reusableRows)
+            .Where(row => MatchesAgentCategory(row, categoryKeyword, resolvedCategoryCodes))
+            .Where(row => MatchesAgentType(row, typeKeyword))
+            .ToList();
+
+        var mergedRows = allFilteredRows
             .OrderByDescending(x => x.AvailableQuantity)
             .ThenByDescending(x => x.GoodAvailableCount ?? 0)
             .ThenByDescending(x => x.FairAvailableCount ?? 0)
@@ -422,6 +399,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             .ThenBy(x => x.DepotName)
             .ThenBy(x => x.ItemId)
             .ThenBy(x => x.DepotId)
+            .Take(takeFromEachSource)
             .Skip((safePage - 1) * safePageSize)
             .Take(safePageSize)
             .ToList();
@@ -452,7 +430,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             };
         }).ToList();
 
-        return (items, consumableTotal + reusableTotal);
+        return (items, allFilteredRows.Count);
     }
 
     private async Task<Dictionary<int, (double? Latitude, double? Longitude)>> LoadDepotLocationLookupAsync(
@@ -480,6 +458,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     {
         public int ItemId { get; init; }
         public string ItemName { get; init; } = string.Empty;
+        public string? CategoryCode { get; init; }
         public string CategoryName { get; init; } = string.Empty;
         public string? ItemType { get; init; }
         public string? Unit { get; init; }
@@ -490,6 +469,203 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         public int? GoodAvailableCount { get; init; }
         public int? FairAvailableCount { get; init; }
         public int? PoorAvailableCount { get; init; }
+    }
+
+    private static readonly Dictionary<string, string[]> AgentSearchAliasCategoryCodes = new(StringComparer.Ordinal)
+    {
+        ["food"] = ["Food"],
+        ["thuc pham"] = ["Food"],
+        ["luong thuc"] = ["Food"],
+        ["do an"] = ["Food"],
+        ["water"] = ["Water"],
+        ["nuoc"] = ["Water"],
+        ["nuoc uong"] = ["Water"],
+        ["medical"] = ["Medical"],
+        ["medicine"] = ["Medical"],
+        ["thuoc"] = ["Medical"],
+        ["thuoc men"] = ["Medical"],
+        ["y te"] = ["Medical"],
+        ["so cuu"] = ["Medical"],
+        ["first aid"] = ["Medical"],
+        ["common medicine"] = ["Medical"],
+        ["clothing"] = ["Clothing", "Heating"],
+        ["quan ao"] = ["Clothing", "Heating"],
+        ["giu am"] = ["Heating", "Clothing"],
+        ["heating"] = ["Heating"],
+        ["blanket"] = ["Heating", "Clothing"],
+        ["blankets"] = ["Heating", "Clothing"],
+        ["chan"] = ["Heating", "Clothing"],
+        ["chan man"] = ["Heating", "Clothing"],
+        ["men"] = ["Heating", "Clothing"],
+        ["shelter"] = ["Shelter"],
+        ["noi tru an"] = ["Shelter"],
+        ["leu"] = ["Shelter"],
+        ["bat"] = ["Shelter"],
+        ["tam che"] = ["Shelter"],
+        ["rescue"] = ["RescueEquipment"],
+        ["cuu ho"] = ["RescueEquipment"],
+        ["phao"] = ["RescueEquipment"],
+        ["day"] = ["RescueEquipment"],
+        ["cang"] = ["RescueEquipment"],
+        ["transportation"] = ["Vehicle"],
+        ["vehicle"] = ["Vehicle"],
+        ["phuong tien"] = ["Vehicle"],
+        ["xe"] = ["Vehicle"],
+        ["xuong"] = ["Vehicle", "RescueEquipment"],
+        ["cano"] = ["Vehicle", "RescueEquipment"],
+        ["ca no"] = ["Vehicle", "RescueEquipment"],
+        ["thuyen"] = ["Vehicle", "RescueEquipment"]
+    };
+
+    private static readonly Dictionary<string, string[]> AgentSearchAliasTypeTokens = new(StringComparer.Ordinal)
+    {
+        ["thuoc men"] = ["thuoc", "y te", "medical", "so cuu"],
+        ["medicine"] = ["thuoc", "y te", "medical", "so cuu"],
+        ["medical supplies"] = ["thuoc", "y te", "medical", "so cuu"],
+        ["common medicine"] = ["thuoc"],
+        ["first aid"] = ["so cuu", "bo so cuu", "bang", "bong", "betadine", "khau trang"],
+        ["chan man"] = ["chan", "men", "giu nhiet", "suoi"],
+        ["blanket"] = ["chan", "men", "giu nhiet", "suoi"],
+        ["blankets"] = ["chan", "men", "giu nhiet", "suoi"],
+        ["giu am"] = ["chan", "men", "giu nhiet", "suoi", "ao am"],
+        ["y te"] = ["thuoc", "y te", "medical", "so cuu"],
+        ["quan ao"] = ["ao", "quan", "ung", "gang", "tat", "mu", "ao am"],
+        ["cuu ho"] = ["phao", "day", "cang", "xuong", "cuu ho"],
+        ["phuong tien"] = ["xe", "xuong", "cano", "ca no", "thuyen"]
+    };
+
+    private static HashSet<string> ResolveAgentSearchCategoryCodes(string categoryKeyword, string? typeKeyword)
+    {
+        var resolved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        AddCategoryCodesFromAlias(resolved, categoryKeyword);
+        AddCategoryCodesFromAlias(resolved, typeKeyword);
+        return resolved;
+    }
+
+    private static void AddCategoryCodesFromAlias(HashSet<string> resolved, string? keyword)
+    {
+        var normalizedKeyword = NormalizeAgentSearchText(keyword);
+        if (string.IsNullOrWhiteSpace(normalizedKeyword))
+            return;
+
+        foreach (var (alias, categoryCodes) in AgentSearchAliasCategoryCodes)
+        {
+            if (!MatchesAlias(normalizedKeyword, alias))
+                continue;
+
+            foreach (var categoryCode in categoryCodes)
+                resolved.Add(categoryCode);
+        }
+    }
+
+    private static bool MatchesAgentCategory(
+        AgentInventorySearchRow row,
+        string categoryKeyword,
+        IReadOnlyCollection<string> resolvedCategoryCodes)
+    {
+        if (resolvedCategoryCodes.Count > 0)
+            return !string.IsNullOrWhiteSpace(row.CategoryCode)
+                && resolvedCategoryCodes.Contains(row.CategoryCode);
+
+        var normalizedKeyword = NormalizeAgentSearchText(categoryKeyword);
+        if (string.IsNullOrWhiteSpace(normalizedKeyword))
+            return true;
+
+        var normalizedCategoryName = NormalizeAgentSearchText(row.CategoryName);
+        var normalizedCategoryCode = NormalizeAgentSearchText(row.CategoryCode);
+        return normalizedCategoryName.Contains(normalizedKeyword, StringComparison.Ordinal)
+            || normalizedCategoryCode.Contains(normalizedKeyword, StringComparison.Ordinal);
+    }
+
+    private static bool MatchesAgentType(AgentInventorySearchRow row, string? typeKeyword)
+    {
+        var normalizedType = NormalizeAgentSearchText(typeKeyword);
+        if (string.IsNullOrWhiteSpace(normalizedType))
+            return true;
+
+        var tokens = ResolveAgentTypeTokens(normalizedType);
+        var normalizedItemName = NormalizeAgentSearchText(row.ItemName);
+        var normalizedCategoryName = NormalizeAgentSearchText(row.CategoryName);
+        var normalizedItemType = NormalizeAgentSearchText(row.ItemType);
+
+        return tokens.Any(token =>
+            normalizedItemName.Contains(token, StringComparison.Ordinal)
+            || normalizedCategoryName.Contains(token, StringComparison.Ordinal)
+            || normalizedItemType.Contains(token, StringComparison.Ordinal));
+    }
+
+    private static HashSet<string> ResolveAgentTypeTokens(string normalizedTypeKeyword)
+    {
+        var tokens = new HashSet<string>(StringComparer.Ordinal)
+        {
+            normalizedTypeKeyword
+        };
+
+        foreach (var word in normalizedTypeKeyword.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (word.Length >= 3)
+                tokens.Add(word);
+        }
+
+        foreach (var (alias, aliasTokens) in AgentSearchAliasTypeTokens)
+        {
+            if (!MatchesAlias(normalizedTypeKeyword, alias))
+                continue;
+
+            foreach (var aliasToken in aliasTokens)
+            {
+                var normalizedAliasToken = NormalizeAgentSearchText(aliasToken);
+                if (!string.IsNullOrWhiteSpace(normalizedAliasToken))
+                    tokens.Add(normalizedAliasToken);
+            }
+        }
+
+        return tokens;
+    }
+
+    private static bool MatchesAlias(string normalizedKeyword, string alias)
+    {
+        return normalizedKeyword.Contains(alias, StringComparison.Ordinal)
+            || alias.Contains(normalizedKeyword, StringComparison.Ordinal);
+    }
+
+    private static string NormalizeAgentSearchText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        var previousWasSpace = false;
+
+        foreach (var ch in normalized)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            var folded = ch switch
+            {
+                '\u0111' => 'd',
+                '\u0110' => 'd',
+                _ => char.ToLowerInvariant(ch)
+            };
+
+            if (char.IsLetterOrDigit(folded))
+            {
+                builder.Append(folded);
+                previousWasSpace = false;
+                continue;
+            }
+
+            if (previousWasSpace)
+                continue;
+
+            builder.Append(' ');
+            previousWasSpace = true;
+        }
+
+        return builder.ToString().Trim();
     }
 
     public async Task<List<DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int depotId, CancellationToken cancellationToken = default)

@@ -22,11 +22,36 @@ public class GetTeamIncidentsQueryHandler(
             .Distinct()
             .ToList();
 
-        var userTasks = reporterIds.Select(id => userRepository.GetByIdAsync(id, cancellationToken));
-        var users = await Task.WhenAll(userTasks);
+        var users = reporterIds.Count == 0
+            ? new List<RESQ.Domain.Entities.Identity.UserModel>()
+            : await userRepository.GetByIdsAsync(reporterIds, cancellationToken);
+
+        if (users.Count < reporterIds.Count)
+        {
+            var loadedUserIds = users
+                .Select(user => user.Id)
+                .ToHashSet();
+
+            foreach (var reporterId in reporterIds)
+            {
+                if (loadedUserIds.Contains(reporterId))
+                {
+                    continue;
+                }
+
+                var user = await userRepository.GetByIdAsync(reporterId, cancellationToken);
+                if (user is null)
+                {
+                    continue;
+                }
+
+                users.Add(user);
+                loadedUserIds.Add(user.Id);
+            }
+        }
+
         var userLookup = users
-            .Where(u => u is not null)
-            .ToDictionary(u => u!.Id, u => u!);
+            .ToDictionary(user => user.Id, user => user);
 
         return new GetTeamIncidentsResponse
         {

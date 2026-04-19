@@ -226,6 +226,7 @@ public class CreateSosClusterCommandHandlerTests
         public Task<SosClusterModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult<SosClusterModel?>(null);
         public Task<IEnumerable<SosClusterModel>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<SosClusterModel>());
         public Task UpdateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class StubSosClusterGroupingConfigRepository(double? maximumDistanceKm) : ISosClusterGroupingConfigRepository

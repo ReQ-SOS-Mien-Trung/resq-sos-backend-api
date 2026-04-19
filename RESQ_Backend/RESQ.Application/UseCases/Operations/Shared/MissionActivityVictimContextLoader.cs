@@ -19,17 +19,41 @@ public static class MissionActivityVictimContextLoader
         if (ids.Count == 0)
             return new Dictionary<int, MissionActivityVictimContext>();
 
-        var sosTasks = ids.ToDictionary(
-            id => id,
-            id => sosRequestRepository.GetByIdAsync(id, cancellationToken));
+        var sosRequests = new List<RESQ.Domain.Entities.Emergency.SosRequestModel>();
+        var loadedSosIds = new HashSet<int>();
 
-        await Task.WhenAll(sosTasks.Values);
+        if (sosRequestRepository is ISosRequestBulkReadRepository bulkReadRepository)
+        {
+            var bulkRequests = await bulkReadRepository.GetByIdsAsync(ids, cancellationToken);
+            foreach (var request in bulkRequests)
+            {
+                if (!loadedSosIds.Add(request.Id))
+                {
+                    continue;
+                }
 
-        var sosRequests = sosTasks.Values
-            .Select(task => task.Result)
-            .Where(request => request is not null)
-            .Select(request => request!)
-            .ToList();
+                sosRequests.Add(request);
+            }
+        }
+
+        if (loadedSosIds.Count < ids.Count)
+        {
+            foreach (var id in ids)
+            {
+                if (loadedSosIds.Contains(id))
+                {
+                    continue;
+                }
+
+                var request = await sosRequestRepository.GetByIdAsync(id, cancellationToken);
+                if (request is null || !loadedSosIds.Add(request.Id))
+                {
+                    continue;
+                }
+
+                sosRequests.Add(request);
+            }
+        }
 
         if (sosRequests.Count == 0)
             return new Dictionary<int, MissionActivityVictimContext>();

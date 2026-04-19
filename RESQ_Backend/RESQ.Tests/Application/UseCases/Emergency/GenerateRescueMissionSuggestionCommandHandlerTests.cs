@@ -245,6 +245,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
             UpdatedCluster = c;
             return Task.CompletedTask;
         }
+        public Task DeleteAsync(int id, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private sealed class StubContextService(bool throwOnPrepare = false) : IMissionContextService

@@ -118,6 +118,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISosRequestUpdateRepository, SosRequestUpdateRepository>();
         services.AddScoped<ISosRequestCompanionRepository, SosRequestCompanionRepository>();
         services.AddScoped<ISosClusterRepository, SosClusterRepository>();
+        services.AddScoped<IClusterAiHistoryRepository, ClusterAiHistoryRepository>();
         services.AddScoped<ISosRuleEvaluationRepository, SosRuleEvaluationRepository>();
         services.AddScoped<ISosAiAnalysisRepository, SosAiAnalysisRepository>();
         services.AddScoped<IMissionAiSuggestionRepository, MissionAiSuggestionRepository>();

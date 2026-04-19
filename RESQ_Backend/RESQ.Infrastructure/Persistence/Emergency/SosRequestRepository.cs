@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
@@ -8,7 +9,7 @@ using RESQ.Infrastructure.Mappers.Emergency;
 
 namespace RESQ.Infrastructure.Persistence.Emergency;
 
-public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepository
+public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepository, ISosRequestBulkReadRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
@@ -82,6 +83,28 @@ public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepositor
             .GetByPropertyAsync(x => x.Id == id, tracked: false);
 
         return entity == null ? null : SosRequestMapper.ToDomain(entity);
+    }
+
+    public async Task<List<SosRequestModel>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+    {
+        var idList = ids
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+
+        if (idList.Count == 0)
+        {
+            return new List<SosRequestModel>();
+        }
+
+        var entities = await _unitOfWork.GetRepository<SosRequest>()
+            .AsQueryable(tracked: false)
+            .Where(x => idList.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        return entities
+            .Select(SosRequestMapper.ToDomain)
+            .ToList();
     }
 
     public async Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default)

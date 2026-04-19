@@ -159,5 +159,8 @@ public class GetSosClustersQueryHandlerTests
 
         public Task UpdateAsync(SosClusterModel cluster, CancellationToken ct = default)
             => Task.CompletedTask;
+
+        public Task DeleteAsync(int id, CancellationToken ct = default)
+            => Task.CompletedTask;
     }
 }

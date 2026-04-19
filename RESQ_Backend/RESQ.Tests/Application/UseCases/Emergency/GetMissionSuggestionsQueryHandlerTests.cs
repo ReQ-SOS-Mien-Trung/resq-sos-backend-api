@@ -111,6 +111,17 @@ public class GetMissionSuggestionsQueryHandlerTests
                                       "longitude": 105.89,
                                       "distance_km": 1.8
                                     }
+                                  },
+                                  {
+                                    "step": 2,
+                                    "activity_type": "RESCUE",
+                                    "description": "Dua nan nhan ra khoi vung ngap",
+                                    "priority": "Critical",
+                                    "estimated_time": "15 phut",
+                                    "sos_request_id": 91,
+                                    "destination_name": "Khu vuc ngap",
+                                    "destination_latitude": 18.36,
+                                    "destination_longitude": 105.92
                                   }
                                 ]
                                 """
@@ -130,7 +141,15 @@ public class GetMissionSuggestionsQueryHandlerTests
         Assert.Equal("[SOS ID 77]: urgent support is required", mission.OverallAssessment);
         Assert.Equal("2 gio 10 phut", mission.EstimatedDuration);
         Assert.Equal("Split rescue victims to safe zone before any relief delivery.", mission.SpecialNotes);
-        Assert.Equal(MissionSuggestionWarningHelper.MixedRescueReliefWarningMessage, mission.MixedRescueReliefWarning);
+        Assert.Equal(
+            MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
+            [
+                new SuggestedActivityDto { ActivityType = "COLLECT_SUPPLIES", SosRequestId = 77 },
+                new SuggestedActivityDto { ActivityType = "RESCUE", SosRequestId = 91 }
+            ]),
+            mission.MixedRescueReliefWarning);
+        Assert.DoesNotContain("Safe Zone", mission.MixedRescueReliefWarning, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Assembly Point", mission.MixedRescueReliefWarning, StringComparison.OrdinalIgnoreCase);
         Assert.True(mission.NeedsManualReview);
         Assert.Equal("Coordinator should verify the mixed mission plan.", mission.LowConfidenceWarning);
         Assert.True(mission.NeedsAdditionalDepot);
@@ -145,41 +164,43 @@ public class GetMissionSuggestionsQueryHandlerTests
         Assert.Equal("Xe tai nhe", resource.Description);
 
         var activityGroup = Assert.Single(mission.Activities);
-        var activity = Assert.Single(activityGroup.SuggestedActivities);
+        var collectActivity = Assert.Single(activityGroup.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
+        var rescueActivity = Assert.Single(activityGroup.SuggestedActivities, activity => activity.ActivityType == "RESCUE");
 
-        Assert.Equal("COLLECT_SUPPLIES", activity.ActivityType);
-        Assert.Equal("25 phut", activity.EstimatedTime);
-        Assert.Equal("SplitAcrossTeams", activity.ExecutionMode);
-        Assert.Equal(2, activity.RequiredTeamCount);
-        Assert.Equal("cluster-5-main", activity.CoordinationGroupKey);
-        Assert.Equal("Can 2 doi chia nhanh", activity.CoordinationNotes);
-        Assert.Equal(77, activity.SosRequestId);
-        Assert.Equal(9, activity.DepotId);
-        Assert.Equal("Kho A", activity.DepotName);
-        Assert.Equal("72 Phan Dinh Phung", activity.DepotAddress);
-        Assert.Equal(4, activity.AssemblyPointId);
-        Assert.Equal("Nha thi dau", activity.AssemblyPointName);
-        Assert.Equal(18.35, activity.AssemblyPointLatitude);
-        Assert.Equal(105.9, activity.AssemblyPointLongitude);
-        Assert.Equal("Kho A", activity.DestinationName);
-        Assert.Equal(18.351, activity.DestinationLatitude);
-        Assert.Equal(105.901, activity.DestinationLongitude);
+        Assert.Equal("25 phut", collectActivity.EstimatedTime);
+        Assert.Equal("SplitAcrossTeams", collectActivity.ExecutionMode);
+        Assert.Equal(2, collectActivity.RequiredTeamCount);
+        Assert.Equal("cluster-5-main", collectActivity.CoordinationGroupKey);
+        Assert.Equal("Can 2 doi chia nhanh", collectActivity.CoordinationNotes);
+        Assert.Equal(77, collectActivity.SosRequestId);
+        Assert.Equal(9, collectActivity.DepotId);
+        Assert.Equal("Kho A", collectActivity.DepotName);
+        Assert.Equal("72 Phan Dinh Phung", collectActivity.DepotAddress);
+        Assert.Equal(4, collectActivity.AssemblyPointId);
+        Assert.Equal("Nha thi dau", collectActivity.AssemblyPointName);
+        Assert.Equal(18.35, collectActivity.AssemblyPointLatitude);
+        Assert.Equal(105.9, collectActivity.AssemblyPointLongitude);
+        Assert.Equal("Kho A", collectActivity.DestinationName);
+        Assert.Equal(18.351, collectActivity.DestinationLatitude);
+        Assert.Equal(105.901, collectActivity.DestinationLongitude);
 
-        var supply = Assert.Single(activity.SuppliesToCollect!);
+        var supply = Assert.Single(collectActivity.SuppliesToCollect!);
         Assert.Equal(11, supply.ItemId);
         Assert.Equal("Nuoc tinh khiet", supply.ItemName);
         Assert.Equal(120, supply.Quantity);
         Assert.Equal("chai", supply.Unit);
 
-        Assert.NotNull(activity.SuggestedTeam);
-        Assert.Equal(15, activity.SuggestedTeam!.TeamId);
-        Assert.Equal("Doi co dong 1", activity.SuggestedTeam.TeamName);
-        Assert.Equal("Rescue", activity.SuggestedTeam.TeamType);
-        Assert.Equal("Gan nhat", activity.SuggestedTeam.Reason);
-        Assert.Equal("AP Ha Tinh", activity.SuggestedTeam.AssemblyPointName);
-        Assert.Equal(18.36, activity.SuggestedTeam.Latitude);
-        Assert.Equal(105.89, activity.SuggestedTeam.Longitude);
-        Assert.Equal(1.8, activity.SuggestedTeam.DistanceKm);
+        Assert.NotNull(collectActivity.SuggestedTeam);
+        Assert.Equal(15, collectActivity.SuggestedTeam!.TeamId);
+        Assert.Equal("Doi co dong 1", collectActivity.SuggestedTeam.TeamName);
+        Assert.Equal("Rescue", collectActivity.SuggestedTeam.TeamType);
+        Assert.Equal("Gan nhat", collectActivity.SuggestedTeam.Reason);
+        Assert.Equal("AP Ha Tinh", collectActivity.SuggestedTeam.AssemblyPointName);
+        Assert.Equal(18.36, collectActivity.SuggestedTeam.Latitude);
+        Assert.Equal(105.89, collectActivity.SuggestedTeam.Longitude);
+        Assert.Equal(1.8, collectActivity.SuggestedTeam.DistanceKm);
+        Assert.Equal(91, rescueActivity.SosRequestId);
+        Assert.Equal("15 phut", rescueActivity.EstimatedTime);
     }
 
     [Fact]
@@ -237,6 +258,9 @@ public class GetMissionSuggestionsQueryHandlerTests
             => throw new NotImplementedException();
 
         public Task UpdateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
     }
 }

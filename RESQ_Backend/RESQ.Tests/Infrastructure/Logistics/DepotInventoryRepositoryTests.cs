@@ -12,13 +12,48 @@ namespace RESQ.Tests.Infrastructure.Logistics;
 public class DepotInventoryRepositoryTests
 {
     [Fact]
+    public async Task SearchForAgentAsync_ReturnsMedicalItems_ForGenericVietnameseMedicineKeyword()
+    {
+        await using var context = CreateContext();
+        SeedDepotForAgentSearch(context);
+
+        var repository = CreateRepository(context);
+
+        var (items, totalCount) = await repository.SearchForAgentAsync(
+            categoryKeyword: "Y tế",
+            typeKeyword: "Thuốc men",
+            page: 1,
+            pageSize: 10,
+            allowedDepotIds: [3]);
+
+        Assert.True(totalCount > 0);
+        Assert.Contains(items, item => item.ItemId == 3 && item.ItemName.Contains("Paracetamol", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(items, item => item.ItemName.Contains("Chăn", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task SearchForAgentAsync_ReturnsHeatingItems_WhenBlanketIsSearchedThroughClothingTerms()
+    {
+        await using var context = CreateContext();
+        SeedDepotForAgentSearch(context);
+
+        var repository = CreateRepository(context);
+
+        var (items, totalCount) = await repository.SearchForAgentAsync(
+            categoryKeyword: "Quần áo",
+            typeKeyword: "Chăn màn",
+            page: 1,
+            pageSize: 10,
+            allowedDepotIds: [3]);
+
+        Assert.True(totalCount > 0);
+        Assert.Contains(items, item => item.ItemId == 6 && item.ItemName.Contains("Chăn", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task ConsumeReservedSuppliesAsync_WithConsumableItem_DoesNotRequireReusableUnits()
     {
-        var options = new DbContextOptionsBuilder<ResQDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        await using var context = new ResQDbContext(options);
+        await using var context = CreateContext();
         context.ItemModels.Add(new ItemModel
         {
             Id = 27,
@@ -68,6 +103,76 @@ public class DepotInventoryRepositoryTests
         Assert.Equal(9, inventory.Quantity);
         Assert.Equal(0, inventory.MissionReservedQuantity);
         Assert.Equal(9, lot.RemainingQuantity);
+    }
+
+    private static ResQDbContext CreateContext()
+    {
+        var options = new DbContextOptionsBuilder<ResQDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        return new ResQDbContext(options);
+    }
+
+    private static DepotInventoryRepository CreateRepository(ResQDbContext context)
+    {
+        var unitOfWork = new UnitOfWork(context, NullLogger<UnitOfWork>.Instance);
+        return new DepotInventoryRepository(unitOfWork, new StubInventoryQueryService());
+    }
+
+    private static void SeedDepotForAgentSearch(ResQDbContext context)
+    {
+        context.Categories.AddRange(
+            new Category { Id = 3, Code = "Medical", Name = "Y tế" },
+            new Category { Id = 5, Code = "Clothing", Name = "Quần áo" },
+            new Category { Id = 9, Code = "Heating", Name = "Sưởi ấm" });
+
+        context.Depots.Add(new Depot
+        {
+            Id = 3,
+            Name = "Kho Huế",
+            Status = "Available"
+        });
+
+        context.ItemModels.AddRange(
+            new ItemModel
+            {
+                Id = 3,
+                CategoryId = 3,
+                Name = "Thuốc hạ sốt Paracetamol 500mg",
+                Unit = "viên",
+                ItemType = "Consumable"
+            },
+            new ItemModel
+            {
+                Id = 6,
+                CategoryId = 9,
+                Name = "Chăn ấm giữ nhiệt",
+                Unit = "chiếc",
+                ItemType = "Consumable"
+            });
+
+        context.SupplyInventories.AddRange(
+            new SupplyInventory
+            {
+                Id = 1,
+                DepotId = 3,
+                ItemModelId = 3,
+                Quantity = 500,
+                MissionReservedQuantity = 0,
+                TransferReservedQuantity = 0
+            },
+            new SupplyInventory
+            {
+                Id = 2,
+                DepotId = 3,
+                ItemModelId = 6,
+                Quantity = 25,
+                MissionReservedQuantity = 0,
+                TransferReservedQuantity = 0
+            });
+
+        context.SaveChanges();
     }
 
     private sealed class StubInventoryQueryService : IInventoryQueryService

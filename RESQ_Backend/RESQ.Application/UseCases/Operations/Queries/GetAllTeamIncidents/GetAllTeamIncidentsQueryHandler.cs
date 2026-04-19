@@ -21,10 +21,36 @@ public class GetAllTeamIncidentsQueryHandler(
             .Distinct()
             .ToList();
 
-        var users = await Task.WhenAll(reporterIds.Select(id => userRepository.GetByIdAsync(id, cancellationToken)));
+        var users = reporterIds.Count == 0
+            ? new List<RESQ.Domain.Entities.Identity.UserModel>()
+            : await userRepository.GetByIdsAsync(reporterIds, cancellationToken);
+
+        if (users.Count < reporterIds.Count)
+        {
+            var loadedUserIds = users
+                .Select(user => user.Id)
+                .ToHashSet();
+
+            foreach (var reporterId in reporterIds)
+            {
+                if (loadedUserIds.Contains(reporterId))
+                {
+                    continue;
+                }
+
+                var user = await userRepository.GetByIdAsync(reporterId, cancellationToken);
+                if (user is null)
+                {
+                    continue;
+                }
+
+                users.Add(user);
+                loadedUserIds.Add(user.Id);
+            }
+        }
+
         var userLookup = users
-            .Where(user => user is not null)
-            .ToDictionary(user => user!.Id, user => user!);
+            .ToDictionary(user => user.Id, user => user);
 
         return new GetAllTeamIncidentsResponse
         {

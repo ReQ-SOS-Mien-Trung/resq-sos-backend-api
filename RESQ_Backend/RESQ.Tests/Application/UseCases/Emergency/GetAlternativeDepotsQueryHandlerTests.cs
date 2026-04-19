@@ -322,6 +322,9 @@ public class GetAlternativeDepotsQueryHandlerTests
 
         public Task UpdateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
     private sealed class StubMissionAiSuggestionRepository(IEnumerable<MissionAiSuggestionModel> suggestions)

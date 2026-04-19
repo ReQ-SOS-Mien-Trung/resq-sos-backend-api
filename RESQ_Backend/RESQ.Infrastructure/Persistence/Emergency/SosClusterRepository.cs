@@ -113,4 +113,9 @@ public class SosClusterRepository(IUnitOfWork unitOfWork) : ISosClusterRepositor
 
         await _unitOfWork.GetRepository<SosCluster>().UpdateAsync(entity);
     }
+
+    public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        await _unitOfWork.GetRepository<SosCluster>().DeleteAsync(id);
+    }
 }

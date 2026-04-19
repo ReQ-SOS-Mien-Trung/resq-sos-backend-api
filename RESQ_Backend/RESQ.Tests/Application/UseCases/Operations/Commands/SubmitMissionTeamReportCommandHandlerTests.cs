@@ -359,6 +359,9 @@ public class SubmitMissionTeamReportCommandHandlerTests
             UpdatedCluster = model;
             return Task.CompletedTask;
         }
+
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
     private sealed class StubTeamIncidentRepository : ITeamIncidentRepository
