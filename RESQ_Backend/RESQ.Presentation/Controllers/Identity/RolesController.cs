@@ -5,6 +5,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.SetRolePermissions;
 using RESQ.Application.UseCases.Identity.Queries.GetRoleMetadata;
 using RESQ.Application.UseCases.Identity.Queries.GetRolePermissions;
+using RoleConsts = RESQ.Application.Common.Constants.RoleConstants;
 
 namespace RESQ.Presentation.Controllers.Identity;
 
@@ -36,6 +37,14 @@ public class RolesController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetRolePermissions(int roleId)
     {
         var result = await _mediator.Send(new GetRolePermissionsQuery(roleId));
+        return Ok(result);
+    }
+
+    /// <summary>Lấy danh sách permission của Depot Manager (dành cho Admin xem)</summary>
+    [HttpGet("depot-manager/permissions")]
+    public async Task<IActionResult> GetDepotManagerPermissions()
+    {
+        var result = await _mediator.Send(new GetRolePermissionsQuery(RoleConsts.Manager));
         return Ok(result);
     }
 
