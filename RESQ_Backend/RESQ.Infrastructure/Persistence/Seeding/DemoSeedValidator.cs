@@ -20,6 +20,11 @@ public sealed class DemoSeedValidator
         "Pending", "Assigned", "InProgress", "Incident", "Resolved", "Cancelled"
     };
 
+    private static readonly HashSet<string> SosClusterStatuses = new(StringComparer.Ordinal)
+    {
+        "Pending", "Suggested", "InProgress", "Completed"
+    };
+
     private static readonly HashSet<string> MissionTypes = new(StringComparer.Ordinal)
     {
         "Rescue", "Medical", "Supply", "Mixed"
@@ -57,6 +62,36 @@ public sealed class DemoSeedValidator
             .Distinct()
             .ToListAsync(cancellationToken);
         AddInvalidValues(errors, "sos_requests.status", badSosStatuses);
+
+        var badSosClusterStatuses = await db.SosClusters
+            .Where(c => !SosClusterStatuses.Contains(c.Status))
+            .Select(c => c.Status)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        AddInvalidValues(errors, "sos_clusters.status", badSosClusterStatuses);
+
+        var completedClustersWithOpenSos = await db.SosClusters
+            .Where(c => c.Status == "Completed")
+            .Where(c => db.SosRequests.Any(s => s.ClusterId == c.Id && s.Status != "Resolved"))
+            .Select(c => c.Id)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (completedClustersWithOpenSos.Count > 0)
+        {
+            errors.Add($"Completed SOS clusters contain non-resolved SOS requests: {string.Join(", ", completedClustersWithOpenSos)}.");
+        }
+
+        var resolvedClustersNotCompleted = await db.SosClusters
+            .Where(c => c.Status != "Completed")
+            .Where(c => db.SosRequests.Any(s => s.ClusterId == c.Id))
+            .Where(c => !db.SosRequests.Any(s => s.ClusterId == c.Id && s.Status != "Resolved"))
+            .Select(c => c.Id)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (resolvedClustersNotCompleted.Count > 0)
+        {
+            errors.Add($"SOS clusters with only resolved requests must be Completed: {string.Join(", ", resolvedClustersNotCompleted)}.");
+        }
 
         var badSosTypes = await db.SosRequests
             .Where(s => s.SosType != null && !SosTypes.Contains(s.SosType))

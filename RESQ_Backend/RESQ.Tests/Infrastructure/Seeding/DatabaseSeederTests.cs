@@ -400,7 +400,7 @@ public class DatabaseSeederTests
     }
 
     [Fact]
-    public async Task DemoSeedValidator_FlagsInvalidEnumsInventoryAndChatRules()
+    public async Task DemoSeedValidator_FlagsInvalidEnumsClusterInventoryAndChatRules()
     {
         await using var context = CreateContext();
         await context.Database.EnsureCreatedAsync();
@@ -415,36 +415,62 @@ public class DatabaseSeederTests
             Phone = "0900000000",
             Password = "hash"
         });
-        context.SosRequests.Add(new SosRequest
-        {
-            Id = 1,
-            UserId = victimId,
-            SosType = "RESCUE",
-            PriorityLevel = "Moderate",
-            Status = "Completed",
-            Location = new Point(107.6, 16.4) { SRID = 4326 }
-        });
-        context.Missions.Add(new Mission { Id = 1, MissionType = "SUPPLY", Status = "Cancelled" });
-        context.MissionActivities.Add(new MissionActivity { Id = 1, MissionId = 1, Status = "Done" });
-        context.TeamIncidents.Add(new TeamIncident { Id = 1, Status = "Acknowledged" });
+        context.SosClusters.AddRange(
+            new SosCluster { Id = 9001, Status = "Done" },
+            new SosCluster { Id = 9002, Status = "Completed" },
+            new SosCluster { Id = 9003, Status = "InProgress" });
+        context.SosRequests.AddRange(
+            new SosRequest
+            {
+                Id = 9001,
+                ClusterId = 9001,
+                UserId = victimId,
+                SosType = "RESCUE",
+                PriorityLevel = "Moderate",
+                Status = "Completed",
+                Location = new Point(107.6, 16.4) { SRID = 4326 }
+            },
+            new SosRequest
+            {
+                Id = 9002,
+                ClusterId = 9002,
+                UserId = victimId,
+                SosType = "Rescue",
+                PriorityLevel = "High",
+                Status = "InProgress",
+                Location = new Point(107.61, 16.41) { SRID = 4326 }
+            },
+            new SosRequest
+            {
+                Id = 9003,
+                ClusterId = 9003,
+                UserId = victimId,
+                SosType = "Rescue",
+                PriorityLevel = "High",
+                Status = "Resolved",
+                Location = new Point(107.62, 16.42) { SRID = 4326 }
+            });
+        context.Missions.Add(new Mission { Id = 9001, MissionType = "SUPPLY", Status = "Cancelled" });
+        context.MissionActivities.Add(new MissionActivity { Id = 9001, MissionId = 9001, Status = "Done" });
+        context.TeamIncidents.Add(new TeamIncident { Id = 9001, Status = "Acknowledged" });
         context.SupplyInventories.Add(new SupplyInventory
         {
-            Id = 1,
+            Id = 9001,
             Quantity = 5,
             MissionReservedQuantity = 6,
             TransferReservedQuantity = 0
         });
         context.SupplyInventoryLots.Add(new SupplyInventoryLot
         {
-            Id = 1,
-            SupplyInventoryId = 1,
+            Id = 9001,
+            SupplyInventoryId = 9001,
             Quantity = 10,
             RemainingQuantity = 12,
             CreatedAt = DateTime.UtcNow
         });
         context.Conversations.Add(new Conversation
         {
-            Id = 1,
+            Id = 9001,
             VictimId = victimId,
             Status = "CoordinatorActive"
         });
@@ -455,6 +481,9 @@ public class DatabaseSeederTests
         Assert.Contains(errors, error => error.Contains("sos_requests.priority_level", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("sos_requests.status", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("sos_requests.sos_type", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("sos_clusters.status", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("Completed SOS clusters contain non-resolved SOS requests", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("SOS clusters with only resolved requests must be Completed", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("missions.mission_type", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("missions.status", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("mission_activities.status", StringComparison.Ordinal));
