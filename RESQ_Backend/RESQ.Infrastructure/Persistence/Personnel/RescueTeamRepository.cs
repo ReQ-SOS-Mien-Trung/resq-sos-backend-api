@@ -119,7 +119,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
         return await _unitOfWork.Set<UserAbility>()
             .Include(ua => ua.Ability)
             .ThenInclude(a => a.AbilitySubgroup)
-            .ThenInclude(sg => sg.AbilityCategory)
+            .ThenInclude(sg => sg!.AbilityCategory)
             .AnyAsync(ua => ua.UserId == userId && ua.Ability.AbilitySubgroup!.AbilityCategory!.Code == categoryCode, cancellationToken);
     }
 

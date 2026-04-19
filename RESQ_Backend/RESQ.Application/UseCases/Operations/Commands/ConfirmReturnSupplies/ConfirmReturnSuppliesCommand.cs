@@ -8,7 +8,6 @@ namespace RESQ.Application.UseCases.Operations.Commands.ConfirmReturnSupplies;
 /// </summary>
 public record ConfirmReturnSuppliesCommand(
     int ActivityId,
-    int MissionId,
     Guid ConfirmedBy,
     List<ActualReturnedConsumableItemDto> ConsumableItems,
     List<ActualReturnedReusableItemDto> ReusableItems,

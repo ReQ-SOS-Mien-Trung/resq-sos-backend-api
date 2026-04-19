@@ -15,7 +15,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 public class CompleteSupplyRequestCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
-    IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
     IFirebaseService firebaseService)
     : IRequestHandler<CompleteSupplyRequestCommand, CompleteSupplyRequestResponse>

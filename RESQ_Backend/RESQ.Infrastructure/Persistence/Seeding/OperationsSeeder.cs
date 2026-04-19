@@ -115,21 +115,68 @@ public static class OperationsSeeder
             new { ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 240, Unit = "chai" },
             new { ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 300, Unit = "viên" }
         });
-        var upcomingPickupItems = JsonSerializer.Serialize(new[]
+        // Activity 7: COLLECT_SUPPLIES cho Mission 5 tại kho Huế (OnGoing)
+        // ► Test endpoint: POST /operations/missions/5/activities/7/confirm-pickup
+        // ► Sau đó PUT status=Succeed để trừ kho theo FEFO: Lot 36 (mì tôm), Lot 2 (nước), Lot 3 (thuốc)
+        var baseDate = new DateTime(2024, 10, 14, 0, 0, 0, DateTimeKind.Utc);
+        var upcomingPickupItems = JsonSerializer.Serialize(new object[]
         {
-            new { ItemId = 1, ItemName = "Mì tôm", Quantity = 80, Unit = "gói" },
-            new { ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 160, Unit = "chai" },
-            new { ItemId = 8, ItemName = "Lương khô", Quantity = 120, Unit = "thanh" }
+            new
+            {
+                ItemId = 1, ItemName = "Mì tôm", Quantity = 80, Unit = "gói",
+                PlannedPickupLotAllocations = new[]
+                {
+                    new { LotId = 36, QuantityTaken = 80, ReceivedDate = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc), RemainingQuantityAfterExecution = 9920 }
+                }
+            },
+            new
+            {
+                ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 160, Unit = "chai",
+                PlannedPickupLotAllocations = new[]
+                {
+                    new { LotId = 2, QuantityTaken = 160, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), RemainingQuantityAfterExecution = 39840 }
+                }
+            },
+            new
+            {
+                ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 300, Unit = "viên",
+                PlannedPickupLotAllocations = new[]
+                {
+                    new { LotId = 3, QuantityTaken = 300, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), RemainingQuantityAfterExecution = 79700 }
+                }
+            }
         });
         // Activity 8: RETURN_SUPPLIES - trả vật phẩm tiêu hao dư thừa về kho Huế sau Mission 5
-        // ► Test endpoint: POST /operations/missions/5/activities/8/confirm-return
+        // ► Test endpoint: POST /logistics/inventory/activities/8/confirm-return
         // ► Đăng nhập: manager@resq.vn / Manager@123 (quản lý kho Huế - DepotId=1)
-        // ► Chỉ consumable: mì tôm x60 + nước x80 + thuốc x120
-        var returnSuppliesItems = JsonSerializer.Serialize(new[]
+        // ► Gọi với body {} rỗng → hệ thống tự auto-fill từ ExpectedReturnLotAllocations
+        // ► Trả: mì tôm x20 (Lot 36) + nước x80 (Lot 2) + thuốc x120 (Lot 3)
+        var returnSuppliesItems = JsonSerializer.Serialize(new object[]
         {
-            new { ItemId = 1, ItemName = "Mì tôm",                         Quantity = 60,  Unit = "gói"  },
-            new { ItemId = 2, ItemName = "Nước tinh khiết",                 Quantity = 80,  Unit = "chai" },
-            new { ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 120, Unit = "viên" }
+            new
+            {
+                ItemId = 1, ItemName = "Mì tôm", Quantity = 20, Unit = "gói",
+                ExpectedReturnLotAllocations = new[]
+                {
+                    new { LotId = 36, QuantityTaken = 20, ReceivedDate = new DateTime(2026, 3, 2, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc), RemainingQuantityAfterExecution = 0 }
+                }
+            },
+            new
+            {
+                ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 80, Unit = "chai",
+                ExpectedReturnLotAllocations = new[]
+                {
+                    new { LotId = 2, QuantityTaken = 80, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), RemainingQuantityAfterExecution = 0 }
+                }
+            },
+            new
+            {
+                ItemId = 3, ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 120, Unit = "viên",
+                ExpectedReturnLotAllocations = new[]
+                {
+                    new { LotId = 3, QuantityTaken = 120, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), RemainingQuantityAfterExecution = 0 }
+                }
+            }
         });
         // Activity 9: RETURN_SUPPLIES hoàn thành - trả vật phẩm tiêu hao dư thừa về kho Huế sau Mission 4
         var returnConsumableHistoryItems = JsonSerializer.Serialize(new[]
@@ -260,13 +307,15 @@ public static class OperationsSeeder
                 DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
             },
             // Activity 7: Pickup supplies cho Mission 5 tại kho Huế (OnGoing)
+            // ► Test confirm-pickup: POST /operations/missions/5/activities/7/confirm-pickup
+            // ► Sau đó PUT status=Succeed để trừ kho: Mì tôm x80 (Lot 36) + Nước x160 (Lot 2) + Thuốc x300 (Lot 3)
             new MissionActivity
             {
                 Id = 7,
                 MissionId = 5,
                 Step = 1,
                 ActivityType = "COLLECT_SUPPLIES",
-                Description = "Đội vận chuyển đang lấy hàng tại kho Huế để chở đến khu vực sơ tán.",
+                Description = "Đội vận chuyển đang lấy hàng tại kho Huế để chở đến khu vực sơ tán. Lấy: Mì tôm x80 + Nước x160 + Thuốc x300.",
                 Target = "{\"location\":\"Kho Huế\",\"purpose\":\"pickup_supplies\"}",
                 Items = upcomingPickupItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
@@ -289,7 +338,7 @@ public static class OperationsSeeder
                 MissionId = 5,
                 Step = 2,
                 ActivityType = "RETURN_SUPPLIES",
-                Description = "Hoàn tất nhiệm vụ, trả vật phẩm tiêu hao dư thừa về kho Huế. Trả: Mì tôm x60 + Nước x80 + Thuốc x120.",
+                Description = "Hoàn tất nhiệm vụ, trả vật phẩm tiêu hao dư thừa về kho Huế. Trả: Mì tôm x20 (Lot 36) + Nước x80 (Lot 2) + Thuốc x120 (Lot 3).",
                 Target = "{\"location\":\"Kho Huế\",\"purpose\":\"return_supplies\"}",
                 Items = returnSuppliesItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
