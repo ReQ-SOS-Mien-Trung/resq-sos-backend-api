@@ -11,5 +11,7 @@ public class UserPermissionDto
 public class GetUserPermissionsResponse
 {
     public Guid UserId { get; set; }
+    public int? RoleId { get; set; }
     public List<UserPermissionDto> Permissions { get; set; } = [];
+    public List<UserPermissionDto> RolePermissions { get; set; } = [];
 }

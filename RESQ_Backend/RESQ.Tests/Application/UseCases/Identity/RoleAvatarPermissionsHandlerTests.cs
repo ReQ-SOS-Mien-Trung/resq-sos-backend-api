@@ -117,15 +117,46 @@ public sealed class RoleAvatarPermissionsHandlerTests
             new PermissionModel { Id = 1, Code = "IdentitySelfView", Name = "Self View", Description = "View own profile" },
             new PermissionModel { Id = 2, Code = "MissionView", Name = "Mission View", Description = "View missions" }
         ]);
-        var handler = new GetUserPermissionsQueryHandler(repo, permRepo);
+        var roleRepo = new StubRoleRepository();
+        roleRepo.SeedRolePermissions(
+            roleId: 2,
+            new PermissionModel { Id = 10, Code = "SystemUserView", Name = "System User View", Description = "View users" },
+            new PermissionModel { Id = 11, Code = "MissionGlobalManage", Name = "Mission Global Manage", Description = "Manage missions" });
+        var handler = new GetUserPermissionsQueryHandler(repo, permRepo, roleRepo);
 
         var query = new GetUserPermissionsQuery(UserId: user.Id);
         var res = await handler.Handle(query, CancellationToken.None);
 
         Assert.Equal(user.Id, res.UserId);
+        Assert.Equal(2, res.RoleId);
         Assert.Equal(2, res.Permissions.Count);
         Assert.Equal("IdentitySelfView", res.Permissions[0].Code);
         Assert.Equal("MissionView", res.Permissions[1].Code);
+        Assert.Equal(2, res.RolePermissions.Count);
+        Assert.Equal("SystemUserView", res.RolePermissions[0].Code);
+        Assert.Equal("MissionGlobalManage", res.RolePermissions[1].Code);
+    }
+
+    [Fact]
+    public async Task GetUserPermissions_UserWithoutRole_ReturnsEmptyRolePermissions()
+    {
+        var user = BuildUser();
+        user.RoleId = null;
+        var repo = new StubUserRepository(user);
+        var permRepo = new StubPermissionRepository(
+        [
+            new PermissionModel { Id = 1, Code = "IdentitySelfView", Name = "Self View", Description = "View own profile" }
+        ]);
+        var roleRepo = new StubRoleRepository();
+        var handler = new GetUserPermissionsQueryHandler(repo, permRepo, roleRepo);
+
+        var query = new GetUserPermissionsQuery(UserId: user.Id);
+        var res = await handler.Handle(query, CancellationToken.None);
+
+        Assert.Equal(user.Id, res.UserId);
+        Assert.Null(res.RoleId);
+        Assert.Single(res.Permissions);
+        Assert.Empty(res.RolePermissions);
     }
 
     [Fact]
@@ -133,7 +164,8 @@ public sealed class RoleAvatarPermissionsHandlerTests
     {
         var repo = new StubUserRepository();
         var permRepo = new StubPermissionRepository([]);
-        var handler = new GetUserPermissionsQueryHandler(repo, permRepo);
+        var roleRepo = new StubRoleRepository();
+        var handler = new GetUserPermissionsQueryHandler(repo, permRepo, roleRepo);
 
         var query = new GetUserPermissionsQuery(UserId: Guid.NewGuid());
         await Assert.ThrowsAsync<NotFoundException>(() => handler.Handle(query, CancellationToken.None));
@@ -231,10 +263,16 @@ public sealed class RoleAvatarPermissionsHandlerTests
     private sealed class StubRoleRepository : IRoleRepository
     {
         private readonly Dictionary<int, RoleModel> _roles = [];
+        private readonly Dictionary<int, List<PermissionModel>> _permissionsByRoleId = [];
 
         public StubRoleRepository(params RoleModel[] seeds)
         {
             foreach (var r in seeds) _roles[r.Id] = r;
+        }
+
+        public void SeedRolePermissions(int roleId, params PermissionModel[] permissions)
+        {
+            _permissionsByRoleId[roleId] = permissions.ToList();
         }
 
         public Task<RoleModel?> GetByIdAsync(int id, CancellationToken ct = default)
@@ -244,7 +282,8 @@ public sealed class RoleAvatarPermissionsHandlerTests
         public Task<int> CreateAsync(RoleModel model, CancellationToken ct = default) => throw new NotImplementedException();
         public Task UpdateAsync(RoleModel model, CancellationToken ct = default) => throw new NotImplementedException();
         public Task DeleteAsync(int id, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<List<PermissionModel>> GetPermissionsAsync(int roleId, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<List<PermissionModel>> GetPermissionsAsync(int roleId, CancellationToken ct = default)
+            => Task.FromResult(_permissionsByRoleId.GetValueOrDefault(roleId, []).ToList());
         public Task SetPermissionsAsync(int roleId, List<int> permissionIds, CancellationToken ct = default) => throw new NotImplementedException();
     }
 
