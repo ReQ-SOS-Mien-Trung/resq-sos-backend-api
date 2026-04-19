@@ -89,14 +89,13 @@ public class ConfirmReturnSuppliesCommandHandlerTests
 
         var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
             activityId,
-            missionId,
             userId,
             [
                 new ActualReturnedConsumableItemDto
                 {
                     ItemModelId = itemId,
                     Quantity = 5,
-                    LotAllocations = [expectedLot]
+                    LotAllocations = [new ConfirmReturnLotAllocationDto { LotId = expectedLot.LotId, QuantityTaken = expectedLot.QuantityTaken, ExpiredDate = expectedLot.ExpiredDate }]
                 }
             ],
             [],
@@ -158,7 +157,6 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
             handler.Handle(new ConfirmReturnSuppliesCommand(
                 activityId,
-                missionId,
                 userId,
                 [new ActualReturnedConsumableItemDto { ItemModelId = itemId, Quantity = 5 }],
                 [],
@@ -235,7 +233,6 @@ public class ConfirmReturnSuppliesCommandHandlerTests
 
         var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
             activityId,
-            missionId,
             userId,
             [],
             [
@@ -358,7 +355,6 @@ public class ConfirmReturnSuppliesCommandHandlerTests
 
         var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
             returnActivityId,
-            missionId,
             userId,
             [],
             [
@@ -441,7 +437,6 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
             handler.Handle(new ConfirmReturnSuppliesCommand(
                 activityId,
-                missionId,
                 userId,
                 [],
                 [
@@ -503,7 +498,6 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
             handler.Handle(new ConfirmReturnSuppliesCommand(
                 activityId,
-                missionId,
                 userId,
                 null!,
                 [

@@ -43,6 +43,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingPickupActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyUpcomingReturnActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetAllActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetAdminThresholds;
+using RESQ.Application.UseCases.Operations.Commands.ConfirmReturnSupplies;
 using RESQ.Application.UseCases.Logistics.Queries.GetReliefItemsByCategoryCode;
 using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequestPriorityConfig;
 using RESQ.Application.UseCases.Logistics.Queries.GetSupplyRequests;
@@ -213,6 +214,27 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             PageSize = pageSize
         });
 
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// [Manager] Xác nhận đã nhận lại vật phẩm từ đội cứu hộ (RETURN_SUPPLIES: PendingConfirmation → Succeed + restock kho).
+    /// Gọi với body rỗng {} để hệ thống tự điền từ ExpectedReturnLotAllocations của activity.
+    /// </summary>
+    [HttpPost("activities/{activityId:int}/confirm-return")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+    public async Task<IActionResult> ConfirmReturnSupplies(
+        [FromRoute] int activityId,
+        [FromBody] ConfirmReturnSuppliesRequestDto dto)
+    {
+        var userId = GetCurrentUserId();
+        var command = new ConfirmReturnSuppliesCommand(
+            activityId,
+            userId,
+            dto.ConsumableItems,
+            dto.ReusableItems,
+            dto.DiscrepancyNote);
+        var result = await _mediator.Send(command);
         return Ok(result);
     }
 

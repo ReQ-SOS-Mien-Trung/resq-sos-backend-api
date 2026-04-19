@@ -130,6 +130,10 @@ public class MissionAiSuggestionSection
             .Select(activity => activity.SuggestedActivities)
             .FirstOrDefault(blob => !string.IsNullOrWhiteSpace(blob));
         section.SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(activityBlob);
+        section.MixedRescueReliefWarning = MissionSuggestionWarningHelper.ResolveMixedRescueReliefWarning(
+            section.SuggestedActivities,
+            section.MixedRescueReliefWarning);
+        section.NeedsManualReview = section.NeedsManualReview || !string.IsNullOrWhiteSpace(section.MixedRescueReliefWarning);
 
         return section;
     }

@@ -32,4 +32,5 @@ public interface ISosClusterRepository
 
     Task<int> CreateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default);
     Task UpdateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default);
+    Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 }

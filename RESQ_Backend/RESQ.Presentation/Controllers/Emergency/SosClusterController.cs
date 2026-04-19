@@ -8,6 +8,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosCluster;
 using RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
+using RESQ.Application.UseCases.Emergency.Commands.RemoveSosRequestFromCluster;
 using RESQ.Application.UseCases.Emergency.Queries.GetAlternativeDepots;
 using RESQ.Application.UseCases.Emergency.Queries.GetMissionSuggestions;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
@@ -38,6 +39,23 @@ public class SosClusterController(IMediator mediator) : ControllerBase
             return Unauthorized();
 
         var command = new CreateSosClusterCommand(dto.SosRequestIds, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Coordinator tách một SOS request ra khỏi cluster hiện tại.
+    /// </summary>
+    [HttpDelete("{clusterId:int}/sos-requests/{sosRequestId:int}")]
+    [Authorize(Policy = PermissionConstants.PolicySosClusterManage)]
+    [ProducesResponseType(typeof(RemoveSosRequestFromClusterResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> RemoveSosRequestFromCluster([FromRoute] int clusterId, [FromRoute] int sosRequestId)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var command = new RemoveSosRequestFromClusterCommand(clusterId, sosRequestId, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

@@ -21,7 +21,14 @@ namespace RESQ.Application.Repositories.Identity
         /// Lấy user cho trang phân quyền admin: loại trừ user bị ban và những
         /// volunteer chưa kích hoạt (IsEligibleRescuer = false).
         /// </summary>
-        Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pageNumber, int pageSize, int? roleId = null, string? search = null, CancellationToken cancellationToken = default);
+        Task<PagedResult<UserModel>> GetPagedForPermissionAsync(
+            int pageNumber,
+            int pageSize,
+            int? roleId = null,
+            string? name = null,
+            string? phone = null,
+            string? email = null,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Lấy danh sách Id của tất cả admin đang hoạt động (không bị ban), dùng để gửi thông báo hệ thống.

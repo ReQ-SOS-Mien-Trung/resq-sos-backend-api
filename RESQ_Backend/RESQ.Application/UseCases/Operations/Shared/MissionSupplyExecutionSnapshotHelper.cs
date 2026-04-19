@@ -88,6 +88,11 @@ internal static class MissionSupplyExecutionSnapshotHelper
             missionActivities,
             returnSupplies);
 
+        // If the balance calculation yields no items but existing items are already set,
+        // keep the current items rather than overwriting with an empty list.
+        if (expectedReturnSupplies.Count == 0 && returnSupplies.Count > 0)
+            expectedReturnSupplies = returnSupplies;
+
         var nextItemsJson = JsonSerializer.Serialize(expectedReturnSupplies);
         if (string.Equals(returnActivity.Items, nextItemsJson, StringComparison.Ordinal))
             return;

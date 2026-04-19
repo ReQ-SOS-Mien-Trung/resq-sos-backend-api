@@ -283,7 +283,7 @@ public class RescuerAuthSessionAndProfileHandlerTests
         public Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pageNumber, int pageSize, int? roleId = null, string? search = null, CancellationToken cancellationToken = default)
+        public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pageNumber, int pageSize, int? roleId = null, string? name = null, string? phone = null, string? email = null, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task<List<Guid>> GetActiveCoordinatorUserIdsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();

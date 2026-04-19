@@ -1,10 +1,10 @@
-using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Enum.Emergency;
 
@@ -98,70 +98,23 @@ public class CreateSosClusterCommandHandler(
             }
         }
 
-        // Auto-calculate center coordinates from average of all SOS request locations
-        var validCoords = resolvedRequests
-            .Where(r => r.Location?.Latitude != null && r.Location?.Longitude != null)
-            .ToList();
-        double? centerLat = validCoords.Count > 0 ? validCoords.Average(r => r.Location!.Latitude) : null;
-        double? centerLon = validCoords.Count > 0 ? validCoords.Average(r => r.Location!.Longitude) : null;
-
-        // Auto-calculate severity from highest priority level among SOS requests
-        var highestPriority = resolvedRequests
-            .Where(r => r.PriorityLevel.HasValue)
-            .Select(r => r.PriorityLevel!.Value)
-            .DefaultIfEmpty()
-            .Max();
-        string? severityLevel = resolvedRequests.Any(r => r.PriorityLevel.HasValue)
-            ? highestPriority.ToString()
-            : null;
-
-        // Auto-calculate people counts from StructuredData JSON
-        int totalAdult = 0, totalChild = 0, totalElderly = 0;
-        bool hasPeopleCount = false;
-        foreach (var sos in resolvedRequests)
-        {
-            if (string.IsNullOrWhiteSpace(sos.StructuredData)) continue;
-            try
-            {
-                var doc = JsonDocument.Parse(sos.StructuredData);
-                // Dual-read: try new nested format first, fallback to old flat
-                JsonElement pc;
-                bool hasPc = (doc.RootElement.TryGetProperty("incident", out var incident)
-                              && incident.TryGetProperty("people_count", out pc))
-                             || doc.RootElement.TryGetProperty("people_count", out pc);
-                if (hasPc)
-                {
-                    hasPeopleCount = true;
-                    if (pc.TryGetProperty("adult", out var a) && a.ValueKind == JsonValueKind.Number)
-                        totalAdult += a.GetInt32();
-                    if (pc.TryGetProperty("child", out var c) && c.ValueKind == JsonValueKind.Number)
-                        totalChild += c.GetInt32();
-                    if (pc.TryGetProperty("elderly", out var e) && e.ValueKind == JsonValueKind.Number)
-                        totalElderly += e.GetInt32();
-                }
-            }
-            catch (JsonException) { /* skip malformed JSON */ }
-        }
-
-        int? victimEstimated = hasPeopleCount ? totalAdult + totalChild + totalElderly : null;
-        int? childrenCount = hasPeopleCount ? totalChild : null;
-        int? elderlyCount = hasPeopleCount ? totalElderly : null;
+        var aggregate = SosClusterAggregateBuilder.Build(resolvedRequests);
 
         // Create cluster
         var cluster = new SosClusterModel
         {
-            CenterLatitude = centerLat,
-            CenterLongitude = centerLon,
-            SeverityLevel = severityLevel,
+            CenterLatitude = aggregate.CenterLatitude,
+            CenterLongitude = aggregate.CenterLongitude,
+            SeverityLevel = aggregate.SeverityLevel,
             WaterLevel = null,
-            VictimEstimated = victimEstimated,
-            ChildrenCount = childrenCount,
-            ElderlyCount = elderlyCount,
+            VictimEstimated = aggregate.VictimEstimated,
+            ChildrenCount = aggregate.ChildrenCount,
+            ElderlyCount = aggregate.ElderlyCount,
             MedicalUrgencyScore = null,
             CreatedAt = DateTime.UtcNow,
             LastUpdatedAt = DateTime.UtcNow,
             Status = SosClusterStatus.Pending,
-            SosRequestIds = resolvedRequests.Select(r => r.Id).ToList()
+            SosRequestIds = aggregate.SosRequestIds
         };
 
         var clusterId = await _sosClusterRepository.CreateAsync(cluster, cancellationToken);
@@ -174,7 +127,7 @@ public class CreateSosClusterCommandHandler(
             ClusterId = clusterId,
             SosRequestCount = resolvedRequests.Count,
             SosRequestIds = resolvedRequests.Select(r => r.Id).ToList(),
-            SeverityLevel = severityLevel,
+            SeverityLevel = aggregate.SeverityLevel,
             CreatedAt = cluster.CreatedAt
         };
     }

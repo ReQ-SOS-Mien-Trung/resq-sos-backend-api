@@ -4,13 +4,16 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyUpcomingAssemblyEvents;
 using RESQ.Application.UseCases.Operations.Commands.UpdateMissionStatus;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Domain.Enum.Personnel;
@@ -101,6 +104,55 @@ public class UpdateMissionStatusCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_SyncsAssignedRescueTeamsToOnMission_WhenMissionStarts()
+    {
+        var rescueTeamRepository = new StubRescueTeamRepository(
+            BuildTeam(6, RescueTeamStatus.Assigned),
+            BuildTeam(7, RescueTeamStatus.OnMission));
+        var handler = BuildHandler(
+            new StubMissionRepository(new MissionModel { Id = 15, Status = MissionStatus.Planned }),
+            new StubMissionActivityRepository(),
+            new StubMissionTeamRepository(
+                new MissionTeamModel { Id = 21, RescuerTeamId = 6 },
+                new MissionTeamModel { Id = 22, RescuerTeamId = 7 }),
+            new StubSosRequestRepository(),
+            new StubUnitOfWork(),
+            rescueTeamRepository: rescueTeamRepository);
+
+        await handler.Handle(new UpdateMissionStatusCommand(15, MissionStatus.OnGoing, DecisionById), CancellationToken.None);
+
+        Assert.Equal(RescueTeamStatus.OnMission, rescueTeamRepository.Get(6).Status);
+        Assert.Equal(RescueTeamStatus.OnMission, rescueTeamRepository.Get(7).Status);
+        Assert.Equal([6], rescueTeamRepository.UpdatedTeamIds);
+    }
+
+    [Fact]
+    public async Task Handle_ThrowsConflict_WhenAnyRescueTeamIsNotAssignedDuringMissionStart()
+    {
+        var rescueTeamRepository = new StubRescueTeamRepository(
+            BuildTeam(6, RescueTeamStatus.Assigned),
+            BuildTeam(7, RescueTeamStatus.Available));
+        var unitOfWork = new StubUnitOfWork();
+        var handler = BuildHandler(
+            new StubMissionRepository(new MissionModel { Id = 15, Status = MissionStatus.Planned }),
+            new StubMissionActivityRepository(),
+            new StubMissionTeamRepository(
+                new MissionTeamModel { Id = 21, RescuerTeamId = 6 },
+                new MissionTeamModel { Id = 22, RescuerTeamId = 7 }),
+            new StubSosRequestRepository(),
+            unitOfWork,
+            rescueTeamRepository: rescueTeamRepository);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() =>
+            handler.Handle(new UpdateMissionStatusCommand(15, MissionStatus.OnGoing, DecisionById), CancellationToken.None));
+
+        Assert.Contains("Đội #7", exception.Message);
+        Assert.Equal(0, unitOfWork.SaveCalls);
+        Assert.Empty(rescueTeamRepository.UpdatedTeamIds);
+        Assert.Equal(RescueTeamStatus.Assigned, rescueTeamRepository.Get(6).Status);
+    }
+
+    [Fact]
     public async Task Handle_ChecksOutAcceptedTeamMembers_WhenMissionStarts()
     {
         var acceptedMemberId = Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111");
@@ -171,15 +223,52 @@ public class UpdateMissionStatusCommandHandlerTests
         IMissionTeamRepository missionTeamRepository,
         ISosRequestRepository sosRequestRepository,
         StubUnitOfWork unitOfWork,
-        IAssemblyEventRepository? assemblyEventRepository = null)
-        => new(
+        IAssemblyEventRepository? assemblyEventRepository = null,
+        StubRescueTeamRepository? rescueTeamRepository = null,
+        StubOperationalHubService? operationalHubService = null)
+    {
+        rescueTeamRepository ??= new StubRescueTeamRepository();
+        operationalHubService ??= new StubOperationalHubService();
+
+        var lifecycleSyncService = new RescueTeamMissionLifecycleSyncService(
+            rescueTeamRepository,
+            operationalHubService,
+            NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
+
+        return new(
             missionRepository,
             missionActivityRepository,
             missionTeamRepository,
             sosRequestRepository,
             unitOfWork,
             NullLogger<UpdateMissionStatusCommandHandler>.Instance,
-            assemblyEventRepository ?? new StubAssemblyEventRepository());
+            assemblyEventRepository ?? new StubAssemblyEventRepository(),
+            lifecycleSyncService);
+    }
+
+    private static RescueTeamModel BuildTeam(int id, RescueTeamStatus status)
+    {
+        var leaderId = Guid.Parse($"11111111-1111-1111-1111-{id:D12}");
+        var team = RescueTeamModel.Create($"Team {id}", RescueTeamType.Rescue, id, Guid.NewGuid());
+        team.SetId(id);
+        team.AddMember(leaderId, isLeader: true, rescuerType: "Core", roleInTeam: "LEADER");
+        team.SetAvailableByLeader(leaderId);
+
+        switch (status)
+        {
+            case RescueTeamStatus.Available:
+                return team;
+            case RescueTeamStatus.Assigned:
+                team.AssignMission();
+                return team;
+            case RescueTeamStatus.OnMission:
+                team.AssignMission();
+                team.StartMission();
+                return team;
+            default:
+                throw new InvalidOperationException($"Unsupported test status: {status}");
+        }
+    }
 
     private sealed class StubMissionRepository(MissionModel? mission) : IMissionRepository
     {
@@ -232,6 +321,37 @@ public class UpdateMissionStatusCommandHandlerTests
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IEnumerable<MissionTeamModel>> GetActiveByRescuerTeamIdAsync(int rescuerTeamId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<MissionTeamModel>());
         public Task<MissionTeamModel?> GetByMissionAndTeamAsync(int missionId, int rescuerTeamId, CancellationToken cancellationToken = default) => Task.FromResult<MissionTeamModel?>(null);
+    }
+
+    private sealed class StubRescueTeamRepository(params RescueTeamModel[] teams) : IRescueTeamRepository
+    {
+        private readonly Dictionary<int, RescueTeamModel> _teams = teams.ToDictionary(team => team.Id);
+
+        public List<int> UpdatedTeamIds { get; } = [];
+
+        public RescueTeamModel Get(int teamId) => _teams[teamId];
+
+        public Task<RescueTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_teams.TryGetValue(id, out var team) ? team : null);
+
+        public Task UpdateAsync(RescueTeamModel team, CancellationToken cancellationToken = default)
+        {
+            _teams[team.Id] = team;
+            UpdatedTeamIds.Add(team.Id);
+            return Task.CompletedTask;
+        }
+
+        public Task<RescueTeamModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<RescueTeamModel>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> IsUserInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> IsLeaderInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Guid?> GetTeamLeaderUserIdByMemberAsync(Guid memberUserId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> SoftRemoveMemberFromActiveTeamAsync(Guid memberUserId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> HasRequiredAbilityCategoryAsync(Guid userId, string categoryCode, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<string?> GetTopAbilityCategoryAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<int> CountActiveTeamsByAssemblyPointAsync(int assemblyPointId, IEnumerable<int> excludeTeamIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<(List<AgentTeamInfo> Teams, int TotalCount)> GetTeamsForAgentAsync(string? abilityKeyword, bool? available, int page, int pageSize, CancellationToken ct = default) => throw new NotImplementedException();
     }
 
     private sealed class StubSosRequestRepository : ISosRequestRepository

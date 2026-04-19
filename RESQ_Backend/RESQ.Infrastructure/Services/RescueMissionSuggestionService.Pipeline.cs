@@ -905,6 +905,7 @@ public partial class RescueMissionSuggestionService
         await EnsureReusableReturnActivitiesAsync(result.SuggestedActivities, cancellationToken);
         await BackfillDestinationInfoAsync(result.SuggestedActivities, nearbyDepots ?? [], sosRequests, cancellationToken);
         BackfillShortageItemIds(result.SupplyShortages, nearbyDepots ?? []);
+        ReconcileSupplyShortagesWithInventory(result.SupplyShortages, nearbyDepots ?? [], result.SuggestedActivities);
         NormalizeSupplyShortages(result);
         ApplySingleDepotConstraint(result);
         RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(result, nearbyTeams);

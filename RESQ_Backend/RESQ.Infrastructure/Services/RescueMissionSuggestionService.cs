@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -248,7 +249,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - **getAssemblyPoints(page)**: Trả về các assembly point đang hoạt động.
 
             ## QUY TẮC KHO — CHỈ CHỌN MỘT KHO CHO TOÀN BỘ MISSION
-            - BẮT BUỘC gọi **searchInventory** cho từng danh mục phù hợp: Thực phẩm, Nước, Y tế, Cứu hộ, Quần áo, nơi trú ẩn... Không bỏ sót danh mục liên quan.
+            - BẮT BUỘC gọi **searchInventory** cho từng danh mục phù hợp: Thực phẩm, Nước, Y tế, Cứu hộ, Quần áo, Sưởi ấm, nơi trú ẩn... Không bỏ sót danh mục liên quan.
+            - Có thể dùng các từ khoá nghiệp vụ tổng quát như `Thuốc men`, `Sơ cứu`, `Chăn màn`, `Giữ ấm`; backend sẽ tự map sang nhóm vật phẩm/kho liên quan để tìm item thực tế trong kho.
             - Nếu mission cần phương tiện di chuyển, xe tải, xuồng, ca nô, càng, máy phát, hoặc bất kỳ reusable equipment nào, bắt buộc phải gọi `searchInventory` cho nhóm phương tiện/thiết bị hữu hình trước khi quyết định.
             - Sau khi có kết quả, so sánh các `depot_id` xuất hiện và chọn **đúng một kho phù hợp nhất cho toàn bộ mission**.
             - Tiêu chí chọn kho: ưu tiên kho đáp ứng được nhiều nhu cầu SOS nhất và có tổng số lượng phù hợp cao nhất. Nếu tương đương, chọn kho có vị trí thuận lợi hơn trong kết quả đã trả về.
@@ -667,6 +669,212 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 }
             }
         }
+    }
+
+    private static readonly Dictionary<string, string[]> GenericShortageAliasTokens =
+        new(StringComparer.Ordinal)
+        {
+            ["thuoc men"] = ["thuoc", "y te", "medical", "so cuu", "cap cuu", "bo so cuu"],
+            ["medicine"] = ["thuoc", "y te", "medical", "so cuu", "cap cuu", "bo so cuu"],
+            ["medical"] = ["thuoc", "y te", "medical", "so cuu", "cap cuu", "bo so cuu"],
+            ["y te"] = ["thuoc", "y te", "medical", "so cuu", "cap cuu", "bo so cuu"],
+            ["so cuu"] = ["so cuu", "bo so cuu", "bang", "bong", "gac", "oxy", "thuoc"],
+            ["first aid"] = ["so cuu", "bo so cuu", "bang", "bong", "gac", "oxy", "thuoc"],
+            ["chan man"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
+            ["blanket"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
+            ["blankets"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
+            ["giu am"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
+            ["quan ao"] = ["ao", "quan", "chan", "men", "giu nhiet", "ao am"],
+            ["clothing"] = ["ao", "quan", "chan", "men", "giu nhiet", "ao am"]
+        };
+
+    private static readonly HashSet<string> GenericShortageLabels =
+    [
+        "thuoc men",
+        "medicine",
+        "medical",
+        "medical supplies",
+        "y te",
+        "so cuu",
+        "first aid",
+        "chan man",
+        "blanket",
+        "blankets",
+        "giu am",
+        "quan ao",
+        "clothing"
+    ];
+
+    private static void ReconcileSupplyShortagesWithInventory(
+        List<SupplyShortageDto> shortages,
+        IReadOnlyCollection<DepotSummary> depots,
+        IReadOnlyCollection<SuggestedActivityDto> activities)
+    {
+        if (shortages.Count == 0 || depots.Count == 0)
+            return;
+
+        var selectedDepot = GetSingleDepotSelection(activities);
+        var depotLookup = depots.ToDictionary(depot => depot.Id);
+
+        foreach (var shortage in shortages)
+        {
+            var depotId = shortage.SelectedDepotId ?? selectedDepot?.DepotId;
+            if (!depotId.HasValue || !depotLookup.TryGetValue(depotId.Value, out var depot))
+                continue;
+
+            shortage.SelectedDepotId ??= depot.Id;
+            shortage.SelectedDepotName ??= depot.Name;
+
+            ReconcileSupplyShortageWithDepotInventory(shortage, depot);
+        }
+    }
+
+    private static void ReconcileSupplyShortageWithDepotInventory(
+        SupplyShortageDto shortage,
+        DepotSummary depot)
+    {
+        if (string.IsNullOrWhiteSpace(shortage.ItemName) || depot.Inventories.Count == 0)
+            return;
+
+        var normalizedShortageName = NormalizeItemName(shortage.ItemName);
+        var matchingItems = ResolveMatchingDepotInventoryItems(shortage, depot.Inventories, normalizedShortageName);
+        if (matchingItems.Count == 0)
+            return;
+
+        var bestMatch = matchingItems[0];
+        var isGenericShortage = IsGenericShortageLabel(normalizedShortageName);
+        var totalAvailable = matchingItems.Sum(item => Math.Max(item.AvailableQuantity, 0));
+
+        if (!shortage.ItemId.HasValue && bestMatch.ItemId.HasValue && (!isGenericShortage || matchingItems.Count == 1))
+            shortage.ItemId = bestMatch.ItemId;
+
+        if (!string.IsNullOrWhiteSpace(bestMatch.Unit)
+            && (string.IsNullOrWhiteSpace(shortage.Unit)
+                || (isGenericShortage && matchingItems.Count == 1)))
+        {
+            shortage.Unit = bestMatch.Unit;
+        }
+
+        if (isGenericShortage)
+        {
+            if (matchingItems.Count == 1 && !string.IsNullOrWhiteSpace(bestMatch.ItemName))
+                shortage.ItemName = bestMatch.ItemName;
+
+            if (totalAvailable > 0)
+                shortage.AvailableQuantity = totalAvailable;
+        }
+        else
+        {
+            shortage.ItemName = bestMatch.ItemName;
+            shortage.AvailableQuantity = Math.Max(bestMatch.AvailableQuantity, 0);
+        }
+
+        if (shortage.NeededQuantity <= 0 && shortage.MissingQuantity > 0)
+            shortage.NeededQuantity = shortage.AvailableQuantity + shortage.MissingQuantity;
+
+        if (shortage.NeededQuantity > 0)
+            shortage.MissingQuantity = Math.Max(shortage.NeededQuantity - shortage.AvailableQuantity, 0);
+    }
+
+    private static List<DepotInventoryItemDto> ResolveMatchingDepotInventoryItems(
+        SupplyShortageDto shortage,
+        IReadOnlyCollection<DepotInventoryItemDto> inventories,
+        string normalizedShortageName)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedShortageName))
+            return [];
+
+        var searchTokens = ResolveGenericShortageSearchTokens(normalizedShortageName);
+
+        return inventories
+            .Where(item => !string.IsNullOrWhiteSpace(item.ItemName))
+            .Select(item => new
+            {
+                Item = item,
+                Score = ScoreSupplyShortageInventoryMatch(shortage, item, normalizedShortageName, searchTokens)
+            })
+            .Where(entry => entry.Score > 0)
+            .OrderByDescending(entry => entry.Score)
+            .ThenByDescending(entry => entry.Item.AvailableQuantity)
+            .ThenBy(entry => entry.Item.ItemName, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => entry.Item)
+            .ToList();
+    }
+
+    private static HashSet<string> ResolveGenericShortageSearchTokens(string normalizedShortageName)
+    {
+        var tokens = new HashSet<string>(StringComparer.Ordinal)
+        {
+            normalizedShortageName
+        };
+
+        foreach (var word in normalizedShortageName.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (word.Length >= 3)
+                tokens.Add(word);
+        }
+
+        foreach (var (alias, aliasTokens) in GenericShortageAliasTokens)
+        {
+            if (!normalizedShortageName.Contains(alias, StringComparison.Ordinal)
+                && !alias.Contains(normalizedShortageName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (var aliasToken in aliasTokens.Select(NormalizeItemName))
+            {
+                if (!string.IsNullOrWhiteSpace(aliasToken))
+                    tokens.Add(aliasToken);
+            }
+        }
+
+        return tokens;
+    }
+
+    private static int ScoreSupplyShortageInventoryMatch(
+        SupplyShortageDto shortage,
+        DepotInventoryItemDto inventory,
+        string normalizedShortageName,
+        IReadOnlyCollection<string> searchTokens)
+    {
+        var normalizedInventoryName = NormalizeItemName(inventory.ItemName);
+        if (string.IsNullOrWhiteSpace(normalizedInventoryName))
+            return 0;
+
+        var score = 0;
+
+        if (shortage.ItemId.HasValue && inventory.ItemId == shortage.ItemId)
+            score += 1000;
+
+        if (string.Equals(normalizedInventoryName, normalizedShortageName, StringComparison.Ordinal))
+            score += 400;
+        else if (normalizedInventoryName.Contains(normalizedShortageName, StringComparison.Ordinal)
+                 || normalizedShortageName.Contains(normalizedInventoryName, StringComparison.Ordinal))
+            score += 200;
+
+        score += searchTokens
+            .Where(token => normalizedInventoryName.Contains(token, StringComparison.Ordinal))
+            .Sum(token => Math.Max(token.Length, 3) * 10);
+
+        if (!string.IsNullOrWhiteSpace(shortage.Unit)
+            && !string.IsNullOrWhiteSpace(inventory.Unit)
+            && string.Equals(NormalizeItemName(shortage.Unit), NormalizeItemName(inventory.Unit), StringComparison.Ordinal))
+        {
+            score += 120;
+        }
+
+        return score;
+    }
+
+    private static bool IsGenericShortageLabel(string normalizedShortageName)
+    {
+        if (GenericShortageLabels.Contains(normalizedShortageName))
+            return true;
+
+        return GenericShortageAliasTokens.Keys.Any(alias =>
+            normalizedShortageName.Contains(alias, StringComparison.Ordinal)
+            || alias.Contains(normalizedShortageName, StringComparison.Ordinal));
     }
 
     private static void NormalizeSupplyShortages(RescueMissionSuggestionResult result)
@@ -1728,19 +1936,12 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static void ApplyMixedRescueReliefSafetyNote(RescueMissionSuggestionResult result)
     {
-        var hasRescueBranch = result.SuggestedActivities.Any(activity =>
-            string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase));
-        var hasSupplyBranch = result.SuggestedActivities.Any(activity =>
-            IsCollectActivity(activity)
-            || string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase));
-
-        if (!hasRescueBranch || !hasSupplyBranch)
+        var warning = MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(result.SuggestedActivities);
+        if (string.IsNullOrWhiteSpace(warning))
             return;
 
         result.NeedsManualReview = true;
-        result.MixedRescueReliefWarning = MissionSuggestionWarningHelper.MixedRescueReliefWarningMessage;
+        result.MixedRescueReliefWarning = warning;
     }
 
     private static void BackfillSosRequestIds(List<SuggestedActivityDto> activities, List<SosRequestSummary> sosRequests)
@@ -1790,16 +1991,43 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         }
     }
 
-    private static string NormalizeItemName(string name) =>
-        name.ToLowerInvariant()
-            .Replace("&", " ")
-            .Replace("(", " ")
-            .Replace(")", " ")
-            .Replace(",", " ")
-            .Replace("-", " ")
-            .Replace("/", " ")
-            .Replace("  ", " ")
-            .Trim();
+    private static string NormalizeItemName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return string.Empty;
+
+        var normalized = name.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        var previousWasSpace = false;
+
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            var folded = character switch
+            {
+                '\u0111' => 'd',
+                '\u0110' => 'd',
+                _ => char.ToLowerInvariant(character)
+            };
+
+            if (char.IsLetterOrDigit(folded))
+            {
+                builder.Append(folded);
+                previousWasSpace = false;
+                continue;
+            }
+
+            if (previousWasSpace)
+                continue;
+
+            builder.Append(' ');
+            previousWasSpace = true;
+        }
+
+        return builder.ToString().Trim();
+    }
 
     /// <summary>
     /// Populates DestinationLatitude / DestinationLongitude / DestinationName on each activity

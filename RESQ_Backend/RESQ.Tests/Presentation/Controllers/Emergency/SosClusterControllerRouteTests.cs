@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Emergency.Commands.RemoveSosRequestFromCluster;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 using RESQ.Presentation.Controllers.Emergency;
 
@@ -20,6 +21,25 @@ public class SosClusterControllerRouteTests
             .ToList();
 
         Assert.Contains("{clusterId:int}/alternative-depots", getRoutes);
+    }
+
+    [Fact]
+    public void SosClusterController_ExposesRemoveSosRequestRoute_WithExpectedResponseType()
+    {
+        var method = typeof(SosClusterController).GetMethod(nameof(SosClusterController.RemoveSosRequestFromCluster));
+
+        Assert.NotNull(method);
+
+        var httpDelete = Assert.Single(method!
+            .GetCustomAttributes(typeof(HttpDeleteAttribute), inherit: false)
+            .Cast<HttpDeleteAttribute>());
+        Assert.Equal("{clusterId:int}/sos-requests/{sosRequestId:int}", httpDelete.Template);
+
+        var produces = Assert.Single(method
+            .GetCustomAttributes(typeof(ProducesResponseTypeAttribute), inherit: false)
+            .Cast<ProducesResponseTypeAttribute>());
+        Assert.Equal(typeof(RemoveSosRequestFromClusterResponse), produces.Type);
+        Assert.Equal(StatusCodes.Status200OK, produces.StatusCode);
     }
 
     [Fact]

@@ -88,6 +88,28 @@ public class SosClusterRepositoryTests
         Assert.Equal(1, result.PageSize);
     }
 
+    [Fact]
+    public async Task DeleteAsync_RemovesCluster()
+    {
+        await using var context = CreateContext();
+
+        context.SosClusters.Add(new SosCluster
+        {
+            Id = 9,
+            Status = "Pending",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var repository = CreateRepository(context);
+
+        await repository.DeleteAsync(9);
+        await context.SaveChangesAsync();
+
+        Assert.Null(await context.SosClusters.FindAsync(9));
+    }
+
     private static ResQDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ResQDbContext>()

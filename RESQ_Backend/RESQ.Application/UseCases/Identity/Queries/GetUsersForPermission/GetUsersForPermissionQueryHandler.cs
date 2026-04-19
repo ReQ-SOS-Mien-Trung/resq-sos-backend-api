@@ -17,7 +17,9 @@ public class GetUsersForPermissionQueryHandler(IUserRepository userRepository)
             request.PageNumber,
             request.PageSize,
             request.RoleId,
-            request.Search,
+            request.Name,
+            request.Phone,
+            request.Email,
             cancellationToken);
 
         var items = paged.Items.Select(u => new GetUsersItemResponse

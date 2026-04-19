@@ -115,7 +115,7 @@ public class MissionAiSuggestionSectionTests
                 """,
             Activities =
             [
-                CreateSnakeCaseActivitySuggestion("Validated", "snake-activity")
+                CreateMixedSnakeCaseActivitySuggestion("Validated")
             ]
         };
 
@@ -125,7 +125,13 @@ public class MissionAiSuggestionSectionTests
         Assert.Equal("[SOS ID 1]: need water", section!.OverallAssessment);
         Assert.Equal("1 gio 5 phut", section.EstimatedDuration);
         Assert.Equal("Coordinator needs backup stock", section.SpecialNotes);
-        Assert.Equal(MissionSuggestionWarningHelper.MixedRescueReliefWarningMessage, section.MixedRescueReliefWarning);
+        Assert.Equal(
+            MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
+            [
+                new SuggestedActivityDto { ActivityType = "COLLECT_SUPPLIES", SosRequestId = 77 },
+                new SuggestedActivityDto { ActivityType = "RESCUE", SosRequestId = 91 }
+            ]),
+            section.MixedRescueReliefWarning);
         Assert.True(section.NeedsManualReview);
         Assert.Equal("Confidence is below review threshold.", section.LowConfidenceWarning);
         Assert.True(section.NeedsAdditionalDepot);
@@ -139,10 +145,11 @@ public class MissionAiSuggestionSectionTests
         var resource = Assert.Single(section.SuggestedResources);
         Assert.Equal("TEAM", resource.ResourceType);
 
-        var activity = Assert.Single(section.SuggestedActivities);
-        Assert.Equal("snake-activity", activity.Description);
-        Assert.Equal("COLLECT_SUPPLIES", activity.ActivityType);
-        Assert.Equal(9, activity.DepotId);
+        var collectActivity = Assert.Single(section.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
+        var rescueActivity = Assert.Single(section.SuggestedActivities, activity => activity.ActivityType == "RESCUE");
+        Assert.Equal("snake-activity", collectActivity.Description);
+        Assert.Equal(9, collectActivity.DepotId);
+        Assert.Equal(91, rescueActivity.SosRequestId);
     }
 
     [Fact]
@@ -206,6 +213,34 @@ public class MissionAiSuggestionSectionTests
                     "depot_id": 9,
                     "depot_name": "Kho A",
                     "estimated_time": "25 phut"
+                  }
+                ]
+                """
+        };
+    }
+
+    private static ActivityAiSuggestionModel CreateMixedSnakeCaseActivitySuggestion(string phase)
+    {
+        return new ActivityAiSuggestionModel
+        {
+            SuggestionPhase = phase,
+            SuggestedActivities = """
+                [
+                  {
+                    "step": 1,
+                    "activity_type": "COLLECT_SUPPLIES",
+                    "description": "snake-activity",
+                    "depot_id": 9,
+                    "depot_name": "Kho A",
+                    "estimated_time": "25 phut",
+                    "sos_request_id": 77
+                  },
+                  {
+                    "step": 2,
+                    "activity_type": "RESCUE",
+                    "description": "dua nan nhan ra khoi khu vuc nguy hiem",
+                    "estimated_time": "15 phut",
+                    "sos_request_id": 91
                   }
                 ]
                 """

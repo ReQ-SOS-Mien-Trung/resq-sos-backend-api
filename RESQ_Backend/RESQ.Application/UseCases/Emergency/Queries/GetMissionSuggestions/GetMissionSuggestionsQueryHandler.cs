@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Shared;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetMissionSuggestions;
@@ -31,6 +32,18 @@ public class GetMissionSuggestionsQueryHandler(
         var missionDtos = suggestions.Select(m =>
         {
             var metadata = MissionAiSuggestionJsonHelper.ParseMetadata(m.Metadata);
+            var activityGroups = m.Activities.Select(a => new ActivitySuggestionDto
+            {
+                Id = a.Id,
+                ActivityType = a.ActivityType,
+                SuggestionPhase = a.SuggestionPhase,
+                ConfidenceScore = a.ConfidenceScore,
+                CreatedAt = a.CreatedAt,
+                SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(a.SuggestedActivities)
+            }).ToList();
+            var mixedRescueReliefWarning = MissionSuggestionWarningHelper.ResolveMixedRescueReliefWarning(
+                activityGroups.SelectMany(activityGroup => activityGroup.SuggestedActivities),
+                metadata?.MixedRescueReliefWarning);
 
             return new MissionSuggestionDto
             {
@@ -46,23 +59,15 @@ public class GetMissionSuggestionsQueryHandler(
                 OverallAssessment = metadata?.OverallAssessment,
                 EstimatedDuration = metadata?.EstimatedDuration,
                 SpecialNotes = metadata?.SpecialNotes,
-                MixedRescueReliefWarning = metadata?.MixedRescueReliefWarning ?? string.Empty,
-                NeedsManualReview = metadata?.NeedsManualReview ?? false,
+                MixedRescueReliefWarning = mixedRescueReliefWarning,
+                NeedsManualReview = (metadata?.NeedsManualReview ?? false) || !string.IsNullOrWhiteSpace(mixedRescueReliefWarning),
                 LowConfidenceWarning = metadata?.LowConfidenceWarning,
                 NeedsAdditionalDepot = metadata?.NeedsAdditionalDepot ?? false,
                 SupplyShortages = metadata?.SupplyShortages ?? [],
                 SuggestedResources = metadata?.SuggestedResources ?? [],
                 SuggestionScope = m.SuggestionScope,
                 CreatedAt = m.CreatedAt,
-                Activities = m.Activities.Select(a => new ActivitySuggestionDto
-                {
-                    Id = a.Id,
-                    ActivityType = a.ActivityType,
-                    SuggestionPhase = a.SuggestionPhase,
-                    ConfidenceScore = a.ConfidenceScore,
-                    CreatedAt = a.CreatedAt,
-                    SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(a.SuggestedActivities)
-                }).ToList()
+                Activities = activityGroups
             };
         }).ToList();
 

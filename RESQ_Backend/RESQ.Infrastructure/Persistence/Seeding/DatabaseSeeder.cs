@@ -17,6 +17,7 @@ using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Entities.Personnel;
 using RESQ.Infrastructure.Entities.System;
+using RESQ.Application.Services;
 using RESQ.Infrastructure.Persistence.Context;
 
 namespace RESQ.Infrastructure.Persistence.Seeding;
@@ -1510,7 +1511,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     ActivityType = type,
                     Description = ActivityDescription(type, depot.Name, sos.RawMessage),
                     Target = Json(new { address = JsonDocument.Parse(sos.StructuredData ?? "{}").RootElement.TryGetProperty("address", out var address) ? address.GetString() : "Khu dân cư", sos_request_id = sos.Id }),
-                    Items = hasDepot ? Json(new[] { new { item_id = seed.ItemModels[(mission.Id + step) % seed.ItemModels.Count].Id, quantity = 20 + step * 10, unit = "đơn vị" } }) : null,
+                    Items = hasDepot ? Json(new[] { new SupplyToCollectDto { ItemId = seed.ItemModels[(mission.Id + step) % seed.ItemModels.Count].Id, ItemName = seed.ItemModels[(mission.Id + step) % seed.ItemModels.Count].Name ?? "Vật phẩm", Quantity = 20 + step * 10, Unit = "đơn vị" } }) : null,
                     TargetLocation = hasDepot ? depot.Location : sos.Location,
                     Status = activityStatus,
                     AssignedAt = assigned,
@@ -1530,6 +1531,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         _db.MissionActivities.AddRange(seed.MissionActivities);
         await _db.SaveChangesAsync(cancellationToken);
+
+        await SeedTestActivityStatusesAsync(seed, cancellationToken);
 
         for (var i = 0; i < 35; i++)
         {
@@ -3609,6 +3612,45 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     ? "Assigned"
                     : "Available";
         }
+    }
+
+    /// <summary>
+    /// Post-processing: adjusts activities at Kho Huế (Depots[0]) to fixed demo-test statuses
+    /// so that manager01 always has data for upcoming-returns, upcoming-pickups, confirm-return
+    /// and confirm-pickup endpoints after every fresh seed.
+    /// </summary>
+    private async Task SeedTestActivityStatusesAsync(DemoSeedContext seed, CancellationToken cancellationToken)
+    {
+        if (seed.Depots.Count == 0) return;
+        var hueDepotId = seed.Depots[0].Id; // Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế (manager@resq.vn)
+
+        // 1. One RETURN_SUPPLIES → PendingConfirmation  (for upcoming-returns + confirm-return)
+        var returnActivity = seed.MissionActivities
+            .FirstOrDefault(a => a.DepotId == hueDepotId
+                              && a.ActivityType == "RETURN_SUPPLIES"
+                              && a.Status == "Planned");
+        if (returnActivity != null)
+        {
+            returnActivity.Status = "PendingConfirmation";
+            returnActivity.CompletedAt = null;
+        }
+
+        // 2. One COLLECT_SUPPLIES → OnGoing  (for upcoming-pickups + confirm-pickup)
+        var pickupActivity = seed.MissionActivities
+            .FirstOrDefault(a => a.DepotId == hueDepotId
+                              && a.ActivityType == "COLLECT_SUPPLIES"
+                              && a.Status == "Succeed");
+        if (pickupActivity != null)
+        {
+            pickupActivity.Status = "OnGoing";
+            pickupActivity.CompletedAt = null;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "SeedTestActivityStatuses: returnActivityId={ReturnId} → PendingConfirmation; pickupActivityId={PickupId} → OnGoing (hueDepotId={DepotId})",
+            returnActivity?.Id, pickupActivity?.Id, hueDepotId);
     }
 
     private static string ActivityType(int step, int total, string? missionType)

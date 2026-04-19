@@ -617,6 +617,9 @@ public class CreateMissionCommandHandlerTests
             UpdatedCluster = cluster;
             return Task.CompletedTask;
         }
+
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
     private sealed class StubSosRequestRepository(params RESQ.Domain.Entities.Emergency.SosRequestModel[] requests) : ISosRequestRepository
