@@ -26,7 +26,8 @@ public class MissionActivityStatusExecutionService(
     IRescueTeamRepository rescueTeamRepository,
     IUnitOfWork unitOfWork,
     ILogger<MissionActivityStatusExecutionService> logger,
-    IAssemblyEventRepository assemblyEventRepository
+    IAssemblyEventRepository assemblyEventRepository,
+    IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService
 ) : IMissionActivityStatusExecutionService
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
@@ -40,6 +41,7 @@ public class MissionActivityStatusExecutionService(
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<MissionActivityStatusExecutionService> _logger = logger;
     private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
+    private readonly IRescueTeamMissionLifecycleSyncService _rescueTeamMissionLifecycleSyncService = rescueTeamMissionLifecycleSyncService;
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
@@ -331,6 +333,19 @@ public class MissionActivityStatusExecutionService(
             && activity.AssemblyPointId.HasValue)
         {
             await AutoReturnCheckInMissionTeamAsync(activity, assignedMissionTeam, cancellationToken);
+
+            var rescueTeamLifecycleSyncResult =
+                await _rescueTeamMissionLifecycleSyncService.SyncTeamToAvailableAfterReturnAsync(
+                    assignedMissionTeam.RescuerTeamId,
+                    cancellationToken);
+
+            if (rescueTeamLifecycleSyncResult.HasChanges)
+            {
+                await _unitOfWork.SaveAsync();
+                await _rescueTeamMissionLifecycleSyncService.PushRealtimeIfNeededAsync(
+                    rescueTeamLifecycleSyncResult,
+                    cancellationToken);
+            }
         }
 
         return new MissionActivityStatusExecutionResult

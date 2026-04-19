@@ -7,6 +7,7 @@ using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Operations.Shared;
+using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Domain.Enum.Personnel;
@@ -20,7 +21,8 @@ public class UpdateMissionStatusCommandHandler(
     ISosRequestRepository sosRequestRepository,
     IUnitOfWork unitOfWork,
     ILogger<UpdateMissionStatusCommandHandler> logger,
-    IAssemblyEventRepository assemblyEventRepository
+    IAssemblyEventRepository assemblyEventRepository,
+    IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService
 ) : IRequestHandler<UpdateMissionStatusCommand, UpdateMissionStatusResponse>
 {
     private readonly IMissionRepository _missionRepository = missionRepository;
@@ -30,6 +32,7 @@ public class UpdateMissionStatusCommandHandler(
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<UpdateMissionStatusCommandHandler> _logger = logger;
     private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
+    private readonly IRescueTeamMissionLifecycleSyncService _rescueTeamMissionLifecycleSyncService = rescueTeamMissionLifecycleSyncService;
 
     public async Task<UpdateMissionStatusResponse> Handle(UpdateMissionStatusCommand request, CancellationToken cancellationToken)
     {
@@ -47,6 +50,8 @@ public class UpdateMissionStatusCommandHandler(
         bool isCompleted = request.Status == MissionStatus.Completed || request.Status == MissionStatus.Incompleted;
         await _missionRepository.UpdateStatusAsync(request.MissionId, request.Status, isCompleted, cancellationToken);
 
+        var rescueTeamLifecycleSyncResult = RescueTeamMissionLifecycleSyncResult.None;
+
         // Side-effects: update SOS requests in the cluster
         if (mission.ClusterId.HasValue)
         {
@@ -58,6 +63,12 @@ public class UpdateMissionStatusCommandHandler(
 
         if (request.Status == MissionStatus.OnGoing)
         {
+            var missionTeams = (await _missionTeamRepository.GetByMissionIdAsync(request.MissionId, cancellationToken)).ToList();
+
+            rescueTeamLifecycleSyncResult = await _rescueTeamMissionLifecycleSyncService.SyncTeamsToOnMissionAsync(
+                missionTeams.Select(team => team.RescuerTeamId),
+                cancellationToken);
+
             var autoStartedActivityIds = await MissionActivityAutoStartHelper.AutoStartFirstActivitiesPerTeamAsync(
                 request.MissionId,
                 request.DecisionBy,
@@ -75,10 +86,13 @@ public class UpdateMissionStatusCommandHandler(
                     string.Join(", ", autoStartedActivityIds));
             }
 
-            await AutoCheckOutMissionTeamsAsync(request.MissionId, cancellationToken);
+            await AutoCheckOutMissionTeamsAsync(request.MissionId, missionTeams, cancellationToken);
         }
 
         await _unitOfWork.SaveAsync();
+        await _rescueTeamMissionLifecycleSyncService.PushRealtimeIfNeededAsync(
+            rescueTeamLifecycleSyncResult,
+            cancellationToken);
 
         return new UpdateMissionStatusResponse
         {
@@ -92,12 +106,13 @@ public class UpdateMissionStatusCommandHandler(
     /// Tự động checkout tất cả thành viên của các team thuộc mission khỏi sự kiện tập kết đang hoạt động.
     /// Gọi khi mission chuyển sang OnGoing (đội xuất phát làm nhiệm vụ).
     /// </summary>
-    private async Task AutoCheckOutMissionTeamsAsync(int missionId, CancellationToken cancellationToken)
+    private async Task AutoCheckOutMissionTeamsAsync(
+        int missionId,
+        IReadOnlyCollection<MissionTeamModel> missionTeams,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var missionTeams = await _missionTeamRepository.GetByMissionIdAsync(missionId, cancellationToken);
-
             foreach (var team in missionTeams)
             {
                 if (!team.AssemblyPointId.HasValue) continue;
