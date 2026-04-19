@@ -1,6 +1,8 @@
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.UseCases.Operations.Commands.CompleteMissionTeamExecution;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
 
@@ -14,7 +16,7 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
     [Fact]
     public async Task Handle_ThrowsNotFound_WhenMissionTeamDoesNotExist()
     {
-        var handler = new CompleteMissionTeamExecutionCommandHandler(new StubMissionTeamRepository(null));
+        var handler = BuildHandler(new StubMissionTeamRepository(null));
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.Handle(new CompleteMissionTeamExecutionCommand(1, 99, MemberId, null), CancellationToken.None));
@@ -23,8 +25,7 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
     [Fact]
     public async Task Handle_ThrowsBadRequest_WhenMissionIdDoesNotMatch()
     {
-        var handler = new CompleteMissionTeamExecutionCommandHandler(
-            new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.Assigned)));
+        var handler = BuildHandler(new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.Assigned)));
 
         await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(new CompleteMissionTeamExecutionCommand(999, 7, MemberId, null), CancellationToken.None));
@@ -33,8 +34,7 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
     [Fact]
     public async Task Handle_ThrowsForbidden_WhenRequesterIsNotRescueTeamMember()
     {
-        var handler = new CompleteMissionTeamExecutionCommandHandler(
-            new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.Assigned)));
+        var handler = BuildHandler(new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.Assigned)));
 
         await Assert.ThrowsAsync<ForbiddenException>(() =>
             handler.Handle(new CompleteMissionTeamExecutionCommand(5, 7, StrangerId, null), CancellationToken.None));
@@ -43,8 +43,7 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
     [Fact]
     public async Task Handle_ThrowsBadRequest_WhenMissionTeamWasCancelled()
     {
-        var handler = new CompleteMissionTeamExecutionCommandHandler(
-            new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.Cancelled)));
+        var handler = BuildHandler(new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.Cancelled)));
 
         await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(new CompleteMissionTeamExecutionCommand(5, 7, MemberId, null), CancellationToken.None));
@@ -53,8 +52,7 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
     [Fact]
     public async Task Handle_ThrowsConflict_WhenMissionTeamAlreadyReported()
     {
-        var handler = new CompleteMissionTeamExecutionCommandHandler(
-            new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.Reported)));
+        var handler = BuildHandler(new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.Reported)));
 
         await Assert.ThrowsAsync<ConflictException>(() =>
             handler.Handle(new CompleteMissionTeamExecutionCommand(5, 7, MemberId, null), CancellationToken.None));
@@ -64,7 +62,10 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
     public async Task Handle_UpdatesStatusToCompletedWaitingReport_WhenRequestIsValid()
     {
         var missionTeamRepository = new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.Assigned));
-        var handler = new CompleteMissionTeamExecutionCommandHandler(missionTeamRepository);
+        var lifecycleSyncService = new StubRescueTeamMissionLifecycleSyncService(
+            new RescueTeamMissionLifecycleSyncResult([21]));
+        var unitOfWork = new StubUnitOfWork();
+        var handler = BuildHandler(missionTeamRepository, lifecycleSyncService, unitOfWork);
 
         var response = await handler.Handle(
             new CompleteMissionTeamExecutionCommand(5, 7, MemberId, "Đã hoàn tất nhiệm vụ"),
@@ -79,11 +80,39 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
         Assert.Equal("Đã hoàn tất nhiệm vụ", missionTeamRepository.LastNote);
     }
 
+    [Fact]
+    public async Task Handle_SyncsRescueTeamAvailableAndPushesRealtime_WhenExecutionCompletes()
+    {
+        var missionTeamRepository = new StubMissionTeamRepository(BuildMissionTeam(status: MissionTeamExecutionStatus.InProgress));
+        var lifecycleSyncService = new StubRescueTeamMissionLifecycleSyncService(
+            new RescueTeamMissionLifecycleSyncResult([21]));
+        var unitOfWork = new StubUnitOfWork();
+        var handler = BuildHandler(missionTeamRepository, lifecycleSyncService, unitOfWork);
+
+        await handler.Handle(
+            new CompleteMissionTeamExecutionCommand(5, 7, MemberId, null),
+            CancellationToken.None);
+
+        Assert.Equal((21, 7), lifecycleSyncService.LastExecutionSync!.Value);
+        Assert.Equal(1, unitOfWork.SaveCalls);
+        Assert.Equal(1, lifecycleSyncService.PushCalls);
+    }
+
+    private static CompleteMissionTeamExecutionCommandHandler BuildHandler(
+        StubMissionTeamRepository missionTeamRepository,
+        StubRescueTeamMissionLifecycleSyncService? lifecycleSyncService = null,
+        StubUnitOfWork? unitOfWork = null) =>
+        new(
+            missionTeamRepository,
+            lifecycleSyncService ?? new StubRescueTeamMissionLifecycleSyncService(),
+            unitOfWork ?? new StubUnitOfWork());
+
     private static MissionTeamModel BuildMissionTeam(MissionTeamExecutionStatus status)
         => new()
         {
             Id = 7,
             MissionId = 5,
+            RescuerTeamId = 21,
             Status = status.ToString(),
             RescueTeamMembers =
             [
@@ -115,5 +144,63 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
         public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IEnumerable<MissionTeamModel>> GetActiveByRescuerTeamIdAsync(int rescuerTeamId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<MissionTeamModel>());
         public Task<MissionTeamModel?> GetByMissionAndTeamAsync(int missionId, int rescuerTeamId, CancellationToken cancellationToken = default) => Task.FromResult<MissionTeamModel?>(null);
+    }
+
+    private sealed class StubRescueTeamMissionLifecycleSyncService(
+        RescueTeamMissionLifecycleSyncResult? result = null) : IRescueTeamMissionLifecycleSyncService
+    {
+        private readonly RescueTeamMissionLifecycleSyncResult _result = result ?? RescueTeamMissionLifecycleSyncResult.None;
+
+        public (int RescueTeamId, int MissionTeamId)? LastExecutionSync { get; private set; }
+        public int PushCalls { get; private set; }
+
+        public Task<RescueTeamMissionLifecycleSyncResult> SyncTeamsToOnMissionAsync(IEnumerable<int> rescueTeamIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult(RescueTeamMissionLifecycleSyncResult.None);
+
+        public Task<RescueTeamMissionLifecycleSyncResult> SyncTeamToAvailableAfterReturnAsync(int rescueTeamId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(RescueTeamMissionLifecycleSyncResult.None);
+
+        public Task<RescueTeamMissionLifecycleSyncResult> SyncTeamToAvailableAfterExecutionAsync(int rescueTeamId, int missionTeamId, CancellationToken cancellationToken = default)
+        {
+            LastExecutionSync = (rescueTeamId, missionTeamId);
+            return Task.FromResult(_result);
+        }
+
+        public Task PushRealtimeIfNeededAsync(RescueTeamMissionLifecycleSyncResult result, CancellationToken cancellationToken = default)
+        {
+            if (result.HasChanges)
+            {
+                PushCalls++;
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubUnitOfWork : IUnitOfWork
+    {
+        public int SaveCalls { get; private set; }
+
+        public IGenericRepository<T> GetRepository<T>() where T : class => throw new NotImplementedException();
+        public IQueryable<T> Set<T>() where T : class => throw new NotImplementedException();
+        public IQueryable<T> SetTracked<T>() where T : class => throw new NotImplementedException();
+        public int SaveChangesWithTransaction() => throw new NotImplementedException();
+        public Task<int> SaveChangesWithTransactionAsync() => throw new NotImplementedException();
+
+        public Task<int> SaveAsync()
+        {
+            SaveCalls++;
+            return Task.FromResult(1);
+        }
+
+        public void AttachAsUnchanged<TEntity>(TEntity entity) where TEntity : class
+        {
+        }
+
+        public void ClearTrackedChanges()
+        {
+        }
+
+        public async Task ExecuteInTransactionAsync(Func<Task> action) => await action();
     }
 }

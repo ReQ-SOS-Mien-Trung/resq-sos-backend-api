@@ -1,18 +1,22 @@
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Personnel;
+using RESQ.Domain.Enum.Operations;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Operations.Shared;
 
 public class RescueTeamMissionLifecycleSyncService(
     IRescueTeamRepository rescueTeamRepository,
+    IMissionTeamRepository missionTeamRepository,
     IOperationalHubService operationalHubService,
     ILogger<RescueTeamMissionLifecycleSyncService> logger) : IRescueTeamMissionLifecycleSyncService
 {
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
+    private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IOperationalHubService _operationalHubService = operationalHubService;
     private readonly ILogger<RescueTeamMissionLifecycleSyncService> _logger = logger;
 
@@ -64,10 +68,37 @@ public class RescueTeamMissionLifecycleSyncService(
 
     public async Task<RescueTeamMissionLifecycleSyncResult> SyncTeamToAvailableAfterReturnAsync(
         int rescueTeamId,
+        CancellationToken cancellationToken = default) =>
+        await SyncTeamToAvailableCoreAsync(
+            rescueTeamId,
+            completedMissionTeamId: null,
+            source: "return-assembly-point",
+            cancellationToken);
+
+    public async Task<RescueTeamMissionLifecycleSyncResult> SyncTeamToAvailableAfterExecutionAsync(
+        int rescueTeamId,
+        int missionTeamId,
+        CancellationToken cancellationToken = default) =>
+        await SyncTeamToAvailableCoreAsync(
+            rescueTeamId,
+            completedMissionTeamId: missionTeamId,
+            source: "completed-execution",
+            cancellationToken);
+
+    private async Task<RescueTeamMissionLifecycleSyncResult> SyncTeamToAvailableCoreAsync(
+        int rescueTeamId,
+        int? completedMissionTeamId,
+        string source,
         CancellationToken cancellationToken = default)
     {
         if (rescueTeamId <= 0)
             return RescueTeamMissionLifecycleSyncResult.None;
+
+        if (completedMissionTeamId.HasValue
+            && await HasBlockingNewMissionAssignmentAsync(rescueTeamId, completedMissionTeamId.Value, source, cancellationToken))
+        {
+            return RescueTeamMissionLifecycleSyncResult.None;
+        }
 
         RescueTeamModel? team;
         try
@@ -77,15 +108,17 @@ public class RescueTeamMissionLifecycleSyncService(
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
-                "Failed to load RescueTeamId={RescueTeamId} for return-assembly-point lifecycle sync.",
-                rescueTeamId);
+                "Failed to load RescueTeamId={RescueTeamId} for {Source} lifecycle sync.",
+                rescueTeamId,
+                source);
             return RescueTeamMissionLifecycleSyncResult.None;
         }
 
         if (team is null)
         {
             _logger.LogWarning(
-                "Skipped return-assembly-point lifecycle sync because RescueTeamId={RescueTeamId} was not found.",
+                "Skipped {Source} lifecycle sync because RescueTeamId={RescueTeamId} was not found.",
+                source,
                 rescueTeamId);
             return RescueTeamMissionLifecycleSyncResult.None;
         }
@@ -104,7 +137,8 @@ public class RescueTeamMissionLifecycleSyncService(
                     return RescueTeamMissionLifecycleSyncResult.None;
                 default:
                     _logger.LogWarning(
-                        "Skipped return-assembly-point lifecycle sync for {TeamLabel} because status is {Status}.",
+                        "Skipped {Source} lifecycle sync for {TeamLabel} because status is {Status}.",
+                        source,
                         FormatTeamLabel(team),
                         team.Status);
                     return RescueTeamMissionLifecycleSyncResult.None;
@@ -116,9 +150,49 @@ public class RescueTeamMissionLifecycleSyncService(
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
-                "Failed to sync {TeamLabel} back to Available after RETURN_ASSEMBLY_POINT.",
-                FormatTeamLabel(team));
+                "Failed to sync {TeamLabel} back to Available after {Source}.",
+                FormatTeamLabel(team),
+                source);
             return RescueTeamMissionLifecycleSyncResult.None;
+        }
+    }
+
+    private async Task<bool> HasBlockingNewMissionAssignmentAsync(
+        int rescueTeamId,
+        int completedMissionTeamId,
+        string source,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var activeAssignments = await _missionTeamRepository
+                .GetActiveByRescuerTeamIdAsync(rescueTeamId, cancellationToken);
+
+            var blockingAssignment = activeAssignments.FirstOrDefault(missionTeam =>
+                missionTeam.Id != completedMissionTeamId
+                && IsBlockingMissionTeamStatus(missionTeam.Status));
+
+            if (blockingAssignment is null)
+            {
+                return false;
+            }
+
+            _logger.LogInformation(
+                "Skipped {Source} rescue-team availability sync for RescueTeamId={RescueTeamId} because MissionTeamId={MissionTeamId} is already {Status}.",
+                source,
+                rescueTeamId,
+                blockingAssignment.Id,
+                blockingAssignment.Status);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Skipped {Source} rescue-team availability sync for RescueTeamId={RescueTeamId} because active mission assignments could not be verified.",
+                source,
+                rescueTeamId);
+            return true;
         }
     }
 
@@ -140,6 +214,10 @@ public class RescueTeamMissionLifecycleSyncService(
                 string.Join(", ", result.ChangedTeamIds));
         }
     }
+
+    private static bool IsBlockingMissionTeamStatus(string? status) =>
+        string.Equals(status, MissionTeamExecutionStatus.Assigned.ToString(), StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, MissionTeamExecutionStatus.InProgress.ToString(), StringComparison.OrdinalIgnoreCase);
 
     private static string FormatTeamLabel(RescueTeamModel team) =>
         string.IsNullOrWhiteSpace(team.Name)

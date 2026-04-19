@@ -1,12 +1,16 @@
 using MediatR;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.UseCases.Operations.Commands.CompleteMissionTeamExecution;
 
 public class CompleteMissionTeamExecutionCommandHandler(
-    IMissionTeamRepository missionTeamRepository)
+    IMissionTeamRepository missionTeamRepository,
+    IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService,
+    IUnitOfWork unitOfWork)
     : IRequestHandler<CompleteMissionTeamExecutionCommand, CompleteMissionTeamExecutionResponse>
 {
     public async Task<CompleteMissionTeamExecutionResponse> Handle(CompleteMissionTeamExecutionCommand request, CancellationToken cancellationToken)
@@ -28,6 +32,20 @@ public class CompleteMissionTeamExecutionCommandHandler(
 
         var nextStatus = MissionTeamExecutionStatus.CompletedWaitingReport.ToString();
         await missionTeamRepository.UpdateStatusAsync(request.MissionTeamId, nextStatus, request.Note, cancellationToken);
+
+        var rescueTeamLifecycleSyncResult =
+            await rescueTeamMissionLifecycleSyncService.SyncTeamToAvailableAfterExecutionAsync(
+                missionTeam.RescuerTeamId,
+                request.MissionTeamId,
+                cancellationToken);
+
+        if (rescueTeamLifecycleSyncResult.HasChanges)
+        {
+            await unitOfWork.SaveAsync();
+            await rescueTeamMissionLifecycleSyncService.PushRealtimeIfNeededAsync(
+                rescueTeamLifecycleSyncResult,
+                cancellationToken);
+        }
 
         return new CompleteMissionTeamExecutionResponse
         {

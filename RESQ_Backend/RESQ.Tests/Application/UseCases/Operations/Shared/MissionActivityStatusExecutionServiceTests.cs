@@ -197,6 +197,9 @@ public class MissionActivityStatusExecutionServiceTests
         Assert.Equal(memberId, checkIn.RescuerId);
         Assert.Equal(9, rescueTeamRepository.UpdatedTeam?.AssemblyPointId);
         Assert.Equal(RescueTeamStatus.Available, rescueTeamRepository.UpdatedTeam?.Status);
+        Assert.Contains(missionTeamRepository.StatusUpdates, update =>
+            update.Id == 30
+            && update.Status == MissionTeamExecutionStatus.CompletedWaitingReport.ToString());
     }
 
     [Fact]
@@ -323,14 +326,16 @@ public class MissionActivityStatusExecutionServiceTests
         IAssemblyEventRepository? assemblyEventRepository = null)
     {
         rescueTeamRepository ??= new RecordingRescueTeamRepository(null);
+        missionTeamRepository ??= new RecordingMissionTeamRepository();
         var lifecycleSyncService = new RescueTeamMissionLifecycleSyncService(
             rescueTeamRepository,
+            missionTeamRepository,
             new StubOperationalHubService(),
             NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
 
         return new(
             activityRepository,
-            missionTeamRepository ?? new RecordingMissionTeamRepository(),
+            missionTeamRepository,
             new NoOpPersonnelQueryRepository(),
             new NoOpDepotInventoryRepository(),
             new NoOpSosRequestRepository(),
