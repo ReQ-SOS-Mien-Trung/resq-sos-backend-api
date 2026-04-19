@@ -17,6 +17,7 @@ using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Entities.Personnel;
 using RESQ.Infrastructure.Entities.System;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Persistence.Context;
 
@@ -3623,17 +3624,29 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         if (seed.Depots.Count == 0) return;
         var hueDepotId = seed.Depots[0].Id; // Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế (manager@resq.vn)
+        var onGoingMissionIds = seed.Missions
+            .Where(mission => mission.Status == "OnGoing")
+            .Select(mission => mission.Id)
+            .ToHashSet();
+        var inProgressMissionTeamIds = seed.MissionTeams
+            .Where(team => team.Status == "InProgress")
+            .Select(team => team.Id)
+            .ToHashSet();
 
-        // 1. One RETURN_SUPPLIES → PendingConfirmation  (for upcoming-returns + confirm-return)
-        var returnActivity = seed.MissionActivities
-            .FirstOrDefault(a => a.DepotId == hueDepotId
-                              && a.ActivityType == "RETURN_SUPPLIES"
-                              && a.Status == "Planned");
-        if (returnActivity != null)
-        {
-            returnActivity.Status = "PendingConfirmation";
-            returnActivity.CompletedAt = null;
-        }
+        // 1. Three RETURN_SUPPLIES → PendingConfirmation (for manager01 upcoming-returns + confirm-return)
+        var returnActivities = seed.MissionActivities
+            .Where(a => a.DepotId == hueDepotId
+                     && a.ActivityType == "RETURN_SUPPLIES"
+                     && a.Status == "Planned"
+                     && a.MissionId.HasValue
+                     && onGoingMissionIds.Contains(a.MissionId.Value)
+                     && a.MissionTeamId.HasValue
+                     && inProgressMissionTeamIds.Contains(a.MissionTeamId.Value))
+            .OrderBy(a => a.AssignedAt)
+            .ThenBy(a => a.Id)
+            .Take(3)
+            .ToList();
+        EnsureManagerUpcomingReturnFixtures(seed, seed.Depots[0], returnActivities);
 
         // 2. One COLLECT_SUPPLIES → OnGoing  (for upcoming-pickups + confirm-pickup)
         var pickupActivity = seed.MissionActivities
@@ -3649,8 +3662,215 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
-            "SeedTestActivityStatuses: returnActivityId={ReturnId} → PendingConfirmation; pickupActivityId={PickupId} → OnGoing (hueDepotId={DepotId})",
-            returnActivity?.Id, pickupActivity?.Id, hueDepotId);
+            "SeedTestActivityStatuses: returnActivityIds={ReturnIds} -> PendingConfirmation; pickupActivityId={PickupId} -> OnGoing (hueDepotId={DepotId})",
+            string.Join(",", returnActivities.Select(a => a.Id)), pickupActivity?.Id, hueDepotId);
+    }
+
+    private static void EnsureManagerUpcomingReturnFixtures(
+        DemoSeedContext seed,
+        Depot hueDepot,
+        IReadOnlyList<MissionActivity> returnActivities)
+    {
+        if (returnActivities.Count < 3)
+        {
+            throw new InvalidOperationException(
+                $"Runtime demo seed requires at least 3 planned RETURN_SUPPLIES activities for depot #{hueDepot.Id}.");
+        }
+
+        var reusableUnitGroups = seed.ReusableItems
+            .Where(item => item.Id > 30
+                && item.DepotId == hueDepot.Id
+                && string.Equals(item.Status, nameof(ReusableItemStatus.Available), StringComparison.Ordinal)
+                && item.ItemModelId.HasValue
+                && seed.ItemModels.Any(model =>
+                    model.Id == item.ItemModelId.Value
+                    && string.Equals(model.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase)))
+            .GroupBy(item => item.ItemModelId!.Value)
+            .Where(group => group.Count() >= 2)
+            .OrderBy(group => group.Key)
+            .ToList();
+
+        if (reusableUnitGroups.Count < 2)
+        {
+            throw new InvalidOperationException(
+                $"Runtime demo seed requires reusable units for upcoming return fixtures at depot #{hueDepot.Id}.");
+        }
+
+        var reusableOnlyUnits = reusableUnitGroups[0].OrderBy(item => item.Id).Take(2).ToList();
+        var mixedReusableUnit = reusableUnitGroups[1].OrderBy(item => item.Id).First();
+
+        MarkUnitsInUse(reusableOnlyUnits.Concat([mixedReusableUnit]), seed.AnchorUtc);
+
+        ConfigureReturnFixture(
+            returnActivities[0],
+            "Demo manager01 - trả thiết bị tái sử dụng",
+            "Đơn demo manager01: đội trả thiết bị tái sử dụng về kho Huế, có serial cụ thể.",
+            hueDepot,
+            [
+                BuildReusableReturnItem(seed, reusableOnlyUnits)
+            ],
+            assignedOffsetMinutes: 0);
+
+        ConfigureReturnFixture(
+            returnActivities[1],
+            "Demo manager01 - trả vật phẩm tiêu hao theo lô",
+            "Đơn demo manager01: đội trả vật phẩm tiêu hao dư thừa về kho Huế theo đúng lô FEFO.",
+            hueDepot,
+            BuildConsumableReturnItems(seed, hueDepot.Id,
+            [
+                ("Mì tôm", 20),
+                ("Nước tinh khiết", 80),
+                ("Thuốc hạ sốt Paracetamol 500mg", 120)
+            ]),
+            assignedOffsetMinutes: 20);
+
+        var mixedItems = BuildConsumableReturnItems(seed, hueDepot.Id,
+        [
+            ("Nước tinh khiết", 12),
+            ("Chăn ấm giữ nhiệt", 5)
+        ]);
+        mixedItems.Add(BuildReusableReturnItem(seed, [mixedReusableUnit]));
+
+        ConfigureReturnFixture(
+            returnActivities[2],
+            "Demo manager01 - trả vật phẩm tiêu hao và thiết bị tái sử dụng",
+            "Đơn demo manager01: đội trả cả vật phẩm tiêu hao theo lô và thiết bị tái sử dụng có serial.",
+            hueDepot,
+            mixedItems,
+            assignedOffsetMinutes: 40);
+    }
+
+    private static void ConfigureReturnFixture(
+        MissionActivity activity,
+        string targetName,
+        string description,
+        Depot hueDepot,
+        List<SupplyToCollectDto> items,
+        int assignedOffsetMinutes)
+    {
+        var assignedAt = activity.AssignedAt ?? activity.Mission?.StartTime ?? activity.Mission?.CreatedAt;
+
+        activity.ActivityType = "RETURN_SUPPLIES";
+        activity.Description = description;
+        activity.Target = Json(new { location = targetName, purpose = "manager01_upcoming_return_fixture" });
+        activity.Items = Json(items);
+        activity.TargetLocation = hueDepot.Location;
+        activity.Status = "PendingConfirmation";
+        activity.CompletedAt = null;
+        activity.AssignedAt = assignedAt?.AddMinutes(assignedOffsetMinutes);
+        activity.Priority = "Medium";
+        activity.EstimatedTime = 30;
+        activity.DepotId = hueDepot.Id;
+        activity.DepotName = hueDepot.Name;
+        activity.DepotAddress = hueDepot.Address;
+    }
+
+    private static List<SupplyToCollectDto> BuildConsumableReturnItems(
+        DemoSeedContext seed,
+        int depotId,
+        IReadOnlyList<(string ItemName, int Quantity)> requests)
+    {
+        return requests
+            .Select(request => BuildConsumableReturnItem(seed, depotId, request.ItemName, request.Quantity))
+            .ToList();
+    }
+
+    private static SupplyToCollectDto BuildConsumableReturnItem(
+        DemoSeedContext seed,
+        int depotId,
+        string itemName,
+        int quantity)
+    {
+        var itemModel = seed.ItemModels.Single(model =>
+            string.Equals(model.Name, itemName, StringComparison.OrdinalIgnoreCase));
+        var inventory = seed.Inventories.Single(inventory =>
+            inventory.DepotId == depotId && inventory.ItemModelId == itemModel.Id);
+
+        var remaining = quantity;
+        var allocations = new List<SupplyExecutionLotDto>();
+        foreach (var lot in seed.Lots
+            .Where(lot => lot.SupplyInventoryId == inventory.Id && lot.RemainingQuantity > 0)
+            .OrderBy(lot => lot.ExpiredDate ?? DateTime.MaxValue)
+            .ThenBy(lot => lot.ReceivedDate ?? DateTime.MaxValue)
+            .ThenBy(lot => lot.Id))
+        {
+            var take = Math.Min(remaining, lot.RemainingQuantity);
+            if (take <= 0)
+            {
+                continue;
+            }
+
+            allocations.Add(new SupplyExecutionLotDto
+            {
+                LotId = lot.Id,
+                QuantityTaken = take,
+                ReceivedDate = lot.ReceivedDate,
+                ExpiredDate = lot.ExpiredDate,
+                RemainingQuantityAfterExecution = Math.Max(0, lot.RemainingQuantity - take)
+            });
+
+            remaining -= take;
+            if (remaining == 0)
+            {
+                break;
+            }
+        }
+
+        if (remaining > 0)
+        {
+            throw new InvalidOperationException(
+                $"Runtime demo seed cannot allocate {quantity} units of '{itemName}' from depot #{depotId} lots.");
+        }
+
+        return new SupplyToCollectDto
+        {
+            ItemId = itemModel.Id,
+            ItemName = itemModel.Name ?? itemName,
+            ImageUrl = itemModel.ImageUrl,
+            Quantity = quantity,
+            Unit = itemModel.Unit,
+            ExpectedReturnLotAllocations = allocations
+        };
+    }
+
+    private static SupplyToCollectDto BuildReusableReturnItem(
+        DemoSeedContext seed,
+        IReadOnlyList<ReusableItem> units)
+    {
+        var itemModelId = units.Select(unit => unit.ItemModelId).Distinct().Single()
+            ?? throw new InvalidOperationException("Reusable return fixture unit is missing ItemModelId.");
+        var itemModel = seed.ItemModels.Single(model => model.Id == itemModelId);
+
+        return new SupplyToCollectDto
+        {
+            ItemId = itemModel.Id,
+            ItemName = itemModel.Name ?? $"Thiết bị #{itemModel.Id}",
+            ImageUrl = itemModel.ImageUrl,
+            Quantity = units.Count,
+            Unit = itemModel.Unit,
+            ExpectedReturnUnits = units
+                .OrderBy(unit => unit.Id)
+                .Select(unit => new SupplyExecutionReusableUnitDto
+                {
+                    ReusableItemId = unit.Id,
+                    ItemModelId = itemModel.Id,
+                    ItemName = itemModel.Name ?? $"Thiết bị #{itemModel.Id}",
+                    SerialNumber = unit.SerialNumber,
+                    Condition = unit.Condition,
+                    Note = unit.Note
+                })
+                .ToList()
+        };
+    }
+
+    private static void MarkUnitsInUse(IEnumerable<ReusableItem> units, DateTime updatedAt)
+    {
+        foreach (var unit in units)
+        {
+            unit.Status = ReusableItemStatus.InUse.ToString();
+            unit.UpdatedAt = updatedAt;
+            unit.Note = "Đang được đội giữ để trả về kho trong đơn RETURN_SUPPLIES demo manager01.";
+        }
     }
 
     private static string ActivityType(int step, int total, string? missionType)

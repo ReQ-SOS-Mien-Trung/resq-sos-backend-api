@@ -987,6 +987,13 @@ public static class LogisticsSeeder
             }
         }
 
+        foreach (var item in list.Where(item => item.Id is 4 or 5 or 7))
+        {
+            item.Status = ReusableItemStatus.InUse.ToString();
+            item.Note = "Đang được đội giữ để trả về kho trong đơn RETURN_SUPPLIES demo manager01.";
+            item.UpdatedAt = new DateTime(2026, 3, 20, 14, 0, 0, DateTimeKind.Utc);
+        }
+
         modelBuilder.Entity<DepotReusableItem>().HasData(list.ToArray());
     }
 

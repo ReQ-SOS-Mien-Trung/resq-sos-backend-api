@@ -8,6 +8,7 @@ using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Seeding;
+using RESQ.Application.Services;
 using System.Text.Json;
 
 namespace RESQ.Tests.Infrastructure.Seeding;
@@ -148,6 +149,49 @@ public class DatabaseSeederTests
         Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg", depotHue.ImageUrl);
         Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg", depotDaNang.ImageUrl);
         Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg", depotHaTinh.ImageUrl);
+
+        var hueUpcomingReturns = await context.MissionActivities
+            .Where(activity => activity.DepotId == depotHue.Id
+                && activity.ActivityType == "RETURN_SUPPLIES"
+                && activity.Status == "PendingConfirmation")
+            .OrderBy(activity => activity.AssignedAt)
+            .ThenBy(activity => activity.Id)
+            .ToListAsync();
+        Assert.Equal(3, hueUpcomingReturns.Count);
+
+        var snapshotJsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var hueReturnSnapshots = hueUpcomingReturns
+            .Select(activity => JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items ?? "[]", snapshotJsonOptions) ?? [])
+            .ToList();
+
+        Assert.All(
+            hueReturnSnapshots[0],
+            item =>
+            {
+                Assert.NotEmpty(item.ExpectedReturnUnits ?? []);
+                Assert.Empty(item.ExpectedReturnLotAllocations ?? []);
+            });
+        Assert.All(
+            hueReturnSnapshots[1],
+            item =>
+            {
+                Assert.NotEmpty(item.ExpectedReturnLotAllocations ?? []);
+                Assert.Empty(item.ExpectedReturnUnits ?? []);
+            });
+        Assert.Contains(hueReturnSnapshots[2], item => (item.ExpectedReturnLotAllocations ?? []).Count > 0);
+        Assert.Contains(hueReturnSnapshots[2], item => (item.ExpectedReturnUnits ?? []).Count > 0);
+
+        var expectedReusableUnitIds = hueReturnSnapshots
+            .SelectMany(items => items)
+            .SelectMany(item => item.ExpectedReturnUnits ?? [])
+            .Select(unit => unit.ReusableItemId)
+            .ToList();
+        Assert.Equal(expectedReusableUnitIds.Count, expectedReusableUnitIds.Distinct().Count());
+        var expectedReusableUnits = await context.ReusableItems
+            .Where(item => expectedReusableUnitIds.Contains(item.Id))
+            .ToListAsync();
+        Assert.Equal(expectedReusableUnitIds.Count, expectedReusableUnits.Count);
+        Assert.All(expectedReusableUnits, unit => Assert.Equal("InUse", unit.Status));
 
         var depotFillRatios = await context.Depots
             .OrderBy(depot => depot.Id)
@@ -299,6 +343,63 @@ public class DatabaseSeederTests
     }
 
     [Fact]
+    public async Task SeedAsync_CreatesManager01UpcomingReturnFixturesForHueDepot()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+        var seeder = CreateSeeder(context, failOnValidationError: false);
+
+        await seeder.SeedAsync();
+
+        var depotHue = await context.Depots.SingleAsync(depot => depot.Id == 1);
+        var hueUpcomingReturns = await context.MissionActivities
+            .Where(activity => activity.DepotId == depotHue.Id
+                && activity.ActivityType == "RETURN_SUPPLIES"
+                && activity.Status == "PendingConfirmation")
+            .OrderBy(activity => activity.AssignedAt)
+            .ThenBy(activity => activity.Id)
+            .ToListAsync();
+
+        Assert.Equal(3, hueUpcomingReturns.Count);
+        Assert.DoesNotContain(hueUpcomingReturns, activity => activity.Status == "Succeed");
+
+        var snapshotJsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var hueReturnSnapshots = hueUpcomingReturns
+            .Select(activity => JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items ?? "[]", snapshotJsonOptions) ?? [])
+            .ToList();
+
+        Assert.All(
+            hueReturnSnapshots[0],
+            item =>
+            {
+                Assert.NotEmpty(item.ExpectedReturnUnits ?? []);
+                Assert.Empty(item.ExpectedReturnLotAllocations ?? []);
+            });
+        Assert.All(
+            hueReturnSnapshots[1],
+            item =>
+            {
+                Assert.NotEmpty(item.ExpectedReturnLotAllocations ?? []);
+                Assert.Empty(item.ExpectedReturnUnits ?? []);
+            });
+        Assert.Contains(hueReturnSnapshots[2], item => (item.ExpectedReturnLotAllocations ?? []).Count > 0);
+        Assert.Contains(hueReturnSnapshots[2], item => (item.ExpectedReturnUnits ?? []).Count > 0);
+
+        var expectedReusableUnitIds = hueReturnSnapshots
+            .SelectMany(items => items)
+            .SelectMany(item => item.ExpectedReturnUnits ?? [])
+            .Select(unit => unit.ReusableItemId)
+            .ToList();
+        Assert.Equal(expectedReusableUnitIds.Count, expectedReusableUnitIds.Distinct().Count());
+
+        var expectedReusableUnits = await context.ReusableItems
+            .Where(item => expectedReusableUnitIds.Contains(item.Id))
+            .ToListAsync();
+        Assert.Equal(expectedReusableUnitIds.Count, expectedReusableUnits.Count);
+        Assert.All(expectedReusableUnits, unit => Assert.Equal("InUse", unit.Status));
+    }
+
+    [Fact]
     public async Task DemoSeedValidator_FlagsInvalidEnumsInventoryAndChatRules()
     {
         await using var context = CreateContext();
@@ -363,14 +464,14 @@ public class DatabaseSeederTests
         Assert.Contains(errors, error => error.Contains("missing their victim participant", StringComparison.Ordinal));
     }
 
-    private static DatabaseSeeder CreateSeeder(ResQDbContext context)
+    private static DatabaseSeeder CreateSeeder(ResQDbContext context, bool failOnValidationError = true)
     {
         var options = Options.Create(new SeedDataOptions
         {
             Profile = "Demo",
             AnchorDate = new DateOnly(2026, 4, 16),
             RandomSeed = 20260416,
-            FailOnValidationError = true
+            FailOnValidationError = failOnValidationError
         });
 
         return new DatabaseSeeder(
