@@ -263,16 +263,11 @@ public class ReturnSupplyActivityRepository(IUnitOfWork unitOfWork) : IReturnSup
                 Quantity = x.Quantity,
                 Unit = x.Unit,
                 ActualReturnedQuantity = x.ActualReturnedQuantity,
+                ExpectedReturnLotAllocations = x.ExpectedReturnLotAllocations?.Select(CloneLot).ToList() ?? [],
+                ReturnedLotAllocations = x.ReturnedLotAllocations?.Select(CloneLot).ToList() ?? [],
                 ExpectedReturnUnits = x.ExpectedReturnUnits?.Select(CloneReusableUnit).ToList() ?? [],
                 ReturnedReusableUnits = x.ReturnedReusableUnits?.Select(CloneReusableUnit).ToList() ?? [],
-                PickupLotAllocations = x.PickupLotAllocations?.Select(l => new SupplyExecutionLotDto
-                {
-                    LotId = l.LotId,
-                    QuantityTaken = l.QuantityTaken,
-                    ReceivedDate = l.ReceivedDate,
-                    ExpiredDate = l.ExpiredDate,
-                    RemainingQuantityAfterExecution = l.RemainingQuantityAfterExecution
-                }).ToList() ?? []
+                PickupLotAllocations = x.PickupLotAllocations?.Select(CloneLot).ToList() ?? []
             }).ToList();
         }
         catch (JsonException)
@@ -289,6 +284,15 @@ public class ReturnSupplyActivityRepository(IUnitOfWork unitOfWork) : IReturnSup
         SerialNumber = unit.SerialNumber,
         Condition = unit.Condition,
         Note = unit.Note
+    };
+
+    private static SupplyExecutionLotDto CloneLot(SupplyExecutionLotDto lot) => new()
+    {
+        LotId = lot.LotId,
+        QuantityTaken = lot.QuantityTaken,
+        ReceivedDate = lot.ReceivedDate,
+        ExpiredDate = lot.ExpiredDate,
+        RemainingQuantityAfterExecution = lot.RemainingQuantityAfterExecution
     };
 
     private static string? FormatFullName(string? lastName, string? firstName)

@@ -75,17 +75,54 @@ public class GetMyReturnHistoryActivitiesQueryHandler(
         return new PagedResult<ReturnHistoryActivityDto>(items, paged.TotalCount, paged.PageNumber, paged.PageSize);
     }
 
-    private static ReturnSupplyActivityItemDto MapItem(ReturnSupplyActivityItemDetail item) => new()
+    private static ReturnSupplyActivityItemDto MapItem(ReturnSupplyActivityItemDetail item)
     {
-        ItemId = item.ItemId,
-        ItemName = item.ItemName,
-        Quantity = item.Quantity,
-        Unit = item.Unit,
-        ActualReturnedQuantity = item.ActualReturnedQuantity,
-        ExpectedReturnUnits = item.ExpectedReturnUnits.Select(CloneUnit).ToList(),
-        ReturnedReusableUnits = item.ReturnedReusableUnits.Select(CloneUnit).ToList(),
-        PickupLotAllocations = item.PickupLotAllocations
-    };
+        var expectedReturnLots = item.ExpectedReturnLotAllocations.Select(CloneLot).ToList();
+        var expectedReturnUnits = item.ExpectedReturnUnits.Select(CloneUnit).ToList();
+        var returnedLots = item.ReturnedLotAllocations.Select(CloneLot).ToList();
+        var returnedUnits = item.ReturnedReusableUnits.Select(CloneUnit).ToList();
+
+        return new ReturnSupplyActivityItemDto
+        {
+            ItemId = item.ItemId,
+            ItemName = item.ItemName,
+            Quantity = ResolveDisplayQuantity(item, expectedReturnLots, expectedReturnUnits, returnedLots, returnedUnits),
+            Unit = item.Unit,
+            ActualReturnedQuantity = item.ActualReturnedQuantity,
+            ExpectedReturnLotAllocations = expectedReturnLots,
+            ReturnedLotAllocations = returnedLots,
+            ExpectedReturnUnits = expectedReturnUnits,
+            ReturnedReusableUnits = returnedUnits,
+            PickupLotAllocations = item.PickupLotAllocations.Select(CloneLot).ToList()
+        };
+    }
+
+    private static int ResolveDisplayQuantity(
+        ReturnSupplyActivityItemDetail item,
+        IReadOnlyCollection<SupplyExecutionLotDto> expectedReturnLots,
+        IReadOnlyCollection<SupplyExecutionReusableUnitDto> expectedReturnUnits,
+        IReadOnlyCollection<SupplyExecutionLotDto> returnedLots,
+        IReadOnlyCollection<SupplyExecutionReusableUnitDto> returnedUnits)
+    {
+        if (expectedReturnUnits.Count > 0)
+            return expectedReturnUnits.Count;
+
+        var expectedLotQuantity = expectedReturnLots.Sum(lot => lot.QuantityTaken);
+        if (expectedLotQuantity > 0)
+            return expectedLotQuantity;
+
+        if (returnedUnits.Count > 0)
+            return returnedUnits.Count;
+
+        var returnedLotQuantity = returnedLots.Sum(lot => lot.QuantityTaken);
+        if (returnedLotQuantity > 0)
+            return returnedLotQuantity;
+
+        if (item.ActualReturnedQuantity.GetValueOrDefault() > 0)
+            return item.ActualReturnedQuantity!.Value;
+
+        return item.Quantity;
+    }
 
     private static SupplyExecutionReusableUnitDto CloneUnit(SupplyExecutionReusableUnitDto unit) => new()
     {
@@ -95,5 +132,14 @@ public class GetMyReturnHistoryActivitiesQueryHandler(
         SerialNumber = unit.SerialNumber,
         Condition = unit.Condition,
         Note = unit.Note
+    };
+
+    private static SupplyExecutionLotDto CloneLot(SupplyExecutionLotDto lot) => new()
+    {
+        LotId = lot.LotId,
+        QuantityTaken = lot.QuantityTaken,
+        ReceivedDate = lot.ReceivedDate,
+        ExpiredDate = lot.ExpiredDate,
+        RemainingQuantityAfterExecution = lot.RemainingQuantityAfterExecution
     };
 }
