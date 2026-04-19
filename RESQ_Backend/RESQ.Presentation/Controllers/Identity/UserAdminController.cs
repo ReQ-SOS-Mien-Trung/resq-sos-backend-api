@@ -50,9 +50,11 @@ namespace RESQ.Presentation.Controllers.Identity
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] int? roleId = null,
-            [FromQuery] string? search = null)
+            [FromQuery] string? name = null,
+            [FromQuery] string? phone = null,
+            [FromQuery] string? email = null)
         {
-            var query = new GetUsersForPermissionQuery(pageNumber, pageSize, roleId, search);
+            var query = new GetUsersForPermissionQuery(pageNumber, pageSize, roleId, name, phone, email);
             var result = await _mediator.Send(query);
             return Ok(result);
         }

@@ -196,10 +196,18 @@ namespace RESQ.Infrastructure.Persistence.Identity
         }
 
         public async Task<PagedResult<UserModel>> GetPagedForPermissionAsync(
-            int pageNumber, int pageSize,
-            int? roleId = null, string? search = null,
+            int pageNumber,
+            int pageSize,
+            int? roleId = null,
+            string? name = null,
+            string? phone = null,
+            string? email = null,
             CancellationToken cancellationToken = default)
         {
+            var normalizedName = string.IsNullOrWhiteSpace(name) ? null : name.Trim().ToLower();
+            var normalizedPhone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
+            var normalizedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLower();
+
             var paged = await _unitOfWork.GetRepository<User>().GetPagedAsync(
                 pageNumber,
                 pageSize,
@@ -209,11 +217,13 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     // Loại trừ rescuer (RoleId=3) chưa được kích hoạt - các role khác không cần profile
                     (u.RoleId != 3 || (u.RescuerProfile != null && u.RescuerProfile.IsEligibleRescuer)) &&
                     (roleId == null || u.RoleId == roleId) &&
-                    (search == null ||
-                     (u.Phone != null && u.Phone.ToLower().Contains(search.ToLower())) ||
-                     (u.Email != null && u.Email.ToLower().Contains(search.ToLower())) ||
-                     (u.FirstName != null && u.FirstName.ToLower().Contains(search.ToLower())) ||
-                     (u.LastName != null && u.LastName.ToLower().Contains(search.ToLower()))),
+                    (normalizedName == null ||
+                     (u.FirstName != null && u.FirstName.ToLower().Contains(normalizedName)) ||
+                     (u.LastName != null && u.LastName.ToLower().Contains(normalizedName)) ||
+                     (((u.FirstName ?? "") + " " + (u.LastName ?? "")).ToLower().Contains(normalizedName)) ||
+                     (((u.LastName ?? "") + " " + (u.FirstName ?? "")).ToLower().Contains(normalizedName))) &&
+                    (normalizedPhone == null || (u.Phone != null && u.Phone.Contains(normalizedPhone))) &&
+                    (normalizedEmail == null || (u.Email != null && u.Email.ToLower().Contains(normalizedEmail))),
                 orderBy: q => q.OrderByDescending(u => u.CreatedAt),
                 includeProperties: "RescuerProfile"
             );
