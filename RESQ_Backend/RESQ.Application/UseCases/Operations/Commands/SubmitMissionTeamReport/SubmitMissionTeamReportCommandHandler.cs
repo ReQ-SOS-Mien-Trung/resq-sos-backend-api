@@ -23,6 +23,7 @@ public class SubmitMissionTeamReportCommandHandler(
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     ISosClusterRepository sosClusterRepository,
     ITeamIncidentRepository teamIncidentRepository,
+    IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService,
     IUnitOfWork unitOfWork,
     ILogger<SubmitMissionTeamReportCommandHandler> logger)
     : IRequestHandler<SubmitMissionTeamReportCommand, MissionTeamReportResponse>
@@ -79,6 +80,8 @@ public class SubmitMissionTeamReportCommandHandler(
             .ToList();
 
         MissionTeamMemberEvaluationHelper.ValidateSubmit(memberEvaluations, missionTeam);
+
+        var rescueTeamLifecycleSyncResult = RescueTeamMissionLifecycleSyncResult.None;
 
         var activityStatusUpdates = new List<(int ActivityId, MissionActivityStatus Status)>();
         foreach (var item in request.Activities)
@@ -247,6 +250,16 @@ public class SubmitMissionTeamReportCommandHandler(
             await missionTeamReportRepository.SubmitAsync(request.MissionTeamId, request.SubmittedBy, cancellationToken);
             await rescuerScoreRepository.RefreshAsync(memberEvaluations, cancellationToken);
             await missionTeamRepository.UpdateStatusAsync(request.MissionTeamId, MissionTeamExecutionStatus.Reported.ToString(), cancellationToken);
+            rescueTeamLifecycleSyncResult =
+                await rescueTeamMissionLifecycleSyncService.SyncTeamToAvailableAfterExecutionAsync(
+                    missionTeam.RescuerTeamId,
+                    request.MissionTeamId,
+                    cancellationToken);
+
+            if (rescueTeamLifecycleSyncResult.HasChanges)
+            {
+                await unitOfWork.SaveAsync();
+            }
 
             var refreshedTeams = (await missionTeamRepository.GetByMissionIdAsync(request.MissionId, cancellationToken))
                 .Where(x => !string.Equals(x.Status, MissionTeamExecutionStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase))
@@ -291,6 +304,10 @@ public class SubmitMissionTeamReportCommandHandler(
                 }
             }
         });
+
+        await rescueTeamMissionLifecycleSyncService.PushRealtimeIfNeededAsync(
+            rescueTeamLifecycleSyncResult,
+            cancellationToken);
 
         var refreshedMissionTeam = await missionTeamRepository.GetByIdAsync(request.MissionTeamId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy liên kết đội-mission với ID: {request.MissionTeamId}");

@@ -1,8 +1,11 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
+using RESQ.Domain.Entities.Operations;
 using RESQ.Application.UseCases.Operations.Shared;
+using RESQ.Domain.Enum.Operations;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Personnel;
 
@@ -86,6 +89,53 @@ public class RescueTeamMissionLifecycleSyncServiceTests
     }
 
     [Fact]
+    public async Task SyncTeamToAvailableAfterExecutionAsync_NormalizesAssignedTeam_WhenNoNewMissionIsActive()
+    {
+        var repository = new RecordingRescueTeamRepository(BuildTeam(1, RescueTeamStatus.Assigned));
+        var missionTeamRepository = new RecordingMissionTeamRepository(new MissionTeamModel
+        {
+            Id = 10,
+            RescuerTeamId = 1,
+            Status = MissionTeamExecutionStatus.CompletedWaitingReport.ToString()
+        });
+        var service = BuildService(repository, new RecordingOperationalHubService(), missionTeamRepository);
+
+        var result = await service.SyncTeamToAvailableAfterExecutionAsync(1, 10, CancellationToken.None);
+
+        Assert.True(result.HasChanges);
+        Assert.Equal(RescueTeamStatus.Available, repository.Get(1).Status);
+        Assert.Equal([1], repository.UpdatedTeamIds);
+    }
+
+    [Theory]
+    [InlineData(nameof(MissionTeamExecutionStatus.Assigned))]
+    [InlineData(nameof(MissionTeamExecutionStatus.InProgress))]
+    public async Task SyncTeamToAvailableAfterExecutionAsync_DoesNotOverride_WhenTeamHasNewActiveMission(string blockingStatus)
+    {
+        var repository = new RecordingRescueTeamRepository(BuildTeam(1, RescueTeamStatus.Assigned));
+        var missionTeamRepository = new RecordingMissionTeamRepository(
+            new MissionTeamModel
+            {
+                Id = 10,
+                RescuerTeamId = 1,
+                Status = MissionTeamExecutionStatus.CompletedWaitingReport.ToString()
+            },
+            new MissionTeamModel
+            {
+                Id = 11,
+                RescuerTeamId = 1,
+                Status = blockingStatus
+            });
+        var service = BuildService(repository, new RecordingOperationalHubService(), missionTeamRepository);
+
+        var result = await service.SyncTeamToAvailableAfterExecutionAsync(1, 10, CancellationToken.None);
+
+        Assert.False(result.HasChanges);
+        Assert.Equal(RescueTeamStatus.Assigned, repository.Get(1).Status);
+        Assert.Empty(repository.UpdatedTeamIds);
+    }
+
+    [Fact]
     public async Task PushRealtimeIfNeededAsync_DoesNotPush_WhenThereAreNoChanges()
     {
         var hubService = new RecordingOperationalHubService();
@@ -98,8 +148,9 @@ public class RescueTeamMissionLifecycleSyncServiceTests
 
     private static RescueTeamMissionLifecycleSyncService BuildService(
         RecordingRescueTeamRepository repository,
-        RecordingOperationalHubService hubService) =>
-        new(repository, hubService, NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
+        RecordingOperationalHubService hubService,
+        RecordingMissionTeamRepository? missionTeamRepository = null) =>
+        new(repository, missionTeamRepository ?? new RecordingMissionTeamRepository(), hubService, NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
 
     private static RescueTeamModel BuildTeam(int id, RescueTeamStatus status)
     {
@@ -162,6 +213,36 @@ public class RescueTeamMissionLifecycleSyncServiceTests
         public Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<int> CountActiveTeamsByAssemblyPointAsync(int assemblyPointId, IEnumerable<int> excludeTeamIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<(List<AgentTeamInfo> Teams, int TotalCount)> GetTeamsForAgentAsync(string? abilityKeyword, bool? available, int page, int pageSize, CancellationToken ct = default) => throw new NotImplementedException();
+    }
+
+    private sealed class RecordingMissionTeamRepository(params MissionTeamModel[] missionTeams) : IMissionTeamRepository
+    {
+        public Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(missionTeams.FirstOrDefault(missionTeam => missionTeam.Id == id));
+
+        public Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(missionTeams.Where(missionTeam => missionTeam.MissionId == missionId).AsEnumerable());
+
+        public Task<int> CreateAsync(MissionTeamModel model, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task UpdateStatusAsync(int id, string status, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task UpdateStatusAsync(int id, string status, string? note, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task UpdateCurrentLocationAsync(int id, double latitude, double longitude, string locationSource, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task<IEnumerable<MissionTeamModel>> GetActiveByRescuerTeamIdAsync(int rescuerTeamId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(missionTeams.Where(missionTeam => missionTeam.RescuerTeamId == rescuerTeamId).AsEnumerable());
+
+        public Task<MissionTeamModel?> GetByMissionAndTeamAsync(int missionId, int rescuerTeamId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(missionTeams.FirstOrDefault(missionTeam => missionTeam.MissionId == missionId && missionTeam.RescuerTeamId == rescuerTeamId));
     }
 
     private sealed class RecordingOperationalHubService : IOperationalHubService

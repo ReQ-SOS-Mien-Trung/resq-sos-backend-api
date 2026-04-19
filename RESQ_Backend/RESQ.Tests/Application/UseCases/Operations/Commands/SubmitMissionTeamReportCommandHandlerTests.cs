@@ -44,6 +44,7 @@ public class SubmitMissionTeamReportCommandHandlerTests
         {
             Id = 55,
             MissionId = 12,
+            RescuerTeamId = 21,
             Status = MissionTeamExecutionStatus.CompletedWaitingReport.ToString(),
             ReportStatus = MissionTeamReportStatus.Draft.ToString(),
             RescueTeamMembers =
@@ -70,6 +71,8 @@ public class SubmitMissionTeamReportCommandHandlerTests
         var sosRequestRepository = new StubSosRequestRepository();
         var sosClusterRepository = new StubSosClusterRepository(cluster);
         var unitOfWork = new StubUnitOfWork();
+        var lifecycleSyncService = new StubRescueTeamMissionLifecycleSyncService(
+            new RescueTeamMissionLifecycleSyncResult([21]));
 
         var handler = new SubmitMissionTeamReportCommandHandler(
             missionRepository,
@@ -81,6 +84,7 @@ public class SubmitMissionTeamReportCommandHandlerTests
             new StubSosRequestUpdateRepository(),
             sosClusterRepository,
             new StubTeamIncidentRepository(),
+            lifecycleSyncService,
             unitOfWork,
             NullLogger<SubmitMissionTeamReportCommandHandler>.Instance);
 
@@ -112,6 +116,8 @@ public class SubmitMissionTeamReportCommandHandlerTests
         Assert.Equal(SosRequestStatus.Resolved, sosRequestRepository.LastClusterStatus);
         Assert.Equal(MissionTeamExecutionStatus.Reported.ToString(), missionTeam.Status);
         Assert.Equal(1, unitOfWork.ExecuteInTransactionCalls);
+        Assert.Equal((21, 55), lifecycleSyncService.LastExecutionSync!.Value);
+        Assert.Equal(1, lifecycleSyncService.PushCalls);
     }
 
     private sealed class StubMissionRepository(MissionModel mission) : IMissionRepository
@@ -386,6 +392,37 @@ public class SubmitMissionTeamReportCommandHandlerTests
 
         public Task UpdateSupportSosRequestIdAsync(int id, int? supportSosRequestId, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+    }
+
+    private sealed class StubRescueTeamMissionLifecycleSyncService(
+        RescueTeamMissionLifecycleSyncResult? result = null) : IRescueTeamMissionLifecycleSyncService
+    {
+        private readonly RescueTeamMissionLifecycleSyncResult _result = result ?? RescueTeamMissionLifecycleSyncResult.None;
+
+        public (int RescueTeamId, int MissionTeamId)? LastExecutionSync { get; private set; }
+        public int PushCalls { get; private set; }
+
+        public Task<RescueTeamMissionLifecycleSyncResult> SyncTeamsToOnMissionAsync(IEnumerable<int> rescueTeamIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult(RescueTeamMissionLifecycleSyncResult.None);
+
+        public Task<RescueTeamMissionLifecycleSyncResult> SyncTeamToAvailableAfterReturnAsync(int rescueTeamId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(RescueTeamMissionLifecycleSyncResult.None);
+
+        public Task<RescueTeamMissionLifecycleSyncResult> SyncTeamToAvailableAfterExecutionAsync(int rescueTeamId, int missionTeamId, CancellationToken cancellationToken = default)
+        {
+            LastExecutionSync = (rescueTeamId, missionTeamId);
+            return Task.FromResult(_result);
+        }
+
+        public Task PushRealtimeIfNeededAsync(RescueTeamMissionLifecycleSyncResult result, CancellationToken cancellationToken = default)
+        {
+            if (result.HasChanges)
+            {
+                PushCalls++;
+            }
+
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class StubUnitOfWork : IUnitOfWork

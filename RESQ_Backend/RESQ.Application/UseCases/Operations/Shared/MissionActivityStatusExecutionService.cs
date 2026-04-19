@@ -329,14 +329,24 @@ public class MissionActivityStatusExecutionService(
 
         if (effectiveStatus == MissionActivityStatus.Succeed
             && string.Equals(activity.ActivityType, MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
-            && assignedMissionTeam is not null
-            && activity.AssemblyPointId.HasValue)
+            && assignedMissionTeam is not null)
         {
+            if (!string.Equals(assignedMissionTeam.Status, MissionTeamExecutionStatus.CompletedWaitingReport.ToString(), StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(assignedMissionTeam.Status, MissionTeamExecutionStatus.Reported.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                await _missionTeamRepository.UpdateStatusAsync(
+                    assignedMissionTeam.Id,
+                    MissionTeamExecutionStatus.CompletedWaitingReport.ToString(),
+                    cancellationToken);
+                assignedMissionTeam.Status = MissionTeamExecutionStatus.CompletedWaitingReport.ToString();
+            }
+
             await AutoReturnCheckInMissionTeamAsync(activity, assignedMissionTeam, cancellationToken);
 
             var rescueTeamLifecycleSyncResult =
-                await _rescueTeamMissionLifecycleSyncService.SyncTeamToAvailableAfterReturnAsync(
+                await _rescueTeamMissionLifecycleSyncService.SyncTeamToAvailableAfterExecutionAsync(
                     assignedMissionTeam.RescuerTeamId,
+                    assignedMissionTeam.Id,
                     cancellationToken);
 
             if (rescueTeamLifecycleSyncResult.HasChanges)
