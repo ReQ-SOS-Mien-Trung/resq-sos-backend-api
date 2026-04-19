@@ -169,13 +169,11 @@ public class ConfirmReturnSuppliesCommandHandler(
                 {
                     ItemModelId = kvp.Key,
                     Quantity = lot.QuantityTaken,
-                    LotAllocations = [new SupplyExecutionLotDto
+                    LotAllocations = [new ConfirmReturnLotAllocationDto
                     {
                         LotId = lot.LotId,
                         QuantityTaken = lot.QuantityTaken,
-                        ReceivedDate = lot.ReceivedDate,
-                        ExpiredDate = lot.ExpiredDate,
-                        RemainingQuantityAfterExecution = lot.RemainingQuantityAfterExecution
+                        ExpiredDate = lot.ExpiredDate
                     }]
                 }))
                 .ToList();

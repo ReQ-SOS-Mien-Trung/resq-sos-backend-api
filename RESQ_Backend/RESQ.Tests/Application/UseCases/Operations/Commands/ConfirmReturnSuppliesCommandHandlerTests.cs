@@ -95,7 +95,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 {
                     ItemModelId = itemId,
                     Quantity = 5,
-                    LotAllocations = [expectedLot]
+                    LotAllocations = [new ConfirmReturnLotAllocationDto { LotId = expectedLot.LotId, QuantityTaken = expectedLot.QuantityTaken, ExpiredDate = expectedLot.ExpiredDate }]
                 }
             ],
             [],
