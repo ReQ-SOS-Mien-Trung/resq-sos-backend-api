@@ -6,6 +6,7 @@ using RESQ.Application.Repositories.System;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplications;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplicationStatusMetadata;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuers;
+using RESQ.Application.UseCases.Identity.Queries.GetUsersForPermission;
 using RESQ.Domain.Entities.Identity;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Identity;
@@ -43,6 +44,54 @@ public class AdminIdentityQueryHandlerTests
         Assert.Equal(RescuerType.Core, userRepository.LastRescuerType);
         var item = Assert.Single(result.Items);
         Assert.Equal("Core", item.RescuerType);
+    }
+
+    [Fact]
+    public async Task GetUsersForPermission_Handle_ForwardsFiltersAndMapsPagedResult()
+    {
+        var userRepository = new RecordingUserRepository(
+            new PagedResult<UserModel>(
+            [
+                new UserModel
+                {
+                    Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                    RoleId = 4,
+                    FirstName = "Lan",
+                    LastName = "Nguyen",
+                    Phone = "0901234567",
+                    Email = "lan@example.com",
+                    CreatedAt = new DateTime(2026, 4, 19, 0, 0, 0, DateTimeKind.Utc)
+                }
+            ],
+            1,
+            2,
+            5));
+        var handler = new GetUsersForPermissionQueryHandler(userRepository);
+
+        var result = await handler.Handle(
+            new GetUsersForPermissionQuery(
+                PageNumber: 2,
+                PageSize: 5,
+                RoleId: 4,
+                Name: "Lan Nguyen",
+                Phone: "090",
+                Email: "lan@example.com"),
+            CancellationToken.None);
+
+        Assert.Equal(4, userRepository.LastPermissionRoleId);
+        Assert.Equal("Lan Nguyen", userRepository.LastPermissionName);
+        Assert.Equal("090", userRepository.LastPermissionPhone);
+        Assert.Equal("lan@example.com", userRepository.LastPermissionEmail);
+        Assert.Equal(2, result.PageNumber);
+        Assert.Equal(5, result.PageSize);
+        Assert.Equal(1, result.TotalCount);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal("Lan", item.FirstName);
+        Assert.Equal("Nguyen", item.LastName);
+        Assert.Equal("0901234567", item.Phone);
+        Assert.Equal("lan@example.com", item.Email);
+        Assert.Equal(4, item.RoleId);
     }
 
     [Fact]
@@ -87,6 +136,10 @@ public class AdminIdentityQueryHandlerTests
     private sealed class RecordingUserRepository(PagedResult<UserModel> pagedResult) : IUserRepository
     {
         public RescuerType? LastRescuerType { get; private set; }
+        public int? LastPermissionRoleId { get; private set; }
+        public string? LastPermissionName { get; private set; }
+        public string? LastPermissionPhone { get; private set; }
+        public string? LastPermissionEmail { get; private set; }
 
         public Task<PagedResult<UserModel>> GetPagedAsync(int pageNumber, int pageSize, int? roleId = null, bool? isBanned = null, string? search = null, int? excludeRoleId = null, bool? isEligible = null, RescuerType? rescuerType = null, CancellationToken cancellationToken = default)
         {
@@ -103,7 +156,14 @@ public class AdminIdentityQueryHandlerTests
         public Task<UserModel?> GetByPasswordResetTokenAsync(string token, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task CreateAsync(UserModel user, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task UpdateAsync(UserModel user, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pageNumber, int pageSize, int? roleId = null, string? search = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<UserModel>> GetPagedForPermissionAsync(int pageNumber, int pageSize, int? roleId = null, string? name = null, string? phone = null, string? email = null, CancellationToken cancellationToken = default)
+        {
+            LastPermissionRoleId = roleId;
+            LastPermissionName = name;
+            LastPermissionPhone = phone;
+            LastPermissionEmail = email;
+            return Task.FromResult(pagedResult);
+        }
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<List<Guid>> GetActiveCoordinatorUserIdsAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();

@@ -13,5 +13,7 @@ public record GetUsersForPermissionQuery(
     int PageNumber,
     int PageSize,
     int? RoleId,
-    string? Search
+    string? Name,
+    string? Phone,
+    string? Email
 ) : IRequest<PagedResult<GetUsersItemResponse>>;
