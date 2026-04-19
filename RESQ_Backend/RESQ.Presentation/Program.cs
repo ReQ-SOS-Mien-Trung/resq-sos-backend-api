@@ -5,8 +5,6 @@ using Microsoft.OpenApi.Models;
 using RESQ.Application.Extensions;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Extensions;
-using RESQ.Infrastructure.Persistence.Context;
-using RESQ.Infrastructure.Persistence.Seeding;
 using RESQ.Presentation.Extensions;
 using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
@@ -66,7 +64,7 @@ builder.Services.AddCors(options =>
 // Swagger + JWT support
 builder.Services.AddSwaggerGen(c =>
 {
-    // Dùng full type name làm schemaId để tránh xung đột khi có 2 class cùng tên ở namespace khác nhau
+    // DÃ¹ng full type name lÃ m schemaId Ä‘á»ƒ trÃ¡nh xung Ä‘á»™t khi cÃ³ 2 class cÃ¹ng tÃªn á»Ÿ namespace khÃ¡c nhau
     c.CustomSchemaIds(type => type.FullName);
 
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -112,16 +110,16 @@ builder.Services.AddSwaggerGen(c =>
 // Health check
 builder.Services.AddHealthChecks();
 
-// Firebase Admin SDK initialization - đọc từ appsettings section "Firebase"
+// Firebase Admin SDK initialization - Ä‘á»c tá»« appsettings section "Firebase"
 if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 {
     var fb = builder.Configuration.GetSection("Firebase");
 
-    // Replace literal \n (2 chars) thành newline thật - phòng trường hợp configuration
-    // không unescape JSON escape sequences (xảy ra trên một số cloud platforms)
+    // Replace literal \n (2 chars) thÃ nh newline tháº­t - phÃ²ng trÆ°á»ng há»£p configuration
+    // khÃ´ng unescape JSON escape sequences (xáº£y ra trÃªn má»™t sá»‘ cloud platforms)
     var privateKey = (fb["PrivateKey"] ?? "").Replace("\\n", "\n");
 
-    // Dùng Dictionary để đảm bảo tên key JSON được giữ nguyên, không bị naming policy đổi
+    // DÃ¹ng Dictionary Ä‘á»ƒ Ä‘áº£m báº£o tÃªn key JSON Ä‘Æ°á»£c giá»¯ nguyÃªn, khÃ´ng bá»‹ naming policy Ä‘á»•i
     var credentialDict = new Dictionary<string, string?>
     {
         ["type"]                        = fb["Type"],
@@ -152,7 +150,7 @@ if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
 
-// -- Memory cache (dùng bởi PermissionAuthorizationHandler) --------------
+// -- Memory cache (dÃ¹ng bá»Ÿi PermissionAuthorizationHandler) --------------
 builder.Services.AddMemoryCache();
 
 // -- Dynamic Permission Authorization ------------------------------------
@@ -171,9 +169,9 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    // .NET 8 mặc định dùng JsonWebTokenHandler với MapInboundClaims = false,
-    // khiến claim "sub" trong JWT KHÔNG được map thành ClaimTypes.NameIdentifier.
-    // Bật lại để User.FindFirst(ClaimTypes.NameIdentifier) hoạt động đúng.
+    // .NET 8 máº·c Ä‘á»‹nh dÃ¹ng JsonWebTokenHandler vá»›i MapInboundClaims = false,
+    // khiáº¿n claim "sub" trong JWT KHÃ”NG Ä‘Æ°á»£c map thÃ nh ClaimTypes.NameIdentifier.
+    // Báº­t láº¡i Ä‘á»ƒ User.FindFirst(ClaimTypes.NameIdentifier) hoáº¡t Ä‘á»™ng Ä‘Ãºng.
     options.MapInboundClaims = true;
 
     options.TokenValidationParameters = new TokenValidationParameters
@@ -213,14 +211,6 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Chỉ chạy migrate + seed khi được yêu cầu rõ ràng qua flag (ví dụ: Railway release command).
-// Khi start app bình thường, DB phải đã sẵn sàng — không tự migrate để tránh conflict.
-if (IsDatabaseSeedOnlyMode(args))
-{
-    InitializeDatabase(app);
-    return;
-}
-
 // Middleware pipeline
 
 app.UseCors("AllowAll");
@@ -250,25 +240,5 @@ app.MapHub<DashboardHub>("/hubs/dashboard");
 app.MapHub<OperationalHub>("/hubs/operational");
 
 app.Run();
-
-static bool IsDatabaseSeedOnlyMode(string[] args)
-{
-    return args.Any(arg =>
-        string.Equals(arg, "seed", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(arg, "--seed-only", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(arg, "--migrate-seed", StringComparison.OrdinalIgnoreCase));
-}
-
-static void InitializeDatabase(WebApplication app)
-{
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-
-    // Chỉ chạy seed data, không migrate.
-    // Migrate được thực hiện qua Railway pre-deploy step hoặc dotnet ef database update thủ công.
-    RESQ.Infrastructure.Extensions.ServiceCollectionExtensions.RunSeedAsync(dbContext)
-        .GetAwaiter().GetResult();
-}
-
 
 public partial class Program;
