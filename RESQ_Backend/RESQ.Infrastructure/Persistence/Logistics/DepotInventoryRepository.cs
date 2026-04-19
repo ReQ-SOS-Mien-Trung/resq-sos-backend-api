@@ -1896,6 +1896,29 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             inventory.Quantity = (inventory.Quantity ?? 0) + item.Quantity;
             inventory.LastStockedAt = now;
 
+            // Cộng lại category.Quantity
+            if (itemModel.Category != null)
+            {
+                itemModel.Category.Quantity = (itemModel.Category.Quantity ?? 0) + item.Quantity;
+                itemModel.Category.UpdatedAt = now;
+            }
+
+            // Cộng lại depot utilization (volume + weight)
+            var volumeDelta = (itemModel.VolumePerUnit ?? 0m) * item.Quantity;
+            var weightDelta = (itemModel.WeightPerUnit ?? 0m) * item.Quantity;
+            if (volumeDelta > 0m || weightDelta > 0m)
+            {
+                var depotEntity = await _unitOfWork.SetTracked<Depot>()
+                    .FirstOrDefaultAsync(d => d.Id == depotId, cancellationToken);
+                if (depotEntity != null)
+                {
+                    if (volumeDelta > 0m)
+                        depotEntity.CurrentUtilization = (depotEntity.CurrentUtilization ?? 0m) + volumeDelta;
+                    if (weightDelta > 0m)
+                        depotEntity.CurrentWeightUtilization = (depotEntity.CurrentWeightUtilization ?? 0m) + weightDelta;
+                }
+            }
+
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
             {
                 DepotSupplyInventoryId = inventory.Id,

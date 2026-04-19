@@ -78,7 +78,7 @@ public class ConfirmReturnSuppliesCommandHandler(
             throw new BadRequestException("Không có hàng hóa hợp lệ trong activity để xác nhận trả.");
 
         var depotId = activity.DepotId.Value;
-        var missionId = activity.MissionId ?? request.MissionId;
+        var missionId = activity.MissionId ?? 0;
 
         var itemIds = validItems
             .Select(item => item.ItemId!.Value)
@@ -159,6 +159,31 @@ public class ConfirmReturnSuppliesCommandHandler(
         }
 
         var hasExpectedReusableSnapshot = expectedReusableUnitById.Count > 0;
+
+        // Auto-fill consumableItems from snapshot khi manager không gửi LotAllocations
+        // (trường hợp "trả hết" - hệ thống tự biết từ lô nào, bao nhiêu)
+        if (consumableItems.Count == 0 && expectedConsumableLotsByItem.Count > 0)
+        {
+            consumableItems = expectedConsumableLotsByItem
+                .SelectMany(kvp => kvp.Value.Select(lot => new ActualReturnedConsumableItemDto
+                {
+                    ItemModelId = kvp.Key,
+                    Quantity = lot.QuantityTaken,
+                    LotAllocations = [new SupplyExecutionLotDto
+                    {
+                        LotId = lot.LotId,
+                        QuantityTaken = lot.QuantityTaken,
+                        ReceivedDate = lot.ReceivedDate,
+                        ExpiredDate = lot.ExpiredDate,
+                        RemainingQuantityAfterExecution = lot.RemainingQuantityAfterExecution
+                    }]
+                }))
+                .ToList();
+            _logger.LogInformation(
+                "ConfirmReturn ActivityId={ActivityId}: consumableItems auto-filled from expected return snapshot ({Count} lots)",
+                request.ActivityId, consumableItems.Sum(c => (c.LotAllocations ?? []).Count));
+        }
+
         var actualConsumables = new List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)>();
         var actualConsumableQuantities = new Dictionary<int, int>();
         var actualConsumableLotQuantities = new Dictionary<(int ItemModelId, int LotId), int>();
@@ -351,7 +376,7 @@ public class ConfirmReturnSuppliesCommandHandler(
         // Dispatch through the full activity lifecycle pipeline so that
         // auto-start of next activity, SOS sync, and team location update all fire.
         await _mediator.Send(
-            new UpdateActivityStatusCommand(request.MissionId, request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy),
+            new UpdateActivityStatusCommand(missionId, request.ActivityId, MissionActivityStatus.Succeed, request.ConfirmedBy),
             cancellationToken);
 
         _logger.LogInformation(
