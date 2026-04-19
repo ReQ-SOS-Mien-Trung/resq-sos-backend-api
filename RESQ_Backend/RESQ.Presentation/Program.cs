@@ -213,10 +213,11 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-InitializeDatabase(app);
-
+// Chỉ chạy migrate + seed khi được yêu cầu rõ ràng qua flag (ví dụ: Railway release command).
+// Khi start app bình thường, DB phải đã sẵn sàng — không tự migrate để tránh conflict.
 if (IsDatabaseSeedOnlyMode(args))
 {
+    InitializeDatabase(app);
     return;
 }
 
