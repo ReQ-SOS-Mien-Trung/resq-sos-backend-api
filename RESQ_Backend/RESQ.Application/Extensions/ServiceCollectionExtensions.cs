@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IMissionPendingActivityUpdateService, MissionPendingActivityUpdateService>();
         services.AddScoped<IMissionActivityStatusExecutionService, MissionActivityStatusExecutionService>();
+        services.AddScoped<IRescueTeamMissionLifecycleSyncService, RescueTeamMissionLifecycleSyncService>();
 
         // Note: The AddTransient calls below are legacy syntax if using cfg.AddBehavior above, 
         // but kept if you are not using MediatR 12+ built-in registration fully or supporting older patterns.

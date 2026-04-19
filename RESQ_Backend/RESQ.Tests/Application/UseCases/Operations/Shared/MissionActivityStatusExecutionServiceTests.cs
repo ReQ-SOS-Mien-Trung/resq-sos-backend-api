@@ -178,8 +178,7 @@ public class MissionActivityStatusExecutionServiceTests
             ]
         });
 
-        var rescueTeam = RescueTeamModel.Create("Return Team", RescueTeamType.Mixed, assemblyPointId: 1, managedBy: Guid.NewGuid());
-        rescueTeam.SetId(40);
+        var rescueTeam = BuildRescueTeam(40, RescueTeamStatus.OnMission, assemblyPointId: 1);
         var rescueTeamRepository = new RecordingRescueTeamRepository(rescueTeam);
         var assemblyEventRepository = new RecordingAssemblyEventRepository();
         assemblyEventRepository.SetActiveEvent(assemblyPointId: 9, eventId: 90);
@@ -197,6 +196,7 @@ public class MissionActivityStatusExecutionServiceTests
         Assert.Equal(90, checkIn.EventId);
         Assert.Equal(memberId, checkIn.RescuerId);
         Assert.Equal(9, rescueTeamRepository.UpdatedTeam?.AssemblyPointId);
+        Assert.Equal(RescueTeamStatus.Available, rescueTeamRepository.UpdatedTeam?.Status);
     }
 
     [Fact]
@@ -235,6 +235,79 @@ public class MissionActivityStatusExecutionServiceTests
         Assert.Empty(assemblyEventRepository.ReturnCheckInCalls);
     }
 
+    [Fact]
+    public async Task ApplyAsync_ReturnAssemblyPointSucceed_NormalizesAssignedRescueTeamToAvailable()
+    {
+        var activityRepository = CreateActivityRepository(new MissionActivityModel
+        {
+            Id = 8,
+            MissionId = 14,
+            Status = MissionActivityStatus.OnGoing,
+            ActivityType = MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType,
+            MissionTeamId = 31,
+            AssemblyPointId = 9,
+            AssemblyPointLatitude = 10,
+            AssemblyPointLongitude = 20
+        });
+
+        var missionTeamRepository = new RecordingMissionTeamRepository(new MissionTeamModel
+        {
+            Id = 31,
+            RescuerTeamId = 41,
+            Status = MissionTeamExecutionStatus.InProgress.ToString()
+        });
+
+        var rescueTeam = BuildRescueTeam(41, RescueTeamStatus.Assigned, assemblyPointId: 9);
+        var rescueTeamRepository = new RecordingRescueTeamRepository(rescueTeam);
+        var service = BuildService(
+            activityRepository,
+            new StubUnitOfWork(),
+            missionTeamRepository,
+            rescueTeamRepository,
+            new RecordingAssemblyEventRepository());
+
+        await service.ApplyAsync(14, 8, MissionActivityStatus.Succeed, Guid.NewGuid(), null, CancellationToken.None);
+
+        Assert.Equal(RescueTeamStatus.Available, rescueTeamRepository.UpdatedTeam?.Status);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_ReturnAssemblyPointSucceed_DoesNotOverrideStuckRescueTeam()
+    {
+        var activityRepository = CreateActivityRepository(new MissionActivityModel
+        {
+            Id = 9,
+            MissionId = 15,
+            Status = MissionActivityStatus.OnGoing,
+            ActivityType = MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType,
+            MissionTeamId = 32,
+            AssemblyPointId = 9,
+            AssemblyPointLatitude = 10,
+            AssemblyPointLongitude = 20
+        });
+
+        var missionTeamRepository = new RecordingMissionTeamRepository(new MissionTeamModel
+        {
+            Id = 32,
+            RescuerTeamId = 42,
+            Status = MissionTeamExecutionStatus.InProgress.ToString()
+        });
+
+        var rescueTeam = BuildRescueTeam(42, RescueTeamStatus.Stuck, assemblyPointId: 9);
+        var rescueTeamRepository = new RecordingRescueTeamRepository(rescueTeam);
+        var service = BuildService(
+            activityRepository,
+            new StubUnitOfWork(),
+            missionTeamRepository,
+            rescueTeamRepository,
+            new RecordingAssemblyEventRepository());
+
+        await service.ApplyAsync(15, 9, MissionActivityStatus.Succeed, Guid.NewGuid(), null, CancellationToken.None);
+
+        Assert.Null(rescueTeamRepository.UpdatedTeam);
+        Assert.Equal(RescueTeamStatus.Stuck, rescueTeam.Status);
+    }
+
     private static RecordingMissionActivityRepository CreateActivityRepository(MissionActivityModel activity)
     {
         var repository = new RecordingMissionActivityRepository();
@@ -248,7 +321,14 @@ public class MissionActivityStatusExecutionServiceTests
         IMissionTeamRepository? missionTeamRepository = null,
         IRescueTeamRepository? rescueTeamRepository = null,
         IAssemblyEventRepository? assemblyEventRepository = null)
-        => new(
+    {
+        rescueTeamRepository ??= new RecordingRescueTeamRepository(null);
+        var lifecycleSyncService = new RescueTeamMissionLifecycleSyncService(
+            rescueTeamRepository,
+            new StubOperationalHubService(),
+            NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
+
+        return new(
             activityRepository,
             missionTeamRepository ?? new RecordingMissionTeamRepository(),
             new NoOpPersonnelQueryRepository(),
@@ -256,10 +336,41 @@ public class MissionActivityStatusExecutionServiceTests
             new NoOpSosRequestRepository(),
             new NoOpSosRequestUpdateRepository(),
             new NoOpTeamIncidentRepository(),
-            rescueTeamRepository ?? new RecordingRescueTeamRepository(null),
+            rescueTeamRepository,
             unitOfWork,
             NullLogger<MissionActivityStatusExecutionService>.Instance,
-            assemblyEventRepository ?? new RecordingAssemblyEventRepository());
+            assemblyEventRepository ?? new RecordingAssemblyEventRepository(),
+            lifecycleSyncService);
+    }
+
+    private static RescueTeamModel BuildRescueTeam(int id, RescueTeamStatus status, int assemblyPointId)
+    {
+        var leaderId = Guid.Parse($"22222222-2222-2222-2222-{id:D12}");
+        var team = RescueTeamModel.Create($"Team {id}", RescueTeamType.Rescue, assemblyPointId, Guid.NewGuid());
+        team.SetId(id);
+        team.AddMember(leaderId, isLeader: true, rescuerType: "Core", roleInTeam: "LEADER");
+        team.SetAvailableByLeader(leaderId);
+
+        switch (status)
+        {
+            case RescueTeamStatus.Available:
+                return team;
+            case RescueTeamStatus.Assigned:
+                team.AssignMission();
+                return team;
+            case RescueTeamStatus.OnMission:
+                team.AssignMission();
+                team.StartMission();
+                return team;
+            case RescueTeamStatus.Stuck:
+                team.AssignMission();
+                team.StartMission();
+                team.ReportIncident();
+                return team;
+            default:
+                throw new InvalidOperationException($"Unsupported test status: {status}");
+        }
+    }
 
     private sealed class RecordingMissionActivityRepository : IMissionActivityRepository
     {
