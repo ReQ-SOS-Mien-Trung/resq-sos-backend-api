@@ -17,7 +17,10 @@ public class GetLowStockItemsHandler(
         GetLowStockItemsQuery request,
         CancellationToken cancellationToken)
     {
-        var rawItems = await _depotInventoryRepo.GetLowStockRawItemsAsync(request.DepotId, cancellationToken);
+        var rawItems = await _depotInventoryRepo.GetLowStockRawItemsAsync(
+            request.DepotId,
+            request.CategoryIds,
+            cancellationToken);
 
         var items = new List<LowStockItemDto>();
         foreach (var raw in rawItems)
@@ -64,7 +67,7 @@ public class GetLowStockItemsHandler(
             .ThenBy(x => x.DepotId)
             .ToList();
 
-        return LowStockChartBuilder.Build(items);
+        return LowStockChartBuilder.Build(items, request.PageNumber, request.PageSize);
     }
 }
 

@@ -181,6 +181,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
             return await _unitOfWork.GetRepository<User>()
                 .AsQueryable(tracked: false)
                 .Where(u => u.RoleId == 4 && !u.IsBanned)
+                .Where(u => u.RescuerProfile == null || u.RescuerProfile.IsEligibleRescuer)
                 .Where(u => excludeDepotId == null || !u.DepotManagers.Any(dm => dm.DepotId == excludeDepotId && dm.UnassignedAt == null))
                 .OrderBy(u => u.LastName)
                 .ThenBy(u => u.FirstName)
@@ -190,6 +191,7 @@ namespace RESQ.Infrastructure.Persistence.Identity
                     FullName = (u.LastName + " " + u.FirstName).Trim(),
                     Email    = u.Email,
                     Phone    = u.Phone,
+                    IsEligible = u.RescuerProfile == null || u.RescuerProfile.IsEligibleRescuer,
                     AssignedDepotsCount = u.DepotManagers.Count(dm => dm.UnassignedAt == null)
                 })
                 .ToListAsync(cancellationToken);

@@ -28,4 +28,12 @@ public interface INotificationRepository
 
     /// <summary>Đánh dấu tất cả notifications của user là đã đọc.</summary>
     Task MarkAllAsReadAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>Kiểm tra user đã nhận notification cùng loại và tiêu đề kể từ một mốc thời gian hay chưa.</summary>
+    Task<bool> HasRecentForUserAsync(
+        Guid userId,
+        string type,
+        string title,
+        DateTime sinceUtc,
+        CancellationToken ct = default);
 }

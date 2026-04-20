@@ -8,6 +8,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotItemModelAlerts;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
@@ -1425,7 +1426,19 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     public async Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(
         int? depotId,
         CancellationToken cancellationToken = default)
+        => await GetLowStockRawItemsAsync(depotId, null, cancellationToken);
+
+    public async Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(
+        int? depotId,
+        List<int>? categoryIds,
+        CancellationToken cancellationToken = default)
     {
+        var safeCategoryIds = categoryIds?
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+        var hasCategoryFilter = safeCategoryIds is { Count: > 0 };
+
         var query =
             from inv  in _unitOfWork.Set<SupplyInventory>()
             join item in _unitOfWork.Set<ItemModel>()     on inv.ItemModelId equals item.Id
@@ -1434,6 +1447,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             from cat in catJoin.DefaultIfEmpty()
             where item.ItemType == "Consumable"
                && (depotId == null || inv.DepotId == depotId)
+               && (!hasCategoryFilter || safeCategoryIds!.Contains(item.CategoryId ?? 0))
             select new
             {
                 DepotId          = depot.Id,
@@ -3027,20 +3041,36 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var serialLower = serialNumber?.Trim().ToLowerInvariant();
-        var hasSerial = !string.IsNullOrWhiteSpace(serialLower);
+        var serialKeywords = ParseSerialSearchKeywords(serialNumber);
+        var hasSerialFilter = serialKeywords.Count > 0;
         var hasStatusFilter = statuses != null && statuses.Count > 0;
         var hasConditionFilter = conditions != null && conditions.Count > 0;
 
-        var query = from r in _unitOfWork.Set<ReusableItem>()
+        var reusableItemsQuery = _unitOfWork.Set<ReusableItem>()
+            .Where(r => r.DepotId == depotId && !r.IsDeleted);
+
+        if (itemModelId.HasValue)
+            reusableItemsQuery = reusableItemsQuery.Where(r => r.ItemModelId == itemModelId.Value);
+
+        if (hasSerialFilter)
+        {
+            Expression<Func<ReusableItem, bool>> serialPredicate = _ => false;
+
+            foreach (var keyword in serialKeywords)
+            {
+                var capturedKeyword = keyword;
+                serialPredicate = OrElse(serialPredicate,
+                    r => r.SerialNumber != null && r.SerialNumber.ToLower().Contains(capturedKeyword));
+            }
+
+            reusableItemsQuery = reusableItemsQuery.Where(serialPredicate);
+        }
+
+        var query = from r in reusableItemsQuery
                     join im in _unitOfWork.Set<ItemModel>() on r.ItemModelId equals im.Id
                     join cat in _unitOfWork.Set<Category>() on im.CategoryId equals cat.Id into catJoin
                     from cat in catJoin.DefaultIfEmpty()
-                    where r.DepotId == depotId
-                       && !r.IsDeleted
-                       && (!itemModelId.HasValue || r.ItemModelId == itemModelId.Value)
-                       && (!hasSerial || (r.SerialNumber != null && r.SerialNumber.ToLower().Contains(serialLower!)))
-                       && (!hasStatusFilter || statuses!.Contains(r.Status!))
+                    where (!hasStatusFilter || statuses!.Contains(r.Status!))
                        && (!hasConditionFilter || conditions!.Contains(r.Condition!))
                     select new ReusableUnitDto
                     {
@@ -3067,6 +3097,250 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             .ToListAsync(cancellationToken);
 
         return new PagedResult<ReusableUnitDto>(items, totalCount, pageNumber, pageSize);
+    }
+
+    private static List<string> ParseSerialSearchKeywords(string? serialNumber)
+    {
+        if (string.IsNullOrWhiteSpace(serialNumber))
+            return [];
+
+        return serialNumber
+            .Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.ToLowerInvariant())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct()
+            .ToList();
+    }
+
+    private static Expression<Func<T, bool>> OrElse<T>(
+        Expression<Func<T, bool>> left,
+        Expression<Func<T, bool>> right)
+    {
+        var parameter = Expression.Parameter(typeof(T), "x");
+        var leftBody = ReplaceParameter(left.Body, left.Parameters[0], parameter);
+        var rightBody = ReplaceParameter(right.Body, right.Parameters[0], parameter);
+        return Expression.Lambda<Func<T, bool>>(Expression.OrElse(leftBody, rightBody), parameter);
+    }
+
+    private static Expression ReplaceParameter(
+        Expression expression,
+        ParameterExpression source,
+        ParameterExpression target)
+        => new ReplaceParameterVisitor(source, target).Visit(expression)!;
+
+    private sealed class ReplaceParameterVisitor(
+        ParameterExpression source,
+        ParameterExpression target) : ExpressionVisitor
+    {
+        protected override Expression VisitParameter(ParameterExpression node)
+            => node == source ? target : base.VisitParameter(node);
+    }
+
+    public async Task<int?> GetReusableItemDepotIdAsync(
+        int reusableItemId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<ReusableItem>()
+            .Where(r => r.Id == reusableItemId && !r.IsDeleted)
+            .Select(r => r.DepotId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task MarkReusableItemMaintenanceAsync(
+        int depotId,
+        int reusableItemId,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var item = await _unitOfWork.SetTracked<ReusableItem>()
+                .FirstOrDefaultAsync(r => r.Id == reusableItemId && !r.IsDeleted, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{reusableItemId}.");
+
+            if (item.DepotId != depotId)
+                throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{reusableItemId} trong kho bạn đang quản lý.");
+
+            var rowsAffected = await _unitOfWork.SetTracked<ReusableItem>()
+                .Where(r => r.Id == reusableItemId
+                    && r.DepotId == depotId
+                    && !r.IsDeleted
+                    && r.Status == nameof(ReusableItemStatus.Available))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.Status, ReusableItemStatus.Maintenance.ToString())
+                    .SetProperty(r => r.UpdatedAt, now)
+                    .SetProperty(r => r.Note, note),
+                    cancellationToken);
+
+            if (rowsAffected == 0)
+            {
+                var latestStatus = await _unitOfWork.Set<ReusableItem>()
+                    .Where(r => r.Id == reusableItemId && !r.IsDeleted)
+                    .Select(r => r.Status)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                var safeStatus = string.IsNullOrWhiteSpace(latestStatus) ? "không xác định" : latestStatus;
+                throw new ConflictException(
+                    $"Vật phẩm tái sử dụng #{reusableItemId} chỉ được chuyển sang bảo trì khi đang ở trạng thái 'Available'. Trạng thái hiện tại: '{safeStatus}'.");
+            }
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                ReusableItemId = reusableItemId,
+                ActionType = InventoryActionType.Adjust.ToString(),
+                QuantityChange = 0,
+                SourceType = InventorySourceType.Maintenance.ToString(),
+                PerformedBy = performedBy,
+                Note = string.IsNullOrWhiteSpace(note)
+                    ? $"Chuyển vật phẩm #{reusableItemId} sang trạng thái bảo trì."
+                    : $"Chuyển vật phẩm #{reusableItemId} sang trạng thái bảo trì. Ghi chú: {note}",
+                CreatedAt = now
+            });
+
+            await _unitOfWork.SaveAsync();
+        });
+    }
+
+    public async Task MarkReusableItemAvailableAsync(
+        int depotId,
+        int reusableItemId,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var item = await _unitOfWork.SetTracked<ReusableItem>()
+                .FirstOrDefaultAsync(r => r.Id == reusableItemId && !r.IsDeleted, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{reusableItemId}.");
+
+            if (item.DepotId != depotId)
+                throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{reusableItemId} trong kho bạn đang quản lý.");
+
+            var rowsAffected = await _unitOfWork.SetTracked<ReusableItem>()
+                .Where(r => r.Id == reusableItemId
+                    && r.DepotId == depotId
+                    && !r.IsDeleted
+                    && r.Status == nameof(ReusableItemStatus.Maintenance))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.Status, ReusableItemStatus.Available.ToString())
+                    .SetProperty(r => r.UpdatedAt, now)
+                    .SetProperty(r => r.Note, note),
+                    cancellationToken);
+
+            if (rowsAffected == 0)
+            {
+                var latestStatus = await _unitOfWork.Set<ReusableItem>()
+                    .Where(r => r.Id == reusableItemId && !r.IsDeleted)
+                    .Select(r => r.Status)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                var safeStatus = string.IsNullOrWhiteSpace(latestStatus) ? "không xác định" : latestStatus;
+                throw new ConflictException(
+                    $"Vật phẩm tái sử dụng #{reusableItemId} chỉ được chuyển về 'Available' khi đang ở trạng thái 'Maintenance'. Trạng thái hiện tại: '{safeStatus}'.");
+            }
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                ReusableItemId = reusableItemId,
+                ActionType = InventoryActionType.Adjust.ToString(),
+                QuantityChange = 0,
+                SourceType = InventorySourceType.Maintenance.ToString(),
+                PerformedBy = performedBy,
+                Note = string.IsNullOrWhiteSpace(note)
+                    ? $"Hoàn tất bảo trì và chuyển vật phẩm #{reusableItemId} về trạng thái sẵn sàng."
+                    : $"Hoàn tất bảo trì và chuyển vật phẩm #{reusableItemId} về trạng thái sẵn sàng. Ghi chú: {note}",
+                CreatedAt = now
+            });
+
+            await _unitOfWork.SaveAsync();
+        });
+    }
+
+    public async Task<List<ExpiringItemModelAlertRawDto>> GetExpiringItemModelAlertCandidatesAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+    {
+        return await (
+            from lot in _unitOfWork.Set<SupplyInventoryLot>()
+            join inv in _unitOfWork.Set<SupplyInventory>() on lot.SupplyInventoryId equals inv.Id
+            join item in _unitOfWork.Set<ItemModel>() on inv.ItemModelId equals item.Id
+            join category in _unitOfWork.Set<Category>() on item.CategoryId equals category.Id
+            where inv.DepotId == depotId
+               && !inv.IsDeleted
+               && lot.RemainingQuantity > 0
+               && lot.ExpiredDate.HasValue
+               && item.ItemType == nameof(ItemType.Consumable)
+            select new ExpiringItemModelAlertRawDto
+            {
+                LotId = lot.Id,
+                ItemModelId = item.Id,
+                ItemModelName = item.Name ?? string.Empty,
+                Unit = item.Unit,
+                CategoryId = item.CategoryId,
+                CategoryCode = category.Code ?? string.Empty,
+                CategoryName = category.Name ?? string.Empty,
+                RemainingQuantity = lot.RemainingQuantity,
+                ExpiredDate = lot.ExpiredDate!.Value,
+                ReceivedDate = lot.ReceivedDate
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<MaintenanceItemModelAlertRawDto>> GetMaintenanceItemModelAlertCandidatesAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await (
+            from reusable in _unitOfWork.Set<ReusableItem>()
+            join item in _unitOfWork.Set<ItemModel>() on reusable.ItemModelId equals item.Id
+            join category in _unitOfWork.Set<Category>() on item.CategoryId equals category.Id
+            where reusable.DepotId == depotId
+               && !reusable.IsDeleted
+               && reusable.Status != nameof(ReusableItemStatus.Decommissioned)
+               && reusable.ItemModelId.HasValue
+            select new MaintenanceItemModelAlertRawDto
+            {
+                ReusableItemId = reusable.Id,
+                ItemModelId = item.Id,
+                ItemModelName = item.Name ?? string.Empty,
+                Unit = item.Unit,
+                CategoryId = item.CategoryId,
+                CategoryCode = category.Code ?? string.Empty,
+                CategoryName = category.Name ?? string.Empty,
+                Status = reusable.Status ?? string.Empty,
+                CreatedAt = reusable.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        if (candidates.Count == 0)
+            return candidates;
+
+        var reusableItemIds = candidates.Select(x => x.ReusableItemId).Distinct().ToList();
+        var latestMaintenanceLogs = await _unitOfWork.Set<InventoryLog>()
+            .Where(log => log.ReusableItemId.HasValue
+                && reusableItemIds.Contains(log.ReusableItemId.Value)
+                && log.SourceType == nameof(InventorySourceType.Maintenance))
+            .GroupBy(log => log.ReusableItemId!.Value)
+            .Select(group => new
+            {
+                ReusableItemId = group.Key,
+                LastMaintenanceAt = group.Max(x => x.CreatedAt)
+            })
+            .ToDictionaryAsync(x => x.ReusableItemId, x => x.LastMaintenanceAt, cancellationToken);
+
+        foreach (var candidate in candidates)
+        {
+            if (latestMaintenanceLogs.TryGetValue(candidate.ReusableItemId, out var lastMaintenanceAt))
+                candidate.LastMaintenanceAt = lastMaintenanceAt;
+        }
+
+        return candidates;
     }
 }
 

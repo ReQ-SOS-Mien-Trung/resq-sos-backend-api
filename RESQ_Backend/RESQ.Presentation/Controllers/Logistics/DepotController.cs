@@ -33,6 +33,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotsByCluster;
+using RESQ.Application.UseCases.Logistics.Queries.GetClosureTransferSuggestions;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyClosureTransfers;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Queries.ExportClosureTemplate;
@@ -398,6 +399,23 @@ namespace RESQ.Presentation.Controllers.Logistics
         public async Task<IActionResult> CloseDepotLegacy(int id, [FromBody] InitiateDepotClosureRequestDto dto)
         {
             return await CloseDepot(id, dto);
+        }
+
+        /// <summary>
+        /// [Admin] Gợi ý phương án phân bổ hàng tồn sang các kho đích trước khi chốt chuyển kho đóng.
+        /// </summary>
+        [HttpGet("{id}/close/transfer-suggestions")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ProducesResponseType(typeof(ClosureTransferSuggestionsResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetClosureTransferSuggestions(int id)
+        {
+            var result = await _mediator.Send(new GetClosureTransferSuggestionsQuery
+            {
+                DepotId = id
+            });
+
+            return Ok(result);
         }
 
         /// <summary>
