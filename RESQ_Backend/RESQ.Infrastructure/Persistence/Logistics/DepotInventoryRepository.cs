@@ -8,6 +8,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -3014,6 +3015,58 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 IsExpired = l.ExpiredDate.HasValue && l.ExpiredDate.Value < DateTime.UtcNow
             })
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PagedResult<ReusableUnitDto>> GetReusableUnitsPagedAsync(
+        int depotId,
+        int? itemModelId,
+        string? serialNumber,
+        List<string>? statuses,
+        List<string>? conditions,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var serialLower = serialNumber?.Trim().ToLowerInvariant();
+        var hasSerial = !string.IsNullOrWhiteSpace(serialLower);
+        var hasStatusFilter = statuses != null && statuses.Count > 0;
+        var hasConditionFilter = conditions != null && conditions.Count > 0;
+
+        var query = from r in _unitOfWork.Set<ReusableItem>()
+                    join im in _unitOfWork.Set<ItemModel>() on r.ItemModelId equals im.Id
+                    join cat in _unitOfWork.Set<Category>() on im.CategoryId equals cat.Id into catJoin
+                    from cat in catJoin.DefaultIfEmpty()
+                    where r.DepotId == depotId
+                       && !r.IsDeleted
+                       && (!itemModelId.HasValue || r.ItemModelId == itemModelId.Value)
+                       && (!hasSerial || (r.SerialNumber != null && r.SerialNumber.ToLower().Contains(serialLower!)))
+                       && (!hasStatusFilter || statuses!.Contains(r.Status!))
+                       && (!hasConditionFilter || conditions!.Contains(r.Condition!))
+                    select new ReusableUnitDto
+                    {
+                        ItemId = r.Id,
+                        ItemModelId = r.ItemModelId,
+                        ItemModelName = im.Name ?? string.Empty,
+                        ImageUrl = im.ImageUrl,
+                        CategoryId = im.CategoryId,
+                        CategoryName = cat != null ? cat.Name ?? string.Empty : string.Empty,
+                        SerialNumber = r.SerialNumber,
+                        Status = r.Status,
+                        Condition = r.Condition,
+                        Note = r.Note,
+                        CreatedAt = r.CreatedAt,
+                        UpdatedAt = r.UpdatedAt
+                    };
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderBy(x => x.ItemModelId)
+            .ThenBy(x => x.ItemId)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<ReusableUnitDto>(items, totalCount, pageNumber, pageSize);
     }
 }
 

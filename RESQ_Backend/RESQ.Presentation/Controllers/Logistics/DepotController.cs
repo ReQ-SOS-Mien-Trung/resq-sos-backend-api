@@ -33,6 +33,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotsByCluster;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyClosureTransfers;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Queries.ExportClosureTemplate;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotManagers;
@@ -323,6 +324,36 @@ namespace RESQ.Presentation.Controllers.Logistics
         public async Task<IActionResult> GetClosures(int id)
         {
             var result = await _mediator.Send(new GetDepotClosuresQuery(id));
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// [Admin] Alias tương thích ngược cho FE cũ: lấy lịch sử phiên đóng kho bằng query string `?depotId=...`.
+        /// Route chuẩn hiện tại là GET /logistics/depot/{id}/closures.
+        /// </summary>
+        [HttpGet("closures")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [ProducesResponseType(typeof(List<DepotClosureDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetClosuresLegacy([FromQuery] int depotId)
+        {
+            return await GetClosures(depotId);
+        }
+
+        /// <summary>
+        /// [Manager/Admin] Lấy danh sách transfer liên quan đến kho đang đóng hoặc nhận hàng đóng kho.
+        /// Hỗ trợ FE cũ gọi theo dạng query string `?depotId=...`.
+        /// </summary>
+        [HttpGet("transfer")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(List<MyClosureTransferDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetMyClosureTransfers([FromQuery] int? depotId = null)
+        {
+            var userId = GetUserId();
+            var result = await _mediator.Send(new GetMyClosureTransfersQuery(userId, depotId));
             return Ok(result);
         }
 
