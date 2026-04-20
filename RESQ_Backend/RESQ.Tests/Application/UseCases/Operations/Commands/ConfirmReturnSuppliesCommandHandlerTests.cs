@@ -15,6 +15,7 @@ using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Tests.TestDoubles;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 
 namespace RESQ.Tests.Application.UseCases.Operations.Commands;
 
@@ -704,6 +705,8 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             Guid performedBy, IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
             CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+        public Task ReserveForClosureShipmentAsync(int sourceDepotId, int transferId, int closureId, Guid performedBy, IReadOnlyCollection<DepotClosureTransferItemMoveDto> items, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<PagedResult<ReusableUnitDto>> GetReusableUnitsPagedAsync(int depotId, int? itemModelId, string? serialNumber, List<string>? statuses, List<string>? conditions, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<ReusableUnitDto>([], 0, pageNumber, pageSize));
 
         public Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken ct = default)
             => throw new NotImplementedException();

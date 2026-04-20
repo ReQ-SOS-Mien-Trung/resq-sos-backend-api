@@ -2,6 +2,7 @@
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -294,6 +295,20 @@ public interface IDepotInventoryRepository
     Task<List<ExpiringLotModel>> GetExpiringLotsAsync(
         int depotId,
         int daysAhead,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách đơn vị vật phẩm tái sử dụng tại kho với các bộ lọc:
+    /// serial number, trạng thái (status), tình trạng (condition) và loại vật phẩm (itemModelId).
+    /// </summary>
+    Task<PagedResult<ReusableUnitDto>> GetReusableUnitsPagedAsync(
+        int depotId,
+        int? itemModelId,
+        string? serialNumber,
+        List<string>? statuses,
+        List<string>? conditions,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default);
 }
 

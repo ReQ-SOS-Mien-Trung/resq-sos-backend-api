@@ -25,8 +25,10 @@ using RESQ.Domain.Enum.Logistics;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Tests.TestDoubles;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 
 namespace RESQ.Tests.Application.UseCases.Identity;
 
@@ -613,6 +615,8 @@ public sealed class AuthFlowHandlerTests
         public Task AdjustInventoryAsync(int a, int b, int c, Guid d, string e, string? f, DateTime? g, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<(int, int?)> BulkTransferForClosureAsync(int a, int b, int c, Guid d, int? e = null, int f = 100, CancellationToken ct = default) => throw new NotImplementedException();
         public Task TransferClosureItemsAsync(int a, int b, int c, int d, Guid e, IReadOnlyCollection<DepotClosureTransferItemMoveDto> f, CancellationToken ct = default) => Task.CompletedTask;
+        public Task ReserveForClosureShipmentAsync(int sourceDepotId, int transferId, int closureId, Guid performedBy, IReadOnlyCollection<DepotClosureTransferItemMoveDto> items, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<PagedResult<ReusableUnitDto>> GetReusableUnitsPagedAsync(int depotId, int? itemModelId, string? serialNumber, List<string>? statuses, List<string>? conditions, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<ReusableUnitDto>([], 0, pageNumber, pageSize));
         public Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
         public Task ZeroOutForClosureAsync(int a, int b, Guid c, string? d, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<bool> HasActiveInventoryCommitmentsAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();

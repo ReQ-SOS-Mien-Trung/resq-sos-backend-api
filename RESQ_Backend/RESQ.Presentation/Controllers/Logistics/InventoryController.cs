@@ -30,6 +30,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetInventoryActionTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLogs;
 using RESQ.Application.UseCases.Logistics.Queries.GetExpiringLots;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryLots;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventorySourceTypes;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
@@ -1002,6 +1003,34 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new DecommissionReusableItemCommand(
             userId, itemId, request.Note, depotId));
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Xem danh sách từng đơn vị vật phẩm tái sử dụng tại kho, có thể lọc theo trạng thái, tình trạng và tìm kiếm theo số serial.</summary>
+    [HttpGet("my-depot/reusable-units")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
+    [ProducesResponseType(typeof(PagedResult<ReusableUnitDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyDepotReusableUnits(
+        [FromQuery] int? depotId,
+        [FromQuery] int? itemModelId,
+        [FromQuery] string? serialNumber,
+        [FromQuery] List<ReusableItemStatus>? statuses,
+        [FromQuery] List<ReusableItemCondition>? conditions,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyDepotReusableUnitsQuery
+        {
+            UserId = userId,
+            DepotId = depotId,
+            ItemModelId = itemModelId,
+            SerialNumber = serialNumber,
+            Statuses = statuses,
+            Conditions = conditions,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        });
         return Ok(result);
     }
 
