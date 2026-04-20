@@ -1099,6 +1099,82 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         };
     }
 
+    public async Task<MissionSupplyReservationResult> PreviewReserveSuppliesAsync(
+        int depotId,
+        List<(int ItemModelId, int Quantity)> items,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var itemIds = items.Select(x => x.ItemModelId).Distinct().ToList();
+        var itemLookup = await _unitOfWork.Set<ItemModel>()
+            .Where(i => itemIds.Contains(i.Id))
+            .ToDictionaryAsync(i => i.Id, cancellationToken);
+
+        var reservationItems = new List<SupplyExecutionItemDto>(items.Count);
+        foreach (var (itemModelId, quantity) in items)
+        {
+            if (quantity <= 0 || !itemLookup.TryGetValue(itemModelId, out var itemModel))
+                continue;
+
+            var reservationItem = new SupplyExecutionItemDto
+            {
+                ItemModelId = itemModelId,
+                ItemName = itemModel.Name ?? string.Empty,
+                Unit = itemModel.Unit,
+                Quantity = quantity
+            };
+
+            var isReusable = string.Equals(itemModel.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
+            if (!isReusable)
+            {
+                var inventory = await _unitOfWork.Set<SupplyInventory>()
+                    .FirstOrDefaultAsync(
+                        x => x.DepotId == depotId && x.ItemModelId == itemModelId,
+                        cancellationToken);
+
+                if (inventory is not null)
+                {
+                    var plannedLots = await BuildReservedLotPlanAsync(
+                        inventory.Id,
+                        inventory.MissionReservedQuantity,
+                        quantity,
+                        now,
+                        cancellationToken);
+
+                    reservationItem.LotAllocations.AddRange(plannedLots);
+                }
+
+                reservationItems.Add(reservationItem);
+                continue;
+            }
+
+            var reusableUnits = await _unitOfWork.Set<ReusableItem>()
+                .Where(r => r.DepotId == depotId
+                    && r.ItemModelId == itemModelId
+                    && r.Status == nameof(ReusableItemStatus.Available))
+                .OrderBy(r => r.Id)
+                .Take(quantity)
+                .Select(unit => new SupplyExecutionReusableUnitDto
+                {
+                    ReusableItemId = unit.Id,
+                    ItemModelId = itemModelId,
+                    ItemName = itemModel.Name ?? string.Empty,
+                    SerialNumber = unit.SerialNumber,
+                    Condition = unit.Condition,
+                    Note = unit.Note
+                })
+                .ToListAsync(cancellationToken);
+
+            reservationItem.ReusableUnits.AddRange(reusableUnits);
+            reservationItems.Add(reservationItem);
+        }
+
+        return new MissionSupplyReservationResult
+        {
+            Items = reservationItems
+        };
+    }
+
     public async Task<MissionSupplyPickupExecutionResult> ConsumeReservedSuppliesAsync(
         int depotId,
         List<(int ItemModelId, int Quantity)> items,

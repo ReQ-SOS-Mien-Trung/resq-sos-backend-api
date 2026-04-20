@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Personnel;
@@ -1452,6 +1453,148 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             activities.Count);
     }
 
+    private async Task HydrateSupplyPlanningSnapshotsAsync(
+        List<SuggestedActivityDto> activities,
+        CancellationToken cancellationToken)
+    {
+        var collectActivities = activities
+            .Where(IsCollectActivity)
+            .Where(activity => activity.DepotId.HasValue && activity.SuppliesToCollect is { Count: > 0 })
+            .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+            .ToList();
+
+        foreach (var activity in collectActivities)
+        {
+            var itemsToPreview = activity.SuppliesToCollect!
+                .Where(supply => supply.ItemId.HasValue && supply.Quantity > 0)
+                .Where(supply => supply.PlannedPickupLotAllocations is not { Count: > 0 }
+                    && supply.PlannedPickupReusableUnits is not { Count: > 0 })
+                .GroupBy(supply => supply.ItemId!.Value)
+                .Select(group => (ItemModelId: group.Key, Quantity: group.Sum(supply => supply.Quantity)))
+                .ToList();
+
+            if (itemsToPreview.Count == 0)
+                continue;
+
+            try
+            {
+                var preview = await _depotInventoryRepository.PreviewReserveSuppliesAsync(
+                    activity.DepotId!.Value,
+                    itemsToPreview,
+                    cancellationToken);
+
+                ApplyPreviewReservationSnapshot(activity, preview);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to hydrate AI suggestion supply planning snapshot for ActivityStep={Step}, DepotId={DepotId}.",
+                    activity.Step,
+                    activity.DepotId);
+            }
+        }
+
+        HydrateReturnSuppliesFromCollectSnapshots(activities);
+    }
+
+    private static void ApplyPreviewReservationSnapshot(
+        SuggestedActivityDto activity,
+        MissionSupplyReservationResult preview)
+    {
+        if (activity.SuppliesToCollect is not { Count: > 0 } || preview.Items.Count == 0)
+            return;
+
+        var previewByItem = preview.Items
+            .GroupBy(item => item.ItemModelId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        foreach (var supply in activity.SuppliesToCollect.Where(supply => supply.ItemId.HasValue))
+        {
+            if (!previewByItem.TryGetValue(supply.ItemId!.Value, out var item))
+                continue;
+
+            if (string.IsNullOrWhiteSpace(supply.ItemName))
+                supply.ItemName = item.ItemName;
+
+            supply.Unit ??= item.Unit;
+
+            if (supply.PlannedPickupLotAllocations is not { Count: > 0 } && item.LotAllocations.Count > 0)
+                supply.PlannedPickupLotAllocations = item.LotAllocations.Select(lot => CloneLot(lot)).ToList();
+
+            if (supply.PlannedPickupReusableUnits is not { Count: > 0 } && item.ReusableUnits.Count > 0)
+                supply.PlannedPickupReusableUnits = item.ReusableUnits.Select(CloneReusableUnit).ToList();
+        }
+    }
+
+    private static void HydrateReturnSuppliesFromCollectSnapshots(List<SuggestedActivityDto> activities)
+    {
+        var collectActivities = activities
+            .Where(IsCollectActivity)
+            .Where(activity => activity.DepotId.HasValue && activity.SuppliesToCollect is { Count: > 0 })
+            .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+            .ToList();
+
+        if (collectActivities.Count == 0)
+            return;
+
+        foreach (var returnActivity in activities
+            .Where(IsReturnActivity)
+            .Where(activity => activity.DepotId.HasValue && activity.SuppliesToCollect is { Count: > 0 }))
+        {
+            var returnTeamId = NormalizeTeamId(returnActivity.SuggestedTeam?.TeamId);
+            var matchingCollects = collectActivities
+                .Where(collect => collect.DepotId == returnActivity.DepotId
+                    && NormalizeTeamId(collect.SuggestedTeam?.TeamId) == returnTeamId)
+                .ToList();
+
+            if (matchingCollects.Count == 0)
+                continue;
+
+            foreach (var returnSupply in returnActivity.SuppliesToCollect!.Where(supply => supply.ItemId.HasValue))
+            {
+                var sourceLots = new List<SupplyExecutionLotDto>();
+                var sourceUnits = new List<SupplyExecutionReusableUnitDto>();
+
+                foreach (var collectSupply in matchingCollects
+                    .SelectMany(collect => collect.SuppliesToCollect ?? [])
+                    .Where(supply => supply.ItemId == returnSupply.ItemId))
+                {
+                    var pickupLots = collectSupply.PickupLotAllocations is { Count: > 0 }
+                        ? collectSupply.PickupLotAllocations
+                        : collectSupply.PlannedPickupLotAllocations;
+
+                    if (pickupLots is { Count: > 0 })
+                        sourceLots.AddRange(pickupLots.Select(lot => CloneLot(lot)));
+
+                    var pickedUnits = collectSupply.PickedReusableUnits is { Count: > 0 }
+                        ? collectSupply.PickedReusableUnits
+                        : collectSupply.PlannedPickupReusableUnits;
+
+                    if (pickedUnits is { Count: > 0 })
+                        sourceUnits.AddRange(pickedUnits.Select(CloneReusableUnit));
+                }
+
+                if (returnSupply.ExpectedReturnLotAllocations is not { Count: > 0 } && sourceLots.Count > 0)
+                {
+                    returnSupply.ExpectedReturnLotAllocations = TakeLotQuantity(
+                        sourceLots,
+                        returnSupply.Quantity);
+                }
+
+                if (returnSupply.ExpectedReturnUnits is not { Count: > 0 } && sourceUnits.Count > 0)
+                {
+                    var unitLimit = returnSupply.Quantity > 0 ? returnSupply.Quantity : int.MaxValue;
+                    returnSupply.ExpectedReturnUnits = sourceUnits
+                        .GroupBy(unit => unit.ReusableItemId)
+                        .Select(group => CloneReusableUnit(group.First()))
+                        .Take(unitLimit)
+                        .ToList();
+                }
+            }
+        }
+    }
+
     private static void EnsureReturnAssemblyPointActivities(RescueMissionSuggestionResult result)
     {
         var activities = result.SuggestedActivities;
@@ -1699,8 +1842,78 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         {
             ItemId = supply.ItemId,
             ItemName = supply.ItemName,
+            ImageUrl = supply.ImageUrl,
             Quantity = supply.Quantity,
-            Unit = supply.Unit
+            Unit = supply.Unit,
+            PlannedPickupLotAllocations = supply.PlannedPickupLotAllocations?.Select(lot => CloneLot(lot)).ToList(),
+            PlannedPickupReusableUnits = supply.PlannedPickupReusableUnits?.Select(CloneReusableUnit).ToList(),
+            PickupLotAllocations = supply.PickupLotAllocations?.Select(lot => CloneLot(lot)).ToList(),
+            PickedReusableUnits = supply.PickedReusableUnits?.Select(CloneReusableUnit).ToList(),
+            AvailableDeliveryLotAllocations = supply.AvailableDeliveryLotAllocations?.Select(lot => CloneLot(lot)).ToList(),
+            AvailableDeliveryReusableUnits = supply.AvailableDeliveryReusableUnits?.Select(CloneReusableUnit).ToList(),
+            DeliveredLotAllocations = supply.DeliveredLotAllocations?.Select(lot => CloneLot(lot)).ToList(),
+            DeliveredReusableUnits = supply.DeliveredReusableUnits?.Select(CloneReusableUnit).ToList(),
+            ExpectedReturnLotAllocations = supply.ExpectedReturnLotAllocations?.Select(lot => CloneLot(lot)).ToList(),
+            ExpectedReturnUnits = supply.ExpectedReturnUnits?.Select(CloneReusableUnit).ToList(),
+            ReturnedLotAllocations = supply.ReturnedLotAllocations?.Select(lot => CloneLot(lot)).ToList(),
+            ReturnedReusableUnits = supply.ReturnedReusableUnits?.Select(CloneReusableUnit).ToList(),
+            ActualReturnedQuantity = supply.ActualReturnedQuantity,
+            BufferRatio = supply.BufferRatio,
+            BufferQuantity = supply.BufferQuantity,
+            BufferUsedQuantity = supply.BufferUsedQuantity,
+            BufferUsedReason = supply.BufferUsedReason,
+            ActualDeliveredQuantity = supply.ActualDeliveredQuantity
+        };
+    }
+
+    private static List<SupplyExecutionLotDto> TakeLotQuantity(
+        IEnumerable<SupplyExecutionLotDto> lots,
+        int requestedQuantity)
+    {
+        var remaining = requestedQuantity;
+        var result = new List<SupplyExecutionLotDto>();
+
+        foreach (var lot in lots.Where(lot => lot.QuantityTaken > 0))
+        {
+            if (requestedQuantity > 0 && remaining <= 0)
+                break;
+
+            var quantity = requestedQuantity > 0
+                ? Math.Min(lot.QuantityTaken, remaining)
+                : lot.QuantityTaken;
+
+            remaining -= quantity;
+            result.Add(CloneLot(lot, quantity));
+        }
+
+        return result;
+    }
+
+    private static SupplyExecutionLotDto CloneLot(SupplyExecutionLotDto lot) =>
+        CloneLot(lot, lot.QuantityTaken);
+
+    private static SupplyExecutionLotDto CloneLot(SupplyExecutionLotDto lot, int quantityTaken)
+    {
+        return new SupplyExecutionLotDto
+        {
+            LotId = lot.LotId,
+            QuantityTaken = quantityTaken,
+            ReceivedDate = lot.ReceivedDate,
+            ExpiredDate = lot.ExpiredDate,
+            RemainingQuantityAfterExecution = lot.RemainingQuantityAfterExecution
+        };
+    }
+
+    private static SupplyExecutionReusableUnitDto CloneReusableUnit(SupplyExecutionReusableUnitDto unit)
+    {
+        return new SupplyExecutionReusableUnitDto
+        {
+            ReusableItemId = unit.ReusableItemId,
+            ItemModelId = unit.ItemModelId,
+            ItemName = unit.ItemName,
+            SerialNumber = unit.SerialNumber,
+            Condition = unit.Condition,
+            Note = unit.Note
         };
     }
 
