@@ -11,13 +11,13 @@ namespace RESQ.Presentation.Controllers.System;
 
 [Route("system/sos-cluster-grouping-config")]
 [ApiController]
-[Authorize(Policy = PermissionConstants.SystemConfigManage)]
 public class SosClusterGroupingConfigController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
     /// <summary>Lấy cấu hình khoảng cách tối đa để gom SOS requests vào cùng một cluster.</summary>
     [HttpGet]
+    [Authorize(Policy = PermissionConstants.MissionGlobalManage)]
     public async Task<IActionResult> Get()
     {
         var result = await _mediator.Send(new GetSosClusterGroupingConfigQuery());
@@ -26,6 +26,7 @@ public class SosClusterGroupingConfigController(IMediator mediator) : Controller
 
     /// <summary>Cập nhật khoảng cách tối đa để gom SOS requests vào cùng một cluster.</summary>
     [HttpPut]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
     public async Task<IActionResult> Upsert([FromBody] UpsertSosClusterGroupingConfigRequest request)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
