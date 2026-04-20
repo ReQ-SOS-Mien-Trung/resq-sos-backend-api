@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
 using Npgsql;
+using RESQ.Application.Common.Constants;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Domain.Enum.Logistics;
@@ -21,6 +22,7 @@ using RESQ.Infrastructure.Entities.System;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Persistence.Context;
+using LogisticsTargetGroup = RESQ.Infrastructure.Entities.Logistics.TargetGroup;
 
 namespace RESQ.Infrastructure.Persistence.Seeding;
 
@@ -35,6 +37,16 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
     private const string DepotClosureTestDepotName = "Ủy ban MTTQVN Tỉnh Nghệ An";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly string[] ReferenceIdentityTables =
+    [
+        "roles",
+        "permissions",
+        "document_file_type_categories",
+        "document_file_types",
+        "target_groups",
+        "inventory_stock_threshold_configs",
+        "stock_warning_band_config"
+    ];
     private readonly ResQDbContext _db;
     private readonly SeedDataOptions _options;
     private readonly DemoSeedValidator _validator;
@@ -60,6 +72,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
 
         await EnsurePostGisExtensionAsync(cancellationToken);
+        await SeedReferenceDataAsync(cancellationToken);
 
         if (await _db.SystemMigrationAudits.AnyAsync(a => a.MigrationName == MarkerName, cancellationToken))
         {
@@ -227,6 +240,143 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         if (wasClosed)
         {
             await npgsqlConnection.CloseAsync();
+        }
+    }
+
+    private async Task SeedReferenceDataAsync(CancellationToken cancellationToken)
+    {
+        var referenceTimestamp = _options.AnchorDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+
+        await SeedCoreReferenceDataAsync(referenceTimestamp, cancellationToken);
+        await SeedDependentReferenceDataAsync(referenceTimestamp, cancellationToken);
+        await ResetReferenceIdentitySequencesAsync(cancellationToken);
+    }
+
+    private async Task SeedCoreReferenceDataAsync(DateTime referenceTimestamp, CancellationToken cancellationToken)
+    {
+        var existingRoleIds = await _db.Roles
+            .Select(role => role.Id)
+            .ToListAsync(cancellationToken);
+        var existingRoleIdSet = existingRoleIds.ToHashSet();
+        var roles = new[]
+        {
+            new Role { Id = RoleConstants.Admin, Name = "Admin" },
+            new Role { Id = RoleConstants.Coordinator, Name = "Coordinator" },
+            new Role { Id = RoleConstants.Rescuer, Name = "Rescuer" },
+            new Role { Id = RoleConstants.Manager, Name = "Manager" },
+            new Role { Id = RoleConstants.Victim, Name = "Victim" }
+        };
+        _db.Roles.AddRange(roles.Where(role => !existingRoleIdSet.Contains(role.Id)));
+
+        var existingPermissionIds = await _db.Permissions
+            .Select(permission => permission.Id)
+            .ToListAsync(cancellationToken);
+        var existingPermissionIdSet = existingPermissionIds.ToHashSet();
+        _db.Permissions.AddRange(PermissionSeeder.CreatePermissions()
+            .Where(permission => !existingPermissionIdSet.Contains(permission.Id)));
+
+        var existingDocumentCategoryIds = await _db.DocumentFileTypeCategories
+            .Select(category => category.Id)
+            .ToListAsync(cancellationToken);
+        var existingDocumentCategoryIdSet = existingDocumentCategoryIds.ToHashSet();
+        var documentCategories = new[]
+        {
+            new DocumentFileTypeCategory { Id = 1, Code = "RESCUE", Description = "Rescue document category" },
+            new DocumentFileTypeCategory { Id = 2, Code = "MEDICAL", Description = "Medical document category" },
+            new DocumentFileTypeCategory { Id = 3, Code = "TRANSPORTATION", Description = "Transportation document category" },
+            new DocumentFileTypeCategory { Id = 4, Code = "OTHER", Description = "Other document category" }
+        };
+        _db.DocumentFileTypeCategories.AddRange(documentCategories
+            .Where(category => !existingDocumentCategoryIdSet.Contains(category.Id)));
+
+        var existingTargetGroupIds = await _db.TargetGroups
+            .Select(targetGroup => targetGroup.Id)
+            .ToListAsync(cancellationToken);
+        var existingTargetGroupIdSet = existingTargetGroupIds.ToHashSet();
+        var targetGroups = new[]
+        {
+            new LogisticsTargetGroup { Id = 1, Name = "Children" },
+            new LogisticsTargetGroup { Id = 2, Name = "Elderly" },
+            new LogisticsTargetGroup { Id = 3, Name = "Pregnant" },
+            new LogisticsTargetGroup { Id = 4, Name = "Adult" },
+            new LogisticsTargetGroup { Id = 5, Name = "Rescuer" }
+        };
+        _db.TargetGroups.AddRange(targetGroups
+            .Where(targetGroup => !existingTargetGroupIdSet.Contains(targetGroup.Id)));
+
+        if (!await _db.InventoryStockThresholdConfigs.AnyAsync(config => config.Id == 1, cancellationToken))
+        {
+            _db.InventoryStockThresholdConfigs.Add(new InventoryStockThresholdConfig
+            {
+                Id = 1,
+                ScopeType = "GLOBAL",
+                MinimumThreshold = 100,
+                IsActive = true,
+                UpdatedBy = null,
+                UpdatedAt = referenceTimestamp,
+                RowVersion = 1
+            });
+        }
+
+        if (!await _db.StockWarningBandConfigs.AnyAsync(config => config.Id == 1, cancellationToken))
+        {
+            _db.StockWarningBandConfigs.Add(new StockWarningBandConfig
+            {
+                Id = 1,
+                BandsJson = "[{\"name\":\"CRITICAL\",\"from\":0.0,\"to\":0.25},{\"name\":\"MEDIUM\",\"from\":0.25,\"to\":0.5},{\"name\":\"LOW\",\"from\":0.5,\"to\":0.8},{\"name\":\"OK\",\"from\":0.8,\"to\":null}]",
+                UpdatedBy = null,
+                UpdatedAt = referenceTimestamp
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SeedDependentReferenceDataAsync(DateTime referenceTimestamp, CancellationToken cancellationToken)
+    {
+        var existingRolePermissionKeys = await _db.RolePermissions
+            .Select(rolePermission => new { rolePermission.RoleId, rolePermission.ClaimId })
+            .ToListAsync(cancellationToken);
+        var existingRolePermissionKeySet = existingRolePermissionKeys
+            .Select(rolePermission => (rolePermission.RoleId, rolePermission.ClaimId))
+            .ToHashSet();
+        _db.RolePermissions.AddRange(PermissionSeeder.CreateRolePermissions()
+            .Where(rolePermission => !existingRolePermissionKeySet.Contains((rolePermission.RoleId, rolePermission.ClaimId))));
+
+        var existingDocumentFileTypeIds = await _db.DocumentFileTypes
+            .Select(fileType => fileType.Id)
+            .ToListAsync(cancellationToken);
+        var existingDocumentFileTypeIdSet = existingDocumentFileTypeIds.ToHashSet();
+        _db.DocumentFileTypes.AddRange(DocumentFileTypes(referenceTimestamp)
+            .Where(fileType => !existingDocumentFileTypeIdSet.Contains(fileType.Id)));
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task ResetReferenceIdentitySequencesAsync(CancellationToken cancellationToken)
+    {
+        if (!string.Equals(
+            _db.Database.ProviderName,
+            "Npgsql.EntityFrameworkCore.PostgreSQL",
+            StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        foreach (var tableName in ReferenceIdentityTables)
+        {
+            var resetSequenceSql =
+                $"""
+                SELECT setval(
+                    pg_get_serial_sequence('{tableName}', 'id'),
+                    COALESCE((SELECT MAX(id) FROM {tableName}), 1),
+                    true)
+                WHERE pg_get_serial_sequence('{tableName}', 'id') IS NOT NULL;
+                """;
+
+            await _db.Database.ExecuteSqlRawAsync(
+                resetSequenceSql,
+                cancellationToken);
         }
     }
 
@@ -1082,6 +1232,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             });
         }
         EnsureLifeJacketReusableUnits(seed, lifeJacketModel);
+        EnsureManagerReturnFixtureReusableUnits(seed);
         _db.ReusableItems.AddRange(seed.ReusableItems);
 
         await SeedVatInvoicesAsync(seed);
@@ -2700,6 +2851,83 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
     }
 
+    private static void EnsureManagerReturnFixtureReusableUnits(DemoSeedContext seed)
+    {
+        if (seed.Depots.Count == 0)
+        {
+            return;
+        }
+
+        var hueDepot = seed.Depots[0];
+        var reusableModelIdsWithEnoughUnits = seed.ReusableItems
+            .Where(item => item.DepotId == hueDepot.Id
+                && string.Equals(item.Status, nameof(ReusableItemStatus.Available), StringComparison.Ordinal)
+                && item.ItemModelId.HasValue
+                && seed.ItemModels.Any(model =>
+                    model.Id == item.ItemModelId.Value
+                    && string.Equals(model.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase)))
+            .GroupBy(item => item.ItemModelId!.Value)
+            .Where(group => group.Count() >= 2)
+            .Select(group => group.Key)
+            .ToHashSet();
+
+        if (reusableModelIdsWithEnoughUnits.Count >= 2)
+        {
+            return;
+        }
+
+        var existingSerials = seed.ReusableItems
+            .Where(item => item.SerialNumber != null)
+            .Select(item => item.SerialNumber!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var candidateModels = seed.ItemModels
+            .Where(model => string.Equals(model.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(model => model.Id)
+            .ToList();
+
+        foreach (var model in candidateModels)
+        {
+            if (reusableModelIdsWithEnoughUnits.Count >= 2)
+            {
+                break;
+            }
+
+            if (reusableModelIdsWithEnoughUnits.Contains(model.Id))
+            {
+                continue;
+            }
+
+            var availableCount = seed.ReusableItems.Count(item =>
+                item.DepotId == hueDepot.Id
+                && item.ItemModelId == model.Id
+                && string.Equals(item.Status, nameof(ReusableItemStatus.Available), StringComparison.Ordinal));
+
+            for (var unitIndex = availableCount; unitIndex < 2; unitIndex++)
+            {
+                var serialNumber = $"RETURN-FIXTURE-D{hueDepot.Id:00}-M{model.Id:000}-{unitIndex + 1:000}";
+                if (!existingSerials.Add(serialNumber))
+                {
+                    continue;
+                }
+
+                seed.ReusableItems.Add(new ReusableItem
+                {
+                    DepotId = hueDepot.Id,
+                    ItemModelId = model.Id,
+                    SerialNumber = serialNumber,
+                    Status = ReusableItemStatus.Available.ToString(),
+                    Condition = "Good",
+                    Note = "Demo manager01 return fixture reusable unit.",
+                    CreatedAt = seed.AnchorUtc.AddDays(-45 - unitIndex),
+                    UpdatedAt = seed.AnchorUtc.AddDays(-7 - unitIndex),
+                    IsDeleted = false
+                });
+            }
+
+            reusableModelIdsWithEnoughUnits.Add(model.Id);
+        }
+    }
+
     private static int EssentialLifeJacketQuantity(int depotIndex) =>
         50 + (35 + depotIndex * 13) % 51;
 
@@ -3133,6 +3361,142 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static IEnumerable<ServiceZone> ServiceZones(DateTime now)
         => ServiceZoneSeedData.CreateZones(now);
+
+    private static IReadOnlyList<DocumentFileType> DocumentFileTypes(DateTime now) =>
+    [
+        new DocumentFileType
+        {
+            Id = 1,
+            Code = "WATER_SAFETY_CERT",
+            Name = "Water safety certificate",
+            Description = "Certificate for basic swimming, survival and water safety capability.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 1,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 2,
+            Code = "WATER_RESCUE_CERT",
+            Name = "Water rescue certificate",
+            Description = "Professional water rescue certificate for floods and swift water.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 1,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 3,
+            Code = "TECHNICAL_RESCUE_CERT",
+            Name = "Technical rescue certificate",
+            Description = "Certificate for technical rescue equipment, rope rescue, confined spaces or collapse response.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 1,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 4,
+            Code = "DISASTER_RESPONSE_CERT",
+            Name = "Disaster response certificate",
+            Description = "Certificate for rapid response, coordination and disaster response training.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 1,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 5,
+            Code = "BASIC_FIRST_AID_CERT",
+            Name = "Basic first aid certificate",
+            Description = "Certificate for basic first aid and CPR training.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 6,
+            Code = "NURSING_PRACTICE_LICENSE",
+            Name = "Nursing practice license",
+            Description = "Professional nursing license issued by a competent authority.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 7,
+            Code = "MOTORCYCLE_LICENSE",
+            Name = "Motorcycle license",
+            Description = "Valid motorcycle driving license.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 3,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 8,
+            Code = "CAR_TRUCK_LICENSE",
+            Name = "Car or truck license",
+            Description = "Valid car, pickup or truck driving license.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 3,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 9,
+            Code = "OTHER",
+            Name = "Other",
+            Description = "Other supporting document.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 4,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 10,
+            Code = "PARAMEDIC_EMT_CERT",
+            Name = "Paramedic or EMT certificate",
+            Description = "Emergency medical technician or pre-hospital care certificate.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 11,
+            Code = "MEDICAL_DOCTOR_LICENSE",
+            Name = "Medical doctor license",
+            Description = "Professional medical practice license for doctors.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 12,
+            Code = "INLAND_WATERWAY_LICENSE",
+            Name = "Inland waterway license",
+            Description = "License for operating motorized inland waterway vehicles.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 3,
+            CreatedAt = now,
+            UpdatedAt = now
+        }
+    ];
 
     private static IReadOnlyList<ItemTemplate> BaseItemModels()
     {

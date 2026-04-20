@@ -70,19 +70,20 @@ public static class PermissionSeeder
         SeedRolePermissions(modelBuilder);
     }
 
-    private static void SeedPermissions(ModelBuilder modelBuilder)
+    public static IReadOnlyList<Permission> CreatePermissions()
     {
-        modelBuilder.Entity<Permission>().HasData(
-            PermissionDefinitions.Select(permission => new Permission
+        return PermissionDefinitions
+            .Select(permission => new Permission
             {
                 Id = permission.Id,
                 Code = permission.Code,
                 Name = permission.Name,
                 Description = permission.Description
-            }));
+            })
+            .ToList();
     }
 
-    private static void SeedRolePermissions(ModelBuilder modelBuilder)
+    public static IReadOnlyList<RolePermission> CreateRolePermissions()
     {
         var rolePermissions = new List<RolePermission>();
 
@@ -185,7 +186,17 @@ public static class PermissionSeeder
             PermissionConstants.SosRequestCreate,
             PermissionConstants.SosRequestCancelOwn);
 
-        modelBuilder.Entity<RolePermission>().HasData(rolePermissions);
+        return rolePermissions;
+    }
+
+    private static void SeedPermissions(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Permission>().HasData(CreatePermissions());
+    }
+
+    private static void SeedRolePermissions(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<RolePermission>().HasData(CreateRolePermissions());
     }
 
     private static void GrantAll(ICollection<RolePermission> rolePermissions, int roleId)
