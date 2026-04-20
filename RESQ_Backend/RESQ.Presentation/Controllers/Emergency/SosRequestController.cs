@@ -13,6 +13,7 @@ using RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosPriorityLevelMetadata;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 
 namespace RESQ.Presentation.Controllers.Emergency;
@@ -87,14 +88,50 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
         return Ok(result);
     }
 
-    /// <summary>Get SOS requests inside the current map bounds.</summary>
+    /// <summary>Get SOS requests by map bounds, or paged list when bounds are omitted.</summary>
     [HttpGet]
     [Authorize(Policy = PermissionConstants.SosRequestView)]
     [ProducesResponseType(typeof(List<SosRequestDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetSosRequests([FromQuery] GetSosRequestsByBoundsQuery query)
+    [ProducesResponseType(typeof(GetSosRequestsPagedResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetSosRequests([FromQuery] GetSosRequestsQueryParameters query)
     {
-        var result = await _mediator.Send(query);
-        return Ok(result);
+        var hasMinLat = query.MinLat.HasValue;
+        var hasMaxLat = query.MaxLat.HasValue;
+        var hasMinLng = query.MinLng.HasValue;
+        var hasMaxLng = query.MaxLng.HasValue;
+        var hasAnyBounds = hasMinLat || hasMaxLat || hasMinLng || hasMaxLng;
+        var hasAllBounds = hasMinLat && hasMaxLat && hasMinLng && hasMaxLng;
+
+        if (hasAnyBounds && !hasAllBounds)
+        {
+            return BadRequest(new
+            {
+                message = "minLat, maxLat, minLng and maxLng are all required for map bounds mode."
+            });
+        }
+
+        if (hasAllBounds)
+        {
+            var boundsResult = await _mediator.Send(new GetSosRequestsByBoundsQuery
+            {
+                MinLat = query.MinLat,
+                MaxLat = query.MaxLat,
+                MinLng = query.MinLng,
+                MaxLng = query.MaxLng,
+                Statuses = query.Statuses
+            });
+
+            return Ok(boundsResult);
+        }
+
+        var pagedResult = await _mediator.Send(new GetSosRequestsPagedQuery
+        {
+            PageNumber = query.PageNumber,
+            PageSize = query.PageSize
+        });
+
+        return Ok(pagedResult);
     }
 
     /// <summary>Xem chi tiết một SOS request theo ID.</summary>

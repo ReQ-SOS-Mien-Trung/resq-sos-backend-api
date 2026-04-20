@@ -20,7 +20,13 @@ public class SosClusterControllerTests
         });
         var controller = new SosClusterController(mediator);
 
-        var result = await controller.GetClusters(pageNumber: 2, pageSize: 5, sosRequestId: 99);
+        var statuses = new List<string> { "Pending", "Suggested" };
+
+        var result = await controller.GetClusters(
+            pageNumber: 2,
+            pageSize: 5,
+            sosRequestId: 99,
+            statuses: statuses);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var sentQuery = Assert.IsType<GetSosClustersQuery>(Assert.Single(mediator.SentRequests));
@@ -28,6 +34,7 @@ public class SosClusterControllerTests
         Assert.Equal(2, sentQuery.PageNumber);
         Assert.Equal(5, sentQuery.PageSize);
         Assert.Equal(99, sentQuery.SosRequestId);
+        Assert.Same(statuses, sentQuery.Statuses);
         Assert.IsType<PagedResult<SosClusterDto>>(okResult.Value);
     }
 

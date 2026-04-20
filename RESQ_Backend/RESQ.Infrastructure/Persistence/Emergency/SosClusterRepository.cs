@@ -3,6 +3,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Mappers.Emergency;
 
@@ -34,15 +35,31 @@ public class SosClusterRepository(IUnitOfWork unitOfWork) : ISosClusterRepositor
         int pageNumber,
         int pageSize,
         int? sosRequestId = null,
+        IReadOnlyCollection<SosClusterStatus>? statuses = null,
         CancellationToken cancellationToken = default)
     {
         var repository = _unitOfWork.GetRepository<SosCluster>();
         Expression<Func<SosCluster, bool>>? filter = null;
+        var statusNames = statuses?
+            .Select(status => status.ToString())
+            .Distinct()
+            .ToArray();
 
-        if (sosRequestId.HasValue)
+        if (sosRequestId.HasValue && statusNames is { Length: > 0 } requestStatusNames)
+        {
+            var requestId = sosRequestId.Value;
+            filter = cluster =>
+                cluster.SosRequests.Any(sosRequest => sosRequest.Id == requestId)
+                && requestStatusNames.Contains(cluster.Status);
+        }
+        else if (sosRequestId.HasValue)
         {
             var requestId = sosRequestId.Value;
             filter = cluster => cluster.SosRequests.Any(sosRequest => sosRequest.Id == requestId);
+        }
+        else if (statusNames is { Length: > 0 } statusFilterNames)
+        {
+            filter = cluster => statusFilterNames.Contains(cluster.Status);
         }
 
         var pagedEntities = await repository.GetPagedAsync(

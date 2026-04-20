@@ -99,6 +99,58 @@ public class GetSosClustersQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_FiltersBySingleStatus()
+    {
+        var handler = BuildHandler(
+        [
+            new SosClusterModel { Id = 1, Status = SosClusterStatus.Pending },
+            new SosClusterModel { Id = 2, Status = SosClusterStatus.Suggested }
+        ]);
+
+        var result = await handler.Handle(new GetSosClustersQuery(Statuses: ["Suggested"]), CancellationToken.None);
+
+        var dto = Assert.Single(result.Items);
+        Assert.Equal(2, dto.Id);
+        Assert.Equal(SosClusterStatus.Suggested, dto.Status);
+        Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task Handle_FiltersByRepeatedStatuses_CaseInsensitive()
+    {
+        var handler = BuildHandler(
+        [
+            new SosClusterModel { Id = 1, Status = SosClusterStatus.Pending },
+            new SosClusterModel { Id = 2, Status = SosClusterStatus.Suggested },
+            new SosClusterModel { Id = 3, Status = SosClusterStatus.Completed }
+        ]);
+
+        var result = await handler.Handle(new GetSosClustersQuery(Statuses: ["pending", "Suggested"]), CancellationToken.None);
+
+        Assert.Equal([2, 1], result.Items.Select(item => item.Id).ToList());
+        Assert.Equal(2, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task Handle_CombinesStatusesWithSosRequestId()
+    {
+        var handler = BuildHandler(
+        [
+            new SosClusterModel { Id = 1, Status = SosClusterStatus.Pending, SosRequestIds = [10] },
+            new SosClusterModel { Id = 2, Status = SosClusterStatus.Suggested, SosRequestIds = [10] },
+            new SosClusterModel { Id = 3, Status = SosClusterStatus.Suggested, SosRequestIds = [30] }
+        ]);
+
+        var result = await handler.Handle(
+            new GetSosClustersQuery(PageNumber: 1, PageSize: 10, SosRequestId: 10, Statuses: ["Suggested"]),
+            CancellationToken.None);
+
+        var dto = Assert.Single(result.Items);
+        Assert.Equal(2, dto.Id);
+        Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
     public async Task Handle_NormalizesInvalidPaging_AndReturnsRequestedPage()
     {
         var clusters = new List<SosClusterModel>
@@ -135,10 +187,13 @@ public class GetSosClustersQueryHandlerTests
             int pageNumber,
             int pageSize,
             int? sosRequestId = null,
+            IReadOnlyCollection<SosClusterStatus>? statuses = null,
             CancellationToken cancellationToken = default)
         {
+            var statusSet = statuses?.ToHashSet();
             var filtered = clusters
                 .Where(cluster => !sosRequestId.HasValue || cluster.SosRequestIds.Contains(sosRequestId.Value))
+                .Where(cluster => statusSet is null || statusSet.Count == 0 || statusSet.Contains(cluster.Status))
                 .OrderByDescending(cluster => cluster.CreatedAt)
                 .ThenByDescending(cluster => cluster.Id)
                 .ToList();
