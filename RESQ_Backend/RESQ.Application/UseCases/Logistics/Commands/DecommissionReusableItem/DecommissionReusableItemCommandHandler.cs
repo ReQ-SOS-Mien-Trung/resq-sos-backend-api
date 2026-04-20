@@ -24,20 +24,20 @@ public class DecommissionReusableItemCommandHandler(
             ?? throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
-        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
-            throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể ngừng sử dụng thiết bị.");
+        if (depotStatus is DepotStatus.Created or DepotStatus.PendingAssignment or DepotStatus.Closed or DepotStatus.Closing)
+            throw new ConflictException("Kho hiện không ở trạng thái cho phép tiêu hủy vật phẩm tái sử dụng.");
 
         await _depotInventoryRepository.DecommissionReusableItemAsync(
+            depotId,
             request.ReusableItemId,
             request.Note,
             request.UserId,
             cancellationToken);
 
-        // Push notification cho manager xác nhận
         await _firebaseService.SendNotificationToUserAsync(
             request.UserId,
-            "Ngừng sử dụng thiết bị",
-            $"Đã ngừng sử dụng (decommission) thiết bị #{request.ReusableItemId}.",
+            "Tiêu hủy vật phẩm tái sử dụng",
+            $"Đã tiêu hủy vật phẩm tái sử dụng #{request.ReusableItemId}.",
             "inventory_disposal",
             new Dictionary<string, string>
             {
@@ -47,6 +47,6 @@ public class DecommissionReusableItemCommandHandler(
             cancellationToken);
 
         return new DecommissionReusableItemResponse(
-            $"Đã ngừng sử dụng thiết bị #{request.ReusableItemId}.");
+            $"Đã tiêu hủy vật phẩm tái sử dụng #{request.ReusableItemId}.");
     }
 }

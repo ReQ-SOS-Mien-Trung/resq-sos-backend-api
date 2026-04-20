@@ -254,6 +254,7 @@ public interface IDepotInventoryRepository
     /// và SourceType=Expired hoặc Damaged.
     /// </summary>
     Task DisposeConsumableLotAsync(
+        int depotId,
         int lotId,
         int quantity,
         string reason,
@@ -267,6 +268,7 @@ public interface IDepotInventoryRepository
     /// Không cho phép decommission khi Status=InUse hoặc đã Decommissioned.
     /// </summary>
     Task DecommissionReusableItemAsync(
+        int depotId,
         int reusableItemId,
         string? note,
         Guid performedBy,
