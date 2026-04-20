@@ -5,6 +5,7 @@ using Microsoft.OpenApi.Models;
 using RESQ.Application.Extensions;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Extensions;
+using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Presentation.Extensions;
 using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
@@ -161,6 +162,7 @@ builder.Services.AddPermissionAuthorization();
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"]
     ?? throw new InvalidOperationException("JWT SecretKey is not configured");
+var bootstrapDatabaseOnStartup = builder.Configuration.GetValue<bool>("Database:BootstrapOnStartup");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -210,6 +212,19 @@ builder.Services.AddAuthentication(options =>
 });
 
 var app = builder.Build();
+
+if (bootstrapDatabaseOnStartup)
+{
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("DatabaseBootstrap");
+    var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
+
+    logger.LogInformation("Ensuring RESQ database is created and seeded.");
+    var created = await dbContext.Database.EnsureCreatedAsync();
+    await RESQ.Infrastructure.Extensions.ServiceCollectionExtensions.RunSeedAsync(dbContext);
+    logger.LogInformation("Database bootstrap finished. Created={Created}", created);
+}
 
 // Middleware pipeline
 

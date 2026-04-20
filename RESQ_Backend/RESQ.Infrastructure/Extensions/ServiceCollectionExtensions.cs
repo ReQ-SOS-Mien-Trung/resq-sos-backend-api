@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
+        var bootstrapDatabaseOnStartup = configuration.GetValue<bool>("Database:BootstrapOnStartup");
         services.AddHttpClient();
         services.Configure<AiProvidersOptions>(configuration.GetSection("AiProviders"));
         var aiSecretsSection = configuration.GetSection("AiSecrets");
@@ -64,6 +65,7 @@ public static class ServiceCollectionExtensions
         var dataSource = dataSourceBuilder.Build();
 
         services.AddDbContext<ResQDbContext>(options =>
+        {
             options.UseNpgsql(
                 dataSource,
                 x =>
@@ -74,16 +76,20 @@ public static class ServiceCollectionExtensions
                         maxRetryDelay: TimeSpan.FromSeconds(10),
                         errorCodesToAdd: null);
                 }
-            )
-            .UseSeeding((context, _) =>
+            );
+
+            if (!bootstrapDatabaseOnStartup)
             {
-                SeedDatabase((ResQDbContext)context);
-            })
-            .UseAsyncSeeding(async (context, _, cancellationToken) =>
-            {
-                await SeedDatabaseAsync((ResQDbContext)context, cancellationToken);
-            })
-        );
+                options.UseSeeding((context, _) =>
+                {
+                    SeedDatabase((ResQDbContext)context);
+                });
+                options.UseAsyncSeeding(async (context, _, cancellationToken) =>
+                {
+                    await SeedDatabaseAsync((ResQDbContext)context, cancellationToken);
+                });
+            }
+        });
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));

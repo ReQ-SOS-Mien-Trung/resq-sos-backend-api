@@ -56,6 +56,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
+      - Database__BootstrapOnStartup=true
       - ConnectionStrings__ResQDb=Host=resq-db;Port=5432;Database=RESQ;Username=postgres;Password=postgres123
       - Redis__ConnectionString=resq-redis:6379
       - JwtSettings__SecretKey=YourSuperSecretKeyForJwtTokenGeneration_AtLeast32Characters!
