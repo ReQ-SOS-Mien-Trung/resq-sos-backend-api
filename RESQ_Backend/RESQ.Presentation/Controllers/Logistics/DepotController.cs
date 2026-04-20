@@ -536,6 +536,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho nguồn. Dùng transferId từ POST /{id}/close/transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/prepare")]
+        [HttpPost("{id}/close/transfer/{transferId}/prepare")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(PrepareClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -556,6 +557,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho nguồn. Dùng transferId từ POST /{id}/close/transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/ship")]
+        [HttpPost("{id}/close/transfer/{transferId}/ship")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ShipClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -576,6 +578,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho nguồn. Dùng transferId từ POST /{id}/close/transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/complete")]
+        [HttpPost("{id}/close/transfer/{transferId}/complete")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(CompleteClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -596,6 +599,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho ĐÍCH (target depot). Dùng transferId từ GET /my-incoming-closure-transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/receive")]
+        [HttpPost("{id}/close/transfer/{transferId}/receive")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ReceiveClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -616,6 +620,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho nguồn (source depot). Manager kho nguồn / kho đích đều dùng được.
         /// </summary>
         [HttpGet("{id}/transfer/{transferId}")]
+        [HttpGet("{id}/close/transfer/{transferId}")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
