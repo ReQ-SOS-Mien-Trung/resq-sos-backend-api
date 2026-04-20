@@ -41,11 +41,6 @@ public class ChangeDepotStatusCommandHandler(
 
         if (!isAdmin)
         {
-            if (request.Status == DepotStatus.Closing)
-            {
-                throw new ForbiddenException("Chỉ Admin mới có quyền chuyển kho sang trạng thái Closing (Đang đóng kho).");
-            }
-
             var managedDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.RequestedBy, request.DepotId, cancellationToken);
             if (!managedDepotId.HasValue)
             {
@@ -61,7 +56,7 @@ public class ChangeDepotStatusCommandHandler(
         var depot = await _depotRepository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
-        if (request.Status == DepotStatus.Unavailable || request.Status == DepotStatus.Closing)
+        if (request.Status == DepotStatus.Unavailable)
         {
             var (asSource, asRequester) = await _depotRepository.GetNonTerminalSupplyRequestCountsAsync(request.Id, cancellationToken);
             if (asSource + asRequester > 0)

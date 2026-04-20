@@ -184,8 +184,14 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
         var logEntities            = new List<InventoryLog>();
         var vatInvoiceItemEntities = new List<VatInvoiceItem>();
 
-        foreach (var (model, unitPrice, itemType) in items)
+        // Track reusable entities alongside their source item for per-unit log creation after save
+        var reusableEntityWithItem = new List<(ReusableItem Entity, PurchasedInventoryItemModel Model, int? VatInvoiceId)>();
+        // Map item index → log index for consumable rows (to set DepotSupplyInventoryId after save)
+        var consumableItemToLogIndex = new Dictionary<int, int>();
+
+        for (int itemIdx = 0; itemIdx < items.Count; itemIdx++)
         {
+            var (model, unitPrice, itemType) = items[itemIdx];
             var isReusable = string.Equals(itemType, "Reusable", StringComparison.OrdinalIgnoreCase);
 
             // 1a. Consumable → cập nhật/tạo bản ghi SupplyInventory
@@ -212,15 +218,32 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                         LastStockedAt             = DateTime.UtcNow
                     });
                 }
+
+                // 2a. Log for consumable: 1 log per item row (QuantityChange = N)
+                consumableItemToLogIndex[itemIdx] = logEntities.Count;
+                logEntities.Add(new InventoryLog
+                {
+                    VatInvoiceId   = model.VatInvoiceId,
+                    ActionType     = InventoryActionType.Import.ToString(),
+                    SourceType     = InventorySourceType.Purchase.ToString(),
+                    QuantityChange = model.Quantity,
+                    SourceId       = null,
+                    PerformedBy    = model.ReceivedBy,
+                    Note           = model.Notes,
+                    ReceivedDate   = model.ReceivedDate,
+                    ExpiredDate    = model.ExpiredDate,
+                    CreatedAt      = DateTime.UtcNow
+                });
             }
 
-            // 1b. Reusable → tạo N bản ghi ReusableItem (serial number do system sinh)
+            // 1b. Reusable → tạo N bản ghi ReusableItem (serial number do system sinh).
+            // Log được tạo sau khi save để gắn ReusableItemId chính xác.
             if (isReusable)
             {
                 for (int u = 0; u < model.Quantity; u++)
                 {
                     var serial = $"SN-{model.ItemModelId:D5}-{Guid.NewGuid().ToString("N")[..12].ToUpper()}";
-                    reusableEntities.Add(new ReusableItem
+                    var reusableEntity = new ReusableItem
                     {
                         DepotId      = model.ReceivedAt,
                         ItemModelId  = model.ItemModelId,
@@ -230,26 +253,13 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                         Note         = null,
                         CreatedAt    = DateTime.UtcNow,
                         UpdatedAt    = DateTime.UtcNow
-                    });
+                    };
+                    reusableEntities.Add(reusableEntity);
+                    reusableEntityWithItem.Add((reusableEntity, model, model.VatInvoiceId));
                 }
             }
 
-            // 2. Chuẩn bị InventoryLog (DepotSupplyInventoryId sẽ gắn sau khi save consumable)
-            logEntities.Add(new InventoryLog
-            {
-                VatInvoiceId  = model.VatInvoiceId,
-                ActionType    = InventoryActionType.Import.ToString(),
-                SourceType    = InventorySourceType.Purchase.ToString(),
-                QuantityChange = model.Quantity,
-                SourceId      = null,
-                PerformedBy   = model.ReceivedBy,
-                Note          = model.Notes,
-                ReceivedDate  = model.ReceivedDate,
-                ExpiredDate   = model.ExpiredDate,
-                CreatedAt     = DateTime.UtcNow
-            });
-
-            // 3. Tạo VatInvoiceItem - lưu giá từng dòng trong hóa đơn VAT
+            // 3. Tạo VatInvoiceItem - lưu giá từng dòng trong hóa đơn VAT (1 per item row)
             vatInvoiceItemEntities.Add(new VatInvoiceItem
             {
                 VatInvoiceId = model.VatInvoiceId,
@@ -271,10 +281,30 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
             await _unitOfWork.SaveAsync();
         }
 
+        // Bulk insert reusable item records, then create 1 log per unit (with ReusableItemId)
         if (reusableEntities.Count > 0)
         {
             await reusableRepo.AddRangeAsync(reusableEntities);
             await _unitOfWork.SaveAsync();
+
+            // Create individual log per reusable unit so each unit is fully traceable by ReusableItemId
+            foreach (var (entity, model, vatInvoiceId) in reusableEntityWithItem)
+            {
+                logEntities.Add(new InventoryLog
+                {
+                    ReusableItemId = entity.Id,
+                    VatInvoiceId   = vatInvoiceId,
+                    ActionType     = InventoryActionType.Import.ToString(),
+                    SourceType     = InventorySourceType.Purchase.ToString(),
+                    QuantityChange = 1,
+                    SourceId       = null,
+                    PerformedBy    = model.ReceivedBy,
+                    Note           = model.Notes,
+                    ReceivedDate   = model.ReceivedDate,
+                    ExpiredDate    = model.ExpiredDate,
+                    CreatedAt      = DateTime.UtcNow
+                });
+            }
         }
 
         // Gắn DepotSupplyInventoryId cho log của consumable item + tạo lot
@@ -286,7 +316,7 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
         {
             var (model, _, itemType) = items[i];
             var isReusable = string.Equals(itemType, "Reusable", StringComparison.OrdinalIgnoreCase);
-            if (!isReusable)
+            if (!isReusable && consumableItemToLogIndex.TryGetValue(i, out var logIdx))
             {
                 var inv = newInventoryEntities.FirstOrDefault(x =>
                               x.DepotId == model.ReceivedAt && x.ItemModelId == model.ItemModelId)
@@ -294,24 +324,24 @@ public async Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryIt
                               x => x.DepotId == model.ReceivedAt && x.ItemModelId == model.ItemModelId);
                 if (inv != null)
                 {
-                    logEntities[i].DepotSupplyInventoryId = inv.Id;
+                    logEntities[logIdx].DepotSupplyInventoryId = inv.Id;
 
                     // Create lot for this purchase batch
-                    lotToLogMapping.Add((lotEntities.Count, i));
+                    lotToLogMapping.Add((lotEntities.Count, logIdx));
                     lotEntities.Add(new SupplyInventoryLot
                     {
                         SupplyInventoryId = inv.Id,
-                        Quantity = model.Quantity,
+                        Quantity          = model.Quantity,
                         RemainingQuantity = model.Quantity,
-                        ReceivedDate = model.ReceivedDate,
-                        ExpiredDate = model.ExpiredDate,
-                        SourceType = InventorySourceType.Purchase.ToString(),
-                        SourceId = model.VatInvoiceId,
-                        CreatedAt = DateTime.UtcNow
+                        ReceivedDate      = model.ReceivedDate,
+                        ExpiredDate       = model.ExpiredDate,
+                        SourceType        = InventorySourceType.Purchase.ToString(),
+                        SourceId          = model.VatInvoiceId,
+                        CreatedAt         = DateTime.UtcNow
                     });
                 }
             }
-            // Reusable: DepotSupplyInventoryId stays null
+            // Reusable: log per unit already created above with ReusableItemId
         }
 
         // Bulk insert lots and link to logs

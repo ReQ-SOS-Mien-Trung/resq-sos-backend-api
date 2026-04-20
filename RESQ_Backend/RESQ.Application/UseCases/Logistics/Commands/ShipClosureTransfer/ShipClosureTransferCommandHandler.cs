@@ -38,9 +38,32 @@ public class ShipClosureTransferCommandHandler(
         // Transition: Preparing → Shipping (domain validates)
         transfer.MarkShipping(request.UserId, request.Note);
 
+        // Load snapshot items to reserve/mark in-transit
+        var transferItems = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
+        var moveDtos = transferItems
+            .Select(item => new DepotClosureTransferItemMoveDto
+            {
+                ItemModelId = item.ItemModelId,
+                ItemType = item.ItemType,
+                Quantity = item.Quantity
+            })
+            .ToList();
+
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             await transferRepository.UpdateAsync(transfer, cancellationToken);
+
+            if (moveDtos.Count > 0)
+            {
+                await inventoryRepository.ReserveForClosureShipmentAsync(
+                    transfer.SourceDepotId,
+                    transfer.Id,
+                    transfer.ClosureId,
+                    request.UserId,
+                    moveDtos,
+                    cancellationToken);
+            }
+
             await unitOfWork.SaveAsync();
         });
 

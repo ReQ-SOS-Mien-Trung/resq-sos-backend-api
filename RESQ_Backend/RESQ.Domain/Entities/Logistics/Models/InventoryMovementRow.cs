@@ -27,4 +27,10 @@ public class InventoryMovementRow
     public string ActionType { get; set; } = string.Empty;
     public string SourceType { get; set; } = string.Empty;
     public string? MissionName { get; set; }
+
+    /// <summary>Serial number cho đồ tái sử dụng (Reusable). Null với hàng tiêu thụ.</summary>
+    public string? SerialNumber { get; set; }
+
+    /// <summary>Lot ID cho hàng tiêu thụ (Consumable). Null với đồ tái sử dụng.</summary>
+    public int? LotId { get; set; }
 }

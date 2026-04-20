@@ -54,7 +54,7 @@ public class ImportPurchasedInventoryCommandHandler(
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động. Không thể nhập hàng.");
         }
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId.Value, cancellationToken);
-        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
+        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể nhập hàng vào kho này.");
         // 2. Tải tất cả danh mục để mapping hiệu quả
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);

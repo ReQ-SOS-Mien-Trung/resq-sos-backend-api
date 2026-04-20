@@ -221,6 +221,19 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gọi khi kho nguồn xác nhận xuất hàng (Ship step):
+    /// - Consumable: cộng TransferReservedQuantity (giữ chỗ, giảm số lượng khả dụng hiển thị).
+    /// - Reusable: chuyển N đơn vị từ Available → InTransit, DepotId = null, ghi log TransferOut.
+    /// </summary>
+    Task ReserveForClosureShipmentAsync(
+        int sourceDepotId,
+        int transferId,
+        int closureId,
+        Guid performedBy,
+        IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Tra cứu userId của quản lý đang được phân công tại kho (ngược với GetActiveDepotIdByManagerAsync).
     /// </summary>
     Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken ct = default);

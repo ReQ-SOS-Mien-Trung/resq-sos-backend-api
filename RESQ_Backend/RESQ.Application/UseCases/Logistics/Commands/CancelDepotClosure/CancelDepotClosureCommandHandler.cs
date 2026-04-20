@@ -20,9 +20,10 @@ public class CancelDepotClosureCommandHandler(
     {
         logger.LogInformation(
             "CancelDepotClosure | ClosureId={ClosureId} DepotId={DepotId} CancelledBy={By}",
-            request.ClosureId, request.DepotId, request.CancelledBy);
+            request.ClosureId,
+            request.DepotId,
+            request.CancelledBy);
 
-        // 1. Load và validate closure
         var closure = await closureRepository.GetByIdAsync(request.ClosureId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy bản ghi đóng kho.");
 
@@ -30,17 +31,18 @@ public class CancelDepotClosureCommandHandler(
             throw new ConflictException("Bản ghi đóng kho không thuộc kho này.");
 
         if (closure.Status != DepotClosureStatus.InProgress && closure.Status != DepotClosureStatus.Processing)
+        {
             throw new ConflictException(
-                $"Không thể huỷ — bản ghi đóng kho đang ở trạng thái '{closure.Status}'.");
+                $"Không thể hủy vì bản ghi đóng kho đang ở trạng thái '{closure.Status}'.");
+        }
 
-        // 2. Atomic claim để tránh race condition với request xử lý đồng thời
-        //    Nếu Processing (bị kẹt từ lần trước): dùng force-claim bằng rowVersion
-        //    Nếu InProgress: dùng claim thông thường
         bool claimed;
         if (closure.Status == DepotClosureStatus.Processing)
         {
             claimed = await closureRepository.TryForceClaimFromProcessingAsync(
-                request.ClosureId, closure.RowVersion, cancellationToken);
+                request.ClosureId,
+                closure.RowVersion,
+                cancellationToken);
         }
         else
         {
@@ -48,19 +50,20 @@ public class CancelDepotClosureCommandHandler(
         }
 
         if (!claimed)
-            throw new ConflictException("Bản ghi đóng kho đang được xử lý bởi tiến trình khác. Vui lòng thử lại sau.");
+        {
+            throw new ConflictException(
+                "Bản ghi đóng kho đang được xử lý bởi tiến trình khác. Vui lòng thử lại sau.");
+        }
 
-        // 3. Load kho và validate
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy kho cứu trợ.");
 
-        if (depot.Status != DepotStatus.Unavailable)
-            throw new ConflictException("Kho không ở trạng thái Unavailable.");
+        if (depot.Status != DepotStatus.Closing)
+            throw new ConflictException("Kho không ở trạng thái Closing.");
 
         var cancelledAt = DateTime.UtcNow;
         var restoredStatus = closure.PreviousStatus;
 
-        // 4. Khôi phục kho và huỷ closure trong transaction
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             depot.RestoreFromClosing(restoredStatus);
@@ -72,8 +75,10 @@ public class CancelDepotClosureCommandHandler(
         });
 
         logger.LogInformation(
-            "DepotClosure Cancelled | ClosureId={ClosureId} DepotId={DepotId} RestoredStatus={Status}",
-            request.ClosureId, request.DepotId, restoredStatus);
+            "DepotClosure cancelled | ClosureId={ClosureId} DepotId={DepotId} RestoredStatus={RestoredStatus}",
+            request.ClosureId,
+            request.DepotId,
+            restoredStatus);
 
         return new CancelDepotClosureResponse
         {
@@ -81,7 +86,7 @@ public class CancelDepotClosureCommandHandler(
             DepotId = request.DepotId,
             RestoredStatus = restoredStatus.ToString(),
             CancelledAt = cancelledAt,
-            Message = $"Đã huỷ yêu cầu đóng kho. Kho đã được khôi phục về trạng thái '{restoredStatus}'."
+            Message = $"Đã hủy yêu cầu đóng kho. Kho đã được khôi phục về trạng thái '{restoredStatus}'."
         };
     }
 }

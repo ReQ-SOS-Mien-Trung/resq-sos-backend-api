@@ -5,7 +5,10 @@ public class InitiateDepotClosureResponse
     public int DepotId { get; set; }
     public string DepotName { get; set; } = string.Empty;
 
-    /// <summary>ID bản ghi đóng kho - chỉ có khi đóng thành công (Success = true).</summary>
+    /// <summary>
+    /// ID bản ghi đóng kho.
+    /// Có khi đóng thành công ngay hoặc khi kho còn hàng và hệ thống đã khởi tạo phiên đóng kho để tiếp tục xử lý.
+    /// </summary>
     public int? ClosureId { get; set; }
 
     /// <summary>
