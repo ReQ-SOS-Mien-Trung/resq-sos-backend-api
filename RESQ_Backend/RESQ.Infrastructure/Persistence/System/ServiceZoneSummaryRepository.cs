@@ -64,10 +64,6 @@ public class ServiceZoneSummaryRepository(IUnitOfWork unitOfWork) : IServiceZone
         var envelope = polygon.EnvelopeInternal;
         var candidates = await _unitOfWork.Set<SosRequest>()
             .Where(x => x.Location != null
-                && x.Location!.Y >= envelope.MinY
-                && x.Location.Y <= envelope.MaxY
-                && x.Location.X >= envelope.MinX
-                && x.Location.X <= envelope.MaxX
                 && (x.Status == PendingStatus || x.Status == IncidentStatus))
             .Select(x => new
             {
@@ -79,7 +75,8 @@ public class ServiceZoneSummaryRepository(IUnitOfWork unitOfWork) : IServiceZone
         var pending = 0;
         var incident = 0;
 
-        foreach (var candidate in candidates.Where(candidate => Covers(polygon, candidate.Location)))
+        foreach (var candidate in candidates.Where(candidate =>
+            IsInsideEnvelope(envelope, candidate.Location) && Covers(polygon, candidate.Location)))
         {
             if (candidate.Status == PendingStatus)
             {
@@ -96,63 +93,54 @@ public class ServiceZoneSummaryRepository(IUnitOfWork unitOfWork) : IServiceZone
 
     private async Task<int> CountTeamIncidentsAsync(Polygon polygon, CancellationToken cancellationToken)
     {
-        var locations = await LoadTeamIncidentLocationsAsync(polygon, cancellationToken);
-        return locations.Count(location => Covers(polygon, location));
+        var locations = await LoadTeamIncidentLocationsAsync(cancellationToken);
+        return CountLocationsInsidePolygon(polygon, locations);
     }
 
     private async Task<int> CountAssemblyPointsAsync(Polygon polygon, CancellationToken cancellationToken)
     {
-        var locations = await LoadAssemblyPointLocationsAsync(polygon, cancellationToken);
-        return locations.Count(location => Covers(polygon, location));
+        var locations = await LoadAssemblyPointLocationsAsync(cancellationToken);
+        return CountLocationsInsidePolygon(polygon, locations);
     }
 
     private async Task<int> CountDepotsAsync(Polygon polygon, CancellationToken cancellationToken)
     {
-        var locations = await LoadDepotLocationsAsync(polygon, cancellationToken);
-        return locations.Count(location => Covers(polygon, location));
+        var locations = await LoadDepotLocationsAsync(cancellationToken);
+        return CountLocationsInsidePolygon(polygon, locations);
     }
 
-    private Task<List<Point?>> LoadTeamIncidentLocationsAsync(Polygon polygon, CancellationToken cancellationToken)
+    private Task<List<Point?>> LoadTeamIncidentLocationsAsync(CancellationToken cancellationToken) =>
+        _unitOfWork.Set<TeamIncident>()
+            .Where(x => x.Location != null)
+            .Select(x => x.Location)
+            .ToListAsync(cancellationToken);
+
+    private Task<List<Point?>> LoadAssemblyPointLocationsAsync(CancellationToken cancellationToken) =>
+        _unitOfWork.Set<AssemblyPoint>()
+            .Where(x => x.Location != null)
+            .Select(x => x.Location)
+            .ToListAsync(cancellationToken);
+
+    private Task<List<Point?>> LoadDepotLocationsAsync(CancellationToken cancellationToken) =>
+        _unitOfWork.Set<Depot>()
+            .Where(x => x.Location != null)
+            .Select(x => x.Location)
+            .ToListAsync(cancellationToken);
+
+    private static int CountLocationsInsidePolygon(Polygon polygon, IEnumerable<Point?> locations)
     {
         var envelope = polygon.EnvelopeInternal;
 
-        return _unitOfWork.Set<TeamIncident>()
-            .Where(x => x.Location != null
-                && x.Location!.Y >= envelope.MinY
-                && x.Location.Y <= envelope.MaxY
-                && x.Location.X >= envelope.MinX
-                && x.Location.X <= envelope.MaxX)
-            .Select(x => x.Location)
-            .ToListAsync(cancellationToken);
+        return locations.Count(location =>
+            IsInsideEnvelope(envelope, location) && Covers(polygon, location));
     }
 
-    private Task<List<Point?>> LoadAssemblyPointLocationsAsync(Polygon polygon, CancellationToken cancellationToken)
-    {
-        var envelope = polygon.EnvelopeInternal;
-
-        return _unitOfWork.Set<AssemblyPoint>()
-            .Where(x => x.Location != null
-                && x.Location!.Y >= envelope.MinY
-                && x.Location.Y <= envelope.MaxY
-                && x.Location.X >= envelope.MinX
-                && x.Location.X <= envelope.MaxX)
-            .Select(x => x.Location)
-            .ToListAsync(cancellationToken);
-    }
-
-    private Task<List<Point?>> LoadDepotLocationsAsync(Polygon polygon, CancellationToken cancellationToken)
-    {
-        var envelope = polygon.EnvelopeInternal;
-
-        return _unitOfWork.Set<Depot>()
-            .Where(x => x.Location != null
-                && x.Location!.Y >= envelope.MinY
-                && x.Location.Y <= envelope.MaxY
-                && x.Location.X >= envelope.MinX
-                && x.Location.X <= envelope.MaxX)
-            .Select(x => x.Location)
-            .ToListAsync(cancellationToken);
-    }
+    private static bool IsInsideEnvelope(Envelope envelope, Point? point) =>
+        point is not null
+        && point.Y >= envelope.MinY
+        && point.Y <= envelope.MaxY
+        && point.X >= envelope.MinX
+        && point.X <= envelope.MaxX;
 
     private static Polygon? CreatePolygon(ServiceZoneModel zone)
     {
