@@ -16,6 +16,15 @@ public class InventoryLogDto
     public DateTime? ExpiredDate { get; set; }
     public string? PerformedByName { get; set; }
 
+    /// <summary>Serial number nếu log thuộc đồ tái sử dụng.</summary>
+    public string? SerialNumber { get; set; }
+
+    /// <summary>Lot ID nếu log thuộc hàng tiêu thụ có lô.</summary>
+    public int? LotId { get; set; }
+
+    /// <summary>ID của ReusableItem tương ứng (nếu có).</summary>
+    public int? ReusableItemId { get; set; }
+
     // VatInvoice
     public int? VatInvoiceId { get; set; }
     public string? InvoiceSerial { get; set; }

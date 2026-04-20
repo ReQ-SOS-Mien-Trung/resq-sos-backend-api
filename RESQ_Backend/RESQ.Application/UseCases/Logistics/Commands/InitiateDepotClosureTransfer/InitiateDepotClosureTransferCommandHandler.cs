@@ -37,10 +37,10 @@ public class InitiateDepotClosureTransferCommandHandler(
         var depot = await depotRepository.GetByIdAsync(request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy kho nguồn.");
 
-        if (depot.Status != DepotStatus.Unavailable)
+        if (depot.Status != DepotStatus.Closing)
         {
             throw new ConflictException(
-                $"Kho đang ở trạng thái '{depot.Status}'. Phải chuyển sang Unavailable trước khi chuyển hàng.");
+                $"Kho đang ở trạng thái '{depot.Status}'. Phải chuyển sang Closing trước khi chuyển hàng.");
         }
 
         var activeCount = await depotRepository.GetActiveDepotCountExcludingAsync(request.DepotId, cancellationToken);
@@ -50,9 +50,26 @@ public class InitiateDepotClosureTransferCommandHandler(
         }
 
         var existingClosure = await closureRepository.GetActiveClosureByDepotIdAsync(request.DepotId, cancellationToken);
-        if (existingClosure != null)
+        if (existingClosure == null)
         {
-            throw new ConflictException("Kho đang có phiên chuyển kho chưa hoàn tất. Hủy phiên cũ trước khi tạo mới.");
+            throw new ConflictException(
+                "Không tìm thấy phiên đóng kho đang mở cho kho này. Vui lòng gọi POST /{id}/closed trước để hệ thống kiểm tra và khởi tạo phiên đóng kho.");
+        }
+
+        if (existingClosure?.Status == DepotClosureStatus.Processing)
+        {
+            throw new ConflictException("Phiên đóng kho hiện tại đang được xử lý bởi tiến trình khác. Vui lòng thử lại sau.");
+        }
+
+        if (existingClosure?.Status == DepotClosureStatus.TransferPending)
+        {
+            throw new ConflictException("Kho đang có phiên chuyển kho chưa hoàn tất. Hủy hoặc hoàn tất phiên cũ trước khi tạo mới.");
+        }
+
+        if (existingClosure?.ResolutionType != null)
+        {
+            throw new ConflictException(
+                "Phiên đóng kho hiện tại đã được chọn hình thức xử lý. Vui lòng hoàn tất hoặc hủy phiên hiện tại trước khi thao tác lại.");
         }
 
         var remainingItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
@@ -87,7 +104,7 @@ public class InitiateDepotClosureTransferCommandHandler(
             var targetDepot = await depotRepository.GetByIdAsync(targetDepotId, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy kho đích #{targetDepotId}.");
 
-            if (targetDepot.Status is DepotStatus.Unavailable or DepotStatus.Closed)
+            if (targetDepot.Status is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             {
                 throw new ConflictException(
                     $"Kho đích '{targetDepot.Name}' không khả dụng (trạng thái: {targetDepot.Status}). Vui lòng chọn kho khác.");
@@ -136,23 +153,14 @@ public class InitiateDepotClosureTransferCommandHandler(
         var consumableRowCount = await depotRepository.GetConsumableInventoryRowCountAsync(request.DepotId, cancellationToken);
         var (reusableAvailable, reusableInUse) = await depotRepository.GetReusableItemCountsAsync(request.DepotId, cancellationToken);
 
-        var closure = DepotClosureRecord.Create(
-            depotId: request.DepotId,
-            initiatedBy: request.InitiatedBy,
-            closeReason: request.Reason,
-            previousStatus: depot.Status,
-            snapshotConsumableUnits: (int)consumableVolume,
-            snapshotReusableUnits: reusableAvailable + reusableInUse,
-            totalConsumableRows: consumableRowCount,
-            totalReusableUnits: reusableAvailable + reusableInUse);
+        var closure = existingClosure;
         closure.SetTransferResolution(targetDepotIds.Count == 1 ? targetDepotIds[0] : null);
 
         var transferSummaries = new List<InitiateDepotClosureTransferSummaryDto>();
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            var closureId = await closureRepository.CreateAsync(closure, cancellationToken);
-            closure.SetGeneratedId(closureId);
+            var closureId = closure.Id;
 
             foreach (var targetGroup in normalizedAssignments.GroupBy(x => x.TargetDepotId))
             {

@@ -127,9 +127,9 @@ public class DepotModel
 
     /// <summary>
     /// Transition matrix theo state diagram:
-    ///   Available → UnderMaintenance, Unavailable
-    ///   UnderMaintenance → Available
-    ///   Unavailable → Available
+    ///   Available → Unavailable, Closing
+    ///   Unavailable → Available, Closing
+    ///   Closing không đi qua endpoint ChangeStatus; chỉ được hoàn tất bằng quy trình đóng kho.
     /// Created, PendingAssignment, Closed không đi qua phương thức này.
     /// Lưu ý: Không có trạng thái Full — hệ thống dùng CurrentUtilization vs Capacity để kiểm tra đầy kho.
     /// </summary>
@@ -154,16 +154,15 @@ public class DepotModel
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
                 "Kho đang ngưng hoạt động. Chỉ có thể chuyển về Available hoặc tiến hành đóng kho.");
 
-        if (Status == DepotStatus.Closing && newStatus != DepotStatus.Available)
+        if (Status == DepotStatus.Closing)
             throw new InvalidDepotStatusTransitionException(Status, newStatus,
-                "Kho đang đóng kho. Chỉ có thể chuyển về Available hoặc đóng luôn.");
+                "Kho đang trong quy trình đóng kho. Chỉ có thể hoàn tất bằng endpoint đóng kho hoặc hủy quy trình đóng kho.");
 
         // Transition matrix khớp với state diagram
         var allowed = new Dictionary<DepotStatus, HashSet<DepotStatus>>
         {
             [DepotStatus.Available]   = [DepotStatus.Unavailable, DepotStatus.Closing],
             [DepotStatus.Unavailable] = [DepotStatus.Available, DepotStatus.Closing],
-            [DepotStatus.Closing] = [DepotStatus.Available],
         };
 
         if (!allowed.TryGetValue(Status, out var validTargets) || !validTargets.Contains(newStatus))
@@ -220,32 +219,29 @@ public class DepotModel
     // ── Depot Closure Methods ─────────────────────────────────────────
 
     /// <summary>
-    /// Bước 1 đóng kho: chuyển từ Unavailable → Closed.
-    /// Admin phải set Unavailable trước, và kho phải trống (không còn hàng) mới được đóng.
+    /// Legacy hook cho flow cũ. Giữ lại để tương thích, nhưng trạng thái Closing hiện được set qua ChangeStatus.
     /// </summary>
     public void InitiateClosing()
     {
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
-        if (Status != DepotStatus.Unavailable)
-            throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho phải ở trạng thái Unavailable trước khi đóng. Hãy chuyển sang Unavailable trước.");
+        if (Status != DepotStatus.Closing)
+            throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closing,
+                "Kho phải ở trạng thái Closing trước khi tiếp tục quy trình đóng kho.");
 
-        // Không set Closing nữa — đi thẳng từ Unavailable.
-        // Giữ phương thức để backward compat, CompleteClosing sẽ set Closed.
         LastUpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>
     /// Bước 2 đóng kho: hoàn tất đóng kho sau khi đã xử lý hàng tồn.
-    /// Kho phải ở trạng thái Unavailable.
+    /// Kho phải ở trạng thái Closing.
     /// </summary>
     public void CompleteClosing()
     {
-        if (Status != DepotStatus.Unavailable)
+        if (Status != DepotStatus.Closing)
             throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Closed,
-                "Kho phải ở trạng thái Unavailable trước khi đóng hoàn toàn.");
+                "Kho phải ở trạng thái Closing trước khi đóng hoàn toàn.");
 
         Status = DepotStatus.Closed;
         CurrentUtilization = 0;
@@ -258,17 +254,18 @@ public class DepotModel
     }
 
     /// <summary>
-    /// Khôi phục kho về trạng thái cũ khi huỷ hoặc timeout.
+    /// Khôi phục kho về trạng thái trước khi kết thúc phiên đóng kho.
+    /// Trong flow hiện tại, kho giữ trạng thái Closing trong suốt quá trình xử lý tồn.
     /// </summary>
     public void RestoreFromClosing(DepotStatus previousStatus)
     {
-        if (Status != DepotStatus.Unavailable)
+        if (Status != DepotStatus.Closing)
             throw new InvalidDepotStatusTransitionException(Status, previousStatus,
-                "Chỉ có thể khôi phục kho từ trạng thái Unavailable.");
+                "Chỉ có thể khôi phục kho từ trạng thái Closing.");
 
-        if (previousStatus != DepotStatus.Available)
+        if (previousStatus is not (DepotStatus.Available or DepotStatus.Unavailable))
             throw new InvalidDepotStatusTransitionException(Status, previousStatus,
-                "Trạng thái khôi phục không hợp lệ. Chỉ có thể khôi phục về Available.");
+                "Trạng thái khôi phục không hợp lệ. Chỉ có thể khôi phục về Available hoặc Unavailable.");
 
         Status = previousStatus;
         LastUpdatedAt = DateTime.UtcNow;

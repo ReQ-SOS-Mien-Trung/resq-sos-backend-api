@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
@@ -14,12 +15,12 @@ public class InitiateDepotClosureCommandHandlerTests
     [Fact]
     public async Task Handle_FinalizingExistingCompletedClosure_SavesTrackedChanges()
     {
-        var depot = CreateUnavailableDepot();
+        var depot = CreateClosingDepot();
         var closure = DepotClosureRecord.Create(
             depotId: depot.Id,
             initiatedBy: Guid.NewGuid(),
             closeReason: "close",
-            previousStatus: DepotStatus.Unavailable,
+            previousStatus: DepotStatus.Available,
             snapshotConsumableUnits: 0,
             snapshotReusableUnits: 0,
             totalConsumableRows: 0,
@@ -38,12 +39,16 @@ public class InitiateDepotClosureCommandHandlerTests
             LatestClosure = closure
         };
         var fundDrainService = new StubDepotFundDrainService();
+        var managerDepotAccessService = new StubManagerDepotAccessService();
+        var permissionResolver = new StubUserPermissionResolver();
         var unitOfWork = new TrackingUnitOfWork();
 
         var handler = new InitiateDepotClosureCommandHandler(
+            managerDepotAccessService,
             depotRepository,
             closureRepository,
             fundDrainService,
+            permissionResolver,
             unitOfWork,
             NullLogger<InitiateDepotClosureCommandHandler>.Instance);
 
@@ -63,9 +68,20 @@ public class InitiateDepotClosureCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_EmptyDepotWithoutExistingClosure_SavesAfterCreatingClosure()
+    public async Task Handle_EmptyDepotWithExistingInProgressClosure_CompletesAndSavesChanges()
     {
-        var depot = CreateUnavailableDepot();
+        var depot = CreateClosingDepot();
+        var closure = DepotClosureRecord.Create(
+            depotId: depot.Id,
+            initiatedBy: Guid.NewGuid(),
+            closeReason: "close",
+            previousStatus: DepotStatus.Unavailable,
+            snapshotConsumableUnits: 0,
+            snapshotReusableUnits: 0,
+            totalConsumableRows: 0,
+            totalReusableUnits: 0);
+        closure.SetGeneratedId(88);
+
         var depotRepository = new StubDepotRepository
         {
             Depot = depot,
@@ -74,15 +90,19 @@ public class InitiateDepotClosureCommandHandlerTests
         };
         var closureRepository = new StubDepotClosureRepository
         {
-            CreateResultId = 88
+            LatestClosure = closure
         };
         var fundDrainService = new StubDepotFundDrainService();
+        var managerDepotAccessService = new StubManagerDepotAccessService();
+        var permissionResolver = new StubUserPermissionResolver();
         var unitOfWork = new TrackingUnitOfWork();
 
         var handler = new InitiateDepotClosureCommandHandler(
+            managerDepotAccessService,
             depotRepository,
             closureRepository,
             fundDrainService,
+            permissionResolver,
             unitOfWork,
             NullLogger<InitiateDepotClosureCommandHandler>.Instance);
 
@@ -92,19 +112,19 @@ public class InitiateDepotClosureCommandHandlerTests
 
         Assert.True(result.Success);
         Assert.Equal(88, result.ClosureId);
-        Assert.NotNull(closureRepository.CreatedClosure);
+        Assert.Equal(DepotClosureStatus.Completed, closure.Status);
         Assert.Equal(1, unitOfWork.ExecuteInTransactionCalls);
         Assert.Equal(1, unitOfWork.SaveCalls);
         Assert.Equal(88, fundDrainService.LastClosureId);
     }
 
-    private static DepotModel CreateUnavailableDepot()
+    private static DepotModel CreateClosingDepot()
     {
         var depot = new DepotModel
         {
             Id = 6,
             Name = "Depot 6",
-            Status = DepotStatus.Unavailable
+            Status = DepotStatus.Closing
         };
 
         depot.AddHistory(
@@ -222,6 +242,27 @@ public class InitiateDepotClosureCommandHandlerTests
 
         public Task<DepotClosureListItem?> GetClosureDetailAsync(int depotId, int closureId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+    }
+
+    private sealed class StubManagerDepotAccessService : IManagerDepotAccessService
+    {
+        public Task<int?> ResolveAccessibleDepotIdAsync(Guid userId, int? requestedDepotId, CancellationToken cancellationToken = default)
+            => Task.FromResult<int?>(requestedDepotId);
+
+        public Task<List<ManagedDepotDto>> GetManagedDepotsAsync(Guid userId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<ManagedDepotDto>());
+
+        public Task EnsureDepotAccessAsync(Guid userId, int depotId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class StubUserPermissionResolver : IUserPermissionResolver
+    {
+        public Task<IReadOnlyCollection<string>> GetEffectivePermissionCodesAsync(Guid userId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyCollection<string>>(new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                PermissionConstants.InventoryGlobalManage
+            });
     }
 
     private sealed class StubDepotFundDrainService : IDepotFundDrainService

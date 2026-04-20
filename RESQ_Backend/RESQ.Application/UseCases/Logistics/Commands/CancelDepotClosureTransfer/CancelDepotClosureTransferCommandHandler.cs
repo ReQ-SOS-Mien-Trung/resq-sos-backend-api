@@ -29,7 +29,7 @@ public class CancelDepotClosureTransferCommandHandler(
             throw new ConflictException("Bản ghi chuyển kho không thuộc kho nguồn này.");
 
         if (transfer.Status == "Received")
-            throw new ConflictException("Không thể hủy — quá trình chuyển hàng đã hoàn tất (Received).");
+            throw new ConflictException("Không thể hủy vì quá trình chuyển hàng đã hoàn tất (Received).");
 
         if (transfer.Status == "Cancelled")
             throw new ConflictException("Bản ghi chuyển kho đã bị hủy trước đó.");
@@ -39,7 +39,6 @@ public class CancelDepotClosureTransferCommandHandler(
 
         // 3. Hủy closure record liên kết (audit consistency)
         var closure = await closureRepository.GetByIdAsync(transfer.ClosureId, cancellationToken);
-
         var cancelledAt = DateTime.UtcNow;
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -51,6 +50,7 @@ public class CancelDepotClosureTransferCommandHandler(
                 closure.Cancel(request.CancelledBy, cancelledAt, request.Reason ?? "Hủy phiên chuyển kho");
                 await closureRepository.UpdateAsync(closure, cancellationToken);
             }
+
             await unitOfWork.SaveAsync();
         });
 
@@ -60,11 +60,11 @@ public class CancelDepotClosureTransferCommandHandler(
 
         return new CancelDepotClosureTransferResponse
         {
-            TransferId     = transfer.Id,
-            DepotId        = request.DepotId,
+            TransferId = transfer.Id,
+            DepotId = request.DepotId,
             TransferStatus = transfer.Status,
-            CancelledAt    = cancelledAt,
-            Message        = "Đã hủy phiên chuyển kho. Kho vẫn ở trạng thái Unavailable — admin có thể chọn phương thức xử lý khác."
+            CancelledAt = cancelledAt,
+            Message = "Đã hủy phiên chuyển kho. Kho vẫn ở trạng thái Closing, admin có thể chọn phương thức xử lý khác."
         };
     }
 }

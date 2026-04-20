@@ -18,6 +18,7 @@ using RESQ.Application.UseCases.Logistics.Commands.CancelDepotClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.PrepareClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
+using RESQ.Application.UseCases.Logistics.Commands.StartDepotClosing;
 using RESQ.Application.UseCases.Logistics.Commands.UpdateDepot;
 using RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
 using RESQ.Application.UseCases.Logistics.Commands.MarkExternalClosure;
@@ -174,10 +175,26 @@ namespace RESQ.Presentation.Controllers.Logistics
             {
                 ChangeableDepotStatus.Available   => DepotStatus.Available,
                 ChangeableDepotStatus.Unavailable => DepotStatus.Unavailable,
-                ChangeableDepotStatus.Closing     => DepotStatus.Closing,
                 _ => throw new BadHttpRequestException("Trạng thái kho không hợp lệ.")
             };
-            var command = new ChangeDepotStatusCommand(id, depotStatus, GetUserId());
+            var command = new ChangeDepotStatusCommand(id, depotStatus, GetUserId(), id);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Chuyển kho sang trạng thái Closing để bắt đầu quy trình đóng kho.
+        /// Chặn khi còn đơn tiếp tế, vật phẩm đang bị ràng buộc với nhiệm vụ, hoặc đang có phiên chuyển kho/đóng kho dở dang.
+        /// </summary>
+        [HttpPost("{id}/status/closing")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(StartDepotClosingResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> StartClosing(int id)
+        {
+            var command = new StartDepotClosingCommand(id, GetUserId());
             var result = await _mediator.Send(command);
             return Ok(result);
         }
@@ -319,18 +336,19 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] Đóng kho — bước khởi tạo.
-        /// - Kho phải ở trạng thái Unavailable.
+        /// Xác nhận đóng kho hoàn toàn.
+        /// - Kho phải ở trạng thái Closing.
         /// - Kho trống → đóng ngay (200 OK).
         /// - Còn hàng → 409 Conflict kèm danh sách hàng tồn.
-        ///   Admin chọn 1 trong 2 cách xử lý:
+        ///   Sau đó tiếp tục xử lý tồn kho theo 1 trong 2 cách:
         ///   (1) Xử lý bên ngoài: GET /{id}/close/export-template → POST /{id}/close/external-resolution.
         ///   (2) Chuyển kho: POST /{id}/close/transfer { targetDepotId, reason }.
         /// </summary>
-        [HttpPost("{id}/close")]
-        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [HttpPost("{id}/closed")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(InitiateDepotClosureResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(InitiateDepotClosureResponse), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> CloseDepot(int id, [FromBody] InitiateDepotClosureRequestDto dto)
         {
@@ -341,8 +359,19 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
+        /// Legacy alias cho endpoint xác nhận đóng kho.
+        /// </summary>
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpPost("{id}/close")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        public async Task<IActionResult> CloseDepotLegacy(int id, [FromBody] InitiateDepotClosureRequestDto dto)
+        {
+            return await CloseDepot(id, dto);
+        }
+
+        /// <summary>
         /// [Admin] Tải file Excel template liệt kê hàng tồn kho — depot manager điền cách xử lý rồi upload lại.
-        /// Kho phải ở trạng thái Unavailable và còn hàng.
+        /// Kho phải ở trạng thái Closing và còn hàng.
         /// </summary>
         [HttpGet("{id}/close/export-template")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
@@ -359,7 +388,7 @@ namespace RESQ.Presentation.Controllers.Logistics
 
         /// <summary>
         /// [Admin] Đánh dấu và thông báo cho manager kho để họ xử lý bên ngoài.
-        /// Kho phải ở trạng thái đang đóng (đóng nhưng có hàng -> chờ xử lý).
+        /// Kho phải ở trạng thái Closing và phiên đóng kho đang chờ chọn hình thức xử lý.
         /// </summary>
         [HttpPost("{id}/close/mark-external")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
@@ -377,7 +406,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// <summary>
         /// [Admin] Gửi kết quả xử lý tồn kho bên ngoài dạng JSON.
         /// Frontend convert file Excel template thành JSON rồi gửi lên.
-        /// Kho phải ở trạng thái Unavailable và còn hàng (không có transfer đang diễn ra).
+        /// Kho phải ở trạng thái Closing và còn hàng (không có transfer đang diễn ra).
         /// Server tạo bản ghi kiểm toán nội bộ, xoá toàn bộ inventory, và đóng kho.
         /// </summary>
         [HttpPost("close/external-resolution")]
@@ -396,7 +425,7 @@ namespace RESQ.Presentation.Controllers.Logistics
 
         /// <summary>
         /// [Admin] Khởi tạo quy trình chuyển toàn bộ hàng tồn sang kho khác để đóng kho nguồn.
-        /// Kho nguồn phải ở trạng thái Unavailable và còn hàng.
+        /// Kho nguồn phải ở trạng thái Closing và còn hàng.
         /// Trả về transferId — dùng cho tất cả các bước tiếp theo (prepare → ship → complete → receive).
         /// </summary>
         [HttpPost("{id}/close/transfer")]
@@ -420,7 +449,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] Huỷ transfer đang chờ xử lý — kho nguồn giữ trạng thái Unavailable.
+        /// [Admin] Huỷ transfer đang chờ xử lý — kho nguồn giữ trạng thái Closing.
         /// Chỉ huỷ được khi transfer ở trạng thái Initiated hoặc Preparing.
         /// </summary>
         [HttpDelete("{id}/close/transfer/{transferId}")]

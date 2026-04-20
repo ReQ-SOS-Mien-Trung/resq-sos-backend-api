@@ -2453,6 +2453,102 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     }
 
 
+    public async Task ReserveForClosureShipmentAsync(
+        int sourceDepotId,
+        int transferId,
+        int closureId,
+        Guid performedBy,
+        IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+        CancellationToken cancellationToken = default)
+    {
+        if (items.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+
+        // -- 1. Consumable: increment TransferReservedQuantity ----------------
+        var consumableItems = items
+            .Where(x => string.Equals(x.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(x => x.ItemModelId)
+            .Select(g => new { ItemModelId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .ToList();
+
+        if (consumableItems.Count > 0)
+        {
+            var itemModelIds = consumableItems.Select(x => x.ItemModelId).ToList();
+            var inventories = await _unitOfWork.SetTracked<SupplyInventory>()
+                .Where(inv => inv.DepotId == sourceDepotId && itemModelIds.Contains(inv.ItemModelId ?? 0))
+                .ToListAsync(cancellationToken);
+
+            foreach (var ci in consumableItems)
+            {
+                var inv = inventories.FirstOrDefault(x => x.ItemModelId == ci.ItemModelId)
+                    ?? throw new InvalidOperationException(
+                        $"Không tìm thấy tồn kho tiêu hao #{ci.ItemModelId} tại kho nguồn #{sourceDepotId}.");
+
+                inv.TransferReservedQuantity += ci.Quantity;
+                inv.LastStockedAt = now;
+            }
+        }
+
+        // -- 2. Reusable: Available → InTransit, DepotId = null ---------------
+        var reusableItems = items
+            .Where(x => string.Equals(x.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(x => x.ItemModelId)
+            .Select(g => new { ItemModelId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .ToList();
+
+        if (reusableItems.Count > 0)
+        {
+            var reusableItemModelIds = reusableItems.Select(x => x.ItemModelId).ToList();
+            var allAvailableUnits = await _unitOfWork.SetTracked<ReusableItem>()
+                .Where(r => r.DepotId == sourceDepotId
+                         && r.Status == nameof(ReusableItemStatus.Available)
+                         && reusableItemModelIds.Contains(r.ItemModelId ?? 0))
+                .OrderBy(r => r.ItemModelId)
+                .ThenBy(r => r.Id)
+                .ToListAsync(cancellationToken);
+
+            var newInventoryLogs = new List<InventoryLog>();
+
+            foreach (var ri in reusableItems)
+            {
+                var units = allAvailableUnits
+                    .Where(x => x.ItemModelId == ri.ItemModelId)
+                    .Take(ri.Quantity)
+                    .ToList();
+
+                if (units.Count < ri.Quantity)
+                    throw new InvalidOperationException(
+                        $"Thiết bị tái sử dụng #{ri.ItemModelId} khả dụng tại kho nguồn không đủ để xuất theo transfer #{transferId}. " +
+                        $"Cần {ri.Quantity}, chỉ còn {units.Count} đơn vị.");
+
+                foreach (var unit in units)
+                {
+                    unit.Status = nameof(ReusableItemStatus.InTransit);
+                    unit.DepotId = null;
+                    unit.UpdatedAt = now;
+
+                    newInventoryLogs.Add(new InventoryLog
+                    {
+                        ReusableItemId = unit.Id,
+                        ActionType = InventoryActionType.TransferOut.ToString(),
+                        QuantityChange = 1,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        PerformedBy = performedBy,
+                        Note = $"Đóng kho #{sourceDepotId}: xuất thiết bị #{unit.Id} (S/N: {unit.SerialNumber ?? "N/A"}) theo transfer #{transferId}",
+                        CreatedAt = now
+                    });
+                }
+            }
+
+            if (newInventoryLogs.Count > 0)
+                await _unitOfWork.GetRepository<InventoryLog>().AddRangeAsync(newInventoryLogs);
+        }
+
+        await _unitOfWork.SaveAsync();
+    }
+
     public async Task TransferClosureItemsAsync(
         int sourceDepotId,
         int targetDepotId,
@@ -2625,6 +2721,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 }
 
                 srcInv.Quantity = (srcInv.Quantity ?? 0) - assignment.Quantity;
+                // Also release the reservation that was set at Ship time
+                srcInv.TransferReservedQuantity = Math.Max(0, srcInv.TransferReservedQuantity - assignment.Quantity);
                 srcInv.LastStockedAt = now;
                 if ((srcInv.Quantity ?? 0) <= 0 && srcInv.MissionReservedQuantity == 0 && srcInv.TransferReservedQuantity == 0)
                 {
@@ -2642,6 +2740,18 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (reusableAssignments.Count > 0)
         {
             var itemModelIds = reusableAssignments.Select(x => x.ItemModelId).ToList();
+
+            // Items were set to InTransit (DepotId = null) during the Ship step.
+            // Fall back to Available items for legacy / non-shipped transfers.
+            var inTransitUnits = await _unitOfWork.GetRepository<ReusableItem>()
+                .AsQueryable(tracked: true)
+                .Where(r => r.DepotId == null
+                         && r.Status == nameof(ReusableItemStatus.InTransit)
+                         && itemModelIds.Contains(r.ItemModelId ?? 0))
+                .OrderBy(r => r.ItemModelId)
+                .ThenBy(r => r.Id)
+                .ToListAsync(cancellationToken);
+
             var availableUnits = await _unitOfWork.GetRepository<ReusableItem>()
                 .AsQueryable(tracked: true)
                 .Where(r => r.DepotId == sourceDepotId
@@ -2653,31 +2763,50 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             foreach (var assignment in reusableAssignments)
             {
-                var units = availableUnits
-                    .Where(x => x.ItemModelId == assignment.ItemModelId)
-                    .Take(assignment.Quantity)
-                    .ToList();
+                // Prefer InTransit units; fall back to Available if not shipped yet
+                var candidateUnits = inTransitUnits.Any(x => x.ItemModelId == assignment.ItemModelId)
+                    ? inTransitUnits.Where(x => x.ItemModelId == assignment.ItemModelId).Take(assignment.Quantity).ToList()
+                    : availableUnits.Where(x => x.ItemModelId == assignment.ItemModelId).Take(assignment.Quantity).ToList();
 
-                if (units.Count < assignment.Quantity)
+                if (candidateUnits.Count < assignment.Quantity)
                 {
-                    throw new InvalidOperationException($"Thiết bị tái sử dụng #{assignment.ItemModelId} khả dụng tại kho nguồn không đủ để chuyển theo kế hoạch đóng kho.");
+                    throw new InvalidOperationException($"Thiết bị tái sử dụng #{assignment.ItemModelId} không đủ để chuyển theo kế hoạch đóng kho.");
                 }
 
-                foreach (var unit in units)
+                foreach (var unit in candidateUnits)
                 {
-                    var oldDepotId = unit.DepotId;
+                    var wasInTransit = unit.Status == nameof(ReusableItemStatus.InTransit);
                     unit.DepotId = targetDepotId;
+                    unit.Status = nameof(ReusableItemStatus.Available);
                     unit.UpdatedAt = now;
 
+                    // TransferOut log was already emitted at Ship time for InTransit items.
+                    // For legacy (Available) items: emit TransferOut here.
+                    if (!wasInTransit)
+                    {
+                        newInventoryLogs.Add(new InventoryLog
+                        {
+                            ReusableItemId = unit.Id,
+                            ActionType = InventoryActionType.TransferOut.ToString(),
+                            QuantityChange = 1,
+                            SourceType = "DepotClosure",
+                            SourceId = closureId,
+                            PerformedBy = performedBy,
+                            Note = $"Đóng kho #{sourceDepotId}: di chuyển theo transfer #{transferId} thiết bị #{unit.Id} sang kho #{targetDepotId}",
+                            CreatedAt = now
+                        });
+                    }
+
+                    // Always emit TransferIn log at target
                     newInventoryLogs.Add(new InventoryLog
                     {
                         ReusableItemId = unit.Id,
-                        ActionType = InventoryActionType.TransferOut.ToString(),
+                        ActionType = InventoryActionType.TransferIn.ToString(),
                         QuantityChange = 1,
                         SourceType = "DepotClosure",
                         SourceId = closureId,
                         PerformedBy = performedBy,
-                        Note = $"Đóng kho #{oldDepotId}: di chuyển theo transfer #{transferId} thiết bị #{unit.Id} sang kho #{targetDepotId}",
+                        Note = $"Đóng kho #{sourceDepotId}: nhận thiết bị #{unit.Id} theo transfer #{transferId} vào kho #{targetDepotId}",
                         CreatedAt = now
                     });
                 }

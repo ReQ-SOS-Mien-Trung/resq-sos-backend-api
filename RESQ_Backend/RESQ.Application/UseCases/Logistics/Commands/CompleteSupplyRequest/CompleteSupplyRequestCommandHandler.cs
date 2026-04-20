@@ -34,7 +34,7 @@ public class CompleteSupplyRequestCommandHandler(
             throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho nguồn trong yêu cầu này.");
 
         var depotStatus = await depotRepository.GetStatusByIdAsync(managerDepotId, cancellationToken);
-        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
+        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             throw new ConflictException("Kho nguồn ngưng hoạt động hoặc đã đóng. Không thể xác nhận hoàn tất giao hàng.");
 
         await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Completed", "InTransit", null, request.UserId, cancellationToken);

@@ -21,7 +21,7 @@ public class AdjustInventoryCommandHandler(
             ?? throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
-        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
+        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể điều chỉnh tồn kho.");
 
         await _depotInventoryRepository.AdjustInventoryAsync(
