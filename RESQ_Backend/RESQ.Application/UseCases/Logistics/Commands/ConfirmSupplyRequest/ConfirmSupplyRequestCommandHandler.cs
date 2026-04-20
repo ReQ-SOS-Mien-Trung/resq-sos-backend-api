@@ -37,7 +37,7 @@ public class ConfirmSupplyRequestCommandHandler(
             throw new SupplyRequestAccessDeniedException("Bạn không phải manager của kho yêu cầu tiếp tế.");
 
         var depotStatus = await depotRepository.GetStatusByIdAsync(managerDepotId, cancellationToken);
-        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
+        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             throw new ConflictException("Kho của bạn ngưng hoạt động hoặc đã đóng. Không thể nhận hàng vào kho này.");
 
         // Wrap trong transaction để đảm bảo TransferIn + UpdateStatus đồng bộ

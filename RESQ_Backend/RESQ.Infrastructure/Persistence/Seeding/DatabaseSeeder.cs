@@ -329,6 +329,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             });
         }
 
+        await SeedServiceZonesAsync(referenceTimestamp, cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -351,6 +353,29 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             .Where(fileType => !existingDocumentFileTypeIdSet.Contains(fileType.Id)));
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SeedServiceZonesAsync(DateTime timestamp, CancellationToken cancellationToken)
+    {
+        var existingServiceZoneKeys = await _db.ServiceZones
+            .Select(zone => new { zone.Id, zone.Name })
+            .ToListAsync(cancellationToken);
+        var existingServiceZoneIds = existingServiceZoneKeys
+            .Select(zone => zone.Id)
+            .ToHashSet();
+        var existingServiceZoneNames = existingServiceZoneKeys
+            .Select(zone => zone.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var zone in ServiceZones(timestamp))
+        {
+            if (existingServiceZoneIds.Contains(zone.Id)
+                || existingServiceZoneNames.Contains(zone.Name))
+            {
+                continue;
+            }
+
+            _db.ServiceZones.Add(zone);
+        }
     }
 
     private async Task ResetReferenceIdentitySequencesAsync(CancellationToken cancellationToken)
@@ -562,13 +587,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             });
         }
 
-        if (!await _db.ServiceZones.AnyAsync(cancellationToken))
-        {
-            foreach (var zone in ServiceZones(seed.AnchorUtc))
-            {
-                _db.ServiceZones.Add(zone);
-            }
-        }
+        await SeedServiceZonesAsync(seed.AnchorUtc, cancellationToken);
 
         if (!await _db.SosPriorityRuleConfigs.AnyAsync(cancellationToken))
         {
@@ -1376,21 +1395,51 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var hueStadium = GetHueStadiumAssemblyPoint(seed);
         if (hueStadium?.Location is not null)
         {
-            var stadiumLat = hueStadium.Location.Y;
-            var stadiumLon = hueStadium.Location.X;
-            var offsets = new[]
+            var providedHueStadiumCoordinates = new[]
             {
-                (0.0068, -0.0045),
-                (-0.0059, 0.0062),
-                (0.0041, 0.0086),
-                (-0.0076, -0.0033),
-                (0.0091, 0.0019),
-                (-0.0038, -0.0087),
-                (0.0024, -0.0101),
-                (-0.0094, 0.0041),
-                (0.0107, -0.0018),
-                (-0.0063, 0.0094)
+                (Lat: 16.460961, Lon: 107.603519),
+                (Lat: 16.460189, Lon: 107.604323),
+                (Lat: 16.459558, Lon: 107.607519),
+                (Lat: 16.457873, Lon: 107.606934),
+                (Lat: 16.456865, Lon: 107.606899),
+                (Lat: 16.456520, Lon: 107.603405),
+                (Lat: 16.456520, Lon: 107.603405),
+                (Lat: 16.471658, Lon: 107.595076),
+                (Lat: 16.467322, Lon: 107.590873),
+                (Lat: 16.464858, Lon: 107.587997),
+                (Lat: 16.471709, Lon: 107.600581),
+                (Lat: 16.475408, Lon: 107.605147),
+                (Lat: 16.476301, Lon: 107.595605),
+                (Lat: 16.478070, Lon: 107.593401),
+                (Lat: 16.479217, Lon: 107.593574),
+                (Lat: 16.482083, Lon: 107.593530),
+                (Lat: 16.485600, Lon: 107.592436),
+                (Lat: 16.470081, Lon: 107.577616),
+                (Lat: 16.458785, Lon: 107.575439),
+                (Lat: 16.458538, Lon: 107.572746),
+                (Lat: 16.514372, Lon: 107.577081),
+                (Lat: 16.558760, Lon: 107.648561),
+                (Lat: 16.563841, Lon: 107.639783),
+                (Lat: 16.543280, Lon: 107.676925),
+                (Lat: 16.550248, Lon: 107.625967),
+                (Lat: 16.449575, Lon: 107.539708),
+                (Lat: 16.452708, Lon: 107.545034),
+                (Lat: 16.615046, Lon: 107.553152),
+                (Lat: 16.597909, Lon: 107.512506),
+                (Lat: 16.524541, Lon: 107.479148),
+                (Lat: 16.521984, Lon: 107.513786),
+                (Lat: 16.527904, Lon: 107.555187),
+                (Lat: 16.387384, Lon: 107.575956),
+                (Lat: 16.490477, Lon: 107.751398)
             };
+            var uniqueHueStadiumCoordinates = providedHueStadiumCoordinates
+                .Distinct()
+                .Take(HueStadiumUnclusteredSosCount)
+                .ToArray();
+            if (uniqueHueStadiumCoordinates.Length < HueStadiumUnclusteredSosCount)
+            {
+                throw new InvalidOperationException("Không đủ toạ độ SOS quanh sân Tự Do sau khi loại trùng.");
+            }
             var nearbyAddresses = new[]
             {
                 "12 Hà Huy Tập, Phú Nhuận, Huế",
@@ -1421,7 +1470,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 var hasInjured = i % 3 == 0;
                 var localDate = new DateTime(2026, 4, 6 + i, 6 + i % 5, 15 + i * 3 % 35, 0, DateTimeKind.Unspecified);
                 var createdAt = VnToUtc(localDate);
-                var location = Point(stadiumLon + offsets[i].Item2, stadiumLat + offsets[i].Item1);
+                var location = Point(uniqueHueStadiumCoordinates[i].Lon, uniqueHueStadiumCoordinates[i].Lat);
 
                 createdSos.Add(new SosRequest
                 {

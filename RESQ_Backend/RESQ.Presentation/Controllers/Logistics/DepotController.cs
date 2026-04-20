@@ -18,6 +18,7 @@ using RESQ.Application.UseCases.Logistics.Commands.CancelDepotClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.PrepareClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
+using RESQ.Application.UseCases.Logistics.Commands.StartDepotClosing;
 using RESQ.Application.UseCases.Logistics.Commands.UpdateDepot;
 using RESQ.Application.UseCases.Logistics.Commands.UploadExternalResolution;
 using RESQ.Application.UseCases.Logistics.Commands.MarkExternalClosure;
@@ -32,6 +33,8 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotsByCluster;
+using RESQ.Application.UseCases.Logistics.Queries.GetClosureTransferSuggestions;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyClosureTransfers;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
 using RESQ.Application.UseCases.Logistics.Queries.ExportClosureTemplate;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotManagers;
@@ -174,10 +177,26 @@ namespace RESQ.Presentation.Controllers.Logistics
             {
                 ChangeableDepotStatus.Available   => DepotStatus.Available,
                 ChangeableDepotStatus.Unavailable => DepotStatus.Unavailable,
-                ChangeableDepotStatus.Closing     => DepotStatus.Closing,
                 _ => throw new BadHttpRequestException("Trạng thái kho không hợp lệ.")
             };
-            var command = new ChangeDepotStatusCommand(id, depotStatus, GetUserId());
+            var command = new ChangeDepotStatusCommand(id, depotStatus, GetUserId(), id);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Chuyển kho sang trạng thái Closing để bắt đầu quy trình đóng kho.
+        /// Chặn khi còn đơn tiếp tế, vật phẩm đang bị ràng buộc với nhiệm vụ, hoặc đang có phiên chuyển kho/đóng kho dở dang.
+        /// </summary>
+        [HttpPost("{id}/status/closing")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(StartDepotClosingResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> StartClosing(int id)
+        {
+            var command = new StartDepotClosingCommand(id, GetUserId());
             var result = await _mediator.Send(command);
             return Ok(result);
         }
@@ -309,6 +328,36 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
+        /// <summary>
+        /// [Admin] Alias tương thích ngược cho FE cũ: lấy lịch sử phiên đóng kho bằng query string `?depotId=...`.
+        /// Route chuẩn hiện tại là GET /logistics/depot/{id}/closures.
+        /// </summary>
+        [HttpGet("closures")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [ProducesResponseType(typeof(List<DepotClosureDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetClosuresLegacy([FromQuery] int depotId)
+        {
+            return await GetClosures(depotId);
+        }
+
+        /// <summary>
+        /// [Manager/Admin] Lấy danh sách transfer liên quan đến kho đang đóng hoặc nhận hàng đóng kho.
+        /// Hỗ trợ FE cũ gọi theo dạng query string `?depotId=...`.
+        /// </summary>
+        [HttpGet("transfer")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(List<MyClosureTransferDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetMyClosureTransfers([FromQuery] int? depotId = null)
+        {
+            var userId = GetUserId();
+            var result = await _mediator.Send(new GetMyClosureTransfersQuery(userId, depotId));
+            return Ok(result);
+        }
+
         /// <summary>[Metadata] Danh sách resolutionType cho quy trình đóng kho (TransferToDepot / ExternalResolution).</summary>
         [HttpGet("metadata/closure")]
         [ProducesResponseType(typeof(DepotClosureMetadataResponse), StatusCodes.Status200OK)]
@@ -319,18 +368,19 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] Đóng kho — bước khởi tạo.
-        /// - Kho phải ở trạng thái Unavailable.
+        /// Xác nhận đóng kho hoàn toàn.
+        /// - Kho phải ở trạng thái Closing.
         /// - Kho trống → đóng ngay (200 OK).
         /// - Còn hàng → 409 Conflict kèm danh sách hàng tồn.
-        ///   Admin chọn 1 trong 2 cách xử lý:
+        ///   Sau đó tiếp tục xử lý tồn kho theo 1 trong 2 cách:
         ///   (1) Xử lý bên ngoài: GET /{id}/close/export-template → POST /{id}/close/external-resolution.
         ///   (2) Chuyển kho: POST /{id}/close/transfer { targetDepotId, reason }.
         /// </summary>
-        [HttpPost("{id}/close")]
-        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [HttpPost("{id}/closed")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(InitiateDepotClosureResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(InitiateDepotClosureResponse), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> CloseDepot(int id, [FromBody] InitiateDepotClosureRequestDto dto)
         {
@@ -341,8 +391,36 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
+        /// Legacy alias cho endpoint xác nhận đóng kho.
+        /// </summary>
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpPost("{id}/close")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        public async Task<IActionResult> CloseDepotLegacy(int id, [FromBody] InitiateDepotClosureRequestDto dto)
+        {
+            return await CloseDepot(id, dto);
+        }
+
+        /// <summary>
+        /// [Admin] Gợi ý phương án phân bổ hàng tồn sang các kho đích trước khi chốt chuyển kho đóng.
+        /// </summary>
+        [HttpGet("{id}/close/transfer-suggestions")]
+        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [ProducesResponseType(typeof(ClosureTransferSuggestionsResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetClosureTransferSuggestions(int id)
+        {
+            var result = await _mediator.Send(new GetClosureTransferSuggestionsQuery
+            {
+                DepotId = id
+            });
+
+            return Ok(result);
+        }
+
+        /// <summary>
         /// [Admin] Tải file Excel template liệt kê hàng tồn kho — depot manager điền cách xử lý rồi upload lại.
-        /// Kho phải ở trạng thái Unavailable và còn hàng.
+        /// Kho phải ở trạng thái Closing và còn hàng.
         /// </summary>
         [HttpGet("{id}/close/export-template")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
@@ -359,7 +437,7 @@ namespace RESQ.Presentation.Controllers.Logistics
 
         /// <summary>
         /// [Admin] Đánh dấu và thông báo cho manager kho để họ xử lý bên ngoài.
-        /// Kho phải ở trạng thái đang đóng (đóng nhưng có hàng -> chờ xử lý).
+        /// Kho phải ở trạng thái Closing và phiên đóng kho đang chờ chọn hình thức xử lý.
         /// </summary>
         [HttpPost("{id}/close/mark-external")]
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
@@ -377,7 +455,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// <summary>
         /// [Admin] Gửi kết quả xử lý tồn kho bên ngoài dạng JSON.
         /// Frontend convert file Excel template thành JSON rồi gửi lên.
-        /// Kho phải ở trạng thái Unavailable và còn hàng (không có transfer đang diễn ra).
+        /// Kho phải ở trạng thái Closing và còn hàng (không có transfer đang diễn ra).
         /// Server tạo bản ghi kiểm toán nội bộ, xoá toàn bộ inventory, và đóng kho.
         /// </summary>
         [HttpPost("close/external-resolution")]
@@ -396,7 +474,7 @@ namespace RESQ.Presentation.Controllers.Logistics
 
         /// <summary>
         /// [Admin] Khởi tạo quy trình chuyển toàn bộ hàng tồn sang kho khác để đóng kho nguồn.
-        /// Kho nguồn phải ở trạng thái Unavailable và còn hàng.
+        /// Kho nguồn phải ở trạng thái Closing và còn hàng.
         /// Trả về transferId — dùng cho tất cả các bước tiếp theo (prepare → ship → complete → receive).
         /// </summary>
         [HttpPost("{id}/close/transfer")]
@@ -420,7 +498,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] Huỷ transfer đang chờ xử lý — kho nguồn giữ trạng thái Unavailable.
+        /// [Admin] Huỷ transfer đang chờ xử lý — kho nguồn giữ trạng thái Closing.
         /// Chỉ huỷ được khi transfer ở trạng thái Initiated hoặc Preparing.
         /// </summary>
         [HttpDelete("{id}/close/transfer/{transferId}")]
@@ -458,6 +536,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho nguồn. Dùng transferId từ POST /{id}/close/transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/prepare")]
+        [HttpPost("{id}/close/transfer/{transferId}/prepare")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(PrepareClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -478,6 +557,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho nguồn. Dùng transferId từ POST /{id}/close/transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/ship")]
+        [HttpPost("{id}/close/transfer/{transferId}/ship")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ShipClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -498,6 +578,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho nguồn. Dùng transferId từ POST /{id}/close/transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/complete")]
+        [HttpPost("{id}/close/transfer/{transferId}/complete")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(CompleteClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -518,6 +599,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho ĐÍCH (target depot). Dùng transferId từ GET /my-incoming-closure-transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/receive")]
+        [HttpPost("{id}/close/transfer/{transferId}/receive")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ReceiveClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -538,6 +620,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho nguồn (source depot). Manager kho nguồn / kho đích đều dùng được.
         /// </summary>
         [HttpGet("{id}/transfer/{transferId}")]
+        [HttpGet("{id}/close/transfer/{transferId}")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

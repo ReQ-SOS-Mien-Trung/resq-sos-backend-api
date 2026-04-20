@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetServiceZone;
 using RESQ.Presentation.Controllers.System;
 using RESQ.Tests.TestDoubles;
@@ -55,5 +57,43 @@ public class ServiceZoneControllerTests
         var zone = Assert.Single(zones);
         Assert.Equal(10, zone.Counts.PendingSosRequestCount);
         Assert.Equal(2, zone.Counts.IncidentSosRequestCount);
+    }
+
+    [Fact]
+    public void ServiceZoneController_AllowsCoordinatorForGetAll()
+    {
+        var method = typeof(ServiceZoneController).GetMethod(nameof(ServiceZoneController.GetAll));
+
+        Assert.NotNull(method);
+
+        var authorize = Assert.Single(method!
+            .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
+            .Cast<AuthorizeAttribute>());
+
+        Assert.Equal(PermissionConstants.PolicyMissionManage, authorize.Policy);
+    }
+
+    [Fact]
+    public void ServiceZoneController_KeepsAdminPolicyForManagementEndpoints()
+    {
+        var methodNames = new[]
+        {
+            nameof(ServiceZoneController.GetActive),
+            nameof(ServiceZoneController.GetById),
+            nameof(ServiceZoneController.Create),
+            nameof(ServiceZoneController.Update)
+        };
+
+        foreach (var methodName in methodNames)
+        {
+            var method = typeof(ServiceZoneController).GetMethod(methodName);
+            Assert.NotNull(method);
+
+            var authorize = Assert.Single(method!
+                .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
+                .Cast<AuthorizeAttribute>());
+
+            Assert.Equal(PermissionConstants.SystemConfigManage, authorize.Policy);
+        }
     }
 }

@@ -23,7 +23,7 @@ public class ExportInventoryCommandHandler(
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
-        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
+        if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể xuất hàng khỏi kho này.");
 
         await _depotInventoryRepository.ExportInventoryAsync(

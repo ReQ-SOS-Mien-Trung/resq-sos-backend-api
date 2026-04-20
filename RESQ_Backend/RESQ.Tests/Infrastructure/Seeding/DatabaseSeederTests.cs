@@ -113,12 +113,21 @@ public class DatabaseSeederTests
         var serviceZones = await context.ServiceZones
             .OrderBy(zone => zone.Id)
             .ToListAsync();
-        Assert.Equal(3, serviceZones.Count);
+        Assert.Equal(12, serviceZones.Count);
         Assert.Collection(
             serviceZones,
             zone => Assert.Equal("Thành phố Huế", zone.Name),
             zone => Assert.Equal("Thành phố Đà Nẵng", zone.Name),
-            zone => Assert.Equal("Thành phố Hồ Chí Minh", zone.Name));
+            zone => Assert.Equal("Thành phố Hồ Chí Minh", zone.Name),
+            zone => Assert.Equal("Tỉnh Thanh Hóa", zone.Name),
+            zone => Assert.Equal("Tỉnh Nghệ An", zone.Name),
+            zone => Assert.Equal("Tỉnh Hà Tĩnh", zone.Name),
+            zone => Assert.Equal("Tỉnh Quảng Trị", zone.Name),
+            zone => Assert.Equal("Tỉnh Quảng Ngãi", zone.Name),
+            zone => Assert.Equal("Tỉnh Gia Lai", zone.Name),
+            zone => Assert.Equal("Tỉnh Đắk Lắk", zone.Name),
+            zone => Assert.Equal("Tỉnh Khánh Hòa", zone.Name),
+            zone => Assert.Equal("Tỉnh Lâm Đồng", zone.Name));
         Assert.All(serviceZones, zone => Assert.False(string.IsNullOrWhiteSpace(zone.CoordinatesJson)));
 
         var nowUtc = DateTime.UtcNow;

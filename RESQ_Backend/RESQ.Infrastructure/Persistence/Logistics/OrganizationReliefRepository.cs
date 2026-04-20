@@ -296,9 +296,15 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         var reusableEntities  = new List<ReusableItem>();
         var logEntities = new List<InventoryLog>();
 
+        // Track reusable entities alongside their source model for per-unit log creation after save
+        var reusableEntityWithModel = new List<(ReusableItem Entity, OrganizationReliefItemModel Model)>();
+        // Map model index → log index for consumable rows (to set DepotSupplyInventoryId after save)
+        var consumableModelToLogIndex = new Dictionary<int, int>();
+
         // Process all models to prepare bulk data
-        foreach (var model in models)
+        for (int modelIdx = 0; modelIdx < models.Count; modelIdx++)
         {
+            var model = models[modelIdx];
             var isReusable = string.Equals(model.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
 
             // 1. Create OrganizationReliefItem entity
@@ -329,15 +335,31 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                         LastStockedAt            = DateTime.UtcNow
                     });
                 }
+
+                // 3a. Log for consumable: 1 log per model row (QuantityChange = N)
+                consumableModelToLogIndex[modelIdx] = logEntities.Count;
+                logEntities.Add(new InventoryLog
+                {
+                    ActionType     = InventoryActionType.Import.ToString(),
+                    SourceType     = InventorySourceType.Donation.ToString(),
+                    QuantityChange = model.Quantity,
+                    SourceId       = model.OrganizationId,
+                    PerformedBy    = model.ReceivedBy,
+                    Note           = model.Notes,
+                    ReceivedDate   = model.ReceivedDate,
+                    ExpiredDate    = model.ExpiredDate,
+                    CreatedAt      = DateTime.UtcNow
+                });
             }
 
             if (isReusable)
             {
-                // 2b. Reusable → create N individual ReusableItem records
+                // 2b. Reusable → create N individual ReusableItem records.
+                // Logs are deferred until after save so ReusableItemId is available.
                 for (int u = 0; u < model.Quantity; u++)
                 {
                     var serial = $"SN-{model.ItemModelId:D5}-{Guid.NewGuid().ToString("N")[..12].ToUpper()}";
-                    reusableEntities.Add(new ReusableItem
+                    var reusableEntity = new ReusableItem
                     {
                         DepotId      = model.ReceivedAt,
                         ItemModelId  = model.ItemModelId,
@@ -347,24 +369,11 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                         Note         = null,
                         CreatedAt    = DateTime.UtcNow,
                         UpdatedAt    = DateTime.UtcNow
-                    });
+                    };
+                    reusableEntities.Add(reusableEntity);
+                    reusableEntityWithModel.Add((reusableEntity, model));
                 }
             }
-
-            // 3. Prepare log entry
-            var logEntity = new InventoryLog
-            {
-                ActionType = InventoryActionType.Import.ToString(),
-                SourceType = InventorySourceType.Donation.ToString(),
-                QuantityChange = model.Quantity,
-                SourceId = model.OrganizationId,
-                PerformedBy = model.ReceivedBy,
-                Note = model.Notes,
-                ReceivedDate = model.ReceivedDate,
-                ExpiredDate = model.ExpiredDate,
-                CreatedAt = DateTime.UtcNow
-            };
-            logEntities.Add(logEntity);
         }
 
         // Bulk insert organization relief items
@@ -378,11 +387,29 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
             await _unitOfWork.SaveAsync();
         }
 
-        // Bulk insert reusable item records
+        // Bulk insert reusable item records, then create 1 log per unit (with ReusableItemId)
         if (reusableEntities.Count > 0)
         {
             await reusableRepo.AddRangeAsync(reusableEntities);
             await _unitOfWork.SaveAsync();
+
+            // Create individual log per reusable unit so each unit is fully traceable by ReusableItemId
+            foreach (var (entity, model) in reusableEntityWithModel)
+            {
+                logEntities.Add(new InventoryLog
+                {
+                    ReusableItemId = entity.Id,
+                    ActionType     = InventoryActionType.Import.ToString(),
+                    SourceType     = InventorySourceType.Donation.ToString(),
+                    QuantityChange = 1,
+                    SourceId       = model.OrganizationId,
+                    PerformedBy    = model.ReceivedBy,
+                    Note           = model.Notes,
+                    ReceivedDate   = model.ReceivedDate,
+                    ExpiredDate    = model.ExpiredDate,
+                    CreatedAt      = DateTime.UtcNow
+                });
+            }
         }
 
         // Update log entities with consumable inventory IDs, create lots, and bulk insert
@@ -395,7 +422,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
             var model = models[i];
             var isReusable = string.Equals(model.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
 
-            if (!isReusable)
+            if (!isReusable && consumableModelToLogIndex.TryGetValue(i, out var logIdx))
             {
                 var inventory = inventoryEntities.FirstOrDefault(inv =>
                     inv.DepotId == model.ReceivedAt && inv.ItemModelId == model.ItemModelId) ??
@@ -404,20 +431,20 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
 
                 if (inventory != null)
                 {
-                    logEntities[i].DepotSupplyInventoryId = inventory.Id;
+                    logEntities[logIdx].DepotSupplyInventoryId = inventory.Id;
 
                     // Create lot for this import batch
-                    lotToLogMapping.Add((lotEntities.Count, i));
+                    lotToLogMapping.Add((lotEntities.Count, logIdx));
                     lotEntities.Add(new SupplyInventoryLot
                     {
                         SupplyInventoryId = inventory.Id,
-                        Quantity = model.Quantity,
+                        Quantity          = model.Quantity,
                         RemainingQuantity = model.Quantity,
-                        ReceivedDate = model.ReceivedDate,
-                        ExpiredDate = model.ExpiredDate,
-                        SourceType = InventorySourceType.Donation.ToString(),
-                        SourceId = model.OrganizationId,
-                        CreatedAt = DateTime.UtcNow
+                        ReceivedDate      = model.ReceivedDate,
+                        ExpiredDate       = model.ExpiredDate,
+                        SourceType        = InventorySourceType.Donation.ToString(),
+                        SourceId          = model.OrganizationId,
+                        CreatedAt         = DateTime.UtcNow
                     });
                 }
             }

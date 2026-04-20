@@ -183,6 +183,7 @@ public static class PermissionSeeder
             PermissionConstants.NotificationSelfManage,
             PermissionConstants.ConversationSelfView,
             PermissionConstants.ConversationSelfManage,
+            PermissionConstants.PersonnelAssemblyPointView,
             PermissionConstants.SosRequestCreate,
             PermissionConstants.SosRequestCancelOwn);
 

@@ -8,6 +8,7 @@ public enum InventorySourceType
     Adjustment,
     Transfer,
     System,
+    Maintenance,
     Expired,
     Damaged
 }

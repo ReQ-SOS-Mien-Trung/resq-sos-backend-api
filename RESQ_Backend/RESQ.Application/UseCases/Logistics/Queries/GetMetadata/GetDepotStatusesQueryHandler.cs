@@ -14,15 +14,16 @@ public class GetDepotStatusesQueryHandler : IRequestHandler<GetDepotStatusesQuer
                 Key = e.ToString(),
                 Value = e switch
                 {
-                    DepotStatus.Created           => "Vừa tạo, chưa có quản lý",
+                    DepotStatus.Created => "Vừa tạo, chưa có quản lý",
                     DepotStatus.PendingAssignment => "Chờ gán lại quản lý",
-                    DepotStatus.Available         => "Đang hoạt động",
-                    DepotStatus.Unavailable       => "Ngưng hoạt động",
-                    DepotStatus.Closing           => "Đang đóng kho",
-                    DepotStatus.Closed            => "Đã đóng cửa",
-                    _                             => e.ToString()
+                    DepotStatus.Available => "Đang hoạt động",
+                    DepotStatus.Unavailable => "Ngưng hoạt động",
+                    DepotStatus.Closing => "Đang đóng kho",
+                    DepotStatus.Closed => "Đã đóng cửa",
+                    _ => e.ToString()
                 }
-            }).ToList();
+            })
+            .ToList();
 
         return Task.FromResult(result);
     }

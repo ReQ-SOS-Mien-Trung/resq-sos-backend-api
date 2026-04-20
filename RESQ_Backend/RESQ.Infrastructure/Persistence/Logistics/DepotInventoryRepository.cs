@@ -8,6 +8,8 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotItemModelAlerts;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -1424,7 +1426,19 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     public async Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(
         int? depotId,
         CancellationToken cancellationToken = default)
+        => await GetLowStockRawItemsAsync(depotId, null, cancellationToken);
+
+    public async Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(
+        int? depotId,
+        List<int>? categoryIds,
+        CancellationToken cancellationToken = default)
     {
+        var safeCategoryIds = categoryIds?
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+        var hasCategoryFilter = safeCategoryIds is { Count: > 0 };
+
         var query =
             from inv  in _unitOfWork.Set<SupplyInventory>()
             join item in _unitOfWork.Set<ItemModel>()     on inv.ItemModelId equals item.Id
@@ -1433,6 +1447,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             from cat in catJoin.DefaultIfEmpty()
             where item.ItemType == "Consumable"
                && (depotId == null || inv.DepotId == depotId)
+               && (!hasCategoryFilter || safeCategoryIds!.Contains(item.CategoryId ?? 0))
             select new
             {
                 DepotId          = depot.Id,
@@ -2453,6 +2468,102 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     }
 
 
+    public async Task ReserveForClosureShipmentAsync(
+        int sourceDepotId,
+        int transferId,
+        int closureId,
+        Guid performedBy,
+        IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+        CancellationToken cancellationToken = default)
+    {
+        if (items.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+
+        // -- 1. Consumable: increment TransferReservedQuantity ----------------
+        var consumableItems = items
+            .Where(x => string.Equals(x.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(x => x.ItemModelId)
+            .Select(g => new { ItemModelId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .ToList();
+
+        if (consumableItems.Count > 0)
+        {
+            var itemModelIds = consumableItems.Select(x => x.ItemModelId).ToList();
+            var inventories = await _unitOfWork.SetTracked<SupplyInventory>()
+                .Where(inv => inv.DepotId == sourceDepotId && itemModelIds.Contains(inv.ItemModelId ?? 0))
+                .ToListAsync(cancellationToken);
+
+            foreach (var ci in consumableItems)
+            {
+                var inv = inventories.FirstOrDefault(x => x.ItemModelId == ci.ItemModelId)
+                    ?? throw new InvalidOperationException(
+                        $"Không tìm thấy tồn kho tiêu hao #{ci.ItemModelId} tại kho nguồn #{sourceDepotId}.");
+
+                inv.TransferReservedQuantity += ci.Quantity;
+                inv.LastStockedAt = now;
+            }
+        }
+
+        // -- 2. Reusable: Available → InTransit, DepotId = null ---------------
+        var reusableItems = items
+            .Where(x => string.Equals(x.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(x => x.ItemModelId)
+            .Select(g => new { ItemModelId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .ToList();
+
+        if (reusableItems.Count > 0)
+        {
+            var reusableItemModelIds = reusableItems.Select(x => x.ItemModelId).ToList();
+            var allAvailableUnits = await _unitOfWork.SetTracked<ReusableItem>()
+                .Where(r => r.DepotId == sourceDepotId
+                         && r.Status == nameof(ReusableItemStatus.Available)
+                         && reusableItemModelIds.Contains(r.ItemModelId ?? 0))
+                .OrderBy(r => r.ItemModelId)
+                .ThenBy(r => r.Id)
+                .ToListAsync(cancellationToken);
+
+            var newInventoryLogs = new List<InventoryLog>();
+
+            foreach (var ri in reusableItems)
+            {
+                var units = allAvailableUnits
+                    .Where(x => x.ItemModelId == ri.ItemModelId)
+                    .Take(ri.Quantity)
+                    .ToList();
+
+                if (units.Count < ri.Quantity)
+                    throw new InvalidOperationException(
+                        $"Thiết bị tái sử dụng #{ri.ItemModelId} khả dụng tại kho nguồn không đủ để xuất theo transfer #{transferId}. " +
+                        $"Cần {ri.Quantity}, chỉ còn {units.Count} đơn vị.");
+
+                foreach (var unit in units)
+                {
+                    unit.Status = nameof(ReusableItemStatus.InTransit);
+                    unit.DepotId = null;
+                    unit.UpdatedAt = now;
+
+                    newInventoryLogs.Add(new InventoryLog
+                    {
+                        ReusableItemId = unit.Id,
+                        ActionType = InventoryActionType.TransferOut.ToString(),
+                        QuantityChange = 1,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        PerformedBy = performedBy,
+                        Note = $"Đóng kho #{sourceDepotId}: xuất thiết bị #{unit.Id} (S/N: {unit.SerialNumber ?? "N/A"}) theo transfer #{transferId}",
+                        CreatedAt = now
+                    });
+                }
+            }
+
+            if (newInventoryLogs.Count > 0)
+                await _unitOfWork.GetRepository<InventoryLog>().AddRangeAsync(newInventoryLogs);
+        }
+
+        await _unitOfWork.SaveAsync();
+    }
+
     public async Task TransferClosureItemsAsync(
         int sourceDepotId,
         int targetDepotId,
@@ -2625,6 +2736,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 }
 
                 srcInv.Quantity = (srcInv.Quantity ?? 0) - assignment.Quantity;
+                // Also release the reservation that was set at Ship time
+                srcInv.TransferReservedQuantity = Math.Max(0, srcInv.TransferReservedQuantity - assignment.Quantity);
                 srcInv.LastStockedAt = now;
                 if ((srcInv.Quantity ?? 0) <= 0 && srcInv.MissionReservedQuantity == 0 && srcInv.TransferReservedQuantity == 0)
                 {
@@ -2642,6 +2755,18 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (reusableAssignments.Count > 0)
         {
             var itemModelIds = reusableAssignments.Select(x => x.ItemModelId).ToList();
+
+            // Items were set to InTransit (DepotId = null) during the Ship step.
+            // Fall back to Available items for legacy / non-shipped transfers.
+            var inTransitUnits = await _unitOfWork.GetRepository<ReusableItem>()
+                .AsQueryable(tracked: true)
+                .Where(r => r.DepotId == null
+                         && r.Status == nameof(ReusableItemStatus.InTransit)
+                         && itemModelIds.Contains(r.ItemModelId ?? 0))
+                .OrderBy(r => r.ItemModelId)
+                .ThenBy(r => r.Id)
+                .ToListAsync(cancellationToken);
+
             var availableUnits = await _unitOfWork.GetRepository<ReusableItem>()
                 .AsQueryable(tracked: true)
                 .Where(r => r.DepotId == sourceDepotId
@@ -2653,31 +2778,50 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             foreach (var assignment in reusableAssignments)
             {
-                var units = availableUnits
-                    .Where(x => x.ItemModelId == assignment.ItemModelId)
-                    .Take(assignment.Quantity)
-                    .ToList();
+                // Prefer InTransit units; fall back to Available if not shipped yet
+                var candidateUnits = inTransitUnits.Any(x => x.ItemModelId == assignment.ItemModelId)
+                    ? inTransitUnits.Where(x => x.ItemModelId == assignment.ItemModelId).Take(assignment.Quantity).ToList()
+                    : availableUnits.Where(x => x.ItemModelId == assignment.ItemModelId).Take(assignment.Quantity).ToList();
 
-                if (units.Count < assignment.Quantity)
+                if (candidateUnits.Count < assignment.Quantity)
                 {
-                    throw new InvalidOperationException($"Thiết bị tái sử dụng #{assignment.ItemModelId} khả dụng tại kho nguồn không đủ để chuyển theo kế hoạch đóng kho.");
+                    throw new InvalidOperationException($"Thiết bị tái sử dụng #{assignment.ItemModelId} không đủ để chuyển theo kế hoạch đóng kho.");
                 }
 
-                foreach (var unit in units)
+                foreach (var unit in candidateUnits)
                 {
-                    var oldDepotId = unit.DepotId;
+                    var wasInTransit = unit.Status == nameof(ReusableItemStatus.InTransit);
                     unit.DepotId = targetDepotId;
+                    unit.Status = nameof(ReusableItemStatus.Available);
                     unit.UpdatedAt = now;
 
+                    // TransferOut log was already emitted at Ship time for InTransit items.
+                    // For legacy (Available) items: emit TransferOut here.
+                    if (!wasInTransit)
+                    {
+                        newInventoryLogs.Add(new InventoryLog
+                        {
+                            ReusableItemId = unit.Id,
+                            ActionType = InventoryActionType.TransferOut.ToString(),
+                            QuantityChange = 1,
+                            SourceType = "DepotClosure",
+                            SourceId = closureId,
+                            PerformedBy = performedBy,
+                            Note = $"Đóng kho #{sourceDepotId}: di chuyển theo transfer #{transferId} thiết bị #{unit.Id} sang kho #{targetDepotId}",
+                            CreatedAt = now
+                        });
+                    }
+
+                    // Always emit TransferIn log at target
                     newInventoryLogs.Add(new InventoryLog
                     {
                         ReusableItemId = unit.Id,
-                        ActionType = InventoryActionType.TransferOut.ToString(),
+                        ActionType = InventoryActionType.TransferIn.ToString(),
                         QuantityChange = 1,
                         SourceType = "DepotClosure",
                         SourceId = closureId,
                         PerformedBy = performedBy,
-                        Note = $"Đóng kho #{oldDepotId}: di chuyển theo transfer #{transferId} thiết bị #{unit.Id} sang kho #{targetDepotId}",
+                        Note = $"Đóng kho #{sourceDepotId}: nhận thiết bị #{unit.Id} theo transfer #{transferId} vào kho #{targetDepotId}",
                         CreatedAt = now
                     });
                 }
@@ -2885,6 +3029,318 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 IsExpired = l.ExpiredDate.HasValue && l.ExpiredDate.Value < DateTime.UtcNow
             })
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PagedResult<ReusableUnitDto>> GetReusableUnitsPagedAsync(
+        int depotId,
+        int? itemModelId,
+        string? serialNumber,
+        List<string>? statuses,
+        List<string>? conditions,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var serialKeywords = ParseSerialSearchKeywords(serialNumber);
+        var hasSerialFilter = serialKeywords.Count > 0;
+        var hasStatusFilter = statuses != null && statuses.Count > 0;
+        var hasConditionFilter = conditions != null && conditions.Count > 0;
+
+        var reusableItemsQuery = _unitOfWork.Set<ReusableItem>()
+            .Where(r => r.DepotId == depotId && !r.IsDeleted);
+
+        if (itemModelId.HasValue)
+            reusableItemsQuery = reusableItemsQuery.Where(r => r.ItemModelId == itemModelId.Value);
+
+        if (hasSerialFilter)
+        {
+            Expression<Func<ReusableItem, bool>> serialPredicate = _ => false;
+
+            foreach (var keyword in serialKeywords)
+            {
+                var capturedKeyword = keyword;
+                serialPredicate = OrElse(serialPredicate,
+                    r => r.SerialNumber != null && r.SerialNumber.ToLower().Contains(capturedKeyword));
+            }
+
+            reusableItemsQuery = reusableItemsQuery.Where(serialPredicate);
+        }
+
+        var query = from r in reusableItemsQuery
+                    join im in _unitOfWork.Set<ItemModel>() on r.ItemModelId equals im.Id
+                    join cat in _unitOfWork.Set<Category>() on im.CategoryId equals cat.Id into catJoin
+                    from cat in catJoin.DefaultIfEmpty()
+                    where (!hasStatusFilter || statuses!.Contains(r.Status!))
+                       && (!hasConditionFilter || conditions!.Contains(r.Condition!))
+                    select new ReusableUnitDto
+                    {
+                        ItemId = r.Id,
+                        ItemModelId = r.ItemModelId,
+                        ItemModelName = im.Name ?? string.Empty,
+                        ImageUrl = im.ImageUrl,
+                        CategoryId = im.CategoryId,
+                        CategoryName = cat != null ? cat.Name ?? string.Empty : string.Empty,
+                        SerialNumber = r.SerialNumber,
+                        Status = r.Status,
+                        Condition = r.Condition,
+                        Note = r.Note,
+                        CreatedAt = r.CreatedAt,
+                        UpdatedAt = r.UpdatedAt
+                    };
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderBy(x => x.ItemModelId)
+            .ThenBy(x => x.ItemId)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<ReusableUnitDto>(items, totalCount, pageNumber, pageSize);
+    }
+
+    private static List<string> ParseSerialSearchKeywords(string? serialNumber)
+    {
+        if (string.IsNullOrWhiteSpace(serialNumber))
+            return [];
+
+        return serialNumber
+            .Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.ToLowerInvariant())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct()
+            .ToList();
+    }
+
+    private static Expression<Func<T, bool>> OrElse<T>(
+        Expression<Func<T, bool>> left,
+        Expression<Func<T, bool>> right)
+    {
+        var parameter = Expression.Parameter(typeof(T), "x");
+        var leftBody = ReplaceParameter(left.Body, left.Parameters[0], parameter);
+        var rightBody = ReplaceParameter(right.Body, right.Parameters[0], parameter);
+        return Expression.Lambda<Func<T, bool>>(Expression.OrElse(leftBody, rightBody), parameter);
+    }
+
+    private static Expression ReplaceParameter(
+        Expression expression,
+        ParameterExpression source,
+        ParameterExpression target)
+        => new ReplaceParameterVisitor(source, target).Visit(expression)!;
+
+    private sealed class ReplaceParameterVisitor(
+        ParameterExpression source,
+        ParameterExpression target) : ExpressionVisitor
+    {
+        protected override Expression VisitParameter(ParameterExpression node)
+            => node == source ? target : base.VisitParameter(node);
+    }
+
+    public async Task<int?> GetReusableItemDepotIdAsync(
+        int reusableItemId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<ReusableItem>()
+            .Where(r => r.Id == reusableItemId && !r.IsDeleted)
+            .Select(r => r.DepotId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task MarkReusableItemMaintenanceAsync(
+        int depotId,
+        int reusableItemId,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var item = await _unitOfWork.SetTracked<ReusableItem>()
+                .FirstOrDefaultAsync(r => r.Id == reusableItemId && !r.IsDeleted, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{reusableItemId}.");
+
+            if (item.DepotId != depotId)
+                throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{reusableItemId} trong kho bạn đang quản lý.");
+
+            var rowsAffected = await _unitOfWork.SetTracked<ReusableItem>()
+                .Where(r => r.Id == reusableItemId
+                    && r.DepotId == depotId
+                    && !r.IsDeleted
+                    && r.Status == nameof(ReusableItemStatus.Available))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.Status, ReusableItemStatus.Maintenance.ToString())
+                    .SetProperty(r => r.UpdatedAt, now)
+                    .SetProperty(r => r.Note, note),
+                    cancellationToken);
+
+            if (rowsAffected == 0)
+            {
+                var latestStatus = await _unitOfWork.Set<ReusableItem>()
+                    .Where(r => r.Id == reusableItemId && !r.IsDeleted)
+                    .Select(r => r.Status)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                var safeStatus = string.IsNullOrWhiteSpace(latestStatus) ? "không xác định" : latestStatus;
+                throw new ConflictException(
+                    $"Vật phẩm tái sử dụng #{reusableItemId} chỉ được chuyển sang bảo trì khi đang ở trạng thái 'Available'. Trạng thái hiện tại: '{safeStatus}'.");
+            }
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                ReusableItemId = reusableItemId,
+                ActionType = InventoryActionType.Adjust.ToString(),
+                QuantityChange = 0,
+                SourceType = InventorySourceType.Maintenance.ToString(),
+                PerformedBy = performedBy,
+                Note = string.IsNullOrWhiteSpace(note)
+                    ? $"Chuyển vật phẩm #{reusableItemId} sang trạng thái bảo trì."
+                    : $"Chuyển vật phẩm #{reusableItemId} sang trạng thái bảo trì. Ghi chú: {note}",
+                CreatedAt = now
+            });
+
+            await _unitOfWork.SaveAsync();
+        });
+    }
+
+    public async Task MarkReusableItemAvailableAsync(
+        int depotId,
+        int reusableItemId,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var item = await _unitOfWork.SetTracked<ReusableItem>()
+                .FirstOrDefaultAsync(r => r.Id == reusableItemId && !r.IsDeleted, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{reusableItemId}.");
+
+            if (item.DepotId != depotId)
+                throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{reusableItemId} trong kho bạn đang quản lý.");
+
+            var rowsAffected = await _unitOfWork.SetTracked<ReusableItem>()
+                .Where(r => r.Id == reusableItemId
+                    && r.DepotId == depotId
+                    && !r.IsDeleted
+                    && r.Status == nameof(ReusableItemStatus.Maintenance))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.Status, ReusableItemStatus.Available.ToString())
+                    .SetProperty(r => r.UpdatedAt, now)
+                    .SetProperty(r => r.Note, note),
+                    cancellationToken);
+
+            if (rowsAffected == 0)
+            {
+                var latestStatus = await _unitOfWork.Set<ReusableItem>()
+                    .Where(r => r.Id == reusableItemId && !r.IsDeleted)
+                    .Select(r => r.Status)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                var safeStatus = string.IsNullOrWhiteSpace(latestStatus) ? "không xác định" : latestStatus;
+                throw new ConflictException(
+                    $"Vật phẩm tái sử dụng #{reusableItemId} chỉ được chuyển về 'Available' khi đang ở trạng thái 'Maintenance'. Trạng thái hiện tại: '{safeStatus}'.");
+            }
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                ReusableItemId = reusableItemId,
+                ActionType = InventoryActionType.Adjust.ToString(),
+                QuantityChange = 0,
+                SourceType = InventorySourceType.Maintenance.ToString(),
+                PerformedBy = performedBy,
+                Note = string.IsNullOrWhiteSpace(note)
+                    ? $"Hoàn tất bảo trì và chuyển vật phẩm #{reusableItemId} về trạng thái sẵn sàng."
+                    : $"Hoàn tất bảo trì và chuyển vật phẩm #{reusableItemId} về trạng thái sẵn sàng. Ghi chú: {note}",
+                CreatedAt = now
+            });
+
+            await _unitOfWork.SaveAsync();
+        });
+    }
+
+    public async Task<List<ExpiringItemModelAlertRawDto>> GetExpiringItemModelAlertCandidatesAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+    {
+        return await (
+            from lot in _unitOfWork.Set<SupplyInventoryLot>()
+            join inv in _unitOfWork.Set<SupplyInventory>() on lot.SupplyInventoryId equals inv.Id
+            join item in _unitOfWork.Set<ItemModel>() on inv.ItemModelId equals item.Id
+            join category in _unitOfWork.Set<Category>() on item.CategoryId equals category.Id
+            where inv.DepotId == depotId
+               && !inv.IsDeleted
+               && lot.RemainingQuantity > 0
+               && lot.ExpiredDate.HasValue
+               && item.ItemType == nameof(ItemType.Consumable)
+            select new ExpiringItemModelAlertRawDto
+            {
+                LotId = lot.Id,
+                ItemModelId = item.Id,
+                ItemModelName = item.Name ?? string.Empty,
+                Unit = item.Unit,
+                CategoryId = item.CategoryId,
+                CategoryCode = category.Code ?? string.Empty,
+                CategoryName = category.Name ?? string.Empty,
+                RemainingQuantity = lot.RemainingQuantity,
+                ExpiredDate = lot.ExpiredDate!.Value,
+                ReceivedDate = lot.ReceivedDate
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<MaintenanceItemModelAlertRawDto>> GetMaintenanceItemModelAlertCandidatesAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await (
+            from reusable in _unitOfWork.Set<ReusableItem>()
+            join item in _unitOfWork.Set<ItemModel>() on reusable.ItemModelId equals item.Id
+            join category in _unitOfWork.Set<Category>() on item.CategoryId equals category.Id
+            where reusable.DepotId == depotId
+               && !reusable.IsDeleted
+               && reusable.Status != nameof(ReusableItemStatus.Decommissioned)
+               && reusable.ItemModelId.HasValue
+            select new MaintenanceItemModelAlertRawDto
+            {
+                ReusableItemId = reusable.Id,
+                ItemModelId = item.Id,
+                ItemModelName = item.Name ?? string.Empty,
+                Unit = item.Unit,
+                CategoryId = item.CategoryId,
+                CategoryCode = category.Code ?? string.Empty,
+                CategoryName = category.Name ?? string.Empty,
+                Status = reusable.Status ?? string.Empty,
+                CreatedAt = reusable.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        if (candidates.Count == 0)
+            return candidates;
+
+        var reusableItemIds = candidates.Select(x => x.ReusableItemId).Distinct().ToList();
+        var latestMaintenanceLogs = await _unitOfWork.Set<InventoryLog>()
+            .Where(log => log.ReusableItemId.HasValue
+                && reusableItemIds.Contains(log.ReusableItemId.Value)
+                && log.SourceType == nameof(InventorySourceType.Maintenance))
+            .GroupBy(log => log.ReusableItemId!.Value)
+            .Select(group => new
+            {
+                ReusableItemId = group.Key,
+                LastMaintenanceAt = group.Max(x => x.CreatedAt)
+            })
+            .ToDictionaryAsync(x => x.ReusableItemId, x => x.LastMaintenanceAt, cancellationToken);
+
+        foreach (var candidate in candidates)
+        {
+            if (latestMaintenanceLogs.TryGetValue(candidate.ReusableItemId, out var lastMaintenanceAt))
+                candidate.LastMaintenanceAt = lastMaintenanceAt;
+        }
+
+        return candidates;
     }
 }
 

@@ -17,7 +17,8 @@ public class ExcelExportService : IExcelExportService
     [
         "STT", "Tên Vật Phẩm", "Danh mục", "Đối tượng", "Loại vật phẩm",
         "Đơn vị", "Đơn giá", "Số lượng", "Ngày nhận",
-        "Loại Hành động", "Nguồn", "Tên nhiệm vụ"
+        "Loại Hành động", "Nguồn", "Tên nhiệm vụ",
+        "Serial / Lot ID"
     ];
 
     // -- Palette --------------------------------------------------------------
@@ -146,6 +147,8 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 10).Value = row.ActionType;
             ws.Cell(r, 11).Value = row.SourceType;
             ws.Cell(r, 12).Value = row.MissionName ?? string.Empty;
+            // Col 13: Serial number (Reusable) hoặc Lot ID (Consumable)
+            ws.Cell(r, 13).Value = row.SerialNumber ?? (row.LotId.HasValue ? $"Lô #{row.LotId.Value}" : string.Empty);
 
             // Alternate row background: white / light-orange
             var rowRange = ws.Range(r, 1, r, col);

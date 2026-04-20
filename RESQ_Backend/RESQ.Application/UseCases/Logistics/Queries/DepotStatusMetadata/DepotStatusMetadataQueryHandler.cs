@@ -13,12 +13,12 @@ public class GetDepotStatusMetadataQueryHandler
     {
         var result = new List<MetadataDto>
         {
-            new() { Key = DepotStatus.Created.ToString(),             Value = "Vừa tạo, chưa có quản lý" },
-            new() { Key = DepotStatus.PendingAssignment.ToString(),   Value = "Chờ gán lại quản lý" },
-            new() { Key = DepotStatus.Available.ToString(),           Value = "Đang hoạt động" },
-            new() { Key = DepotStatus.Unavailable.ToString(),         Value = "Ngưng hoạt động" },
-            new() { Key = DepotStatus.Closing.ToString(),             Value = "Đang đóng kho" },
-            new() { Key = DepotStatus.Closed.ToString(),              Value = "Đã đóng" }
+            new() { Key = DepotStatus.Created.ToString(), Value = "Vừa tạo, chưa có quản lý" },
+            new() { Key = DepotStatus.PendingAssignment.ToString(), Value = "Chờ gán lại quản lý" },
+            new() { Key = DepotStatus.Available.ToString(), Value = "Đang hoạt động" },
+            new() { Key = DepotStatus.Unavailable.ToString(), Value = "Ngưng hoạt động" },
+            new() { Key = DepotStatus.Closing.ToString(), Value = "Đang đóng kho" },
+            new() { Key = DepotStatus.Closed.ToString(), Value = "Đã đóng" }
         };
 
         return await Task.FromResult(result);

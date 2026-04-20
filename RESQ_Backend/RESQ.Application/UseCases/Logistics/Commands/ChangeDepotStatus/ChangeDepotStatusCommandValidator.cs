@@ -15,7 +15,7 @@ public class ChangeDepotStatusCommandValidator : AbstractValidator<ChangeDepotSt
 
         RuleFor(x => x.Status)
             .IsInEnum().WithMessage("Trạng thái kho không hợp lệ.")
-            .Must(s => s == DepotStatus.Available || s == DepotStatus.Unavailable || s == DepotStatus.Closing)
-            .WithMessage("Trạng thái đưa vào không hợp lệ. Các trạng thái được phép: Available, Unavailable, Closing.");
+            .Must(s => s == DepotStatus.Available || s == DepotStatus.Unavailable)
+            .WithMessage("Trạng thái đưa vào không hợp lệ. Các trạng thái được phép: Available, Unavailable.");
     }
 }

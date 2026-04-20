@@ -3,8 +3,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ChangeDepotStatus;
 public enum ChangeableDepotStatus
 {
     Available,
-    Unavailable,
-    Closing
+    Unavailable
 }
 
 public class ChangeDepotStatusRequestDto

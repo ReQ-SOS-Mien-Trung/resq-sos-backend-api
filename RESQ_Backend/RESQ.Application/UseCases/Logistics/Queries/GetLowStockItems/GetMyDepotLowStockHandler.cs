@@ -23,7 +23,10 @@ public class GetMyDepotLowStockHandler(
         var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new NotFoundException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
 
-        var rawItems = await _depotInventoryRepo.GetLowStockRawItemsAsync(depotId, cancellationToken);
+        var rawItems = await _depotInventoryRepo.GetLowStockRawItemsAsync(
+            depotId,
+            request.CategoryIds,
+            cancellationToken);
         var items = new List<LowStockItemDto>();
 
         foreach (var raw in rawItems)
@@ -70,7 +73,7 @@ public class GetMyDepotLowStockHandler(
             .ThenBy(x => x.DepotId)
             .ToList();
 
-        return LowStockChartBuilder.Build(items);
+        return LowStockChartBuilder.Build(items, request.PageNumber, request.PageSize);
     }
 }
 

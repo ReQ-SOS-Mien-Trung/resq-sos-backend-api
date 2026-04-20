@@ -2,6 +2,8 @@
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotItemModelAlerts;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -159,6 +161,17 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lấy dữ liệu thô vật phẩm tiêu hao theo depot và danh mục.
+    /// categoryIds hỗ trợ lọc OR: vật phẩm thuộc một trong các danh mục truyền vào đều được lấy.
+    /// Default implementation fallback về hàm cũ để không phá test doubles hiện có.
+    /// </summary>
+    Task<List<LowStockRawItemDto>> GetLowStockRawItemsAsync(
+        int? depotId,
+        List<int>? categoryIds,
+        CancellationToken cancellationToken = default)
+        => GetLowStockRawItemsAsync(depotId, cancellationToken);
+
+    /// <summary>
     /// Giải phóng vật phẩm đã đặt trước (ví dụ khi huỷ activity hoặc thay đổi items): giảm ReservedQuantity.
     /// </summary>
     Task ReleaseReservedSuppliesAsync(
@@ -216,6 +229,19 @@ public interface IDepotInventoryRepository
         int targetDepotId,
         int closureId,
         int transferId,
+        Guid performedBy,
+        IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gọi khi kho nguồn xác nhận xuất hàng (Ship step):
+    /// - Consumable: cộng TransferReservedQuantity (giữ chỗ, giảm số lượng khả dụng hiển thị).
+    /// - Reusable: chuyển N đơn vị từ Available → InTransit, DepotId = null, ghi log TransferOut.
+    /// </summary>
+    Task ReserveForClosureShipmentAsync(
+        int sourceDepotId,
+        int transferId,
+        int closureId,
         Guid performedBy,
         IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
         CancellationToken cancellationToken = default);
@@ -282,6 +308,51 @@ public interface IDepotInventoryRepository
         int depotId,
         int daysAhead,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách đơn vị vật phẩm tái sử dụng tại kho với các bộ lọc:
+    /// serial number, trạng thái (status), tình trạng (condition) và loại vật phẩm (itemModelId).
+    /// </summary>
+    Task<PagedResult<ReusableUnitDto>> GetReusableUnitsPagedAsync(
+        int depotId,
+        int? itemModelId,
+        string? serialNumber,
+        List<string>? statuses,
+        List<string>? conditions,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    Task<int?> GetReusableItemDepotIdAsync(
+        int reusableItemId,
+        CancellationToken cancellationToken = default)
+        => Task.FromException<int?>(new NotSupportedException("Repository này chưa hỗ trợ tra cứu depot của reusable item."));
+
+    Task MarkReusableItemMaintenanceAsync(
+        int depotId,
+        int reusableItemId,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default)
+        => Task.FromException(new NotSupportedException("Repository này chưa hỗ trợ chuyển reusable item sang Maintenance."));
+
+    Task MarkReusableItemAvailableAsync(
+        int depotId,
+        int reusableItemId,
+        string? note,
+        Guid performedBy,
+        CancellationToken cancellationToken = default)
+        => Task.FromException(new NotSupportedException("Repository này chưa hỗ trợ chuyển reusable item về Available."));
+
+    Task<List<ExpiringItemModelAlertRawDto>> GetExpiringItemModelAlertCandidatesAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<ExpiringItemModelAlertRawDto>());
+
+    Task<List<MaintenanceItemModelAlertRawDto>> GetMaintenanceItemModelAlertCandidatesAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<MaintenanceItemModelAlertRawDto>());
 }
 
 public class DepotClosureTransferItemMoveDto

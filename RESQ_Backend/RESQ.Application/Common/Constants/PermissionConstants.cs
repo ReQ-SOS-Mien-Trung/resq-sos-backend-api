@@ -86,7 +86,7 @@ public static class PermissionConstants
     /// <summary>Admin + Coordinator + Rescuer: Quản lý trạng thái sẵn sàng của đội</summary>
     public const string PersonnelTeamAvailabilityManage = "personnel.team.availability.manage";
 
-    /// <summary>Admin + Coordinator + Rescuer: Xem điểm tập kết phục vụ mobile rescuer</summary>
+    /// <summary>Admin + Coordinator + Rescuer + Victim: Xem điểm tập kết phục vụ mobile/user map</summary>
     public const string PersonnelAssemblyPointView = "personnel.assembly_point.view";
 
     /// <summary>Admin + Coordinator + Rescuer: Xem sự kiện tập trung của chính mình</summary>
