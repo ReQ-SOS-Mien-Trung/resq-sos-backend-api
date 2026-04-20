@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Persistence.Base;
 using RESQ.Infrastructure.Persistence.Context;
@@ -84,6 +85,53 @@ public class SosClusterRepositoryTests
         var cluster = Assert.Single(result.Items);
         Assert.Equal(3, cluster.Id);
         Assert.Equal(3, result.TotalCount);
+        Assert.Equal(2, result.PageNumber);
+        Assert.Equal(1, result.PageSize);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_FiltersByStatusBeforePagination()
+    {
+        await using var context = CreateContext();
+
+        context.SosClusters.AddRange(
+            new SosCluster
+            {
+                Id = 1,
+                Status = "Pending",
+                CreatedAt = new DateTime(2026, 4, 4, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 2,
+                Status = "Suggested",
+                CreatedAt = new DateTime(2026, 4, 3, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 3,
+                Status = "Suggested",
+                CreatedAt = new DateTime(2026, 4, 2, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 4,
+                Status = "Completed",
+                CreatedAt = new DateTime(2026, 4, 1, 8, 0, 0, DateTimeKind.Utc)
+            });
+
+        await context.SaveChangesAsync();
+
+        var repository = CreateRepository(context);
+
+        var result = await repository.GetPagedAsync(
+            pageNumber: 2,
+            pageSize: 1,
+            statuses: [SosClusterStatus.Suggested]);
+
+        var cluster = Assert.Single(result.Items);
+        Assert.Equal(3, cluster.Id);
+        Assert.Equal(2, result.TotalCount);
         Assert.Equal(2, result.PageNumber);
         Assert.Equal(1, result.PageSize);
     }

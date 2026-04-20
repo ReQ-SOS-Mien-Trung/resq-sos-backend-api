@@ -69,9 +69,10 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetClusters(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] int? sosRequestId = null)
+        [FromQuery] int? sosRequestId = null,
+        [FromQuery] List<string>? statuses = null)
     {
-        var result = await _mediator.Send(new GetSosClustersQuery(pageNumber, pageSize, sosRequestId));
+        var result = await _mediator.Send(new GetSosClustersQuery(pageNumber, pageSize, sosRequestId, statuses));
         return Ok(result);
     }
 

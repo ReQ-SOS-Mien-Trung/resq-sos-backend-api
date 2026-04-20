@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Emergency.Queries;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
 using RESQ.Presentation.Controllers.Emergency;
 using RESQ.Tests.TestDoubles;
 
@@ -24,7 +25,7 @@ public class SosRequestControllerTests
         };
         var mediator = new RecordingMediator(_ => response);
         var controller = new SosRequestController(mediator, new AllowAuthorizationService());
-        var query = new GetSosRequestsByBoundsQuery
+        var query = new GetSosRequestsQueryParameters
         {
             MinLat = 10.70,
             MaxLat = 10.80,
@@ -38,13 +39,60 @@ public class SosRequestControllerTests
         var okResult = Assert.IsType<OkObjectResult>(result);
         var sentQuery = Assert.IsType<GetSosRequestsByBoundsQuery>(Assert.Single(mediator.SentRequests));
 
-        Assert.Same(query, sentQuery);
         Assert.Equal(10.70, sentQuery.MinLat);
         Assert.Equal(10.80, sentQuery.MaxLat);
         Assert.Equal(106.60, sentQuery.MinLng);
         Assert.Equal(106.70, sentQuery.MaxLng);
         Assert.Equal(["Pending", "Assigned"], sentQuery.Statuses);
         Assert.Same(response, okResult.Value);
+    }
+
+    [Fact]
+    public async Task GetSosRequests_WithoutBounds_ForwardsPagedQueryToMediator()
+    {
+        var response = new GetSosRequestsPagedResponse
+        {
+            Items = [],
+            PageNumber = 2,
+            PageSize = 25,
+            TotalCount = 0
+        };
+        var mediator = new RecordingMediator(_ => response);
+        var controller = new SosRequestController(mediator, new AllowAuthorizationService());
+        var query = new GetSosRequestsQueryParameters
+        {
+            PageNumber = 2,
+            PageSize = 25,
+            Statuses = ["Pending"]
+        };
+
+        var result = await controller.GetSosRequests(query);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var sentQuery = Assert.IsType<GetSosRequestsPagedQuery>(Assert.Single(mediator.SentRequests));
+
+        Assert.Equal(2, sentQuery.PageNumber);
+        Assert.Equal(25, sentQuery.PageSize);
+        Assert.Same(response, okResult.Value);
+    }
+
+    [Fact]
+    public async Task GetSosRequests_WithPartialBounds_ReturnsBadRequest()
+    {
+        var mediator = new RecordingMediator();
+        var controller = new SosRequestController(mediator, new AllowAuthorizationService());
+        var query = new GetSosRequestsQueryParameters
+        {
+            MinLat = 10.70,
+            MaxLat = 10.80
+        };
+
+        var result = await controller.GetSosRequests(query);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+
+        Assert.Empty(mediator.SentRequests);
+        Assert.Contains("required for map bounds mode", badRequest.Value!.ToString());
     }
 
     private sealed class AllowAuthorizationService : IAuthorizationService
