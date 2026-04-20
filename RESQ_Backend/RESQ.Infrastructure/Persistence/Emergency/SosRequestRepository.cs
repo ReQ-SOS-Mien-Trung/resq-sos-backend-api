@@ -9,7 +9,8 @@ using RESQ.Infrastructure.Mappers.Emergency;
 
 namespace RESQ.Infrastructure.Persistence.Emergency;
 
-public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepository, ISosRequestBulkReadRepository
+public class SosRequestRepository(IUnitOfWork unitOfWork)
+    : ISosRequestRepository, ISosRequestBulkReadRepository, ISosRequestMapReadRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
@@ -52,6 +53,41 @@ public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepositor
         return entities
             .OrderByDescending(x => x.CreatedAt)
             .Select(SosRequestMapper.ToDomain);
+    }
+
+    public async Task<List<SosRequestModel>> GetByBoundsAsync(
+        double minLat,
+        double maxLat,
+        double minLng,
+        double maxLng,
+        IReadOnlyCollection<SosRequestStatus>? statuses = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _unitOfWork.GetRepository<SosRequest>()
+            .AsQueryable(tracked: false)
+            .Where(x => x.Location != null
+                && x.Location.Y >= minLat
+                && x.Location.Y <= maxLat
+                && x.Location.X >= minLng
+                && x.Location.X <= maxLng);
+
+        if (statuses is { Count: > 0 })
+        {
+            var statusNames = statuses
+                .Select(x => x.ToString())
+                .Distinct()
+                .ToArray();
+
+            query = query.Where(x => x.Status != null && statusNames.Contains(x.Status));
+        }
+
+        var entities = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return entities
+            .Select(SosRequestMapper.ToDomain)
+            .ToList();
     }
 
     public async Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
