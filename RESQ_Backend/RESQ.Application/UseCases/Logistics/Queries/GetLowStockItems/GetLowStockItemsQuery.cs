@@ -8,6 +8,9 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 public record GetLowStockItemsQuery(
     int? DepotId,
     string? WarningLevel = null,
-    bool IncludeUnconfigured = false
+    bool IncludeUnconfigured = false,
+    List<int>? CategoryIds = null,
+    int PageNumber = 1,
+    int PageSize = 20
 ) : IRequest<LowStockChartResponseDto>;
 

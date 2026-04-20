@@ -222,6 +222,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<DepotRealtimeOutboxDispatcherBackgroundService>();
         services.AddHostedService<DepotRealtimeDeadLetterRetryBackgroundService>();
         services.AddHostedService<SupplyRequestDeadlineBackgroundService>();
+        services.AddHostedService<InventoryItemModelAlertBackgroundService>();
         services.AddHostedService<AssemblyCheckInDeadlineBackgroundService>();
         return services;
     }

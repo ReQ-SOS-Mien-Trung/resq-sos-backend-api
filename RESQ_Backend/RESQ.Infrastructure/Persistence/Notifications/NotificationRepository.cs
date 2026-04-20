@@ -113,4 +113,23 @@ public class NotificationRepository(IUnitOfWork unitOfWork) : INotificationRepos
 
         await _unitOfWork.SaveAsync();
     }
+
+    public async Task<bool> HasRecentForUserAsync(
+        Guid userId,
+        string type,
+        string title,
+        DateTime sinceUtc,
+        CancellationToken ct = default)
+    {
+        return await _unitOfWork.Set<UserNotification>()
+            .Include(x => x.Notification)
+            .AnyAsync(x =>
+                x.UserId == userId
+                && x.Notification != null
+                && x.Notification.Type == type
+                && x.Notification.Title == title
+                && x.Notification.CreatedAt.HasValue
+                && x.Notification.CreatedAt.Value >= sinceUtc,
+                ct);
+    }
 }

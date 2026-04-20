@@ -15,6 +15,8 @@ using RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ConfirmSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.CreateSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ManageMyDepotThresholds;
+using RESQ.Application.UseCases.Logistics.Commands.MarkReusableItemAvailable;
+using RESQ.Application.UseCases.Logistics.Commands.MarkReusableItemMaintenance;
 using RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.RejectSupplyRequest;
 using RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
@@ -36,6 +38,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotItemModelAlerts;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyPickupHistoryActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyReturnHistoryActivities;
@@ -275,9 +278,19 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     public async Task<IActionResult> GetLowStockItems(
         [FromQuery] int? depotId = null,
         [FromQuery] string? warningLevel = null,
-        [FromQuery] bool includeUnconfigured = false)
+        [FromQuery] bool includeUnconfigured = false,
+        [FromQuery(Name = "categoryCode")] List<ItemCategoryCode>? categoryCodes = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
     {
-        var result = await _mediator.Send(new GetLowStockItemsQuery(depotId, warningLevel, includeUnconfigured));
+        var categoryIds = await ResolveCategoryIdsAsync(categoryCodes, HttpContext.RequestAborted);
+        var result = await _mediator.Send(new GetLowStockItemsQuery(
+            depotId,
+            warningLevel,
+            includeUnconfigured,
+            categoryIds,
+            pageNumber,
+            pageSize));
         return Ok(result);
     }
 
@@ -291,10 +304,21 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
     public async Task<IActionResult> GetMyDepotLowStockItems(
         [FromQuery] int depotId,
         [FromQuery] string? warningLevel = null,
-        [FromQuery] bool includeUnconfigured = false)
+        [FromQuery] bool includeUnconfigured = false,
+        [FromQuery(Name = "categoryCode")] List<ItemCategoryCode>? categoryCodes = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
     {
         var userId = GetCurrentUserId();
-        var result = await _mediator.Send(new GetMyDepotLowStockQuery(userId, warningLevel, includeUnconfigured, depotId));
+        var categoryIds = await ResolveCategoryIdsAsync(categoryCodes, HttpContext.RequestAborted);
+        var result = await _mediator.Send(new GetMyDepotLowStockQuery(
+            userId,
+            warningLevel,
+            includeUnconfigured,
+            depotId,
+            categoryIds,
+            pageNumber,
+            pageSize));
         return Ok(result);
     }
 
@@ -1034,7 +1058,97 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         return Ok(result);
     }
 
-    /// <summary>[Manager] Xem danh sách lô hàng sắp hết hạn hoặc đã hết hạn tại kho.</summary>
+    /// <summary>[Manager] Tra cứu record đồ tái sử dụng của một kho cụ thể theo route depotId, bắt buộc itemModelId, có phân trang và tìm kiếm serial number. Hỗ trợ nhập nhiều serial trong một ô, phân tách bằng dấu phẩy để lọc OR.</summary>
+    [HttpGet("depot/{depotId:int}/reusable-units/search")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
+    [ProducesResponseType(typeof(PagedResult<ReusableUnitDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SearchReusableItemRecords(
+        [FromRoute] int depotId,
+        [FromQuery] int itemModelId,
+        [FromQuery] string? serialNumber,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        if (depotId <= 0)
+            throw new BadRequestException("depotId là bắt buộc và phải lớn hơn 0.");
+
+        if (itemModelId <= 0)
+            throw new BadRequestException("itemModelId là bắt buộc và phải lớn hơn 0.");
+
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyDepotReusableUnitsQuery
+        {
+            UserId = userId,
+            DepotId = depotId,
+            ItemModelId = itemModelId,
+            SerialNumber = serialNumber,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Chuyển trạng thái vật phẩm tái sử dụng của một kho cụ thể sang bảo trì. Chỉ cho phép khi vật phẩm đang ở trạng thái Available.</summary>
+    [HttpPatch("depot/{depotId:int}/reusables/{itemId:int}/maintenance")]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+    [ProducesResponseType(typeof(MarkReusableItemMaintenanceResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> MarkReusableItemMaintenance(int depotId, int itemId, [FromBody] MarkReusableItemMaintenanceRequest? request = null)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new MarkReusableItemMaintenanceCommand(
+            userId,
+            depotId,
+            itemId,
+            request?.Note));
+
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Hoàn tất bảo trì và chuyển vật phẩm tái sử dụng của một kho cụ thể về lại Available. Chỉ cho phép khi vật phẩm đang ở trạng thái Maintenance.</summary>
+    [HttpPatch("depot/{depotId:int}/reusables/{itemId:int}/available")]
+    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+    [ProducesResponseType(typeof(MarkReusableItemAvailableResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> MarkReusableItemAvailable(int depotId, int itemId, [FromBody] MarkReusableItemAvailableRequest? request = null)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new MarkReusableItemAvailableCommand(
+            userId,
+            depotId,
+            itemId,
+            request?.Note));
+
+        return Ok(result);
+    }
+
+    /// <summary>[Manager] Danh sách cảnh báo theo item model: đồ sắp hết hạn và đồ đến kỳ bảo trì tại kho mình quản lý.</summary>
+    [HttpGet("my-depot/item-model-alerts")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
+    [ProducesResponseType(typeof(PagedResult<DepotItemModelAlertDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyDepotItemModelAlerts(
+        [FromQuery] int? depotId = null,
+        [FromQuery] string? alertType = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _mediator.Send(new GetMyDepotItemModelAlertsQuery
+        {
+            UserId = userId,
+            DepotId = depotId,
+            AlertType = alertType,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        });
+
+        return Ok(result);
+    }
+
     [HttpGet("my-depot/expiring-lots")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(List<ExpiringLotDto>), StatusCodes.Status200OK)]

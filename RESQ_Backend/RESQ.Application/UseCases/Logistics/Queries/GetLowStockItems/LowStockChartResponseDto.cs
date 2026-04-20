@@ -16,6 +16,12 @@ public class LowStockChartResponseDto
 
     /// <summary>Danh sách chi tiết từng vật phẩm - dùng cho data table.</summary>
     public List<LowStockItemDto> Items { get; set; } = new();
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+    public int TotalItemCount { get; set; }
+    public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling((double)TotalItemCount / PageSize);
+    public bool HasPreviousPage => PageNumber > 1;
+    public bool HasNextPage => PageNumber < TotalPages;
 }
 
 public class LowStockSummaryDto
@@ -57,8 +63,15 @@ public class LowStockByCategoryDto
 /// <summary>Helper tổng hợp flat list thành chart response.</summary>
 internal static class LowStockChartBuilder
 {
-    internal static LowStockChartResponseDto Build(List<LowStockItemDto> items)
+    internal static LowStockChartResponseDto Build(List<LowStockItemDto> items, int pageNumber, int pageSize)
     {
+        var safePageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        var safePageSize = pageSize <= 0 ? 20 : pageSize;
+        var pagedItems = items
+            .Skip((safePageNumber - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToList();
+
         return new LowStockChartResponseDto
         {
             Summary = new LowStockSummaryDto
@@ -95,7 +108,10 @@ internal static class LowStockChartBuilder
                 })
                 .OrderBy(x => x.CategoryId)
                 .ToList(),
-            Items = items
+            Items = pagedItems,
+            PageNumber = safePageNumber,
+            PageSize = safePageSize,
+            TotalItemCount = items.Count
         };
     }
 }
