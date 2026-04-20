@@ -424,16 +424,6 @@ public partial class ResQDbContext : DbContext
                 .HasFilter("scope_type = 'DEPOT_ITEM' AND is_active = true")
                 .IsUnique();
 
-            entity.HasData(new InventoryStockThresholdConfig
-            {
-                Id = 1,
-                ScopeType = "GLOBAL",
-                MinimumThreshold = 100,
-                IsActive = true,
-                UpdatedBy = null,
-                UpdatedAt = new DateTime(2026, 3, 25, 0, 0, 0, DateTimeKind.Utc),
-                RowVersion = 1
-            });
         });
 
         modelBuilder.Entity<InventoryStockThresholdConfigHistory>(entity =>
@@ -448,13 +438,6 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<StockWarningBandConfig>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("stock_warning_band_config_pkey");
-            entity.HasData(new StockWarningBandConfig
-            {
-                Id = 1,
-                BandsJson = "[{\"name\":\"CRITICAL\",\"from\":0.0,\"to\":0.25},{\"name\":\"MEDIUM\",\"from\":0.25,\"to\":0.5},{\"name\":\"LOW\",\"from\":0.5,\"to\":0.8},{\"name\":\"OK\",\"from\":0.8,\"to\":null}]",
-                UpdatedBy = null,
-                UpdatedAt = new DateTime(2026, 3, 30, 0, 0, 0, DateTimeKind.Utc)
-            });
         });
 
         modelBuilder.Entity<DepotRealtimeOutbox>(entity =>
@@ -554,13 +537,6 @@ public partial class ResQDbContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("target_groups_pkey");
             entity.HasIndex(e => e.Name).IsUnique().HasDatabaseName("target_groups_name_key");
-            entity.HasData(
-                new TargetGroup { Id = 1, Name = "Children" },
-                new TargetGroup { Id = 2, Name = "Elderly" },
-                new TargetGroup { Id = 3, Name = "Pregnant" },
-                new TargetGroup { Id = 4, Name = "Adult" },
-                new TargetGroup { Id = 5, Name = "Rescuer" }
-            );
         });
 
         modelBuilder.Entity<ItemModel>()

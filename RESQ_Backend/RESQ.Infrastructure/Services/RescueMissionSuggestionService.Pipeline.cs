@@ -903,6 +903,7 @@ public partial class RescueMissionSuggestionService
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
         await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
         await EnsureReusableReturnActivitiesAsync(result.SuggestedActivities, cancellationToken);
+        await HydrateSupplyPlanningSnapshotsAsync(result.SuggestedActivities, cancellationToken);
         await BackfillDestinationInfoAsync(result.SuggestedActivities, nearbyDepots ?? [], sosRequests, cancellationToken);
         BackfillShortageItemIds(result.SupplyShortages, nearbyDepots ?? []);
         ReconcileSupplyShortagesWithInventory(result.SupplyShortages, nearbyDepots ?? [], result.SuggestedActivities);

@@ -1,4 +1,5 @@
 using System.Reflection;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Services;
 
@@ -278,6 +279,124 @@ public class RescueMissionSuggestionServiceInternalTests
 
         Assert.Contains("nhi\u1EC7m v\u1EE5 c\u1EE9u h\u1ED9/c\u1EA5p c\u1EE9u cho SOS #15", warning);
         Assert.Contains("nhi\u1EC7m v\u1EE5 c\u1EE9u tr\u1EE3/c\u1EA5p ph\u00E1t cho SOS #15", warning);
+    }
+
+    [Fact]
+    public void HydrateReturnSuppliesFromCollectSnapshots_CopiesReusableUnitsFromPlannedPickup()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                Step = 1,
+                ActivityType = "COLLECT_SUPPLIES",
+                DepotId = 1,
+                SuggestedTeam = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" },
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 105,
+                        ItemName = "Ca no cuu ho",
+                        Quantity = 2,
+                        Unit = "chiec",
+                        PlannedPickupReusableUnits =
+                        [
+                            new SupplyExecutionReusableUnitDto { ReusableItemId = 501, ItemModelId = 105, ItemName = "Ca no cuu ho", SerialNumber = "CN-001", Condition = "Good" },
+                            new SupplyExecutionReusableUnitDto { ReusableItemId = 502, ItemModelId = 105, ItemName = "Ca no cuu ho", SerialNumber = "CN-002", Condition = "Fair" }
+                        ]
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 2,
+                ActivityType = "RETURN_SUPPLIES",
+                DepotId = 1,
+                SuggestedTeam = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" },
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 105,
+                        ItemName = "Ca no cuu ho",
+                        Quantity = 2,
+                        Unit = "chiec"
+                    }
+                ]
+            }
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "HydrateReturnSuppliesFromCollectSnapshots", activities);
+
+        var returnSupply = Assert.Single(activities[1].SuppliesToCollect!);
+        Assert.NotNull(returnSupply.ExpectedReturnUnits);
+        Assert.Equal(["CN-001", "CN-002"], returnSupply.ExpectedReturnUnits!.Select(unit => unit.SerialNumber ?? string.Empty).ToArray());
+    }
+
+    [Fact]
+    public void HydrateReturnSuppliesFromCollectSnapshots_CopiesOnlyReturnedConsumableQuantityByLot()
+    {
+        var receivedDate = new DateTime(2026, 4, 20, 0, 0, 0, DateTimeKind.Utc);
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                Step = 1,
+                ActivityType = "COLLECT_SUPPLIES",
+                DepotId = 1,
+                SuggestedTeam = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" },
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Nuoc khoang",
+                        Quantity = 9,
+                        Unit = "chai",
+                        PlannedPickupLotAllocations =
+                        [
+                            new SupplyExecutionLotDto { LotId = 7001, QuantityTaken = 5, ReceivedDate = receivedDate, RemainingQuantityAfterExecution = 95 },
+                            new SupplyExecutionLotDto { LotId = 7002, QuantityTaken = 4, ReceivedDate = receivedDate.AddDays(1), RemainingQuantityAfterExecution = 96 }
+                        ]
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 2,
+                ActivityType = "RETURN_SUPPLIES",
+                DepotId = 1,
+                SuggestedTeam = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" },
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Nuoc khoang",
+                        Quantity = 6,
+                        Unit = "chai"
+                    }
+                ]
+            }
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "HydrateReturnSuppliesFromCollectSnapshots", activities);
+
+        var returnSupply = Assert.Single(activities[1].SuppliesToCollect!);
+        Assert.NotNull(returnSupply.ExpectedReturnLotAllocations);
+        Assert.Collection(
+            returnSupply.ExpectedReturnLotAllocations!,
+            lot =>
+            {
+                Assert.Equal(7001, lot.LotId);
+                Assert.Equal(5, lot.QuantityTaken);
+            },
+            lot =>
+            {
+                Assert.Equal(7002, lot.LotId);
+                Assert.Equal(1, lot.QuantityTaken);
+            });
     }
 
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)

@@ -6,7 +6,6 @@ using RESQ.Application.Extensions;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Extensions;
 using RESQ.Infrastructure.Persistence.Context;
-using RESQ.Infrastructure.Persistence.Seeding;
 using RESQ.Presentation.Extensions;
 using RESQ.Presentation.Hubs;
 using RESQ.Presentation.Middlewares;
@@ -66,7 +65,7 @@ builder.Services.AddCors(options =>
 // Swagger + JWT support
 builder.Services.AddSwaggerGen(c =>
 {
-    // Dùng full type name làm schemaId để tránh xung đột khi có 2 class cùng tên ở namespace khác nhau
+    // DÃ¹ng full type name lÃ m schemaId Ä‘á»ƒ trÃ¡nh xung Ä‘á»™t khi cÃ³ 2 class cÃ¹ng tÃªn á»Ÿ namespace khÃ¡c nhau
     c.CustomSchemaIds(type => type.FullName);
 
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -112,16 +111,16 @@ builder.Services.AddSwaggerGen(c =>
 // Health check
 builder.Services.AddHealthChecks();
 
-// Firebase Admin SDK initialization - đọc từ appsettings section "Firebase"
+// Firebase Admin SDK initialization - Ä‘á»c tá»« appsettings section "Firebase"
 if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 {
     var fb = builder.Configuration.GetSection("Firebase");
 
-    // Replace literal \n (2 chars) thành newline thật - phòng trường hợp configuration
-    // không unescape JSON escape sequences (xảy ra trên một số cloud platforms)
+    // Replace literal \n (2 chars) thÃ nh newline tháº­t - phÃ²ng trÆ°á»ng há»£p configuration
+    // khÃ´ng unescape JSON escape sequences (xáº£y ra trÃªn má»™t sá»‘ cloud platforms)
     var privateKey = (fb["PrivateKey"] ?? "").Replace("\\n", "\n");
 
-    // Dùng Dictionary để đảm bảo tên key JSON được giữ nguyên, không bị naming policy đổi
+    // DÃ¹ng Dictionary Ä‘á»ƒ Ä‘áº£m báº£o tÃªn key JSON Ä‘Æ°á»£c giá»¯ nguyÃªn, khÃ´ng bá»‹ naming policy Ä‘á»•i
     var credentialDict = new Dictionary<string, string?>
     {
         ["type"]                        = fb["Type"],
@@ -152,7 +151,7 @@ if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
 
-// -- Memory cache (dùng bởi PermissionAuthorizationHandler) --------------
+// -- Memory cache (dÃ¹ng bá»Ÿi PermissionAuthorizationHandler) --------------
 builder.Services.AddMemoryCache();
 
 // -- Dynamic Permission Authorization ------------------------------------
@@ -163,6 +162,7 @@ builder.Services.AddPermissionAuthorization();
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"]
     ?? throw new InvalidOperationException("JWT SecretKey is not configured");
+var bootstrapDatabaseOnStartup = builder.Configuration.GetValue<bool>("Database:BootstrapOnStartup");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -171,9 +171,9 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    // .NET 8 mặc định dùng JsonWebTokenHandler với MapInboundClaims = false,
-    // khiến claim "sub" trong JWT KHÔNG được map thành ClaimTypes.NameIdentifier.
-    // Bật lại để User.FindFirst(ClaimTypes.NameIdentifier) hoạt động đúng.
+    // .NET 8 máº·c Ä‘á»‹nh dÃ¹ng JsonWebTokenHandler vá»›i MapInboundClaims = false,
+    // khiáº¿n claim "sub" trong JWT KHÃ”NG Ä‘Æ°á»£c map thÃ nh ClaimTypes.NameIdentifier.
+    // Báº­t láº¡i Ä‘á»ƒ User.FindFirst(ClaimTypes.NameIdentifier) hoáº¡t Ä‘á»™ng Ä‘Ãºng.
     options.MapInboundClaims = true;
 
     options.TokenValidationParameters = new TokenValidationParameters
@@ -213,11 +213,17 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-InitializeDatabase(app);
-
-if (IsDatabaseSeedOnlyMode(args))
+if (bootstrapDatabaseOnStartup)
 {
-    return;
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("DatabaseBootstrap");
+    var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
+
+    logger.LogInformation("Ensuring RESQ database is created and seeded.");
+    var created = await dbContext.Database.EnsureCreatedAsync();
+    await RESQ.Infrastructure.Extensions.ServiceCollectionExtensions.RunSeedAsync(dbContext);
+    logger.LogInformation("Database bootstrap finished. Created={Created}", created);
 }
 
 // Middleware pipeline
@@ -249,91 +255,5 @@ app.MapHub<DashboardHub>("/hubs/dashboard");
 app.MapHub<OperationalHub>("/hubs/operational");
 
 app.Run();
-
-static bool IsDatabaseSeedOnlyMode(string[] args)
-{
-    return args.Any(arg =>
-        string.Equals(arg, "seed", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(arg, "--seed-only", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(arg, "--migrate-seed", StringComparison.OrdinalIgnoreCase));
-}
-
-static void InitializeDatabase(WebApplication app)
-{
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
-    var hasMigrations = dbContext.Database.GetMigrations().Any();
-
-    if (hasMigrations)
-    {
-        // Guard against the "relation already exists" error that occurs when the schema
-        // was partially applied (e.g. app crashed mid-migration) but EF never recorded
-        // the migration in __EFMigrationsHistory.
-        // Strategy: if our sentinel sequence exists → schema is already in place →
-        // mark all un-recorded migrations as applied before calling Migrate().
-        RecoverPartialMigrations(dbContext);
-        dbContext.Database.Migrate();
-    }
-    else
-    {
-        dbContext.Database.EnsureCreated();
-    }
-
-    // Gọi seeder SAU migrate/EnsureCreated để tránh EF nested execution strategy conflict
-    RESQ.Infrastructure.Extensions.ServiceCollectionExtensions.RunSeedAsync(dbContext)
-        .GetAwaiter().GetResult();
-}
-
-// If the schema already exists but __EFMigrationsHistory is missing or incomplete
-// (e.g. after a crash between DDL execution and history write), insert the missing
-// migration records so EF's Migrate() skips those DDL statements.
-static void RecoverPartialMigrations(ResQDbContext dbContext)
-{
-    try
-    {
-        // Check for our sentinel object that gets created early in the first migration.
-        var conn = dbContext.Database.GetDbConnection();
-        conn.Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-            SELECT COUNT(1) FROM information_schema.sequences
-            WHERE sequence_schema = 'public'
-              AND sequence_name    = 'depot_realtime_version_seq'";
-        var exists = (long)(cmd.ExecuteScalar() ?? 0L) > 0;
-        conn.Close();
-
-        if (!exists) return; // Fresh DB — let Migrate() do its job normally.
-
-        // Schema is already present. Ensure __EFMigrationsHistory exists and
-        // contains records for every migration that's already been applied.
-        dbContext.Database.ExecuteSqlRaw(@"
-            CREATE TABLE IF NOT EXISTS ""__EFMigrationsHistory"" (
-                ""MigrationId""    character varying(150) NOT NULL,
-                ""ProductVersion"" character varying(32)  NOT NULL,
-                CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY (""MigrationId"")
-            )");
-
-        var productVersion = (typeof(Microsoft.EntityFrameworkCore.DbContext).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion ?? "9.0.0").Split('+')[0];
-
-        foreach (var migrationId in dbContext.Database.GetMigrations())
-        {
-            // migrationId is an internal EF-generated constant (e.g. "20260417103131_AddNewSeeds"),
-            // not user input — safe to interpolate directly.
-#pragma warning disable EF1002
-            dbContext.Database.ExecuteSqlRaw($"""
-                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-                VALUES ('{migrationId}', '{productVersion}')
-                ON CONFLICT DO NOTHING
-                """);
-#pragma warning restore EF1002
-        }
-    }
-    catch
-    {
-        // Non-fatal: if this check itself fails, let Migrate() attempt normally.
-    }
-}
 
 public partial class Program;

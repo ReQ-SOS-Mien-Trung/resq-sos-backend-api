@@ -115,6 +115,81 @@ public class ReturnSupplyActivityQueryHandlerTests
     }
 
     [Fact]
+    public async Task UpcomingReturnsHandler_MapsExpectedAndReturnedLots_ForConsumableReturnFlow()
+    {
+        const int depotId = 12;
+        const int itemId = 15;
+
+        var expectedLot = new SupplyExecutionLotDto
+        {
+            LotId = 701,
+            QuantityTaken = 2,
+            ReceivedDate = new DateTime(2026, 4, 18, 0, 0, 0, DateTimeKind.Utc),
+            ExpiredDate = new DateTime(2027, 4, 18, 0, 0, 0, DateTimeKind.Utc)
+        };
+
+        var returnedLot = new SupplyExecutionLotDto
+        {
+            LotId = 701,
+            QuantityTaken = 1,
+            ReceivedDate = expectedLot.ReceivedDate,
+            ExpiredDate = expectedLot.ExpiredDate
+        };
+
+        var handler = new GetMyUpcomingReturnActivitiesQueryHandler(
+            new StubManagerDepotAccessService(depotId),
+            new StubDepotInventoryRepository { ActiveDepotId = depotId },
+            new StubItemModelMetadataRepository(),
+            new StubReturnSupplyActivityRepository
+            {
+                UpcomingResult = new PagedResult<UpcomingReturnActivityListItem>(
+                    [
+                        new UpcomingReturnActivityListItem
+                        {
+                            DepotId = depotId,
+                            DepotName = "Kho test",
+                            MissionId = 101,
+                            ActivityId = 440,
+                            ActivityType = "RETURN_SUPPLIES",
+                            Status = MissionActivityStatus.PendingConfirmation.ToString(),
+                            Items =
+                            [
+                                new ReturnSupplyActivityItemDetail
+                                {
+                                    ItemId = itemId,
+                                    ItemName = "Nuoc khoang thien nhien 500ml",
+                                    Quantity = 0,
+                                    Unit = "chai",
+                                    ExpectedReturnLotAllocations = [expectedLot],
+                                    ReturnedLotAllocations = [returnedLot]
+                                }
+                            ]
+                        }
+                    ],
+                    1,
+                    1,
+                    20)
+            });
+
+        var result = await handler.Handle(new GetMyUpcomingReturnActivitiesQuery(Guid.NewGuid())
+        {
+            Status = MissionActivityStatus.PendingConfirmation,
+            PageNumber = 1,
+            PageSize = 20
+        }, CancellationToken.None);
+
+        var activity = Assert.Single(result.Items);
+        var item = Assert.Single(activity.Items);
+        var mappedExpectedLot = Assert.Single(item.ExpectedReturnLotAllocations);
+        var mappedReturnedLot = Assert.Single(item.ReturnedLotAllocations);
+
+        Assert.Equal(2, item.Quantity);
+        Assert.Equal(expectedLot.LotId, mappedExpectedLot.LotId);
+        Assert.Equal(expectedLot.QuantityTaken, mappedExpectedLot.QuantityTaken);
+        Assert.Equal(returnedLot.QuantityTaken, mappedReturnedLot.QuantityTaken);
+    }
+
+    [Fact]
     public async Task ReturnHistoryHandler_ThrowsNotFound_WhenUserHasNoActiveDepot()
     {
         var handler = new GetMyReturnHistoryActivitiesQueryHandler(
@@ -232,12 +307,86 @@ public class ReturnSupplyActivityQueryHandlerTests
         Assert.Equal("Kho Huế", activity.DepotName);
         Assert.Equal("Nguyen Van A", activity.CompletedByName);
         Assert.Equal(imageUrl, item.ImageUrl);
-        Assert.Equal(2, item.Quantity);
+        Assert.Equal(1, item.Quantity);
         Assert.Equal(1, item.ActualReturnedQuantity);
         Assert.Single(item.ExpectedReturnUnits);
         Assert.Equal("D1-R004-001", item.ExpectedReturnUnits[0].SerialNumber);
         Assert.Single(item.ReturnedReusableUnits);
         Assert.Equal("Returned with note", item.ReturnedReusableUnits[0].Note);
+    }
+
+    [Fact]
+    public async Task ReturnHistoryHandler_MapsExpectedAndReturnedLots_ForConsumables()
+    {
+        const int depotId = 12;
+        const int itemId = 15;
+
+        var expectedLot = new SupplyExecutionLotDto
+        {
+            LotId = 701,
+            QuantityTaken = 2,
+            ReceivedDate = new DateTime(2026, 4, 18, 0, 0, 0, DateTimeKind.Utc),
+            ExpiredDate = new DateTime(2027, 4, 18, 0, 0, 0, DateTimeKind.Utc)
+        };
+
+        var returnedLot = new SupplyExecutionLotDto
+        {
+            LotId = 701,
+            QuantityTaken = 2,
+            ReceivedDate = expectedLot.ReceivedDate,
+            ExpiredDate = expectedLot.ExpiredDate
+        };
+
+        var handler = new GetMyReturnHistoryActivitiesQueryHandler(
+            new StubManagerDepotAccessService(depotId),
+            new StubDepotInventoryRepository { ActiveDepotId = depotId },
+            new StubItemModelMetadataRepository(),
+            new StubReturnSupplyActivityRepository
+            {
+                HistoryResult = new PagedResult<ReturnHistoryActivityListItem>(
+                    [
+                        new ReturnHistoryActivityListItem
+                        {
+                            DepotId = depotId,
+                            DepotName = "Kho Huế",
+                            MissionId = 101,
+                            ActivityId = 440,
+                            ActivityType = "RETURN_SUPPLIES",
+                            Status = "Succeed",
+                            Items =
+                            [
+                                new ReturnSupplyActivityItemDetail
+                                {
+                                    ItemId = itemId,
+                                    ItemName = "Nuoc khoang thien nhien 500ml",
+                                    Quantity = 0,
+                                    Unit = "chai",
+                                    ActualReturnedQuantity = 2,
+                                    ExpectedReturnLotAllocations = [expectedLot],
+                                    ReturnedLotAllocations = [returnedLot]
+                                }
+                            ]
+                        }
+                    ],
+                    1,
+                    1,
+                    20)
+            });
+
+        var result = await handler.Handle(new GetMyReturnHistoryActivitiesQuery(Guid.NewGuid())
+        {
+            PageNumber = 1,
+            PageSize = 20
+        }, CancellationToken.None);
+
+        var activity = Assert.Single(result.Items);
+        var item = Assert.Single(activity.Items);
+        var mappedExpectedLot = Assert.Single(item.ExpectedReturnLotAllocations);
+        var mappedReturnedLot = Assert.Single(item.ReturnedLotAllocations);
+
+        Assert.Equal(2, item.Quantity);
+        Assert.Equal(expectedLot.LotId, mappedExpectedLot.LotId);
+        Assert.Equal(returnedLot.QuantityTaken, mappedReturnedLot.QuantityTaken);
     }
 
     private sealed class StubReturnSupplyActivityRepository : IReturnSupplyActivityRepository
@@ -400,8 +549,8 @@ public class ReturnSupplyActivityQueryHandlerTests
 
         public Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
-        public Task DisposeConsumableLotAsync(int lotId, int quantity, string reason, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task DecommissionReusableItemAsync(int reusableItemId, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DisposeConsumableLotAsync(int depotId, int lotId, int quantity, string reason, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DecommissionReusableItemAsync(int depotId, int reusableItemId, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<List<ExpiringLotModel>> GetExpiringLotsAsync(int depotId, int daysAhead, CancellationToken cancellationToken = default) => Task.FromResult(new List<ExpiringLotModel>());
     }
 

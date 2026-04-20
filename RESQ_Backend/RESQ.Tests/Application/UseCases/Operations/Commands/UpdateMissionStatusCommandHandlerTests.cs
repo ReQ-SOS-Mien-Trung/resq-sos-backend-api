@@ -232,6 +232,7 @@ public class UpdateMissionStatusCommandHandlerTests
 
         var lifecycleSyncService = new RescueTeamMissionLifecycleSyncService(
             rescueTeamRepository,
+            missionTeamRepository,
             operationalHubService,
             NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
 

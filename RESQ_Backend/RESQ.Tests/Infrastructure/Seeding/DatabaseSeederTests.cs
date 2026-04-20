@@ -8,6 +8,7 @@ using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Seeding;
+using RESQ.Application.Services;
 using System.Text.Json;
 
 namespace RESQ.Tests.Infrastructure.Seeding;
@@ -39,7 +40,7 @@ public class DatabaseSeederTests
         Assert.Equal(1900, firstCounts.Messages);
         Assert.Equal(622, firstCounts.SupplyInventories);
         Assert.Equal(95, firstCounts.SupplyRequests);
-        Assert.Equal(1377, firstCounts.InventoryLogs);
+        Assert.Equal(1379, firstCounts.InventoryLogs);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v1-2026-04-16"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
@@ -148,6 +149,49 @@ public class DatabaseSeederTests
         Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg", depotHue.ImageUrl);
         Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg", depotDaNang.ImageUrl);
         Assert.Equal("https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg", depotHaTinh.ImageUrl);
+
+        var hueUpcomingReturns = await context.MissionActivities
+            .Where(activity => activity.DepotId == depotHue.Id
+                && activity.ActivityType == "RETURN_SUPPLIES"
+                && activity.Status == "PendingConfirmation")
+            .OrderBy(activity => activity.AssignedAt)
+            .ThenBy(activity => activity.Id)
+            .ToListAsync();
+        Assert.Equal(3, hueUpcomingReturns.Count);
+
+        var snapshotJsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var hueReturnSnapshots = hueUpcomingReturns
+            .Select(activity => JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items ?? "[]", snapshotJsonOptions) ?? [])
+            .ToList();
+
+        Assert.All(
+            hueReturnSnapshots[0],
+            item =>
+            {
+                Assert.NotEmpty(item.ExpectedReturnUnits ?? []);
+                Assert.Empty(item.ExpectedReturnLotAllocations ?? []);
+            });
+        Assert.All(
+            hueReturnSnapshots[1],
+            item =>
+            {
+                Assert.NotEmpty(item.ExpectedReturnLotAllocations ?? []);
+                Assert.Empty(item.ExpectedReturnUnits ?? []);
+            });
+        Assert.Contains(hueReturnSnapshots[2], item => (item.ExpectedReturnLotAllocations ?? []).Count > 0);
+        Assert.Contains(hueReturnSnapshots[2], item => (item.ExpectedReturnUnits ?? []).Count > 0);
+
+        var expectedReusableUnitIds = hueReturnSnapshots
+            .SelectMany(items => items)
+            .SelectMany(item => item.ExpectedReturnUnits ?? [])
+            .Select(unit => unit.ReusableItemId)
+            .ToList();
+        Assert.Equal(expectedReusableUnitIds.Count, expectedReusableUnitIds.Distinct().Count());
+        var expectedReusableUnits = await context.ReusableItems
+            .Where(item => expectedReusableUnitIds.Contains(item.Id))
+            .ToListAsync();
+        Assert.Equal(expectedReusableUnitIds.Count, expectedReusableUnits.Count);
+        Assert.All(expectedReusableUnits, unit => Assert.Equal("InUse", unit.Status));
 
         var depotFillRatios = await context.Depots
             .OrderBy(depot => depot.Id)
@@ -299,7 +343,64 @@ public class DatabaseSeederTests
     }
 
     [Fact]
-    public async Task DemoSeedValidator_FlagsInvalidEnumsInventoryAndChatRules()
+    public async Task SeedAsync_CreatesManager01UpcomingReturnFixturesForHueDepot()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+        var seeder = CreateSeeder(context, failOnValidationError: false);
+
+        await seeder.SeedAsync();
+
+        var depotHue = await context.Depots.SingleAsync(depot => depot.Id == 1);
+        var hueUpcomingReturns = await context.MissionActivities
+            .Where(activity => activity.DepotId == depotHue.Id
+                && activity.ActivityType == "RETURN_SUPPLIES"
+                && activity.Status == "PendingConfirmation")
+            .OrderBy(activity => activity.AssignedAt)
+            .ThenBy(activity => activity.Id)
+            .ToListAsync();
+
+        Assert.Equal(3, hueUpcomingReturns.Count);
+        Assert.DoesNotContain(hueUpcomingReturns, activity => activity.Status == "Succeed");
+
+        var snapshotJsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var hueReturnSnapshots = hueUpcomingReturns
+            .Select(activity => JsonSerializer.Deserialize<List<SupplyToCollectDto>>(activity.Items ?? "[]", snapshotJsonOptions) ?? [])
+            .ToList();
+
+        Assert.All(
+            hueReturnSnapshots[0],
+            item =>
+            {
+                Assert.NotEmpty(item.ExpectedReturnUnits ?? []);
+                Assert.Empty(item.ExpectedReturnLotAllocations ?? []);
+            });
+        Assert.All(
+            hueReturnSnapshots[1],
+            item =>
+            {
+                Assert.NotEmpty(item.ExpectedReturnLotAllocations ?? []);
+                Assert.Empty(item.ExpectedReturnUnits ?? []);
+            });
+        Assert.Contains(hueReturnSnapshots[2], item => (item.ExpectedReturnLotAllocations ?? []).Count > 0);
+        Assert.Contains(hueReturnSnapshots[2], item => (item.ExpectedReturnUnits ?? []).Count > 0);
+
+        var expectedReusableUnitIds = hueReturnSnapshots
+            .SelectMany(items => items)
+            .SelectMany(item => item.ExpectedReturnUnits ?? [])
+            .Select(unit => unit.ReusableItemId)
+            .ToList();
+        Assert.Equal(expectedReusableUnitIds.Count, expectedReusableUnitIds.Distinct().Count());
+
+        var expectedReusableUnits = await context.ReusableItems
+            .Where(item => expectedReusableUnitIds.Contains(item.Id))
+            .ToListAsync();
+        Assert.Equal(expectedReusableUnitIds.Count, expectedReusableUnits.Count);
+        Assert.All(expectedReusableUnits, unit => Assert.Equal("InUse", unit.Status));
+    }
+
+    [Fact]
+    public async Task DemoSeedValidator_FlagsInvalidEnumsClusterInventoryAndChatRules()
     {
         await using var context = CreateContext();
         await context.Database.EnsureCreatedAsync();
@@ -314,36 +415,62 @@ public class DatabaseSeederTests
             Phone = "0900000000",
             Password = "hash"
         });
-        context.SosRequests.Add(new SosRequest
-        {
-            Id = 1,
-            UserId = victimId,
-            SosType = "RESCUE",
-            PriorityLevel = "Moderate",
-            Status = "Completed",
-            Location = new Point(107.6, 16.4) { SRID = 4326 }
-        });
-        context.Missions.Add(new Mission { Id = 1, MissionType = "SUPPLY", Status = "Cancelled" });
-        context.MissionActivities.Add(new MissionActivity { Id = 1, MissionId = 1, Status = "Done" });
-        context.TeamIncidents.Add(new TeamIncident { Id = 1, Status = "Acknowledged" });
+        context.SosClusters.AddRange(
+            new SosCluster { Id = 9001, Status = "Done" },
+            new SosCluster { Id = 9002, Status = "Completed" },
+            new SosCluster { Id = 9003, Status = "InProgress" });
+        context.SosRequests.AddRange(
+            new SosRequest
+            {
+                Id = 9001,
+                ClusterId = 9001,
+                UserId = victimId,
+                SosType = "RESCUE",
+                PriorityLevel = "Moderate",
+                Status = "Completed",
+                Location = new Point(107.6, 16.4) { SRID = 4326 }
+            },
+            new SosRequest
+            {
+                Id = 9002,
+                ClusterId = 9002,
+                UserId = victimId,
+                SosType = "Rescue",
+                PriorityLevel = "High",
+                Status = "InProgress",
+                Location = new Point(107.61, 16.41) { SRID = 4326 }
+            },
+            new SosRequest
+            {
+                Id = 9003,
+                ClusterId = 9003,
+                UserId = victimId,
+                SosType = "Rescue",
+                PriorityLevel = "High",
+                Status = "Resolved",
+                Location = new Point(107.62, 16.42) { SRID = 4326 }
+            });
+        context.Missions.Add(new Mission { Id = 9001, MissionType = "SUPPLY", Status = "Cancelled" });
+        context.MissionActivities.Add(new MissionActivity { Id = 9001, MissionId = 9001, Status = "Done" });
+        context.TeamIncidents.Add(new TeamIncident { Id = 9001, Status = "Acknowledged" });
         context.SupplyInventories.Add(new SupplyInventory
         {
-            Id = 1,
+            Id = 9001,
             Quantity = 5,
             MissionReservedQuantity = 6,
             TransferReservedQuantity = 0
         });
         context.SupplyInventoryLots.Add(new SupplyInventoryLot
         {
-            Id = 1,
-            SupplyInventoryId = 1,
+            Id = 9001,
+            SupplyInventoryId = 9001,
             Quantity = 10,
             RemainingQuantity = 12,
             CreatedAt = DateTime.UtcNow
         });
         context.Conversations.Add(new Conversation
         {
-            Id = 1,
+            Id = 9001,
             VictimId = victimId,
             Status = "CoordinatorActive"
         });
@@ -354,6 +481,9 @@ public class DatabaseSeederTests
         Assert.Contains(errors, error => error.Contains("sos_requests.priority_level", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("sos_requests.status", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("sos_requests.sos_type", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("sos_clusters.status", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("Completed SOS clusters contain non-resolved SOS requests", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("SOS clusters with only resolved requests must be Completed", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("missions.mission_type", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("missions.status", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("mission_activities.status", StringComparison.Ordinal));
@@ -363,14 +493,14 @@ public class DatabaseSeederTests
         Assert.Contains(errors, error => error.Contains("missing their victim participant", StringComparison.Ordinal));
     }
 
-    private static DatabaseSeeder CreateSeeder(ResQDbContext context)
+    private static DatabaseSeeder CreateSeeder(ResQDbContext context, bool failOnValidationError = true)
     {
         var options = Options.Create(new SeedDataOptions
         {
             Profile = "Demo",
             AnchorDate = new DateOnly(2026, 4, 16),
             RandomSeed = 20260416,
-            FailOnValidationError = true
+            FailOnValidationError = failOnValidationError
         });
 
         return new DatabaseSeeder(

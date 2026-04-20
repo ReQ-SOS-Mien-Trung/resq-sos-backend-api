@@ -197,6 +197,9 @@ public class MissionActivityStatusExecutionServiceTests
         Assert.Equal(memberId, checkIn.RescuerId);
         Assert.Equal(9, rescueTeamRepository.UpdatedTeam?.AssemblyPointId);
         Assert.Equal(RescueTeamStatus.Available, rescueTeamRepository.UpdatedTeam?.Status);
+        Assert.Contains(missionTeamRepository.StatusUpdates, update =>
+            update.Id == 30
+            && update.Status == MissionTeamExecutionStatus.CompletedWaitingReport.ToString());
     }
 
     [Fact]
@@ -323,14 +326,16 @@ public class MissionActivityStatusExecutionServiceTests
         IAssemblyEventRepository? assemblyEventRepository = null)
     {
         rescueTeamRepository ??= new RecordingRescueTeamRepository(null);
+        missionTeamRepository ??= new RecordingMissionTeamRepository();
         var lifecycleSyncService = new RescueTeamMissionLifecycleSyncService(
             rescueTeamRepository,
+            missionTeamRepository,
             new StubOperationalHubService(),
             NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
 
         return new(
             activityRepository,
-            missionTeamRepository ?? new RecordingMissionTeamRepository(),
+            missionTeamRepository,
             new NoOpPersonnelQueryRepository(),
             new NoOpDepotInventoryRepository(),
             new NoOpSosRequestRepository(),
@@ -547,8 +552,8 @@ public class MissionActivityStatusExecutionServiceTests
         public Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int depotId, CancellationToken ct = default) => throw new NotImplementedException();
         public Task ZeroOutForClosureAsync(int depotId, int closureId, Guid performedBy, string? note, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task DisposeConsumableLotAsync(int lotId, int quantity, string reason, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task DecommissionReusableItemAsync(int reusableItemId, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DisposeConsumableLotAsync(int depotId, int lotId, int quantity, string reason, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DecommissionReusableItemAsync(int depotId, int reusableItemId, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<List<ExpiringLotModel>> GetExpiringLotsAsync(int depotId, int daysAhead, CancellationToken cancellationToken = default) => Task.FromResult(new List<ExpiringLotModel>());
     }
 

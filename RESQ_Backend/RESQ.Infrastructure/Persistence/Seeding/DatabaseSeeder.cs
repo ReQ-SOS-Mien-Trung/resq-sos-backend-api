@@ -8,6 +8,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
 using Npgsql;
+using RESQ.Application.Common.Constants;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Emergency;
@@ -17,8 +19,10 @@ using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Entities.Personnel;
 using RESQ.Infrastructure.Entities.System;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Infrastructure.Persistence.Context;
+using LogisticsTargetGroup = RESQ.Infrastructure.Entities.Logistics.TargetGroup;
 
 namespace RESQ.Infrastructure.Persistence.Seeding;
 
@@ -33,6 +37,16 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
     private const string DepotClosureTestDepotName = "Ủy ban MTTQVN Tỉnh Nghệ An";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly string[] ReferenceIdentityTables =
+    [
+        "roles",
+        "permissions",
+        "document_file_type_categories",
+        "document_file_types",
+        "target_groups",
+        "inventory_stock_threshold_configs",
+        "stock_warning_band_config"
+    ];
     private readonly ResQDbContext _db;
     private readonly SeedDataOptions _options;
     private readonly DemoSeedValidator _validator;
@@ -58,6 +72,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
 
         await EnsurePostGisExtensionAsync(cancellationToken);
+        await SeedReferenceDataAsync(cancellationToken);
 
         if (await _db.SystemMigrationAudits.AnyAsync(a => a.MigrationName == MarkerName, cancellationToken))
         {
@@ -225,6 +240,143 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         if (wasClosed)
         {
             await npgsqlConnection.CloseAsync();
+        }
+    }
+
+    private async Task SeedReferenceDataAsync(CancellationToken cancellationToken)
+    {
+        var referenceTimestamp = _options.AnchorDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+
+        await SeedCoreReferenceDataAsync(referenceTimestamp, cancellationToken);
+        await SeedDependentReferenceDataAsync(referenceTimestamp, cancellationToken);
+        await ResetReferenceIdentitySequencesAsync(cancellationToken);
+    }
+
+    private async Task SeedCoreReferenceDataAsync(DateTime referenceTimestamp, CancellationToken cancellationToken)
+    {
+        var existingRoleIds = await _db.Roles
+            .Select(role => role.Id)
+            .ToListAsync(cancellationToken);
+        var existingRoleIdSet = existingRoleIds.ToHashSet();
+        var roles = new[]
+        {
+            new Role { Id = RoleConstants.Admin, Name = "Admin" },
+            new Role { Id = RoleConstants.Coordinator, Name = "Coordinator" },
+            new Role { Id = RoleConstants.Rescuer, Name = "Rescuer" },
+            new Role { Id = RoleConstants.Manager, Name = "Manager" },
+            new Role { Id = RoleConstants.Victim, Name = "Victim" }
+        };
+        _db.Roles.AddRange(roles.Where(role => !existingRoleIdSet.Contains(role.Id)));
+
+        var existingPermissionIds = await _db.Permissions
+            .Select(permission => permission.Id)
+            .ToListAsync(cancellationToken);
+        var existingPermissionIdSet = existingPermissionIds.ToHashSet();
+        _db.Permissions.AddRange(PermissionSeeder.CreatePermissions()
+            .Where(permission => !existingPermissionIdSet.Contains(permission.Id)));
+
+        var existingDocumentCategoryIds = await _db.DocumentFileTypeCategories
+            .Select(category => category.Id)
+            .ToListAsync(cancellationToken);
+        var existingDocumentCategoryIdSet = existingDocumentCategoryIds.ToHashSet();
+        var documentCategories = new[]
+        {
+            new DocumentFileTypeCategory { Id = 1, Code = "RESCUE", Description = "Rescue document category" },
+            new DocumentFileTypeCategory { Id = 2, Code = "MEDICAL", Description = "Medical document category" },
+            new DocumentFileTypeCategory { Id = 3, Code = "TRANSPORTATION", Description = "Transportation document category" },
+            new DocumentFileTypeCategory { Id = 4, Code = "OTHER", Description = "Other document category" }
+        };
+        _db.DocumentFileTypeCategories.AddRange(documentCategories
+            .Where(category => !existingDocumentCategoryIdSet.Contains(category.Id)));
+
+        var existingTargetGroupIds = await _db.TargetGroups
+            .Select(targetGroup => targetGroup.Id)
+            .ToListAsync(cancellationToken);
+        var existingTargetGroupIdSet = existingTargetGroupIds.ToHashSet();
+        var targetGroups = new[]
+        {
+            new LogisticsTargetGroup { Id = 1, Name = "Children" },
+            new LogisticsTargetGroup { Id = 2, Name = "Elderly" },
+            new LogisticsTargetGroup { Id = 3, Name = "Pregnant" },
+            new LogisticsTargetGroup { Id = 4, Name = "Adult" },
+            new LogisticsTargetGroup { Id = 5, Name = "Rescuer" }
+        };
+        _db.TargetGroups.AddRange(targetGroups
+            .Where(targetGroup => !existingTargetGroupIdSet.Contains(targetGroup.Id)));
+
+        if (!await _db.InventoryStockThresholdConfigs.AnyAsync(config => config.Id == 1, cancellationToken))
+        {
+            _db.InventoryStockThresholdConfigs.Add(new InventoryStockThresholdConfig
+            {
+                Id = 1,
+                ScopeType = "GLOBAL",
+                MinimumThreshold = 100,
+                IsActive = true,
+                UpdatedBy = null,
+                UpdatedAt = referenceTimestamp,
+                RowVersion = 1
+            });
+        }
+
+        if (!await _db.StockWarningBandConfigs.AnyAsync(config => config.Id == 1, cancellationToken))
+        {
+            _db.StockWarningBandConfigs.Add(new StockWarningBandConfig
+            {
+                Id = 1,
+                BandsJson = "[{\"name\":\"CRITICAL\",\"from\":0.0,\"to\":0.25},{\"name\":\"MEDIUM\",\"from\":0.25,\"to\":0.5},{\"name\":\"LOW\",\"from\":0.5,\"to\":0.8},{\"name\":\"OK\",\"from\":0.8,\"to\":null}]",
+                UpdatedBy = null,
+                UpdatedAt = referenceTimestamp
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SeedDependentReferenceDataAsync(DateTime referenceTimestamp, CancellationToken cancellationToken)
+    {
+        var existingRolePermissionKeys = await _db.RolePermissions
+            .Select(rolePermission => new { rolePermission.RoleId, rolePermission.ClaimId })
+            .ToListAsync(cancellationToken);
+        var existingRolePermissionKeySet = existingRolePermissionKeys
+            .Select(rolePermission => (rolePermission.RoleId, rolePermission.ClaimId))
+            .ToHashSet();
+        _db.RolePermissions.AddRange(PermissionSeeder.CreateRolePermissions()
+            .Where(rolePermission => !existingRolePermissionKeySet.Contains((rolePermission.RoleId, rolePermission.ClaimId))));
+
+        var existingDocumentFileTypeIds = await _db.DocumentFileTypes
+            .Select(fileType => fileType.Id)
+            .ToListAsync(cancellationToken);
+        var existingDocumentFileTypeIdSet = existingDocumentFileTypeIds.ToHashSet();
+        _db.DocumentFileTypes.AddRange(DocumentFileTypes(referenceTimestamp)
+            .Where(fileType => !existingDocumentFileTypeIdSet.Contains(fileType.Id)));
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task ResetReferenceIdentitySequencesAsync(CancellationToken cancellationToken)
+    {
+        if (!string.Equals(
+            _db.Database.ProviderName,
+            "Npgsql.EntityFrameworkCore.PostgreSQL",
+            StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        foreach (var tableName in ReferenceIdentityTables)
+        {
+            var resetSequenceSql =
+                $"""
+                SELECT setval(
+                    pg_get_serial_sequence('{tableName}', 'id'),
+                    COALESCE((SELECT MAX(id) FROM {tableName}), 1),
+                    true)
+                WHERE pg_get_serial_sequence('{tableName}', 'id') IS NOT NULL;
+                """;
+
+            await _db.Database.ExecuteSqlRawAsync(
+                resetSequenceSql,
+                cancellationToken);
         }
     }
 
@@ -1080,6 +1232,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             });
         }
         EnsureLifeJacketReusableUnits(seed, lifeJacketModel);
+        EnsureManagerReturnFixtureReusableUnits(seed);
         _db.ReusableItems.AddRange(seed.ReusableItems);
 
         await SeedVatInvoicesAsync(seed);
@@ -1137,6 +1290,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             var area = Area(i);
             var localDate = RandomEventLocal(seed, i);
             var severity = i < 22 ? "Critical" : i < 80 ? "High" : i < 101 ? "Medium" : "Low";
+            var clusterStatus = ClusterStatusForSeedIndex(i);
             var offsets = new List<(double Lat, double Lon)>();
             for (var j = 0; j < clusterSosCounts[i]; j++)
             {
@@ -1159,8 +1313,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ElderlyCount = i % 7,
                 MedicalUrgencyScore = Math.Round(0.35 + (i % 60) / 100.0, 2),
                 CreatedAt = VnToUtc(localDate),
-                LastUpdatedAt = VnToUtc(localDate.AddHours(3)),
-                Status = i < 100 ? "InProgress" : "Pending"
+                LastUpdatedAt = VnToUtc(localDate.AddHours(clusterStatus == SosClusterStatus.Completed.ToString() ? 8 : 3)),
+                Status = clusterStatus
             };
             seed.SosClusters.Add(cluster);
 
@@ -1174,7 +1328,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 var reporterOther = !onBehalf && (i + j) % 10 == 0;
                 var reporter = reporterOther ? seed.Victims[(i * 7 + j + 11) % seed.Victims.Count] : victim;
                 var coordinator = seed.Coordinators[(i + j) % seed.Coordinators.Count];
-                var status = i < 12 ? "Pending" : i < 70 ? "Resolved" : i < 95 ? "InProgress" : i < 104 ? "Assigned" : "Cancelled";
+                var status = SosRequestStatusForClusterSeedIndex(i);
                 var people = 1 + (i + j) % 6;
                 var hasInjured = situation is "Medical" or "Landslide" || (i + j) % 11 == 0;
 
@@ -2697,6 +2851,83 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
     }
 
+    private static void EnsureManagerReturnFixtureReusableUnits(DemoSeedContext seed)
+    {
+        if (seed.Depots.Count == 0)
+        {
+            return;
+        }
+
+        var hueDepot = seed.Depots[0];
+        var reusableModelIdsWithEnoughUnits = seed.ReusableItems
+            .Where(item => item.DepotId == hueDepot.Id
+                && string.Equals(item.Status, nameof(ReusableItemStatus.Available), StringComparison.Ordinal)
+                && item.ItemModelId.HasValue
+                && seed.ItemModels.Any(model =>
+                    model.Id == item.ItemModelId.Value
+                    && string.Equals(model.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase)))
+            .GroupBy(item => item.ItemModelId!.Value)
+            .Where(group => group.Count() >= 2)
+            .Select(group => group.Key)
+            .ToHashSet();
+
+        if (reusableModelIdsWithEnoughUnits.Count >= 2)
+        {
+            return;
+        }
+
+        var existingSerials = seed.ReusableItems
+            .Where(item => item.SerialNumber != null)
+            .Select(item => item.SerialNumber!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var candidateModels = seed.ItemModels
+            .Where(model => string.Equals(model.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(model => model.Id)
+            .ToList();
+
+        foreach (var model in candidateModels)
+        {
+            if (reusableModelIdsWithEnoughUnits.Count >= 2)
+            {
+                break;
+            }
+
+            if (reusableModelIdsWithEnoughUnits.Contains(model.Id))
+            {
+                continue;
+            }
+
+            var availableCount = seed.ReusableItems.Count(item =>
+                item.DepotId == hueDepot.Id
+                && item.ItemModelId == model.Id
+                && string.Equals(item.Status, nameof(ReusableItemStatus.Available), StringComparison.Ordinal));
+
+            for (var unitIndex = availableCount; unitIndex < 2; unitIndex++)
+            {
+                var serialNumber = $"RETURN-FIXTURE-D{hueDepot.Id:00}-M{model.Id:000}-{unitIndex + 1:000}";
+                if (!existingSerials.Add(serialNumber))
+                {
+                    continue;
+                }
+
+                seed.ReusableItems.Add(new ReusableItem
+                {
+                    DepotId = hueDepot.Id,
+                    ItemModelId = model.Id,
+                    SerialNumber = serialNumber,
+                    Status = ReusableItemStatus.Available.ToString(),
+                    Condition = "Good",
+                    Note = "Demo manager01 return fixture reusable unit.",
+                    CreatedAt = seed.AnchorUtc.AddDays(-45 - unitIndex),
+                    UpdatedAt = seed.AnchorUtc.AddDays(-7 - unitIndex),
+                    IsDeleted = false
+                });
+            }
+
+            reusableModelIdsWithEnoughUnits.Add(model.Id);
+        }
+    }
+
     private static int EssentialLifeJacketQuantity(int depotIndex) =>
         50 + (35 + depotIndex * 13) % 51;
 
@@ -3130,6 +3361,142 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static IEnumerable<ServiceZone> ServiceZones(DateTime now)
         => ServiceZoneSeedData.CreateZones(now);
+
+    private static IReadOnlyList<DocumentFileType> DocumentFileTypes(DateTime now) =>
+    [
+        new DocumentFileType
+        {
+            Id = 1,
+            Code = "WATER_SAFETY_CERT",
+            Name = "Water safety certificate",
+            Description = "Certificate for basic swimming, survival and water safety capability.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 1,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 2,
+            Code = "WATER_RESCUE_CERT",
+            Name = "Water rescue certificate",
+            Description = "Professional water rescue certificate for floods and swift water.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 1,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 3,
+            Code = "TECHNICAL_RESCUE_CERT",
+            Name = "Technical rescue certificate",
+            Description = "Certificate for technical rescue equipment, rope rescue, confined spaces or collapse response.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 1,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 4,
+            Code = "DISASTER_RESPONSE_CERT",
+            Name = "Disaster response certificate",
+            Description = "Certificate for rapid response, coordination and disaster response training.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 1,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 5,
+            Code = "BASIC_FIRST_AID_CERT",
+            Name = "Basic first aid certificate",
+            Description = "Certificate for basic first aid and CPR training.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 6,
+            Code = "NURSING_PRACTICE_LICENSE",
+            Name = "Nursing practice license",
+            Description = "Professional nursing license issued by a competent authority.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 7,
+            Code = "MOTORCYCLE_LICENSE",
+            Name = "Motorcycle license",
+            Description = "Valid motorcycle driving license.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 3,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 8,
+            Code = "CAR_TRUCK_LICENSE",
+            Name = "Car or truck license",
+            Description = "Valid car, pickup or truck driving license.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 3,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 9,
+            Code = "OTHER",
+            Name = "Other",
+            Description = "Other supporting document.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 4,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 10,
+            Code = "PARAMEDIC_EMT_CERT",
+            Name = "Paramedic or EMT certificate",
+            Description = "Emergency medical technician or pre-hospital care certificate.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 11,
+            Code = "MEDICAL_DOCTOR_LICENSE",
+            Name = "Medical doctor license",
+            Description = "Professional medical practice license for doctors.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        },
+        new DocumentFileType
+        {
+            Id = 12,
+            Code = "INLAND_WATERWAY_LICENSE",
+            Name = "Inland waterway license",
+            Description = "License for operating motorized inland waterway vehicles.",
+            IsActive = true,
+            DocumentFileTypeCategoryId = 3,
+            CreatedAt = now,
+            UpdatedAt = now
+        }
+    ];
 
     private static IReadOnlyList<ItemTemplate> BaseItemModels()
     {
@@ -3623,17 +3990,29 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         if (seed.Depots.Count == 0) return;
         var hueDepotId = seed.Depots[0].Id; // Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế (manager@resq.vn)
+        var onGoingMissionIds = seed.Missions
+            .Where(mission => mission.Status == "OnGoing")
+            .Select(mission => mission.Id)
+            .ToHashSet();
+        var inProgressMissionTeamIds = seed.MissionTeams
+            .Where(team => team.Status == "InProgress")
+            .Select(team => team.Id)
+            .ToHashSet();
 
-        // 1. One RETURN_SUPPLIES → PendingConfirmation  (for upcoming-returns + confirm-return)
-        var returnActivity = seed.MissionActivities
-            .FirstOrDefault(a => a.DepotId == hueDepotId
-                              && a.ActivityType == "RETURN_SUPPLIES"
-                              && a.Status == "Planned");
-        if (returnActivity != null)
-        {
-            returnActivity.Status = "PendingConfirmation";
-            returnActivity.CompletedAt = null;
-        }
+        // 1. Three RETURN_SUPPLIES → PendingConfirmation (for manager01 upcoming-returns + confirm-return)
+        var returnActivities = seed.MissionActivities
+            .Where(a => a.DepotId == hueDepotId
+                     && a.ActivityType == "RETURN_SUPPLIES"
+                     && a.Status == "Planned"
+                     && a.MissionId.HasValue
+                     && onGoingMissionIds.Contains(a.MissionId.Value)
+                     && a.MissionTeamId.HasValue
+                     && inProgressMissionTeamIds.Contains(a.MissionTeamId.Value))
+            .OrderBy(a => a.AssignedAt)
+            .ThenBy(a => a.Id)
+            .Take(3)
+            .ToList();
+        EnsureManagerUpcomingReturnFixtures(seed, seed.Depots[0], returnActivities);
 
         // 2. One COLLECT_SUPPLIES → OnGoing  (for upcoming-pickups + confirm-pickup)
         var pickupActivity = seed.MissionActivities
@@ -3649,9 +4028,236 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
-            "SeedTestActivityStatuses: returnActivityId={ReturnId} → PendingConfirmation; pickupActivityId={PickupId} → OnGoing (hueDepotId={DepotId})",
-            returnActivity?.Id, pickupActivity?.Id, hueDepotId);
+            "SeedTestActivityStatuses: returnActivityIds={ReturnIds} -> PendingConfirmation; pickupActivityId={PickupId} -> OnGoing (hueDepotId={DepotId})",
+            string.Join(",", returnActivities.Select(a => a.Id)), pickupActivity?.Id, hueDepotId);
     }
+
+    private static void EnsureManagerUpcomingReturnFixtures(
+        DemoSeedContext seed,
+        Depot hueDepot,
+        IReadOnlyList<MissionActivity> returnActivities)
+    {
+        if (returnActivities.Count < 3)
+        {
+            throw new InvalidOperationException(
+                $"Runtime demo seed requires at least 3 planned RETURN_SUPPLIES activities for depot #{hueDepot.Id}.");
+        }
+
+        var reusableUnitGroups = seed.ReusableItems
+            .Where(item => item.Id > 30
+                && item.DepotId == hueDepot.Id
+                && string.Equals(item.Status, nameof(ReusableItemStatus.Available), StringComparison.Ordinal)
+                && item.ItemModelId.HasValue
+                && seed.ItemModels.Any(model =>
+                    model.Id == item.ItemModelId.Value
+                    && string.Equals(model.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase)))
+            .GroupBy(item => item.ItemModelId!.Value)
+            .Where(group => group.Count() >= 2)
+            .OrderBy(group => group.Key)
+            .ToList();
+
+        if (reusableUnitGroups.Count < 2)
+        {
+            throw new InvalidOperationException(
+                $"Runtime demo seed requires reusable units for upcoming return fixtures at depot #{hueDepot.Id}.");
+        }
+
+        var reusableOnlyUnits = reusableUnitGroups[0].OrderBy(item => item.Id).Take(2).ToList();
+        var mixedReusableUnit = reusableUnitGroups[1].OrderBy(item => item.Id).First();
+
+        MarkUnitsInUse(reusableOnlyUnits.Concat([mixedReusableUnit]), seed.AnchorUtc);
+
+        ConfigureReturnFixture(
+            returnActivities[0],
+            "Demo manager01 - trả thiết bị tái sử dụng",
+            "Đơn demo manager01: đội trả thiết bị tái sử dụng về kho Huế, có serial cụ thể.",
+            hueDepot,
+            [
+                BuildReusableReturnItem(seed, reusableOnlyUnits)
+            ],
+            assignedOffsetMinutes: 0);
+
+        ConfigureReturnFixture(
+            returnActivities[1],
+            "Demo manager01 - trả vật phẩm tiêu hao theo lô",
+            "Đơn demo manager01: đội trả vật phẩm tiêu hao dư thừa về kho Huế theo đúng lô FEFO.",
+            hueDepot,
+            BuildConsumableReturnItems(seed, hueDepot.Id,
+            [
+                ("Mì tôm", 20),
+                ("Nước tinh khiết", 80),
+                ("Thuốc hạ sốt Paracetamol 500mg", 120)
+            ]),
+            assignedOffsetMinutes: 20);
+
+        var mixedItems = BuildConsumableReturnItems(seed, hueDepot.Id,
+        [
+            ("Nước tinh khiết", 12),
+            ("Chăn ấm giữ nhiệt", 5)
+        ]);
+        mixedItems.Add(BuildReusableReturnItem(seed, [mixedReusableUnit]));
+
+        ConfigureReturnFixture(
+            returnActivities[2],
+            "Demo manager01 - trả vật phẩm tiêu hao và thiết bị tái sử dụng",
+            "Đơn demo manager01: đội trả cả vật phẩm tiêu hao theo lô và thiết bị tái sử dụng có serial.",
+            hueDepot,
+            mixedItems,
+            assignedOffsetMinutes: 40);
+    }
+
+    private static void ConfigureReturnFixture(
+        MissionActivity activity,
+        string targetName,
+        string description,
+        Depot hueDepot,
+        List<SupplyToCollectDto> items,
+        int assignedOffsetMinutes)
+    {
+        var assignedAt = activity.AssignedAt ?? activity.Mission?.StartTime ?? activity.Mission?.CreatedAt;
+
+        activity.ActivityType = "RETURN_SUPPLIES";
+        activity.Description = description;
+        activity.Target = Json(new { location = targetName, purpose = "manager01_upcoming_return_fixture" });
+        activity.Items = Json(items);
+        activity.TargetLocation = hueDepot.Location;
+        activity.Status = "PendingConfirmation";
+        activity.CompletedAt = null;
+        activity.AssignedAt = assignedAt?.AddMinutes(assignedOffsetMinutes);
+        activity.Priority = "Medium";
+        activity.EstimatedTime = 30;
+        activity.DepotId = hueDepot.Id;
+        activity.DepotName = hueDepot.Name;
+        activity.DepotAddress = hueDepot.Address;
+    }
+
+    private static List<SupplyToCollectDto> BuildConsumableReturnItems(
+        DemoSeedContext seed,
+        int depotId,
+        IReadOnlyList<(string ItemName, int Quantity)> requests)
+    {
+        return requests
+            .Select(request => BuildConsumableReturnItem(seed, depotId, request.ItemName, request.Quantity))
+            .ToList();
+    }
+
+    private static SupplyToCollectDto BuildConsumableReturnItem(
+        DemoSeedContext seed,
+        int depotId,
+        string itemName,
+        int quantity)
+    {
+        var itemModel = seed.ItemModels.Single(model =>
+            string.Equals(model.Name, itemName, StringComparison.OrdinalIgnoreCase));
+        var inventory = seed.Inventories.Single(inventory =>
+            inventory.DepotId == depotId && inventory.ItemModelId == itemModel.Id);
+
+        var remaining = quantity;
+        var allocations = new List<SupplyExecutionLotDto>();
+        foreach (var lot in seed.Lots
+            .Where(lot => lot.SupplyInventoryId == inventory.Id && lot.RemainingQuantity > 0)
+            .OrderBy(lot => lot.ExpiredDate ?? DateTime.MaxValue)
+            .ThenBy(lot => lot.ReceivedDate ?? DateTime.MaxValue)
+            .ThenBy(lot => lot.Id))
+        {
+            var take = Math.Min(remaining, lot.RemainingQuantity);
+            if (take <= 0)
+            {
+                continue;
+            }
+
+            allocations.Add(new SupplyExecutionLotDto
+            {
+                LotId = lot.Id,
+                QuantityTaken = take,
+                ReceivedDate = lot.ReceivedDate,
+                ExpiredDate = lot.ExpiredDate,
+                RemainingQuantityAfterExecution = Math.Max(0, lot.RemainingQuantity - take)
+            });
+
+            remaining -= take;
+            if (remaining == 0)
+            {
+                break;
+            }
+        }
+
+        if (remaining > 0)
+        {
+            throw new InvalidOperationException(
+                $"Runtime demo seed cannot allocate {quantity} units of '{itemName}' from depot #{depotId} lots.");
+        }
+
+        return new SupplyToCollectDto
+        {
+            ItemId = itemModel.Id,
+            ItemName = itemModel.Name ?? itemName,
+            ImageUrl = itemModel.ImageUrl,
+            Quantity = quantity,
+            Unit = itemModel.Unit,
+            ExpectedReturnLotAllocations = allocations
+        };
+    }
+
+    private static SupplyToCollectDto BuildReusableReturnItem(
+        DemoSeedContext seed,
+        IReadOnlyList<ReusableItem> units)
+    {
+        var itemModelId = units.Select(unit => unit.ItemModelId).Distinct().Single()
+            ?? throw new InvalidOperationException("Reusable return fixture unit is missing ItemModelId.");
+        var itemModel = seed.ItemModels.Single(model => model.Id == itemModelId);
+
+        return new SupplyToCollectDto
+        {
+            ItemId = itemModel.Id,
+            ItemName = itemModel.Name ?? $"Thiết bị #{itemModel.Id}",
+            ImageUrl = itemModel.ImageUrl,
+            Quantity = units.Count,
+            Unit = itemModel.Unit,
+            ExpectedReturnUnits = units
+                .OrderBy(unit => unit.Id)
+                .Select(unit => new SupplyExecutionReusableUnitDto
+                {
+                    ReusableItemId = unit.Id,
+                    ItemModelId = itemModel.Id,
+                    ItemName = itemModel.Name ?? $"Thiết bị #{itemModel.Id}",
+                    SerialNumber = unit.SerialNumber,
+                    Condition = unit.Condition,
+                    Note = unit.Note
+                })
+                .ToList()
+        };
+    }
+
+    private static void MarkUnitsInUse(IEnumerable<ReusableItem> units, DateTime updatedAt)
+    {
+        foreach (var unit in units)
+        {
+            unit.Status = ReusableItemStatus.InUse.ToString();
+            unit.UpdatedAt = updatedAt;
+            unit.Note = "Đang được đội giữ để trả về kho trong đơn RETURN_SUPPLIES demo manager01.";
+        }
+    }
+
+    private static string ClusterStatusForSeedIndex(int index) => index switch
+    {
+        < 20 => SosClusterStatus.Pending.ToString(),
+        < 45 => SosClusterStatus.InProgress.ToString(),
+        < 95 => SosClusterStatus.Completed.ToString(),
+        < 100 => SosClusterStatus.InProgress.ToString(),
+        _ => SosClusterStatus.Pending.ToString()
+    };
+
+    private static string SosRequestStatusForClusterSeedIndex(int index) => index switch
+    {
+        < 20 => SosRequestStatus.Pending.ToString(),
+        < 30 => SosRequestStatus.Assigned.ToString(),
+        < 45 => SosRequestStatus.InProgress.ToString(),
+        < 95 => SosRequestStatus.Resolved.ToString(),
+        < 100 => SosRequestStatus.Incident.ToString(),
+        < 104 => SosRequestStatus.Pending.ToString(),
+        _ => SosRequestStatus.Cancelled.ToString()
+    };
 
     private static string ActivityType(int step, int total, string? missionType)
     {

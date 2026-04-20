@@ -70,7 +70,7 @@ public static class EmergencySeeder
                 LastUpdatedAt = now,
                 Status = SosClusterStatus.Pending.ToString()
             },
-            // Cluster 4: Phong Điền, Thừa Thiên Huế - đã có Mission #3 Completed
+            // Cluster 4: Phong Điền, Thừa Thiên Huế - đã có Mission #3 Completed, SOS #7/#8 đã Resolved
             // Tâm cụm gần SOS G (Id=7, Id=8)
             new SosCluster
             {
@@ -85,7 +85,7 @@ public static class EmergencySeeder
                 MedicalUrgencyScore = 0.65,
                 CreatedAt = new DateTime(2026, 3, 1, 7, 0, 0, DateTimeKind.Utc),
                 LastUpdatedAt = new DateTime(2026, 3, 1, 15, 0, 0, DateTimeKind.Utc),
-                Status = SosClusterStatus.InProgress.ToString()
+                Status = SosClusterStatus.Completed.ToString()
             }
         );
     }

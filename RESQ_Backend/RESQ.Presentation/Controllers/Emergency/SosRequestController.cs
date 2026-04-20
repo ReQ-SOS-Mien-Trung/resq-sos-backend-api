@@ -7,12 +7,12 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Emergency.Commands.CancelSosRequest;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 using RESQ.Application.UseCases.Emergency.Commands.UpdateSosRequestVictim;
-using RESQ.Application.UseCases.Emergency.Queries.GetAllSosRequests;
+using RESQ.Application.UseCases.Emergency.Queries;
 using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
-using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
-using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosPriorityLevelMetadata;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 
 namespace RESQ.Presentation.Controllers.Emergency;
@@ -87,16 +87,12 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
         return Ok(result);
     }
 
-    /// <summary>Lấy danh sách tất cả SOS request có phân trang.</summary>
-    [HttpGet()]
+    /// <summary>Get SOS requests inside the current map bounds.</summary>
+    [HttpGet]
     [Authorize(Policy = PermissionConstants.SosRequestView)]
-    public async Task<IActionResult> GetSosRequestsPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    [ProducesResponseType(typeof(List<SosRequestDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSosRequests([FromQuery] GetSosRequestsByBoundsQuery query)
     {
-        var query = new GetSosRequestsPagedQuery
-        {
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        };
         var result = await _mediator.Send(query);
         return Ok(result);
     }

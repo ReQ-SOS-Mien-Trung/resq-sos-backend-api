@@ -25,9 +25,10 @@ public class DisposeConsumableLotCommandHandler(
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closed)
-            throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể xử lý hàng tồn.");
+            throw new ConflictException("Kho ngừng hoạt động hoặc đã đóng. Không thể tiêu hủy vật phẩm trong kho này.");
 
         await _depotInventoryRepository.DisposeConsumableLotAsync(
+            depotId,
             request.LotId,
             request.Quantity,
             request.Reason,
@@ -35,11 +36,10 @@ public class DisposeConsumableLotCommandHandler(
             request.UserId,
             cancellationToken);
 
-        // Push notification cho manager xác nhận
         await _firebaseService.SendNotificationToUserAsync(
             request.UserId,
-            "Xử lý hàng tồn kho",
-            $"Đã xử lý {request.Quantity} đơn vị từ lô #{request.LotId} — Lý do: {request.Reason}.",
+            "Tiêu hủy vật phẩm tiêu thụ",
+            $"Đã tiêu hủy {request.Quantity} đơn vị từ lô #{request.LotId}. Nhóm lý do: {request.Reason}.",
             "inventory_disposal",
             new Dictionary<string, string>
             {
@@ -49,6 +49,6 @@ public class DisposeConsumableLotCommandHandler(
             cancellationToken);
 
         return new DisposeConsumableLotResponse(
-            $"Đã xử lý {request.Quantity} đơn vị từ lô #{request.LotId}. Lý do: {request.Reason}.");
+            $"Đã tiêu hủy {request.Quantity} đơn vị từ lô #{request.LotId}. Nhóm lý do: {request.Reason}.");
     }
 }

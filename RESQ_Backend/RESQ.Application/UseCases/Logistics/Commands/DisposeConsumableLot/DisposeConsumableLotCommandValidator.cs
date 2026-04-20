@@ -15,15 +15,16 @@ public class DisposeConsumableLotCommandValidator : AbstractValidator<DisposeCon
             .GreaterThan(0).WithMessage("LotId không hợp lệ.");
 
         RuleFor(x => x.Quantity)
-            .GreaterThan(0).WithMessage("Số lượng xử lý phải lớn hơn 0.");
+            .GreaterThan(0).WithMessage("Số lượng tiêu hủy phải lớn hơn 0.");
 
         RuleFor(x => x.Reason)
-            .NotEmpty().WithMessage("Lý do xử lý không được để trống.")
+            .NotEmpty().WithMessage("Nhóm lý do tiêu hủy không được để trống.")
             .Must(r => AllowedReasons.Contains(r))
-            .WithMessage("Lý do xử lý chỉ cho phép: Expired hoặc Damaged.");
+            .WithMessage("Nhóm lý do tiêu hủy chỉ cho phép: Expired hoặc Damaged.");
 
         RuleFor(x => x.Note)
-            .MaximumLength(500).When(x => x.Note != null)
-            .WithMessage("Ghi chú không được vượt quá 500 ký tự.");
+            .Cascade(CascadeMode.Stop)
+            .NotEmpty().WithMessage("Vui lòng nhập lý do chi tiết khi tiêu hủy lô hàng.")
+            .MaximumLength(500).WithMessage("Lý do chi tiết không được vượt quá 500 ký tự.");
     }
 }

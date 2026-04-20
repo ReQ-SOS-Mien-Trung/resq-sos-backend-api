@@ -88,6 +88,18 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lập snapshot dự kiến cho mission suggestion mà không giữ chỗ hoặc ghi DB.
+    /// Consumable dùng FEFO như reserve thật; reusable chọn các unit Available theo thứ tự ổn định.
+    /// </summary>
+    Task<MissionSupplyReservationResult> PreviewReserveSuppliesAsync(
+        int depotId,
+        List<(int ItemModelId, int Quantity)> items,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new MissionSupplyReservationResult());
+    }
+
+    /// <summary>
     /// Team xác nhận đã lấy hàng: giảm cả Quantity và ReservedQuantity, ghi InventoryLog,
     /// đồng thời trả về chi tiết thực tế đã lấy theo lot FEFO hoặc reusable unit.
     /// </summary>
@@ -242,6 +254,7 @@ public interface IDepotInventoryRepository
     /// và SourceType=Expired hoặc Damaged.
     /// </summary>
     Task DisposeConsumableLotAsync(
+        int depotId,
         int lotId,
         int quantity,
         string reason,
@@ -255,6 +268,7 @@ public interface IDepotInventoryRepository
     /// Không cho phép decommission khi Status=InUse hoặc đã Decommissioned.
     /// </summary>
     Task DecommissionReusableItemAsync(
+        int depotId,
         int reusableItemId,
         string? note,
         Guid performedBy,

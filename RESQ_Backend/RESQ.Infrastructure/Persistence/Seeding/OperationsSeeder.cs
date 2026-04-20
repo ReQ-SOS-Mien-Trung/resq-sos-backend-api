@@ -178,6 +178,39 @@ public static class OperationsSeeder
                 }
             }
         });
+        // Activity 12: RETURN_SUPPLIES - chỉ trả thiết bị tái sử dụng, dùng cho upcoming-returns manager01
+        var returnReusableOnlyItems = JsonSerializer.Serialize(new object[]
+        {
+            new
+            {
+                ItemId = 21, ItemName = "Bình lọc nước dã chiến", Quantity = 2, Unit = "chiếc",
+                ExpectedReturnUnits = new[]
+                {
+                    new { ReusableItemId = 4, ItemModelId = 21, ItemName = "Bình lọc nước dã chiến", SerialNumber = "D1-R021-001", Condition = "Good" },
+                    new { ReusableItemId = 5, ItemModelId = 21, ItemName = "Bình lọc nước dã chiến", SerialNumber = "D1-R021-002", Condition = "Good" }
+                }
+            }
+        });
+        // Activity 13: RETURN_SUPPLIES - trả cả consumable theo lô và thiết bị tái sử dụng
+        var returnMixedItems = JsonSerializer.Serialize(new object[]
+        {
+            new
+            {
+                ItemId = 2, ItemName = "Nước tinh khiết", Quantity = 12, Unit = "chai",
+                ExpectedReturnLotAllocations = new[]
+                {
+                    new { LotId = 2, QuantityTaken = 12, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), RemainingQuantityAfterExecution = 0 }
+                }
+            },
+            new
+            {
+                ItemId = 23, ItemName = "Can đựng nước 10L", Quantity = 1, Unit = "chiếc",
+                ExpectedReturnUnits = new[]
+                {
+                    new { ReusableItemId = 7, ItemModelId = 23, ItemName = "Can đựng nước 10L", SerialNumber = "D1-R023-001", Condition = "Good" }
+                }
+            }
+        });
         // Activity 9: RETURN_SUPPLIES hoàn thành - trả vật phẩm tiêu hao dư thừa về kho Huế sau Mission 4
         var returnConsumableHistoryItems = JsonSerializer.Serialize(new[]
         {
@@ -343,7 +376,51 @@ public static class OperationsSeeder
                 Items = returnSuppliesItems,
                 TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.PendingConfirmation),
+                AssignedAt = new DateTime(2026, 3, 20, 14, 20, 0, DateTimeKind.Utc),
+                LastDecisionBy = SeedConstants.CoordinatorUserId,
+                MissionTeamId = 4,
+                Priority = "Medium",
+                EstimatedTime = 30,
+                DepotId = 1,
+                DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
+            },
+            // Activity 12: RETURN_SUPPLIES cho Mission 5 tại kho Huế (PendingConfirmation)
+            // → Đơn demo manager01: chỉ trả reusable, có serial cụ thể.
+            new MissionActivity
+            {
+                Id = 12,
+                MissionId = 5,
+                Step = 3,
+                ActivityType = "RETURN_SUPPLIES",
+                Description = "Demo manager01 - trả thiết bị tái sử dụng về kho Huế. Trả: Bình lọc nước dã chiến D1-R021-001 và D1-R021-002.",
+                Target = "{\"location\":\"Kho Huế\",\"purpose\":\"return_reusable_supplies\"}",
+                Items = returnReusableOnlyItems,
+                TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
+                Status = MissionActivityMapper.ToDbString(MissionActivityStatus.PendingConfirmation),
                 AssignedAt = new DateTime(2026, 3, 20, 14, 0, 0, DateTimeKind.Utc),
+                LastDecisionBy = SeedConstants.CoordinatorUserId,
+                MissionTeamId = 4,
+                Priority = "Medium",
+                EstimatedTime = 30,
+                DepotId = 1,
+                DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
+            },
+            // Activity 13: RETURN_SUPPLIES cho Mission 5 tại kho Huế (PendingConfirmation)
+            // → Đơn demo manager01: trả cả consumable theo lô và reusable có serial.
+            new MissionActivity
+            {
+                Id = 13,
+                MissionId = 5,
+                Step = 4,
+                ActivityType = "RETURN_SUPPLIES",
+                Description = "Demo manager01 - trả vật phẩm tiêu hao và thiết bị tái sử dụng về kho Huế. Trả: Nước tinh khiết x12 (Lot 2) + Can đựng nước D1-R023-001.",
+                Target = "{\"location\":\"Kho Huế\",\"purpose\":\"return_mixed_supplies\"}",
+                Items = returnMixedItems,
+                TargetLocation = new Point(107.56799781003454, 16.454572773043417) { SRID = 4326 },
+                Status = MissionActivityMapper.ToDbString(MissionActivityStatus.PendingConfirmation),
+                AssignedAt = new DateTime(2026, 3, 20, 14, 40, 0, DateTimeKind.Utc),
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
                 MissionTeamId = 4,
                 Priority = "Medium",

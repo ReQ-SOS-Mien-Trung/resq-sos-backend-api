@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
+        var bootstrapDatabaseOnStartup = configuration.GetValue<bool>("Database:BootstrapOnStartup");
         services.AddHttpClient();
         services.Configure<AiProvidersOptions>(configuration.GetSection("AiProviders"));
         var aiSecretsSection = configuration.GetSection("AiSecrets");
@@ -64,6 +65,7 @@ public static class ServiceCollectionExtensions
         var dataSource = dataSourceBuilder.Build();
 
         services.AddDbContext<ResQDbContext>(options =>
+        {
             options.UseNpgsql(
                 dataSource,
                 x =>
@@ -74,8 +76,20 @@ public static class ServiceCollectionExtensions
                         maxRetryDelay: TimeSpan.FromSeconds(10),
                         errorCodesToAdd: null);
                 }
-            )
-        );
+            );
+
+            if (!bootstrapDatabaseOnStartup)
+            {
+                options.UseSeeding((context, _) =>
+                {
+                    SeedDatabase((ResQDbContext)context);
+                });
+                options.UseAsyncSeeding(async (context, _, cancellationToken) =>
+                {
+                    await SeedDatabaseAsync((ResQDbContext)context, cancellationToken);
+                });
+            }
+        });
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
@@ -115,6 +129,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<ISosRequestRepository, SosRequestRepository>();
+        services.AddScoped<ISosRequestMapReadRepository, SosRequestRepository>();
         services.AddScoped<ISosRequestUpdateRepository, SosRequestUpdateRepository>();
         services.AddScoped<ISosRequestCompanionRepository, SosRequestCompanionRepository>();
         services.AddScoped<ISosClusterRepository, SosClusterRepository>();
@@ -147,6 +162,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPromptRepository, PromptRepository>();
         services.AddScoped<IRescuerScoreVisibilityConfigRepository, RescuerScoreVisibilityConfigRepository>();
         services.AddScoped<IServiceZoneRepository, ServiceZoneRepository>();
+        services.AddScoped<IServiceZoneSummaryRepository, ServiceZoneSummaryRepository>();
         services.AddScoped<ISosClusterGroupingConfigRepository, SosClusterGroupingConfigRepository>();
         services.AddScoped<IRescueTeamRadiusConfigRepository, RescueTeamRadiusConfigRepository>();
         services.AddScoped<ISosPriorityRuleConfigRepository, SosPriorityRuleConfigRepository>();

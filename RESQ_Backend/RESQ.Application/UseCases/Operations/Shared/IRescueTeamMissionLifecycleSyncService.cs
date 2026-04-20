@@ -10,6 +10,11 @@ public interface IRescueTeamMissionLifecycleSyncService
         int rescueTeamId,
         CancellationToken cancellationToken = default);
 
+    Task<RescueTeamMissionLifecycleSyncResult> SyncTeamToAvailableAfterExecutionAsync(
+        int rescueTeamId,
+        int missionTeamId,
+        CancellationToken cancellationToken = default);
+
     Task PushRealtimeIfNeededAsync(
         RescueTeamMissionLifecycleSyncResult result,
         CancellationToken cancellationToken = default);

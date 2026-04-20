@@ -9,7 +9,8 @@ using RESQ.Infrastructure.Mappers.Emergency;
 
 namespace RESQ.Infrastructure.Persistence.Emergency;
 
-public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepository, ISosRequestBulkReadRepository
+public class SosRequestRepository(IUnitOfWork unitOfWork)
+    : ISosRequestRepository, ISosRequestBulkReadRepository, ISosRequestMapReadRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
@@ -53,6 +54,50 @@ public class SosRequestRepository(IUnitOfWork unitOfWork) : ISosRequestRepositor
             .OrderByDescending(x => x.CreatedAt)
             .Select(SosRequestMapper.ToDomain);
     }
+
+    public async Task<List<SosRequestModel>> GetByBoundsAsync(
+        double minLat,
+        double maxLat,
+        double minLng,
+        double maxLng,
+        IReadOnlyCollection<SosRequestStatus>? statuses = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _unitOfWork.GetRepository<SosRequest>()
+            .AsQueryable(tracked: false)
+            .Where(x => x.Location != null);
+
+        if (statuses is { Count: > 0 })
+        {
+            var statusNames = statuses
+                .Select(x => x.ToString())
+                .Distinct()
+                .ToArray();
+
+            query = query.Where(x => x.Status != null && statusNames.Contains(x.Status));
+        }
+
+        var entities = await query
+            .ToListAsync(cancellationToken);
+
+        return entities
+            .Where(x => IsInsideBounds(x, minLat, maxLat, minLng, maxLng))
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(SosRequestMapper.ToDomain)
+            .ToList();
+    }
+
+    private static bool IsInsideBounds(
+        SosRequest request,
+        double minLat,
+        double maxLat,
+        double minLng,
+        double maxLng) =>
+        request.Location is not null
+        && request.Location.Y >= minLat
+        && request.Location.Y <= maxLat
+        && request.Location.X >= minLng
+        && request.Location.X <= maxLng;
 
     public async Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
