@@ -10,7 +10,8 @@ public class DecommissionReusableItemCommandValidator : AbstractValidator<Decomm
             .GreaterThan(0).WithMessage("ReusableItemId không hợp lệ.");
 
         RuleFor(x => x.Note)
-            .MaximumLength(500).When(x => x.Note != null)
-            .WithMessage("Ghi chú không được vượt quá 500 ký tự.");
+            .Cascade(CascadeMode.Stop)
+            .NotEmpty().WithMessage("Vui lòng nhập lý do tiêu hủy vật phẩm.")
+            .MaximumLength(500).WithMessage("Lý do tiêu hủy không được vượt quá 500 ký tự.");
     }
 }
