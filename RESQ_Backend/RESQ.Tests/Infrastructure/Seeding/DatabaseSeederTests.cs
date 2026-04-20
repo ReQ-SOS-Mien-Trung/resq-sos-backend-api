@@ -40,7 +40,7 @@ public class DatabaseSeederTests
         Assert.Equal(1900, firstCounts.Messages);
         Assert.Equal(622, firstCounts.SupplyInventories);
         Assert.Equal(95, firstCounts.SupplyRequests);
-        Assert.Equal(1377, firstCounts.InventoryLogs);
+        Assert.Equal(1379, firstCounts.InventoryLogs);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v1-2026-04-16"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));

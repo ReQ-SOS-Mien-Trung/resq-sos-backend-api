@@ -75,6 +75,14 @@ public static class ServiceCollectionExtensions
                         errorCodesToAdd: null);
                 }
             )
+            .UseSeeding((context, _) =>
+            {
+                SeedDatabase((ResQDbContext)context);
+            })
+            .UseAsyncSeeding(async (context, _, cancellationToken) =>
+            {
+                await SeedDatabaseAsync((ResQDbContext)context, cancellationToken);
+            })
         );
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();

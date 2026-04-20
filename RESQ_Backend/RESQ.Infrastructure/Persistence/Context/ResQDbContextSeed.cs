@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using RESQ.Infrastructure.Persistence.Seeding;
 
 namespace RESQ.Infrastructure.Persistence.Context;
 
@@ -7,6 +6,6 @@ public partial class ResQDbContext
 {
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
-        modelBuilder.SeedStaticModelData();
+        // Runtime demo data is seeded by DatabaseSeeder; keep migrations free of API test fixtures.
     }
 }

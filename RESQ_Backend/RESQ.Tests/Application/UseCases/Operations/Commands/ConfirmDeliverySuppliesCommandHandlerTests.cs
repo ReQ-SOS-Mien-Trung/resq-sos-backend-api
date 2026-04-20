@@ -206,7 +206,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
                 ],
                 null), CancellationToken.None));
 
-        Assert.Contains("vuot qua so dang mang theo", ex.Message);
+        Assert.Contains("vượt quá số đang mang theo", ex.Message);
     }
 
     [Fact]
