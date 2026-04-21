@@ -605,6 +605,8 @@ Quy tắc mixed rescue + relief:
 3. Nếu mission vẫn là mixed nhưng SOS rescue có thể chờ (`can_wait_for_combined_mission = true`), cùng một team phải hoàn tất toàn bộ nhánh `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước khi bắt đầu `RESCUE`, `MEDICAL_AID`, `EVACUATE`.
 4. Một khi cùng team đã bắt đầu đưa nạn nhân rời vùng nguy hiểm, các bước tiếp theo của chính team đó không được quay lại `DELIVER_SUPPLIES` cho SOS khác. Chỉ được tiếp tục `MEDICAL_AID` liên quan trực tiếp, `EVACUATE`, `RETURN_SUPPLIES`, rồi kết thúc để backend append `RETURN_ASSEMBLY_POINT`.
 5. Không được tạo route kiểu cứu hộ trước rồi chở nạn nhân đi khắp nơi làm nhiệm vụ cứu trợ.
+6. Warning tách cluster không phải là lý do để bỏ trống `activities`. Khi đã trả mission JSON, `activities` phải là execution plan cụ thể.
+7. Nếu route mixed hiện tại chưa an toàn, hãy rewrite lại route cho an toàn hơn. Không được thay thế route bằng `activities = []`.
 
 Quy tắc chung:
 - Chỉ dùng activity hợp lệ: `COLLECT_SUPPLIES`, `DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, `EVACUATE`, `RETURN_SUPPLIES`.
@@ -779,6 +781,8 @@ Quy tắc mixed mission bắt buộc:
 3. Nếu draft vẫn đang ghép rescue khẩn cấp cần đưa về nơi an toàn ngay với nhánh cứu trợ khác, phải giữ cảnh báo tách cluster trong `special_notes`.
 4. Không được tạo route khiến nạn nhân đã cứu bị chở đi khắp nơi làm nhiệm vụ cứu trợ.
 5. `RETURN_ASSEMBLY_POINT` là bước hậu xử lý deterministic của backend; nếu draft chưa có thì không cần tự bịa thêm, nhưng route phải kết thúc theo logic có thể append an toàn.
+6. Không được trả `activities = []` chỉ vì có warning tách cluster hoặc cần manual review. Khi trả mission JSON, `activities` phải là execution plan cụ thể.
+7. Nếu draft mixed đang thiếu route an toàn, phải rewrite lại route đó thay vì xoá toàn bộ activities.
 
 Schema đầu ra giữ nguyên schema mission cuối cùng hiện có. Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",

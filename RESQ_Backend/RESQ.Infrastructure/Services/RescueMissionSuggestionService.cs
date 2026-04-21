@@ -311,6 +311,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
             ## QUY TẮC AN TOÀN MISSION GHÉP CỨU HỘ + CỨU TRỢ
             - Nếu mission có cả nhánh `RESCUE|EVACUATE|MEDICAL_AID` và nhánh `COLLECT_SUPPLIES|DELIVER_SUPPLIES`, backend sẽ tự thêm cảnh báo an toàn sau khi parse kết quả.
+            - Cảnh báo mixed mission không phải là lý do để bỏ trống `activities`. Khi đã trả mission JSON, `activities` phải là execution plan cụ thể.
+            - Nếu cluster mixed có rescue khẩn cấp cần tách riêng, vẫn phải trả full mixed route an toàn trong `activities`, đồng thời ghi cảnh báo tách cluster ở `special_notes`.
+            - Nếu route mixed hiện tại không an toàn, hãy rewrite lại thứ tự hoạt động. Không được thay route bằng `activities = []`.
             - Không tạo `warnings[]`, không tạo warning code riêng, không chèn warning schema mới vào JSON.
 
             ## ĐỊNH DẠNG overall_assessment
@@ -1096,6 +1099,53 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static bool IsOnSiteActivity(SuggestedActivityDto activity) =>
         OnSiteActivityTypes.Contains(activity.ActivityType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+
+    private static bool HasRescueBranch(IEnumerable<SuggestedActivityDto> activities) =>
+        activities.Any(activity =>
+            string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasReliefBranch(IEnumerable<SuggestedActivityDto> activities) =>
+        activities.Any(activity =>
+            string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasMixedClusterRouteExpectation(IReadOnlyCollection<SosRequestSummary> sosRequests) =>
+        sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType))
+        && sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsReliefRequestType(sos.SosType));
+
+    private static void ValidateExecutableMissionResult(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        IReadOnlyCollection<SuggestedActivityDto>? expectedActivities = null)
+    {
+        if (sosRequests.Count == 0)
+            return;
+
+        var executableActivities = result.SuggestedActivities
+            .Where(activity => !IsReturnAssemblyPointActivity(activity))
+            .ToList();
+
+        if (executableActivities.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Mission suggestion must include executable activities for the current SOS cluster.");
+        }
+
+        var shouldRequireMixedBranches = expectedActivities is { Count: > 0 }
+            ? HasRescueBranch(expectedActivities) && HasReliefBranch(expectedActivities)
+            : HasMixedClusterRouteExpectation(sosRequests);
+
+        if (!shouldRequireMixedBranches)
+            return;
+
+        if (!HasRescueBranch(executableActivities) || !HasReliefBranch(executableActivities))
+        {
+            throw new InvalidOperationException(
+                "Mission suggestion for a mixed rescue-relief cluster must preserve both rescue and relief branches in executable activities.");
+        }
+    }
 
     private static HashSet<int> GetReferencedSosIds(SuggestedActivityDto activity)
     {
@@ -2750,6 +2800,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         result.IsSuccess     = true;
         result.ModelName     = settings.Model;
         result.RawAiResponse = finalText;
+        ValidateExecutableMissionResult(result, sosRequests);
         await FinalizeSuggestionResultAsync(
             result,
             sosRequests,

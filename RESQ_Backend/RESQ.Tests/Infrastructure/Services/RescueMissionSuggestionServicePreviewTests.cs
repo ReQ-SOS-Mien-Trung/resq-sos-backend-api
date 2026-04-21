@@ -63,6 +63,59 @@ public class RescueMissionSuggestionServicePreviewTests
     }
 
     [Fact]
+    public async Task PreviewSuggestionAsync_MissionPlanningPrompt_ReturnsErrorWhenActivitiesAreMissing()
+    {
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(new LegacyStubAiProviderClient(
+                """
+                {
+                  "mission_title": "Preview plan",
+                  "mission_type": "MIXED",
+                  "priority_score": 7.5,
+                  "severity_level": "Moderate",
+                  "overall_assessment": "Preview only",
+                  "activities": [],
+                  "resources": [],
+                  "estimated_duration": "20 phut",
+                  "special_notes": null,
+                  "needs_additional_depot": false,
+                  "supply_shortages": [],
+                  "confidence_score": 0.9
+                }
+                """)),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            ThrowingProxy<IPromptRepository>.Create(),
+            new RecordingMissionAiSuggestionRepository(),
+            ThrowingProxy<IDepotInventoryRepository>.Create(),
+            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new EmptyAssemblyPointRepository(),
+            Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = true }),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+        var result = await service.PreviewSuggestionAsync(
+            [new SosRequestSummary { Id = 1, RawMessage = "Need rescue" }],
+            [],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            promptOverride: new PromptModel
+            {
+                Id = 12,
+                Name = "Draft mission planning prompt",
+                PromptType = PromptType.MissionPlanning,
+                SystemPrompt = "mission-planning-legacy",
+                UserPromptTemplate = "{{sos_requests_data}}",
+                IsActive = false
+            },
+            aiConfigOverride: BuildAiConfig(model: "gemini-preview"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("executable activities", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task PreviewSuggestionAsync_PipelinePrompt_OverridesMatchingStageOnly()
     {
         var suggestionRepository = new RecordingMissionAiSuggestionRepository();
@@ -89,7 +142,16 @@ public class RescueMissionSuggestionServicePreviewTests
 
         var result = await service.PreviewSuggestionAsync(
             [new SosRequestSummary { Id = 1, RawMessage = "Need supplies" }],
-            [],
+            [
+                new DepotSummary
+                {
+                    Id = 9,
+                    Name = "Kho Preview",
+                    Address = "1 Preview Street",
+                    Latitude = 16.463,
+                    Longitude = 107.590
+                }
+            ],
             [],
             isMultiDepotRecommended: false,
             clusterId: 7,
@@ -112,6 +174,266 @@ public class RescueMissionSuggestionServicePreviewTests
         Assert.Equal(0, suggestionRepository.CreateCalls);
         Assert.Equal(0, suggestionRepository.UpdateCalls);
         Assert.Equal(0, suggestionRepository.SavePipelineSnapshotCalls);
+    }
+
+    [Fact]
+    public async Task PreviewSuggestionAsync_PipelineValidationWithoutActivities_FallsBackToAssembledDraft()
+    {
+        var promptRepository = new RecordingPromptRepository(
+        [
+            BuildStagePrompt(4, PromptType.MissionRequirementsAssessment, "requirements-fallback"),
+            BuildStagePrompt(5, PromptType.MissionDepotPlanning, "depot-fallback"),
+            BuildStagePrompt(6, PromptType.MissionTeamPlanning, "team-fallback"),
+            BuildStagePrompt(7, PromptType.MissionPlanValidation, "validation-empty"),
+            BuildStagePrompt(8, PromptType.MissionPlanning, "active-legacy")
+        ]);
+        var aiClient = new PipelineStubAiProviderClient(new Dictionary<string, string>
+        {
+            ["requirements-fallback"] = """
+            {
+              "suggested_mission_title": "Pipeline mixed mission",
+              "suggested_mission_type": "MIXED",
+              "suggested_priority_score": 9.4,
+              "suggested_severity_level": "Critical",
+              "overall_assessment": "Mixed urgent mission",
+              "estimated_duration": "1 gio 20 phut",
+              "special_notes": "Canh bao tach cluster.",
+              "split_cluster_recommended": true,
+              "split_cluster_reason": "Rescue khan cap dang bi ghep chung voi nhanh cuu tro.",
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.91,
+              "suggested_resources": [],
+              "sos_requirements": [
+                {
+                  "sos_request_id": 11,
+                  "summary": "Can cuu ho gap",
+                  "priority": "Critical",
+                  "needs_immediate_safe_transfer": true,
+                  "can_wait_for_combined_mission": false,
+                  "handling_reason": "Nan nhan can di chuyen den noi an toan ngay.",
+                  "required_supplies": [],
+                  "required_teams": []
+                },
+                {
+                  "sos_request_id": 22,
+                  "summary": "Can tiep te",
+                  "priority": "High",
+                  "needs_immediate_safe_transfer": false,
+                  "can_wait_for_combined_mission": true,
+                  "handling_reason": "Nhanh cuu tro co the di kem route an toan.",
+                  "required_supplies": [],
+                  "required_teams": []
+                }
+              ]
+            }
+            """,
+            ["depot-fallback"] = """
+            {
+              "activities": [
+                {
+                  "activity_key": "collect-22",
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Lay hang tai kho Hue",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 22,
+                  "depot_id": 9,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Tran Hung Dao",
+                  "depot_latitude": 16.463,
+                  "depot_longitude": 107.590
+                },
+                {
+                  "activity_key": "deliver-22",
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Giao do cho SOS 22",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 22
+                }
+              ],
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.87
+            }
+            """,
+            ["team-fallback"] = """
+            {
+              "activity_assignments": [
+                {
+                  "activity_key": "collect-22",
+                  "execution_mode": "SingleTeam",
+                  "required_team_count": 1,
+                  "suggested_team": {
+                    "team_id": 21,
+                    "team_name": "Team 21",
+                    "team_type": "Rescue",
+                    "assembly_point_id": 7,
+                    "assembly_point_name": "AP Hue",
+                    "latitude": 16.470,
+                    "longitude": 107.600,
+                    "distance_km": 1.2
+                  }
+                },
+                {
+                  "activity_key": "deliver-22",
+                  "execution_mode": "SingleTeam",
+                  "required_team_count": 1,
+                  "suggested_team": {
+                    "team_id": 21,
+                    "team_name": "Team 21",
+                    "team_type": "Rescue",
+                    "assembly_point_id": 7,
+                    "assembly_point_name": "AP Hue",
+                    "latitude": 16.470,
+                    "longitude": 107.600,
+                    "distance_km": 1.2
+                  }
+                }
+              ],
+              "additional_activities": [
+                {
+                  "activity_key": "rescue-11",
+                  "step": 3,
+                  "activity_type": "RESCUE",
+                  "description": "Cuu ho SOS 11 va dua den diem an toan",
+                  "priority": "Critical",
+                  "estimated_time": "30 phut",
+                  "sos_request_id": 11,
+                  "assembly_point_id": 7,
+                  "assembly_point_name": "AP Hue",
+                  "assembly_point_latitude": 16.470,
+                  "assembly_point_longitude": 107.600,
+                  "suggested_team": {
+                    "team_id": 21,
+                    "team_name": "Team 21",
+                    "team_type": "Rescue",
+                    "assembly_point_id": 7,
+                    "assembly_point_name": "AP Hue",
+                    "latitude": 16.470,
+                    "longitude": 107.600,
+                    "distance_km": 1.2
+                  }
+                }
+              ],
+              "suggested_team": {
+                "team_id": 21,
+                "team_name": "Team 21",
+                "team_type": "Rescue",
+                "assembly_point_id": 7,
+                "assembly_point_name": "AP Hue",
+                "latitude": 16.470,
+                "longitude": 107.600,
+                "distance_km": 1.2
+              },
+              "special_notes": "Canh bao tach cluster.",
+              "confidence_score": 0.86
+            }
+            """,
+            ["validation-empty"] = """
+            {
+              "mission_title": "Pipeline mixed mission",
+              "mission_type": "MIXED",
+              "priority_score": 9.4,
+              "severity_level": "Critical",
+              "overall_assessment": "Mixed urgent mission",
+              "activities": [],
+              "resources": [],
+              "estimated_duration": "1 gio 20 phut",
+              "special_notes": "Nen tach cluster thanh rescue rieng va relief rieng.",
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.91
+            }
+            """
+        });
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(aiClient),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            promptRepository,
+            new RecordingMissionAiSuggestionRepository(),
+            ThrowingProxy<IDepotInventoryRepository>.Create(),
+            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new EmptyAssemblyPointRepository(),
+            Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = true }),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+        var result = await service.PreviewSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 11,
+                    SosType = "Rescue",
+                    RawMessage = "Nan nhan can dua den noi an toan ngay",
+                    AiAnalysis = new SosRequestAiAnalysisSummary
+                    {
+                        HasAiAnalysis = true,
+                        SuggestedPriority = "Critical",
+                        NeedsImmediateSafeTransfer = true,
+                        CanWaitForCombinedMission = false
+                    }
+                },
+                new SosRequestSummary
+                {
+                    Id = 22,
+                    SosType = "Relief",
+                    RawMessage = "Can tiep te luong thuc",
+                    AiAnalysis = new SosRequestAiAnalysisSummary
+                    {
+                        HasAiAnalysis = true,
+                        SuggestedPriority = "High",
+                        NeedsImmediateSafeTransfer = false,
+                        CanWaitForCombinedMission = true
+                    }
+                }
+            ],
+            [
+                new DepotSummary
+                {
+                    Id = 9,
+                    Name = "Kho Hue",
+                    Address = "1 Tran Hung Dao",
+                    Latitude = 16.463,
+                    Longitude = 107.590
+                }
+            ],
+            [
+                new AgentTeamInfo
+                {
+                    TeamId = 21,
+                    TeamName = "Team 21",
+                    TeamType = "Rescue",
+                    IsAvailable = true,
+                    Status = "Available",
+                    AssemblyPointId = 7,
+                    AssemblyPointName = "AP Hue",
+                    Latitude = 16.470,
+                    Longitude = 107.600,
+                    DistanceKm = 1.2
+                }
+            ],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            promptOverride: BuildStagePrompt(99, PromptType.MissionPlanValidation, "validation-empty", isActive: false),
+            aiConfigOverride: BuildAiConfig(model: "shared-preview-model"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("draft", result.PipelineMetadata?.FinalResultSource);
+        Assert.True(result.NeedsManualReview);
+        Assert.Contains("Backend kept the assembled mission draft", result.SpecialNotes, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SOS #11", result.MixedRescueReliefWarning);
+        Assert.Equal(
+            ["COLLECT_SUPPLIES", "DELIVER_SUPPLIES", "RESCUE"],
+            result.SuggestedActivities
+                .Where(activity => activity.ActivityType != "RETURN_ASSEMBLY_POINT")
+                .Select(activity => activity.ActivityType)
+                .ToArray());
     }
 
     private static PromptModel BuildStagePrompt(
@@ -149,7 +471,7 @@ public class RescueMissionSuggestionServicePreviewTests
         public IAiProviderClient GetClient(AiProvider provider) => client;
     }
 
-    private sealed class LegacyStubAiProviderClient : IAiProviderClient
+    private sealed class LegacyStubAiProviderClient(string? responseText = null) : IAiProviderClient
     {
         public AiProvider Provider => AiProvider.Gemini;
 
@@ -159,14 +481,22 @@ public class RescueMissionSuggestionServicePreviewTests
         {
             return Task.FromResult(new AiCompletionResponse
             {
-                Text = """
+                Text = responseText ?? """
                 {
                   "mission_title": "Preview plan",
                   "mission_type": "MIXED",
                   "priority_score": 7.5,
                   "severity_level": "Moderate",
                   "overall_assessment": "Preview only",
-                  "activities": [],
+                  "activities": [
+                    {
+                      "step": 1,
+                      "activity_type": "RESCUE",
+                      "description": "Dua nan nhan den diem an toan",
+                      "estimated_time": "20 phut",
+                      "sos_request_id": 1
+                    }
+                  ],
                   "resources": [],
                   "estimated_duration": "20 phut",
                   "special_notes": null,
@@ -181,10 +511,96 @@ public class RescueMissionSuggestionServicePreviewTests
         }
     }
 
-    private sealed class PipelineStubAiProviderClient : IAiProviderClient
+    private sealed class PipelineStubAiProviderClient(Dictionary<string, string>? stageResponses = null) : IAiProviderClient
     {
         public AiProvider Provider => AiProvider.Gemini;
         public List<string> StageMarkers { get; } = [];
+        private readonly IReadOnlyDictionary<string, string> _stageResponses = stageResponses ?? new Dictionary<string, string>
+        {
+            ["active-requirements"] = """
+            {
+              "suggested_mission_title": "Pipeline preview draft",
+              "suggested_mission_type": "SUPPLY",
+              "suggested_priority_score": 6.5,
+              "suggested_severity_level": "Moderate",
+              "overall_assessment": "Assess request",
+              "estimated_duration": "20 phut",
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.9,
+              "suggested_resources": [],
+              "sos_requirements": [
+                {
+                  "sos_request_id": 1,
+                  "summary": "Need supplies",
+                  "priority": "High",
+                  "required_supplies": [],
+                  "required_teams": []
+                }
+              ]
+            }
+            """,
+            ["override-depot"] = """
+            {
+              "activities": [
+                {
+                  "activity_key": "collect-1",
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Lay do tu kho preview",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 1,
+                  "depot_id": 9,
+                  "depot_name": "Kho Preview",
+                  "depot_address": "1 Preview Street"
+                }
+              ],
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.8
+            }
+            """,
+            ["active-team"] = """
+            {
+              "activity_assignments": [],
+              "additional_activities": [],
+              "suggested_team": null,
+              "special_notes": null,
+              "confidence_score": 0.8
+            }
+            """,
+            ["active-validation"] = """
+            {
+              "mission_title": "Pipeline preview",
+              "mission_type": "SUPPLY",
+              "priority_score": 6.5,
+              "severity_level": "Moderate",
+              "overall_assessment": "Preview only",
+              "activities": [
+                {
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Lay do tu kho preview",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 1,
+                  "depot_id": 9,
+                  "depot_name": "Kho Preview",
+                  "depot_address": "1 Preview Street"
+                }
+              ],
+              "resources": [],
+              "estimated_duration": "20 phut",
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.9
+            }
+            """
+        };
 
         public Task<AiCompletionResponse> CompleteAsync(
             AiCompletionRequest request,
@@ -193,68 +609,8 @@ public class RescueMissionSuggestionServicePreviewTests
             var marker = ExtractMarker(request.SystemPrompt);
             StageMarkers.Add(marker);
 
-            var text = marker switch
-            {
-                "active-requirements" => """
-                {
-                  "suggested_mission_title": "Pipeline preview draft",
-                  "suggested_mission_type": "SUPPLY",
-                  "suggested_priority_score": 6.5,
-                  "suggested_severity_level": "Moderate",
-                  "overall_assessment": "Assess request",
-                  "estimated_duration": "20 phut",
-                  "special_notes": null,
-                  "needs_additional_depot": false,
-                  "supply_shortages": [],
-                  "confidence_score": 0.9,
-                  "suggested_resources": [],
-                  "sos_requirements": [
-                    {
-                      "sos_request_id": 1,
-                      "summary": "Need supplies",
-                      "priority": "High",
-                      "required_supplies": [],
-                      "required_teams": []
-                    }
-                  ]
-                }
-                """,
-                "override-depot" => """
-                {
-                  "activities": [],
-                  "special_notes": null,
-                  "needs_additional_depot": false,
-                  "supply_shortages": [],
-                  "confidence_score": 0.8
-                }
-                """,
-                "active-team" => """
-                {
-                  "activity_assignments": [],
-                  "additional_activities": [],
-                  "suggested_team": null,
-                  "special_notes": null,
-                  "confidence_score": 0.8
-                }
-                """,
-                "active-validation" => """
-                {
-                  "mission_title": "Pipeline preview",
-                  "mission_type": "SUPPLY",
-                  "priority_score": 6.5,
-                  "severity_level": "Moderate",
-                  "overall_assessment": "Preview only",
-                  "activities": [],
-                  "resources": [],
-                  "estimated_duration": "20 phut",
-                  "special_notes": null,
-                  "needs_additional_depot": false,
-                  "supply_shortages": [],
-                  "confidence_score": 0.9
-                }
-                """,
-                _ => throw new InvalidOperationException($"Unexpected stage marker {marker}.")
-            };
+            if (!_stageResponses.TryGetValue(marker, out var text))
+                throw new InvalidOperationException($"Unexpected stage marker {marker}.");
 
             return Task.FromResult(new AiCompletionResponse
             {

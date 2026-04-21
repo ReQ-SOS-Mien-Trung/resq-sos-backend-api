@@ -35,8 +35,16 @@ public partial class MissionAiSuggestion
     [StringLength(255)]
     public string? SuggestedMissionTitle { get; set; }
 
+    [Column("suggested_mission_type")]
+    [StringLength(50)]
+    public string? SuggestedMissionType { get; set; }
+
     [Column("suggested_priority_score")]
     public double? SuggestedPriorityScore { get; set; }
+
+    [Column("suggested_severity_level")]
+    [StringLength(50)]
+    public string? SuggestedSeverityLevel { get; set; }
 
     [Column("suggested_primary_team_id")]
     public int? SuggestedPrimaryTeamId { get; set; }
