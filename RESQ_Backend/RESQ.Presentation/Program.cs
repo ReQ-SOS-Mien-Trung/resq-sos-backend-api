@@ -221,9 +221,9 @@ if (bootstrapDatabaseOnStartup)
     var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
 
     logger.LogInformation("Ensuring RESQ database is created and seeded.");
-    await dbContext.Database.MigrateAsync();
+    await dbContext.Database.EnsureCreatedAsync();
     await RESQ.Infrastructure.Extensions.ServiceCollectionExtensions.RunSeedAsync(dbContext);
-    logger.LogInformation("Database bootstrap finished (migrations applied).");
+    logger.LogInformation("Database bootstrap finished (schema created and seed applied).");
 }
 
 // Middleware pipeline

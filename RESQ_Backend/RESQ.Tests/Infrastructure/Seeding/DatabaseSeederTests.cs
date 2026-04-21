@@ -38,9 +38,9 @@ public class DatabaseSeederTests
         Assert.Equal(420, firstCounts.MissionActivities);
         Assert.Equal(140, firstCounts.Conversations);
         Assert.Equal(1900, firstCounts.Messages);
-        Assert.Equal(622, firstCounts.SupplyInventories);
+        Assert.Equal(732, firstCounts.SupplyInventories);
         Assert.Equal(95, firstCounts.SupplyRequests);
-        Assert.Equal(1383, firstCounts.InventoryLogs);
+        Assert.Equal(1682, firstCounts.InventoryLogs);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v1-2026-04-16"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
@@ -215,7 +215,7 @@ public class DatabaseSeederTests
                     : 0m
             })
             .ToListAsync();
-        var expectedFillRatios = new[] { 0.95m, 0.70m, 0.33m, 0.95m, 0.70m, 0.33m, 0.95m };
+        var expectedFillRatios = new[] { 0.95m, 0.70m, 0.33m, 0.95m, 0.70m, 0.33m, 0.95m, 0.90m };
         Assert.Equal(expectedFillRatios, depotFillRatios.Select(ratio => ratio.VolumeRatio));
         Assert.Equal(expectedFillRatios, depotFillRatios.Select(ratio => ratio.WeightRatio));
 
@@ -267,7 +267,7 @@ public class DatabaseSeederTests
             .ToListAsync();
         Assert.Empty(incompleteRequestsForOtherDepots);
 
-        var closureTestDepot = await context.Depots.SingleAsync(depot => depot.Name == "Ủy ban MTTQVN Tỉnh Nghệ An");
+        var closureTestDepot = await context.Depots.SingleAsync(depot => depot.Name == "Kho cứu trợ Đại học Phú Yên");
         Assert.False(await context.DepotSupplyRequests.AnyAsync(request =>
             request.RequestingDepotId == closureTestDepot.Id || request.SourceDepotId == closureTestDepot.Id));
         Assert.False(await context.MissionActivities.AnyAsync(activity =>
@@ -276,12 +276,46 @@ public class DatabaseSeederTests
                 || activity.ActivityType == "DELIVER_SUPPLIES"
                 || activity.ActivityType == "RETURN_SUPPLIES")));
 
+        var totalItemModelCount = await context.ItemModels.CountAsync();
+        var closureInventories = await context.SupplyInventories
+            .Include(inventory => inventory.ItemModel)
+            .Where(inventory => inventory.DepotId == closureTestDepot.Id)
+            .OrderBy(inventory => inventory.ItemModelId)
+            .ToListAsync();
+        Assert.Equal(totalItemModelCount, closureInventories.Count);
+        Assert.All(closureInventories, inventory => Assert.True((inventory.Quantity ?? 0) > 0));
+        Assert.All(closureInventories, inventory => Assert.Equal(0, inventory.MissionReservedQuantity));
+        Assert.All(closureInventories, inventory => Assert.Equal(0, inventory.TransferReservedQuantity));
+
+        var closureConsumableInventoryIds = closureInventories
+            .Where(inventory => inventory.ItemModel!.ItemType == "Consumable")
+            .Select(inventory => inventory.Id)
+            .ToList();
+        var closureLotRemainingByInventory = await context.SupplyInventoryLots
+            .Where(lot => closureConsumableInventoryIds.Contains(lot.SupplyInventoryId))
+            .GroupBy(lot => lot.SupplyInventoryId)
+            .Select(group => new { InventoryId = group.Key, Remaining = group.Sum(lot => lot.RemainingQuantity) })
+            .ToDictionaryAsync(group => group.InventoryId, group => group.Remaining);
+        Assert.Equal(closureConsumableInventoryIds.Count, closureLotRemainingByInventory.Count);
+        Assert.All(
+            closureInventories.Where(inventory => inventory.ItemModel!.ItemType == "Consumable"),
+            inventory => Assert.Equal(inventory.Quantity, closureLotRemainingByInventory[inventory.Id]));
+
+        var closureReusableUnitsByModel = await context.ReusableItems
+            .Where(item => item.DepotId == closureTestDepot.Id && item.ItemModelId.HasValue)
+            .GroupBy(item => item.ItemModelId!.Value)
+            .Select(group => new { ItemModelId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.ItemModelId, group => group.Count);
+        Assert.All(
+            closureInventories.Where(inventory => inventory.ItemModel!.ItemType == "Reusable"),
+            inventory => Assert.Equal(inventory.Quantity, closureReusableUnitsByModel[inventory.ItemModelId!.Value]));
+
         var depotFundCounts = await context.DepotFunds
             .GroupBy(fund => fund.DepotId)
             .OrderBy(group => group.Key)
             .Select(group => group.Count())
             .ToListAsync();
-        Assert.Equal(new[] { 3, 2, 1, 3, 2, 1, 1 }, depotFundCounts);
+        Assert.Equal(new[] { 3, 2, 1, 3, 2, 1, 1, 3 }, depotFundCounts);
         Assert.All(
             await context.DepotFunds.ToListAsync(),
             fund => Assert.True(

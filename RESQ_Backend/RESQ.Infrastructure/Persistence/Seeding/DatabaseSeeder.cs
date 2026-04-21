@@ -35,7 +35,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int EligibleAssignedRescuerCount = 78;
     private const int HueStadiumUnclusteredSosCount = 10;
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
-    private const string DepotClosureTestDepotName = "Ủy ban MTTQVN Tỉnh Nghệ An";
+    private const string DepotClosureTestDepotName = "Kho cứu trợ Đại học Phú Yên";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly string[] ReferenceIdentityTables =
     [
@@ -1250,9 +1250,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             ("Ủy ban MTTQVN Việt Nam", "46 Tràng Thi, Hoàn Kiếm, Hà Nội", 21.027819, 105.842191, "Available", 1_400_000m, 650_000m, 100_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
             ("Ủy ban MTTQVN Huyện Thăng Bình", "282 Tiểu La, thị trấn Hà Lam, huyện Thăng Bình, Quảng Nam", 15.6949, 108.4587, "Available", 250_000m, 120_000m, 12_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
             ("Ủy ban MTTQVN Huyện Quảng Ninh", "TT. Quán Hàu, huyện Quảng Ninh, Quảng Bình", 17.4619, 106.6175, "Available", 280_000m, 140_000m, 14_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            ("Ủy ban MTTQVN Tỉnh Nghệ An", "1 Phan Đăng Lưu, TP. Vinh, Nghệ An", 18.6732581, 105.6936046, "Available", 300_000m, 150_000m, 5_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg")
+            ("Ủy ban MTTQVN Tỉnh Nghệ An", "1 Phan Đăng Lưu, TP. Vinh, Nghệ An", 18.6732581, 105.6936046, "Available", 300_000m, 150_000m, 5_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            (DepotClosureTestDepotName, "Đại học Phú Yên, TP. Tuy Hòa, Phú Yên", 13.106332, 109.306890, "Available", 520_000m, 210_000m, 18_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg")
         };
-        var fillRatios = new[] { 0.95m, 0.70m, 0.33m, 0.95m, 0.70m, 0.33m, 0.95m };
+        var fillRatios = new[] { 0.95m, 0.70m, 0.33m, 0.95m, 0.70m, 0.33m, 0.95m, 0.90m };
 
         for (var i = 0; i < depotDefs.Length; i++)
         {
@@ -1354,6 +1355,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var lifeJacketModel = seed.ItemModels.Single(m => m.Name == "Áo phao cứu sinh");
         var blanketModel = seed.ItemModels.Single(m => m.Name == "Chăn ấm giữ nhiệt");
         EnsureEssentialDepotStock(seed, lifeJacketModel, blanketModel);
+        EnsureClosureTestDepotFullInventory(seed);
 
         _db.SupplyInventories.AddRange(seed.Inventories);
         await _db.SaveChangesAsync(cancellationToken);
@@ -1380,6 +1382,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
         EnsureEssentialBlanketLots(seed, blanketModel);
         EnsureHueDepotExpiringConsumableLots(seed);
+        EnsureClosureTestDepotConsumableLots(seed);
         _db.SupplyInventoryLots.AddRange(seed.Lots);
 
         var reusableModels = seed.ItemModels.Where(m => m.ItemType == "Reusable").ToList();
@@ -1401,6 +1404,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             });
         }
         EnsureLifeJacketReusableUnits(seed, lifeJacketModel);
+        EnsureClosureTestDepotReusableUnits(seed);
         EnsureManagerReturnFixtureReusableUnits(seed);
         _db.ReusableItems.AddRange(seed.ReusableItems);
 
@@ -1601,6 +1605,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             {
                 var victim = seed.Victims[110 + i];
                 var coordinator = seed.Coordinators[i % seed.Coordinators.Count];
+                var isPendingHueStadiumTestSos = i == 6; // SOS #7 for testing pending/unprocessed flow
                 var situation = (i % 4) switch
                 {
                     0 => "Stranded",
@@ -1608,7 +1613,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     2 => "CannotMove",
                     _ => "NeedSupplies"
                 };
-                var status = i < 4 ? "Pending" : i < 7 ? "Assigned" : i < 9 ? "InProgress" : "Resolved";
+                var status = isPendingHueStadiumTestSos
+                    ? "Pending"
+                    : i < 4 ? "Pending" : i < 7 ? "Assigned" : i < 9 ? "InProgress" : "Resolved";
                 var people = 2 + i % 4;
                 var hasInjured = i % 3 == 0;
                 var localDate = new DateTime(2026, 4, 6 + i, 6 + i % 5, 15 + i * 3 % 35, 0, DateTimeKind.Unspecified);
@@ -2981,6 +2988,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private static bool IsDepotClosureTestCandidate(Depot depot) =>
         string.Equals(depot.Name, DepotClosureTestDepotName, StringComparison.Ordinal);
 
+    private static Depot? FindClosureTestDepot(DemoSeedContext seed) =>
+        seed.Depots.FirstOrDefault(IsDepotClosureTestCandidate);
+
     private static void EnsureEssentialDepotStock(DemoSeedContext seed, ItemModel lifeJacketModel, ItemModel blanketModel)
     {
         for (var depotIndex = 0; depotIndex < seed.Depots.Count; depotIndex++)
@@ -3014,6 +3024,40 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         inventory.TransferReservedQuantity = Math.Min(quantity / 12, 6);
         inventory.LastStockedAt = seed.AnchorUtc.AddDays(-12 - depotIndex);
         inventory.IsDeleted = false;
+    }
+
+    private static void EnsureClosureTestDepotFullInventory(DemoSeedContext seed)
+    {
+        var closureDepot = FindClosureTestDepot(seed);
+        if (closureDepot is null)
+        {
+            return;
+        }
+
+        foreach (var item in seed.ItemModels.OrderBy(model => model.Id))
+        {
+            var inventory = seed.Inventories.FirstOrDefault(i => i.DepotId == closureDepot.Id && i.ItemModelId == item.Id);
+            if (inventory is null)
+            {
+                var quantity = ClosureTestDepotQuantity(item);
+                seed.Inventories.Add(new SupplyInventory
+                {
+                    DepotId = closureDepot.Id,
+                    ItemModelId = item.Id,
+                    Quantity = quantity,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt = seed.AnchorUtc.AddDays(-(18 + item.Id % 40)),
+                    IsDeleted = false
+                });
+                continue;
+            }
+
+            inventory.MissionReservedQuantity = 0;
+            inventory.TransferReservedQuantity = 0;
+            inventory.LastStockedAt = seed.AnchorUtc.AddDays(-(18 + item.Id % 40));
+            inventory.IsDeleted = false;
+        }
     }
 
     private static void EnsureEssentialBlanketLots(DemoSeedContext seed, ItemModel blanketModel)
@@ -3089,6 +3133,48 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
     }
 
+    private static void EnsureClosureTestDepotConsumableLots(DemoSeedContext seed)
+    {
+        var closureDepot = FindClosureTestDepot(seed);
+        if (closureDepot is null)
+        {
+            return;
+        }
+
+        var lotInventoryIds = seed.Lots
+            .Select(lot => lot.SupplyInventoryId)
+            .ToHashSet();
+
+        foreach (var inventory in seed.Inventories
+                     .Where(i => i.DepotId == closureDepot.Id && i.ItemModelId.HasValue)
+                     .OrderBy(i => i.ItemModelId))
+        {
+            if (lotInventoryIds.Contains(inventory.Id))
+            {
+                continue;
+            }
+
+            var itemModel = seed.ItemModels.Single(model => model.Id == inventory.ItemModelId!.Value);
+            if (!string.Equals(itemModel.ItemType, nameof(ItemType.Consumable), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var receivedDate = seed.AnchorUtc.AddDays(-(45 + itemModel.Id % 60));
+            seed.Lots.Add(new SupplyInventoryLot
+            {
+                SupplyInventoryId = inventory.Id,
+                Quantity = inventory.Quantity ?? 0,
+                RemainingQuantity = inventory.Quantity ?? 0,
+                ReceivedDate = receivedDate,
+                ExpiredDate = receivedDate.AddMonths(8 + itemModel.Id % 10),
+                SourceType = InventorySourceType.Donation.ToString(),
+                SourceId = 120_000 + itemModel.Id,
+                CreatedAt = receivedDate
+            });
+        }
+    }
+
     private static void EnsureLifeJacketReusableUnits(DemoSeedContext seed, ItemModel lifeJacketModel)
     {
         var existingSerials = seed.ReusableItems
@@ -3129,6 +3215,62 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
         }
     }
+
+    private static void EnsureClosureTestDepotReusableUnits(DemoSeedContext seed)
+    {
+        var closureDepot = FindClosureTestDepot(seed);
+        if (closureDepot is null)
+        {
+            return;
+        }
+
+        var existingSerials = seed.ReusableItems
+            .Where(item => item.SerialNumber != null)
+            .Select(item => item.SerialNumber!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var inventory in seed.Inventories
+                     .Where(i => i.DepotId == closureDepot.Id && i.ItemModelId.HasValue)
+                     .OrderBy(i => i.ItemModelId))
+        {
+            var itemModel = seed.ItemModels.Single(model => model.Id == inventory.ItemModelId!.Value);
+            if (!string.Equals(itemModel.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var targetQuantity = inventory.Quantity ?? 0;
+            var existingCount = seed.ReusableItems.Count(item =>
+                item.DepotId == closureDepot.Id && item.ItemModelId == itemModel.Id);
+
+            for (var unitIndex = existingCount; unitIndex < targetQuantity; unitIndex++)
+            {
+                var serialNumber = $"PHY-DEPOT-D{closureDepot.Id:00}-M{itemModel.Id:000}-{unitIndex + 1:000}";
+                if (!existingSerials.Add(serialNumber))
+                {
+                    continue;
+                }
+
+                seed.ReusableItems.Add(new ReusableItem
+                {
+                    DepotId = closureDepot.Id,
+                    ItemModelId = itemModel.Id,
+                    SerialNumber = serialNumber,
+                    Status = ReusableItemStatus.Available.ToString(),
+                    Condition = "Good",
+                    Note = "Kho test đóng kho Phú Yên - vật tư sẵn sàng chuyển kho.",
+                    CreatedAt = seed.AnchorUtc.AddDays(-(60 + (itemModel.Id + unitIndex) % 45)),
+                    UpdatedAt = seed.AnchorUtc.AddDays(-((itemModel.Id + unitIndex) % 18)),
+                    IsDeleted = false
+                });
+            }
+        }
+    }
+
+    private static int ClosureTestDepotQuantity(ItemModel itemModel) =>
+        string.Equals(itemModel.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase)
+            ? 4 + itemModel.Id % 3
+            : 120 + (itemModel.Id % 5) * 20;
 
     private static void EnsureManagerReturnFixtureReusableUnits(DemoSeedContext seed)
     {
