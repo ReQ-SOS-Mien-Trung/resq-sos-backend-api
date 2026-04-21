@@ -248,6 +248,7 @@ public partial class RescueMissionSuggestionService
             result.IsSuccess = true;
             result.ModelName = stage.ModelName;
             result.RawAiResponse = stage.ResponseText;
+            ValidateExecutableMissionResult(result, sosRequests, draftActivities);
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -270,7 +271,7 @@ public partial class RescueMissionSuggestionService
             result.NeedsManualReview = true;
             result.SpecialNotes = AppendSpecialNote(
                 result.SpecialNotes,
-                "Final validation failed. Please review the assembled mission draft manually.");
+                BuildValidationFallbackNote(ex));
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -830,6 +831,18 @@ public partial class RescueMissionSuggestionService
         return result;
     }
 
+    private static string BuildValidationFallbackNote(Exception exception)
+    {
+        return exception.Message switch
+        {
+            var message when message.Contains("must include executable activities", StringComparison.OrdinalIgnoreCase)
+                => "Final validation output omitted executable activities. Backend kept the assembled mission draft and marked it for manual review.",
+            var message when message.Contains("must preserve both rescue and relief branches", StringComparison.OrdinalIgnoreCase)
+                => "Final validation output dropped rescue or relief branches from the executable route. Backend kept the assembled mission draft and marked it for manual review.",
+            _ => "Final validation failed. Please review the assembled mission draft manually."
+        };
+    }
+
     private async Task FinalizeSuggestionResultAsync(
         RescueMissionSuggestionResult result,
         List<SosRequestSummary> sosRequests,
@@ -858,6 +871,8 @@ public partial class RescueMissionSuggestionService
             BackfillSosRequestIds(draftActivities, sosRequests);
             EnrichVictimTargets(draftActivities, sosLookup);
         }
+
+        ValidateExecutableMissionResult(result, sosRequests, draftActivities);
 
         var effectiveMetadata = metadata ?? CreateSuggestionMetadataForLegacy();
         effectiveMetadata.OverallAssessment = result.OverallAssessment;
