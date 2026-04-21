@@ -40,7 +40,7 @@ public class DatabaseSeederTests
         Assert.Equal(1900, firstCounts.Messages);
         Assert.Equal(622, firstCounts.SupplyInventories);
         Assert.Equal(95, firstCounts.SupplyRequests);
-        Assert.Equal(1379, firstCounts.InventoryLogs);
+        Assert.Equal(1383, firstCounts.InventoryLogs);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v1-2026-04-16"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
@@ -293,8 +293,20 @@ public class DatabaseSeederTests
             .Where(s => s.Location!.Y >= 16.455 && s.Location.Y <= 16.479)
             .Where(s => s.Location!.X >= 107.586 && s.Location.X <= 107.609)
             .ToListAsync();
+        var sampleClusteredSos = (await context.SosRequests
+                .Where(s => new[] { 12, 95, 158, 221, 305 }.Contains(s.Id) && s.Location != null)
+                .OrderBy(s => s.Id)
+                .Select(s => new { s.Id, Location = s.Location! })
+                .ToListAsync())
+            .Select(s => new SosCoordinateSnapshot(s.Id, null, Math.Round(s.Location.Y, 6), Math.Round(s.Location.X, 6)))
+            .ToList();
 
         Assert.Equal(10, unclusteredHueSos.Count);
+        Assert.Equal(5, sampleClusteredSos.Count);
+        Assert.Equal(5, sampleClusteredSos.Select(s => s.Latitude).Distinct().Count());
+        Assert.Equal(5, sampleClusteredSos.Select(s => s.Longitude).Distinct().Count());
+        Assert.True(sampleClusteredSos.Max(s => s.Latitude) - sampleClusteredSos.Min(s => s.Latitude) > 0.0025);
+        Assert.True(sampleClusteredSos.Max(s => s.Longitude) - sampleClusteredSos.Min(s => s.Longitude) > 0.004);
         Assert.DoesNotContain(await context.SosRequests.Select(s => s.PriorityLevel).Distinct().ToListAsync(), value => value == "Moderate");
         Assert.All(
             await context.SosRequests.Select(s => s.SosType).Distinct().ToListAsync(),
@@ -352,6 +364,23 @@ public class DatabaseSeederTests
     }
 
     [Fact]
+    public async Task SeedAsync_ProducesStableSosCoordinatesAcrossFreshContexts()
+    {
+        await using var firstContext = CreateContext();
+        await using var secondContext = CreateContext();
+        await firstContext.Database.EnsureCreatedAsync();
+        await secondContext.Database.EnsureCreatedAsync();
+
+        await CreateSeeder(firstContext).SeedAsync();
+        await CreateSeeder(secondContext).SeedAsync();
+
+        var firstSnapshot = await LoadSosCoordinateSnapshotsAsync(firstContext);
+        var secondSnapshot = await LoadSosCoordinateSnapshotsAsync(secondContext);
+
+        Assert.Equal(firstSnapshot, secondSnapshot);
+    }
+
+    [Fact]
     public async Task SeedAsync_CreatesManager01UpcomingReturnFixturesForHueDepot()
     {
         await using var context = CreateContext();
@@ -406,6 +435,60 @@ public class DatabaseSeederTests
             .ToListAsync();
         Assert.Equal(expectedReusableUnitIds.Count, expectedReusableUnits.Count);
         Assert.All(expectedReusableUnits, unit => Assert.Equal("InUse", unit.Status));
+    }
+
+    [Fact]
+    public async Task SeedAsync_CreatesExpiringConsumableLotsForHueDepot()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+
+        await CreateSeeder(context).SeedAsync();
+
+        var anchorUtc = new DateTime(2026, 4, 16, 16, 59, 59, DateTimeKind.Utc).AddTicks(TimeSpan.TicksPerSecond - 1);
+        var expiringThreshold = anchorUtc.AddDays(30);
+        var expectedLots = new[]
+        {
+            new { ItemName = "Mì tôm", Quantity = 24, SourceId = 90_001, ReceivedDate = anchorUtc.AddDays(-20), ExpiredDate = anchorUtc.AddDays(7) },
+            new { ItemName = "Nước tinh khiết", Quantity = 48, SourceId = 90_002, ReceivedDate = anchorUtc.AddDays(-18), ExpiredDate = anchorUtc.AddDays(14) },
+            new { ItemName = "Sữa bột trẻ em", Quantity = 18, SourceId = 90_003, ReceivedDate = anchorUtc.AddDays(-16), ExpiredDate = anchorUtc.AddDays(21) },
+            new { ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 60, SourceId = 90_004, ReceivedDate = anchorUtc.AddDays(-14), ExpiredDate = anchorUtc.AddDays(28) }
+        };
+
+        foreach (var expected in expectedLots)
+        {
+            var inventory = await context.SupplyInventories
+                .Include(item => item.ItemModel)
+                .Include(item => item.Lots)
+                .Include(item => item.InventoryLogs)
+                .SingleAsync(item =>
+                    item.DepotId == 1
+                    && item.ItemModel != null
+                    && item.ItemModel.Name == expected.ItemName);
+
+            var expiringLot = Assert.Single(
+                inventory.Lots,
+                lot => lot.Quantity == expected.Quantity
+                    && lot.RemainingQuantity == expected.Quantity
+                    && lot.SourceType == "Purchase"
+                    && lot.SourceId == expected.SourceId);
+
+            Assert.Equal(expected.ReceivedDate, expiringLot.ReceivedDate);
+            Assert.Equal(expected.ExpiredDate, expiringLot.ExpiredDate);
+            Assert.InRange(expiringLot.ExpiredDate!.Value, anchorUtc, expiringThreshold);
+            Assert.Equal(inventory.Quantity, inventory.Lots.Sum(lot => lot.RemainingQuantity));
+
+            var importLog = Assert.Single(
+                inventory.InventoryLogs,
+                log => log.ActionType == "Import"
+                    && log.SupplyInventoryLotId == expiringLot.Id
+                    && log.QuantityChange == expected.Quantity
+                    && log.SourceType == "Purchase"
+                    && log.SourceId == expected.SourceId);
+
+            Assert.Equal(expected.ReceivedDate, importLog.ReceivedDate);
+            Assert.Equal(expected.ExpiredDate, importLog.ExpiredDate);
+        }
     }
 
     [Fact]
@@ -543,6 +626,17 @@ public class DatabaseSeederTests
             await context.InventoryLogs.CountAsync());
     }
 
+    private static async Task<List<SosCoordinateSnapshot>> LoadSosCoordinateSnapshotsAsync(ResQDbContext context)
+    {
+        return (await context.SosRequests
+                .Where(s => s.Location != null)
+                .OrderBy(s => s.Id)
+                .Select(s => new { s.Id, s.ClusterId, Location = s.Location! })
+                .ToListAsync())
+            .Select(s => new SosCoordinateSnapshot(s.Id, s.ClusterId, Math.Round(s.Location.Y, 6), Math.Round(s.Location.X, 6)))
+            .ToList();
+    }
+
     private static bool IsCapsLockToken(string? value) =>
         !string.IsNullOrWhiteSpace(value)
         && value.Any(char.IsLetter)
@@ -559,4 +653,6 @@ public class DatabaseSeederTests
         int SupplyInventories,
         int SupplyRequests,
         int InventoryLogs);
+
+    private sealed record SosCoordinateSnapshot(int Id, int? ClusterId, double Latitude, double Longitude);
 }
