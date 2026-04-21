@@ -39,10 +39,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly string[] ReferenceIdentityTables =
     [
+        "notifications",
+        "ai_configs",
+        "prompts",
         "roles",
         "permissions",
         "document_file_type_categories",
         "document_file_types",
+        "service_zones",
         "target_groups",
         "inventory_stock_threshold_configs",
         "stock_warning_band_config"
@@ -73,6 +77,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         await EnsurePostGisExtensionAsync(cancellationToken);
         await SeedReferenceDataAsync(cancellationToken);
+        await SeedAiSuggestionsAsync(cancellationToken);
 
         if (await _db.SystemMigrationAudits.AnyAsync(a => a.MigrationName == MarkerName, cancellationToken))
         {
@@ -115,6 +120,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 await SeedDepotsAndInventoryAsync(seed, cancellationToken);
                 await SeedEmergencyAsync(seed, cancellationToken);
                 await SeedMissionsAsync(seed, cancellationToken);
+                await SeedAiSuggestionsAsync(cancellationToken);
                 await SeedChatAsync(seed, cancellationToken);
                 await SeedSupplyRequestsAsync(seed, cancellationToken);
                 await SeedFinanceAsync(seed, cancellationToken);
@@ -254,6 +260,27 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedCoreReferenceDataAsync(DateTime referenceTimestamp, CancellationToken cancellationToken)
     {
+        var existingNotificationIds = await _db.Notifications
+            .Select(notification => notification.Id)
+            .ToListAsync(cancellationToken);
+        var existingNotificationIdSet = existingNotificationIds.ToHashSet();
+        _db.Notifications.AddRange(SystemSeeder.CreateNotifications()
+            .Where(notification => !existingNotificationIdSet.Contains(notification.Id)));
+
+        var existingAiConfigIds = await _db.AiConfigs
+            .Select(config => config.Id)
+            .ToListAsync(cancellationToken);
+        var existingAiConfigIdSet = existingAiConfigIds.ToHashSet();
+        _db.AiConfigs.AddRange(SystemSeeder.CreateAiConfigs()
+            .Where(config => !existingAiConfigIdSet.Contains(config.Id)));
+
+        var existingPromptIds = await _db.Prompts
+            .Select(prompt => prompt.Id)
+            .ToListAsync(cancellationToken);
+        var existingPromptIdSet = existingPromptIds.ToHashSet();
+        _db.Prompts.AddRange(SystemSeeder.CreatePrompts()
+            .Where(prompt => !existingPromptIdSet.Contains(prompt.Id)));
+
         var existingRoleIds = await _db.Roles
             .Select(role => role.Id)
             .ToListAsync(cancellationToken);
@@ -380,6 +407,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task ResetReferenceIdentitySequencesAsync(CancellationToken cancellationToken)
     {
+        await ResetIdentitySequencesAsync(ReferenceIdentityTables, cancellationToken);
+    }
+
+    private async Task ResetIdentitySequencesAsync(IEnumerable<string> tableNames, CancellationToken cancellationToken)
+    {
         if (!string.Equals(
             _db.Database.ProviderName,
             "Npgsql.EntityFrameworkCore.PostgreSQL",
@@ -388,7 +420,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             return;
         }
 
-        foreach (var tableName in ReferenceIdentityTables)
+        foreach (var tableName in tableNames)
         {
             var resetSequenceSql =
                 $"""
@@ -403,6 +435,123 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 resetSequenceSql,
                 cancellationToken);
         }
+    }
+
+    private async Task SeedAiSuggestionsAsync(CancellationToken cancellationToken)
+    {
+        var clusterIds = await _db.SosClusters
+            .OrderBy(cluster => cluster.Id)
+            .Take(2)
+            .Select(cluster => cluster.Id)
+            .ToArrayAsync(cancellationToken);
+        var adoptedRescueTeamId = await _db.RescueTeams
+            .OrderBy(team => team.Id)
+            .Select(team => (int?)team.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (clusterIds.Length == 0)
+        {
+            return;
+        }
+
+        var existingClusterAnalysisIds = await _db.ClusterAiAnalyses
+            .Select(analysis => analysis.Id)
+            .ToListAsync(cancellationToken);
+        var existingClusterAnalysisIdSet = existingClusterAnalysisIds.ToHashSet();
+        var clusterAnalysisTemplates = AiAnalysisSeeder.CreateClusterAiAnalyses();
+        for (var index = 0; index < Math.Min(clusterAnalysisTemplates.Count, clusterIds.Length); index++)
+        {
+            var template = clusterAnalysisTemplates[index];
+            if (existingClusterAnalysisIdSet.Contains(template.Id))
+            {
+                continue;
+            }
+
+            _db.ClusterAiAnalyses.Add(new ClusterAiAnalysis
+            {
+                Id = template.Id,
+                ClusterId = clusterIds[index],
+                ModelName = template.ModelName,
+                ModelVersion = template.ModelVersion,
+                AnalysisType = template.AnalysisType,
+                SuggestedSeverityLevel = template.SuggestedSeverityLevel,
+                SuggestedMissionTypes = template.SuggestedMissionTypes,
+                ConfidenceScore = template.ConfidenceScore,
+                SuggestionScope = template.SuggestionScope,
+                Metadata = template.Metadata,
+                CreatedAt = template.CreatedAt,
+                AdoptedAt = template.AdoptedAt
+            });
+        }
+
+        var existingActivitySuggestionIds = await _db.ActivityAiSuggestions
+            .Select(suggestion => suggestion.Id)
+            .ToListAsync(cancellationToken);
+        var existingActivitySuggestionIdSet = existingActivitySuggestionIds.ToHashSet();
+        var activitySuggestionTemplates = AiAnalysisSeeder.CreateActivityAiSuggestions();
+        for (var index = 0; index < Math.Min(activitySuggestionTemplates.Count, clusterIds.Length); index++)
+        {
+            var template = activitySuggestionTemplates[index];
+            if (existingActivitySuggestionIdSet.Contains(template.Id))
+            {
+                continue;
+            }
+
+            _db.ActivityAiSuggestions.Add(new ActivityAiSuggestion
+            {
+                Id = template.Id,
+                ClusterId = clusterIds[index],
+                ParentMissionSuggestionId = template.ParentMissionSuggestionId,
+                AdoptedActivityId = template.AdoptedActivityId,
+                ModelName = template.ModelName,
+                ModelVersion = template.ModelVersion,
+                ActivityType = template.ActivityType,
+                SuggestionPhase = template.SuggestionPhase,
+                SuggestedActivities = template.SuggestedActivities,
+                ConfidenceScore = template.ConfidenceScore,
+                SuggestionScope = template.SuggestionScope,
+                CreatedAt = template.CreatedAt,
+                AdoptedAt = template.AdoptedAt
+            });
+        }
+
+        var existingRescueTeamSuggestionIds = await _db.RescueTeamAiSuggestions
+            .Select(suggestion => suggestion.Id)
+            .ToListAsync(cancellationToken);
+        var existingRescueTeamSuggestionIdSet = existingRescueTeamSuggestionIds.ToHashSet();
+        var rescueTeamSuggestionTemplates = AiAnalysisSeeder.CreateRescueTeamAiSuggestions();
+        for (var index = 0; index < Math.Min(rescueTeamSuggestionTemplates.Count, clusterIds.Length); index++)
+        {
+            var template = rescueTeamSuggestionTemplates[index];
+            if (existingRescueTeamSuggestionIdSet.Contains(template.Id))
+            {
+                continue;
+            }
+
+            _db.RescueTeamAiSuggestions.Add(new RescueTeamAiSuggestion
+            {
+                Id = template.Id,
+                ClusterId = clusterIds[index],
+                AdoptedRescueTeamId = adoptedRescueTeamId,
+                ModelName = template.ModelName,
+                ModelVersion = template.ModelVersion,
+                AnalysisType = template.AnalysisType,
+                SuggestedMembers = template.SuggestedMembers,
+                ConfidenceScore = template.ConfidenceScore,
+                SuggestionScope = template.SuggestionScope,
+                CreatedAt = template.CreatedAt,
+                AdoptedAt = template.AdoptedAt
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        await ResetIdentitySequencesAsync(
+            [
+                "cluster_ai_analysis",
+                "activity_ai_suggestions",
+                "rescue_team_ai_suggestions"
+            ],
+            cancellationToken);
     }
 
     private async Task<bool> HasOperationalDataAsync(CancellationToken cancellationToken)
@@ -1230,6 +1379,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             });
         }
         EnsureEssentialBlanketLots(seed, blanketModel);
+        EnsureHueDepotExpiringConsumableLots(seed);
         _db.SupplyInventoryLots.AddRange(seed.Lots);
 
         var reusableModels = seed.ItemModels.Where(m => m.ItemType == "Reusable").ToList();
@@ -1310,17 +1460,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             var localDate = RandomEventLocal(seed, i);
             var severity = i < 22 ? "Critical" : i < 80 ? "High" : i < 101 ? "Medium" : "Low";
             var clusterStatus = ClusterStatusForSeedIndex(i);
-            var offsets = new List<(double Lat, double Lon)>();
-            for (var j = 0; j < clusterSosCounts[i]; j++)
-            {
-                var dLat = ((j % 2 == 0 ? 1 : -1) * (0.004 + (j + i % 3) * 0.001));
-                var dLon = ((j % 3 == 0 ? 1 : -1) * (0.005 + (j + i % 4) * 0.001));
-                offsets.Add((area.Lat + dLat, area.Lon + dLon));
-            }
-
-            var avgLat = offsets.Average(p => p.Lat);
-            var avgLon = offsets.Average(p => p.Lon);
-            var radius = Math.Max(0.8, offsets.Max(p => DistanceKm(avgLat, avgLon, p.Lat, p.Lon)) + 0.5);
+            var scatterPoints = BuildClusterScatterPoints(area, i, clusterSosCounts[i]);
+            var avgLat = scatterPoints.Average(p => p.Lat);
+            var avgLon = scatterPoints.Average(p => p.Lon);
+            var radius = Math.Max(0.8, scatterPoints.Max(p => DistanceKm(avgLat, avgLon, p.Lat, p.Lon)) + 0.5);
             var cluster = new SosCluster
             {
                 CenterLocation = Point(avgLon, avgLat),
@@ -1356,7 +1499,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     PacketId = StableGuid($"packet-{i}-{j}"),
                     Cluster = cluster,
                     UserId = victim.Id,
-                    Location = Point(offsets[j].Lon, offsets[j].Lat),
+                    Location = Point(scatterPoints[j].Lon, scatterPoints[j].Lat),
                     LocationAccuracy = 12 + (i + j) % 35,
                     SosType = situation is "NeedSupplies" ? "Relief" : hasInjured || situation is "Flooding" ? "Both" : "Rescue",
                     RawMessage = SosMessage(situation, people, hasInjured),
@@ -2396,12 +2539,17 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 && itemModelsById.TryGetValue(i.ItemModelId.Value, out var itemModel)
                 && string.Equals(itemModel.ItemType, "Consumable", StringComparison.Ordinal)
                 && lotsByInventoryId.ContainsKey(i.Id))
-            .Select(i => new ConsumableInventoryHistoryPlan
+            .Select(i =>
             {
-                Inventory = i,
-                ItemModel = itemModelsById[i.ItemModelId!.Value],
-                BaseLot = lotsByInventoryId[i.Id][0],
-                PerformedBy = ManagerForDepot(seed, i.DepotId!.Value)
+                var seedImportLots = lotsByInventoryId[i.Id];
+                return new ConsumableInventoryHistoryPlan
+                {
+                    Inventory = i,
+                    ItemModel = itemModelsById[i.ItemModelId!.Value],
+                    BaseLot = seedImportLots[0],
+                    SupplementalImportLots = seedImportLots.Skip(1).ToList(),
+                    PerformedBy = ManagerForDepot(seed, i.DepotId!.Value)
+                };
             })
             .ToDictionary(plan => plan.Inventory.Id);
 
@@ -2590,7 +2738,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             var inboundQuantity = plan.InboundTransfers.Sum(t => t.Quantity);
             var outboundQuantity = plan.OutboundEvents.Sum(t => t.Quantity) + plan.Adjustments.Sum(t => t.Quantity);
-            var baseRemaining = Math.Max(0, plan.FinalQuantity - inboundQuantity);
+            var supplementalImportQuantity = plan.SupplementalImportLots.Sum(lot => lot.RemainingQuantity);
+            var baseRemaining = plan.FinalQuantity - inboundQuantity - supplementalImportQuantity;
+            if (baseRemaining < 0)
+            {
+                throw new InvalidOperationException(
+                    $"Consumable inventory #{plan.Inventory.Id} cannot fit supplemental seed lots into final quantity.");
+            }
+
             var baseQuantity = Math.Max(1, baseRemaining + outboundQuantity);
             var receivedDate = plan.BaseLot.ReceivedDate ?? seed.StartUtc.AddDays(120 + plan.Inventory.Id % 520);
             var expiredDate = plan.BaseLot.ExpiredDate ?? receivedDate.AddMonths(6 + plan.Inventory.Id % 15);
@@ -2606,9 +2761,13 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             plan.BaseLot.SourceType = sourceType;
             plan.BaseLot.SourceId = sourceId;
             plan.BaseLot.CreatedAt = receivedDate;
+            var latestSeededReceipt = plan.SupplementalImportLots
+                .Select(lot => lot.ReceivedDate ?? lot.CreatedAt)
+                .Append(receivedDate)
+                .Max();
             plan.Inventory.LastStockedAt = plan.InboundTransfers.Count == 0
-                ? receivedDate
-                : plan.InboundTransfers.Max(t => t.CreatedAt);
+                ? latestSeededReceipt
+                : new[] { latestSeededReceipt, plan.InboundTransfers.Max(t => t.CreatedAt) }.Max();
 
             inventoryLogs.Add(new InventoryLog
             {
@@ -2625,6 +2784,36 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ExpiredDate = expiredDate,
                 CreatedAt = receivedDate
             });
+
+            foreach (var supplementalLot in plan.SupplementalImportLots.OrderBy(lot => lot.CreatedAt).ThenBy(lot => lot.SourceId))
+            {
+                var supplementalReceivedDate = supplementalLot.ReceivedDate ?? supplementalLot.CreatedAt;
+                var supplementalExpiredDate = supplementalLot.ExpiredDate;
+                var supplementalSourceType = string.Equals(supplementalLot.SourceType, InventorySourceType.Purchase.ToString(), StringComparison.Ordinal)
+                    ? InventorySourceType.Purchase.ToString()
+                    : InventorySourceType.Donation.ToString();
+                var supplementalSourceId = supplementalLot.SourceId ?? plan.Inventory.Id;
+
+                supplementalLot.SourceType = supplementalSourceType;
+                supplementalLot.SourceId = supplementalSourceId;
+                supplementalLot.ReceivedDate = supplementalReceivedDate;
+                supplementalLot.CreatedAt = supplementalReceivedDate;
+
+                inventoryLogs.Add(new InventoryLog
+                {
+                    DepotSupplyInventoryId = plan.Inventory.Id,
+                    SupplyInventoryLot = supplementalLot,
+                    ActionType = InventoryActionType.Import.ToString(),
+                    QuantityChange = supplementalLot.Quantity,
+                    SourceType = supplementalSourceType,
+                    SourceId = supplementalSourceId,
+                    PerformedBy = plan.PerformedBy,
+                    Note = $"Nhập lô demo sắp hết hạn {plan.ItemModel.Name} vào {plan.Inventory.Depot?.Name ?? $"kho #{plan.Inventory.DepotId}"}",
+                    ReceivedDate = supplementalReceivedDate,
+                    ExpiredDate = supplementalExpiredDate,
+                    CreatedAt = supplementalReceivedDate
+                });
+            }
 
             foreach (var outbound in plan.OutboundEvents.OrderBy(e => e.CreatedAt))
             {
@@ -2856,6 +3045,47 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 SourceId = 4_000 + inventory.Id,
                 CreatedAt = received
             });
+        }
+    }
+
+    private static void EnsureHueDepotExpiringConsumableLots(DemoSeedContext seed)
+    {
+        if (seed.Depots.Count == 0)
+        {
+            return;
+        }
+
+        var hueDepot = seed.Depots[0];
+        var specs = new (string ItemName, int Quantity, int ReceivedOffsetDays, int ExpiredOffsetDays, int SourceId)[]
+        {
+            ("Mì tôm", 24, -20, 7, 90_001),
+            ("Nước tinh khiết", 48, -18, 14, 90_002),
+            ("Sữa bột trẻ em", 18, -16, 21, 90_003),
+            ("Thuốc hạ sốt Paracetamol 500mg", 60, -14, 28, 90_004)
+        };
+
+        foreach (var spec in specs)
+        {
+            var itemModel = seed.ItemModels.Single(model =>
+                string.Equals(model.Name, spec.ItemName, StringComparison.OrdinalIgnoreCase));
+            var inventory = seed.Inventories.Single(inventory =>
+                inventory.DepotId == hueDepot.Id && inventory.ItemModelId == itemModel.Id);
+            var receivedDate = seed.AnchorUtc.AddDays(spec.ReceivedOffsetDays);
+
+            seed.Lots.Add(new SupplyInventoryLot
+            {
+                SupplyInventoryId = inventory.Id,
+                Quantity = spec.Quantity,
+                RemainingQuantity = spec.Quantity,
+                ReceivedDate = receivedDate,
+                ExpiredDate = seed.AnchorUtc.AddDays(spec.ExpiredOffsetDays),
+                SourceType = InventorySourceType.Purchase.ToString(),
+                SourceId = spec.SourceId,
+                CreatedAt = receivedDate
+            });
+
+            inventory.Quantity = (inventory.Quantity ?? 0) + spec.Quantity;
+            inventory.LastStockedAt = receivedDate;
         }
     }
 
@@ -3349,6 +3579,187 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         };
         return areas[index % areas.Length];
     }
+
+    private static IReadOnlyList<SeedCoordinate> GetCuratedBulkSosAnchors(SeedArea area)
+    {
+        return (area.Code, area.Ward) switch
+        {
+            ("HUE", "Phú Hội") =>
+            [
+                new SeedCoordinate(16.466942, 107.593184),
+                new SeedCoordinate(16.465718, 107.599862),
+                new SeedCoordinate(16.463981, 107.603104),
+                new SeedCoordinate(16.461447, 107.598756),
+                new SeedCoordinate(16.459832, 107.594227),
+                new SeedCoordinate(16.458214, 107.601335),
+                new SeedCoordinate(16.456973, 107.589684),
+                new SeedCoordinate(16.468256, 107.588927)
+            ],
+            ("HUE", "Hương Sơ") =>
+            [
+                new SeedCoordinate(16.499812, 107.582644),
+                new SeedCoordinate(16.498276, 107.589401),
+                new SeedCoordinate(16.496145, 107.592338),
+                new SeedCoordinate(16.493447, 107.588924),
+                new SeedCoordinate(16.491318, 107.583571),
+                new SeedCoordinate(16.489642, 107.590811),
+                new SeedCoordinate(16.487925, 107.586374),
+                new SeedCoordinate(16.500386, 107.586922)
+            ],
+            ("DNG", "Hải Châu") =>
+            [
+                new SeedCoordinate(16.050284, 108.214973),
+                new SeedCoordinate(16.048617, 108.221556),
+                new SeedCoordinate(16.046851, 108.225348),
+                new SeedCoordinate(16.044902, 108.220217),
+                new SeedCoordinate(16.042731, 108.216094),
+                new SeedCoordinate(16.045588, 108.212347),
+                new SeedCoordinate(16.051936, 108.219487),
+                new SeedCoordinate(16.047934, 108.228204)
+            ],
+            ("QTR", "Đông Hà") =>
+            [
+                new SeedCoordinate(16.821476, 107.096412),
+                new SeedCoordinate(16.820138, 107.103754),
+                new SeedCoordinate(16.817462, 107.107118),
+                new SeedCoordinate(16.814808, 107.102671),
+                new SeedCoordinate(16.812943, 107.098384),
+                new SeedCoordinate(16.815562, 107.094945),
+                new SeedCoordinate(16.819947, 107.090853),
+                new SeedCoordinate(16.823114, 107.100226)
+            ],
+            ("QNM", "Tam Kỳ") =>
+            [
+                new SeedCoordinate(15.577812, 108.469826),
+                new SeedCoordinate(15.576203, 108.476915),
+                new SeedCoordinate(15.573941, 108.480144),
+                new SeedCoordinate(15.571225, 108.476492),
+                new SeedCoordinate(15.569438, 108.472318),
+                new SeedCoordinate(15.571987, 108.467834),
+                new SeedCoordinate(15.575112, 108.463925),
+                new SeedCoordinate(15.578431, 108.473781)
+            ],
+            ("QNM", "Hội An") =>
+            [
+                new SeedCoordinate(15.884216, 108.334882),
+                new SeedCoordinate(15.882807, 108.341245),
+                new SeedCoordinate(15.880352, 108.344627),
+                new SeedCoordinate(15.877966, 108.340982),
+                new SeedCoordinate(15.876184, 108.336771),
+                new SeedCoordinate(15.878415, 108.332684),
+                new SeedCoordinate(15.881924, 108.329415),
+                new SeedCoordinate(15.885142, 108.338904)
+            ],
+            ("QNG", "Trần Phú") =>
+            [
+                new SeedCoordinate(15.125116, 108.800712),
+                new SeedCoordinate(15.123728, 108.807194),
+                new SeedCoordinate(15.121335, 108.810456),
+                new SeedCoordinate(15.118914, 108.806973),
+                new SeedCoordinate(15.117103, 108.802624),
+                new SeedCoordinate(15.119684, 108.798935),
+                new SeedCoordinate(15.122447, 108.795682),
+                new SeedCoordinate(15.126024, 108.804173)
+            ],
+            _ => throw new InvalidOperationException($"Chưa cấu hình curated anchor cho area {area.Code}/{area.Ward}.")
+        };
+    }
+
+    private static IReadOnlyList<SeedCoordinate> BuildClusterScatterPoints(SeedArea area, int clusterIndex, int count)
+    {
+        var anchors = GetCuratedBulkSosAnchors(area);
+        var anchorSeed = StableGuid($"cluster-anchor-{clusterIndex}-{area.Code}-{area.Ward}");
+        var anchorIndex = (DeterministicIndex(anchorSeed, anchors.Count) + clusterIndex % anchors.Count) % anchors.Count;
+        var anchor = anchors[anchorIndex];
+
+        var templates = count switch
+        {
+            3 => ThreePointClusterScatterTemplates,
+            4 => FourPointClusterScatterTemplates,
+            _ => throw new InvalidOperationException($"Không hỗ trợ {count} SOS trong một cluster demo.")
+        };
+        var templateSeed = StableGuid($"cluster-template-{clusterIndex}-{count}-{area.Code}-{area.Ward}");
+        var templateIndex = (DeterministicIndex(templateSeed, templates.Length) + clusterIndex % templates.Length) % templates.Length;
+        var template = templates[templateIndex];
+
+        return Enumerable.Range(0, count)
+            .Select(pointIndex =>
+            {
+                var jitterSeed = StableGuid($"cluster-point-{clusterIndex}-{pointIndex}-{area.Code}-{area.Ward}");
+                var latJitter = DeterministicRange(jitterSeed, 0, -0.00035, 0.00035);
+                var lonJitter = DeterministicRange(jitterSeed, 4, -0.00042, 0.00042);
+                return new SeedCoordinate(
+                    anchor.Lat + template[pointIndex].Lat + latJitter,
+                    anchor.Lon + template[pointIndex].Lon + lonJitter);
+            })
+            .ToArray();
+    }
+
+    private static int DeterministicIndex(Guid seed, int count)
+    {
+        var bytes = seed.ToByteArray();
+        return (int)(BitConverter.ToUInt32(bytes, 0) % count);
+    }
+
+    private static double DeterministicRange(Guid seed, int byteOffset, double min, double max)
+    {
+        var bytes = seed.ToByteArray();
+        var offset = Math.Clamp(byteOffset, 0, bytes.Length - sizeof(uint));
+        var ratio = BitConverter.ToUInt32(bytes, offset) / (double)uint.MaxValue;
+        return min + (max - min) * ratio;
+    }
+
+    private static readonly SeedCoordinate[][] ThreePointClusterScatterTemplates =
+    [
+        [
+            new SeedCoordinate(0.0018, -0.0011),
+            new SeedCoordinate(-0.0007, 0.0016),
+            new SeedCoordinate(0.0003, -0.0022)
+        ],
+        [
+            new SeedCoordinate(0.0012, 0.0017),
+            new SeedCoordinate(-0.0014, -0.0006),
+            new SeedCoordinate(0.0005, -0.0018)
+        ],
+        [
+            new SeedCoordinate(0.0009, -0.0019),
+            new SeedCoordinate(-0.0016, 0.0008),
+            new SeedCoordinate(0.0017, 0.0011)
+        ],
+        [
+            new SeedCoordinate(0.0015, 0.0006),
+            new SeedCoordinate(-0.0009, -0.0017),
+            new SeedCoordinate(-0.0018, 0.0014)
+        ]
+    ];
+
+    private static readonly SeedCoordinate[][] FourPointClusterScatterTemplates =
+    [
+        [
+            new SeedCoordinate(0.0019, -0.0012),
+            new SeedCoordinate(-0.0006, 0.0017),
+            new SeedCoordinate(0.0004, -0.0021),
+            new SeedCoordinate(-0.0017, 0.0009)
+        ],
+        [
+            new SeedCoordinate(0.0013, 0.0018),
+            new SeedCoordinate(-0.0015, -0.0007),
+            new SeedCoordinate(0.0006, -0.0019),
+            new SeedCoordinate(-0.0004, 0.0022)
+        ],
+        [
+            new SeedCoordinate(0.0021, 0.0005),
+            new SeedCoordinate(-0.0008, -0.0018),
+            new SeedCoordinate(-0.0019, 0.0012),
+            new SeedCoordinate(0.0003, -0.0024)
+        ],
+        [
+            new SeedCoordinate(0.0011, -0.0020),
+            new SeedCoordinate(-0.0017, 0.0006),
+            new SeedCoordinate(0.0018, 0.0014),
+            new SeedCoordinate(-0.0005, 0.0020)
+        ]
+    ];
 
     private static (string Last, string First) VietnameseName(int index)
     {
@@ -4470,6 +4881,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         public required SupplyInventory Inventory { get; init; }
         public required ItemModel ItemModel { get; init; }
         public required SupplyInventoryLot BaseLot { get; init; }
+        public List<SupplyInventoryLot> SupplementalImportLots { get; init; } = [];
         public required Guid PerformedBy { get; init; }
         public int FinalQuantity => Inventory.Quantity ?? 0;
         public List<ConsumableOutboundEvent> OutboundEvents { get; } = [];
@@ -4509,6 +4921,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     }
 
     private sealed record SeedArea(string Code, string Province, string Ward, string Address, double Lat, double Lon);
+    private sealed record SeedCoordinate(double Lat, double Lon);
 
     private sealed record RelativeProfileSeed(
         string DisplayName,

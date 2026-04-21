@@ -99,14 +99,24 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         && request.Location.X >= minLng
         && request.Location.X <= maxLng;
 
-    public async Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<SosRequestModel>> GetAllPagedAsync(
+        int pageNumber,
+        int pageSize,
+        IReadOnlyCollection<SosRequestStatus>? statuses = null,
+        CancellationToken cancellationToken = default)
     {
         var repository = _unitOfWork.GetRepository<SosRequest>();
+        var statusNames = statuses?
+            .Select(status => status.ToString())
+            .Distinct()
+            .ToArray();
 
         var pagedEntities = await repository.GetPagedAsync(
             pageNumber,
             pageSize,
-            filter: null,
+            filter: statusNames is { Length: > 0 }
+                ? request => request.Status != null && statusNames.Contains(request.Status)
+                : null,
             orderBy: q => q.OrderByDescending(x => x.CreatedAt)
         );
 

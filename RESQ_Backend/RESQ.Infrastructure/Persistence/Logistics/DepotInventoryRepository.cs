@@ -2497,7 +2497,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             foreach (var ci in consumableItems)
             {
                 var inv = inventories.FirstOrDefault(x => x.ItemModelId == ci.ItemModelId)
-                    ?? throw new InvalidOperationException(
+                    ?? throw new BadRequestException(
                         $"Không tìm thấy tồn kho tiêu hao #{ci.ItemModelId} tại kho nguồn #{sourceDepotId}.");
 
                 inv.TransferReservedQuantity += ci.Quantity;
@@ -2533,7 +2533,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     .ToList();
 
                 if (units.Count < ri.Quantity)
-                    throw new InvalidOperationException(
+                    throw new ConflictException(
                         $"Thiết bị tái sử dụng #{ri.ItemModelId} khả dụng tại kho nguồn không đủ để xuất theo transfer #{transferId}. " +
                         $"Cần {ri.Quantity}, chỉ còn {units.Count} đơn vị.");
 
@@ -2642,12 +2642,12 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             foreach (var assignment in consumableAssignments)
             {
                 var srcInv = sourceInventories.FirstOrDefault(x => x.ItemModelId == assignment.ItemModelId)
-                    ?? throw new InvalidOperationException($"Không tìm thấy tồn kho vật phẩm #{assignment.ItemModelId} tại kho nguồn để chuyển theo kế hoạch đóng kho.");
+                    ?? throw new BadRequestException($"Không tìm thấy tồn kho vật phẩm #{assignment.ItemModelId} tại kho nguồn để chuyển theo kế hoạch đóng kho.");
 
                 var remainingToMove = assignment.Quantity;
                 if ((srcInv.Quantity ?? 0) < remainingToMove)
                 {
-                    throw new InvalidOperationException($"Số lượng vật phẩm #{assignment.ItemModelId} còn lại tại kho nguồn không đủ để chuyển theo kế hoạch đóng kho.");
+                    throw new ConflictException($"Số lượng vật phẩm #{assignment.ItemModelId} còn lại tại kho nguồn không đủ để chuyển theo kế hoạch đóng kho. Hiện còn {srcInv.Quantity ?? 0}, cần {remainingToMove}.");
                 }
 
                 var dstInv = targetInventories.FirstOrDefault(inv => inv.ItemModelId == assignment.ItemModelId);
@@ -2732,7 +2732,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                 if (remainingToMove > 0)
                 {
-                    throw new InvalidOperationException($"Không đủ lô khả dụng để chuyển vật phẩm #{assignment.ItemModelId} theo kế hoạch đóng kho.");
+                    throw new ConflictException($"Không đủ lô khả dụng để chuyển vật phẩm #{assignment.ItemModelId} theo kế hoạch đóng kho. Còn thiếu {remainingToMove} đơn vị.");
                 }
 
                 srcInv.Quantity = (srcInv.Quantity ?? 0) - assignment.Quantity;
@@ -2785,7 +2785,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                 if (candidateUnits.Count < assignment.Quantity)
                 {
-                    throw new InvalidOperationException($"Thiết bị tái sử dụng #{assignment.ItemModelId} không đủ để chuyển theo kế hoạch đóng kho.");
+                    throw new ConflictException($"Thiết bị tái sử dụng #{assignment.ItemModelId} không đủ để chuyển theo kế hoạch đóng kho. Cần {assignment.Quantity}, chỉ tìm được {candidateUnits.Count} đơn vị.");
                 }
 
                 foreach (var unit in candidateUnits)
@@ -3207,6 +3207,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
     public async Task MarkReusableItemAvailableAsync(
         int depotId,
         int reusableItemId,
+        ReusableItemCondition condition,
         string? note,
         Guid performedBy,
         CancellationToken cancellationToken = default)
@@ -3229,6 +3230,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     && r.Status == nameof(ReusableItemStatus.Maintenance))
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(r => r.Status, ReusableItemStatus.Available.ToString())
+                    .SetProperty(r => r.Condition, condition.ToString())
                     .SetProperty(r => r.UpdatedAt, now)
                     .SetProperty(r => r.Note, note),
                     cancellationToken);

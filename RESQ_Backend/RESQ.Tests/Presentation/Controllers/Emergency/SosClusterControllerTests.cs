@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Emergency.Commands.RemoveSosRequestFromCluster;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Presentation.Controllers.Emergency;
 using RESQ.Tests.TestDoubles;
 
@@ -20,7 +21,7 @@ public class SosClusterControllerTests
         });
         var controller = new SosClusterController(mediator);
 
-        var statuses = new List<string> { "Pending", "Suggested" };
+        var statuses = new List<SosClusterStatus> { SosClusterStatus.Pending, SosClusterStatus.Suggested };
 
         var result = await controller.GetClusters(
             pageNumber: 2,

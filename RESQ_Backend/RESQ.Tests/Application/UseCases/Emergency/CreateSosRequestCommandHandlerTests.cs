@@ -164,7 +164,7 @@ public class CreateSosRequestCommandHandlerTests
         public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult(_store.FirstOrDefault(s => s.Id == id));
         public Task<IEnumerable<SosRequestModel>> GetByUserIdAsync(Guid userId, CancellationToken ct = default) => Task.FromResult<IEnumerable<SosRequestModel>>(_store.Where(s => s.UserId == userId));
         public Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult<IEnumerable<SosRequestModel>>(_store);
-        public Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pn, int ps, CancellationToken ct = default) => Task.FromResult(new PagedResult<SosRequestModel>(_store, _store.Count, pn, ps));
+        public Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pn, int ps, System.Collections.Generic.IReadOnlyCollection<RESQ.Domain.Enum.Emergency.SosRequestStatus>? statuses = null, CancellationToken ct = default) => Task.FromResult(new PagedResult<SosRequestModel>(_store, _store.Count, pn, ps));
         public Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int cid, CancellationToken ct = default) => Task.FromResult<IEnumerable<SosRequestModel>>([]);
         public Task UpdateAsync(SosRequestModel sos, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateStatusAsync(int id, SosRequestStatus status, CancellationToken ct = default) => Task.CompletedTask;

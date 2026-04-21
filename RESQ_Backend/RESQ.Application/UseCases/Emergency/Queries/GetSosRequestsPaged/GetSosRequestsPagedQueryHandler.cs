@@ -20,7 +20,15 @@ public class GetSosRequestsPagedQueryHandler(
     {
         _logger.LogInformation("Handling {handler} - retrieving SOS requests page {page}", nameof(GetSosRequestsPagedQueryHandler), request.PageNumber);
 
-        var pagedResult = await _sosRequestRepository.GetAllPagedAsync(request.PageNumber, request.PageSize, cancellationToken);
+        var normalizedStatuses = request.Statuses?
+            .Distinct()
+            .ToArray();
+
+        var pagedResult = await _sosRequestRepository.GetAllPagedAsync(
+            request.PageNumber,
+            request.PageSize,
+            normalizedStatuses,
+            cancellationToken);
         var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
             pagedResult.Items.Select(x => x.Id),
             cancellationToken);

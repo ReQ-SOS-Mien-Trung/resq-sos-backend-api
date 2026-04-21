@@ -1,4 +1,5 @@
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Tests.Application.UseCases.Emergency;
 
@@ -9,17 +10,16 @@ public class GetSosClustersQueryValidatorTests
     [Fact]
     public void Validate_Passes_WhenStatusesAreValid()
     {
-        var result = _validator.Validate(new GetSosClustersQuery(Statuses: ["Pending", "suggested", "InProgress", "completed"]));
+        var result = _validator.Validate(new GetSosClustersQuery(Statuses: [SosClusterStatus.Pending, SosClusterStatus.Suggested, SosClusterStatus.InProgress, SosClusterStatus.Completed]));
 
         Assert.True(result.IsValid);
     }
 
     [Fact]
-    public void Validate_Fails_WhenStatusIsUnknown()
+    public void Validate_Passes_WhenStatusesAreEmpty()
     {
-        var result = _validator.Validate(new GetSosClustersQuery(Statuses: ["Unknown"]));
+        var result = _validator.Validate(new GetSosClustersQuery());
 
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, error => error.PropertyName.StartsWith(nameof(GetSosClustersQuery.Statuses)));
+        Assert.True(result.IsValid);
     }
 }

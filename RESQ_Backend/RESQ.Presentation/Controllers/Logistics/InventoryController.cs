@@ -1108,20 +1108,23 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         return Ok(result);
     }
 
-    /// <summary>[Manager] Hoàn tất bảo trì và chuyển vật phẩm tái sử dụng của một kho cụ thể về lại Available. Chỉ cho phép khi vật phẩm đang ở trạng thái Maintenance.</summary>
+    /// <summary>[Manager] Hoàn tất bảo trì và chuyển vật phẩm tái sử dụng của một kho cụ thể về lại Available với tình trạng mới.
+    /// Condition bắt buộc phải chọn: Good, Fair, hoặc Poor.</summary>
     [HttpPatch("depot/{depotId:int}/reusables/{itemId:int}/available")]
     [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
     [ProducesResponseType(typeof(MarkReusableItemAvailableResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> MarkReusableItemAvailable(int depotId, int itemId, [FromBody] MarkReusableItemAvailableRequest? request = null)
+    public async Task<IActionResult> MarkReusableItemAvailableByDepotId(int depotId, int itemId, [FromBody] MarkReusableItemAvailableRequest request)
     {
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new MarkReusableItemAvailableCommand(
             userId,
             depotId,
             itemId,
-            request?.Note));
+            request.Condition,
+            request.Note));
 
         return Ok(result);
     }

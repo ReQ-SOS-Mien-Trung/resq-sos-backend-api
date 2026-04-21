@@ -42,6 +42,7 @@ public class MarkReusableItemAvailableCommandHandler(
         await _depotInventoryRepository.MarkReusableItemAvailableAsync(
             depotId,
             request.ReusableItemId,
+            request.Condition,
             request.Note,
             request.UserId,
             cancellationToken);

@@ -1,4 +1,5 @@
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Tests.Application.UseCases.Emergency;
 
@@ -50,22 +51,6 @@ public class GetSosRequestsByBoundsQueryValidatorTests
     }
 
     [Fact]
-    public void Validate_Fails_WhenStatusIsUnknown()
-    {
-        var result = _validator.Validate(new GetSosRequestsByBoundsQuery
-        {
-            MinLat = 10,
-            MaxLat = 11,
-            MinLng = 106,
-            MaxLng = 107,
-            Statuses = ["UnknownStatus"]
-        });
-
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, x => x.PropertyName.StartsWith(nameof(GetSosRequestsByBoundsQuery.Statuses)));
-    }
-
-    [Fact]
     public void Validate_Passes_WhenQueryIsValid()
     {
         var result = _validator.Validate(new GetSosRequestsByBoundsQuery
@@ -74,7 +59,7 @@ public class GetSosRequestsByBoundsQueryValidatorTests
             MaxLat = 11,
             MinLng = 106,
             MaxLng = 107,
-            Statuses = ["Pending", "Assigned"]
+            Statuses = [SosRequestStatus.Pending, SosRequestStatus.Assigned]
         });
 
         Assert.True(result.IsValid);
