@@ -54,26 +54,26 @@ public class ReceiveClosureTransferCommandHandler(
         transfer.MarkReceived(request.UserId, request.Note);
         var completedAt = DateTime.UtcNow;
 
-        await inventoryRepository.TransferClosureItemsAsync(
-            sourceDepotId: transfer.SourceDepotId,
-            targetDepotId: transfer.TargetDepotId,
-            closureId: transfer.ClosureId,
-            transferId: transfer.Id,
-            performedBy: request.UserId,
-            items: transferItems.Select(x => new DepotClosureTransferItemMoveDto
-            {
-                ItemModelId = x.ItemModelId,
-                ItemType = x.ItemType,
-                Quantity = x.Quantity
-            }).ToList(),
-            cancellationToken: cancellationToken);
-
-        logger.LogInformation(
-            "TransferClosureItems completed | ClosureId={ClosureId} TransferId={TransferId}",
-            transfer.ClosureId, transfer.Id);
-
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            await inventoryRepository.TransferClosureItemsAsync(
+                sourceDepotId: transfer.SourceDepotId,
+                targetDepotId: transfer.TargetDepotId,
+                closureId: transfer.ClosureId,
+                transferId: transfer.Id,
+                performedBy: request.UserId,
+                items: transferItems.Select(x => new DepotClosureTransferItemMoveDto
+                {
+                    ItemModelId = x.ItemModelId,
+                    ItemType = x.ItemType,
+                    Quantity = x.Quantity
+                }).ToList(),
+                cancellationToken: cancellationToken);
+
+            logger.LogInformation(
+                "TransferClosureItems completed | ClosureId={ClosureId} TransferId={TransferId}",
+                transfer.ClosureId, transfer.Id);
+
             await transferRepository.UpdateAsync(transfer, cancellationToken);
 
             var hasOpenTransfers = await transferRepository.HasOpenTransfersAsync(closure.Id, cancellationToken);
