@@ -25,6 +25,7 @@ using RESQ.Application.UseCases.Logistics.Commands.MarkExternalClosure;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.UseCases.Logistics.Queries.GetAvailableManagersMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.DepotStatusMetadata;
+using RESQ.Application.UseCases.Logistics.Queries.ClosureTransferStatusMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetAllDepots;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Application.UseCases.Logistics.Queries.GetClosureTransfer;
@@ -210,6 +211,15 @@ namespace RESQ.Presentation.Controllers.Logistics
         public async Task<IActionResult> GetDepotStatuses()
         {
             var result = await _mediator.Send(new GetDepotStatusMetadataQuery());
+            return Ok(result);
+        }
+
+        /// <summary>[Metadata] Danh sách toàn bộ trạng thái chuyển hàng khi đóng kho (closure transfer).</summary>
+        [HttpGet("metadata/closure-transfer-statuses")]
+        [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetClosureTransferStatuses()
+        {
+            var result = await _mediator.Send(new GetClosureTransferStatusMetadataQuery());
             return Ok(result);
         }
 
