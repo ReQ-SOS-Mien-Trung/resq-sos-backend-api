@@ -7,6 +7,8 @@ public class InitiateDepotClosureTransferResponse
     public string SourceDepotName { get; set; } = string.Empty;
     public List<InitiateDepotClosureTransferSummaryDto> Transfers { get; set; } = [];
     public int ReusableItemsSkipped { get; set; }
+    public bool HasRemainingItems { get; set; }
+    public List<InitiateDepotClosureTransferRemainingItemDto> RemainingItems { get; set; } = [];
     public string Message { get; set; } = string.Empty;
 }
 
@@ -28,4 +30,17 @@ public class InitiateDepotClosureTransferItemDto
     public string ItemType { get; set; } = string.Empty;
     public string? Unit { get; set; }
     public int Quantity { get; set; }
+}
+
+public class InitiateDepotClosureTransferRemainingItemDto
+{
+    public int ItemModelId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string CategoryName { get; set; } = string.Empty;
+    public string ItemType { get; set; } = string.Empty;
+    public string Unit { get; set; } = string.Empty;
+    public int CurrentQuantity { get; set; }
+    public int AssignedQuantity { get; set; }
+    public int RemainingTransferableQuantity { get; set; }
+    public int BlockedQuantity { get; set; }
 }

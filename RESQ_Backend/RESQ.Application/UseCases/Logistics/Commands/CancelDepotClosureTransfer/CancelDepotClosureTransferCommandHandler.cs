@@ -3,12 +3,15 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.CancelDepotClosureTransfer;
 
 public class CancelDepotClosureTransferCommandHandler(
     IDepotClosureTransferRepository transferRepository,
     IDepotClosureRepository closureRepository,
+    IDepotRepository depotRepository,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<CancelDepotClosureTransferCommandHandler> logger)
     : IRequestHandler<CancelDepotClosureTransferCommand, CancelDepotClosureTransferResponse>
@@ -19,9 +22,10 @@ public class CancelDepotClosureTransferCommandHandler(
     {
         logger.LogInformation(
             "CancelDepotClosureTransfer | DepotId={DepotId} TransferId={TransferId} By={By}",
-            request.DepotId, request.TransferId, request.CancelledBy);
+            request.DepotId,
+            request.TransferId,
+            request.CancelledBy);
 
-        // 1. Load transfer và validate
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
 
@@ -34,37 +38,92 @@ public class CancelDepotClosureTransferCommandHandler(
         if (transfer.Status == "Cancelled")
             throw new ConflictException("Bản ghi chuyển kho đã bị hủy trước đó.");
 
-        // 2. Hủy transfer
         transfer.Cancel(request.CancelledBy, request.Reason);
 
-        // 3. Hủy closure record liên kết (audit consistency)
-        var closure = await closureRepository.GetByIdAsync(transfer.ClosureId, cancellationToken);
+        var closure = await closureRepository.GetByIdAsync(transfer.ClosureId, cancellationToken)
+            ?? throw new NotFoundException($"Không tìm thấy bản ghi đóng kho #{transfer.ClosureId}.");
+
         var cancelledAt = DateTime.UtcNow;
+        var requiresFurtherResolution = false;
+        var remainingItemCount = 0;
+        var closureAction = "TransferCancelled";
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             await transferRepository.UpdateAsync(transfer, cancellationToken);
 
-            if (closure != null)
+            var hasOpenTransfers = await transferRepository.HasOpenTransfersAsync(closure.Id, cancellationToken);
+            if (!hasOpenTransfers)
             {
-                closure.Cancel(request.CancelledBy, cancelledAt, request.Reason ?? "Hủy phiên chuyển kho");
-                await closureRepository.UpdateAsync(closure, cancellationToken);
+                var remainingItems = await depotRepository.GetDetailedInventoryForClosureAsync(
+                    transfer.SourceDepotId,
+                    cancellationToken);
+
+                remainingItemCount = remainingItems.Count;
+                if (remainingItemCount > 0)
+                {
+                    closure.ReopenForResidualHandling();
+                    requiresFurtherResolution = true;
+                    closureAction = "ReopenedForResidualHandling";
+                }
+                else
+                {
+                    closure.Complete(cancelledAt);
+                    closureAction = "ResolvedByTransfers";
+                }
             }
 
+            await closureRepository.UpdateAsync(closure, cancellationToken);
             await unitOfWork.SaveAsync();
         });
 
         logger.LogInformation(
-            "DepotClosureTransfer cancelled | TransferId={T} DepotId={D}",
-            transfer.Id, request.DepotId);
+            "DepotClosureTransfer cancelled | TransferId={TransferId} DepotId={DepotId} ClosureStatus={ClosureStatus}",
+            transfer.Id,
+            request.DepotId,
+            closure.Status);
+
+        await operationalHubService.PushDepotClosureUpdateAsync(
+            new Common.Models.DepotClosureRealtimeUpdate
+            {
+                SourceDepotId = request.DepotId,
+                TargetDepotId = transfer.TargetDepotId,
+                ClosureId = closure.Id,
+                TransferId = transfer.Id,
+                EntityType = "Transfer",
+                Action = "Cancelled",
+                Status = transfer.Status
+            },
+            cancellationToken);
+
+        await operationalHubService.PushDepotClosureUpdateAsync(
+            new Common.Models.DepotClosureRealtimeUpdate
+            {
+                SourceDepotId = request.DepotId,
+                TargetDepotId = transfer.TargetDepotId,
+                ClosureId = closure.Id,
+                TransferId = transfer.Id,
+                EntityType = "Closure",
+                Action = closureAction,
+                Status = closure.Status.ToString()
+            },
+            cancellationToken);
 
         return new CancelDepotClosureTransferResponse
         {
             TransferId = transfer.Id,
             DepotId = request.DepotId,
             TransferStatus = transfer.Status,
+            ClosureId = closure.Id,
+            ClosureStatus = closure.Status.ToString(),
+            RequiresFurtherResolution = requiresFurtherResolution,
+            RemainingItemCount = remainingItemCount,
             CancelledAt = cancelledAt,
-            Message = "Đã hủy phiên chuyển kho. Kho vẫn ở trạng thái Closing, admin có thể chọn phương thức xử lý khác."
+            Message = requiresFurtherResolution
+                ? "Đã hủy transfer. Không còn transfer mở nhưng kho nguồn vẫn còn hàng, admin cần chọn bước xử lý tiếp theo."
+                : closure.CompletedAt.HasValue
+                    ? "Đã hủy transfer. Phần hàng còn lại của closure đã được xử lý xong ở các transfer khác, kho nguồn chờ admin xác nhận đóng kho."
+                    : "Đã hủy transfer. Các transfer khác của phiên đóng kho vẫn tiếp tục được xử lý."
         };
     }
 }
