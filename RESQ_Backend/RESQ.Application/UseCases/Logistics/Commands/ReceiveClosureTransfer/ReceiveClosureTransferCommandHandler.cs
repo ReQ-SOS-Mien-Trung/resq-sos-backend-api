@@ -112,26 +112,27 @@ public class ReceiveClosureTransferCommandHandler(
             closure.Id,
             transfer.Id);
 
-        try
+        // Chỉ gửi thông báo khi tất cả đợt chuyển kho đã hoàn tất (không còn đợt nào đang mở)
+        var allTransfersDone = requiresFurtherResolution || closure.CompletedAt.HasValue;
+        if (allTransfersDone)
         {
-            await firebaseService.SendNotificationToUserAsync(
-                closure.InitiatedBy,
-                requiresFurtherResolution
-                    ? "Batch chuyển kho đã hoàn tất, còn hàng cần xử lý"
-                    : closure.CompletedAt.HasValue
-                        ? "Xử lý hàng tồn đã hoàn tất"
-                        : "Đã hoàn tất một đợt chuyển kho",
-                requiresFurtherResolution
-                    ? $"Transfer #{transfer.Id} từ kho '{sourceDepot.Name}' đã nhận xong, nhưng kho nguồn vẫn còn hàng. Admin cần chọn bước xử lý tiếp theo."
-                    : closure.CompletedAt.HasValue
-                        ? $"Toàn bộ hàng tồn của kho '{sourceDepot.Name}' đã được xử lý xong theo kế hoạch chuyển kho. Kho chờ admin xác nhận đóng kho."
-                        : $"Transfer #{transfer.Id} từ kho '{sourceDepot.Name}' đã được nhận thành công. Vẫn còn các transfer khác chờ hoàn tất.",
-                "depot_closure_completed",
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to notify admin | ClosureId={ClosureId}", closure.Id);
+            try
+            {
+                await firebaseService.SendNotificationToUserAsync(
+                    closure.InitiatedBy,
+                    requiresFurtherResolution
+                        ? "Toàn bộ đợt chuyển kho đã hoàn tất, còn hàng cần xử lý"
+                        : "Xử lý hàng tồn đã hoàn tất",
+                    requiresFurtherResolution
+                        ? $"Đợt chuyển kho #{transfer.Id} từ kho '{sourceDepot.Name}' đã nhận xong, nhưng kho nguồn vẫn còn hàng. Admin cần chọn bước xử lý tiếp theo."
+                        : $"Toàn bộ hàng tồn của kho '{sourceDepot.Name}' đã được xử lý xong theo kế hoạch chuyển kho. Kho chờ admin xác nhận đóng kho.",
+                    "depot_closure_completed",
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to notify admin | ClosureId={ClosureId}", closure.Id);
+            }
         }
 
         await operationalHubService.PushDepotClosureUpdateAsync(
@@ -181,10 +182,10 @@ public class ReceiveClosureTransferCommandHandler(
             RemainingItemCount = remainingItemCount,
             CompletedAt = completedAt,
             Message = requiresFurtherResolution
-                ? "Đã xác nhận nhận hàng cho transfer này. Batch transfer hiện tại đã khép lại nhưng kho nguồn vẫn còn hàng, admin cần chọn bước xử lý tiếp theo."
+                ? "Đã xác nhận nhận hàng cho đợt chuyển kho này. Toàn bộ đợt chuyển kho đã khép lại nhưng kho nguồn vẫn còn hàng, admin cần chọn bước xử lý tiếp theo."
                 : closure.CompletedAt.HasValue
                     ? "Đã xác nhận nhận hàng. Toàn bộ phần hàng cần xử lý bằng chuyển kho đã hoàn tất, kho nguồn chờ admin xác nhận đóng kho."
-                    : "Đã xác nhận nhận hàng cho transfer này. Các transfer còn lại của phiên đóng kho vẫn tiếp tục được xử lý."
+                    : "Đã xác nhận nhận hàng cho đợt chuyển kho này. Các đợt chuyển kho còn lại của phiên đóng kho vẫn tiếp tục được xử lý."
         };
     }
 }

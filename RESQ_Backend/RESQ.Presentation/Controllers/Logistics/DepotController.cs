@@ -396,6 +396,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         [ProducesResponseType(typeof(InitiateDepotClosureResponse), StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<IActionResult> CloseDepot(int id, [FromBody] InitiateDepotClosureRequestDto dto)
         {
             var userId = GetUserId();
@@ -440,6 +441,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
         [ProducesResponseType(typeof(ClosureTransferSuggestionsResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<IActionResult> GetClosureTransferSuggestions(int id)
         {
             var result = await _mediator.Send(new GetClosureTransferSuggestionsQuery
@@ -459,6 +461,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<IActionResult> ExportClosureTemplate(int id)
         {
             var userId = GetUserId();
@@ -476,6 +479,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         [ProducesResponseType(typeof(MarkExternalClosureResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(MarkExternalClosureResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<IActionResult> MarkExternalClosure(int id, [FromBody] MarkExternalClosureRequestDto dto)
         {
             var userId = GetUserId();
@@ -496,6 +500,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<IActionResult> UploadExternalResolution([FromBody] UploadExternalResolutionRequestDto dto, [FromQuery] int depotId)
         {
             var userId = GetUserId();
@@ -515,6 +520,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<IActionResult> InitiateClosureTransfer(int id, [FromBody] InitiateDepotClosureTransferRequestDto dto)
         {
             var userId = GetUserId();
@@ -555,6 +561,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         [ProducesResponseType(typeof(CancelDepotClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<IActionResult> CancelClosureTransfer(int id, int transferId, [FromBody] CancelDepotClosureTransferRequestDto dto)
         {
             var userId = GetUserId();
@@ -601,7 +608,6 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// {id} là kho nguồn. Dùng transferId từ POST /{id}/close/transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/prepare")]
-        [HttpPost("{id}/close/transfer/{transferId}/prepare")]
         [HttpPost("transfer/{transferId}/prepare")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(PrepareClosureTransferResponse), StatusCodes.Status200OK)]
@@ -621,12 +627,17 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
+        [HttpPost("{id}/close/transfer/{transferId}/prepare")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        public Task<IActionResult> PrepareClosureTransferLegacy(int id, int transferId, [FromBody] ClosureTransferActionDto dto)
+            => PrepareClosureTransfer(transferId, dto, id, null);
+
         /// <summary>
         /// [Manager kho nguồn] Xác nhận đã xuất hàng — chuyển transfer sang Shipping.
         /// {id} là kho nguồn. Dùng transferId từ POST /{id}/close/transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/ship")]
-        [HttpPost("{id}/close/transfer/{transferId}/ship")]
         [HttpPost("transfer/{transferId}/ship")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ShipClosureTransferResponse), StatusCodes.Status200OK)]
@@ -646,12 +657,17 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
+        [HttpPost("{id}/close/transfer/{transferId}/ship")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        public Task<IActionResult> ShipClosureTransferLegacy(int id, int transferId, [FromBody] ClosureTransferActionDto dto)
+            => ShipClosureTransfer(transferId, dto, id, null);
+
         /// <summary>
         /// [Manager kho nguồn] Xác nhận đã giao toàn bộ hàng — chuyển transfer sang Completed.
         /// {id} là kho nguồn. Dùng transferId từ POST /{id}/close/transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/complete")]
-        [HttpPost("{id}/close/transfer/{transferId}/complete")]
         [HttpPost("transfer/{transferId}/complete")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(CompleteClosureTransferResponse), StatusCodes.Status200OK)]
@@ -671,12 +687,17 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
+        [HttpPost("{id}/close/transfer/{transferId}/complete")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        public Task<IActionResult> CompleteClosureTransferLegacy(int id, int transferId, [FromBody] ClosureTransferActionDto dto)
+            => CompleteClosureTransfer(transferId, dto, id, null);
+
         /// <summary>
         /// [Manager kho đích] Xác nhận đã nhận hàng — kích hoạt bulk transfer inventory và hoàn tất đóng kho nguồn.
         /// {id} là kho ĐÍCH (target depot). Dùng transferId từ GET /my-incoming-closure-transfer.
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/receive")]
-        [HttpPost("{id}/close/transfer/{transferId}/receive")]
         [HttpPost("transfer/{transferId}/receive")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ReceiveClosureTransferResponse), StatusCodes.Status200OK)]
@@ -696,12 +717,17 @@ namespace RESQ.Presentation.Controllers.Logistics
             return Ok(result);
         }
 
+        [HttpPost("{id}/close/transfer/{transferId}/receive")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        public Task<IActionResult> ReceiveClosureTransferLegacy(int id, int transferId, [FromBody] ClosureTransferActionDto dto)
+            => ReceiveClosureTransfer(transferId, dto, id, null);
+
         /// <summary>
         /// Xem trạng thái bản ghi chuyển hàng khi đóng kho.
         /// {id} là kho nguồn (source depot). Manager kho nguồn / kho đích đều dùng được.
         /// </summary>
         [HttpGet("{id}/transfer/{transferId}")]
-        [HttpGet("{id}/close/transfer/{transferId}")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -712,6 +738,12 @@ namespace RESQ.Presentation.Controllers.Logistics
             var result = await _mediator.Send(query);
             return Ok(result);
         }
+
+        [HttpGet("{id}/close/transfer/{transferId}")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        public Task<IActionResult> GetClosureTransferLegacy(int id, int transferId)
+            => GetClosureTransfer(id, transferId);
 
         private Guid GetUserId()
         {
