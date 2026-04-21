@@ -62,6 +62,22 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             new(false, promptOverride, aiConfigOverride);
     }
 
+    private sealed record MissionExecutionAssessment(
+        bool HasExecutableActivities,
+        bool RequiresMixedBranches,
+        bool HasRescueBranch,
+        bool HasReliefBranch,
+        string? FailureReason)
+    {
+        public bool IsExecutable =>
+            HasExecutableActivities
+            && (!RequiresMixedBranches || (HasRescueBranch && HasReliefBranch));
+    }
+
+    private sealed record MissionResultSelection(
+        RescueMissionSuggestionResult Result,
+        string FinalResultSource);
+
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -1115,36 +1131,70 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType))
         && sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsReliefRequestType(sos.SosType));
 
-    private static void ValidateExecutableMissionResult(
+    private static MissionExecutionAssessment AssessExecutableMissionResult(
         RescueMissionSuggestionResult result,
         IReadOnlyCollection<SosRequestSummary> sosRequests,
         IReadOnlyCollection<SuggestedActivityDto>? expectedActivities = null)
     {
         if (sosRequests.Count == 0)
-            return;
+        {
+            return new MissionExecutionAssessment(
+                HasExecutableActivities: true,
+                RequiresMixedBranches: false,
+                HasRescueBranch: false,
+                HasReliefBranch: false,
+                FailureReason: null);
+        }
 
         var executableActivities = result.SuggestedActivities
             .Where(activity => !IsReturnAssemblyPointActivity(activity))
             .ToList();
 
-        if (executableActivities.Count == 0)
-        {
-            throw new InvalidOperationException(
-                "Mission suggestion must include executable activities for the current SOS cluster.");
-        }
+        var hasExecutableActivities = executableActivities.Count > 0;
+        var hasRescueBranch = HasRescueBranch(executableActivities);
+        var hasReliefBranch = HasReliefBranch(executableActivities);
 
-        var shouldRequireMixedBranches = expectedActivities is { Count: > 0 }
+        var requiresMixedBranches = expectedActivities is { Count: > 0 }
             ? HasRescueBranch(expectedActivities) && HasReliefBranch(expectedActivities)
             : HasMixedClusterRouteExpectation(sosRequests);
 
-        if (!shouldRequireMixedBranches)
-            return;
-
-        if (!HasRescueBranch(executableActivities) || !HasReliefBranch(executableActivities))
+        string? failureReason = null;
+        if (!hasExecutableActivities)
         {
-            throw new InvalidOperationException(
-                "Mission suggestion for a mixed rescue-relief cluster must preserve both rescue and relief branches in executable activities.");
+            failureReason = "Mission suggestion must include executable activities for the current SOS cluster.";
         }
+        else if (requiresMixedBranches && (!hasRescueBranch || !hasReliefBranch))
+        {
+            failureReason =
+                "Mission suggestion for a mixed rescue-relief cluster must preserve both rescue and relief branches in executable activities.";
+        }
+
+        return new MissionExecutionAssessment(
+            HasExecutableActivities: hasExecutableActivities,
+            RequiresMixedBranches: requiresMixedBranches,
+            HasRescueBranch: hasRescueBranch,
+            HasReliefBranch: hasReliefBranch,
+            FailureReason: failureReason);
+    }
+
+    private static MissionResultSelection SelectExecutableMissionResult(
+        RescueMissionSuggestionResult candidate,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionSuggestionPipelineState? pipelineState,
+        IReadOnlyCollection<SuggestedActivityDto>? expectedActivities,
+        string initialSource)
+    {
+        var assessment = AssessExecutableMissionResult(candidate, sosRequests, expectedActivities);
+        if (assessment.IsExecutable)
+        {
+            return new MissionResultSelection(candidate, initialSource);
+        }
+
+        if (TryBuildDraftFallbackResult(candidate, sosRequests, pipelineState, expectedActivities, assessment, out var draftFallback))
+            return new MissionResultSelection(draftFallback, "draft");
+
+        var bestEffortFallback = BuildBestEffortFallbackResult(candidate, sosRequests, pipelineState, assessment);
+        return new MissionResultSelection(bestEffortFallback, "salvaged");
     }
 
     private static HashSet<int> GetReferencedSosIds(SuggestedActivityDto activity)
@@ -1302,6 +1352,720 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 Longitude = activity.SuggestedTeam.Longitude,
                 DistanceKm = activity.SuggestedTeam.DistanceKm
             }
+        };
+    }
+
+    private static bool TryBuildDraftFallbackResult(
+        RescueMissionSuggestionResult seedResult,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionSuggestionPipelineState? pipelineState,
+        IReadOnlyCollection<SuggestedActivityDto>? expectedActivities,
+        MissionExecutionAssessment assessment,
+        out RescueMissionSuggestionResult result)
+    {
+        if (pipelineState?.DraftBody is not null)
+        {
+            result = MapDraftBodyToResult(
+                pipelineState.DraftBody,
+                seedResult.RawAiResponse ?? SerializeMissionDraftBody(pipelineState.DraftBody));
+            result = MergeFallbackResult(seedResult, sosRequests, pipelineState, result);
+            result.SpecialNotes = AppendSpecialNote(
+                result.SpecialNotes,
+                BuildExecutionFallbackNote(assessment, "draft"));
+            result.NeedsManualReview = true;
+            return true;
+        }
+
+        var fallbackActivities = pipelineState?.DraftActivities ?? expectedActivities?.Select(CloneActivity).ToList();
+        if (fallbackActivities is not { Count: > 0 })
+        {
+            result = null!;
+            return false;
+        }
+
+        result = BuildFallbackResultShell(seedResult, sosRequests, pipelineState);
+        result.SuggestedActivities = fallbackActivities.Select(CloneActivity).ToList();
+        result.SpecialNotes = AppendSpecialNote(
+            result.SpecialNotes,
+            BuildExecutionFallbackNote(assessment, "draft"));
+        result.NeedsManualReview = true;
+        return true;
+    }
+
+    private static RescueMissionSuggestionResult BuildBestEffortFallbackResult(
+        RescueMissionSuggestionResult seedResult,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionSuggestionPipelineState? pipelineState,
+        MissionExecutionAssessment assessment)
+    {
+        var result = BuildFallbackResultShell(seedResult, sosRequests, pipelineState);
+        result.SuggestedActivities = BuildBestEffortActivities(sosRequests, pipelineState);
+        result.SpecialNotes = AppendSpecialNote(
+            result.SpecialNotes,
+            BuildExecutionFallbackNote(
+                assessment,
+                pipelineState is null ? "raw_sos" : "pipeline_fragments"));
+        result.NeedsManualReview = true;
+        return result;
+    }
+
+    private static RescueMissionSuggestionResult BuildFallbackResultShell(
+        RescueMissionSuggestionResult seedResult,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionSuggestionPipelineState? pipelineState)
+    {
+        var requirements = pipelineState?.Requirements;
+        var depot = pipelineState?.Depot;
+        var team = pipelineState?.Team;
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestionId = seedResult.SuggestionId,
+            IsSuccess = true,
+            ErrorMessage = null,
+            ModelName = seedResult.ModelName,
+            ResponseTimeMs = seedResult.ResponseTimeMs,
+            SuggestedMissionTitle = FirstNonEmpty(seedResult.SuggestedMissionTitle, requirements?.SuggestedMissionTitle),
+            SuggestedMissionType = FirstNonEmpty(seedResult.SuggestedMissionType, requirements?.SuggestedMissionType),
+            SuggestedPriorityScore = seedResult.SuggestedPriorityScore ?? requirements?.SuggestedPriorityScore,
+            SuggestedSeverityLevel = FirstNonEmpty(seedResult.SuggestedSeverityLevel, requirements?.SuggestedSeverityLevel),
+            OverallAssessment = FirstNonEmpty(seedResult.OverallAssessment, requirements?.OverallAssessment),
+            SuggestedActivities = [],
+            SuggestedResources = ChooseSuggestedResources(requirements?.SuggestedResources, seedResult.SuggestedResources),
+            EstimatedDuration = FirstNonEmpty(seedResult.EstimatedDuration, requirements?.EstimatedDuration),
+            SpecialNotes = JoinNotes(seedResult.SpecialNotes, requirements?.SpecialNotes, depot?.SpecialNotes, team?.SpecialNotes),
+            MixedRescueReliefWarning = seedResult.MixedRescueReliefWarning,
+            NeedsAdditionalDepot = seedResult.NeedsAdditionalDepot || requirements?.NeedsAdditionalDepot == true || depot?.NeedsAdditionalDepot == true,
+            SupplyShortages = ChooseSupplyShortages(depot?.SupplyShortages, requirements?.SupplyShortages, seedResult.SupplyShortages),
+            ConfidenceScore = seedResult.ConfidenceScore > 0
+                ? seedResult.ConfidenceScore
+                : CalculateDraftConfidence(
+                    requirements?.ConfidenceScore ?? 0,
+                    depot?.ConfidenceScore ?? 0,
+                    team?.ConfidenceScore ?? 0),
+            RawAiResponse = seedResult.RawAiResponse,
+            NeedsManualReview = true,
+            LowConfidenceWarning = seedResult.LowConfidenceWarning,
+            MultiDepotRecommended = false,
+            SuggestedTeam = CloneSuggestedTeam(seedResult.SuggestedTeam ?? team?.SuggestedTeam),
+            PipelineMetadata = seedResult.PipelineMetadata
+        };
+
+        result.SuggestedMissionType ??= InferMissionType(sosRequests);
+
+        var highestPriority = ResolveHighestPriority(requirements?.SosRequirements, sosRequests);
+        result.SuggestedSeverityLevel ??= MapSeverityFromPriorityLabel(highestPriority);
+        result.SuggestedPriorityScore ??= MapPriorityScore(highestPriority);
+        result.SuggestedMissionTitle ??= BuildFallbackMissionTitle(result.SuggestedMissionType, sosRequests);
+        result.OverallAssessment ??= BuildFallbackOverallAssessment(result.SuggestedMissionType, sosRequests);
+
+        return result;
+    }
+
+    private static RescueMissionSuggestionResult MergeFallbackResult(
+        RescueMissionSuggestionResult seedResult,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionSuggestionPipelineState? pipelineState,
+        RescueMissionSuggestionResult fallbackResult)
+    {
+        var merged = BuildFallbackResultShell(seedResult, sosRequests, pipelineState);
+        merged.SuggestedMissionTitle = FirstNonEmpty(fallbackResult.SuggestedMissionTitle, merged.SuggestedMissionTitle);
+        merged.SuggestedMissionType = FirstNonEmpty(fallbackResult.SuggestedMissionType, merged.SuggestedMissionType);
+        merged.SuggestedPriorityScore = fallbackResult.SuggestedPriorityScore ?? merged.SuggestedPriorityScore;
+        merged.SuggestedSeverityLevel = FirstNonEmpty(fallbackResult.SuggestedSeverityLevel, merged.SuggestedSeverityLevel);
+        merged.OverallAssessment = FirstNonEmpty(fallbackResult.OverallAssessment, merged.OverallAssessment);
+        merged.SuggestedActivities = fallbackResult.SuggestedActivities.Select(CloneActivity).ToList();
+        merged.SuggestedResources = fallbackResult.SuggestedResources.Count > 0
+            ? fallbackResult.SuggestedResources.Select(CloneSuggestedResource).ToList()
+            : merged.SuggestedResources;
+        merged.EstimatedDuration = FirstNonEmpty(fallbackResult.EstimatedDuration, merged.EstimatedDuration);
+        merged.SpecialNotes = JoinNotes(merged.SpecialNotes, fallbackResult.SpecialNotes);
+        merged.NeedsAdditionalDepot = fallbackResult.NeedsAdditionalDepot || merged.NeedsAdditionalDepot;
+        merged.SupplyShortages = fallbackResult.SupplyShortages.Count > 0
+            ? fallbackResult.SupplyShortages.Select(CloneSupplyShortage).ToList()
+            : merged.SupplyShortages;
+        merged.ConfidenceScore = fallbackResult.ConfidenceScore > 0 ? fallbackResult.ConfidenceScore : merged.ConfidenceScore;
+        merged.SuggestedTeam = CloneSuggestedTeam(fallbackResult.SuggestedTeam ?? merged.SuggestedTeam);
+        merged.MixedRescueReliefWarning = string.IsNullOrWhiteSpace(fallbackResult.MixedRescueReliefWarning)
+            ? merged.MixedRescueReliefWarning
+            : fallbackResult.MixedRescueReliefWarning;
+        return merged;
+    }
+
+    private static List<SuggestedActivityDto> BuildBestEffortActivities(
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionSuggestionPipelineState? pipelineState)
+    {
+        if (pipelineState?.Requirements is not null
+            && pipelineState.Depot is not null
+            && pipelineState.Team is not null)
+        {
+            var draftBody = AssembleDraftBody(pipelineState.Requirements, pipelineState.Depot, pipelineState.Team);
+            if (draftBody.Activities.Count > 0)
+            {
+                return draftBody.Activities
+                    .Select(MapDraftActivityToSuggestedActivity)
+                    .ToList();
+            }
+        }
+
+        var activities = new List<SuggestedActivityDto>();
+        if (pipelineState is not null)
+            activities.AddRange(BuildActivitiesFromPipelineFragments(pipelineState));
+
+        var activityLookup = activities
+            .Select(activity => new
+            {
+                Activity = activity,
+                PrimarySosId = GetPrimarySosId(activity)
+            })
+            .ToList();
+
+        var sosLookup = sosRequests.ToDictionary(sos => sos.Id);
+        var requirementLookup = pipelineState?.Requirements?.SosRequirements
+            .ToDictionary(requirement => requirement.SosRequestId)
+            ?? new Dictionary<int, MissionSosRequirementFragment>();
+
+        var isMixedCluster = sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType))
+            && sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsReliefRequestType(sos.SosType));
+        var hasUrgentRescue = sosRequests.Any(sos =>
+            SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType)
+            && SosRequestAiAnalysisHelper.HasUrgentMixedMissionConstraint(sos.AiAnalysis, sos.PriorityLevel));
+        var waitableMixed = isMixedCluster && !hasUrgentRescue;
+        var coordinationPrefix = waitableMixed ? "00-mixed-route" : "10-relief-route";
+        var rescueCoordinationPrefix = hasUrgentRescue ? "00-urgent-rescue-route" : coordinationPrefix;
+
+        foreach (var sos in sosRequests.OrderBy(s => s.CreatedAt ?? DateTime.MinValue).ThenBy(s => s.Id))
+        {
+            requirementLookup.TryGetValue(sos.Id, out var requirement);
+            var isRescueLike = IsRescueLikeFallbackRequest(sos, requirement);
+            var isReliefLike = IsReliefLikeFallbackRequest(sos, requirement);
+
+            if (!isRescueLike && !isReliefLike)
+                isRescueLike = true;
+
+            var existingActivities = activityLookup
+                .Where(item => item.PrimarySosId == sos.Id)
+                .Select(item => item.Activity)
+                .ToList();
+
+            if (isReliefLike && !HasReliefBranch(existingActivities))
+            {
+                var reliefActivities = BuildFallbackReliefActivities(
+                    sos,
+                    requirement,
+                    pipelineState,
+                    waitableMixed ? coordinationPrefix : "10-relief-route");
+                activities.AddRange(reliefActivities);
+                activityLookup.AddRange(reliefActivities.Select(activity => new { Activity = activity, PrimarySosId = (int?)sos.Id }));
+            }
+
+            if (isRescueLike && !HasRescueBranch(existingActivities))
+            {
+                var rescueActivities = BuildFallbackRescueActivities(
+                    sos,
+                    requirement,
+                    pipelineState,
+                    hasUrgentRescue ? rescueCoordinationPrefix : coordinationPrefix,
+                    assignGlobalTeam: !hasUrgentRescue || pipelineState?.Team?.SuggestedTeam is not null);
+                activities.AddRange(rescueActivities);
+                activityLookup.AddRange(rescueActivities.Select(activity => new { Activity = activity, PrimarySosId = (int?)sos.Id }));
+            }
+        }
+
+        if (activities.Count == 0 && sosRequests.Count > 0)
+        {
+            activities.AddRange(BuildFallbackRescueActivities(
+                sosRequests.OrderBy(s => s.CreatedAt ?? DateTime.MinValue).ThenBy(s => s.Id).First(),
+                requirement: null,
+                pipelineState,
+                coordinationGroupKey: "00-minimal-route",
+                assignGlobalTeam: false));
+        }
+
+        for (var index = 0; index < activities.Count; index++)
+            activities[index].Step = index + 1;
+
+        return activities;
+    }
+
+    private static IEnumerable<SuggestedActivityDto> BuildActivitiesFromPipelineFragments(MissionSuggestionPipelineState state)
+    {
+        var activities = new List<SuggestedActivityDto>();
+        var assignmentLookup = state.Team?.ActivityAssignments
+            .Where(assignment => !string.IsNullOrWhiteSpace(assignment.ActivityKey))
+            .ToDictionary(assignment => assignment.ActivityKey, StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, MissionActivityAssignmentFragment>(StringComparer.OrdinalIgnoreCase);
+
+        if (state.Depot is not null)
+        {
+            foreach (var activity in state.Depot.Activities.OrderBy(item => item.Step))
+            {
+                var draft = MapActivityFragmentToDraft(activity);
+                if (assignmentLookup.TryGetValue(activity.ActivityKey, out var assignment))
+                {
+                    draft.ExecutionMode = assignment.ExecutionMode ?? draft.ExecutionMode;
+                    draft.RequiredTeamCount = assignment.RequiredTeamCount ?? draft.RequiredTeamCount;
+                    draft.CoordinationGroupKey = assignment.CoordinationGroupKey ?? draft.CoordinationGroupKey;
+                    draft.CoordinationNotes = assignment.CoordinationNotes ?? draft.CoordinationNotes;
+                    draft.SuggestedTeam = CloneSuggestedTeam(assignment.SuggestedTeam) ?? draft.SuggestedTeam;
+                }
+
+                activities.Add(MapDraftActivityToSuggestedActivity(draft));
+            }
+        }
+
+        if (state.Team is not null)
+        {
+            activities.AddRange(state.Team.AdditionalActivities
+                .OrderBy(item => item.Step)
+                .Select(MapActivityFragmentToDraft)
+                .Select(MapDraftActivityToSuggestedActivity));
+        }
+
+        return activities;
+    }
+
+    private static List<SuggestedActivityDto> BuildFallbackReliefActivities(
+        SosRequestSummary sos,
+        MissionSosRequirementFragment? requirement,
+        MissionSuggestionPipelineState? pipelineState,
+        string coordinationGroupKey)
+    {
+        var depotSelection = ResolveFallbackDepotSelection(pipelineState);
+        var supplies = ResolveFallbackSupplies(requirement);
+        var suggestedTeam = ResolveFallbackSuggestedTeam(pipelineState, assignGlobalTeam: true);
+        var priority = ResolveFallbackPriorityLabel(requirement, sos);
+
+        return
+        [
+            new SuggestedActivityDto
+            {
+                ActivityType = CollectSuppliesActivityType,
+                Description = depotSelection.DepotId.HasValue
+                    ? $"Lấy vật phẩm tiếp tế tại {depotSelection.DepotName ?? $"kho #{depotSelection.DepotId.Value}"} cho SOS #{sos.Id}."
+                    : $"Chuẩn bị vật phẩm tiếp tế thiết yếu cho SOS #{sos.Id}.",
+                Priority = priority,
+                EstimatedTime = "20 phút",
+                ExecutionMode = suggestedTeam is null ? null : SingleTeamExecutionMode,
+                RequiredTeamCount = suggestedTeam is null ? null : 1,
+                CoordinationGroupKey = coordinationGroupKey,
+                SosRequestId = sos.Id,
+                DepotId = depotSelection.DepotId,
+                DepotName = depotSelection.DepotName,
+                DepotAddress = depotSelection.DepotAddress,
+                DestinationName = depotSelection.DepotName,
+                DestinationLatitude = depotSelection.DepotLatitude,
+                DestinationLongitude = depotSelection.DepotLongitude,
+                SuppliesToCollect = supplies.Select(CloneSupply).ToList(),
+                SuggestedTeam = CloneSuggestedTeam(suggestedTeam)
+            },
+            new SuggestedActivityDto
+            {
+                ActivityType = "DELIVER_SUPPLIES",
+                Description = $"Giao vật phẩm tiếp tế cho SOS #{sos.Id}.",
+                Priority = priority,
+                EstimatedTime = "20 phút",
+                ExecutionMode = suggestedTeam is null ? null : SingleTeamExecutionMode,
+                RequiredTeamCount = suggestedTeam is null ? null : 1,
+                CoordinationGroupKey = coordinationGroupKey,
+                SosRequestId = sos.Id,
+                DepotId = depotSelection.DepotId,
+                DepotName = depotSelection.DepotName,
+                DepotAddress = depotSelection.DepotAddress,
+                DestinationName = depotSelection.DepotName,
+                DestinationLatitude = depotSelection.DepotLatitude,
+                DestinationLongitude = depotSelection.DepotLongitude,
+                SuppliesToCollect = supplies.Select(CloneSupply).ToList(),
+                SuggestedTeam = CloneSuggestedTeam(suggestedTeam)
+            }
+        ];
+    }
+
+    private static List<SuggestedActivityDto> BuildFallbackRescueActivities(
+        SosRequestSummary sos,
+        MissionSosRequirementFragment? requirement,
+        MissionSuggestionPipelineState? pipelineState,
+        string coordinationGroupKey,
+        bool assignGlobalTeam)
+    {
+        var activities = new List<SuggestedActivityDto>();
+        var priority = ResolveFallbackPriorityLabel(requirement, sos);
+        var suggestedTeam = ResolveFallbackSuggestedTeam(pipelineState, assignGlobalTeam);
+        var assemblyPoint = ResolveFallbackAssemblyPoint(suggestedTeam, pipelineState);
+
+        activities.Add(new SuggestedActivityDto
+        {
+            ActivityType = "RESCUE",
+            Description = $"Tiếp cận và cứu hộ nạn nhân của SOS #{sos.Id}.",
+            Priority = priority,
+            EstimatedTime = "30 phút",
+            ExecutionMode = suggestedTeam is null ? null : SingleTeamExecutionMode,
+            RequiredTeamCount = suggestedTeam is null ? null : 1,
+            CoordinationGroupKey = coordinationGroupKey,
+            SosRequestId = sos.Id,
+            AssemblyPointId = assemblyPoint.AssemblyPointId,
+            AssemblyPointName = assemblyPoint.AssemblyPointName,
+            AssemblyPointLatitude = assemblyPoint.AssemblyPointLatitude,
+            AssemblyPointLongitude = assemblyPoint.AssemblyPointLongitude,
+            DestinationName = assemblyPoint.AssemblyPointName,
+            DestinationLatitude = assemblyPoint.AssemblyPointLatitude,
+            DestinationLongitude = assemblyPoint.AssemblyPointLongitude,
+            SuggestedTeam = CloneSuggestedTeam(suggestedTeam)
+        });
+
+        if (ShouldAddFallbackMedicalAid(requirement, sos))
+        {
+            activities.Add(new SuggestedActivityDto
+            {
+                ActivityType = "MEDICAL_AID",
+                Description = $"Sơ cứu và ổn định y tế cho nạn nhân của SOS #{sos.Id}.",
+                Priority = priority,
+                EstimatedTime = "20 phút",
+                ExecutionMode = suggestedTeam is null ? null : SingleTeamExecutionMode,
+                RequiredTeamCount = suggestedTeam is null ? null : 1,
+                CoordinationGroupKey = coordinationGroupKey,
+                SosRequestId = sos.Id,
+                AssemblyPointId = assemblyPoint.AssemblyPointId,
+                AssemblyPointName = assemblyPoint.AssemblyPointName,
+                AssemblyPointLatitude = assemblyPoint.AssemblyPointLatitude,
+                AssemblyPointLongitude = assemblyPoint.AssemblyPointLongitude,
+                DestinationName = assemblyPoint.AssemblyPointName,
+                DestinationLatitude = assemblyPoint.AssemblyPointLatitude,
+                DestinationLongitude = assemblyPoint.AssemblyPointLongitude,
+                SuggestedTeam = CloneSuggestedTeam(suggestedTeam)
+            });
+        }
+
+        if (ShouldAddFallbackEvacuation(requirement, sos))
+        {
+            activities.Add(new SuggestedActivityDto
+            {
+                ActivityType = "EVACUATE",
+                Description = $"Đưa nạn nhân của SOS #{sos.Id} đến nơi an toàn.",
+                Priority = priority,
+                EstimatedTime = "25 phút",
+                ExecutionMode = suggestedTeam is null ? null : SingleTeamExecutionMode,
+                RequiredTeamCount = suggestedTeam is null ? null : 1,
+                CoordinationGroupKey = coordinationGroupKey,
+                SosRequestId = sos.Id,
+                AssemblyPointId = assemblyPoint.AssemblyPointId,
+                AssemblyPointName = assemblyPoint.AssemblyPointName,
+                AssemblyPointLatitude = assemblyPoint.AssemblyPointLatitude,
+                AssemblyPointLongitude = assemblyPoint.AssemblyPointLongitude,
+                DestinationName = assemblyPoint.AssemblyPointName,
+                DestinationLatitude = assemblyPoint.AssemblyPointLatitude,
+                DestinationLongitude = assemblyPoint.AssemblyPointLongitude,
+                SuggestedTeam = CloneSuggestedTeam(suggestedTeam)
+            });
+        }
+
+        return activities;
+    }
+
+    private static (int? DepotId, string? DepotName, string? DepotAddress, double? DepotLatitude, double? DepotLongitude) ResolveFallbackDepotSelection(
+        MissionSuggestionPipelineState? pipelineState)
+    {
+        var depotActivity = pipelineState?.Depot?.Activities
+            .FirstOrDefault(activity => activity.DepotId.HasValue || !string.IsNullOrWhiteSpace(activity.DepotName));
+        if (depotActivity is not null)
+        {
+            return (
+                depotActivity.DepotId,
+                depotActivity.DepotName,
+                depotActivity.DepotAddress,
+                depotActivity.DepotLatitude,
+                depotActivity.DepotLongitude);
+        }
+
+        var shortage = pipelineState?.Depot?.SupplyShortages
+            .FirstOrDefault(item => item.SelectedDepotId.HasValue || !string.IsNullOrWhiteSpace(item.SelectedDepotName));
+        if (shortage is not null)
+        {
+            return (
+                shortage.SelectedDepotId,
+                shortage.SelectedDepotName,
+                null,
+                null,
+                null);
+        }
+
+        return (null, null, null, null, null);
+    }
+
+    private static (int? AssemblyPointId, string? AssemblyPointName, double? AssemblyPointLatitude, double? AssemblyPointLongitude) ResolveFallbackAssemblyPoint(
+        SuggestedTeamDto? suggestedTeam,
+        MissionSuggestionPipelineState? pipelineState)
+    {
+        var rescueActivity = pipelineState?.Team?.AdditionalActivities
+            .FirstOrDefault(activity => activity.AssemblyPointId.HasValue || !string.IsNullOrWhiteSpace(activity.AssemblyPointName));
+        if (rescueActivity is not null)
+        {
+            return (
+                rescueActivity.AssemblyPointId,
+                rescueActivity.AssemblyPointName,
+                rescueActivity.AssemblyPointLatitude,
+                rescueActivity.AssemblyPointLongitude);
+        }
+
+        return (
+            suggestedTeam?.AssemblyPointId,
+            suggestedTeam?.AssemblyPointName,
+            suggestedTeam?.Latitude,
+            suggestedTeam?.Longitude);
+    }
+
+    private static SuggestedTeamDto? ResolveFallbackSuggestedTeam(
+        MissionSuggestionPipelineState? pipelineState,
+        bool assignGlobalTeam)
+    {
+        if (!assignGlobalTeam)
+            return null;
+
+        return CloneSuggestedTeam(pipelineState?.Team?.SuggestedTeam);
+    }
+
+    private static List<SupplyToCollectDto> ResolveFallbackSupplies(MissionSosRequirementFragment? requirement)
+    {
+        if (requirement?.RequiredSupplies is { Count: > 0 })
+        {
+            return requirement.RequiredSupplies
+                .Select(supply => new SupplyToCollectDto
+                {
+                    ItemName = string.IsNullOrWhiteSpace(supply.ItemName) ? "Nhu yếu phẩm thiết yếu" : supply.ItemName,
+                    Quantity = Math.Max(supply.Quantity, 1),
+                    Unit = supply.Unit
+                })
+                .ToList();
+        }
+
+        return
+        [
+            new SupplyToCollectDto
+            {
+                ItemName = "Nhu yếu phẩm thiết yếu",
+                Quantity = 1,
+                Unit = "gói"
+            }
+        ];
+    }
+
+    private static bool IsRescueLikeFallbackRequest(
+        SosRequestSummary sos,
+        MissionSosRequirementFragment? requirement)
+    {
+        if (SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType))
+            return true;
+
+        if (requirement?.NeedsImmediateSafeTransfer == true || requirement?.CanWaitForCombinedMission == false)
+            return true;
+
+        if (requirement?.RequiredTeams.Count > 0)
+            return true;
+
+        return ContainsFallbackKeyword(
+            $"{requirement?.Summary} {requirement?.HandlingReason} {sos.RawMessage} {sos.StructuredData}",
+            "CUU", "RESCUE", "MAC KET", "INJUR", "BAT TINH", "SO CUU", "EVACUATE", "AN TOAN", "MEDICAL");
+    }
+
+    private static bool IsReliefLikeFallbackRequest(
+        SosRequestSummary sos,
+        MissionSosRequirementFragment? requirement)
+    {
+        if (SosRequestAiAnalysisHelper.IsReliefRequestType(sos.SosType))
+            return true;
+
+        if (requirement?.RequiredSupplies.Count > 0)
+            return true;
+
+        return ContainsFallbackKeyword(
+            $"{requirement?.Summary} {requirement?.HandlingReason} {sos.RawMessage} {sos.StructuredData}",
+            "TIEP TE", "SUPPLY", "LUONG THUC", "THUC PHAM", "NUOC", "BLANKET", "QUAN AO", "THUOC");
+    }
+
+    private static bool ShouldAddFallbackMedicalAid(
+        MissionSosRequirementFragment? requirement,
+        SosRequestSummary sos)
+    {
+        if (ContainsFallbackKeyword(
+                $"{requirement?.Summary} {requirement?.HandlingReason} {sos.RawMessage} {sos.StructuredData}",
+                "Y TE", "MEDICAL", "SO CUU", "GAY XUONG", "MAT NHIET", "CHAY MAU", "BAT TINH"))
+        {
+            return true;
+        }
+
+        var priority = ResolveFallbackPriorityLabel(requirement, sos);
+        return string.Equals(priority, "Critical", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldAddFallbackEvacuation(
+        MissionSosRequirementFragment? requirement,
+        SosRequestSummary sos)
+    {
+        if (requirement?.NeedsImmediateSafeTransfer == true || requirement?.CanWaitForCombinedMission == false)
+            return true;
+
+        return ContainsFallbackKeyword(
+            $"{requirement?.Summary} {requirement?.HandlingReason} {sos.RawMessage} {sos.StructuredData}",
+            "AN TOAN", "SAFE", "EVACUATE", "DI CHUYEN");
+    }
+
+    private static string ResolveFallbackPriorityLabel(
+        MissionSosRequirementFragment? requirement,
+        SosRequestSummary sos)
+    {
+        return requirement?.Priority
+            ?? SosRequestAiAnalysisHelper.ResolveSuggestedPriority(sos.AiAnalysis, sos.PriorityLevel)
+            ?? "High";
+    }
+
+    private static string ResolveHighestPriority(
+        IReadOnlyCollection<MissionSosRequirementFragment>? requirements,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        string? highest = null;
+
+        if (requirements is { Count: > 0 })
+        {
+            foreach (var priority in requirements.Select(requirement => requirement.Priority))
+                highest = SelectHigherPriority(highest, priority);
+        }
+
+        foreach (var sos in sosRequests)
+            highest = SelectHigherPriority(highest, SosRequestAiAnalysisHelper.ResolveSuggestedPriority(sos.AiAnalysis, sos.PriorityLevel));
+
+        return highest ?? "High";
+    }
+
+    private static string InferMissionType(IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var hasRescue = sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType));
+        var hasRelief = sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsReliefRequestType(sos.SosType));
+
+        if (hasRescue && hasRelief)
+            return "MIXED";
+
+        if (hasRescue)
+            return "RESCUE";
+
+        if (hasRelief)
+            return "SUPPLY";
+
+        return "RESCUE";
+    }
+
+    private static string? BuildFallbackMissionTitle(
+        string? missionType,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var label = missionType?.Trim().ToUpperInvariant() switch
+        {
+            "MIXED" => "Cứu hộ và cứu trợ",
+            "SUPPLY" => "Cứu trợ",
+            _ => "Cứu hộ"
+        };
+        var sosIds = string.Join(", ", sosRequests.Select(sos => $"#{sos.Id}"));
+        return string.IsNullOrWhiteSpace(sosIds)
+            ? label
+            : $"{label} cho cluster SOS {sosIds}";
+    }
+
+    private static string? BuildFallbackOverallAssessment(
+        string? missionType,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var orderedIds = sosRequests
+            .OrderBy(sos => sos.CreatedAt ?? DateTime.MinValue)
+            .ThenBy(sos => sos.Id)
+            .Select(sos => $"[SOS ID {sos.Id}]")
+            .ToList();
+
+        if (orderedIds.Count == 0)
+            return null;
+
+        return missionType?.Trim().ToUpperInvariant() switch
+        {
+            "MIXED" => $"Ưu tiên lập route mixed an toàn cho {string.Join(", ", orderedIds)} và giữ cảnh báo tách cluster để coordinator rà soát.",
+            "SUPPLY" => $"Lập route tiếp tế cho {string.Join(", ", orderedIds)} để đội có thể triển khai ngay.",
+            _ => $"Lập route cứu hộ cho {string.Join(", ", orderedIds)} để đội có thể triển khai ngay."
+        };
+    }
+
+    private static string MapSeverityFromPriorityLabel(string? priority) =>
+        (priority ?? string.Empty).Trim() switch
+        {
+            var value when value.Equals("Critical", StringComparison.OrdinalIgnoreCase) => "Critical",
+            var value when value.Equals("High", StringComparison.OrdinalIgnoreCase) => "Severe",
+            var value when value.Equals("Medium", StringComparison.OrdinalIgnoreCase) => "Moderate",
+            var value when value.Equals("Low", StringComparison.OrdinalIgnoreCase) => "Minor",
+            _ => "Moderate"
+        };
+
+    private static double MapPriorityScore(string? priority) =>
+        (priority ?? string.Empty).Trim() switch
+        {
+            var value when value.Equals("Critical", StringComparison.OrdinalIgnoreCase) => 95,
+            var value when value.Equals("High", StringComparison.OrdinalIgnoreCase) => 80,
+            var value when value.Equals("Medium", StringComparison.OrdinalIgnoreCase) => 65,
+            var value when value.Equals("Low", StringComparison.OrdinalIgnoreCase) => 50,
+            _ => 60
+        };
+
+    private static bool ContainsFallbackKeyword(string? text, params string[] keywords)
+    {
+        var normalized = SosPriorityRuleConfigSupport.NormalizeKey(text);
+        return keywords.Any(keyword => normalized.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string BuildExecutionFallbackNote(
+        MissionExecutionAssessment assessment,
+        string fallbackSource)
+    {
+        var reason = assessment.FailureReason ?? "Mission output was incomplete.";
+        return fallbackSource switch
+        {
+            "draft" => BuildValidationFallbackNote(reason),
+            "pipeline_fragments" =>
+                $"AI output was incomplete ({reason}). Backend rebuilt a best-effort route from pipeline fragments and marked it for manual review.",
+            _ =>
+                $"AI output was incomplete ({reason}). Backend built a best-effort route from SOS details and marked it for manual review."
+        };
+    }
+
+    private static string? FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
+    private static List<SuggestedResourceDto> ChooseSuggestedResources(
+        IReadOnlyCollection<SuggestedResourceDto>? primary,
+        IReadOnlyCollection<SuggestedResourceDto>? fallback)
+    {
+        if (primary is { Count: > 0 })
+            return primary.Select(CloneSuggestedResource).ToList();
+
+        return fallback?.Select(CloneSuggestedResource).ToList() ?? [];
+    }
+
+    private static List<SupplyShortageDto> ChooseSupplyShortages(
+        IReadOnlyCollection<SupplyShortageDto>? primary,
+        IReadOnlyCollection<SupplyShortageDto>? secondary,
+        IReadOnlyCollection<SupplyShortageDto>? fallback)
+    {
+        if (primary is { Count: > 0 })
+            return primary.Select(CloneSupplyShortage).ToList();
+
+        if (secondary is { Count: > 0 })
+            return secondary.Select(CloneSupplyShortage).ToList();
+
+        return fallback?.Select(CloneSupplyShortage).ToList() ?? [];
+    }
+
+    private static SuggestedResourceDto CloneSuggestedResource(SuggestedResourceDto resource)
+    {
+        return new SuggestedResourceDto
+        {
+            ResourceType = resource.ResourceType,
+            Description = resource.Description,
+            Quantity = resource.Quantity,
+            Priority = resource.Priority
         };
     }
 
@@ -2542,6 +3306,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         MissionSuggestionMetadata? pipelineMetadata = null;
         int? suggestionId = null;
+        MissionSuggestionPipelineState? pipelineFallbackState = null;
 
         if (ShouldUsePipeline(options))
         {
@@ -2574,6 +3339,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 catch (MissionSuggestionPipelineFallbackException ex)
                 {
                     pipelineFallback = ex;
+                    pipelineFallbackState = ex.State;
                     break;
                 }
 
@@ -2800,7 +3566,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         result.IsSuccess     = true;
         result.ModelName     = settings.Model;
         result.RawAiResponse = finalText;
-        ValidateExecutableMissionResult(result, sosRequests);
+        var selection = SelectExecutableMissionResult(
+            result,
+            sosRequests,
+            pipelineFallbackState,
+            pipelineFallbackState?.DraftActivities,
+            "legacy");
+        result = selection.Result;
         await FinalizeSuggestionResultAsync(
             result,
             sosRequests,
@@ -2810,8 +3582,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             clusterId,
             suggestionId,
             pipelineMetadata,
-            null,
-            "legacy",
+            pipelineFallbackState?.DraftActivities,
+            selection.FinalResultSource,
             options,
             cancellationToken);
 
