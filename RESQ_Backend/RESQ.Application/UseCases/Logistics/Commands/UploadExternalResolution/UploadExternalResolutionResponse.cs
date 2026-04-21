@@ -17,6 +17,8 @@ public class UploadExternalResolutionResponse
     public int SnapshotConsumableUnits { get; set; }
     public int SnapshotReusableUnits { get; set; }
     public int ReusableItemsSkipped { get; set; }
+    public string ClosureStatus { get; set; } = string.Empty;
+    public string ResolutionType { get; set; } = string.Empty;
 
     public string Message { get; set; } = string.Empty;
 }

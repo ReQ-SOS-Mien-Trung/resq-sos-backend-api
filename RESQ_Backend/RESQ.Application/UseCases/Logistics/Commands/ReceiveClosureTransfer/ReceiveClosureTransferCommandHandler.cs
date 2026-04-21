@@ -31,7 +31,10 @@ public class ReceiveClosureTransferCommandHandler(
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
 
-        var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
+        var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(
+                request.UserId,
+                request.DepotId,
+                cancellationToken)
             ?? throw ExceptionCodes.WithCode(
                 new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động."),
                 LogisticsErrorCodes.DepotManagerNotAssigned);
@@ -51,6 +54,9 @@ public class ReceiveClosureTransferCommandHandler(
 
         transfer.MarkReceived(request.UserId, request.Note);
         var completedAt = DateTime.UtcNow;
+        var requiresFurtherResolution = false;
+        var remainingItemCount = 0;
+        var closureAction = "TransferReceived";
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
@@ -70,14 +76,30 @@ public class ReceiveClosureTransferCommandHandler(
 
             logger.LogInformation(
                 "TransferClosureItems completed | ClosureId={ClosureId} TransferId={TransferId}",
-                transfer.ClosureId, transfer.Id);
+                transfer.ClosureId,
+                transfer.Id);
 
             await transferRepository.UpdateAsync(transfer, cancellationToken);
 
             var hasOpenTransfers = await transferRepository.HasOpenTransfersAsync(closure.Id, cancellationToken);
             if (!hasOpenTransfers)
             {
-                closure.Complete(completedAt);
+                var remainingItems = await depotRepository.GetDetailedInventoryForClosureAsync(
+                    transfer.SourceDepotId,
+                    cancellationToken);
+
+                remainingItemCount = remainingItems.Count;
+                if (remainingItemCount > 0)
+                {
+                    closure.ReopenForResidualHandling();
+                    requiresFurtherResolution = true;
+                    closureAction = "ReopenedForResidualHandling";
+                }
+                else
+                {
+                    closure.Complete(completedAt);
+                    closureAction = "ResolvedByTransfers";
+                }
             }
 
             await closureRepository.UpdateAsync(closure, cancellationToken);
@@ -86,16 +108,24 @@ public class ReceiveClosureTransferCommandHandler(
 
         logger.LogInformation(
             "Depot closure transfer received | DepotId={DepotId} ClosureId={ClosureId} TransferId={TransferId}",
-            transfer.SourceDepotId, closure.Id, transfer.Id);
+            transfer.SourceDepotId,
+            closure.Id,
+            transfer.Id);
 
         try
         {
             await firebaseService.SendNotificationToUserAsync(
                 closure.InitiatedBy,
-                closure.CompletedAt.HasValue ? "Xử lý hàng tồn đã hoàn tất" : "Đã hoàn tất một đợt chuyển kho",
-                closure.CompletedAt.HasValue
-                    ? $"Toàn bộ hàng tồn của kho '{sourceDepot.Name}' đã được chuyển xong theo kế hoạch. Kho vẫn ở trạng thái Unavailable và chờ admin xác nhận đóng kho."
-                    : $"Transfer #{transfer.Id} từ kho '{sourceDepot.Name}' đã được nhận thành công. Vẫn còn các transfer khác chờ hoàn tất.",
+                requiresFurtherResolution
+                    ? "Batch chuyển kho đã hoàn tất, còn hàng cần xử lý"
+                    : closure.CompletedAt.HasValue
+                        ? "Xử lý hàng tồn đã hoàn tất"
+                        : "Đã hoàn tất một đợt chuyển kho",
+                requiresFurtherResolution
+                    ? $"Transfer #{transfer.Id} từ kho '{sourceDepot.Name}' đã nhận xong, nhưng kho nguồn vẫn còn hàng. Admin cần chọn bước xử lý tiếp theo."
+                    : closure.CompletedAt.HasValue
+                        ? $"Toàn bộ hàng tồn của kho '{sourceDepot.Name}' đã được xử lý xong theo kế hoạch chuyển kho. Kho chờ admin xác nhận đóng kho."
+                        : $"Transfer #{transfer.Id} từ kho '{sourceDepot.Name}' đã được nhận thành công. Vẫn còn các transfer khác chờ hoàn tất.",
                 "depot_closure_completed",
                 cancellationToken);
         }
@@ -117,20 +147,44 @@ public class ReceiveClosureTransferCommandHandler(
             },
             cancellationToken);
 
-        await operationalHubService.PushDepotInventoryUpdateAsync(transfer.SourceDepotId, "ClosureTransferReceived", cancellationToken);
-        await operationalHubService.PushDepotInventoryUpdateAsync(transfer.TargetDepotId, "ClosureTransferReceived", cancellationToken);
+        await operationalHubService.PushDepotClosureUpdateAsync(
+            new DepotClosureRealtimeUpdate
+            {
+                SourceDepotId = transfer.SourceDepotId,
+                TargetDepotId = transfer.TargetDepotId,
+                ClosureId = closure.Id,
+                TransferId = transfer.Id,
+                EntityType = "Closure",
+                Action = closureAction,
+                Status = closure.Status.ToString()
+            },
+            cancellationToken);
+
+        await operationalHubService.PushDepotInventoryUpdateAsync(
+            transfer.SourceDepotId,
+            "ClosureTransferReceived",
+            cancellationToken);
+        await operationalHubService.PushDepotInventoryUpdateAsync(
+            transfer.TargetDepotId,
+            "ClosureTransferReceived",
+            cancellationToken);
 
         return new ReceiveClosureTransferResponse
         {
             TransferId = transfer.Id,
             ClosureId = closure.Id,
             TransferStatus = transfer.Status,
+            ClosureStatus = closure.Status.ToString(),
             ConsumableUnitsMoved = transfer.SnapshotConsumableUnits,
             ReusableItemsMoved = transfer.SnapshotReusableUnits,
+            RequiresFurtherResolution = requiresFurtherResolution,
+            RemainingItemCount = remainingItemCount,
             CompletedAt = completedAt,
-            Message = closure.CompletedAt.HasValue
-                ? "Đã xác nhận nhận hàng. Toàn bộ kế hoạch phân bổ hàng tồn đã hoàn tất, kho nguồn vẫn giữ trạng thái Unavailable và chờ admin xác nhận đóng kho."
-                : "Đã xác nhận nhận hàng cho transfer này. Các transfer còn lại của phiên đóng kho vẫn tiếp tục được xử lý."
+            Message = requiresFurtherResolution
+                ? "Đã xác nhận nhận hàng cho transfer này. Batch transfer hiện tại đã khép lại nhưng kho nguồn vẫn còn hàng, admin cần chọn bước xử lý tiếp theo."
+                : closure.CompletedAt.HasValue
+                    ? "Đã xác nhận nhận hàng. Toàn bộ phần hàng cần xử lý bằng chuyển kho đã hoàn tất, kho nguồn chờ admin xác nhận đóng kho."
+                    : "Đã xác nhận nhận hàng cho transfer này. Các transfer còn lại của phiên đóng kho vẫn tiếp tục được xử lý."
         };
     }
 }

@@ -551,17 +551,6 @@ namespace RESQ.Presentation.Controllers.Logistics
             var command = new CancelDepotClosureTransferCommand(id, transferId, userId, dto.Reason);
             var result = await _mediator.Send(command);
 
-            await _operationalHubService.PushDepotClosureUpdateAsync(
-                new DepotClosureRealtimeUpdate
-                {
-                    SourceDepotId = id,
-                    TransferId = transferId,
-                    EntityType = "Transfer",
-                    Action = "Cancelled",
-                    Status = result.TransferStatus
-                },
-                HttpContext.RequestAborted);
-
             return Ok(result);
         }
 

@@ -133,12 +133,12 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
 
     public async Task<IEnumerable<DepotModel>> GetAvailableDepotsAsync(CancellationToken cancellationToken = default)
     {
-        // Lọc kho đang hoạt động (Available) và còn hàng (CurrentUtilization > 0)
-        // Kho Closed, PendingAssignment hoặc trống (utilization = 0) bị loại
-        // Include DepotSupplyInventories.ReliefItem để lấy thông tin tồn kho chi tiết
+        // Chỉ lọc theo trạng thái Available — việc đánh giá tồn kho / sức chứa
+        // là trách nhiệm của từng use case gọi phương thức này.
+        // Không lọc CurrentUtilization > 0 vì kho mới (trống) vẫn là kho hợp lệ.
         var entities = await _unitOfWork.GetRepository<Depot>()
             .GetAllByPropertyAsync(
-                x => x.Status == "Available" && x.CurrentUtilization > 0,
+                x => x.Status == "Available",
                 includeProperties: "DepotManagers.User,SupplyInventories.ItemModel"
             );
 
