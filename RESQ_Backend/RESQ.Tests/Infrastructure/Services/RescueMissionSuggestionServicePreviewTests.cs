@@ -63,7 +63,7 @@ public class RescueMissionSuggestionServicePreviewTests
     }
 
     [Fact]
-    public async Task PreviewSuggestionAsync_MissionPlanningPrompt_ReturnsErrorWhenActivitiesAreMissing()
+    public async Task PreviewSuggestionAsync_MissionPlanningPrompt_MixedClusterWithoutActivities_BuildsBestEffortFallbackRoute()
     {
         var service = new RescueMissionSuggestionService(
             new StubAiProviderClientFactory(new LegacyStubAiProviderClient(
@@ -72,12 +72,12 @@ public class RescueMissionSuggestionServicePreviewTests
                   "mission_title": "Preview plan",
                   "mission_type": "MIXED",
                   "priority_score": 7.5,
-                  "severity_level": "Moderate",
+                  "severity_level": "Critical",
                   "overall_assessment": "Preview only",
                   "activities": [],
                   "resources": [],
                   "estimated_duration": "20 phut",
-                  "special_notes": null,
+                  "special_notes": "Nen tach cluster neu can.",
                   "needs_additional_depot": false,
                   "supply_shortages": [],
                   "confidence_score": 0.9
@@ -94,7 +94,36 @@ public class RescueMissionSuggestionServicePreviewTests
             NullLogger<RescueMissionSuggestionService>.Instance);
 
         var result = await service.PreviewSuggestionAsync(
-            [new SosRequestSummary { Id = 1, RawMessage = "Need rescue" }],
+            [
+                new SosRequestSummary
+                {
+                    Id = 11,
+                    SosType = "Rescue",
+                    RawMessage = "Nan nhan can dua den noi an toan ngay",
+                    PriorityLevel = "Critical",
+                    AiAnalysis = new SosRequestAiAnalysisSummary
+                    {
+                        HasAiAnalysis = true,
+                        SuggestedPriority = "Critical",
+                        NeedsImmediateSafeTransfer = true,
+                        CanWaitForCombinedMission = false
+                    }
+                },
+                new SosRequestSummary
+                {
+                    Id = 22,
+                    SosType = "Relief",
+                    RawMessage = "Can tiep te luong thuc va nuoc uong",
+                    PriorityLevel = "High",
+                    AiAnalysis = new SosRequestAiAnalysisSummary
+                    {
+                        HasAiAnalysis = true,
+                        SuggestedPriority = "High",
+                        NeedsImmediateSafeTransfer = false,
+                        CanWaitForCombinedMission = true
+                    }
+                }
+            ],
             [],
             [],
             isMultiDepotRecommended: false,
@@ -111,8 +140,16 @@ public class RescueMissionSuggestionServicePreviewTests
             aiConfigOverride: BuildAiConfig(model: "gemini-preview"),
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Contains("executable activities", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.ErrorMessage);
+        Assert.True(result.NeedsManualReview);
+        Assert.NotEmpty(result.MixedRescueReliefWarning);
+        Assert.Contains(
+            result.SuggestedActivities,
+            activity => string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            result.SuggestedActivities,
+            activity => string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -434,6 +471,181 @@ public class RescueMissionSuggestionServicePreviewTests
                 .Where(activity => activity.ActivityType != "RETURN_ASSEMBLY_POINT")
                 .Select(activity => activity.ActivityType)
                 .ToArray());
+    }
+
+    [Fact]
+    public async Task PreviewSuggestionAsync_PipelineFallbackToLegacyWithoutActivities_SalvagesRouteFromPipelineFragments()
+    {
+        var promptRepository = new RecordingPromptRepository(
+        [
+            BuildStagePrompt(4, PromptType.MissionRequirementsAssessment, "requirements-partial"),
+            BuildStagePrompt(5, PromptType.MissionDepotPlanning, "depot-partial"),
+            BuildStagePrompt(6, PromptType.MissionTeamPlanning, "team-missing"),
+            BuildStagePrompt(7, PromptType.MissionPlanValidation, "validation-unused"),
+            BuildStagePrompt(8, PromptType.MissionPlanning, "active-legacy-empty")
+        ]);
+        var aiClient = new PipelineStubAiProviderClient(new Dictionary<string, string>
+        {
+            ["requirements-partial"] = """
+            {
+              "suggested_mission_title": "Pipeline partial mission",
+              "suggested_mission_type": "MIXED",
+              "suggested_priority_score": 9.2,
+              "suggested_severity_level": "Critical",
+              "overall_assessment": "Partial pipeline output",
+              "estimated_duration": "1 gio 10 phut",
+              "special_notes": "Canh bao tach cluster.",
+              "split_cluster_recommended": true,
+              "split_cluster_reason": "Rescue khan cap dang di cung nhanh cuu tro.",
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.9,
+              "suggested_resources": [],
+              "sos_requirements": [
+                {
+                  "sos_request_id": 11,
+                  "summary": "Can cuu ho gap",
+                  "priority": "Critical",
+                  "needs_immediate_safe_transfer": true,
+                  "can_wait_for_combined_mission": false,
+                  "handling_reason": "Can dua den noi an toan ngay.",
+                  "required_supplies": [],
+                  "required_teams": [
+                    { "team_type": "Rescue", "quantity": 1, "reason": "Can cuu ho nan nhan" }
+                  ]
+                },
+                {
+                  "sos_request_id": 22,
+                  "summary": "Can tiep te nuoc va luong thuc",
+                  "priority": "High",
+                  "needs_immediate_safe_transfer": false,
+                  "can_wait_for_combined_mission": true,
+                  "handling_reason": "Nhanh cuu tro co the di cung route an toan.",
+                  "required_supplies": [
+                    { "item_name": "Nuoc sach", "quantity": 10, "unit": "chai" }
+                  ],
+                  "required_teams": []
+                }
+              ]
+            }
+            """,
+            ["depot-partial"] = """
+            {
+              "activities": [
+                {
+                  "activity_key": "collect-22",
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Lay nuoc sach tai Kho Hue",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 22,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Tran Hung Dao"
+                },
+                {
+                  "activity_key": "deliver-22",
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Giao nuoc sach cho SOS 22",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 22
+                }
+              ],
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.85
+            }
+            """,
+            ["active-legacy-empty"] = """
+            {
+              "mission_title": "Legacy empty mission",
+              "mission_type": "MIXED",
+              "priority_score": 8.9,
+              "severity_level": "Critical",
+              "overall_assessment": "Legacy returned no activities",
+              "activities": [],
+              "resources": [],
+              "estimated_duration": "50 phut",
+              "special_notes": "Nen tach cluster.",
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.9
+            }
+            """
+        });
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(aiClient),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            promptRepository,
+            new RecordingMissionAiSuggestionRepository(),
+            ThrowingProxy<IDepotInventoryRepository>.Create(),
+            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new EmptyAssemblyPointRepository(),
+            Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = true }),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+        var result = await service.PreviewSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 11,
+                    SosType = "Rescue",
+                    RawMessage = "Nan nhan can dua den noi an toan ngay",
+                    AiAnalysis = new SosRequestAiAnalysisSummary
+                    {
+                        HasAiAnalysis = true,
+                        SuggestedPriority = "Critical",
+                        NeedsImmediateSafeTransfer = true,
+                        CanWaitForCombinedMission = false
+                    }
+                },
+                new SosRequestSummary
+                {
+                    Id = 22,
+                    SosType = "Relief",
+                    RawMessage = "Can tiep te nuoc va luong thuc",
+                    AiAnalysis = new SosRequestAiAnalysisSummary
+                    {
+                        HasAiAnalysis = true,
+                        SuggestedPriority = "High",
+                        NeedsImmediateSafeTransfer = false,
+                        CanWaitForCombinedMission = true
+                    }
+                }
+            ],
+            [
+                new DepotSummary
+                {
+                    Id = 9,
+                    Name = "Kho Hue",
+                    Address = "1 Tran Hung Dao",
+                    Latitude = 16.463,
+                    Longitude = 107.590
+                }
+            ],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            promptOverride: BuildStagePrompt(99, PromptType.MissionRequirementsAssessment, "requirements-partial", isActive: false),
+            aiConfigOverride: BuildAiConfig(model: "shared-preview-model"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.ErrorMessage);
+        Assert.True(result.NeedsManualReview);
+        Assert.Equal("salvaged", result.PipelineMetadata?.FinalResultSource);
+        Assert.True(result.PipelineMetadata?.UsedLegacyFallback);
+        Assert.Contains(
+            result.SuggestedActivities,
+            activity => string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            result.SuggestedActivities,
+            activity => string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase));
+        Assert.NotEmpty(result.MixedRescueReliefWarning);
     }
 
     private static PromptModel BuildStagePrompt(

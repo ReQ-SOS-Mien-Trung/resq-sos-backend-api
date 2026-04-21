@@ -25,8 +25,23 @@ public partial class RescueMissionSuggestionService
         AllowTrailingCommas = true
     };
 
-    private sealed class MissionSuggestionPipelineFallbackException(string message, Exception? innerException = null)
-        : Exception(message, innerException);
+    private sealed class MissionSuggestionPipelineState
+    {
+        public MissionRequirementsFragment? Requirements { get; set; }
+        public MissionDepotFragment? Depot { get; set; }
+        public MissionTeamFragment? Team { get; set; }
+        public MissionDraftBody? DraftBody { get; set; }
+        public List<SuggestedActivityDto>? DraftActivities { get; set; }
+    }
+
+    private sealed class MissionSuggestionPipelineFallbackException(
+        string message,
+        MissionSuggestionPipelineState? state = null,
+        Exception? innerException = null)
+        : Exception(message, innerException)
+    {
+        public MissionSuggestionPipelineState? State { get; } = state;
+    }
 
     private sealed record PromptStageResult(
         string ModelName,
@@ -48,6 +63,7 @@ public partial class RescueMissionSuggestionService
         MissionRequirementsFragment requirements;
         MissionDepotFragment depot;
         MissionTeamFragment team;
+        var pipelineState = new MissionSuggestionPipelineState();
 
         yield return Status("requirements");
         try
@@ -69,6 +85,7 @@ public partial class RescueMissionSuggestionService
 
             requirements = DeserializePipelineFragment<MissionRequirementsFragment>(stage.ResponseText);
             ValidateRequirementsFragment(requirements, sosRequests);
+            pipelineState.Requirements = requirements;
             metadata.SplitClusterRecommended = requirements.SplitClusterRecommended;
             metadata.SplitClusterReason = requirements.SplitClusterReason;
 
@@ -96,7 +113,7 @@ public partial class RescueMissionSuggestionService
                 error: ex.Message,
                 pipelineStatus: "fallback",
                 cancellationToken: cancellationToken);
-            throw new MissionSuggestionPipelineFallbackException("Requirements stage failed.", ex);
+            throw new MissionSuggestionPipelineFallbackException("Requirements stage failed.", pipelineState, ex);
         }
 
         yield return Status("depot");
@@ -124,6 +141,7 @@ public partial class RescueMissionSuggestionService
 
             depot = DeserializePipelineFragment<MissionDepotFragment>(stage.ResponseText);
             ValidateDepotFragment(depot);
+            pipelineState.Depot = depot;
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -149,7 +167,7 @@ public partial class RescueMissionSuggestionService
                 error: ex.Message,
                 pipelineStatus: "fallback",
                 cancellationToken: cancellationToken);
-            throw new MissionSuggestionPipelineFallbackException("Depot stage failed.", ex);
+            throw new MissionSuggestionPipelineFallbackException("Depot stage failed.", pipelineState, ex);
         }
 
         yield return Status("team");
@@ -177,6 +195,7 @@ public partial class RescueMissionSuggestionService
 
             team = DeserializePipelineFragment<MissionTeamFragment>(stage.ResponseText);
             ValidateTeamFragment(team);
+            pipelineState.Team = team;
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -202,7 +221,7 @@ public partial class RescueMissionSuggestionService
                 error: ex.Message,
                 pipelineStatus: "fallback",
                 cancellationToken: cancellationToken);
-            throw new MissionSuggestionPipelineFallbackException("Team stage failed.", ex);
+            throw new MissionSuggestionPipelineFallbackException("Team stage failed.", pipelineState, ex);
         }
 
         yield return Status("assemble");
@@ -212,6 +231,8 @@ public partial class RescueMissionSuggestionService
         var draftActivities = draftBody.Activities
             .Select(MapDraftActivityToSuggestedActivity)
             .ToList();
+        pipelineState.DraftBody = draftBody;
+        pipelineState.DraftActivities = draftActivities.Select(CloneActivity).ToList();
 
         await SavePipelineStageSnapshotAsync(
             suggestionId,
@@ -248,30 +269,62 @@ public partial class RescueMissionSuggestionService
             result.IsSuccess = true;
             result.ModelName = stage.ModelName;
             result.RawAiResponse = stage.ResponseText;
-            ValidateExecutableMissionResult(result, sosRequests, draftActivities);
 
-            await SavePipelineStageSnapshotAsync(
-                suggestionId,
-                metadata,
-                "validate",
-                "completed",
-                PromptType.MissionPlanValidation,
-                stage.ModelName,
-                stage.LatencyMs,
-                ExtractJsonPayload(stage.ResponseText),
-                null,
-                "completed",
-                cancellationToken,
-                "validated");
+            var validatedAssessment = AssessExecutableMissionResult(result, sosRequests, draftActivities);
+            if (!validatedAssessment.IsExecutable)
+            {
+                finalResultSource = "draft";
+                var selection = SelectExecutableMissionResult(
+                    result,
+                    sosRequests,
+                    pipelineState,
+                    draftActivities,
+                    "validated");
+                result = selection.Result;
+                finalResultSource = selection.FinalResultSource;
+
+                await SavePipelineStageSnapshotAsync(
+                    suggestionId,
+                    metadata,
+                    "validate",
+                    "failed",
+                    PromptType.MissionPlanValidation,
+                    stage.ModelName,
+                    stage.LatencyMs,
+                    ExtractJsonPayload(stage.ResponseText),
+                    validatedAssessment.FailureReason,
+                    "completed",
+                    cancellationToken,
+                    finalResultSource);
+            }
+            else
+            {
+                await SavePipelineStageSnapshotAsync(
+                    suggestionId,
+                    metadata,
+                    "validate",
+                    "completed",
+                    PromptType.MissionPlanValidation,
+                    stage.ModelName,
+                    stage.LatencyMs,
+                    ExtractJsonPayload(stage.ResponseText),
+                    null,
+                    "completed",
+                    cancellationToken,
+                    "validated");
+            }
         }
         catch (Exception ex)
         {
             finalResultSource = "draft";
-            result = MapDraftBodyToResult(draftBody, draftJson);
-            result.NeedsManualReview = true;
-            result.SpecialNotes = AppendSpecialNote(
-                result.SpecialNotes,
-                BuildValidationFallbackNote(ex));
+            var selection = SelectExecutableMissionResult(
+                MapDraftBodyToResult(draftBody, draftJson),
+                sosRequests,
+                pipelineState,
+                draftActivities,
+                "draft");
+            result = selection.Result;
+            finalResultSource = selection.FinalResultSource;
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -831,9 +884,9 @@ public partial class RescueMissionSuggestionService
         return result;
     }
 
-    private static string BuildValidationFallbackNote(Exception exception)
+    private static string BuildValidationFallbackNote(string failureReason)
     {
-        return exception.Message switch
+        return failureReason switch
         {
             var message when message.Contains("must include executable activities", StringComparison.OrdinalIgnoreCase)
                 => "Final validation output omitted executable activities. Backend kept the assembled mission draft and marked it for manual review.",
@@ -871,8 +924,6 @@ public partial class RescueMissionSuggestionService
             BackfillSosRequestIds(draftActivities, sosRequests);
             EnrichVictimTargets(draftActivities, sosLookup);
         }
-
-        ValidateExecutableMissionResult(result, sosRequests, draftActivities);
 
         var effectiveMetadata = metadata ?? CreateSuggestionMetadataForLegacy();
         effectiveMetadata.OverallAssessment = result.OverallAssessment;
@@ -983,7 +1034,8 @@ public partial class RescueMissionSuggestionService
             return suggestionId;
 
         var activities = new List<ActivityAiSuggestionModel>();
-        if (string.Equals(finalResultSource, "legacy", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(finalResultSource, "legacy", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(finalResultSource, "salvaged", StringComparison.OrdinalIgnoreCase))
         {
             activities.Add(BuildActivitySuggestionModel(
                 clusterId.Value,
