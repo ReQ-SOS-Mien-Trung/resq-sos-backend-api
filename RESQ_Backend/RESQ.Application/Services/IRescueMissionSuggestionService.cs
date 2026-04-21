@@ -95,6 +95,7 @@ public class SosRequestSummary
     public DateTime? CreatedAt { get; set; }
     public string? TargetVictimSummary { get; set; }
     public List<MissionActivityTargetVictimDto> TargetVictims { get; set; } = [];
+    public SosRequestAiAnalysisSummary? AiAnalysis { get; set; }
 }
 
 public class RescueMissionSuggestionResult

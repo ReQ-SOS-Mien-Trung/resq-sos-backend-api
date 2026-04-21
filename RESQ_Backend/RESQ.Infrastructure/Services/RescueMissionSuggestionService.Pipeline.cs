@@ -69,6 +69,8 @@ public partial class RescueMissionSuggestionService
 
             requirements = DeserializePipelineFragment<MissionRequirementsFragment>(stage.ResponseText);
             ValidateRequirementsFragment(requirements, sosRequests);
+            metadata.SplitClusterRecommended = requirements.SplitClusterRecommended;
+            metadata.SplitClusterReason = requirements.SplitClusterReason;
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -594,6 +596,12 @@ public partial class RescueMissionSuggestionService
             if (!knownSosIds.Contains(sosRequirement.SosRequestId))
                 throw new InvalidOperationException($"Requirements fragment references unknown SOS #{sosRequirement.SosRequestId}.");
         }
+
+        if (fragment.SplitClusterRecommended && string.IsNullOrWhiteSpace(fragment.SplitClusterReason))
+        {
+            throw new InvalidOperationException(
+                "Requirements fragment must provide split_cluster_reason when split_cluster_recommended is true.");
+        }
     }
 
     private static void ValidateDepotFragment(MissionDepotFragment fragment)
@@ -856,6 +864,9 @@ public partial class RescueMissionSuggestionService
         effectiveMetadata.EstimatedDuration = result.EstimatedDuration;
         effectiveMetadata.SpecialNotes = result.SpecialNotes;
         effectiveMetadata.MixedRescueReliefWarning = result.MixedRescueReliefWarning;
+        effectiveMetadata.SplitClusterRecommended =
+            effectiveMetadata.SplitClusterRecommended || !string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning);
+        effectiveMetadata.SplitClusterReason ??= result.MixedRescueReliefWarning;
         effectiveMetadata.NeedsManualReview = result.NeedsManualReview;
         effectiveMetadata.LowConfidenceWarning = result.LowConfidenceWarning;
         effectiveMetadata.NeedsAdditionalDepot = result.NeedsAdditionalDepot;
@@ -912,7 +923,8 @@ public partial class RescueMissionSuggestionService
         RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(result, nearbyTeams);
         EnsureReturnAssemblyPointActivities(result);
         EnrichVictimTargets(result.SuggestedActivities, sosLookup);
-        ApplyMixedRescueReliefSafetyNote(result);
+        ApplyMixedRescueReliefSafetyNote(result, sosLookup);
+        ApplyMixedMissionMissingAiAnalysisManualReview(result, sosLookup);
         NormalizeMixedRescueReliefWarning(result, allowFallbackFromSpecialNotes: !string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning));
         NormalizeEstimatedDurations(result);
 

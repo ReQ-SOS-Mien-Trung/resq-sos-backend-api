@@ -212,7 +212,17 @@ public class CreateMissionCommandHandlerTests
         var missionRepository = new StubMissionRepository();
         var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
         var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
-        var sosRequestRepository = new StubSosRequestRepository();
+        var sosRequestRepository = new StubSosRequestRepository(
+            CreateSosRequest(11, "Rescue", SosPriorityLevel.Critical),
+            CreateSosRequest(22, "Relief", SosPriorityLevel.Medium));
+        var sosAiAnalysisRepository = new StubSosAiAnalysisRepository(
+            CreateAiAnalysis(
+                11,
+                priority: "Critical",
+                severity: "Critical",
+                needsImmediateSafeTransfer: true,
+                canWaitForCombinedMission: false,
+                handlingReason: "Victim must be moved to a safe zone immediately."));
         var depotInventoryRepository = new StubDepotInventoryRepository();
         var unitOfWork = new TrackingUnitOfWork();
 
@@ -223,15 +233,101 @@ public class CreateMissionCommandHandlerTests
             sosRequestRepository,
             depotInventoryRepository,
             new StubItemModelMetadataRepository(),
-            unitOfWork);
+            unitOfWork,
+            sosAiAnalysisRepository: sosAiAnalysisRepository);
+
+        var collect = CreateCollectActivity(quantity: 10);
+        collect.SosRequestId = 22;
+        var rescue = CreateRescueActivity(step: 2);
+        rescue.SosRequestId = 11;
 
         var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(
-                BuildCommandWithOptions(
-                    [CreateCollectActivity(quantity: 10), CreateRescueActivity(step: 2)]),
+                BuildCommandWithOptions([collect, rescue]),
                 CancellationToken.None));
 
         Assert.Contains("IgnoreMixedMissionWarning=true", ex.Message);
+        Assert.Contains("SOS #11", ex.Message);
+        Assert.Null(missionRepository.CreatedMission);
+    }
+
+    [Fact]
+    public async Task Handle_AllowsMixedMission_WhenRescueCanWaitForCombinedMission()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository(
+            CreateSosRequest(11, "Rescue", SosPriorityLevel.High),
+            CreateSosRequest(22, "Relief", SosPriorityLevel.Medium));
+        var sosAiAnalysisRepository = new StubSosAiAnalysisRepository(
+            CreateAiAnalysis(
+                11,
+                priority: "High",
+                severity: "Severe",
+                needsImmediateSafeTransfer: false,
+                canWaitForCombinedMission: true,
+                handlingReason: "Rescue request is stable enough to wait until relief delivery finishes."));
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork,
+            sosAiAnalysisRepository: sosAiAnalysisRepository);
+
+        var collect = CreateCollectActivity(quantity: 10);
+        collect.SosRequestId = 22;
+        var rescue = CreateRescueActivity(step: 2);
+        rescue.SosRequestId = 11;
+
+        var response = await handler.Handle(
+            BuildCommandWithOptions([collect, rescue]),
+            CancellationToken.None);
+
+        Assert.Equal(101, response.MissionId);
+        Assert.NotNull(missionRepository.CreatedMission);
+        Assert.Null(missionRepository.CreatedMission!.ManualOverrideMetadata);
+    }
+
+    [Fact]
+    public async Task Handle_ThrowsBadRequest_WhenMixedMissionMissingAiAnalysis()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository(
+            CreateSosRequest(11, "Rescue", SosPriorityLevel.High),
+            CreateSosRequest(22, "Relief", SosPriorityLevel.Medium));
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork,
+            sosAiAnalysisRepository: new StubSosAiAnalysisRepository());
+
+        var collect = CreateCollectActivity(quantity: 10);
+        collect.SosRequestId = 22;
+        var rescue = CreateRescueActivity(step: 2);
+        rescue.SosRequestId = 11;
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(
+                BuildCommandWithOptions([collect, rescue]),
+                CancellationToken.None));
+
+        Assert.Contains("Chưa có SOS AI analysis", ex.Message);
         Assert.Null(missionRepository.CreatedMission);
     }
 
@@ -241,7 +337,17 @@ public class CreateMissionCommandHandlerTests
         var missionRepository = new StubMissionRepository();
         var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
         var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
-        var sosRequestRepository = new StubSosRequestRepository();
+        var sosRequestRepository = new StubSosRequestRepository(
+            CreateSosRequest(11, "Rescue", SosPriorityLevel.Critical),
+            CreateSosRequest(22, "Relief", SosPriorityLevel.Medium));
+        var sosAiAnalysisRepository = new StubSosAiAnalysisRepository(
+            CreateAiAnalysis(
+                11,
+                priority: "Critical",
+                severity: "Critical",
+                needsImmediateSafeTransfer: true,
+                canWaitForCombinedMission: false,
+                handlingReason: "Victim must be moved to a safe zone immediately."));
         var depotInventoryRepository = new StubDepotInventoryRepository();
         var unitOfWork = new TrackingUnitOfWork();
         var suggestionRepository = new StubMissionAiSuggestionRepository(
@@ -260,11 +366,17 @@ public class CreateMissionCommandHandlerTests
             depotInventoryRepository,
             new StubItemModelMetadataRepository(),
             unitOfWork,
-            missionAiSuggestionRepository: suggestionRepository);
+            missionAiSuggestionRepository: suggestionRepository,
+            sosAiAnalysisRepository: sosAiAnalysisRepository);
+
+        var collect = CreateCollectActivity(quantity: 10);
+        collect.SosRequestId = 22;
+        var rescue = CreateRescueActivity(step: 2);
+        rescue.SosRequestId = 11;
 
         var response = await handler.Handle(
             BuildCommandWithOptions(
-                [CreateCollectActivity(quantity: 10), CreateRescueActivity(step: 2)],
+                [collect, rescue],
                 aiSuggestionId: 44,
                 ignoreMixedMissionWarning: true,
                 overrideReason: "Coordinator accepts mixed mission risk."),
@@ -334,6 +446,45 @@ public class CreateMissionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_DoesNotApplyBuffer_ForVehicleCategoryEvenWhenItemTypeIsNotReusable()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository();
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+        var itemMetadataRepository = new StubItemModelMetadataRepository(
+            categoryIds: new Dictionary<int, int>
+            {
+                [2] = (int)ItemCategoryCode.Vehicle
+            });
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            itemMetadataRepository,
+            unitOfWork);
+
+        var response = await handler.Handle(
+            BuildCommand(CreateCollectActivity(quantity: 1)),
+            CancellationToken.None);
+
+        Assert.Equal(101, response.MissionId);
+
+        var availabilityCheck = Assert.Single(depotInventoryRepository.AvailabilityChecks);
+        var availabilityItem = Assert.Single(availabilityCheck.Items);
+        Assert.Equal(1, availabilityItem.RequestedQuantity);
+
+        var reserveCall = Assert.Single(depotInventoryRepository.ReserveCalls);
+        var reservedItem = Assert.Single(reserveCall.Items);
+        Assert.Equal(1, reservedItem.Quantity);
+    }
+
+    [Fact]
     public async Task Handle_EnrichesSosBoundActivityDescriptions_WithVictimSummary()
     {
         var missionRepository = new StubMissionRepository();
@@ -393,6 +544,7 @@ public class CreateMissionCommandHandlerTests
         IItemModelMetadataRepository itemModelMetadataRepository,
         IUnitOfWork unitOfWork,
         ISosRequestUpdateRepository? sosRequestUpdateRepository = null,
+        ISosAiAnalysisRepository? sosAiAnalysisRepository = null,
         IMissionAiSuggestionRepository? missionAiSuggestionRepository = null,
         IRescueTeamRepository? rescueTeamRepository = null,
         IAssemblyPointRepository? assemblyPointRepository = null)
@@ -403,6 +555,7 @@ public class CreateMissionCommandHandlerTests
             clusterRepository,
             sosRequestRepository,
             sosRequestUpdateRepository ?? new StubSosRequestUpdateRepository(),
+            sosAiAnalysisRepository ?? new StubSosAiAnalysisRepository(),
             missionAiSuggestionRepository ?? new StubMissionAiSuggestionRepository(),
             depotInventoryRepository,
             new StubDepotRepository(),
@@ -508,6 +661,48 @@ public class CreateMissionCommandHandlerTests
         AssemblyPointId = assemblyPointId,
         RescueTeamId = rescueTeamId
     };
+
+    private static SosRequestModel CreateSosRequest(int id, string sosType, SosPriorityLevel? priorityLevel) => new()
+    {
+        Id = id,
+        ClusterId = 1,
+        SosType = sosType,
+        PriorityLevel = priorityLevel,
+        RawMessage = $"SOS {id}",
+        Status = SosRequestStatus.Pending,
+        CreatedAt = new DateTime(2026, 4, 10, 7, 30, 0, DateTimeKind.Utc)
+    };
+
+    private static SosAiAnalysisModel CreateAiAnalysis(
+        int sosRequestId,
+        string priority,
+        string severity,
+        bool? needsImmediateSafeTransfer,
+        bool? canWaitForCombinedMission,
+        string handlingReason)
+    {
+        return SosAiAnalysisModel.Create(
+            sosRequestId,
+            "gpt-test",
+            "v1",
+            "PRIORITY_ANALYSIS",
+            severity,
+            priority,
+            handlingReason,
+            0.91,
+            "SOS_REQUEST",
+            JsonSerializer.Serialize(new
+            {
+                analysisResult = new
+                {
+                    priority,
+                    severity_level = severity,
+                    needs_immediate_safe_transfer = needsImmediateSafeTransfer,
+                    can_wait_for_combined_mission = canWaitForCombinedMission,
+                    handling_reason = handlingReason
+                }
+            }));
+    }
 
     private static AssemblyPointModel CreateAssemblyPoint(
         int id,
@@ -648,7 +843,8 @@ public class CreateMissionCommandHandlerTests
             => Task.FromResult(_requests.GetValueOrDefault(id));
 
         public Task<IEnumerable<RESQ.Domain.Entities.Emergency.SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default)
-            => Task.FromResult(Enumerable.Empty<RESQ.Domain.Entities.Emergency.SosRequestModel>());
+            => Task.FromResult<IEnumerable<RESQ.Domain.Entities.Emergency.SosRequestModel>>(
+                _requests.Values.Where(request => request.ClusterId == clusterId).ToList());
 
         public Task UpdateStatusAsync(int id, SosRequestStatus status, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
@@ -661,6 +857,35 @@ public class CreateMissionCommandHandlerTests
 
         public Task<IEnumerable<RESQ.Domain.Entities.Emergency.SosRequestModel>> GetByCompanionUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult(Enumerable.Empty<RESQ.Domain.Entities.Emergency.SosRequestModel>());
+    }
+
+    private sealed class StubSosAiAnalysisRepository(params SosAiAnalysisModel[] analyses) : ISosAiAnalysisRepository
+    {
+        private readonly Dictionary<int, SosAiAnalysisModel> _analyses = analyses.ToDictionary(analysis => analysis.SosRequestId);
+
+        public Task CreateAsync(SosAiAnalysisModel analysis, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<SosAiAnalysisModel?> GetBySosRequestIdAsync(int sosRequestId, CancellationToken cancellationToken = default)
+            => Task.FromResult(_analyses.GetValueOrDefault(sosRequestId));
+
+        public Task<IEnumerable<SosAiAnalysisModel>> GetAllBySosRequestIdAsync(int sosRequestId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IEnumerable<SosAiAnalysisModel>>(
+                _analyses.TryGetValue(sosRequestId, out var analysis)
+                    ? [analysis]
+                    : []);
+
+        public Task<IReadOnlyDictionary<int, SosAiAnalysisModel>> GetLatestBySosRequestIdsAsync(
+            IEnumerable<int> sosRequestIds,
+            CancellationToken cancellationToken = default)
+        {
+            var lookup = sosRequestIds
+                .Distinct()
+                .Where(_analyses.ContainsKey)
+                .ToDictionary(id => id, id => _analyses[id]);
+
+            return Task.FromResult<IReadOnlyDictionary<int, SosAiAnalysisModel>>(lookup);
+        }
     }
 
     private sealed class StubSosRequestUpdateRepository : ISosRequestUpdateRepository
@@ -828,9 +1053,12 @@ public class CreateMissionCommandHandlerTests
         public Task<List<ExpiringLotModel>> GetExpiringLotsAsync(int depotId, int daysAhead, CancellationToken cancellationToken = default) => Task.FromResult(new List<ExpiringLotModel>());
     }
 
-    private sealed class StubItemModelMetadataRepository(Dictionary<int, string>? itemTypes = null) : IItemModelMetadataRepository
+    private sealed class StubItemModelMetadataRepository(
+        Dictionary<int, string>? itemTypes = null,
+        Dictionary<int, int>? categoryIds = null) : IItemModelMetadataRepository
     {
         private readonly Dictionary<int, string> _itemTypes = itemTypes ?? [];
+        private readonly Dictionary<int, int> _categoryIds = categoryIds ?? [];
 
         public Task<List<MetadataDto>> GetAllForMetadataAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(new List<MetadataDto>());
@@ -851,7 +1079,7 @@ public class CreateMissionCommandHandlerTests
                 id => new ItemModelRecord
                 {
                     Id = id,
-                    CategoryId = 2,
+                    CategoryId = _categoryIds.GetValueOrDefault(id, 2),
                     Name = id == 2 ? "Nuoc tinh khiet" : $"Item {id}",
                     Unit = "chai",
                     ItemType = _itemTypes.GetValueOrDefault(id, nameof(ItemType.Consumable))

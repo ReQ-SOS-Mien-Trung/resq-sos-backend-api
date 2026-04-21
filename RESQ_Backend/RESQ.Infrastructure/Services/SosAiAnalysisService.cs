@@ -234,7 +234,14 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             Priority = ExtractPriority(response),
             SeverityLevel = ExtractSeverity(response),
             Explanation = response.Length > 500 ? response[..500] : response,
-            ConfidenceScore = 0.5
+            ConfidenceScore = 0.5,
+            NeedsImmediateSafeTransfer = string.Equals(ExtractPriority(response), "Critical", StringComparison.OrdinalIgnoreCase)
+                ? true
+                : null,
+            CanWaitForCombinedMission = string.Equals(ExtractPriority(response), "Critical", StringComparison.OrdinalIgnoreCase)
+                ? false
+                : null,
+            HandlingReason = response.Length > 500 ? response[..500] : response
         };
     }
 
@@ -268,5 +275,14 @@ public class SosAiAnalysisService : ISosAiAnalysisService
 
         [JsonPropertyName("confidence_score")]
         public double ConfidenceScore { get; set; } = 0.5;
+
+        [JsonPropertyName("needs_immediate_safe_transfer")]
+        public bool? NeedsImmediateSafeTransfer { get; set; }
+
+        [JsonPropertyName("can_wait_for_combined_mission")]
+        public bool? CanWaitForCombinedMission { get; set; }
+
+        [JsonPropertyName("handling_reason")]
+        public string? HandlingReason { get; set; }
     }
 }

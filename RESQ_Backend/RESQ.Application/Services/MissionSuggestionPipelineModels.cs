@@ -21,6 +21,9 @@ public class MissionSosRequirementFragment
     public int SosRequestId { get; set; }
     public string? Summary { get; set; }
     public string? Priority { get; set; }
+    public bool? NeedsImmediateSafeTransfer { get; set; }
+    public bool? CanWaitForCombinedMission { get; set; }
+    public string? HandlingReason { get; set; }
     public List<MissionRequiredSupplyFragment> RequiredSupplies { get; set; } = [];
     public List<MissionRequiredTeamNeedFragment> RequiredTeams { get; set; } = [];
 }
@@ -34,6 +37,8 @@ public class MissionRequirementsFragment
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
+    public bool SplitClusterRecommended { get; set; }
+    public string? SplitClusterReason { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public double ConfidenceScore { get; set; }
@@ -164,6 +169,8 @@ public class MissionSuggestionMetadata
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
     public string? MixedRescueReliefWarning { get; set; }
+    public bool SplitClusterRecommended { get; set; }
+    public string? SplitClusterReason { get; set; }
     public bool NeedsManualReview { get; set; }
     public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }

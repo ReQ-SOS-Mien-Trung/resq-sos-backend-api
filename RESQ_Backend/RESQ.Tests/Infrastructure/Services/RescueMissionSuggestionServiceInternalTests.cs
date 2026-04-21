@@ -255,8 +255,30 @@ public class RescueMissionSuggestionServiceInternalTests
                 new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 22 }
             ]
         };
+        var sosLookup = new Dictionary<int, SosRequestSummary>
+        {
+            [11] = new()
+            {
+                Id = 11,
+                PriorityLevel = "Critical",
+                AiAnalysis = new SosRequestAiAnalysisSummary
+                {
+                    HasAiAnalysis = true,
+                    SuggestedPriority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false,
+                    HandlingReason = "Immediate evacuation required."
+                }
+            },
+            [22] = new()
+            {
+                Id = 22,
+                PriorityLevel = "Medium",
+                AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("Medium")
+            }
+        };
 
-        InvokeStatic(nameof(RescueMissionSuggestionService), "ApplyMixedRescueReliefSafetyNote", result);
+        InvokeStatic(nameof(RescueMissionSuggestionService), "ApplyMixedRescueReliefSafetyNote", result, sosLookup);
 
         Assert.True(result.NeedsManualReview);
         Assert.Contains("SOS #11", result.MixedRescueReliefWarning);
@@ -269,16 +291,82 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
-    public void BuildMixedRescueReliefWarning_KeepsSameSosIdInBothBranches()
+    public void BuildMixedRescueReliefWarning_ReturnsEmptyWhenRescueCanWait()
     {
         var warning = MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
-        [
-            new SuggestedActivityDto { Step = 1, ActivityType = "MEDICAL_AID", SosRequestId = 15 },
-            new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 15 }
-        ]);
+            [
+                new SuggestedActivityDto { Step = 1, ActivityType = "MEDICAL_AID", SosRequestId = 15 },
+                new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 15 }
+            ],
+            new Dictionary<int, SosRequestSummary>
+            {
+                [15] = new()
+                {
+                    Id = 15,
+                    PriorityLevel = "High",
+                    AiAnalysis = new SosRequestAiAnalysisSummary
+                    {
+                        HasAiAnalysis = true,
+                        SuggestedPriority = "High",
+                        NeedsImmediateSafeTransfer = false,
+                        CanWaitForCombinedMission = true
+                    }
+                }
+            });
 
-        Assert.Contains("nhi\u1EC7m v\u1EE5 c\u1EE9u h\u1ED9/c\u1EA5p c\u1EE9u cho SOS #15", warning);
-        Assert.Contains("nhi\u1EC7m v\u1EE5 c\u1EE9u tr\u1EE3/c\u1EA5p ph\u00E1t cho SOS #15", warning);
+        Assert.Equal(string.Empty, warning);
+    }
+
+    [Fact]
+    public void NormalizeActivitySequence_ReordersActivitiesByTeamAwareRoute()
+    {
+        var team = new SuggestedTeamDto { TeamId = 7, TeamName = "Team 7" };
+        var activities = new List<SuggestedActivityDto>
+        {
+            new() { Step = 1, ActivityType = "RESCUE", SosRequestId = 11, SuggestedTeam = team },
+            new() { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 22, SuggestedTeam = team },
+            new() { Step = 3, ActivityType = "COLLECT_SUPPLIES", SosRequestId = 22, SuggestedTeam = team }
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "NormalizeActivitySequence",
+            activities,
+            new Dictionary<int, SosRequestSummary>
+            {
+                [11] = new() { Id = 11, PriorityLevel = "High", AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("High") },
+                [22] = new() { Id = 22, PriorityLevel = "Medium", AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("Medium") }
+            });
+
+        Assert.Equal(["COLLECT_SUPPLIES", "DELIVER_SUPPLIES", "RESCUE"], activities.Select(activity => activity.ActivityType).ToArray());
+        Assert.Equal([1, 2, 3], activities.Select(activity => activity.Step).ToArray());
+    }
+
+    [Fact]
+    public void ApplyMixedMissionMissingAiAnalysisManualReview_FlagsReviewWithoutUrgentWarning()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto { Step = 1, ActivityType = "RESCUE", SosRequestId = 11 },
+                new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 22 }
+            ]
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "ApplyMixedMissionMissingAiAnalysisManualReview",
+            result,
+            new Dictionary<int, SosRequestSummary>
+            {
+                [11] = new() { Id = 11, PriorityLevel = "High", AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("High") },
+                [22] = new() { Id = 22, PriorityLevel = "Medium", AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("Medium") }
+            });
+
+        Assert.True(result.NeedsManualReview);
+        Assert.Contains("missing SOS AI analysis", result.SpecialNotes, StringComparison.OrdinalIgnoreCase);
+        Assert.True(string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning));
     }
 
     [Fact]
