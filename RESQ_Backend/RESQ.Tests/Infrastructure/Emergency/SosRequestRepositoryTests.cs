@@ -92,6 +92,33 @@ public class SosRequestRepositoryTests
         Assert.Equal([2, 3, 1], result.Select(x => x.Id).ToArray());
     }
 
+    [Fact]
+    public async Task GetAllPagedAsync_FiltersByStatusesBeforePagination()
+    {
+        await using var context = CreateContext();
+
+        context.SosRequests.AddRange(
+            CreateSosRequestEntity(1, 10.75, 106.66, "Pending", new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)),
+            CreateSosRequestEntity(2, 10.76, 106.67, "Assigned", new DateTime(2026, 4, 4, 0, 0, 0, DateTimeKind.Utc)),
+            CreateSosRequestEntity(3, 10.77, 106.68, "Assigned", new DateTime(2026, 4, 3, 0, 0, 0, DateTimeKind.Utc)),
+            CreateSosRequestEntity(4, 10.78, 106.69, "Resolved", new DateTime(2026, 4, 2, 0, 0, 0, DateTimeKind.Utc)));
+
+        await context.SaveChangesAsync();
+
+        var repository = CreateRepository(context);
+
+        var result = await repository.GetAllPagedAsync(
+            pageNumber: 2,
+            pageSize: 1,
+            statuses: [SosRequestStatus.Assigned]);
+
+        var sos = Assert.Single(result.Items);
+        Assert.Equal(3, sos.Id);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(2, result.PageNumber);
+        Assert.Equal(1, result.PageSize);
+    }
+
     private static SosRequest CreateSosRequestEntity(
         int id,
         double? latitude,

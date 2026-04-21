@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Emergency.Queries;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Presentation.Controllers.Emergency;
 using RESQ.Tests.TestDoubles;
 
@@ -31,7 +32,7 @@ public class SosRequestControllerTests
             MaxLat = 10.80,
             MinLng = 106.60,
             MaxLng = 106.70,
-            Statuses = ["Pending", "Assigned"]
+            Statuses = [SosRequestStatus.Pending, SosRequestStatus.Assigned]
         };
 
         var result = await controller.GetSosRequests(query);
@@ -43,7 +44,7 @@ public class SosRequestControllerTests
         Assert.Equal(10.80, sentQuery.MaxLat);
         Assert.Equal(106.60, sentQuery.MinLng);
         Assert.Equal(106.70, sentQuery.MaxLng);
-        Assert.Equal(["Pending", "Assigned"], sentQuery.Statuses);
+        Assert.Equal([SosRequestStatus.Pending, SosRequestStatus.Assigned], sentQuery.Statuses);
         Assert.Same(response, okResult.Value);
     }
 
@@ -63,7 +64,7 @@ public class SosRequestControllerTests
         {
             PageNumber = 2,
             PageSize = 25,
-            Statuses = ["Pending"]
+            Statuses = [SosRequestStatus.Pending]
         };
 
         var result = await controller.GetSosRequests(query);
@@ -73,6 +74,7 @@ public class SosRequestControllerTests
 
         Assert.Equal(2, sentQuery.PageNumber);
         Assert.Equal(25, sentQuery.PageSize);
+        Assert.Equal([SosRequestStatus.Pending], sentQuery.Statuses);
         Assert.Same(response, okResult.Value);
     }
 

@@ -107,7 +107,7 @@ public class GetSosClustersQueryHandlerTests
             new SosClusterModel { Id = 2, Status = SosClusterStatus.Suggested }
         ]);
 
-        var result = await handler.Handle(new GetSosClustersQuery(Statuses: ["Suggested"]), CancellationToken.None);
+        var result = await handler.Handle(new GetSosClustersQuery(Statuses: [SosClusterStatus.Suggested]), CancellationToken.None);
 
         var dto = Assert.Single(result.Items);
         Assert.Equal(2, dto.Id);
@@ -116,7 +116,7 @@ public class GetSosClustersQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_FiltersByRepeatedStatuses_CaseInsensitive()
+    public async Task Handle_FiltersByDistinctStatuses()
     {
         var handler = BuildHandler(
         [
@@ -125,7 +125,7 @@ public class GetSosClustersQueryHandlerTests
             new SosClusterModel { Id = 3, Status = SosClusterStatus.Completed }
         ]);
 
-        var result = await handler.Handle(new GetSosClustersQuery(Statuses: ["pending", "Suggested"]), CancellationToken.None);
+        var result = await handler.Handle(new GetSosClustersQuery(Statuses: [SosClusterStatus.Pending, SosClusterStatus.Suggested, SosClusterStatus.Pending]), CancellationToken.None);
 
         Assert.Equal([2, 1], result.Items.Select(item => item.Id).ToList());
         Assert.Equal(2, result.TotalCount);
@@ -142,7 +142,7 @@ public class GetSosClustersQueryHandlerTests
         ]);
 
         var result = await handler.Handle(
-            new GetSosClustersQuery(PageNumber: 1, PageSize: 10, SosRequestId: 10, Statuses: ["Suggested"]),
+            new GetSosClustersQuery(PageNumber: 1, PageSize: 10, SosRequestId: 10, Statuses: [SosClusterStatus.Suggested]),
             CancellationToken.None);
 
         var dto = Assert.Single(result.Items);

@@ -22,9 +22,15 @@ public static class SystemSeeder
 
     private static void SeedNotifications(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Notification>().HasData(CreateNotifications());
+    }
+
+    public static IReadOnlyList<Notification> CreateNotifications()
+    {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<Notification>().HasData(
+        return
+        [
             new Notification
             {
                 Id = 1,
@@ -37,14 +43,20 @@ public static class SystemSeeder
                 Content = "Nhiệm vụ #1 đã được giao cho đội của bạn",
                 CreatedAt = now
             }
-        );
+        ];
     }
 
     public static void SeedPrompts(this ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Prompt>().HasData(CreatePrompts());
+    }
+
+    public static IReadOnlyList<Prompt> CreatePrompts()
+    {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<Prompt>().HasData(
+        return
+        [
             new Prompt
             {
                 Id = 1,
@@ -572,14 +584,20 @@ Quy tắc kiểm tra:
                 IsActive = true,
                 CreatedAt = now
             }
-        );
+        ];
     }
 
     private static void SeedAiConfigs(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<AiConfig>().HasData(CreateAiConfigs());
+    }
+
+    public static IReadOnlyList<AiConfig> CreateAiConfigs()
+    {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<AiConfig>().HasData(
+        return
+        [
             new AiConfig
             {
                 Id = 1,
@@ -595,7 +613,7 @@ Quy tắc kiểm tra:
                 CreatedAt = now,
                 UpdatedAt = now
             }
-        );
+        ];
     }
 
     private static void SeedServiceZone(ModelBuilder modelBuilder)

@@ -278,7 +278,7 @@ public class RemoveSosRequestFromClusterCommandHandlerTests
         public Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IEnumerable<SosRequestModel>>(_requests.Values);
 
-        public Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+        public Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, System.Collections.Generic.IReadOnlyCollection<RESQ.Domain.Enum.Emergency.SosRequestStatus>? statuses = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new PagedResult<SosRequestModel>([], 0, pageNumber, pageSize));
 
         public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)

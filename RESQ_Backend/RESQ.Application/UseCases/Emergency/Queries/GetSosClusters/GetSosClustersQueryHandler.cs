@@ -2,8 +2,6 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Emergency;
-using RESQ.Domain.Enum.Emergency;
-
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 
 public class GetSosClustersQueryHandler(
@@ -20,7 +18,9 @@ public class GetSosClustersQueryHandler(
 
         var pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;
         var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
-        var statuses = NormalizeStatuses(request.Statuses);
+        var statuses = request.Statuses?
+            .Distinct()
+            .ToArray();
 
         var pagedClusters = await _sosClusterRepository.GetPagedAsync(
             pageNumber,
@@ -55,19 +55,5 @@ public class GetSosClustersQueryHandler(
             pagedClusters.TotalCount,
             pagedClusters.PageNumber,
             pagedClusters.PageSize);
-    }
-
-    private static IReadOnlyCollection<SosClusterStatus>? NormalizeStatuses(List<string>? statuses)
-    {
-        if (statuses is null || statuses.Count == 0)
-            return null;
-
-        var normalized = statuses
-            .Where(status => !string.IsNullOrWhiteSpace(status))
-            .Select(status => Enum.Parse<SosClusterStatus>(status.Trim(), ignoreCase: true))
-            .Distinct()
-            .ToList();
-
-        return normalized.Count == 0 ? null : normalized;
     }
 }

@@ -16,9 +16,15 @@ public static class AiAnalysisSeeder
 
     private static void SeedClusterAiAnalyses(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<ClusterAiAnalysis>().HasData(CreateClusterAiAnalyses());
+    }
+
+    public static IReadOnlyList<ClusterAiAnalysis> CreateClusterAiAnalyses()
+    {
         var now = new DateTime(2024, 10, 16, 8, 15, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<ClusterAiAnalysis>().HasData(
+        return
+        [
             new ClusterAiAnalysis
             {
                 Id = 1,
@@ -43,14 +49,20 @@ public static class AiAnalysisSeeder
                 SuggestedSeverityLevel = "High",
                 CreatedAt = now
             }
-        );
+        ];
     }
 
     private static void SeedActivityAiSuggestions(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<ActivityAiSuggestion>().HasData(CreateActivityAiSuggestions());
+    }
+
+    public static IReadOnlyList<ActivityAiSuggestion> CreateActivityAiSuggestions()
+    {
         var now = new DateTime(2024, 10, 16, 8, 20, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<ActivityAiSuggestion>().HasData(
+        return
+        [
             new ActivityAiSuggestion
             {
                 Id = 1,
@@ -75,14 +87,20 @@ public static class AiAnalysisSeeder
                 ConfidenceScore = 0.88,
                 CreatedAt = now
             }
-        );
+        ];
     }
 
     private static void SeedRescueTeamAiSuggestions(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<RescueTeamAiSuggestion>().HasData(CreateRescueTeamAiSuggestions());
+    }
+
+    public static IReadOnlyList<RescueTeamAiSuggestion> CreateRescueTeamAiSuggestions()
+    {
         var now = new DateTime(2024, 10, 16, 8, 25, 0, DateTimeKind.Utc);
 
-        modelBuilder.Entity<RescueTeamAiSuggestion>().HasData(
+        return
+        [
             new RescueTeamAiSuggestion
             {
                 Id = 1,
@@ -107,6 +125,6 @@ public static class AiAnalysisSeeder
                 ConfidenceScore = 0.89,
                 CreatedAt = now
             }
-        );
+        ];
     }
 }

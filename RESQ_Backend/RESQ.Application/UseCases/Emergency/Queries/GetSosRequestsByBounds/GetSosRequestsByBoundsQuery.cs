@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
 
@@ -8,5 +9,5 @@ public class GetSosRequestsByBoundsQuery : IRequest<List<SosRequestDto>>
     public double? MaxLat { get; set; }
     public double? MinLng { get; set; }
     public double? MaxLng { get; set; }
-    public List<string> Statuses { get; set; } = [];
+    public List<SosRequestStatus>? Statuses { get; set; }
 }

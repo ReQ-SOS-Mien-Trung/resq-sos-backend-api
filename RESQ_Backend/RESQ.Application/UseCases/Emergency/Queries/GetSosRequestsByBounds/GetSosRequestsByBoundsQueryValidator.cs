@@ -1,5 +1,4 @@
 using FluentValidation;
-using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
 
@@ -50,13 +49,5 @@ public class GetSosRequestsByBoundsQueryValidator : AbstractValidator<GetSosRequ
         RuleFor(x => x)
             .Must(x => !x.MinLng.HasValue || !x.MaxLng.HasValue || x.MinLng.Value <= x.MaxLng.Value)
             .WithMessage("minLng must be less than or equal to maxLng.");
-
-        RuleForEach(x => x.Statuses)
-            .Must(BeValidStatus)
-            .WithMessage("statuses contains an invalid SOS request status.");
     }
-
-    private static bool BeValidStatus(string? status)
-        => !string.IsNullOrWhiteSpace(status)
-            && Enum.TryParse<SosRequestStatus>(status.Trim(), ignoreCase: true, out _);
 }

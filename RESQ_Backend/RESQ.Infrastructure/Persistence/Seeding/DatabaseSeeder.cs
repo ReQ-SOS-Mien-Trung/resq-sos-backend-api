@@ -39,10 +39,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly string[] ReferenceIdentityTables =
     [
+        "notifications",
+        "ai_configs",
+        "prompts",
         "roles",
         "permissions",
         "document_file_type_categories",
         "document_file_types",
+        "service_zones",
         "target_groups",
         "inventory_stock_threshold_configs",
         "stock_warning_band_config"
@@ -73,6 +77,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         await EnsurePostGisExtensionAsync(cancellationToken);
         await SeedReferenceDataAsync(cancellationToken);
+        await SeedAiSuggestionsAsync(cancellationToken);
 
         if (await _db.SystemMigrationAudits.AnyAsync(a => a.MigrationName == MarkerName, cancellationToken))
         {
@@ -115,6 +120,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 await SeedDepotsAndInventoryAsync(seed, cancellationToken);
                 await SeedEmergencyAsync(seed, cancellationToken);
                 await SeedMissionsAsync(seed, cancellationToken);
+                await SeedAiSuggestionsAsync(cancellationToken);
                 await SeedChatAsync(seed, cancellationToken);
                 await SeedSupplyRequestsAsync(seed, cancellationToken);
                 await SeedFinanceAsync(seed, cancellationToken);
@@ -254,6 +260,27 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedCoreReferenceDataAsync(DateTime referenceTimestamp, CancellationToken cancellationToken)
     {
+        var existingNotificationIds = await _db.Notifications
+            .Select(notification => notification.Id)
+            .ToListAsync(cancellationToken);
+        var existingNotificationIdSet = existingNotificationIds.ToHashSet();
+        _db.Notifications.AddRange(SystemSeeder.CreateNotifications()
+            .Where(notification => !existingNotificationIdSet.Contains(notification.Id)));
+
+        var existingAiConfigIds = await _db.AiConfigs
+            .Select(config => config.Id)
+            .ToListAsync(cancellationToken);
+        var existingAiConfigIdSet = existingAiConfigIds.ToHashSet();
+        _db.AiConfigs.AddRange(SystemSeeder.CreateAiConfigs()
+            .Where(config => !existingAiConfigIdSet.Contains(config.Id)));
+
+        var existingPromptIds = await _db.Prompts
+            .Select(prompt => prompt.Id)
+            .ToListAsync(cancellationToken);
+        var existingPromptIdSet = existingPromptIds.ToHashSet();
+        _db.Prompts.AddRange(SystemSeeder.CreatePrompts()
+            .Where(prompt => !existingPromptIdSet.Contains(prompt.Id)));
+
         var existingRoleIds = await _db.Roles
             .Select(role => role.Id)
             .ToListAsync(cancellationToken);
@@ -380,6 +407,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task ResetReferenceIdentitySequencesAsync(CancellationToken cancellationToken)
     {
+        await ResetIdentitySequencesAsync(ReferenceIdentityTables, cancellationToken);
+    }
+
+    private async Task ResetIdentitySequencesAsync(IEnumerable<string> tableNames, CancellationToken cancellationToken)
+    {
         if (!string.Equals(
             _db.Database.ProviderName,
             "Npgsql.EntityFrameworkCore.PostgreSQL",
@@ -388,7 +420,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             return;
         }
 
-        foreach (var tableName in ReferenceIdentityTables)
+        foreach (var tableName in tableNames)
         {
             var resetSequenceSql =
                 $"""
@@ -403,6 +435,123 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 resetSequenceSql,
                 cancellationToken);
         }
+    }
+
+    private async Task SeedAiSuggestionsAsync(CancellationToken cancellationToken)
+    {
+        var clusterIds = await _db.SosClusters
+            .OrderBy(cluster => cluster.Id)
+            .Take(2)
+            .Select(cluster => cluster.Id)
+            .ToArrayAsync(cancellationToken);
+        var adoptedRescueTeamId = await _db.RescueTeams
+            .OrderBy(team => team.Id)
+            .Select(team => (int?)team.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (clusterIds.Length == 0)
+        {
+            return;
+        }
+
+        var existingClusterAnalysisIds = await _db.ClusterAiAnalyses
+            .Select(analysis => analysis.Id)
+            .ToListAsync(cancellationToken);
+        var existingClusterAnalysisIdSet = existingClusterAnalysisIds.ToHashSet();
+        var clusterAnalysisTemplates = AiAnalysisSeeder.CreateClusterAiAnalyses();
+        for (var index = 0; index < Math.Min(clusterAnalysisTemplates.Count, clusterIds.Length); index++)
+        {
+            var template = clusterAnalysisTemplates[index];
+            if (existingClusterAnalysisIdSet.Contains(template.Id))
+            {
+                continue;
+            }
+
+            _db.ClusterAiAnalyses.Add(new ClusterAiAnalysis
+            {
+                Id = template.Id,
+                ClusterId = clusterIds[index],
+                ModelName = template.ModelName,
+                ModelVersion = template.ModelVersion,
+                AnalysisType = template.AnalysisType,
+                SuggestedSeverityLevel = template.SuggestedSeverityLevel,
+                SuggestedMissionTypes = template.SuggestedMissionTypes,
+                ConfidenceScore = template.ConfidenceScore,
+                SuggestionScope = template.SuggestionScope,
+                Metadata = template.Metadata,
+                CreatedAt = template.CreatedAt,
+                AdoptedAt = template.AdoptedAt
+            });
+        }
+
+        var existingActivitySuggestionIds = await _db.ActivityAiSuggestions
+            .Select(suggestion => suggestion.Id)
+            .ToListAsync(cancellationToken);
+        var existingActivitySuggestionIdSet = existingActivitySuggestionIds.ToHashSet();
+        var activitySuggestionTemplates = AiAnalysisSeeder.CreateActivityAiSuggestions();
+        for (var index = 0; index < Math.Min(activitySuggestionTemplates.Count, clusterIds.Length); index++)
+        {
+            var template = activitySuggestionTemplates[index];
+            if (existingActivitySuggestionIdSet.Contains(template.Id))
+            {
+                continue;
+            }
+
+            _db.ActivityAiSuggestions.Add(new ActivityAiSuggestion
+            {
+                Id = template.Id,
+                ClusterId = clusterIds[index],
+                ParentMissionSuggestionId = template.ParentMissionSuggestionId,
+                AdoptedActivityId = template.AdoptedActivityId,
+                ModelName = template.ModelName,
+                ModelVersion = template.ModelVersion,
+                ActivityType = template.ActivityType,
+                SuggestionPhase = template.SuggestionPhase,
+                SuggestedActivities = template.SuggestedActivities,
+                ConfidenceScore = template.ConfidenceScore,
+                SuggestionScope = template.SuggestionScope,
+                CreatedAt = template.CreatedAt,
+                AdoptedAt = template.AdoptedAt
+            });
+        }
+
+        var existingRescueTeamSuggestionIds = await _db.RescueTeamAiSuggestions
+            .Select(suggestion => suggestion.Id)
+            .ToListAsync(cancellationToken);
+        var existingRescueTeamSuggestionIdSet = existingRescueTeamSuggestionIds.ToHashSet();
+        var rescueTeamSuggestionTemplates = AiAnalysisSeeder.CreateRescueTeamAiSuggestions();
+        for (var index = 0; index < Math.Min(rescueTeamSuggestionTemplates.Count, clusterIds.Length); index++)
+        {
+            var template = rescueTeamSuggestionTemplates[index];
+            if (existingRescueTeamSuggestionIdSet.Contains(template.Id))
+            {
+                continue;
+            }
+
+            _db.RescueTeamAiSuggestions.Add(new RescueTeamAiSuggestion
+            {
+                Id = template.Id,
+                ClusterId = clusterIds[index],
+                AdoptedRescueTeamId = adoptedRescueTeamId,
+                ModelName = template.ModelName,
+                ModelVersion = template.ModelVersion,
+                AnalysisType = template.AnalysisType,
+                SuggestedMembers = template.SuggestedMembers,
+                ConfidenceScore = template.ConfidenceScore,
+                SuggestionScope = template.SuggestionScope,
+                CreatedAt = template.CreatedAt,
+                AdoptedAt = template.AdoptedAt
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        await ResetIdentitySequencesAsync(
+            [
+                "cluster_ai_analysis",
+                "activity_ai_suggestions",
+                "rescue_team_ai_suggestions"
+            ],
+            cancellationToken);
     }
 
     private async Task<bool> HasOperationalDataAsync(CancellationToken cancellationToken)
