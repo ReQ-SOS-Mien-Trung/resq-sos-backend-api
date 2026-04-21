@@ -207,6 +207,15 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 tin_nhan = sos.RawMessage,
                 du_lieu_chi_tiet = sos.StructuredData ?? "Không có",
                 muc_uu_tien = sos.PriorityLevel ?? "Chưa đánh giá",
+                ai_analysis = sos.AiAnalysis is null ? null : new
+                {
+                    has_ai_analysis = sos.AiAnalysis.HasAiAnalysis,
+                    suggested_priority = sos.AiAnalysis.SuggestedPriority,
+                    suggested_severity = sos.AiAnalysis.SuggestedSeverity,
+                    needs_immediate_safe_transfer = sos.AiAnalysis.NeedsImmediateSafeTransfer,
+                    can_wait_for_combined_mission = sos.AiAnalysis.CanWaitForCombinedMission,
+                    handling_reason = sos.AiAnalysis.HandlingReason
+                },
                 trang_thai = sos.Status ?? "Không rõ",
                 ghi_chu_su_co_moi_nhat = sos.LatestIncidentNote,
                 lich_su_su_co = sos.IncidentNotes,
@@ -1155,15 +1164,51 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return earthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
     }
 
-    private static int GetOnSitePriority(SuggestedActivityDto activity) =>
+    private static int GetRoutePriority(SuggestedActivityDto activity) =>
         (activity.ActivityType ?? string.Empty).ToUpperInvariant() switch
         {
+            CollectSuppliesActivityType => 0,
             "DELIVER_SUPPLIES" => 1,
             "RESCUE" => 2,
             "MEDICAL_AID" => 3,
             "EVACUATE" => 4,
+            ReturnSuppliesActivityType => 5,
+            ReturnAssemblyPointActivityType => 6,
             _ => 99
         };
+
+    private static int GetSequenceGroupPriority(
+        SuggestedActivityDto activity,
+        int? primarySosId)
+    {
+        if (activity.SuggestedTeam?.TeamId is > 0)
+            return 0;
+
+        if (!string.IsNullOrWhiteSpace(activity.CoordinationGroupKey))
+            return 1;
+
+        if (primarySosId.HasValue)
+            return 2;
+
+        return 3;
+    }
+
+    private static string BuildSequenceGroupKey(
+        SuggestedActivityDto activity,
+        int originalIndex,
+        int? primarySosId)
+    {
+        if (activity.SuggestedTeam?.TeamId is > 0)
+            return $"team:{activity.SuggestedTeam.TeamId}";
+
+        if (!string.IsNullOrWhiteSpace(activity.CoordinationGroupKey))
+            return $"coord:{activity.CoordinationGroupKey.Trim()}";
+
+        if (primarySosId.HasValue)
+            return $"sos:{primarySosId.Value}";
+
+        return $"step:{originalIndex}";
+    }
 
     private static SuggestedActivityDto CloneActivity(SuggestedActivityDto activity)
     {
@@ -1310,68 +1355,24 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 Activity = activity,
                 OriginalIndex = index,
                 PrimarySosId = GetPrimarySosId(activity),
-                ReferencedSosIds = GetReferencedSosIds(activity)
+                GroupPriority = GetSequenceGroupPriority(activity, GetPrimarySosId(activity)),
+                GroupKey = BuildSequenceGroupKey(activity, index, GetPrimarySosId(activity))
             })
             .ToList();
 
-        var collectActivities = indexed
-            .Where(x => IsCollectActivity(x.Activity))
-            .OrderBy(x => x.OriginalIndex)
+        var normalized = indexed
+            .GroupBy(item => item.GroupKey, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.Min(item => item.GroupPriority))
+            .ThenBy(group => group.Min(item => item.Activity.SuggestedTeam?.TeamId ?? int.MaxValue))
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(group => group.Min(item => item.PrimarySosId ?? int.MaxValue))
+            .ThenBy(group => group.Min(item => item.OriginalIndex))
+            .SelectMany(group => group
+                .OrderBy(item => GetRoutePriority(item.Activity))
+                .ThenBy(item => item.PrimarySosId ?? int.MaxValue)
+                .ThenBy(item => item.OriginalIndex)
+                .Select(item => item.Activity))
             .ToList();
-
-        var onSiteActivities = indexed
-            .Where(x => !IsCollectActivity(x.Activity) && IsOnSiteActivity(x.Activity))
-            .OrderBy(x => x.OriginalIndex)
-            .ToList();
-
-        var otherActivities = indexed
-            .Where(x => !IsCollectActivity(x.Activity) && !IsOnSiteActivity(x.Activity))
-            .OrderBy(x => x.OriginalIndex)
-            .ToList();
-
-        var sosOrder = onSiteActivities
-            .Select(x => x.PrimarySosId)
-            .Where(x => x.HasValue)
-            .Select(x => x!.Value)
-            .Distinct()
-            .ToList();
-
-        var normalized = new List<SuggestedActivityDto>(activities.Count);
-        var usedCollectIndexes = new HashSet<int>();
-
-        foreach (var sosId in sosOrder)
-        {
-            foreach (var collect in collectActivities)
-            {
-                if (usedCollectIndexes.Contains(collect.OriginalIndex))
-                    continue;
-
-                if (collect.ReferencedSosIds.Contains(sosId))
-                {
-                    normalized.Add(collect.Activity);
-                    usedCollectIndexes.Add(collect.OriginalIndex);
-                }
-            }
-
-            normalized.AddRange(onSiteActivities
-                .Where(x => x.PrimarySosId == sosId)
-                .OrderBy(x => GetOnSitePriority(x.Activity))
-                .ThenBy(x => x.OriginalIndex)
-                .Select(x => x.Activity));
-        }
-
-        var leadingCollects = collectActivities
-            .Where(x => !usedCollectIndexes.Contains(x.OriginalIndex))
-            .Select(x => x.Activity)
-            .ToList();
-
-        normalized.InsertRange(0, leadingCollects);
-
-        normalized.AddRange(onSiteActivities
-            .Where(x => !x.PrimarySosId.HasValue)
-            .Select(x => x.Activity));
-
-        normalized.AddRange(otherActivities.Select(x => x.Activity));
 
         activities.Clear();
         activities.AddRange(normalized.Distinct().ToList());
@@ -2147,14 +2148,56 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         }
     }
 
-    private static void ApplyMixedRescueReliefSafetyNote(RescueMissionSuggestionResult result)
+    private static void ApplyMixedRescueReliefSafetyNote(
+        RescueMissionSuggestionResult result,
+        IReadOnlyDictionary<int, SosRequestSummary> sosLookup)
     {
-        var warning = MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(result.SuggestedActivities);
+        var warning = MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
+            result.SuggestedActivities,
+            sosLookup);
         if (string.IsNullOrWhiteSpace(warning))
             return;
 
         result.NeedsManualReview = true;
         result.MixedRescueReliefWarning = warning;
+    }
+
+    private static void ApplyMixedMissionMissingAiAnalysisManualReview(
+        RescueMissionSuggestionResult result,
+        IReadOnlyDictionary<int, SosRequestSummary> sosLookup)
+    {
+        var hasRescueBranch = result.SuggestedActivities.Any(activity =>
+            string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase));
+        var hasReliefBranch = result.SuggestedActivities.Any(activity =>
+            string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase));
+
+        if (!hasRescueBranch || !hasReliefBranch)
+            return;
+
+        var missingAnalysisIds = result.SuggestedActivities
+            .Where(activity =>
+                string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase))
+            .Where(activity => activity.SosRequestId.HasValue)
+            .Select(activity => activity.SosRequestId!.Value)
+            .Distinct()
+            .Where(id =>
+                !sosLookup.TryGetValue(id, out var sos)
+                || sos.AiAnalysis?.HasAiAnalysis != true)
+            .OrderBy(id => id)
+            .ToList();
+
+        if (missingAnalysisIds.Count == 0)
+            return;
+
+        result.NeedsManualReview = true;
+        result.SpecialNotes = AppendSpecialNote(
+            result.SpecialNotes,
+            $"Coordinator review required: missing SOS AI analysis from raw_message for {string.Join(", ", missingAnalysisIds.Select(id => $"SOS #{id}"))} while this cluster mixes rescue and relief.");
     }
 
     private static void BackfillSosRequestIds(List<SuggestedActivityDto> activities, List<SosRequestSummary> sosRequests)

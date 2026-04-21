@@ -114,6 +114,12 @@ namespace RESQ.Infrastructure.Persistence.Base
 
         public async Task ExecuteInTransactionAsync(Func<Task> action)
         {
+            if (_context.Database.CurrentTransaction is not null)
+            {
+                await action();
+                return;
+            }
+
             var strategy = _context.Database.CreateExecutionStrategy();
 
             await strategy.ExecuteAsync(async () =>

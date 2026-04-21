@@ -27,6 +27,7 @@ public class CreateMissionCommandHandler(
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
+    ISosAiAnalysisRepository sosAiAnalysisRepository,
     IMissionAiSuggestionRepository missionAiSuggestionRepository,
     IDepotInventoryRepository depotInventoryRepository, IDepotRepository depotRepository,
     IItemModelMetadataRepository itemModelMetadataRepository,
@@ -43,6 +44,7 @@ public class CreateMissionCommandHandler(
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
+    private readonly ISosAiAnalysisRepository _sosAiAnalysisRepository = sosAiAnalysisRepository;
     private readonly IMissionAiSuggestionRepository _missionAiSuggestionRepository = missionAiSuggestionRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IDepotRepository _depotRepository = depotRepository;
@@ -128,10 +130,12 @@ public class CreateMissionCommandHandler(
 
         var itemLookup = await LoadReferencedItemMetadataAsync(activities, cancellationToken);
 
-        var mixedMissionIgnored = ValidateMixedRescueReliefOverride(
+        var mixedMissionIgnored = await ValidateMixedRescueReliefOverrideAsync(
+            request.ClusterId,
             activities,
             request.IgnoreMixedMissionWarning,
-            request.OverrideReason);
+            request.OverrideReason,
+            cancellationToken);
 
         await ValidateReturnAssemblyPointActivitiesAsync(activities, cancellationToken);
 
@@ -196,8 +200,8 @@ public class CreateMissionCommandHandler(
                 Items = a.SuppliesToCollect is { Count: > 0 }
                     ? JsonSerializer.Serialize(a.SuppliesToCollect.Select(s =>
                     {
-                        var isReusable = s.Id.HasValue && IsReusableItem(s.Id.Value, itemLookup);
-                        var bufferRatio = isReusable ? 0.0 : Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
+                        var isBufferExempt = s.Id.HasValue && IsBufferExemptItem(s.Id.Value, itemLookup);
+                        var bufferRatio = isBufferExempt ? 0.0 : Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
                         var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling((s.Quantity ?? 0) * bufferRatio) : 0;
                         return new SupplyToCollectDto
                         {
@@ -379,10 +383,12 @@ public class CreateMissionCommandHandler(
         return itemLookup;
     }
 
-    private static bool ValidateMixedRescueReliefOverride(
+    private async Task<bool> ValidateMixedRescueReliefOverrideAsync(
+        int clusterId,
         List<CreateActivityItemDto> activities,
         bool ignoreMixedMissionWarning,
-        string? overrideReason)
+        string? overrideReason,
+        CancellationToken cancellationToken)
     {
         var hasRescueBranch = activities.Any(IsRescueReliefActivity);
         var hasSupplyBranch = activities.Any(IsSupplyDistributionActivity);
@@ -390,12 +396,76 @@ public class CreateMissionCommandHandler(
         if (!hasRescueBranch || !hasSupplyBranch)
             return false;
 
+        var clusterSosRequests = (await _sosRequestRepository.GetByClusterIdAsync(clusterId, cancellationToken)).ToList();
+        var rescueActivitySosIds = activities
+            .Where(IsRescueReliefActivity)
+            .Where(activity => activity.SosRequestId.HasValue)
+            .Select(activity => activity.SosRequestId!.Value)
+            .ToHashSet();
+        var reliefActivitySosIds = activities
+            .Where(IsSupplyDistributionActivity)
+            .Where(activity => activity.SosRequestId.HasValue)
+            .Select(activity => activity.SosRequestId!.Value)
+            .ToHashSet();
+
+        var relevantRescueSos = clusterSosRequests
+            .Where(sos =>
+                rescueActivitySosIds.Count > 0
+                    ? rescueActivitySosIds.Contains(sos.Id)
+                    : SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType))
+            .ToList();
+        var relevantReliefSos = clusterSosRequests
+            .Where(sos =>
+                reliefActivitySosIds.Count > 0
+                    ? reliefActivitySosIds.Contains(sos.Id)
+                    : SosRequestAiAnalysisHelper.IsReliefRequestType(sos.SosType))
+            .ToList();
+
+        if (relevantRescueSos.Count == 0 || relevantReliefSos.Count == 0)
+        {
+            if (!ignoreMixedMissionWarning)
+            {
+                throw new BadRequestException(
+                    "Kế hoạch đang gộp chung cứu hộ/cấp cứu với cứu trợ cấp phát nhưng backend chưa xác định rõ SOS rescue và SOS relief trong cluster. " +
+                    "Vui lòng tách mission hoặc gửi IgnoreMixedMissionWarning=true kèm OverrideReason nếu coordinator chủ động chấp nhận rủi ro.");
+            }
+
+            if (string.IsNullOrWhiteSpace(overrideReason))
+                throw new BadRequestException("OverrideReason bắt buộc khi bỏ qua cảnh báo mixed mission.");
+
+            return true;
+        }
+
+        var analysisLookup = await _sosAiAnalysisRepository.GetLatestBySosRequestIdsAsync(
+            relevantRescueSos.Select(sos => sos.Id),
+            cancellationToken);
+        var missingAnalysisIds = relevantRescueSos
+            .Where(sos => !analysisLookup.ContainsKey(sos.Id))
+            .Select(sos => sos.Id)
+            .OrderBy(id => id)
+            .ToList();
+        var urgentRescueIds = relevantRescueSos
+            .Where(sos =>
+            {
+                analysisLookup.TryGetValue(sos.Id, out var analysis);
+                var summary = SosRequestAiAnalysisHelper.FromAnalysis(analysis);
+                return SosRequestAiAnalysisHelper.HasUrgentMixedMissionConstraint(
+                    summary,
+                    sos.PriorityLevel?.ToString());
+            })
+            .Select(sos => sos.Id)
+            .OrderBy(id => id)
+            .ToList();
+
+        if (urgentRescueIds.Count == 0 && missingAnalysisIds.Count == 0)
+            return false;
+
         if (!ignoreMixedMissionWarning)
         {
-            throw new BadRequestException(
-                "Kế hoạch đang gộp chung cứu hộ/cấp cứu với cứu trợ cấp phát. " +
-                "Nguyên tắc an toàn là phải đưa nạn nhân về điểm tập kết (Safe Zone/Assembly Point) ngay sau khi cứu, " +
-                "không tiếp tục cho nạn nhân đi phát đồ. Nếu coordinator vẫn muốn tiếp tục, hãy gửi IgnoreMixedMissionWarning=true kèm OverrideReason.");
+            throw new BadRequestException(BuildMixedMissionOverrideMessage(
+                urgentRescueIds,
+                relevantReliefSos.Select(sos => sos.Id).OrderBy(id => id).ToList(),
+                missingAnalysisIds));
         }
 
         if (string.IsNullOrWhiteSpace(overrideReason))
@@ -404,6 +474,40 @@ public class CreateMissionCommandHandler(
         }
 
         return true;
+    }
+
+    private static string BuildMixedMissionOverrideMessage(
+        IReadOnlyCollection<int> urgentRescueIds,
+        IReadOnlyCollection<int> reliefSosIds,
+        IReadOnlyCollection<int> missingAnalysisIds)
+    {
+        var parts = new List<string>
+        {
+            "Kế hoạch đang gộp chung cứu hộ/cấp cứu với cứu trợ cấp phát."
+        };
+
+        if (urgentRescueIds.Count > 0)
+        {
+            parts.Add(
+                $"SOS rescue khẩn cấp cần ưu tiên tách riêng: {FormatSosIds(urgentRescueIds)}.");
+        }
+
+        if (reliefSosIds.Count > 0)
+        {
+            parts.Add(
+                $"Đang bị ghép chung với nhánh cứu trợ/cấp phát của {FormatSosIds(reliefSosIds)}.");
+        }
+
+        if (missingAnalysisIds.Count > 0)
+        {
+            parts.Add(
+                $"Chưa có SOS AI analysis để xác nhận khả năng chờ ghép mission cho {FormatSosIds(missingAnalysisIds)}.");
+        }
+
+        parts.Add(
+            "Nếu coordinator vẫn muốn tiếp tục, hãy gửi IgnoreMixedMissionWarning=true kèm OverrideReason.");
+
+        return string.Join(" ", parts);
     }
 
     private Task ValidateReturnAssemblyPointActivitiesAsync(
@@ -520,8 +624,8 @@ public class CreateMissionCommandHandler(
                          {
                              var first = sg.First();
                              var totalRequired = sg.Sum(s => s.Quantity ?? 0);
-                             var isReusable = IsReusableItem(sg.Key, itemLookup);
-                             var bufferRatio = isReusable ? 0.0 : Math.Max(0.0, first.BufferRatio ?? DefaultBufferRatio);
+                             var isBufferExempt = IsBufferExemptItem(sg.Key, itemLookup);
+                             var bufferRatio = isBufferExempt ? 0.0 : Math.Max(0.0, first.BufferRatio ?? DefaultBufferRatio);
                              var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling(totalRequired * bufferRatio) : 0;
                              return (
                                  ItemModelId: sg.Key,
@@ -790,8 +894,8 @@ public class CreateMissionCommandHandler(
                 .Where(s => s.Id.HasValue && (s.Quantity ?? 0) > 0)
                 .Select(s =>
                 {
-                    var isReusable = IsReusableItem(s.Id!.Value, itemLookup);
-                    var bufferRatio = isReusable ? 0.0 : Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
+                    var isBufferExempt = IsBufferExemptItem(s.Id!.Value, itemLookup);
+                    var bufferRatio = isBufferExempt ? 0.0 : Math.Max(0.0, s.BufferRatio ?? DefaultBufferRatio);
                     var bufferQty = bufferRatio > 0 ? (int)Math.Ceiling((s.Quantity ?? 0) * bufferRatio) : 0;
                     return (ItemModelId: s.Id!.Value, Quantity: (s.Quantity ?? 0) + bufferQty);
                 })
@@ -859,6 +963,13 @@ public class CreateMissionCommandHandler(
         itemLookup.TryGetValue(itemId, out var item)
         && string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsBufferExemptItem(
+        int itemId,
+        IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup) =>
+        itemLookup.TryGetValue(itemId, out var item)
+        && (string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase)
+            || item.CategoryId == (int)ItemCategoryCode.Vehicle);
+
     private static Dictionary<int, int> GetOrCreateItemBucket(
         IDictionary<(int DepotId, int TeamId), Dictionary<int, int>> buckets,
         (int DepotId, int TeamId) key)
@@ -883,6 +994,16 @@ public class CreateMissionCommandHandler(
         return itemLookup.TryGetValue(itemId, out var item)
             ? item.Name
             : $"Item#{itemId}";
+    }
+
+    private static string FormatSosIds(IEnumerable<int> sosIds)
+    {
+        var ids = sosIds
+            .Distinct()
+            .OrderBy(id => id)
+            .Select(id => $"SOS #{id}");
+
+        return string.Join(", ", ids);
     }
 }
 

@@ -250,6 +250,11 @@ public class GetSosEvaluationQueryHandlerTests
             => Task.FromResult<IEnumerable<SosAiAnalysisModel>>(analyses);
         public Task<SosAiAnalysisModel?> GetBySosRequestIdAsync(int sosRequestId, CancellationToken ct = default)
             => Task.FromResult(analyses.FirstOrDefault());
+        public Task<IReadOnlyDictionary<int, SosAiAnalysisModel>> GetLatestBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<int, SosAiAnalysisModel>>(
+                analyses
+                    .GroupBy(analysis => analysis.SosRequestId)
+                    .ToDictionary(group => group.Key, group => group.First()));
         public Task CreateAsync(SosAiAnalysisModel a, CancellationToken ct = default) => Task.CompletedTask;
     }
 }

@@ -9,6 +9,8 @@ internal sealed class MissionAiSuggestionMetadataView
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
     public string? MixedRescueReliefWarning { get; set; }
+    public bool SplitClusterRecommended { get; set; }
+    public string? SplitClusterReason { get; set; }
     public bool NeedsManualReview { get; set; }
     public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }

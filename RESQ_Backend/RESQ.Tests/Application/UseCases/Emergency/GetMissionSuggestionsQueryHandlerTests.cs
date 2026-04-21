@@ -142,11 +142,7 @@ public class GetMissionSuggestionsQueryHandlerTests
         Assert.Equal("2 gio 10 phut", mission.EstimatedDuration);
         Assert.Equal("Split rescue victims to safe zone before any relief delivery.", mission.SpecialNotes);
         Assert.Equal(
-            MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
-            [
-                new SuggestedActivityDto { ActivityType = "COLLECT_SUPPLIES", SosRequestId = 77 },
-                new SuggestedActivityDto { ActivityType = "RESCUE", SosRequestId = 91 }
-            ]),
+            "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat.",
             mission.MixedRescueReliefWarning);
         Assert.DoesNotContain("Safe Zone", mission.MixedRescueReliefWarning, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Assembly Point", mission.MixedRescueReliefWarning, StringComparison.OrdinalIgnoreCase);
