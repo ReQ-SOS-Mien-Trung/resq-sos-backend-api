@@ -156,7 +156,7 @@ public class AssignTeamToActivityCommandHandlerTests
         public Task UpdateAsync(SosRequestModel sos, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IEnumerable<SosRequestModel>> GetByUserIdAsync(Guid uid, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
         public Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
-        public Task<RESQ.Application.Common.Models.PagedResult<SosRequestModel>> GetAllPagedAsync(int pn, int ps, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<RESQ.Application.Common.Models.PagedResult<SosRequestModel>> GetAllPagedAsync(int pn, int ps, System.Collections.Generic.IReadOnlyCollection<RESQ.Domain.Enum.Emergency.SosRequestStatus>? statuses = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult<SosRequestModel?>(null);
         public Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int cid, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
         public Task UpdateStatusAsync(int id, SosRequestStatus s, CancellationToken ct = default) => Task.CompletedTask;

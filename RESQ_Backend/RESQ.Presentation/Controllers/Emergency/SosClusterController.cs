@@ -13,6 +13,7 @@ using RESQ.Application.UseCases.Emergency.Queries.GetAlternativeDepots;
 using RESQ.Application.UseCases.Emergency.Queries.GetMissionSuggestions;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 using RESQ.Application.UseCases.Emergency.Queries.StreamRescueMissionSuggestion;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Presentation.Controllers.Emergency;
 
@@ -70,7 +71,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] int? sosRequestId = null,
-        [FromQuery] List<string>? statuses = null)
+        [FromQuery] List<SosClusterStatus>? statuses = null)
     {
         var result = await _mediator.Send(new GetSosClustersQuery(pageNumber, pageSize, sosRequestId, statuses));
         return Ok(result);

@@ -641,7 +641,7 @@ public class CreateMissionCommandHandlerTests
         public Task<IEnumerable<RESQ.Domain.Entities.Emergency.SosRequestModel>> GetAllAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(Enumerable.Empty<RESQ.Domain.Entities.Emergency.SosRequestModel>());
 
-        public Task<PagedResult<RESQ.Domain.Entities.Emergency.SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+        public Task<PagedResult<RESQ.Domain.Entities.Emergency.SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, System.Collections.Generic.IReadOnlyCollection<RESQ.Domain.Enum.Emergency.SosRequestStatus>? statuses = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new PagedResult<RESQ.Domain.Entities.Emergency.SosRequestModel>([], 0, pageNumber, pageSize));
 
         public Task<RESQ.Domain.Entities.Emergency.SosRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)

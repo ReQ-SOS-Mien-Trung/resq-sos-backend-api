@@ -15,6 +15,7 @@ using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Presentation.Controllers.Emergency;
 
@@ -128,7 +129,8 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
         var pagedResult = await _mediator.Send(new GetSosRequestsPagedQuery
         {
             PageNumber = query.PageNumber,
-            PageSize = query.PageSize
+            PageSize = query.PageSize,
+            Statuses = query.Statuses
         });
 
         return Ok(pagedResult);

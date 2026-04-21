@@ -304,7 +304,7 @@ public class SubmitMissionTeamReportCommandHandlerTests
         public Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
-        public Task<RESQ.Application.Common.Models.PagedResult<SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) =>
+        public Task<RESQ.Application.Common.Models.PagedResult<SosRequestModel>> GetAllPagedAsync(int pageNumber, int pageSize, System.Collections.Generic.IReadOnlyCollection<RESQ.Domain.Enum.Emergency.SosRequestStatus>? statuses = null, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
 
         public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>

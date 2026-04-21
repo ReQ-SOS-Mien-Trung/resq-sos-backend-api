@@ -242,7 +242,7 @@ public class GetSosRequestQueryHandlerTests
             => Task.FromResult(Enumerable.Empty<SosRequestModel>());
         public Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken ct = default)
             => Task.FromResult(Enumerable.Empty<SosRequestModel>());
-        public Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pn, int ps, CancellationToken ct = default)
+        public Task<PagedResult<SosRequestModel>> GetAllPagedAsync(int pn, int ps, System.Collections.Generic.IReadOnlyCollection<RESQ.Domain.Enum.Emergency.SosRequestStatus>? statuses = null, CancellationToken ct = default)
             => Task.FromResult(new PagedResult<SosRequestModel>([], 0, pn, ps));
         public Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int cid, CancellationToken ct = default)
             => Task.FromResult(Enumerable.Empty<SosRequestModel>());

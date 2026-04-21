@@ -3,7 +3,6 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Repositories.Emergency;
-using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
 
@@ -19,13 +18,9 @@ public class GetSosRequestsByBoundsQueryHandler(
 
     public async Task<List<SosRequestDto>> Handle(GetSosRequestsByBoundsQuery request, CancellationToken cancellationToken)
     {
-        var normalizedStatuses = request.Statuses is { Count: > 0 }
-            ? request.Statuses
-                .Where(static status => !string.IsNullOrWhiteSpace(status))
-                .Select(static status => Enum.Parse<SosRequestStatus>(status.Trim(), ignoreCase: true))
-                .Distinct()
-                .ToArray()
-            : null;
+        var normalizedStatuses = request.Statuses?
+            .Distinct()
+            .ToArray();
 
         _logger.LogInformation(
             "Handling {handler} - retrieving SOS requests within bounds ({minLat}, {maxLat}, {minLng}, {maxLng})",

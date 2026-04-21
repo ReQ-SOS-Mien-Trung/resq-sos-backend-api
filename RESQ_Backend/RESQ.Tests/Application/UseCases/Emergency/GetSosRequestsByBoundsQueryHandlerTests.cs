@@ -39,7 +39,7 @@ public class GetSosRequestsByBoundsQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_FiltersByRepeatedStatuses_CaseInsensitive()
+    public async Task Handle_FiltersByMultipleStatuses()
     {
         var repository = new StubSosRequestMapReadRepository(
         [
@@ -55,7 +55,7 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             MaxLat = 10.80,
             MinLng = 106.60,
             MaxLng = 106.70,
-            Statuses = ["pending", "Assigned"]
+            Statuses = [SosRequestStatus.Pending, SosRequestStatus.Assigned]
         }, CancellationToken.None);
 
         Assert.Equal([2, 1], result.Select(x => x.Id).ToArray());
