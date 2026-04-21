@@ -2672,6 +2672,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     .ThenBy(l => l.ExpiredDate)
                     .ThenBy(l => l.ReceivedDate)
                     .ToList();
+                var trackedByLotsQuantity = lots.Sum(l => l.RemainingQuantity);
 
                 foreach (var srcLot in lots)
                 {
@@ -2732,7 +2733,57 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                 if (remainingToMove > 0)
                 {
-                    throw new ConflictException($"Không đủ lô khả dụng để chuyển vật phẩm #{assignment.ItemModelId} theo kế hoạch đóng kho. Còn thiếu {remainingToMove} đơn vị.");
+                    var legacyUntrackedQuantity = Math.Max(0, (srcInv.Quantity ?? 0) - trackedByLotsQuantity);
+                    if (legacyUntrackedQuantity < remainingToMove)
+                    {
+                        throw new ConflictException($"Không đủ lô khả dụng để chuyển vật phẩm #{assignment.ItemModelId} theo kế hoạch đóng kho. Còn thiếu {remainingToMove} đơn vị.");
+                    }
+
+                    var fallbackQuantity = remainingToMove;
+                    remainingToMove = 0;
+
+                    var outLog = new InventoryLog
+                    {
+                        SupplyInventory = srcInv,
+                        ActionType = InventoryActionType.TransferOut.ToString(),
+                        QuantityChange = -fallbackQuantity,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        PerformedBy = performedBy,
+                        Note = $"Đóng kho #{sourceDepotId}: chuyển theo transfer #{transferId} vật phẩm #{assignment.ItemModelId} SL {fallbackQuantity} từ tồn legacy/không có lô sang kho #{targetDepotId}",
+                        CreatedAt = now
+                    };
+                    newInventoryLogs.Add(outLog);
+
+                    var dstLot = new SupplyInventoryLot
+                    {
+                        SupplyInventory = dstInv,
+                        Quantity = fallbackQuantity,
+                        RemainingQuantity = fallbackQuantity,
+                        ReceivedDate = now,
+                        ExpiredDate = null,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        CreatedAt = now
+                    };
+                    newSupplyInventoryLots.Add(dstLot);
+
+                    var inLog = new InventoryLog
+                    {
+                        SupplyInventory = dstInv,
+                        SupplyInventoryLot = dstLot,
+                        ActionType = InventoryActionType.TransferIn.ToString(),
+                        QuantityChange = fallbackQuantity,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        PerformedBy = performedBy,
+                        Note = $"Đóng kho #{sourceDepotId}: nhận theo transfer #{transferId} vật phẩm #{assignment.ItemModelId} SL {fallbackQuantity} từ tồn legacy/không có lô của kho nguồn",
+                        CreatedAt = now
+                    };
+                    newInventoryLogs.Add(inLog);
+
+                    dstInv.Quantity = (dstInv.Quantity ?? 0) + fallbackQuantity;
+                    dstInv.LastStockedAt = now;
                 }
 
                 srcInv.Quantity = (srcInv.Quantity ?? 0) - assignment.Quantity;
