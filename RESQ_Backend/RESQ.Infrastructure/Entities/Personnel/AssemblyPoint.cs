@@ -52,4 +52,7 @@ public partial class AssemblyPoint
 
     [InverseProperty("AssemblyPoint")]
     public virtual ICollection<RescueTeam> RescueTeams { get; set; } = new List<RescueTeam>();
+
+    [InverseProperty("AssemblyPoint")]
+    public virtual AssemblyPointCheckInRadiusConfig? CheckInRadiusConfig { get; set; }
 }

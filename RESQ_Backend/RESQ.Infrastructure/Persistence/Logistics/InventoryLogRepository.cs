@@ -254,7 +254,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         var groups = rawLogs
             .GroupBy(x => new
             {
-                Date = x.CreatedAt?.Date,
+                x.CreatedAt,
                 x.ActionType,
                 x.SourceType,
                 x.SourceId,

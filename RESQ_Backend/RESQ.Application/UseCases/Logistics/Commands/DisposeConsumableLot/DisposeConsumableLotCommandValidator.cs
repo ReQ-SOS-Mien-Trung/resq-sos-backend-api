@@ -4,11 +4,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.DisposeConsumableLot;
 
 public class DisposeConsumableLotCommandValidator : AbstractValidator<DisposeConsumableLotCommand>
 {
-    private static readonly HashSet<string> AllowedReasons = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Expired", "Damaged"
-    };
-
     public DisposeConsumableLotCommandValidator()
     {
         RuleFor(x => x.LotId)
@@ -18,9 +13,9 @@ public class DisposeConsumableLotCommandValidator : AbstractValidator<DisposeCon
             .GreaterThan(0).WithMessage("Số lượng tiêu hủy phải lớn hơn 0.");
 
         RuleFor(x => x.Reason)
+            .Cascade(CascadeMode.Stop)
             .NotEmpty().WithMessage("Nhóm lý do tiêu hủy không được để trống.")
-            .Must(r => AllowedReasons.Contains(r))
-            .WithMessage("Nhóm lý do tiêu hủy chỉ cho phép: Expired hoặc Damaged.");
+            .MaximumLength(100).WithMessage("Nhóm lý do không được vượt quá 100 ký tự.");
 
         RuleFor(x => x.Note)
             .Cascade(CascadeMode.Stop)

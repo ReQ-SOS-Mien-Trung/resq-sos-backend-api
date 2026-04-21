@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Domain.Entities.Logistics.Services;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
@@ -109,6 +110,7 @@ public class DepotInventoryRepositoryTests
     {
         var options = new DbContextOptionsBuilder<ResQDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         return new ResQDbContext(options);
@@ -174,7 +176,6 @@ public class DepotInventoryRepositoryTests
 
         context.SaveChanges();
     }
-
     private sealed class StubInventoryQueryService : IInventoryQueryService
     {
         public InventoryAvailability ComputeAvailability(int? quantity, int? missionReserved, int? transferReserved) =>
