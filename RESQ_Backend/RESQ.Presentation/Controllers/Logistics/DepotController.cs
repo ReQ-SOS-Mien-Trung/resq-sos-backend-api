@@ -592,17 +592,21 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/prepare")]
         [HttpPost("{id}/close/transfer/{transferId}/prepare")]
+        [HttpPost("transfer/{transferId}/prepare")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(PrepareClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> PrepareClosureTransfer(
-            int id, int transferId,
-            [FromBody] ClosureTransferActionDto dto)
+            int transferId,
+            [FromBody] ClosureTransferActionDto dto,
+            int id = 0,
+            [FromQuery] int? depotId = null)
         {
             var userId = GetUserId();
-            var command = new PrepareClosureTransferCommand(transferId, userId, dto.Note, id);
+            var resolvedDepotId = depotId ?? id;
+            var command = new PrepareClosureTransferCommand(transferId, userId, dto.Note, resolvedDepotId);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
@@ -613,17 +617,21 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/ship")]
         [HttpPost("{id}/close/transfer/{transferId}/ship")]
+        [HttpPost("transfer/{transferId}/ship")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ShipClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> ShipClosureTransfer(
-            int id, int transferId,
-            [FromBody] ClosureTransferActionDto dto)
+            int transferId,
+            [FromBody] ClosureTransferActionDto dto,
+            int id = 0,
+            [FromQuery] int? depotId = null)
         {
             var userId = GetUserId();
-            var command = new ShipClosureTransferCommand(transferId, userId, dto.Note, id);
+            var resolvedDepotId = depotId ?? id;
+            var command = new ShipClosureTransferCommand(transferId, userId, dto.Note, resolvedDepotId);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
@@ -634,17 +642,21 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/complete")]
         [HttpPost("{id}/close/transfer/{transferId}/complete")]
+        [HttpPost("transfer/{transferId}/complete")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(CompleteClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> CompleteClosureTransfer(
-            int id, int transferId,
-            [FromBody] ClosureTransferActionDto dto)
+            int transferId,
+            [FromBody] ClosureTransferActionDto dto,
+            int id = 0,
+            [FromQuery] int? depotId = null)
         {
             var userId = GetUserId();
-            var command = new CompleteClosureTransferCommand(transferId, userId, dto.Note, id);
+            var resolvedDepotId = depotId ?? id;
+            var command = new CompleteClosureTransferCommand(transferId, userId, dto.Note, resolvedDepotId);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
@@ -655,17 +667,21 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// </summary>
         [HttpPost("{id}/transfer/{transferId}/receive")]
         [HttpPost("{id}/close/transfer/{transferId}/receive")]
+        [HttpPost("transfer/{transferId}/receive")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(ReceiveClosureTransferResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> ReceiveClosureTransfer(
-            int id, int transferId,
-            [FromBody] ClosureTransferActionDto dto)
+            int transferId,
+            [FromBody] ClosureTransferActionDto dto,
+            int id = 0,
+            [FromQuery] int? depotId = null)
         {
             var userId = GetUserId();
-            var command = new ReceiveClosureTransferCommand(transferId, userId, dto.Note, id);
+            var resolvedDepotId = depotId ?? id;
+            var command = new ReceiveClosureTransferCommand(transferId, userId, dto.Note, resolvedDepotId);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
