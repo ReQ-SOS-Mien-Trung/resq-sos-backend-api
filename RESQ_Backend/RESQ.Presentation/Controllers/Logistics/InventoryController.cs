@@ -1083,6 +1083,9 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             DepotId = depotId,
             ItemModelId = itemModelId,
             SerialNumber = serialNumber,
+            Statuses = Enum.GetValues<ReusableItemStatus>()
+                .Where(status => status != ReusableItemStatus.Decommissioned)
+                .ToList(),
             PageNumber = pageNumber,
             PageSize = pageSize
         });

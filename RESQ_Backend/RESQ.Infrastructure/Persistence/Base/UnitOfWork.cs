@@ -114,7 +114,9 @@ namespace RESQ.Infrastructure.Persistence.Base
 
         public async Task ExecuteInTransactionAsync(Func<Task> action)
         {
-            if (_context.Database.CurrentTransaction is not null)
+            // If already inside an active transaction (nested call), just execute the action
+            // and participate in the outer transaction — do NOT begin a new one.
+            if (_context.Database.CurrentTransaction != null)
             {
                 await action();
                 return;

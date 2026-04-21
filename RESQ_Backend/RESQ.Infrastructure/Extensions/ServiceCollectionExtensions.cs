@@ -167,6 +167,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRescueTeamRadiusConfigRepository, RescueTeamRadiusConfigRepository>();
         services.AddScoped<ISosPriorityRuleConfigRepository, SosPriorityRuleConfigRepository>();
         services.AddScoped<ICheckInRadiusConfigRepository, CheckInRadiusConfigRepository>();
+        services.AddScoped<IAssemblyPointCheckInRadiusRepository, AssemblyPointCheckInRadiusRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
 
         // Services

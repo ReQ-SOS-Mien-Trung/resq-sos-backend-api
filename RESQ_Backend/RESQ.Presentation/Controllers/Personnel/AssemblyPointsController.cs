@@ -24,6 +24,10 @@ using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyUpcomingAssemblyEvents;
+using RESQ.Application.UseCases.Personnel.Commands.UpsertAssemblyPointCheckInRadius;
+using RESQ.Application.UseCases.Personnel.Commands.DeleteAssemblyPointCheckInRadius;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointCheckInRadius;
+using RESQ.Application.UseCases.Personnel.Queries.GetAllAssemblyPointCheckInRadiusConfigs;
 using RESQ.Domain.Enum.Identity;
 using RESQ.Domain.Enum.Personnel;
 
@@ -343,6 +347,54 @@ namespace RESQ.Presentation.Controllers.Personnel
             var query = new GetMyUpcomingAssemblyEventsQuery(userId);
             var result = await _mediator.Send(query);
             return Ok(result);
+        }
+
+        // ──────────────────────────────────────────────────────────
+        // Per-assembly-point check-in radius config endpoints
+        // ──────────────────────────────────────────────────────────
+
+        /// <summary>Lấy toàn bộ cấu hình bán kính check-in riêng đang được thiết lập theo từng điểm tập kết (chỉ trả về các điểm đã có cấu hình riêng).</summary>
+        [HttpGet("check-in-radius")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> GetAllCheckInRadiusConfigs()
+        {
+            var query = new GetAllAssemblyPointCheckInRadiusConfigsQuery();
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>Lấy cấu hình bán kính check-in của điểm tập kết. Trả về cấu hình riêng nếu có, ngược lại trả về cấu hình toàn cục.</summary>
+        [HttpGet("{id}/check-in-radius")]
+        [Authorize(Policy = PermissionConstants.PersonnelAssemblyPointView)]
+        public async Task<IActionResult> GetCheckInRadius(int id)
+        {
+            var query = new GetAssemblyPointCheckInRadiusQuery(id);
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>Thiết lập hoặc cập nhật bán kính check-in riêng cho điểm tập kết.</summary>
+        [HttpPut("{id}/check-in-radius")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> UpsertCheckInRadius(int id, [FromBody] UpsertAssemblyPointCheckInRadiusRequest request)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var command = new UpsertAssemblyPointCheckInRadiusCommand(id, request.MaxRadiusMeters, userId);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>Xóa cấu hình bán kính check-in riêng của điểm tập kết; điểm sẽ quay về dùng cấu hình toàn cục.</summary>
+        [HttpDelete("{id}/check-in-radius")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> DeleteCheckInRadius(int id)
+        {
+            var command = new DeleteAssemblyPointCheckInRadiusCommand(id);
+            await _mediator.Send(command);
+            return NoContent();
         }
     }
 }

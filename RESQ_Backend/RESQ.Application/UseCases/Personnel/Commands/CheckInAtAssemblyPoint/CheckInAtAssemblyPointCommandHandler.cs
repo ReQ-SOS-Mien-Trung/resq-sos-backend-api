@@ -12,6 +12,7 @@ public class CheckInAtAssemblyPointCommandHandler(
     IAssemblyEventRepository assemblyEventRepository,
     IAssemblyPointRepository assemblyPointRepository,
     ICheckInRadiusConfigRepository checkInRadiusConfigRepository,
+    IAssemblyPointCheckInRadiusRepository assemblyPointCheckInRadiusRepository,
     IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork)
     : IRequestHandler<CheckInAtAssemblyPointCommand>
@@ -52,7 +53,10 @@ public class CheckInAtAssemblyPointCommandHandler(
             throw new BadRequestException("Điểm tập kết chưa có tọa độ GPS. Vui lòng liên hệ quản trị viên.");
 
         var radiusConfig = await checkInRadiusConfigRepository.GetAsync(cancellationToken);
-        var maxDistanceMeters = radiusConfig?.MaxRadiusMeters ?? DefaultMaxDistanceMeters;
+        var perPointConfig = await assemblyPointCheckInRadiusRepository.GetByAssemblyPointIdAsync(evt.AssemblyPointId, cancellationToken);
+        var maxDistanceMeters = perPointConfig?.MaxRadiusMeters
+            ?? radiusConfig?.MaxRadiusMeters
+            ?? DefaultMaxDistanceMeters;
 
         var distanceMeters = HaversineMeters(
             request.Latitude, request.Longitude,

@@ -14,12 +14,12 @@ public class GetReusableItemStatusesQueryHandler : IRequestHandler<GetReusableIt
                 Key = e.ToString(),
                 Value = e switch
                 {
-                    ReusableItemStatus.Available      => "Sẵn sàng",
-                    ReusableItemStatus.Reserved       => "Đã đặt trữ (chờ xuất kho)",
+                    ReusableItemStatus.Available      => "Khả dụng",
+                    ReusableItemStatus.Reserved       => "Đã phân bổ",
                     ReusableItemStatus.InTransit      => "Đang vận chuyển",
                     ReusableItemStatus.InUse          => "Đang sử dụng",
                     ReusableItemStatus.Maintenance    => "Đang bảo trì",
-                    ReusableItemStatus.Decommissioned => "Đã thanh lý",
+                    ReusableItemStatus.Decommissioned => "Đã loại biên",
                     _                                 => e.ToString()
                 }
             }).ToList();
