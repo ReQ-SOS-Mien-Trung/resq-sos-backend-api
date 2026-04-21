@@ -1,15 +1,11 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Presentation.Hubs;
 
 namespace RESQ.Presentation.Services;
 
-/// <summary>
-/// Implementation của <see cref="IOperationalHubService"/>.
-/// Tất cả push đều fire-and-forget: lỗi được log, không ném exception để không ảnh hưởng
-/// luồng nghiệp vụ chính của caller.
-/// </summary>
 public sealed class OperationalHubService(
     IHubContext<OperationalHub> hubContext,
     ILogger<OperationalHubService> logger) : IOperationalHubService
@@ -17,14 +13,13 @@ public sealed class OperationalHubService(
     private readonly IHubContext<OperationalHub> _hubContext = hubContext;
     private readonly ILogger<OperationalHubService> _logger = logger;
 
-    // ──────────────────────────────────────────────────────────────
-    // Event name constants (dùng chung để tránh typo)
-    // ──────────────────────────────────────────────────────────────
-    private const string EventApListUpdate     = "ReceiveAssemblyPointListUpdate";
-    private const string EventDepotInventory   = "ReceiveDepotInventoryUpdate";
-    private const string EventLogisticsUpdate  = "ReceiveLogisticsUpdate";
+    private const string EventApListUpdate = "ReceiveAssemblyPointListUpdate";
+    private const string EventDepotInventory = "ReceiveDepotInventoryUpdate";
+    private const string EventLogisticsUpdate = "ReceiveLogisticsUpdate";
+    private const string EventSupplyRequestUpdate = "ReceiveSupplyRequestUpdate";
+    private const string EventDepotActivityUpdate = "ReceiveDepotActivityUpdate";
+    private const string EventDepotClosureUpdate = "ReceiveDepotClosureUpdate";
 
-    /// <inheritdoc/>
     public async Task PushAssemblyPointListUpdateAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -36,12 +31,10 @@ public sealed class OperationalHubService(
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
-                "[OperationalHub] Failed to push {Event}", EventApListUpdate);
+            _logger.LogWarning(ex, "[OperationalHub] Failed to push {Event}", EventApListUpdate);
         }
     }
 
-    /// <inheritdoc/>
     public async Task PushDepotInventoryUpdateAsync(
         int depotId,
         string operation,
@@ -51,12 +44,10 @@ public sealed class OperationalHubService(
         {
             var payload = new { depotId, operation, changedAt = DateTime.UtcNow };
 
-            // Push đến tất cả client logistics (cần re-fetch by-cluster / alternative-depots)
             var taskAll = _hubContext.Clients
                 .Group(OperationalHub.LogisticsGroup)
                 .SendAsync(EventDepotInventory, payload, cancellationToken);
 
-            // Push đến client đang xem trang inventory của kho này
             var taskDepot = _hubContext.Clients
                 .Group(OperationalHub.DepotGroup(depotId))
                 .SendAsync(EventDepotInventory, payload, cancellationToken);
@@ -65,13 +56,14 @@ public sealed class OperationalHubService(
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
+            _logger.LogWarning(
+                ex,
                 "[OperationalHub] Failed to push {Event} for DepotId={DepotId}",
-                EventDepotInventory, depotId);
+                EventDepotInventory,
+                depotId);
         }
     }
 
-    /// <inheritdoc/>
     public async Task PushLogisticsUpdateAsync(
         string resourceType,
         int? clusterId = null,
@@ -80,16 +72,13 @@ public sealed class OperationalHubService(
         try
         {
             var payload = new { resourceType, clusterId, changedAt = DateTime.UtcNow };
-
             var tasks = new List<Task>
             {
-                // Broadcast tới tất cả client logistics (clusterId = null → ảnh hưởng mọi cluster)
                 _hubContext.Clients
                     .Group(OperationalHub.LogisticsGroup)
                     .SendAsync(EventLogisticsUpdate, payload, cancellationToken)
             };
 
-            // Nếu biết clusterId cụ thể, push thêm đến group cluster đó
             if (clusterId.HasValue)
             {
                 tasks.Add(_hubContext.Clients
@@ -101,9 +90,120 @@ public sealed class OperationalHubService(
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
+            _logger.LogWarning(
+                ex,
                 "[OperationalHub] Failed to push {Event} resourceType={ResourceType} clusterId={ClusterId}",
-                EventLogisticsUpdate, resourceType, clusterId);
+                EventLogisticsUpdate,
+                resourceType,
+                clusterId);
         }
     }
+
+    public async Task PushSupplyRequestUpdateAsync(
+        SupplyRequestRealtimeUpdate update,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            update.ChangedAt = NormalizeChangedAt(update.ChangedAt);
+
+            var groups = new HashSet<string>(StringComparer.Ordinal)
+            {
+                OperationalHub.SupplyRequestsDepotGroup(update.RequestingDepotId),
+                OperationalHub.SupplyRequestsDepotGroup(update.SourceDepotId),
+                OperationalHub.SupplyRequestGroup(update.RequestId)
+            };
+
+            await SendToGroupsAsync(groups, EventSupplyRequestUpdate, update, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "[OperationalHub] Failed to push {Event} for SupplyRequestId={RequestId}",
+                EventSupplyRequestUpdate,
+                update.RequestId);
+        }
+    }
+
+    public async Task PushDepotActivityUpdateAsync(
+        DepotActivityRealtimeUpdate update,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            update.ChangedAt = NormalizeChangedAt(update.ChangedAt);
+
+            var groups = new HashSet<string>(StringComparer.Ordinal)
+            {
+                OperationalHub.DepotActivitiesGroup(update.DepotId),
+                OperationalHub.ActivityGroup(update.ActivityId)
+            };
+
+            await SendToGroupsAsync(groups, EventDepotActivityUpdate, update, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "[OperationalHub] Failed to push {Event} for ActivityId={ActivityId}",
+                EventDepotActivityUpdate,
+                update.ActivityId);
+        }
+    }
+
+    public async Task PushDepotClosureUpdateAsync(
+        DepotClosureRealtimeUpdate update,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            update.ChangedAt = NormalizeChangedAt(update.ChangedAt);
+
+            var groups = new HashSet<string>(StringComparer.Ordinal)
+            {
+                OperationalHub.DepotClosuresGroup(update.SourceDepotId)
+            };
+
+            if (update.TargetDepotId.HasValue)
+                groups.Add(OperationalHub.DepotClosuresGroup(update.TargetDepotId.Value));
+
+            if (update.ClosureId.HasValue)
+                groups.Add(OperationalHub.ClosureGroup(update.ClosureId.Value));
+
+            if (update.TransferId.HasValue)
+                groups.Add(OperationalHub.TransferGroup(update.TransferId.Value));
+
+            await SendToGroupsAsync(groups, EventDepotClosureUpdate, update, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "[OperationalHub] Failed to push {Event} for ClosureId={ClosureId} TransferId={TransferId}",
+                EventDepotClosureUpdate,
+                update.ClosureId,
+                update.TransferId);
+        }
+    }
+
+    private async Task SendToGroupsAsync(
+        IEnumerable<string> groups,
+        string eventName,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        var tasks = groups
+            .Where(group => !string.IsNullOrWhiteSpace(group))
+            .Select(group => _hubContext.Clients.Group(group).SendAsync(eventName, payload, cancellationToken))
+            .ToList();
+
+        if (tasks.Count == 0)
+            return;
+
+        await Task.WhenAll(tasks);
+    }
+
+    private static DateTime NormalizeChangedAt(DateTime changedAt) =>
+        changedAt == default ? DateTime.UtcNow : changedAt;
 }

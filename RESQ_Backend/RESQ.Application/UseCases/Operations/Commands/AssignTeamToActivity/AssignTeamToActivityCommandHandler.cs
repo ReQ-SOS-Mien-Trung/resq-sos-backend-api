@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
@@ -16,6 +18,7 @@ public class AssignTeamToActivityCommandHandler(
     ISosRequestRepository sosRequestRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     ITeamIncidentRepository teamIncidentRepository,
+    IOperationalHubService operationalHubService,
     IMediator mediator,
     IUnitOfWork unitOfWork,
     ILogger<AssignTeamToActivityCommandHandler> logger
@@ -63,6 +66,25 @@ public class AssignTeamToActivityCommandHandler(
                 cancellationToken);
         }
 
+        if (activity.DepotId.HasValue
+            && IsRealtimeDepotActivity(activity.ActivityType))
+        {
+            await operationalHubService.PushDepotActivityUpdateAsync(
+                new DepotActivityRealtimeUpdate
+                {
+                    ActivityId = activity.Id,
+                    DepotId = activity.DepotId.Value,
+                    MissionId = activity.MissionId,
+                    MissionTeamId = missionTeamId,
+                    RescueTeamId = request.RescueTeamId,
+                    ActivityType = activity.ActivityType,
+                    Action = "Assigned",
+                    Status = activity.Status.ToString(),
+                    EstimatedTime = activity.EstimatedTime
+                },
+                cancellationToken);
+        }
+
         return new AssignTeamToActivityResponse
         {
             ActivityId = request.ActivityId,
@@ -71,4 +93,8 @@ public class AssignTeamToActivityCommandHandler(
             TeamName = teamName
         };
     }
+
+    private static bool IsRealtimeDepotActivity(string? activityType) =>
+        string.Equals(activityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase);
 }

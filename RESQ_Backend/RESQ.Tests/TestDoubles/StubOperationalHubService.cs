@@ -1,3 +1,4 @@
+using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 
 namespace RESQ.Tests.TestDoubles;
@@ -12,5 +13,14 @@ internal sealed class StubOperationalHubService : IOperationalHubService
         => Task.CompletedTask;
 
     public Task PushLogisticsUpdateAsync(string resourceType, int? clusterId = null, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task PushSupplyRequestUpdateAsync(SupplyRequestRealtimeUpdate update, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task PushDepotActivityUpdateAsync(DepotActivityRealtimeUpdate update, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task PushDepotClosureUpdateAsync(DepotClosureRealtimeUpdate update, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 }

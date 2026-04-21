@@ -1,4 +1,5 @@
-﻿using MediatR;
+using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -9,20 +10,18 @@ using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ShipSupplyRequest;
 
-/// <summary>
-/// Kho nguồn xuất hàng (TransferOut) và chuyển trạng thái sang Shipping (đang vận chuyển).
-/// Inventory source depot giảm tương ứng.
-/// </summary>
 public class ShipSupplyRequestCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
     IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork)
     : IRequestHandler<ShipSupplyRequestCommand, ShipSupplyRequestResponse>
 {
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+
     public async Task<ShipSupplyRequestResponse> Handle(ShipSupplyRequestCommand request, CancellationToken cancellationToken)
     {
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
@@ -40,7 +39,6 @@ public class ShipSupplyRequestCommandHandler(
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             throw new ConflictException("Kho nguồn ngưng hoạt động hoặc đã đóng. Không thể xuất hàng cho yêu cầu tiếp tế.");
 
-        // Wrap trong transaction để đảm bảo TransferOut + UpdateStatus đồng bộ
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             await supplyRequestRepository.TransferOutAsync(
@@ -49,13 +47,26 @@ public class ShipSupplyRequestCommandHandler(
             await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Shipping", "InTransit", null, request.UserId, cancellationToken);
         });
 
-        // Notify requesting manager
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "Vật phẩm đang được vận chuyển",
             $"Yêu cầu tiếp tế số {sr.Id}: hàng đã xuất kho và đang vận chuyển đến kho của bạn.",
             "supply_shipped",
             cancellationToken);
+
+        await operationalHubService.PushSupplyRequestUpdateAsync(
+            new SupplyRequestRealtimeUpdate
+            {
+                RequestId = sr.Id,
+                RequestingDepotId = sr.RequestingDepotId,
+                SourceDepotId = sr.SourceDepotId,
+                Action = "Shipped",
+                SourceStatus = "Shipping",
+                RequestingStatus = "InTransit"
+            },
+            cancellationToken);
+
+        await operationalHubService.PushDepotInventoryUpdateAsync(sr.SourceDepotId, "SupplyRequestShip", cancellationToken);
 
         return new ShipSupplyRequestResponse { Message = $"Đã xuất hàng cho yêu cầu số {sr.Id}." };
     }

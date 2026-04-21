@@ -22,7 +22,8 @@ public class InventoryControllerTests
         var controller = new InventoryController(
             mediator,
             new StubItemCategoryRepository(),
-            new AllowAuthorizationService())
+            new AllowAuthorizationService(),
+            new StubOperationalHubService())
         {
             ControllerContext = new ControllerContext
             {

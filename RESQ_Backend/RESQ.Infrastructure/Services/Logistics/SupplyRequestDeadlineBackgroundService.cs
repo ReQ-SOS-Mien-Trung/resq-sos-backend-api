@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Logistics;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Enum.Logistics;
@@ -13,7 +14,7 @@ public class SupplyRequestDeadlineBackgroundService(
     ILogger<SupplyRequestDeadlineBackgroundService> logger) : BackgroundService
 {
     private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(1);
-    private const string AutoRejectReason = "Hệ thống tự động từ chối do quá thời gian phản hồi.";
+    private const string AutoRejectReason = "Há»‡ thá»‘ng tá»± Ä‘á»™ng tá»« chá»‘i do quÃ¡ thá»i gian pháº£n há»“i.";
 
     private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
     private readonly ILogger<SupplyRequestDeadlineBackgroundService> _logger = logger;
@@ -22,7 +23,6 @@ public class SupplyRequestDeadlineBackgroundService(
     {
         _logger.LogInformation("Supply request deadline background service started.");
 
-        // Stagger startup to avoid connection pool exhaustion when all services start simultaneously
         await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
@@ -48,6 +48,7 @@ public class SupplyRequestDeadlineBackgroundService(
         var configRepository = scope.ServiceProvider.GetRequiredService<ISupplyRequestPriorityConfigRepository>();
         var supplyRequestRepository = scope.ServiceProvider.GetRequiredService<ISupplyRequestRepository>();
         var firebaseService = scope.ServiceProvider.GetRequiredService<IFirebaseService>();
+        var operationalHubService = scope.ServiceProvider.GetRequiredService<IOperationalHubService>();
 
         var config = await configRepository.GetAsync(cancellationToken);
         var timing = config == null
@@ -75,10 +76,27 @@ public class SupplyRequestDeadlineBackgroundService(
 
                 await firebaseService.SendNotificationToUserAsync(
                     request.RequestedBy,
-                    "Yêu cầu tiếp tế đã bị tự động từ chối",
-                    $"Yêu cầu tiếp tế số {request.Id} đã bị hệ thống tự động từ chối vì quá thời gian phản hồi từ kho nguồn.",
+                    "YÃªu cáº§u tiáº¿p táº¿ Ä‘Ã£ bá»‹ tá»± Ä‘á»™ng tá»« chá»‘i",
+                    $"YÃªu cáº§u tiáº¿p táº¿ sá»‘ {request.Id} Ä‘Ã£ bá»‹ há»‡ thá»‘ng tá»± Ä‘á»™ng tá»« chá»‘i vÃ¬ quÃ¡ thá»i gian pháº£n há»“i tá»« kho nguá»“n.",
                     "supply_request_auto_rejected",
                     cancellationToken);
+
+                var requestDetail = await supplyRequestRepository.GetByIdAsync(request.Id, cancellationToken);
+                if (requestDetail != null)
+                {
+                    await operationalHubService.PushSupplyRequestUpdateAsync(
+                        new SupplyRequestRealtimeUpdate
+                        {
+                            RequestId = requestDetail.Id,
+                            RequestingDepotId = requestDetail.RequestingDepotId,
+                            SourceDepotId = requestDetail.SourceDepotId,
+                            Action = "AutoRejected",
+                            SourceStatus = "Rejected",
+                            RequestingStatus = "Rejected",
+                            RejectedReason = AutoRejectReason
+                        },
+                        cancellationToken);
+                }
 
                 continue;
             }
@@ -93,8 +111,8 @@ public class SupplyRequestDeadlineBackgroundService(
                     {
                         await firebaseService.SendNotificationToUserAsync(
                             sourceManagerUserId.Value,
-                            "Yêu cầu tiếp tế đã vào ngưỡng gấp",
-                            $"Yêu cầu tiếp tế số {request.Id} đã vào ngưỡng gấp. Vui lòng ưu tiên kiểm tra và phản hồi.",
+                            "YÃªu cáº§u tiáº¿p táº¿ Ä‘Ã£ vÃ o ngÆ°á»¡ng gáº¥p",
+                            $"YÃªu cáº§u tiáº¿p táº¿ sá»‘ {request.Id} Ä‘Ã£ vÃ o ngÆ°á»¡ng gáº¥p. Vui lÃ²ng Æ°u tiÃªn kiá»ƒm tra vÃ  pháº£n há»“i.",
                             "supply_request_high_escalation",
                             cancellationToken);
 
@@ -113,8 +131,8 @@ public class SupplyRequestDeadlineBackgroundService(
                     {
                         await firebaseService.SendNotificationToUserAsync(
                             sourceManagerUserId.Value,
-                            "Yêu cầu tiếp tế đã vào ngưỡng khẩn cấp",
-                            $"Yêu cầu tiếp tế số {request.Id} đã vào ngưỡng khẩn cấp. Vui lòng xử lý ngay để tránh tự động từ chối.",
+                            "YÃªu cáº§u tiáº¿p táº¿ Ä‘Ã£ vÃ o ngÆ°á»¡ng kháº©n cáº¥p",
+                            $"YÃªu cáº§u tiáº¿p táº¿ sá»‘ {request.Id} Ä‘Ã£ vÃ o ngÆ°á»¡ng kháº©n cáº¥p. Vui lÃ²ng xá»­ lÃ½ ngay Ä‘á»ƒ trÃ¡nh tá»± Ä‘á»™ng tá»« chá»‘i.",
                             "supply_request_urgent_escalation",
                             cancellationToken);
 

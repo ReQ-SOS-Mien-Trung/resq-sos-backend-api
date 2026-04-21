@@ -115,6 +115,7 @@ public class AssignTeamToActivityCommandHandlerTests
             new StubSosRequestRepo(),
             new StubSosRequestUpdateRepo(),
             new StubTeamIncidentRepo(),
+            new StubOperationalHubService(),
             mediator ?? new RecordingMediator(),
             new StubUnitOfWork(),
             NullLogger<AssignTeamToActivityCommandHandler>.Instance);

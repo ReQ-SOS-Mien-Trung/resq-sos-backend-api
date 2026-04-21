@@ -28,6 +28,7 @@ public class AddMissionActivityCommandHandler(
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     IDepotInventoryRepository depotInventoryRepository, IDepotRepository depotRepository,
     IMediator mediator,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<AddMissionActivityCommandHandler> logger
 ) : IRequestHandler<AddMissionActivityCommand, AddMissionActivityResponse>
@@ -210,8 +211,30 @@ public class AddMissionActivityCommandHandler(
             ? null
             : JsonSerializer.Deserialize<List<SupplyToCollectDto>>(savedActivity.Items, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
+        if (savedActivity.DepotId.HasValue
+            && IsRealtimeDepotActivity(savedActivity.ActivityType))
+        {
+            await operationalHubService.PushDepotActivityUpdateAsync(
+                new DepotActivityRealtimeUpdate
+                {
+                    ActivityId = savedActivity.Id,
+                    DepotId = savedActivity.DepotId.Value,
+                    MissionId = savedActivity.MissionId,
+                    MissionTeamId = savedActivity.MissionTeamId,
+                    ActivityType = savedActivity.ActivityType,
+                    Action = "Created",
+                    Status = savedActivity.Status.ToString(),
+                    EstimatedTime = savedActivity.EstimatedTime
+                },
+                cancellationToken);
+        }
+
         return response;
     }
+
+    private static bool IsRealtimeDepotActivity(string? activityType) =>
+        string.Equals(activityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase);
 
     private async Task<MissionActivityVictimContext?> LoadVictimContextAsync(
         int? sosRequestId,

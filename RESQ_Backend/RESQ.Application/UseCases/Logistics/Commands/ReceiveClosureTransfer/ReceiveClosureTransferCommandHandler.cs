@@ -1,7 +1,8 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
@@ -9,11 +10,6 @@ using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ReceiveClosureTransfer;
 
-/// <summary>
-/// Manager kho đích xác nhận nhận hàng.
-/// Sau đó hệ thống bulk-transfer inventory và đánh dấu phiên xử lý hàng tồn đã xong,
-/// nhưng vẫn chờ admin gọi POST /logistics/depot/{id}/close để đóng kho thật sự.
-/// </summary>
 public class ReceiveClosureTransferCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotClosureTransferRepository transferRepository,
@@ -21,11 +17,13 @@ public class ReceiveClosureTransferCommandHandler(
     IDepotRepository depotRepository,
     IDepotInventoryRepository inventoryRepository,
     IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<ReceiveClosureTransferCommandHandler> logger)
     : IRequestHandler<ReceiveClosureTransferCommand, ReceiveClosureTransferResponse>
 {
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+
     public async Task<ReceiveClosureTransferResponse> Handle(
         ReceiveClosureTransferCommand request,
         CancellationToken cancellationToken)
@@ -106,6 +104,22 @@ public class ReceiveClosureTransferCommandHandler(
             logger.LogWarning(ex, "Failed to notify admin | ClosureId={ClosureId}", closure.Id);
         }
 
+        await operationalHubService.PushDepotClosureUpdateAsync(
+            new DepotClosureRealtimeUpdate
+            {
+                SourceDepotId = transfer.SourceDepotId,
+                TargetDepotId = transfer.TargetDepotId,
+                ClosureId = closure.Id,
+                TransferId = transfer.Id,
+                EntityType = "Transfer",
+                Action = "Received",
+                Status = transfer.Status
+            },
+            cancellationToken);
+
+        await operationalHubService.PushDepotInventoryUpdateAsync(transfer.SourceDepotId, "ClosureTransferReceived", cancellationToken);
+        await operationalHubService.PushDepotInventoryUpdateAsync(transfer.TargetDepotId, "ClosureTransferReceived", cancellationToken);
+
         return new ReceiveClosureTransferResponse
         {
             TransferId = transfer.Id,
@@ -120,4 +134,3 @@ public class ReceiveClosureTransferCommandHandler(
         };
     }
 }
-
