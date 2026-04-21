@@ -339,6 +339,7 @@ public interface IDepotInventoryRepository
     Task MarkReusableItemAvailableAsync(
         int depotId,
         int reusableItemId,
+        ReusableItemCondition condition,
         string? note,
         Guid performedBy,
         CancellationToken cancellationToken = default)
