@@ -1,12 +1,15 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Shared;
 
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 
 public class UpdateActivityStatusCommandHandler(
     IMissionActivityStatusExecutionService missionActivityStatusExecutionService,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<UpdateActivityStatusCommandHandler> logger
 ) : IRequestHandler<UpdateActivityStatusCommand, UpdateActivityStatusResponse>
@@ -35,6 +38,33 @@ public class UpdateActivityStatusCommandHandler(
                 cancellationToken);
         });
 
+        if (executionResult?.DepotId is int depotId
+            && IsDepotActivityRealtimeCandidate(executionResult.ActivityType))
+        {
+            await operationalHubService.PushDepotActivityUpdateAsync(
+                new DepotActivityRealtimeUpdate
+                {
+                    ActivityId = executionResult.ActivityId,
+                    DepotId = depotId,
+                    MissionId = executionResult.MissionId,
+                    MissionTeamId = executionResult.MissionTeamId,
+                    RescueTeamId = executionResult.RescueTeamId,
+                    ActivityType = executionResult.ActivityType ?? string.Empty,
+                    Action = "StatusChanged",
+                    Status = executionResult.EffectiveStatus.ToString(),
+                    EstimatedTime = executionResult.EstimatedTime
+                },
+                cancellationToken);
+        }
+
+        if (executionResult?.DepotId is int inventoryDepotId && executionResult.InventoryChanged)
+        {
+            await operationalHubService.PushDepotInventoryUpdateAsync(
+                inventoryDepotId,
+                "MissionActivityStatus",
+                cancellationToken);
+        }
+
         return new UpdateActivityStatusResponse
         {
             ActivityId = request.ActivityId,
@@ -44,4 +74,8 @@ public class UpdateActivityStatusCommandHandler(
             ConsumedItems = executionResult.ConsumedItems
         };
     }
+
+    private static bool IsDepotActivityRealtimeCandidate(string? activityType) =>
+        string.Equals(activityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase);
 }

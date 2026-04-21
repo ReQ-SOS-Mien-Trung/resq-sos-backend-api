@@ -235,6 +235,7 @@ public class UpdateMissionActivityCommandHandlerTests
             sosRequestUpdateRepo ?? new StubSosRequestUpdateRepo(),
             depotRepo ?? new StubDepotRepo(),
             assemblyPointRepo ?? new StubAssemblyPointRepo(null),
+            new StubOperationalHubService(),
             new StubUnitOfWork(),
             NullLogger<UpdateMissionActivityCommandHandler>.Instance);
     }

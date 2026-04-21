@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -19,6 +20,7 @@ public class UploadExternalResolutionCommandHandler(
     IDepotClosureExternalItemRepository externalItemRepository,
     IDepotInventoryRepository inventoryRepository,
     IDepotFundRepository depotFundRepo,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<UploadExternalResolutionCommandHandler> logger)
     : IRequestHandler<UploadExternalResolutionCommand, UploadExternalResolutionResponse>
@@ -172,6 +174,19 @@ public class UploadExternalResolutionCommandHandler(
             closureRecord.Id);
 
         (_, var reusableInUse) = await depotRepository.GetReusableItemCountsAsync(depotId, cancellationToken);
+
+        await operationalHubService.PushDepotClosureUpdateAsync(
+            new DepotClosureRealtimeUpdate
+            {
+                SourceDepotId = depotId,
+                ClosureId = closureRecord.Id,
+                EntityType = "Closure",
+                Action = "ExternalResolutionUploaded",
+                Status = closureRecord.Status.ToString()
+            },
+            cancellationToken);
+
+        await operationalHubService.PushDepotInventoryUpdateAsync(depotId, "ExternalResolutionUploaded", cancellationToken);
 
         return new UploadExternalResolutionResponse
         {

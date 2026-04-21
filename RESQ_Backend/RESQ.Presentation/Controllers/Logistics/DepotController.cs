@@ -45,10 +45,14 @@ namespace RESQ.Presentation.Controllers.Logistics
 {
     [Route("logistics/depot")]
     [ApiController]
-    public class DepotController(IMediator mediator, IManagerDepotAccessService managerDepotAccessService) : ControllerBase
+    public class DepotController(
+        IMediator mediator,
+        IManagerDepotAccessService managerDepotAccessService,
+        IOperationalHubService operationalHubService) : ControllerBase
     {
         private readonly IMediator _mediator = mediator;
         private readonly IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+        private readonly IOperationalHubService _operationalHubService = operationalHubService;
 
         /// <summary>Lấy danh sách tất cả kho có phân trang.</summary>
         [HttpGet]
@@ -387,6 +391,24 @@ namespace RESQ.Presentation.Controllers.Logistics
             var userId = GetUserId();
             var command = new InitiateDepotClosureCommand(id, userId, dto.Reason);
             var result = await _mediator.Send(command);
+
+            if (result.Success)
+            {
+                await _operationalHubService.PushDepotClosureUpdateAsync(
+                    new DepotClosureRealtimeUpdate
+                    {
+                        SourceDepotId = id,
+                        ClosureId = result.ClosureId,
+                        EntityType = "Closure",
+                        Action = "ClosedConfirmed",
+                        Status = "Completed"
+                    },
+                    HttpContext.RequestAborted);
+
+                await _operationalHubService.PushDepotInventoryUpdateAsync(id, "DepotClosed", HttpContext.RequestAborted);
+                await _operationalHubService.PushLogisticsUpdateAsync("depots", cancellationToken: HttpContext.RequestAborted);
+            }
+
             return result.Success ? Ok(result) : Conflict(result);
         }
 
@@ -494,6 +516,23 @@ namespace RESQ.Presentation.Controllers.Logistics
                 .ToList();
             var command = new InitiateDepotClosureTransferCommand(id, userId, dto.Reason, assignments);
             var result = await _mediator.Send(command);
+
+            foreach (var transfer in result.Transfers)
+            {
+                await _operationalHubService.PushDepotClosureUpdateAsync(
+                    new DepotClosureRealtimeUpdate
+                    {
+                        SourceDepotId = id,
+                        TargetDepotId = transfer.TargetDepotId,
+                        ClosureId = result.ClosureId,
+                        TransferId = transfer.TransferId,
+                        EntityType = "Transfer",
+                        Action = "TransferPlanned",
+                        Status = transfer.TransferStatus
+                    },
+                    HttpContext.RequestAborted);
+            }
+
             return Ok(result);
         }
 
@@ -511,6 +550,18 @@ namespace RESQ.Presentation.Controllers.Logistics
             var userId = GetUserId();
             var command = new CancelDepotClosureTransferCommand(id, transferId, userId, dto.Reason);
             var result = await _mediator.Send(command);
+
+            await _operationalHubService.PushDepotClosureUpdateAsync(
+                new DepotClosureRealtimeUpdate
+                {
+                    SourceDepotId = id,
+                    TransferId = transferId,
+                    EntityType = "Transfer",
+                    Action = "Cancelled",
+                    Status = result.TransferStatus
+                },
+                HttpContext.RequestAborted);
+
             return Ok(result);
         }
 
@@ -528,6 +579,21 @@ namespace RESQ.Presentation.Controllers.Logistics
             var userId = GetUserId();
             var command = new CancelDepotClosureCommand(id, closureId, userId, dto.CancellationReason);
             var result = await _mediator.Send(command);
+
+            await _operationalHubService.PushDepotClosureUpdateAsync(
+                new DepotClosureRealtimeUpdate
+                {
+                    SourceDepotId = id,
+                    ClosureId = closureId,
+                    EntityType = "Closure",
+                    Action = "Cancelled",
+                    Status = "Cancelled"
+                },
+                HttpContext.RequestAborted);
+
+            await _operationalHubService.PushDepotInventoryUpdateAsync(id, "ClosureCancelled", HttpContext.RequestAborted);
+            await _operationalHubService.PushLogisticsUpdateAsync("depots", cancellationToken: HttpContext.RequestAborted);
+
             return Ok(result);
         }
 

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -177,6 +178,16 @@ public class StartDepotClosingCommandHandler(
         });
 
         await Task.WhenAll(
+            operationalHubService.PushDepotClosureUpdateAsync(
+                new DepotClosureRealtimeUpdate
+                {
+                    SourceDepotId = depot.Id,
+                    ClosureId = closureRecord.Id,
+                    EntityType = "Closure",
+                    Action = "StartedClosing",
+                    Status = closureRecord.Status.ToString()
+                },
+                cancellationToken),
             operationalHubService.PushDepotInventoryUpdateAsync(depot.Id, "StatusChange", cancellationToken),
             operationalHubService.PushLogisticsUpdateAsync("depots", cancellationToken: cancellationToken));
 

@@ -1,4 +1,5 @@
-﻿using MediatR;
+using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -8,19 +9,17 @@ using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 
-/// <summary>
-/// Kho nguồn bắt đầu đóng gói / picking - chuyển trạng thái Accepted → Preparing.
-/// RequestingDepotStatus giữ nguyên Approved.
-/// </summary>
 public class PrepareSupplyRequestCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
-    IFirebaseService firebaseService)
+    IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService)
     : IRequestHandler<PrepareSupplyRequestCommand, PrepareSupplyRequestResponse>
 {
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+
     public async Task<PrepareSupplyRequestResponse> Handle(PrepareSupplyRequestCommand request, CancellationToken cancellationToken)
     {
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
@@ -45,6 +44,18 @@ public class PrepareSupplyRequestCommandHandler(
             "Kho nguồn đang chuẩn bị hàng",
             $"Yêu cầu tiếp tế số {sr.Id}: kho nguồn đang đóng gói và chuẩn bị xuất hàng.",
             "supply_preparing",
+            cancellationToken);
+
+        await operationalHubService.PushSupplyRequestUpdateAsync(
+            new SupplyRequestRealtimeUpdate
+            {
+                RequestId = sr.Id,
+                RequestingDepotId = sr.RequestingDepotId,
+                SourceDepotId = sr.SourceDepotId,
+                Action = "Preparing",
+                SourceStatus = "Preparing",
+                RequestingStatus = "Approved"
+            },
             cancellationToken);
 
         return new PrepareSupplyRequestResponse { Message = $"Yêu cầu số {sr.Id} đã chuyển sang trạng thái đang chuẩn bị hàng." };

@@ -1,13 +1,16 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.MarkExternalClosure;
 
 public class MarkExternalClosureCommandHandler(
     IDepotRepository depotRepository,
-    IDepotClosureRepository closureRepository)
+    IDepotClosureRepository closureRepository,
+    IOperationalHubService operationalHubService)
     : IRequestHandler<MarkExternalClosureCommand, MarkExternalClosureResponse>
 {
     public async Task<MarkExternalClosureResponse> Handle(
@@ -39,6 +42,17 @@ public class MarkExternalClosureCommandHandler(
 
         closure.SetExternalResolution(request.ExternalNote, request.AdminUserId);
         await closureRepository.UpdateAsync(closure, cancellationToken);
+
+        await operationalHubService.PushDepotClosureUpdateAsync(
+            new DepotClosureRealtimeUpdate
+            {
+                SourceDepotId = request.DepotId,
+                ClosureId = closure.Id,
+                EntityType = "Closure",
+                Action = "MarkedExternalResolution",
+                Status = closure.Status.ToString()
+            },
+            cancellationToken);
 
         return new MarkExternalClosureResponse
         {

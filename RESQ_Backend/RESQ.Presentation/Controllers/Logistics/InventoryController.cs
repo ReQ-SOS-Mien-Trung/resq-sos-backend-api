@@ -59,16 +59,22 @@ using RESQ.Domain.Enum.Logistics;
 using System.Security.Claims;
 
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 
 namespace RESQ.Presentation.Controllers.Logistics;
 
 [Route("logistics/inventory")]
 [ApiController]
-public class InventoryController(IMediator mediator, IItemCategoryRepository itemCategoryRepository, IAuthorizationService authorizationService) : ControllerBase
+public class InventoryController(
+    IMediator mediator,
+    IItemCategoryRepository itemCategoryRepository,
+    IAuthorizationService authorizationService,
+    IOperationalHubService operationalHubService) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
     private readonly IItemCategoryRepository _itemCategoryRepository = itemCategoryRepository;
     private readonly IAuthorizationService _authorizationService = authorizationService;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
 
     /// <summary>Xem tồn kho (phân trang) của một kho theo ID.</summary>
     [HttpGet("depot/{depotId:int}")]
@@ -366,6 +372,8 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             Reason = request.Reason
         });
 
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "ThresholdUpdated", HttpContext.RequestAborted);
+
         return Ok(result);
     }
 
@@ -388,6 +396,8 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             RowVersion = request.RowVersion,
             Reason = request.Reason
         });
+
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "ThresholdReset", HttpContext.RequestAborted);
 
         return Ok(result);
     }
@@ -826,6 +836,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             request.ItemModelId,
             request.Quantity,
             request.Note));
+        await _operationalHubService.PushDepotInventoryUpdateAsync(request.DepotId, "ManualExport", HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -847,6 +858,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             request.Note,
             request.ExpiredDate,
             depotId));
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "ManualAdjust", HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -868,6 +880,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         };
 
         var result = await _mediator.Send(command);
+        await _operationalHubService.PushDepotInventoryUpdateAsync(request.DepotId, "ImportReliefItems", HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -887,6 +900,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         };
 
         var result = await _mediator.Send(command);
+        await _operationalHubService.PushDepotInventoryUpdateAsync(request.DepotId, "ImportPurchasedItems", HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -1013,6 +1027,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new DisposeConsumableLotCommand(
             userId, lotId, request.Quantity, request.Reason, request.Note, depotId));
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "DisposeConsumableLot", HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -1027,6 +1042,7 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
         var userId = GetCurrentUserId();
         var result = await _mediator.Send(new DecommissionReusableItemCommand(
             userId, itemId, request.Note, depotId));
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "DecommissionReusableItem", HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -1108,6 +1124,8 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             itemId,
             request?.Note));
 
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "ReusableMaintenance", HttpContext.RequestAborted);
+
         return Ok(result);
     }
 
@@ -1128,6 +1146,8 @@ public class InventoryController(IMediator mediator, IItemCategoryRepository ite
             itemId,
             request.Condition,
             request.Note));
+
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "ReusableAvailable", HttpContext.RequestAborted);
 
         return Ok(result);
     }

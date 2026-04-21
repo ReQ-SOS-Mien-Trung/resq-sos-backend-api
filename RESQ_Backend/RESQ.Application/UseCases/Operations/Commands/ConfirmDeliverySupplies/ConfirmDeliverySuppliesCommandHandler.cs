@@ -149,6 +149,21 @@ public class ConfirmDeliverySuppliesCommandHandler(
 
         if (activity.DepotId.HasValue)
         {
+            await _operationalHubService.PushDepotActivityUpdateAsync(
+                new DepotActivityRealtimeUpdate
+                {
+                    ActivityId = surplusReturnActivityId ?? activity.Id,
+                    DepotId = activity.DepotId.Value,
+                    MissionId = activity.MissionId,
+                    MissionTeamId = activity.MissionTeamId,
+                    RescueTeamId = null,
+                    ActivityType = "RETURN_SUPPLIES",
+                    Action = surplusReturnActivityId.HasValue ? "ReturnActivityChanged" : "DeliveryConfirmed",
+                    Status = surplusReturnActivityId.HasValue ? "PlannedOrUpdated" : MissionActivityStatus.Succeed.ToString(),
+                    EstimatedTime = activity.EstimatedTime
+                },
+                cancellationToken);
+
             await _operationalHubService.PushDepotInventoryUpdateAsync(
                 activity.DepotId.Value,
                 "ConfirmDelivery",
