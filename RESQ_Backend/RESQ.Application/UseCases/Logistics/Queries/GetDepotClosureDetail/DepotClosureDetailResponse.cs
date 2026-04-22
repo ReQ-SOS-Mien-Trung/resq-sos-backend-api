@@ -45,6 +45,10 @@ public class DepotClosureDetailResponse
     public int NonAvailableReusableUnitCount { get; set; }
     public bool CanSelectResolutionOption { get; set; }
     public bool CanConfirmClose { get; set; }
+    public bool CanDownloadExternalTemplate { get; set; }
+    public bool CanUploadExternalResolution { get; set; }
+    public bool HasTransferRecords { get; set; }
+    public bool HasExternalResolutionRecords { get; set; }
     public List<ClosureInventoryItemDto> RemainingInventoryItems { get; set; } = [];
     public DepotClosureTransferDetailDto? TransferDetail { get; set; }
     public List<DepotClosureTransferDetailDto> TransferDetails { get; set; } = [];

@@ -35,6 +35,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotClosures;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotsByCluster;
+using RESQ.Application.UseCases.Logistics.Queries.GetExternalClosureResolutionState;
 using RESQ.Application.UseCases.Logistics.Queries.GetClosureTransferSuggestions;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyClosureTransfers;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyIncomingClosureTransfer;
@@ -475,11 +476,11 @@ namespace RESQ.Presentation.Controllers.Logistics
         }
 
         /// <summary>
-        /// [Admin] Tải file Excel template liệt kê hàng tồn kho — depot manager điền cách xử lý rồi upload lại.
+        /// [Manager/Admin] Tải file Excel template liệt kê hàng tồn kho — depot manager điền cách xử lý rồi upload lại.
         /// Kho phải ở trạng thái Closing và còn hàng.
         /// </summary>
         [HttpGet("{id}/close/export-template")]
-        [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -489,6 +490,22 @@ namespace RESQ.Presentation.Controllers.Logistics
             var query = new ExportClosureTemplateQuery(userId, id);
             var result = await _mediator.Send(query);
             return File(result.FileContent, result.ContentType, result.FileName);
+        }
+
+        /// <summary>
+        /// [Manager kho nguồn] Trạng thái xử lý bên ngoài hiện tại của kho đang đóng.
+        /// Dùng để FE manager quyết định có hiện nút tải template / upload external resolution hay không.
+        /// </summary>
+        [HttpGet("{id}/close/external-resolution-state")]
+        [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
+        [ProducesResponseType(typeof(ExternalClosureResolutionStateResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetExternalClosureResolutionState(int id)
+        {
+            var userId = GetUserId();
+            var result = await _mediator.Send(new GetExternalClosureResolutionStateQuery(id, userId));
+            return Ok(result);
         }
 
         /// <summary>
