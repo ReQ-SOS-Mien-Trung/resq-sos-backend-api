@@ -77,6 +77,11 @@ public class GetDepotClosureDetailQueryHandler(
             !string.Equals(x.Status, "Received", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(x.Status, "Cancelled", StringComparison.OrdinalIgnoreCase));
         var hasRemainingItems = remainingInventoryItems.Count > 0;
+        var hasTransferableRemainingItems = remainingInventoryItems.Any(x => x.TransferableQuantity > 0);
+        var transferableRemainingItemCount = remainingInventoryItems.Count(x => x.TransferableQuantity > 0);
+        var transferableRemainingUnitCount = remainingInventoryItems.Sum(x => x.TransferableQuantity);
+        var blockedRemainingItemCount = remainingInventoryItems.Count(x => x.BlockedQuantity > 0);
+        var blockedRemainingUnitCount = remainingInventoryItems.Sum(x => x.BlockedQuantity);
 
         if (!hasOpenTransfers)
         {
@@ -132,9 +137,14 @@ public class GetDepotClosureDetailQueryHandler(
             HasOpenTransfers = hasOpenTransfers,
             HasRemainingItems = hasRemainingItems,
             RemainingItemCount = remainingInventoryItems.Count,
+            HasTransferableRemainingItems = hasTransferableRemainingItems,
+            TransferableRemainingItemCount = transferableRemainingItemCount,
+            TransferableRemainingUnitCount = transferableRemainingUnitCount,
+            BlockedRemainingItemCount = blockedRemainingItemCount,
+            BlockedRemainingUnitCount = blockedRemainingUnitCount,
             CanSelectResolutionOption = closure.Status == DepotClosureStatus.InProgress
                                         && closure.ResolutionType == null
-                                        && hasRemainingItems
+                                        && hasTransferableRemainingItems
                                         && !hasOpenTransfers,
             CanConfirmClose = closure.Status == DepotClosureStatus.Completed
                               && depot.Status == DepotStatus.Closing

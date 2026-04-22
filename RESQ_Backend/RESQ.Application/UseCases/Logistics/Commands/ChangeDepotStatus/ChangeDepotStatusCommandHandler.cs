@@ -76,6 +76,15 @@ public class ChangeDepotStatusCommandHandler(
             }
         }
 
+        if (request.Status == DepotStatus.Closing)
+        {
+            var closingBlockers = await _depotInventoryRepository.GetDepotClosingBlockersAsync(request.Id, cancellationToken);
+            if (closingBlockers.HasAnyBlockingItems)
+            {
+                throw new ConflictException(BuildClosingBlockersMessage(closingBlockers));
+            }
+        }
+
         depot.ChangeStatus(request.Status, request.RequestedBy);
 
         await _depotRepository.UpdateAsync(depot, cancellationToken);
@@ -93,5 +102,26 @@ public class ChangeDepotStatusCommandHandler(
             Status = depot.Status.ToString(),
             Message = "Cập nhật trạng thái kho thành công."
         };
+    }
+
+    private static string BuildClosingBlockersMessage(RESQ.Domain.Entities.Logistics.Models.DepotClosingBlockersModel blockers)
+    {
+        var messages = new List<string>();
+        if (blockers.HasBlockingReservedConsumables)
+        {
+            messages.Add(
+                $"{blockers.ReservedConsumableItemCount} dòng hàng tiêu hao đang có reserved quantity " +
+                $"(tổng {blockers.ReservedConsumableUnitCount} đơn vị)");
+        }
+
+        if (blockers.HasBlockingReusableStates)
+        {
+            messages.Add(
+                $"{blockers.NonAvailableReusableItemModelCount} loại vật phẩm tái sử dụng còn ở trạng thái khác Available " +
+                $"(tổng {blockers.NonAvailableReusableUnitCount} đơn vị)");
+        }
+
+        return $"Không thể chuyển kho sang Closing vì kho vẫn còn {string.Join(" và ", messages)}. " +
+               "Hãy xử lý hết reserved quantity và đưa toàn bộ đồ tái sử dụng về trạng thái Available trước.";
     }
 }
