@@ -71,6 +71,12 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
         successResult.SuggestedMissionType = "RESCUE";
         successResult.ConfidenceScore = 0.85;
         successResult.MixedRescueReliefWarning = "tach warning rieng";
+        successResult.PipelineMetadata = new MissionSuggestionPipelineMetadata
+        {
+            ExecutionMode = "pipeline",
+            FinalResultSource = "draft",
+            UsedLegacyFallback = false
+        };
 
         var handler = BuildHandler(
             suggestionService: new StubSuggestionService(successResult));
@@ -83,6 +89,9 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
         Assert.Equal("RESCUE", result.SuggestedMissionType);
         Assert.Equal(0.85, result.ConfidenceScore);
         Assert.Equal("tach warning rieng", result.MixedRescueReliefWarning);
+        Assert.Equal("pipeline", result.PipelineExecutionMode);
+        Assert.Equal("draft", result.PipelineFinalResultSource);
+        Assert.False(result.PipelineUsedLegacyFallback);
     }
 
     // ═══ Stream handler tests ═════════════════════════════════════

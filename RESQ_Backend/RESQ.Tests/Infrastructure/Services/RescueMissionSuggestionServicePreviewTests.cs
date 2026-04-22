@@ -8,6 +8,7 @@ using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.System;
@@ -214,7 +215,7 @@ public class RescueMissionSuggestionServicePreviewTests
     }
 
     [Fact]
-    public async Task PreviewSuggestionAsync_PipelineValidationWithoutActivities_FallsBackToAssembledDraft()
+    public async Task PreviewSuggestionAsync_PipelineValidationWithoutActivities_FailsHard()
     {
         var promptRepository = new RecordingPromptRepository(
         [
@@ -280,7 +281,15 @@ public class RescueMissionSuggestionServicePreviewTests
                   "depot_name": "Kho Hue",
                   "depot_address": "1 Tran Hung Dao",
                   "depot_latitude": 16.463,
-                  "depot_longitude": 107.590
+                  "depot_longitude": 107.590,
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 501,
+                      "item_name": "Sua dinh duong tre em",
+                      "quantity": 4,
+                      "unit": "hop"
+                    }
+                  ]
                 },
                 {
                   "activity_key": "deliver-22",
@@ -289,7 +298,18 @@ public class RescueMissionSuggestionServicePreviewTests
                   "description": "Giao do cho SOS 22",
                   "priority": "High",
                   "estimated_time": "20 phut",
-                  "sos_request_id": 22
+                  "sos_request_id": 22,
+                  "depot_id": 9,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Tran Hung Dao",
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 501,
+                      "item_name": "Sua dinh duong tre em",
+                      "quantity": 4,
+                      "unit": "hop"
+                    }
+                  ]
                 }
               ],
               "special_notes": null,
@@ -355,8 +375,32 @@ public class RescueMissionSuggestionServicePreviewTests
                     "longitude": 107.600,
                     "distance_km": 1.2
                   }
+                },
+                {
+                  "activity_key": "evacuate-11",
+                  "step": 4,
+                  "activity_type": "EVACUATE",
+                  "description": "Dua SOS 11 den diem tap ket",
+                  "priority": "Critical",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 11,
+                  "assembly_point_id": 7,
+                  "assembly_point_name": "AP Hue",
+                  "assembly_point_latitude": 16.470,
+                  "assembly_point_longitude": 107.600,
+                  "suggested_team": {
+                    "team_id": 21,
+                    "team_name": "Team 21",
+                    "team_type": "Rescue",
+                    "assembly_point_id": 7,
+                    "assembly_point_name": "AP Hue",
+                    "latitude": 16.470,
+                    "longitude": 107.600,
+                    "distance_km": 1.2
+                  }
                 }
               ],
+              "ordered_activity_keys": ["rescue-11", "evacuate-11", "collect-22", "deliver-22"],
               "suggested_team": {
                 "team_id": 21,
                 "team_name": "Team 21",
@@ -395,7 +439,15 @@ public class RescueMissionSuggestionServicePreviewTests
             promptRepository,
             new RecordingMissionAiSuggestionRepository(),
             ThrowingProxy<IDepotInventoryRepository>.Create(),
-            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new StubItemModelMetadataRepository(
+                new ItemModelRecord
+                {
+                    Id = 501,
+                    CategoryId = 1,
+                    Name = "Sua dinh duong tre em",
+                    Unit = "hop",
+                    ItemType = "Consumable"
+                }),
             new EmptyAssemblyPointRepository(),
             Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = true }),
             NullLogger<RescueMissionSuggestionService>.Instance);
@@ -436,7 +488,17 @@ public class RescueMissionSuggestionServicePreviewTests
                     Name = "Kho Hue",
                     Address = "1 Tran Hung Dao",
                     Latitude = 16.463,
-                    Longitude = 107.590
+                    Longitude = 107.590,
+                    Inventories =
+                    [
+                        new DepotInventoryItemDto
+                        {
+                            ItemId = 501,
+                            ItemName = "Sua dinh duong tre em",
+                            Unit = "hop",
+                            AvailableQuantity = 20
+                        }
+                    ]
                 }
             ],
             [
@@ -460,21 +522,270 @@ public class RescueMissionSuggestionServicePreviewTests
             aiConfigOverride: BuildAiConfig(model: "shared-preview-model"),
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("draft", result.PipelineMetadata?.FinalResultSource);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Validation stage failed", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         Assert.True(result.NeedsManualReview);
-        Assert.Contains("Backend kept the assembled mission draft", result.SpecialNotes, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("SOS #11", result.MixedRescueReliefWarning);
-        Assert.Equal(
-            ["COLLECT_SUPPLIES", "DELIVER_SUPPLIES", "RESCUE"],
-            result.SuggestedActivities
-                .Where(activity => activity.ActivityType != "RETURN_ASSEMBLY_POINT")
-                .Select(activity => activity.ActivityType)
-                .ToArray());
+        Assert.Empty(result.SuggestedActivities);
+        Assert.NotNull(result.PipelineMetadata);
+        Assert.Equal("failed", result.PipelineMetadata!.PipelineStatus);
+        Assert.Null(result.PipelineMetadata.FinalResultSource);
+        Assert.False(result.PipelineMetadata.UsedLegacyFallback);
     }
 
     [Fact]
-    public async Task PreviewSuggestionAsync_PipelineFallbackToLegacyWithoutActivities_SalvagesRouteFromPipelineFragments()
+    public async Task PreviewSuggestionAsync_PipelineValidationReliefOnlyExecutable_FailsHard()
+    {
+        var promptRepository = new RecordingPromptRepository(
+        [
+            BuildStagePrompt(4, PromptType.MissionRequirementsAssessment, "requirements-prefer-draft"),
+            BuildStagePrompt(5, PromptType.MissionDepotPlanning, "depot-prefer-draft"),
+            BuildStagePrompt(6, PromptType.MissionTeamPlanning, "team-prefer-draft"),
+            BuildStagePrompt(7, PromptType.MissionPlanValidation, "validation-relief-only"),
+            BuildStagePrompt(8, PromptType.MissionPlanning, "active-legacy")
+        ]);
+        var aiClient = new PipelineStubAiProviderClient(new Dictionary<string, string>
+        {
+            ["requirements-prefer-draft"] = """
+            {
+              "suggested_mission_title": "Pipeline mixed mission",
+              "suggested_mission_type": "MIXED",
+              "suggested_priority_score": 9.1,
+              "suggested_severity_level": "Critical",
+              "overall_assessment": "Pipeline assembled a mixed route",
+              "estimated_duration": "1 gio 10 phut",
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.9,
+              "suggested_resources": [],
+              "sos_requirements": [
+                {
+                  "sos_request_id": 11,
+                  "summary": "Can cuu ho khan cap",
+                  "priority": "Critical",
+                  "needs_immediate_safe_transfer": true,
+                  "can_wait_for_combined_mission": false,
+                  "handling_reason": "Can rescue ngay",
+                  "required_supplies": [],
+                  "required_teams": []
+                },
+                {
+                  "sos_request_id": 22,
+                  "summary": "Can tiep te nuoc uong",
+                  "priority": "High",
+                  "needs_immediate_safe_transfer": false,
+                  "can_wait_for_combined_mission": true,
+                  "handling_reason": "Co the di cung route",
+                  "required_supplies": [
+                    { "item_name": "Nuoc uong dong chai", "quantity": 8, "unit": "chai" }
+                  ],
+                  "required_teams": []
+                }
+              ]
+            }
+            """,
+            ["depot-prefer-draft"] = """
+            {
+              "activities": [
+                {
+                  "activity_key": "collect-22",
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Lay nuoc tai Kho Hue",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 22,
+                  "depot_id": 9,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Tran Hung Dao",
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 88,
+                      "item_name": "Nuoc uong dong chai",
+                      "quantity": 8,
+                      "unit": "chai"
+                    }
+                  ]
+                },
+                {
+                  "activity_key": "deliver-22",
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Giao nuoc cho SOS 22",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 22,
+                  "depot_id": 9,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Tran Hung Dao",
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 88,
+                      "item_name": "Nuoc uong dong chai",
+                      "quantity": 8,
+                      "unit": "chai"
+                    }
+                  ]
+                }
+              ],
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.87
+            }
+            """,
+            ["team-prefer-draft"] = """
+            {
+              "activity_assignments": [],
+              "additional_activities": [
+                {
+                  "activity_key": "rescue-11",
+                  "step": 3,
+                  "activity_type": "RESCUE",
+                  "description": "Cuu ho SOS 11",
+                  "priority": "Critical",
+                  "estimated_time": "30 phut",
+                  "sos_request_id": 11,
+                  "assembly_point_id": 7,
+                  "assembly_point_name": "AP Hue",
+                  "assembly_point_latitude": 16.470,
+                  "assembly_point_longitude": 107.600
+                },
+                {
+                  "activity_key": "evacuate-11",
+                  "step": 4,
+                  "activity_type": "EVACUATE",
+                  "description": "Dua SOS 11 den AP Hue",
+                  "priority": "Critical",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 11,
+                  "assembly_point_id": 7,
+                  "assembly_point_name": "AP Hue",
+                  "assembly_point_latitude": 16.470,
+                  "assembly_point_longitude": 107.600
+                }
+              ],
+              "ordered_activity_keys": ["rescue-11", "evacuate-11", "collect-22", "deliver-22"],
+              "suggested_team": null,
+              "special_notes": null,
+              "confidence_score": 0.84
+            }
+            """,
+            ["validation-relief-only"] = """
+            {
+              "mission_title": "Validation kept relief only",
+              "mission_type": "MIXED",
+              "priority_score": 8.7,
+              "severity_level": "Critical",
+              "overall_assessment": "Relief branch only",
+              "activities": [
+                {
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Lay nuoc tai Kho Hue",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 22,
+                  "depot_id": 9,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Tran Hung Dao"
+                },
+                {
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Giao nuoc cho SOS 22",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 22
+                }
+              ],
+              "resources": [],
+              "estimated_duration": "40 phut",
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": [],
+              "confidence_score": 0.9
+            }
+            """
+        });
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(aiClient),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            promptRepository,
+            new RecordingMissionAiSuggestionRepository(),
+            ThrowingProxy<IDepotInventoryRepository>.Create(),
+            new StubItemModelMetadataRepository(
+                new ItemModelRecord
+                {
+                    Id = 88,
+                    CategoryId = 1,
+                    Name = "Nuoc uong dong chai",
+                    Unit = "chai",
+                    ItemType = "Consumable"
+                }),
+            new EmptyAssemblyPointRepository(),
+            Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = true }),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+        var result = await service.PreviewSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 11,
+                    SosType = "Support",
+                    RawMessage = "Can nguoi tiep can va dua di",
+                    AiAnalysis = new SosRequestAiAnalysisSummary
+                    {
+                        HasAiAnalysis = true,
+                        SuggestedPriority = "Critical",
+                        NeedsImmediateSafeTransfer = true,
+                        CanWaitForCombinedMission = false
+                    }
+                },
+                new SosRequestSummary
+                {
+                    Id = 22,
+                    SosType = "Support",
+                    RawMessage = "Can tiep te nuoc uong",
+                    AiAnalysis = new SosRequestAiAnalysisSummary
+                    {
+                        HasAiAnalysis = true,
+                        SuggestedPriority = "High",
+                        NeedsImmediateSafeTransfer = false,
+                        CanWaitForCombinedMission = true
+                    }
+                }
+            ],
+            [
+                new DepotSummary
+                {
+                    Id = 9,
+                    Name = "Kho Hue",
+                    Address = "1 Tran Hung Dao",
+                    Latitude = 16.463,
+                    Longitude = 107.590
+                }
+            ],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            promptOverride: BuildStagePrompt(99, PromptType.MissionPlanValidation, "validation-relief-only", isActive: false),
+            aiConfigOverride: BuildAiConfig(model: "shared-preview-model"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Validation stage failed", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.True(result.NeedsManualReview);
+        Assert.Empty(result.SuggestedActivities);
+        Assert.NotNull(result.PipelineMetadata);
+        Assert.Equal("failed", result.PipelineMetadata!.PipelineStatus);
+        Assert.Null(result.PipelineMetadata.FinalResultSource);
+        Assert.False(result.PipelineMetadata.UsedLegacyFallback);
+    }
+
+    [Fact]
+    public async Task PreviewSuggestionAsync_PipelineStageFailure_DoesNotFallbackToLegacy()
     {
         var promptRepository = new RecordingPromptRepository(
         [
@@ -540,8 +851,17 @@ public class RescueMissionSuggestionServicePreviewTests
                   "priority": "High",
                   "estimated_time": "20 phut",
                   "sos_request_id": 22,
+                  "depot_id": 9,
                   "depot_name": "Kho Hue",
-                  "depot_address": "1 Tran Hung Dao"
+                  "depot_address": "1 Tran Hung Dao",
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 88,
+                      "item_name": "Nuoc uong dong chai",
+                      "quantity": 10,
+                      "unit": "chai"
+                    }
+                  ]
                 },
                 {
                   "activity_key": "deliver-22",
@@ -550,7 +870,18 @@ public class RescueMissionSuggestionServicePreviewTests
                   "description": "Giao nuoc sach cho SOS 22",
                   "priority": "High",
                   "estimated_time": "20 phut",
-                  "sos_request_id": 22
+                  "sos_request_id": 22,
+                  "depot_id": 9,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Tran Hung Dao",
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 88,
+                      "item_name": "Nuoc uong dong chai",
+                      "quantity": 10,
+                      "unit": "chai"
+                    }
+                  ]
                 }
               ],
               "special_notes": null,
@@ -583,7 +914,15 @@ public class RescueMissionSuggestionServicePreviewTests
             promptRepository,
             new RecordingMissionAiSuggestionRepository(),
             ThrowingProxy<IDepotInventoryRepository>.Create(),
-            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new StubItemModelMetadataRepository(
+                new ItemModelRecord
+                {
+                    Id = 88,
+                    CategoryId = 1,
+                    Name = "Nuoc uong dong chai",
+                    Unit = "chai",
+                    ItemType = "Consumable"
+                }),
             new EmptyAssemblyPointRepository(),
             Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = true }),
             NullLogger<RescueMissionSuggestionService>.Instance);
@@ -634,18 +973,117 @@ public class RescueMissionSuggestionServicePreviewTests
             aiConfigOverride: BuildAiConfig(model: "shared-preview-model"),
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Null(result.ErrorMessage);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Team stage failed", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         Assert.True(result.NeedsManualReview);
-        Assert.Equal("salvaged", result.PipelineMetadata?.FinalResultSource);
-        Assert.True(result.PipelineMetadata?.UsedLegacyFallback);
-        Assert.Contains(
-            result.SuggestedActivities,
-            activity => string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(
-            result.SuggestedActivities,
-            activity => string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase));
-        Assert.NotEmpty(result.MixedRescueReliefWarning);
+        Assert.Empty(result.SuggestedActivities);
+        Assert.NotNull(result.PipelineMetadata);
+        Assert.Equal("failed", result.PipelineMetadata!.PipelineStatus);
+        Assert.Null(result.PipelineMetadata.FinalResultSource);
+        Assert.False(result.PipelineMetadata.UsedLegacyFallback);
+    }
+
+    [Fact]
+    public async Task PreviewSuggestionAsync_MissionPlanningPrompt_UnresolvedGenericSupplyMovesToShortage()
+    {
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(new LegacyStubAiProviderClient(
+                """
+                {
+                  "mission_title": "Preview plan",
+                  "mission_type": "SUPPLY",
+                  "priority_score": 7.8,
+                  "severity_level": "High",
+                  "overall_assessment": "Can tiep te",
+                  "activities": [
+                    {
+                      "step": 1,
+                      "activity_type": "COLLECT_SUPPLIES",
+                      "description": "Chuan bi do tiep te",
+                      "priority": "High",
+                      "estimated_time": "20 phut",
+                      "sos_request_id": 1,
+                      "depot_id": 9,
+                      "depot_name": "Kho Preview",
+                      "depot_address": "1 Preview Street",
+                      "supplies_to_collect": [
+                        {
+                          "item_name": "Nhu yeu pham thiet yeu",
+                          "quantity": 1,
+                          "unit": "goi"
+                        }
+                      ]
+                    },
+                    {
+                      "step": 2,
+                      "activity_type": "DELIVER_SUPPLIES",
+                      "description": "Giao do cho SOS 1",
+                      "priority": "High",
+                      "estimated_time": "20 phut",
+                      "sos_request_id": 1,
+                      "depot_id": 9,
+                      "depot_name": "Kho Preview",
+                      "depot_address": "1 Preview Street",
+                      "supplies_to_collect": [
+                        {
+                          "item_name": "Nhu yeu pham thiet yeu",
+                          "quantity": 1,
+                          "unit": "goi"
+                        }
+                      ]
+                    }
+                  ],
+                  "resources": [],
+                  "estimated_duration": "40 phut",
+                  "special_notes": null,
+                  "needs_additional_depot": false,
+                  "supply_shortages": [],
+                  "confidence_score": 0.82
+                }
+                """)),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            ThrowingProxy<IPromptRepository>.Create(),
+            new RecordingMissionAiSuggestionRepository(),
+            ThrowingProxy<IDepotInventoryRepository>.Create(),
+            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new EmptyAssemblyPointRepository(),
+            Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = true }),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+        var result = await service.PreviewSuggestionAsync(
+            [new SosRequestSummary { Id = 1, RawMessage = "Can tiep te" }],
+            [
+                new DepotSummary
+                {
+                    Id = 9,
+                    Name = "Kho Preview",
+                    Address = "1 Preview Street",
+                    Latitude = 16.463,
+                    Longitude = 107.590
+                }
+            ],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            promptOverride: new PromptModel
+            {
+                Id = 12,
+                Name = "Draft mission planning prompt",
+                PromptType = PromptType.MissionPlanning,
+                SystemPrompt = "mission-planning-legacy",
+                UserPromptTemplate = "{{sos_requests_data}}",
+                IsActive = false
+            },
+            aiConfigOverride: BuildAiConfig(model: "gemini-preview"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.True(result.NeedsManualReview);
+        Assert.Single(result.SupplyShortages);
+        Assert.DoesNotContain(
+            result.SuggestedActivities.SelectMany(activity => activity.SuppliesToCollect ?? []),
+            supply => string.Equals(supply.ItemName, "Nhu yeu pham thiet yeu", StringComparison.OrdinalIgnoreCase));
     }
 
     private static PromptModel BuildStagePrompt(
@@ -766,7 +1204,35 @@ public class RescueMissionSuggestionServicePreviewTests
                   "sos_request_id": 1,
                   "depot_id": 9,
                   "depot_name": "Kho Preview",
-                  "depot_address": "1 Preview Street"
+                  "depot_address": "1 Preview Street",
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 501,
+                      "item_name": "Nuoc uong dong chai",
+                      "quantity": 2,
+                      "unit": "chai"
+                    }
+                  ]
+                },
+                {
+                  "activity_key": "deliver-1",
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Giao do cho SOS 1",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 1,
+                  "depot_id": 9,
+                  "depot_name": "Kho Preview",
+                  "depot_address": "1 Preview Street",
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 501,
+                      "item_name": "Nuoc uong dong chai",
+                      "quantity": 2,
+                      "unit": "chai"
+                    }
+                  ]
                 }
               ],
               "special_notes": null,
@@ -779,6 +1245,7 @@ public class RescueMissionSuggestionServicePreviewTests
             {
               "activity_assignments": [],
               "additional_activities": [],
+              "ordered_activity_keys": ["collect-1", "deliver-1"],
               "suggested_team": null,
               "special_notes": null,
               "confidence_score": 0.8
@@ -801,11 +1268,38 @@ public class RescueMissionSuggestionServicePreviewTests
                   "sos_request_id": 1,
                   "depot_id": 9,
                   "depot_name": "Kho Preview",
-                  "depot_address": "1 Preview Street"
+                  "depot_address": "1 Preview Street",
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 501,
+                      "item_name": "Nuoc uong dong chai",
+                      "quantity": 2,
+                      "unit": "chai"
+                    }
+                  ]
+                },
+                {
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Giao do cho SOS 1",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 1,
+                  "depot_id": 9,
+                  "depot_name": "Kho Preview",
+                  "depot_address": "1 Preview Street",
+                  "supplies_to_collect": [
+                    {
+                      "item_id": 501,
+                      "item_name": "Nuoc uong dong chai",
+                      "quantity": 2,
+                      "unit": "chai"
+                    }
+                  ]
                 }
               ],
               "resources": [],
-              "estimated_duration": "20 phut",
+              "estimated_duration": "40 phut",
               "special_notes": null,
               "needs_additional_depot": false,
               "supply_shortages": [],
@@ -921,6 +1415,37 @@ public class RescueMissionSuggestionServicePreviewTests
         public Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(IReadOnlyList<Guid> userIds, int? assemblyPointId, CancellationToken cancellationToken = default) => Task.FromResult<List<Guid>>([]);
         public Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(IReadOnlyList<Guid> userIds, CancellationToken cancellationToken = default) => Task.FromResult<List<Guid>>([]);
+    }
+
+    private sealed class StubItemModelMetadataRepository(params ItemModelRecord[] items) : IItemModelMetadataRepository
+    {
+        private readonly Dictionary<int, ItemModelRecord> _items = items.ToDictionary(item => item.Id);
+
+        public Task<List<RESQ.Application.Common.Models.MetadataDto>> GetAllForMetadataAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<List<RESQ.Application.Common.Models.MetadataDto>>([]);
+
+        public Task<List<RESQ.Application.Common.Models.MetadataDto>> GetByCategoryCodeAsync(
+            RESQ.Domain.Enum.Logistics.ItemCategoryCode categoryCode,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<List<RESQ.Application.Common.Models.MetadataDto>>([]);
+
+        public Task<List<RESQ.Application.Services.DonationImportItemInfo>> GetAllForDonationTemplateAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<List<RESQ.Application.Services.DonationImportItemInfo>>([]);
+
+        public Task<List<RESQ.Application.Services.DonationImportTargetGroupInfo>> GetAllTargetGroupsForTemplateAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<List<RESQ.Application.Services.DonationImportTargetGroupInfo>>([]);
+
+        public Task<Dictionary<int, ItemModelRecord>> GetByIdsAsync(IReadOnlyList<int> ids, CancellationToken cancellationToken = default)
+            => Task.FromResult(ids.Where(id => _items.ContainsKey(id)).ToDictionary(id => id, id => _items[id]));
+
+        public Task<bool> CategoryExistsAsync(int categoryId, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
+        public Task<bool> HasInventoryTransactionsAsync(int itemModelId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<bool> UpdateItemModelAsync(ItemModelRecord model, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
     }
 
     private sealed class RecordingMissionAiSuggestionRepository : IMissionAiSuggestionRepository

@@ -36,6 +36,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private readonly ILogger<RescueMissionSuggestionService> _logger;
 
     private const double LowConfidenceThreshold = 0.65;
+    private const int LegacyMissionPlanningPromptId = 2;
 
     private const int MaxAgentTurns = 20;
     private const int AgentPageSize = 10;
@@ -45,6 +46,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private const string ReusableItemType = "Reusable";
     private const string SingleTeamExecutionMode = "SingleTeam";
     private const string DefaultReturnAssemblyEstimatedTime = "20 phút";
+    private const string WarningLevelNone = "none";
+    private const string WarningLevelLight = "light";
+    private const string WarningLevelMedium = "medium";
+    private const string WarningLevelStrong = "strong";
 
     private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
     private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -71,12 +76,44 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     {
         public bool IsExecutable =>
             HasExecutableActivities
-            && (!RequiresMixedBranches || (HasRescueBranch && HasReliefBranch));
+            && (!RequiresMixedBranches || (HasRescueBranch && HasReliefBranch))
+            && string.IsNullOrWhiteSpace(FailureReason);
     }
 
     private sealed record MissionResultSelection(
         RescueMissionSuggestionResult Result,
         string FinalResultSource);
+
+    private sealed record InventoryMatchCandidate(
+        DepotInventoryItemDto Item,
+        int Score,
+        bool IsExactNameMatch);
+
+    private sealed record AiWarningDecision(
+        string? Level,
+        string? Title,
+        string? Message,
+        IReadOnlyCollection<int>? RelatedSosIds,
+        string? Reason);
+
+    private sealed record MissionSosRouteConstraint(
+        int SosRequestId,
+        bool IsRescueLike,
+        bool NeedsImmediateSafeTransfer,
+        bool? CanWaitForCombinedMission,
+        bool RequiresSupplyBeforeRescue);
+
+    private sealed class SupplyRouteLedger
+    {
+        public Dictionary<string, SupplyRouteLedgerItem> Items { get; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class SupplyRouteLedgerItem
+    {
+        public int RemainingQuantity { get; set; }
+        public List<SupplyExecutionLotDto> RemainingLots { get; } = [];
+        public List<SupplyExecutionReusableUnitDto> RemainingUnits { get; } = [];
+    }
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
@@ -171,10 +208,17 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 else if (evt.EventType == "error")
                 {
                     stopwatch.Stop();
+                    if (evt.Result != null)
+                    {
+                        evt.Result.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
+                        return evt.Result;
+                    }
+
                     return new RescueMissionSuggestionResult
                     {
                         IsSuccess = false,
                         ErrorMessage = evt.Data,
+                        NeedsManualReview = true,
                         ResponseTimeMs = stopwatch.ElapsedMilliseconds
                     };
                 }
@@ -270,14 +314,19 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ## HƯỚNG DẪN SỬ DỤNG CÔNG CỤ
             Bạn có thể gọi ba công cụ để lấy dữ liệu thực trước khi lập kế hoạch:
 
-            - **searchInventory(category, type?, page)**: Tìm vật phẩm khả dụng trong **các kho hợp lệ của cluster hiện tại**. Kết quả chỉ chứa các kho backend đã cho phép trong phạm vi lập kế hoạch này. Mỗi dòng là một cặp (vật phẩm, kho) với item_id, item_name, item_type, available_quantity, depot_id, depot_name, depot_address, depot_latitude, depot_longitude. Công cụ này bao gồm cả consumable, reusable, vehicle và các phương tiện/thiết bị nếu tồn kho có sẵn.
+            - **searchInventory(category, type?, page)**: Tìm vật phẩm khả dụng trong **các kho hợp lệ của cluster hiện tại**. Kết quả chỉ chứa các trường quyết định route: item_id, item_name, item_type, unit, available_quantity, depot_id, depot_name, depot_address, depot_distance_km; với reusable còn có good/fair/poor counts. Không có imageUrl, không có raw lot/serial, không có metadata frontend-only.
             - **getTeams(ability?, available?, page)**: Trả về nearby teams đang Available trong bán kính cluster hiện tại.
             - **getAssemblyPoints(page)**: Trả về các assembly point đang hoạt động.
+
+            ## LOGIC MISSION CỐT LÕI
+            - Hãy lập kế hoạch theo kiểu điều phối ngoài thực địa: mỗi activity là một hành động vật lý cụ thể, có thứ tự thực thi rõ ràng.
+            - Ưu tiên route tuần tự, an toàn, có batching SOS gần nhau khi hợp lý. Không tách cluster thành nhiều nhánh rời nếu vẫn có thể đi một tuyến hợp lý.
+            - Không tạo step chỉ để "đánh giá". Đội phải đi đâu, làm gì, lấy gì, giao gì phải thể hiện ngay trong activity.
 
             ## QUY TẮC KHO — CHỈ CHỌN MỘT KHO CHO TOÀN BỘ MISSION
             - BẮT BUỘC gọi **searchInventory** cho từng danh mục phù hợp: Thực phẩm, Nước, Y tế, Cứu hộ, Quần áo, Sưởi ấm, nơi trú ẩn... Không bỏ sót danh mục liên quan.
             - Có thể dùng các từ khoá nghiệp vụ tổng quát như `Thuốc men`, `Sơ cứu`, `Chăn màn`, `Giữ ấm`; backend sẽ tự map sang nhóm vật phẩm/kho liên quan để tìm item thực tế trong kho.
-            - Nếu mission cần phương tiện di chuyển, xe tải, xuồng, ca nô, càng, máy phát, hoặc bất kỳ reusable equipment nào, bắt buộc phải gọi `searchInventory` cho nhóm phương tiện/thiết bị hữu hình trước khi quyết định.
+            - Nếu mission cần phương tiện di chuyển, xe tải, xuồng, ca nô, cáng, máy phát, hoặc bất kỳ reusable equipment nào, bắt buộc phải gọi `searchInventory` cho nhóm phương tiện/thiết bị hữu hình trước khi quyết định.
             - Sau khi có kết quả, so sánh các `depot_id` xuất hiện và chọn **đúng một kho phù hợp nhất cho toàn bộ mission**.
             - Tiêu chí chọn kho: ưu tiên kho đáp ứng được nhiều nhu cầu SOS nhất và có tổng số lượng phù hợp cao nhất. Nếu tương đương, chọn kho có vị trí thuận lợi hơn trong kết quả đã trả về.
             - Toàn bộ activity có dùng kho trong mission này phải dùng cùng một `depot_id`, `depot_name`, `depot_address` của kho đã chọn.
@@ -306,7 +355,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - Không để `estimated_time` hoặc `estimated_duration` mơ hồ kiểu `"nhanh"`, `"sớm"`, `"khoảng vài giờ"`.
 
             ## QUY TẮC THỨ TỰ ACTIVITY
-            - `COLLECT_SUPPLIES` phải đứng trước activity hiện trường sử dụng số vật phẩm đó.
+            - `COLLECT_SUPPLIES` phải đứng trước `DELIVER_SUPPLIES` cho cùng tuyến vật tư.
+            - Nếu một SOS cần cả cứu hộ và cứu trợ, route phải an toàn: không cứu nạn nhân rồi tiếp tục chở nạn nhân đi theo luồng cấp phát vật phẩm.
+            - Khi đã bắt đầu `RESCUE`, `MEDICAL_AID`, `EVACUATE` cho một nạn nhân cần đưa đi an toàn, các bước tiếp theo của cùng tuyến chỉ được tiếp tục nhánh an toàn liên quan hoặc kết thúc.
             - Không được tạo thêm `COLLECT_SUPPLIES` cho cùng SOS sau khi đã bắt đầu `DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, hoặc `EVACUATE` của SOS đó.
             - Nếu có vật phẩm reusable được lấy ở `COLLECT_SUPPLIES`, phải có `RETURN_SUPPLIES` ở cuối kế hoạch để trả đúng về cùng kho đã chọn.
             - Nếu lấy phương tiện/reusable từ kho, phải giữ chúng trong `supplies_to_collect` của `COLLECT_SUPPLIES` và `RETURN_SUPPLIES`. Không đẩy xuống `resources[]` nếu đã map được item trong kho.
@@ -314,23 +365,40 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
             ## QUY TẮC TỪNG LOẠI ACTIVITY
             - `COLLECT_SUPPLIES`: chỉ tạo cho vật phẩm thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó. Nếu kho có xe/phương tiện/reusable phù hợp thì đưa thẳng vào đây như một inventory-backed item.
-            - `DELIVER_SUPPLIES`: giao đúng các vật phẩm vừa lấy từ kho đã chọn cho SOS tương ứng.
+            - `DELIVER_SUPPLIES`: giao đúng các vật phẩm vừa lấy từ kho đã chọn cho SOS tương ứng. Không được có DELIVER nếu chưa có COLLECT cùng tuyến trước đó.
             - `RESCUE`: luôn tạo nếu hiện trường cần cứu người, kể cả khi thiết bị cứu hộ bị thiếu; thiếu gì thì ghi vào `supply_shortages` và `special_notes`.
             - `MEDICAL_AID`: nếu thiếu vật phẩm y tế thì vẫn có thể tạo activity, nhưng phải ghi rõ thiếu hụt.
             - `EVACUATE`: không lấy vật phẩm ở bước này; phải chọn `assembly_point_id` gần nạn nhân nhất.
             - `resources[]`: chỉ dùng cho năng lực tổng quát khi không map được thành item tồn kho cụ thể. Nếu kho đã có item phù hợp, ưu tiên hiện nó trong activity lấy đồ.
 
             ## QUY TẮC TEAM VÀ ASSEMBLY POINT
+            - Một mission có thể dùng nhiều team, nhưng **mỗi activity chỉ được có đúng một team**.
+            - Không dùng `SplitAcrossTeams`, `MultiTeam` hoặc `required_team_count > 1` cho bất kỳ activity nào.
+            - Có thể dùng nhiều activity khác nhau cho nhiều team khác nhau nếu thật sự cần.
             - Gọi `getTeams` để lấy `team_id`; không tự bịa team ngoài kết quả công cụ.
             - Nếu lọc theo `ability` mà không thấy team, gọi lại `getTeams` không truyền ability trước khi chấp nhận `suggested_team = null`.
             - Với `RESCUE` hoặc `EVACUATE`, bắt buộc gọi `getAssemblyPoints` và chọn `assembly_point_id` gần nạn nhân nhất.
 
             ## QUY TẮC AN TOÀN MISSION GHÉP CỨU HỘ + CỨU TRỢ
-            - Nếu mission có cả nhánh `RESCUE|EVACUATE|MEDICAL_AID` và nhánh `COLLECT_SUPPLIES|DELIVER_SUPPLIES`, backend sẽ tự thêm cảnh báo an toàn sau khi parse kết quả.
             - Cảnh báo mixed mission không phải là lý do để bỏ trống `activities`. Khi đã trả mission JSON, `activities` phải là execution plan cụ thể.
-            - Nếu cluster mixed có rescue khẩn cấp cần tách riêng, vẫn phải trả full mixed route an toàn trong `activities`, đồng thời ghi cảnh báo tách cluster ở `special_notes`.
+            - Nếu cluster mixed có SOS rescue khẩn cấp cần đưa về nơi an toàn ngay, hãy giữ route an toàn nhất có thể và cảnh báo coordinator thật rõ.
+            - Nếu SOS rescue không cần cứu gấp và có thể chờ mission kết hợp, có thể xếp route `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước rồi mới chuyển sang rescue branch.
+            - Nếu SOS rescue khẩn cấp, phải đi `RESCUE -> EVACUATE` trước phần việc không liên quan. Chỉ được `COLLECT_SUPPLIES` trước rescue khi chính SOS đó có `requires_supply_before_rescue = true`.
             - Nếu route mixed hiện tại không an toàn, hãy rewrite lại thứ tự hoạt động. Không được thay route bằng `activities = []`.
-            - Không tạo `warnings[]`, không tạo warning code riêng, không chèn warning schema mới vào JSON.
+
+            ## HỢP ĐỒNG CẢNH BÁO NỘI BỘ
+            - Bạn phải đọc toàn bộ cluster SOS, đặc biệt `raw_message`, `structured_data`, `incident_notes`, `target_victims`, `ai_analysis`, để tự đánh giá cảnh báo tổng thể.
+            - Luôn trả thêm 5 field top-level sau:
+              - `warning_level`: `none|light|medium|strong`
+              - `warning_title`
+              - `warning_message`
+              - `warning_related_sos_ids`
+              - `warning_reason`
+            - `warning_level = light` khi chỉ là rủi ro theo dõi hoặc lưu ý nhẹ, plan vẫn thực thi được bình thường.
+            - `warning_level = medium` khi coordinator nên xem xét thủ công trước khi chốt.
+            - `warning_level = strong` khi có nhiều SOS critical/urgent, mixed rescue-relief có rủi ro an toàn, hoặc thiếu dữ liệu/đội/vật tư quan trọng cần coordinator can thiệp.
+            - `warning_message` phải nói rõ SOS nào là nguồn rủi ro chính và coordinator cần chú ý điều gì.
+            - Nếu không có warning đáng kể thì trả `warning_level = "none"` và các field warning còn lại là null hoặc `[]`.
 
             ## ĐỊNH DẠNG overall_assessment
             - Toàn bộ nội dung phải nằm trên một dòng duy nhất.
@@ -341,7 +409,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - Ngoài các field mission hiện có, luôn trả thêm:
               - `needs_additional_depot`: boolean
               - `supply_shortages`: array
-                        - Dùng `special_notes` để ghi cảnh báo mixed mission nếu có.
+              - `warning_level`, `warning_title`, `warning_message`, `warning_related_sos_ids`, `warning_reason`
             """;
     }
 
@@ -395,7 +463,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static RescueMissionSuggestionResult MapParsedToResult(AiMissionSuggestion parsed)
     {
-        return new RescueMissionSuggestionResult
+        var result = new RescueMissionSuggestionResult
         {
             SuggestedMissionTitle = parsed.MissionTitle,
             SuggestedMissionType = parsed.MissionType,
@@ -472,6 +540,17 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             SupplyShortages = parsed.SupplyShortages?.Select(MapSupplyShortage).ToList() ?? [],
             ConfidenceScore = parsed.ConfidenceScore
         };
+
+        ApplyAiWarningDecision(
+            result,
+            new AiWarningDecision(
+                parsed.WarningLevel,
+                parsed.WarningTitle,
+                parsed.WarningMessage,
+                parsed.WarningRelatedSosIds,
+                parsed.WarningReason));
+
+        return result;
     }
 
     private static RescueMissionSuggestionResult ExtractPartialFromJson(string jsonStr)
@@ -579,7 +658,43 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             result.SuggestedTeam = teamDto;
         }
 
+        ApplyAiWarningDecision(
+            result,
+            new AiWarningDecision(
+                root.TryGetProperty("warning_level", out var level) && level.ValueKind != JsonValueKind.Null ? level.GetString() : null,
+                root.TryGetProperty("warning_title", out var title) && title.ValueKind != JsonValueKind.Null ? title.GetString() : null,
+                root.TryGetProperty("warning_message", out var message) && message.ValueKind != JsonValueKind.Null ? message.GetString() : null,
+                ParseWarningRelatedSosIds(root),
+                root.TryGetProperty("warning_reason", out var reason) && reason.ValueKind != JsonValueKind.Null ? reason.GetString() : null));
+
         return result;
+    }
+
+    private static IReadOnlyCollection<int> ParseWarningRelatedSosIds(JsonElement root)
+    {
+        if (!root.TryGetProperty("warning_related_sos_ids", out var ids)
+            || ids.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return ids.EnumerateArray()
+            .Select(value =>
+            {
+                if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var numericId))
+                    return numericId;
+
+                if (value.ValueKind == JsonValueKind.String
+                    && int.TryParse(value.GetString(), out var stringId))
+                {
+                    return stringId;
+                }
+
+                return 0;
+            })
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
     }
 
     private static List<SupplyShortageDto> ParseSupplyShortages(JsonElement root)
@@ -593,17 +708,38 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return shortages.EnumerateArray()
             .Select(shortage =>
             {
+                if (shortage.ValueKind == JsonValueKind.String)
+                {
+                    return new SupplyShortageDto
+                    {
+                        ItemName = shortage.GetString() ?? string.Empty,
+                        NeededQuantity = 1,
+                        AvailableQuantity = 0,
+                        MissingQuantity = 1
+                    };
+                }
+
+                if (shortage.ValueKind != JsonValueKind.Object)
+                    return new SupplyShortageDto();
+
                 var dto = new SupplyShortageDto();
                 if (shortage.TryGetProperty("sos_request_id", out var sri) && sri.ValueKind != JsonValueKind.Null && sri.TryGetInt32(out var sriv)) dto.SosRequestId = sriv;
                 if (shortage.TryGetProperty("item_id", out var iid) && iid.ValueKind != JsonValueKind.Null && iid.TryGetInt32(out var iidv)) dto.ItemId = iidv;
                 if (shortage.TryGetProperty("item_name", out var itemName) && itemName.ValueKind != JsonValueKind.Null) dto.ItemName = itemName.GetString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(dto.ItemName) && shortage.TryGetProperty("item", out var item) && item.ValueKind != JsonValueKind.Null) dto.ItemName = item.GetString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(dto.ItemName) && shortage.TryGetProperty("name", out var name) && name.ValueKind != JsonValueKind.Null) dto.ItemName = name.GetString() ?? string.Empty;
                 if (shortage.TryGetProperty("unit", out var unit) && unit.ValueKind != JsonValueKind.Null) dto.Unit = unit.GetString();
                 if (shortage.TryGetProperty("selected_depot_id", out var sdi) && sdi.ValueKind != JsonValueKind.Null && sdi.TryGetInt32(out var sdiv)) dto.SelectedDepotId = sdiv;
                 if (shortage.TryGetProperty("selected_depot_name", out var sdn) && sdn.ValueKind != JsonValueKind.Null) dto.SelectedDepotName = sdn.GetString();
                 if (shortage.TryGetProperty("needed_quantity", out var nq) && nq.ValueKind != JsonValueKind.Null && nq.TryGetInt32(out var nqv)) dto.NeededQuantity = nqv;
+                if (dto.NeededQuantity <= 0 && shortage.TryGetProperty("quantity", out var qty) && qty.ValueKind != JsonValueKind.Null && qty.TryGetInt32(out var qtyv)) dto.NeededQuantity = qtyv;
                 if (shortage.TryGetProperty("available_quantity", out var aq) && aq.ValueKind != JsonValueKind.Null && aq.TryGetInt32(out var aqv)) dto.AvailableQuantity = aqv;
                 if (shortage.TryGetProperty("missing_quantity", out var mq) && mq.ValueKind != JsonValueKind.Null && mq.TryGetInt32(out var mqv)) dto.MissingQuantity = mqv;
                 if (shortage.TryGetProperty("notes", out var notes) && notes.ValueKind != JsonValueKind.Null) dto.Notes = notes.GetString();
+                if (dto.NeededQuantity <= 0)
+                    dto.NeededQuantity = Math.Max(dto.MissingQuantity, 1);
+                if (dto.MissingQuantity <= 0)
+                    dto.MissingQuantity = Math.Max(dto.NeededQuantity - dto.AvailableQuantity, 0);
                 return dto;
             })
             .Where(shortage => !string.IsNullOrWhiteSpace(shortage.ItemName) || shortage.ItemId.HasValue)
@@ -647,7 +783,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             return m.Success && bool.TryParse(m.Groups[1].Value, out var value) && value;
         }
 
-        return new RescueMissionSuggestionResult
+        var result = new RescueMissionSuggestionResult
         {
             SuggestedMissionTitle = ExtractStr(text, "mission_title") ?? "Nhiệm vụ giải cứu",
             SuggestedMissionType = ExtractStr(text, "mission_type"),
@@ -659,6 +795,200 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             NeedsAdditionalDepot = ExtractBool(text, "needs_additional_depot"),
             ConfidenceScore = ExtractNum(text, "confidence_score") ?? 0.3
         };
+
+        ApplyAiWarningDecision(
+            result,
+            new AiWarningDecision(
+                ExtractStr(text, "warning_level"),
+                ExtractStr(text, "warning_title"),
+                ExtractStr(text, "warning_message"),
+                null,
+                ExtractStr(text, "warning_reason")));
+
+        return result;
+    }
+
+    private static void ApplyAiWarningDecision(
+        RescueMissionSuggestionResult result,
+        AiWarningDecision? decision)
+    {
+        if (decision is null)
+            return;
+
+        var normalizedLevel = NormalizeWarningLevel(decision.Level);
+        if (normalizedLevel == WarningLevelNone)
+            return;
+
+        var formattedWarning = FormatAiWarningDecision(decision, normalizedLevel);
+        if (string.IsNullOrWhiteSpace(formattedWarning))
+            return;
+
+        switch (normalizedLevel)
+        {
+            case WarningLevelLight:
+                result.SpecialNotes = AppendSpecialNote(result.SpecialNotes, formattedWarning);
+                break;
+
+            case WarningLevelMedium:
+                result.NeedsManualReview = true;
+                result.LowConfidenceWarning = AppendMultilineValue(result.LowConfidenceWarning, formattedWarning);
+                break;
+
+            case WarningLevelStrong:
+                result.NeedsManualReview = true;
+
+                if (ShouldMapStrongWarningToMixedField(decision))
+                {
+                    if (string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning))
+                        result.MixedRescueReliefWarning = formattedWarning;
+                    else
+                        result.SpecialNotes = AppendSpecialNote(result.SpecialNotes, formattedWarning);
+                }
+                else
+                {
+                    result.LowConfidenceWarning = AppendMultilineValue(result.LowConfidenceWarning, formattedWarning);
+                }
+
+                break;
+        }
+    }
+
+    private static string NormalizeWarningLevel(string? warningLevel)
+    {
+        var normalized = (warningLevel ?? string.Empty).Trim().ToLowerInvariant();
+
+        return normalized switch
+        {
+            WarningLevelNone => WarningLevelNone,
+            WarningLevelLight => WarningLevelLight,
+            "low" => WarningLevelLight,
+            WarningLevelMedium => WarningLevelMedium,
+            "moderate" => WarningLevelMedium,
+            WarningLevelStrong => WarningLevelStrong,
+            "high" => WarningLevelStrong,
+            "critical" => WarningLevelStrong,
+            _ => string.IsNullOrWhiteSpace(normalized) ? WarningLevelNone : WarningLevelMedium
+        };
+    }
+
+    private static string FormatAiWarningDecision(
+        AiWarningDecision decision,
+        string normalizedLevel)
+    {
+        var label = normalizedLevel switch
+        {
+            WarningLevelLight => "Cảnh báo nhẹ",
+            WarningLevelMedium => "Cảnh báo cần xem xét",
+            WarningLevelStrong => "Cảnh báo mạnh",
+            _ => "Cảnh báo"
+        };
+
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(decision.Title))
+            parts.Add(decision.Title!.Trim().TrimEnd(':', '.', ';'));
+
+        if (!string.IsNullOrWhiteSpace(decision.Message))
+            parts.Add(decision.Message!.Trim());
+
+        var relatedIds = decision.RelatedSosIds?
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList() ?? [];
+        if (relatedIds.Count > 0)
+            parts.Add($"SOS liên quan: {string.Join(", ", relatedIds.Select(id => $"#{id}"))}.");
+
+        if (!string.IsNullOrWhiteSpace(decision.Reason))
+            parts.Add($"Lý do: {decision.Reason!.Trim().TrimEnd('.', ';')}.");
+
+        if (parts.Count == 0)
+            return string.Empty;
+
+        return $"[{label}] {string.Join(" ", parts)}".Trim();
+    }
+
+    private static bool ShouldMapStrongWarningToMixedField(AiWarningDecision decision)
+    {
+        var normalized = NormalizeFreeTextForComparison(
+            string.Join(
+                " ",
+                new[]
+                {
+                    decision.Title,
+                    decision.Message,
+                    decision.Reason
+                }.Where(value => !string.IsNullOrWhiteSpace(value))));
+
+        var hasRescueSignal =
+            normalized.Contains("cuu ho", StringComparison.Ordinal)
+            || normalized.Contains("cap cuu", StringComparison.Ordinal)
+            || normalized.Contains("rescue", StringComparison.Ordinal)
+            || normalized.Contains("medical", StringComparison.Ordinal)
+            || normalized.Contains("evacuate", StringComparison.Ordinal)
+            || normalized.Contains("so tan", StringComparison.Ordinal)
+            || normalized.Contains("safe transfer", StringComparison.Ordinal)
+            || normalized.Contains("noi an toan", StringComparison.Ordinal);
+
+        var hasReliefSignal =
+            normalized.Contains("cuu tro", StringComparison.Ordinal)
+            || normalized.Contains("tiep te", StringComparison.Ordinal)
+            || normalized.Contains("relief", StringComparison.Ordinal)
+            || normalized.Contains("supplies", StringComparison.Ordinal)
+            || normalized.Contains("vat pham", StringComparison.Ordinal);
+
+        return normalized.Contains("mixed", StringComparison.Ordinal)
+            || normalized.Contains("unsafe route", StringComparison.Ordinal)
+            || normalized.Contains("an toan", StringComparison.Ordinal)
+            || normalized.Contains("khong an toan", StringComparison.Ordinal)
+            || normalized.Contains("immediate safe transfer", StringComparison.Ordinal)
+            || (hasRescueSignal && hasReliefSignal);
+    }
+
+    private static string NormalizeFreeTextForComparison(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            builder.Append(char.ToLowerInvariant(character switch
+            {
+                'đ' => 'd',
+                'Đ' => 'd',
+                _ => character
+            }));
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static string AppendMultilineValue(string? existingValue, string value)
+    {
+        if (string.IsNullOrWhiteSpace(existingValue))
+            return value;
+
+        if (existingValue.Contains(value, StringComparison.Ordinal))
+            return existingValue;
+
+        return $"{existingValue.TrimEnd()}{Environment.NewLine}{value}";
+    }
+
+    private static AiWarningDecision? CreateAiWarningDecision(MissionRequirementsFragment? requirements)
+    {
+        if (requirements is null)
+            return null;
+
+        return new AiWarningDecision(
+            requirements.WarningLevel,
+            requirements.WarningTitle,
+            requirements.WarningMessage,
+            requirements.WarningRelatedSosIds,
+            requirements.WarningReason);
     }
 
     private static void BackfillShortageItemIds(List<SupplyShortageDto> shortages, List<DepotSummary> depots)
@@ -666,15 +996,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (shortages.Count == 0 || depots.Count == 0)
             return;
 
-        var itemLookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var depot in depots)
-        {
-            foreach (var inventory in depot.Inventories)
-            {
-                if (inventory.ItemId.HasValue && !string.IsNullOrWhiteSpace(inventory.ItemName))
-                    itemLookup.TryAdd(NormalizeItemName(inventory.ItemName), inventory.ItemId.Value);
-            }
-        }
+        var inventories = depots
+            .SelectMany(depot => depot.Inventories)
+            .Where(item => !string.IsNullOrWhiteSpace(item.ItemName))
+            .ToList();
 
         foreach (var shortage in shortages)
         {
@@ -682,27 +1007,38 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 continue;
 
             var normalized = NormalizeItemName(shortage.ItemName);
-            if (itemLookup.TryGetValue(normalized, out var exactId))
+            if (!TryResolveInventoryBackedSupply(
+                    new SupplyToCollectDto
+                    {
+                        ItemId = shortage.ItemId,
+                        ItemName = shortage.ItemName,
+                        Quantity = Math.Max(shortage.NeededQuantity, shortage.MissingQuantity),
+                        Unit = shortage.Unit
+                    },
+                    inventories,
+                    out var matchedItem))
             {
-                shortage.ItemId = exactId;
                 continue;
             }
 
-            foreach (var (key, id) in itemLookup)
-            {
-                if (normalized.Contains(key, StringComparison.OrdinalIgnoreCase)
-                    || key.Contains(normalized, StringComparison.OrdinalIgnoreCase))
-                {
-                    shortage.ItemId = id;
-                    break;
-                }
-            }
+            shortage.ItemId = matchedItem.ItemId;
+            shortage.ItemName = matchedItem.ItemName;
+            shortage.Unit ??= matchedItem.Unit;
         }
     }
 
     private static readonly Dictionary<string, string[]> GenericShortageAliasTokens =
         new(StringComparer.Ordinal)
         {
+            ["nuoc"] = ["nuoc", "nuoc uong", "nuoc sach", "water"],
+            ["nuoc uong"] = ["nuoc", "nuoc uong", "nuoc sach", "water"],
+            ["water"] = ["water", "nuoc", "nuoc uong", "nuoc sach"],
+            ["thuc pham"] = ["thuc pham", "luong thuc", "food", "do an"],
+            ["luong thuc"] = ["luong thuc", "thuc pham", "food", "do an"],
+            ["food"] = ["food", "thuc pham", "luong thuc", "do an"],
+            ["sua"] = ["sua", "milk", "dinh duong", "tre em", "an long"],
+            ["milk"] = ["milk", "sua", "dinh duong", "tre em", "an long"],
+            ["an long"] = ["an long", "chao", "sup", "sua", "dinh duong"],
             ["thuoc men"] = ["thuoc", "y te", "medical", "so cuu", "cap cuu", "bo so cuu"],
             ["medicine"] = ["thuoc", "y te", "medical", "so cuu", "cap cuu", "bo so cuu"],
             ["medical"] = ["thuoc", "y te", "medical", "so cuu", "cap cuu", "bo so cuu"],
@@ -714,11 +1050,27 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ["blankets"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
             ["giu am"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
             ["quan ao"] = ["ao", "quan", "chan", "men", "giu nhiet", "ao am"],
-            ["clothing"] = ["ao", "quan", "chan", "men", "giu nhiet", "ao am"]
+            ["clothing"] = ["ao", "quan", "chan", "men", "giu nhiet", "ao am"],
+            ["shelter"] = ["leu", "bat", "tam che", "noi tru an", "shelter"],
+            ["leu"] = ["leu", "shelter", "tam che", "noi tru an"],
+            ["bat"] = ["bat", "leu", "tam che", "shelter"],
+            ["cuu ho"] = ["phao", "day", "cang", "xuong", "cano", "thuyen", "cuu ho"],
+            ["rescue"] = ["phao", "day", "cang", "xuong", "cano", "thuyen", "rescue"],
+            ["phuong tien"] = ["xe", "xuong", "cano", "thuyen", "phuong tien"],
+            ["vehicle"] = ["vehicle", "xe", "xuong", "cano", "thuyen"]
         };
 
     private static readonly HashSet<string> GenericShortageLabels =
     [
+        "nuoc",
+        "nuoc uong",
+        "water",
+        "thuc pham",
+        "luong thuc",
+        "food",
+        "sua",
+        "milk",
+        "an long",
         "thuoc men",
         "medicine",
         "medical",
@@ -731,7 +1083,22 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         "blankets",
         "giu am",
         "quan ao",
-        "clothing"
+        "clothing",
+        "shelter",
+        "leu",
+        "bat",
+        "cuu ho",
+        "rescue",
+        "phuong tien",
+        "vehicle"
+    ];
+
+    private static readonly HashSet<string> PlaceholderSupplyLabels =
+    [
+        "nhu yeu pham thiet yeu",
+        "vat pham tiep te thiet yeu",
+        "essential supplies",
+        "essential relief supplies"
     ];
 
     private static void ReconcileSupplyShortagesWithInventory(
@@ -810,6 +1177,16 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         IReadOnlyCollection<DepotInventoryItemDto> inventories,
         string normalizedShortageName)
     {
+        return ResolveScoredDepotInventoryItems(shortage, inventories, normalizedShortageName)
+            .Select(entry => entry.Item)
+            .ToList();
+    }
+
+    private static List<InventoryMatchCandidate> ResolveScoredDepotInventoryItems(
+        SupplyShortageDto shortage,
+        IReadOnlyCollection<DepotInventoryItemDto> inventories,
+        string normalizedShortageName)
+    {
         if (string.IsNullOrWhiteSpace(normalizedShortageName))
             return [];
 
@@ -817,16 +1194,18 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         return inventories
             .Where(item => !string.IsNullOrWhiteSpace(item.ItemName))
-            .Select(item => new
+            .Select(item =>
             {
-                Item = item,
-                Score = ScoreSupplyShortageInventoryMatch(shortage, item, normalizedShortageName, searchTokens)
+                var normalizedInventoryName = NormalizeItemName(item.ItemName);
+                return new InventoryMatchCandidate(
+                    item,
+                    ScoreSupplyShortageInventoryMatch(shortage, item, normalizedShortageName, searchTokens),
+                    string.Equals(normalizedInventoryName, normalizedShortageName, StringComparison.Ordinal));
             })
             .Where(entry => entry.Score > 0)
             .OrderByDescending(entry => entry.Score)
             .ThenByDescending(entry => entry.Item.AvailableQuantity)
             .ThenBy(entry => entry.Item.ItemName, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => entry.Item)
             .ToList();
     }
 
@@ -904,6 +1283,50 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return GenericShortageAliasTokens.Keys.Any(alias =>
             normalizedShortageName.Contains(alias, StringComparison.Ordinal)
             || alias.Contains(normalizedShortageName, StringComparison.Ordinal));
+    }
+
+    private static bool IsFallbackPlaceholderSupplyLabel(string normalizedSupplyName)
+    {
+        if (PlaceholderSupplyLabels.Contains(normalizedSupplyName))
+            return true;
+
+        return PlaceholderSupplyLabels.Any(label =>
+            normalizedSupplyName.Contains(label, StringComparison.Ordinal)
+            || label.Contains(normalizedSupplyName, StringComparison.Ordinal));
+    }
+
+    private static bool TryResolveInventoryBackedSupply(
+        SupplyToCollectDto supply,
+        IReadOnlyCollection<DepotInventoryItemDto> inventories,
+        out DepotInventoryItemDto matchedItem)
+    {
+        matchedItem = null!;
+
+        if (string.IsNullOrWhiteSpace(supply.ItemName) || inventories.Count == 0)
+            return false;
+
+        var normalizedSupplyName = NormalizeItemName(supply.ItemName);
+        var shortage = new SupplyShortageDto
+        {
+            ItemId = supply.ItemId,
+            ItemName = supply.ItemName,
+            Unit = supply.Unit
+        };
+        var matches = ResolveScoredDepotInventoryItems(shortage, inventories, normalizedSupplyName);
+        if (matches.Count == 0)
+            return false;
+
+        var bestMatch = matches[0];
+        var isGenericSupply = IsGenericShortageLabel(normalizedSupplyName) || IsFallbackPlaceholderSupplyLabel(normalizedSupplyName);
+        if (isGenericSupply && matches.Count > 1)
+        {
+            var secondMatch = matches[1];
+            if (!bestMatch.IsExactNameMatch && bestMatch.Score < secondMatch.Score + 100)
+                return false;
+        }
+
+        matchedItem = bestMatch.Item;
+        return true;
     }
 
     private static void NormalizeSupplyShortages(RescueMissionSuggestionResult result)
@@ -1134,7 +1557,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private static MissionExecutionAssessment AssessExecutableMissionResult(
         RescueMissionSuggestionResult result,
         IReadOnlyCollection<SosRequestSummary> sosRequests,
-        IReadOnlyCollection<SuggestedActivityDto>? expectedActivities = null)
+        IReadOnlyCollection<SuggestedActivityDto>? expectedActivities = null,
+        MissionRequirementsFragment? requirements = null)
     {
         if (sosRequests.Count == 0)
         {
@@ -1168,6 +1592,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             failureReason =
                 "Mission suggestion for a mixed rescue-relief cluster must preserve both rescue and relief branches in executable activities.";
         }
+        else
+        {
+            failureReason = AssessMissionActivityRoute(executableActivities, sosRequests, requirements);
+        }
 
         return new MissionExecutionAssessment(
             HasExecutableActivities: hasExecutableActivities,
@@ -1175,6 +1603,382 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             HasRescueBranch: hasRescueBranch,
             HasReliefBranch: hasReliefBranch,
             FailureReason: failureReason);
+    }
+
+    private static string? AssessMissionActivityRoute(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionRequirementsFragment? requirements)
+    {
+        var routeConstraints = BuildMissionSosRouteConstraints(sosRequests, requirements);
+        var supplyFailure = AssessSupplyRouteDependencies(activities, routeConstraints);
+        if (!string.IsNullOrWhiteSpace(supplyFailure))
+            return supplyFailure;
+
+        return AssessMixedMissionSafety(activities, routeConstraints);
+    }
+
+    private static string? AssessSupplyRouteDependencies(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints)
+    {
+        var ledgers = new Dictionary<(int DepotId, string RouteKey), Dictionary<string, int>>();
+        var collectActivities = new List<(SuggestedActivityDto Activity, string RouteKey)>();
+
+        foreach (var activity in activities.OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue))
+        {
+            if (IsReturnAssemblyPointActivity(activity) || IsReturnActivity(activity))
+                continue;
+
+            if (!IsCollectActivity(activity)
+                && !string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!activity.DepotId.HasValue)
+                return $"Activity step {activity.Step} ({activity.ActivityType}) is missing depot_id.";
+
+            if (activity.SuppliesToCollect is not { Count: > 0 })
+                return $"Activity step {activity.Step} ({activity.ActivityType}) must include supplies_to_collect.";
+
+            var routeKey = BuildSupplyRouteKey(activity);
+            var ledgerKey = (activity.DepotId.Value, routeKey);
+            if (!ledgers.TryGetValue(ledgerKey, out var routeLedger))
+            {
+                routeLedger = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                ledgers[ledgerKey] = routeLedger;
+            }
+
+            if (IsCollectActivity(activity))
+            {
+                collectActivities.Add((activity, routeKey));
+
+                foreach (var supply in activity.SuppliesToCollect.Where(supply => supply.Quantity > 0))
+                {
+                    var supplyKey = BuildSupplyLedgerKey(supply.ItemId, supply.ItemName);
+                    routeLedger.TryGetValue(supplyKey, out var quantity);
+                    routeLedger[supplyKey] = quantity + supply.Quantity;
+                }
+
+                continue;
+            }
+
+            foreach (var supply in activity.SuppliesToCollect.Where(supply => supply.Quantity > 0))
+            {
+                var supplyKey = BuildSupplyLedgerKey(supply.ItemId, supply.ItemName);
+                routeLedger.TryGetValue(supplyKey, out var availableQuantity);
+                if (availableQuantity < supply.Quantity)
+                {
+                    return
+                        $"Activity step {activity.Step} (DELIVER_SUPPLIES) exceeds collected quantity or appears before COLLECT_SUPPLIES for '{supply.ItemName}'.";
+                }
+
+                routeLedger[supplyKey] = availableQuantity - supply.Quantity;
+            }
+        }
+
+        foreach (var (collectActivity, routeKey) in collectActivities)
+        {
+            if (CollectActivityHasFollowUpUsage(activities, collectActivity, routeKey, routeConstraints))
+                continue;
+
+            return
+                $"Activity step {collectActivity.Step} (COLLECT_SUPPLIES) does not feed any later delivery or rescue flow in the same route.";
+        }
+
+        return null;
+    }
+
+    private static string? AssessMixedMissionSafety(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints)
+    {
+        if (routeConstraints.Count == 0)
+            return null;
+
+        foreach (var constraint in routeConstraints.Values.Where(constraint => constraint.IsRescueLike))
+        {
+            var referencedActivities = activities
+                .Select((activity, index) => new { Activity = activity, Index = index })
+                .Where(entry => ReferencesSos(entry.Activity, constraint.SosRequestId))
+                .ToList();
+
+            if (referencedActivities.Count == 0)
+                continue;
+
+            var firstRescueIndex = referencedActivities
+                .Where(entry => IsSafetyCriticalActivity(entry.Activity.ActivityType))
+                .Select(entry => (int?)entry.Index)
+                .FirstOrDefault();
+
+            if (constraint.NeedsImmediateSafeTransfer && firstRescueIndex is null)
+            {
+                return $"Urgent SOS #{constraint.SosRequestId} is missing rescue/medical/evacuation activities.";
+            }
+
+            if (firstRescueIndex is null)
+                continue;
+
+            if (constraint.NeedsImmediateSafeTransfer)
+            {
+                var preRescueFailure = AssessPreRescueOrdering(
+                    activities,
+                    routeConstraints,
+                    constraint,
+                    firstRescueIndex.Value);
+                if (!string.IsNullOrWhiteSpace(preRescueFailure))
+                    return preRescueFailure;
+            }
+
+            var evacuationIndex = referencedActivities
+                .Where(entry => entry.Index >= firstRescueIndex.Value)
+                .Where(entry => string.Equals(entry.Activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase))
+                .Select(entry => (int?)entry.Index)
+                .FirstOrDefault();
+
+            if (constraint.NeedsImmediateSafeTransfer)
+            {
+                if (evacuationIndex is null)
+                    return $"Urgent SOS #{constraint.SosRequestId} must reach an EVACUATE step before unrelated work continues.";
+
+                for (var index = firstRescueIndex.Value; index <= evacuationIndex.Value; index++)
+                {
+                    var activity = activities[index];
+                    if (!ReferencesSos(activity, constraint.SosRequestId))
+                    {
+                        return
+                            $"Urgent SOS #{constraint.SosRequestId} is interrupted by step {activity.Step} ({activity.ActivityType}) before safe transfer completes.";
+                    }
+
+                    if (!IsSafetyCriticalActivity(activity.ActivityType))
+                    {
+                        return
+                            $"Urgent SOS #{constraint.SosRequestId} cannot include '{activity.ActivityType}' between rescue and evacuation.";
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? AssessPreRescueOrdering(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints,
+        MissionSosRouteConstraint targetConstraint,
+        int firstRescueIndex)
+    {
+        for (var index = 0; index < firstRescueIndex; index++)
+        {
+            var activity = activities[index];
+            var referencedSosIds = GetReferencedSosIds(activity);
+            if (referencedSosIds.Count == 0)
+                continue;
+
+            if (referencedSosIds.Contains(targetConstraint.SosRequestId))
+            {
+                if (!string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase))
+                {
+                    return
+                        $"Urgent SOS #{targetConstraint.SosRequestId} cannot start with '{activity.ActivityType}' before rescue begins.";
+                }
+
+                if (!targetConstraint.RequiresSupplyBeforeRescue)
+                {
+                    return
+                        $"Urgent SOS #{targetConstraint.SosRequestId} cannot collect supplies before rescue unless requires_supply_before_rescue=true.";
+                }
+
+                continue;
+            }
+
+            var referencedUrgentRescue = referencedSosIds.Any(
+                sosId => routeConstraints.TryGetValue(sosId, out var constraint)
+                    && constraint.IsRescueLike
+                    && constraint.NeedsImmediateSafeTransfer);
+
+            if (referencedUrgentRescue && IsAllowedUrgentPreRescueActivity(activity, routeConstraints))
+                continue;
+
+            return
+                $"Urgent SOS #{targetConstraint.SosRequestId} is delayed by step {activity.Step} ({activity.ActivityType}) before rescue starts.";
+        }
+
+        return null;
+    }
+
+    private static bool IsAllowedUrgentPreRescueActivity(
+        SuggestedActivityDto activity,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints)
+    {
+        var referencedSosIds = GetReferencedSosIds(activity);
+        if (referencedSosIds.Count == 0)
+            return false;
+
+        if (!IsSafetyCriticalActivity(activity.ActivityType)
+            && !string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        foreach (var sosId in referencedSosIds)
+        {
+            if (!routeConstraints.TryGetValue(sosId, out var constraint)
+                || !constraint.IsRescueLike
+                || !constraint.NeedsImmediateSafeTransfer)
+            {
+                return false;
+            }
+
+            if (string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase)
+                && !constraint.RequiresSupplyBeforeRescue)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool CollectActivityHasFollowUpUsage(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        SuggestedActivityDto collectActivity,
+        string routeKey,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints)
+    {
+        var collectIndex = activities
+            .Select((activity, index) => new { Activity = activity, Index = index })
+            .FirstOrDefault(entry => ReferenceEquals(entry.Activity, collectActivity))
+            ?.Index;
+
+        if (!collectIndex.HasValue)
+            return false;
+
+        var collectSosIds = GetReferencedSosIds(collectActivity);
+        var hasCollectSosIds = collectSosIds.Count > 0;
+
+        for (var index = collectIndex.Value + 1; index < activities.Count; index++)
+        {
+            var activity = activities[index];
+            if (!string.Equals(BuildSupplyRouteKey(activity), routeKey, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (IsReturnActivity(activity))
+                return true;
+
+            if (!IsSafetyCriticalActivity(activity.ActivityType))
+                continue;
+
+            if (!hasCollectSosIds)
+                return true;
+
+            var referencedSosIds = GetReferencedSosIds(activity);
+            foreach (var sosId in referencedSosIds)
+            {
+                if (!collectSosIds.Contains(sosId))
+                    continue;
+
+                if (!routeConstraints.TryGetValue(sosId, out var constraint))
+                    continue;
+
+                if (constraint.NeedsImmediateSafeTransfer || constraint.RequiresSupplyBeforeRescue)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Dictionary<int, MissionSosRouteConstraint> BuildMissionSosRouteConstraints(
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionRequirementsFragment? requirements)
+    {
+        var requirementLookup = requirements?.SosRequirements
+            .GroupBy(requirement => requirement.SosRequestId)
+            .ToDictionary(group => group.Key, group => group.First()) ?? [];
+
+        return sosRequests.ToDictionary(
+            sos => sos.Id,
+            sos =>
+            {
+                requirementLookup.TryGetValue(sos.Id, out var requirement);
+                var isRescueLike = SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType);
+                var needsImmediateSafeTransfer =
+                    requirement?.UrgentRescueRequiresImmediateSafeTransfer
+                    ?? requirement?.NeedsImmediateSafeTransfer
+                    ?? sos.AiAnalysis?.NeedsImmediateSafeTransfer
+                    ?? false;
+                var canWait = requirement?.CanWaitForCombinedMission ?? sos.AiAnalysis?.CanWaitForCombinedMission;
+                var requiresSupplyBeforeRescue =
+                    requirement?.RequiresSupplyBeforeRescue
+                    ?? InferRequiresSupplyBeforeRescue(requirement);
+
+                return new MissionSosRouteConstraint(
+                    sos.Id,
+                    isRescueLike,
+                    needsImmediateSafeTransfer,
+                    canWait,
+                    requiresSupplyBeforeRescue);
+            });
+    }
+
+    private static bool InferRequiresSupplyBeforeRescue(MissionSosRequirementFragment? requirement)
+    {
+        if (requirement?.RequiredSupplies is not { Count: > 0 })
+            return false;
+
+        foreach (var supply in requirement.RequiredSupplies)
+        {
+            var normalizedCategory = NormalizeFreeTextForComparison(supply.Category);
+            var normalizedName = NormalizeFreeTextForComparison(supply.ItemName);
+            if (normalizedCategory.Contains("vehicle", StringComparison.OrdinalIgnoreCase)
+                || normalizedCategory.Contains("rescue", StringComparison.OrdinalIgnoreCase)
+                || normalizedCategory.Contains("equipment", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("xuong", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("cano", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("day", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("phao", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("cang", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsSafetyCriticalActivity(string? activityType) =>
+        string.Equals(activityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activityType, "EVACUATE", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ReferencesSos(SuggestedActivityDto activity, int sosRequestId) =>
+        GetReferencedSosIds(activity).Contains(sosRequestId);
+
+    private static string BuildSupplyRouteKey(SuggestedActivityDto activity)
+    {
+        if (activity.SuggestedTeam?.TeamId is > 0)
+            return $"team:{activity.SuggestedTeam.TeamId}";
+
+        if (!string.IsNullOrWhiteSpace(activity.CoordinationGroupKey))
+            return $"coord:{activity.CoordinationGroupKey.Trim()}";
+
+        return "mission";
+    }
+
+    private static string BuildSupplyLedgerKey(int? itemId, string? itemName)
+    {
+        if (itemId.HasValue && itemId.Value > 0)
+            return $"item:{itemId.Value}";
+
+        var normalizedName = NormalizeItemName(itemName);
+        return string.IsNullOrWhiteSpace(normalizedName)
+            ? "item:unknown"
+            : $"name:{normalizedName}";
     }
 
     private static MissionResultSelection SelectExecutableMissionResult(
@@ -1187,6 +1991,17 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         var assessment = AssessExecutableMissionResult(candidate, sosRequests, expectedActivities);
         if (assessment.IsExecutable)
         {
+            if (TryBuildPreferredDraftResult(
+                    candidate,
+                    sosRequests,
+                    pipelineState,
+                    expectedActivities,
+                    assessment,
+                    out var preferredDraft))
+            {
+                return new MissionResultSelection(preferredDraft, "draft");
+            }
+
             return new MissionResultSelection(candidate, initialSource);
         }
 
@@ -1355,12 +2170,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         };
     }
 
-    private static bool TryBuildDraftFallbackResult(
+    private static bool TryBuildDraftCandidateResult(
         RescueMissionSuggestionResult seedResult,
         IReadOnlyCollection<SosRequestSummary> sosRequests,
         MissionSuggestionPipelineState? pipelineState,
         IReadOnlyCollection<SuggestedActivityDto>? expectedActivities,
-        MissionExecutionAssessment assessment,
         out RescueMissionSuggestionResult result)
     {
         if (pipelineState?.DraftBody is not null)
@@ -1369,10 +2183,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 pipelineState.DraftBody,
                 seedResult.RawAiResponse ?? SerializeMissionDraftBody(pipelineState.DraftBody));
             result = MergeFallbackResult(seedResult, sosRequests, pipelineState, result);
-            result.SpecialNotes = AppendSpecialNote(
-                result.SpecialNotes,
-                BuildExecutionFallbackNote(assessment, "draft"));
-            result.NeedsManualReview = true;
             return true;
         }
 
@@ -1385,6 +2195,43 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         result = BuildFallbackResultShell(seedResult, sosRequests, pipelineState);
         result.SuggestedActivities = fallbackActivities.Select(CloneActivity).ToList();
+        return true;
+    }
+
+    private static bool TryBuildPreferredDraftResult(
+        RescueMissionSuggestionResult candidate,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionSuggestionPipelineState? pipelineState,
+        IReadOnlyCollection<SuggestedActivityDto>? expectedActivities,
+        MissionExecutionAssessment candidateAssessment,
+        out RescueMissionSuggestionResult result)
+    {
+        if (!TryBuildDraftCandidateResult(candidate, sosRequests, pipelineState, expectedActivities, out result))
+            return false;
+
+        var draftAssessment = AssessExecutableMissionResult(result, sosRequests, expectedActivities);
+        if (!draftAssessment.IsExecutable)
+            return false;
+
+        if (!ShouldPreferDraftResult(candidate, candidateAssessment, result, draftAssessment, out var preferenceNote))
+            return false;
+
+        result.SpecialNotes = AppendSpecialNote(result.SpecialNotes, preferenceNote);
+        result.NeedsManualReview = true;
+        return true;
+    }
+
+    private static bool TryBuildDraftFallbackResult(
+        RescueMissionSuggestionResult seedResult,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionSuggestionPipelineState? pipelineState,
+        IReadOnlyCollection<SuggestedActivityDto>? expectedActivities,
+        MissionExecutionAssessment assessment,
+        out RescueMissionSuggestionResult result)
+    {
+        if (!TryBuildDraftCandidateResult(seedResult, sosRequests, pipelineState, expectedActivities, out result))
+            return false;
+
         result.SpecialNotes = AppendSpecialNote(
             result.SpecialNotes,
             BuildExecutionFallbackNote(assessment, "draft"));
@@ -1588,6 +2435,77 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return activities;
     }
 
+    private static bool ShouldPreferDraftResult(
+        RescueMissionSuggestionResult candidate,
+        MissionExecutionAssessment candidateAssessment,
+        RescueMissionSuggestionResult draft,
+        MissionExecutionAssessment draftAssessment,
+        out string preferenceNote)
+    {
+        if (draftAssessment.HasRescueBranch
+            && draftAssessment.HasReliefBranch
+            && !candidateAssessment.HasRescueBranch
+            && candidateAssessment.HasReliefBranch)
+        {
+            preferenceNote =
+                "Final output kept only the relief branch while the assembled pipeline draft still had a mixed rescue-relief route. Backend kept the assembled draft for coordinator review.";
+            return true;
+        }
+
+        if (!candidateAssessment.HasReliefBranch || !draftAssessment.HasReliefBranch)
+        {
+            preferenceNote = string.Empty;
+            return false;
+        }
+
+        var candidateReliefScore = CalculateInventoryBackedReliefScore(candidate.SuggestedActivities);
+        var draftReliefScore = CalculateInventoryBackedReliefScore(draft.SuggestedActivities);
+        if (draftReliefScore <= 0 || draftReliefScore <= candidateReliefScore)
+        {
+            preferenceNote = string.Empty;
+            return false;
+        }
+
+        preferenceNote =
+            "Final output lost depot/item detail from the assembled inventory-backed draft. Backend kept the assembled draft so coordinator review can start from concrete warehouse items.";
+        return true;
+    }
+
+    private static int CalculateInventoryBackedReliefScore(IEnumerable<SuggestedActivityDto> activities)
+    {
+        return activities
+            .Where(activity => HasReliefBranch([activity]))
+            .SelectMany(activity =>
+                (activity.SuppliesToCollect ?? [])
+                .Select(supply => new
+                {
+                    activity.DepotId,
+                    supply.ItemId,
+                    NormalizedItemName = NormalizeItemName(supply.ItemName)
+                }))
+            .Where(entry => entry.ItemId.HasValue || !string.IsNullOrWhiteSpace(entry.NormalizedItemName))
+            .GroupBy(entry => new
+            {
+                entry.DepotId,
+                ItemKey = entry.ItemId?.ToString() ?? entry.NormalizedItemName
+            })
+            .Select(group =>
+            {
+                var sample = group.First();
+                var score = 0;
+                if (sample.DepotId.HasValue)
+                    score += 25;
+
+                if (sample.ItemId.HasValue)
+                    score += 100;
+                else if (!IsFallbackPlaceholderSupplyLabel(sample.NormalizedItemName))
+                    score += 10;
+
+                return score;
+            })
+            .Sum();
+    }
+
     private static IEnumerable<SuggestedActivityDto> BuildActivitiesFromPipelineFragments(MissionSuggestionPipelineState state)
     {
         var activities = new List<SuggestedActivityDto>();
@@ -1643,7 +2561,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 ActivityType = CollectSuppliesActivityType,
                 Description = depotSelection.DepotId.HasValue
                     ? $"Lấy vật phẩm tiếp tế tại {depotSelection.DepotName ?? $"kho #{depotSelection.DepotId.Value}"} cho SOS #{sos.Id}."
-                    : $"Chuẩn bị vật phẩm tiếp tế thiết yếu cho SOS #{sos.Id}.",
+                    : $"Chuẩn bị vật phẩm tiếp tế cho SOS #{sos.Id}.",
                 Priority = priority,
                 EstimatedTime = "20 phút",
                 ExecutionMode = suggestedTeam is null ? null : SingleTeamExecutionMode,
@@ -1829,24 +2747,34 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (requirement?.RequiredSupplies is { Count: > 0 })
         {
             return requirement.RequiredSupplies
+                .Select(supply => new
+                {
+                    ItemName = ResolveFallbackSupplyLabel(supply),
+                    Quantity = Math.Max(supply.Quantity, 1),
+                    supply.Unit
+                })
+                .Where(supply => !string.IsNullOrWhiteSpace(supply.ItemName))
                 .Select(supply => new SupplyToCollectDto
                 {
-                    ItemName = string.IsNullOrWhiteSpace(supply.ItemName) ? "Nhu yếu phẩm thiết yếu" : supply.ItemName,
-                    Quantity = Math.Max(supply.Quantity, 1),
+                    ItemName = supply.ItemName!,
+                    Quantity = supply.Quantity,
                     Unit = supply.Unit
                 })
                 .ToList();
         }
 
-        return
-        [
-            new SupplyToCollectDto
-            {
-                ItemName = "Nhu yếu phẩm thiết yếu",
-                Quantity = 1,
-                Unit = "gói"
-            }
-        ];
+        return [];
+    }
+
+    private static string? ResolveFallbackSupplyLabel(MissionRequiredSupplyFragment supply)
+    {
+        if (!string.IsNullOrWhiteSpace(supply.ItemName))
+            return supply.ItemName;
+
+        if (!string.IsNullOrWhiteSpace(supply.Category))
+            return supply.Category;
+
+        return null;
     }
 
     private static bool IsRescueLikeFallbackRequest(
@@ -2163,33 +3091,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         var expandedActivities = ExpandCombinedEvacuations(activities, sosLookup);
 
-        var indexed = expandedActivities
-            .Select((activity, index) => new
-            {
-                Activity = activity,
-                OriginalIndex = index,
-                PrimarySosId = GetPrimarySosId(activity),
-                GroupPriority = GetSequenceGroupPriority(activity, GetPrimarySosId(activity)),
-                GroupKey = BuildSequenceGroupKey(activity, index, GetPrimarySosId(activity))
-            })
-            .ToList();
-
-        var normalized = indexed
-            .GroupBy(item => item.GroupKey, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(group => group.Min(item => item.GroupPriority))
-            .ThenBy(group => group.Min(item => item.Activity.SuggestedTeam?.TeamId ?? int.MaxValue))
-            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(group => group.Min(item => item.PrimarySosId ?? int.MaxValue))
-            .ThenBy(group => group.Min(item => item.OriginalIndex))
-            .SelectMany(group => group
-                .OrderBy(item => GetRoutePriority(item.Activity))
-                .ThenBy(item => item.PrimarySosId ?? int.MaxValue)
-                .ThenBy(item => item.OriginalIndex)
-                .Select(item => item.Activity))
-            .ToList();
-
         activities.Clear();
-        activities.AddRange(normalized.Distinct().ToList());
+        activities.AddRange(expandedActivities);
 
         for (var index = 0; index < activities.Count; index++)
             activities[index].Step = index + 1;
@@ -2212,7 +3115,18 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (itemIds.Count == 0)
             return;
 
-        var itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(itemIds, cancellationToken);
+        IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup;
+        try
+        {
+            itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(itemIds, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to resolve item metadata while normalizing reusable return activities for AI suggestion.");
+            return;
+        }
 
         var requiredReturnGroups = BuildRequiredReturnGroups(activities, itemLookup);
         var nonReturnActivities = activities
@@ -2310,6 +3224,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             }
         }
 
+        HydrateDeliverySuppliesFromCollectSnapshots(activities);
         HydrateReturnSuppliesFromCollectSnapshots(activities);
     }
 
@@ -2657,7 +3572,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         {
             ItemId = supply.ItemId,
             ItemName = supply.ItemName,
-            ImageUrl = supply.ImageUrl,
+            ImageUrl = null,
             Quantity = supply.Quantity,
             Unit = supply.Unit,
             PlannedPickupLotAllocations = supply.PlannedPickupLotAllocations?.Select(lot => CloneLot(lot)).ToList(),
@@ -2702,6 +3617,45 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         }
 
         return result;
+    }
+
+    private static List<SupplyExecutionLotDto> TakeLotQuantityAndConsume(
+        List<SupplyExecutionLotDto> lots,
+        int requestedQuantity)
+    {
+        var remaining = requestedQuantity;
+        var allocated = new List<SupplyExecutionLotDto>();
+
+        for (var index = 0; index < lots.Count && remaining > 0;)
+        {
+            var lot = lots[index];
+            if (lot.QuantityTaken <= 0)
+            {
+                lots.RemoveAt(index);
+                continue;
+            }
+
+            var quantity = Math.Min(lot.QuantityTaken, remaining);
+            allocated.Add(CloneLot(lot, quantity));
+            remaining -= quantity;
+
+            if (lot.QuantityTaken == quantity)
+            {
+                lots.RemoveAt(index);
+                continue;
+            }
+
+            lot.QuantityTaken -= quantity;
+            index++;
+        }
+
+        if (remaining > 0)
+        {
+            throw new InvalidOperationException(
+                $"Unable to consume {requestedQuantity} units from collected lot allocations.");
+        }
+
+        return allocated;
     }
 
     private static SupplyExecutionLotDto CloneLot(SupplyExecutionLotDto lot) =>
@@ -2859,17 +3813,16 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static void BackfillItemIds(List<SuggestedActivityDto> activities, List<DepotSummary> depots)
     {
-        var itemLookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var depot in depots)
-        {
-            foreach (var inventory in depot.Inventories)
-            {
-                if (inventory.ItemId.HasValue && !string.IsNullOrWhiteSpace(inventory.ItemName))
-                    itemLookup.TryAdd(NormalizeItemName(inventory.ItemName), inventory.ItemId.Value);
-            }
-        }
+        if (depots.Count == 0)
+            return;
 
-        if (itemLookup.Count == 0)
+        var depotLookup = depots.ToDictionary(depot => depot.Id);
+        var globalInventories = depots
+            .SelectMany(depot => depot.Inventories)
+            .Where(inventory => !string.IsNullOrWhiteSpace(inventory.ItemName))
+            .ToList();
+
+        if (globalInventories.Count == 0)
             return;
 
         foreach (var activity in activities)
@@ -2877,28 +3830,131 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             if (activity.SuppliesToCollect is null)
                 continue;
 
+            var candidateInventories = activity.DepotId.HasValue && depotLookup.TryGetValue(activity.DepotId.Value, out var selectedDepot)
+                ? selectedDepot.Inventories
+                    .Where(inventory => !string.IsNullOrWhiteSpace(inventory.ItemName))
+                    .ToList()
+                : globalInventories;
+
             foreach (var supply in activity.SuppliesToCollect)
             {
                 if (supply.ItemId.HasValue || string.IsNullOrWhiteSpace(supply.ItemName))
                     continue;
 
-                var normalized = NormalizeItemName(supply.ItemName);
-                if (itemLookup.TryGetValue(normalized, out var exactId))
-                {
-                    supply.ItemId = exactId;
+                if (!TryResolveInventoryBackedSupply(supply, candidateInventories, out var matchedItem))
                     continue;
-                }
 
-                foreach (var (key, id) in itemLookup)
+                supply.ItemId = matchedItem.ItemId;
+                supply.ItemName = matchedItem.ItemName;
+                supply.Unit ??= matchedItem.Unit;
+
+                if (activity.DepotId.HasValue && depotLookup.TryGetValue(activity.DepotId.Value, out var depot))
                 {
-                    if (normalized.Contains(key, StringComparison.OrdinalIgnoreCase)
-                        || key.Contains(normalized, StringComparison.OrdinalIgnoreCase))
-                    {
-                        supply.ItemId = id;
-                        break;
-                    }
+                    activity.DepotName ??= depot.Name;
+                    activity.DepotAddress ??= depot.Address;
                 }
             }
+        }
+    }
+
+    private static void HydrateDeliverySuppliesFromCollectSnapshots(List<SuggestedActivityDto> activities)
+    {
+        var ledgers = new Dictionary<(int DepotId, string RouteKey), SupplyRouteLedger>();
+
+        foreach (var activity in activities.OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue))
+        {
+            if (!activity.DepotId.HasValue || activity.SuppliesToCollect is not { Count: > 0 })
+                continue;
+
+            var routeKey = BuildSupplyRouteKey(activity);
+            var ledgerKey = (activity.DepotId.Value, routeKey);
+            if (!ledgers.TryGetValue(ledgerKey, out var ledger))
+            {
+                ledger = new SupplyRouteLedger();
+                ledgers[ledgerKey] = ledger;
+            }
+
+            if (IsCollectActivity(activity))
+            {
+                AddCollectActivityToSupplyLedger(ledger, activity);
+                continue;
+            }
+
+            if (!string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var supply in activity.SuppliesToCollect.Where(supply => supply.ItemId.HasValue && supply.Quantity > 0))
+            {
+                var itemKey = BuildSupplyLedgerKey(supply.ItemId, supply.ItemName);
+                if (!ledger.Items.TryGetValue(itemKey, out var itemLedger))
+                {
+                    throw new InvalidOperationException(
+                        $"Activity step {activity.Step} (DELIVER_SUPPLIES) has no collected inventory snapshot for '{supply.ItemName}'.");
+                }
+
+                if (itemLedger.RemainingQuantity < supply.Quantity)
+                {
+                    throw new InvalidOperationException(
+                        $"Activity step {activity.Step} (DELIVER_SUPPLIES) exceeds collected inventory for '{supply.ItemName}'.");
+                }
+
+                supply.AvailableDeliveryLotAllocations = null;
+                supply.AvailableDeliveryReusableUnits = null;
+
+                if (itemLedger.RemainingUnits.Count > 0)
+                {
+                    var allocatedUnits = itemLedger.RemainingUnits
+                        .Take(supply.Quantity)
+                        .Select(CloneReusableUnit)
+                        .ToList();
+
+                    if (allocatedUnits.Count < supply.Quantity)
+                    {
+                        throw new InvalidOperationException(
+                            $"Activity step {activity.Step} (DELIVER_SUPPLIES) exceeds collected reusable units for '{supply.ItemName}'.");
+                    }
+
+                    supply.AvailableDeliveryReusableUnits = allocatedUnits;
+                    itemLedger.RemainingUnits.RemoveRange(0, allocatedUnits.Count);
+                }
+                else if (itemLedger.RemainingLots.Count > 0)
+                {
+                    supply.AvailableDeliveryLotAllocations = TakeLotQuantityAndConsume(
+                        itemLedger.RemainingLots,
+                        supply.Quantity);
+                }
+
+                itemLedger.RemainingQuantity -= supply.Quantity;
+            }
+        }
+    }
+
+    private static void AddCollectActivityToSupplyLedger(
+        SupplyRouteLedger ledger,
+        SuggestedActivityDto activity)
+    {
+        foreach (var supply in activity.SuppliesToCollect!.Where(supply => supply.ItemId.HasValue && supply.Quantity > 0))
+        {
+            var itemKey = BuildSupplyLedgerKey(supply.ItemId, supply.ItemName);
+            if (!ledger.Items.TryGetValue(itemKey, out var itemLedger))
+            {
+                itemLedger = new SupplyRouteLedgerItem();
+                ledger.Items[itemKey] = itemLedger;
+            }
+
+            itemLedger.RemainingQuantity += supply.Quantity;
+
+            var pickupLots = supply.PickupLotAllocations is { Count: > 0 }
+                ? supply.PickupLotAllocations
+                : supply.PlannedPickupLotAllocations;
+            if (pickupLots is { Count: > 0 })
+                itemLedger.RemainingLots.AddRange(pickupLots.Select(lot => CloneLot(lot)));
+
+            var pickupUnits = supply.PickedReusableUnits is { Count: > 0 }
+                ? supply.PickedReusableUnits
+                : supply.PlannedPickupReusableUnits;
+            if (pickupUnits is { Count: > 0 })
+                itemLedger.RemainingUnits.AddRange(pickupUnits.Select(CloneReusableUnit));
         }
     }
 
@@ -2924,30 +3980,54 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         foreach (var group in pendingSupplies)
         {
             var sample = group.First();
-            var (items, _) = await _depotInventoryRepository.SearchForAgentAsync(
-                string.Empty,
-                sample.Supply.ItemName,
-                page: 1,
-                pageSize: AgentPageSize * 5,
-                allowedDepotIds: [group.Key.DepotId],
-                ct: cancellationToken);
+            List<AgentInventoryItem> items;
+            try
+            {
+                (items, _) = await _depotInventoryRepository.SearchForAgentAsync(
+                    sample.Supply.ItemName,
+                    sample.Supply.ItemName,
+                    page: 1,
+                    pageSize: AgentPageSize * 5,
+                    allowedDepotIds: [group.Key.DepotId],
+                    ct: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to backfill inventory-backed item ids for DepotId={DepotId}, Supply='{SupplyName}'.",
+                    group.Key.DepotId,
+                    sample.Supply.ItemName);
+                continue;
+            }
 
-            var matchedItem = items
+            var depotItems = items
                 .Where(item => item.DepotId == group.Key.DepotId)
-                .FirstOrDefault(item =>
-                {
-                    var normalizedInventoryName = NormalizeItemName(item.ItemName);
-                    return string.Equals(normalizedInventoryName, group.Key.NormalizedName, StringComparison.OrdinalIgnoreCase)
-                        || normalizedInventoryName.Contains(group.Key.NormalizedName, StringComparison.OrdinalIgnoreCase)
-                        || group.Key.NormalizedName.Contains(normalizedInventoryName, StringComparison.OrdinalIgnoreCase);
-                });
+                .ToList();
+            if (depotItems.Count == 0)
+                continue;
 
+            var tempInventories = depotItems
+                .Select(item => new DepotInventoryItemDto
+                {
+                    ItemId = item.ItemId,
+                    ItemName = item.ItemName,
+                    Unit = item.Unit,
+                    AvailableQuantity = item.AvailableQuantity
+                })
+                .ToList();
+
+            if (!TryResolveInventoryBackedSupply(sample.Supply, tempInventories, out var matchedInventory))
+                continue;
+
+            var matchedItem = depotItems.FirstOrDefault(item => item.ItemId == matchedInventory.ItemId);
             if (matchedItem is null)
                 continue;
 
             foreach (var entry in group)
             {
                 entry.Supply.ItemId ??= matchedItem.ItemId;
+                entry.Supply.ItemName = matchedItem.ItemName;
                 entry.Supply.Unit ??= matchedItem.Unit;
                 entry.Activity.DepotName ??= matchedItem.DepotName;
                 entry.Activity.DepotAddress ??= matchedItem.DepotAddress;
@@ -2960,6 +4040,72 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 }
             }
         }
+    }
+
+    private static void ConvertUnresolvedSuppliesToShortages(RescueMissionSuggestionResult result)
+    {
+        var addedShortageKeys = new HashSet<string>(StringComparer.Ordinal);
+        var movedAnySupply = false;
+
+        foreach (var activity in result.SuggestedActivities)
+        {
+            if (activity.SuppliesToCollect is not { Count: > 0 })
+                continue;
+
+            var remainingSupplies = new List<SupplyToCollectDto>();
+
+            foreach (var supply in activity.SuppliesToCollect)
+            {
+                if (supply.ItemId.HasValue
+                    || (!IsCollectActivity(activity)
+                        && !string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase)))
+                {
+                    remainingSupplies.Add(supply);
+                    continue;
+                }
+
+                movedAnySupply = true;
+                var normalizedItemName = NormalizeItemName(supply.ItemName);
+
+                if (!string.IsNullOrWhiteSpace(normalizedItemName))
+                {
+                    var shortageKey = string.Join(
+                        "|",
+                        activity.SosRequestId?.ToString() ?? string.Empty,
+                        activity.DepotId?.ToString() ?? string.Empty,
+                        normalizedItemName,
+                        NormalizeItemName(supply.Unit ?? string.Empty));
+
+                    if (addedShortageKeys.Add(shortageKey))
+                    {
+                        result.SupplyShortages.Add(new SupplyShortageDto
+                        {
+                            SosRequestId = activity.SosRequestId,
+                            ItemName = supply.ItemName,
+                            Unit = supply.Unit,
+                            SelectedDepotId = activity.DepotId,
+                            SelectedDepotName = activity.DepotName,
+                            NeededQuantity = Math.Max(supply.Quantity, 1),
+                            AvailableQuantity = 0,
+                            MissingQuantity = Math.Max(supply.Quantity, 1),
+                            Notes = IsFallbackPlaceholderSupplyLabel(normalizedItemName)
+                                ? "AI chỉ nêu vật phẩm chung chung, chưa map được về item cụ thể trong kho."
+                                : "AI chưa map được vật phẩm này về item cụ thể trong kho."
+                        });
+                    }
+                }
+            }
+
+            activity.SuppliesToCollect = remainingSupplies.Count > 0 ? remainingSupplies : null;
+        }
+
+        if (!movedAnySupply)
+            return;
+
+        result.NeedsManualReview = true;
+        result.SpecialNotes = AppendSpecialNote(
+            result.SpecialNotes,
+            "Một số vật phẩm chưa map được về item cụ thể trong kho đã được chuyển sang supply_shortages để coordinator xác nhận.");
     }
 
     private static void ApplyMixedRescueReliefSafetyNote(
@@ -3244,7 +4390,39 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (options.PromptOverride?.PromptType == PromptType.MissionPlanning)
             return options.PromptOverride;
 
-        return await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
+        var activePrompt = await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
+        if (activePrompt is null)
+            return null;
+
+        var legacyPrompt = await _promptRepository.GetByIdAsync(LegacyMissionPlanningPromptId, cancellationToken);
+        if (legacyPrompt is null
+            || string.IsNullOrWhiteSpace(legacyPrompt.SystemPrompt)
+            || string.IsNullOrWhiteSpace(legacyPrompt.UserPromptTemplate))
+        {
+            return activePrompt;
+        }
+
+        return ClonePromptWithTemplate(activePrompt, legacyPrompt.SystemPrompt, legacyPrompt.UserPromptTemplate);
+    }
+
+    private static PromptModel ClonePromptWithTemplate(
+        PromptModel prompt,
+        string systemPrompt,
+        string userPromptTemplate)
+    {
+        return new PromptModel
+        {
+            Id = prompt.Id,
+            Name = prompt.Name,
+            Purpose = prompt.Purpose,
+            PromptType = prompt.PromptType,
+            SystemPrompt = systemPrompt,
+            UserPromptTemplate = userPromptTemplate,
+            Version = prompt.Version,
+            IsActive = prompt.IsActive,
+            CreatedAt = prompt.CreatedAt,
+            UpdatedAt = prompt.UpdatedAt
+        };
     }
 
     private async Task<AiConfigModel?> GetEffectiveAiConfigAsync(
@@ -3263,6 +4441,22 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static SseMissionEvent Error(string msg) =>
         new() { EventType = "error", Data = msg };
+
+    private static RescueMissionSuggestionResult BuildPipelineFailureResult(
+        string errorMessage,
+        MissionSuggestionMetadata? metadata,
+        int? suggestionId)
+    {
+        return new RescueMissionSuggestionResult
+        {
+            SuggestionId = suggestionId,
+            IsSuccess = false,
+            ErrorMessage = errorMessage,
+            SuggestedActivities = [],
+            NeedsManualReview = true,
+            PipelineMetadata = metadata?.Pipeline
+        };
+    }
 
     // --- Streaming (SSE agent loop) --------------------------------------------
 
@@ -3306,7 +4500,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         MissionSuggestionMetadata? pipelineMetadata = null;
         int? suggestionId = null;
-        MissionSuggestionPipelineState? pipelineFallbackState = null;
 
         if (ShouldUsePipeline(options))
         {
@@ -3339,7 +4532,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 catch (MissionSuggestionPipelineFallbackException ex)
                 {
                     pipelineFallback = ex;
-                    pipelineFallbackState = ex.State;
                     break;
                 }
 
@@ -3353,14 +4545,24 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             {
                 if (pipelineMetadata.Pipeline is not null)
                 {
-                    pipelineMetadata.Pipeline.PipelineStatus = "fallback";
-                    pipelineMetadata.Pipeline.UsedLegacyFallback = true;
+                    pipelineMetadata.Pipeline.PipelineStatus = "failed";
+                    pipelineMetadata.Pipeline.UsedLegacyFallback = false;
                     pipelineMetadata.Pipeline.LegacyFallbackReason = pipelineFallback.Message;
-                    pipelineMetadata.Pipeline.FinalResultSource = "legacy";
+                    pipelineMetadata.Pipeline.FinalResultSource = null;
                     await SaveSuggestionMetadataAsync(suggestionId, pipelineMetadata, cancellationToken);
                 }
 
-                _logger.LogWarning(pipelineFallback, "Mission suggestion pipeline fell back to legacy planning");
+                _logger.LogWarning(pipelineFallback, "Mission suggestion pipeline failed and stopped without fallback");
+                yield return new SseMissionEvent
+                {
+                    EventType = "error",
+                    Data = pipelineFallback.Message,
+                    Result = BuildPipelineFailureResult(
+                        pipelineFallback.Message,
+                        pipelineMetadata,
+                        options.PersistSuggestion ? suggestionId : null)
+                };
+                yield break;
             }
         }
 
@@ -3569,8 +4771,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         var selection = SelectExecutableMissionResult(
             result,
             sosRequests,
-            pipelineFallbackState,
-            pipelineFallbackState?.DraftActivities,
+            pipelineState: null,
+            expectedActivities: null,
             "legacy");
         result = selection.Result;
         await FinalizeSuggestionResultAsync(
@@ -3582,8 +4784,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             clusterId,
             suggestionId,
             pipelineMetadata,
-            pipelineFallbackState?.DraftActivities,
+            draftActivities: null,
             selection.FinalResultSource,
+            aiWarningFallback: null,
+            routeRequirements: null,
             options,
             cancellationToken);
 
@@ -3623,10 +4827,33 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 var (items, total) = await _depotInventoryRepository.SearchForAgentAsync(
                     category, type, page, AgentPageSize, allowedDepotIds, ct);
 
+                var depotDistanceLookup = nearbyDepots?
+                    .GroupBy(depot => depot.Id)
+                    .ToDictionary(group => group.Key, group => group.First().DistanceKm)
+                    ?? new Dictionary<int, double>();
+
+                var minimalItems = items.Select(item => new
+                {
+                    item_id = item.ItemId,
+                    item_name = item.ItemName,
+                    item_type = item.ItemType,
+                    unit = item.Unit,
+                    available_quantity = item.AvailableQuantity,
+                    good_available_count = item.GoodAvailableCount,
+                    fair_available_count = item.FairAvailableCount,
+                    poor_available_count = item.PoorAvailableCount,
+                    depot_id = item.DepotId,
+                    depot_name = item.DepotName,
+                    depot_address = item.DepotAddress,
+                    depot_distance_km = depotDistanceLookup.TryGetValue(item.DepotId, out var distanceKm)
+                        ? distanceKm
+                        : (double?)null
+                });
+
                 var totalPages = (int)Math.Ceiling((double)total / AgentPageSize);
                 return JsonSerializer.SerializeToElement(new
                 {
-                    items,
+                    items = minimalItems,
                     page,
                     total_pages = totalPages,
                     total_items = total
@@ -3704,7 +4931,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         new()
         {
             Name = "searchInventory",
-            Description = "Tìm kiếm vật phẩm đang khả dụng theo danh mục và loại trong các kho hợp lệ của cluster hiện tại. Trả về cả consumable lẫn reusable với item_id, tên, item_type, available_quantity, kho chứa và tọa độ vị trí kho (depot_latitude, depot_longitude). Reusable còn có good_available_count, fair_available_count, poor_available_count.",
+            Description = "Tìm kiếm vật phẩm đang khả dụng theo danh mục và loại trong các kho hợp lệ của cluster hiện tại. Chỉ trả về item_id, item_name, item_type, unit, available_quantity, depot_id, depot_name, depot_address, depot_distance_km; với reusable còn có good_available_count, fair_available_count, poor_available_count. Không trả image URL, raw lot/serial, hay metadata frontend-only.",
             Parameters = ParseJson(
                 """
                 {
@@ -3791,6 +5018,21 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         [JsonPropertyName("special_notes")]
         public string? SpecialNotes { get; set; }
+
+        [JsonPropertyName("warning_level")]
+        public string? WarningLevel { get; set; }
+
+        [JsonPropertyName("warning_title")]
+        public string? WarningTitle { get; set; }
+
+        [JsonPropertyName("warning_message")]
+        public string? WarningMessage { get; set; }
+
+        [JsonPropertyName("warning_related_sos_ids")]
+        public List<int>? WarningRelatedSosIds { get; set; }
+
+        [JsonPropertyName("warning_reason")]
+        public string? WarningReason { get; set; }
 
         [JsonPropertyName("needs_additional_depot")]
         public bool NeedsAdditionalDepot { get; set; }
