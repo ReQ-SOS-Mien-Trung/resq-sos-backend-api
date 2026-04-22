@@ -32,15 +32,10 @@ public class MissionSuggestionDto
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
     public string? SuggestionScope { get; set; }
     public DateTime? CreatedAt { get; set; }
-    public List<ActivitySuggestionDto> Activities { get; set; } = [];
-}
 
-public class ActivitySuggestionDto
-{
-    public int Id { get; set; }
-    public string? ActivityType { get; set; }
-    public string? SuggestionPhase { get; set; }
+    /// <summary>Flat list of suggested activities from the latest Validated phase, matching POST response format.</summary>
     public List<SuggestedActivityDto> SuggestedActivities { get; set; } = [];
-    public double? ConfidenceScore { get; set; }
-    public DateTime? CreatedAt { get; set; }
+
+    /// <summary>Number of SOS requests covered by this suggestion.</summary>
+    public int SosRequestCount { get; set; }
 }

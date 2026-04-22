@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
@@ -23,26 +24,12 @@ public partial class RescueMissionSuggestionService
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        AllowTrailingCommas = true
+        AllowTrailingCommas = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
-    private sealed class MissionSuggestionPipelineState
-    {
-        public MissionRequirementsFragment? Requirements { get; set; }
-        public MissionDepotFragment? Depot { get; set; }
-        public MissionTeamFragment? Team { get; set; }
-        public MissionDraftBody? DraftBody { get; set; }
-        public List<SuggestedActivityDto>? DraftActivities { get; set; }
-    }
-
-    private sealed class MissionSuggestionPipelineFallbackException(
-        string message,
-        MissionSuggestionPipelineState? state = null,
-        Exception? innerException = null)
-        : Exception(message, innerException)
-    {
-        public MissionSuggestionPipelineState? State { get; } = state;
-    }
+    private sealed class MissionSuggestionPipelineFallbackException(string message, Exception? innerException = null)
+        : Exception(message, innerException);
 
     private sealed record PromptStageResult(
         string ModelName,
@@ -64,7 +51,6 @@ public partial class RescueMissionSuggestionService
         MissionRequirementsFragment requirements;
         MissionDepotFragment depot;
         MissionTeamFragment team;
-        var pipelineState = new MissionSuggestionPipelineState();
 
         yield return Status("requirements");
         try
@@ -78,17 +64,14 @@ public partial class RescueMissionSuggestionService
                         ["sos_requests_data"] = BuildSosRequestsData(sosRequests),
                         ["total_count"] = sosRequests.Count.ToString()
                     },
-                    "Analyze SOS requests and return JSON for mission requirements only. For every SOS requirement, decide urgent_rescue_requires_immediate_safe_transfer, can_wait_for_combined_mission, and requires_supply_before_rescue based on the full SOS cluster plus raw_message/structured_data/incident notes/AI analysis. Decide warning_level/warning_title/warning_message/warning_related_sos_ids/warning_reason based on the full SOS cluster, and keep the warning proportional to actual risk."),
-                "No tools are available. Return JSON only. Include top-level warning_level = none|light|medium|strong, plus warning_title, warning_message, warning_related_sos_ids, warning_reason. For each sos_requirements item, always include urgent_rescue_requires_immediate_safe_transfer, can_wait_for_combined_mission, and requires_supply_before_rescue. Use requires_supply_before_rescue = true only when that SOS genuinely needs depot-backed items or equipment before rescue can start. Use light for low-risk follow-up notes, medium when coordinator should review, and strong when many SOS are critical/urgent, mixed rescue-relief is unsafe, or critical data/resources are missing.",
+                    "Analyze SOS requests and return JSON for mission requirements only."),
+                "No tools are available. Return JSON only.",
                 aiConfig,
                 options,
                 cancellationToken);
 
             requirements = DeserializePipelineFragment<MissionRequirementsFragment>(stage.ResponseText);
             ValidateRequirementsFragment(requirements, sosRequests);
-            pipelineState.Requirements = requirements;
-            metadata.SplitClusterRecommended = requirements.SplitClusterRecommended;
-            metadata.SplitClusterReason = requirements.SplitClusterReason;
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -112,9 +95,9 @@ public partial class RescueMissionSuggestionService
                 "failed",
                 PromptType.MissionRequirementsAssessment,
                 error: ex.Message,
-                pipelineStatus: "failed",
+                pipelineStatus: "fallback",
                 cancellationToken: cancellationToken);
-            throw new MissionSuggestionPipelineFallbackException("Requirements stage failed.", pipelineState, ex);
+            throw new MissionSuggestionPipelineFallbackException("Requirements stage failed.", ex);
         }
 
         yield return Status("depot");
@@ -131,8 +114,8 @@ public partial class RescueMissionSuggestionService
                         ["single_depot_required"] = bool.TrueString,
                         ["eligible_depot_count"] = (nearbyDepots?.Count ?? 0).ToString()
                     },
-                    "Plan depot collection and delivery fragments. Use only inventory lookup results. Choose exactly one depot for the whole mission. Do not split supplies across multiple depots. Search both relief stock and transport or reusable equipment from inventory when the plan needs vehicles or field gear. Batch nearby SOS into route-friendly collect/deliver fragments when the same depot can serve them safely. If the chosen depot lacks stock, keep the one-depot plan and fill needs_additional_depot plus supply_shortages."),
-                "Only searchInventory is available. It is already scoped to eligible depots for this cluster and returns only decision fields, not image URLs or raw lot/serial data. If a depot-backed vehicle or reusable item is selected, keep it inside COLLECT_SUPPLIES and RETURN_SUPPLIES with depot and item identifiers; do not demote it to resources[]. This stage only suggests the plan and does not reserve inventory. Do not invent depot_id or item_id. Every DELIVER_SUPPLIES that comes from the chosen depot must keep depot_id/depot_name/depot_address and the concrete supplies_to_collect list. If an urgent rescue SOS requires depot-backed gear before rescue, you may create COLLECT_SUPPLIES for that SOS before the rescue branch. Return JSON only.",
+                    "Plan depot collection and delivery fragments. Use only inventory lookup results. Choose exactly one depot for the whole mission. Do not split supplies across multiple depots. Search both relief stock and transport or reusable equipment from inventory when the plan needs vehicles or field gear. If SOS context mentions flooding, isolation, or evacuation, you must also search transportation/rescue inventory before finalizing the depot plan. Batch nearby SOS into route-friendly collect/deliver fragments when the same depot can serve them safely. If the chosen depot lacks stock, keep the one-depot plan and fill needs_additional_depot plus supply_shortages."),
+                "Only searchInventory is available. It is already scoped to eligible depots for this cluster and returns only decision fields, not image URLs or raw lot/serial data. If a depot-backed vehicle or reusable item is selected, keep it inside COLLECT_SUPPLIES and RETURN_SUPPLIES with depot and item identifiers; do not demote it to resources[]. When searchInventory returns a matching boat, vehicle, or rescue equipment item, put that real inventory item into supplies_to_collect instead of leaving it as a generic resource. This stage only suggests the plan and does not reserve inventory. Do not invent depot_id or item_id. Every DELIVER_SUPPLIES that comes from the chosen depot must keep depot_id/depot_name/depot_address and the concrete supplies_to_collect list. If an urgent rescue route needs depot-backed gear or supplies before field execution, you may create COLLECT_SUPPLIES before the rescue branch. Return JSON only.",
                 BuildAllowedTools("searchInventory"),
                 nearbyDepots,
                 nearbyTeams,
@@ -142,7 +125,6 @@ public partial class RescueMissionSuggestionService
 
             depot = DeserializePipelineFragment<MissionDepotFragment>(stage.ResponseText);
             ValidateDepotFragment(depot);
-            pipelineState.Depot = depot;
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -166,9 +148,9 @@ public partial class RescueMissionSuggestionService
                 "failed",
                 PromptType.MissionDepotPlanning,
                 error: ex.Message,
-                pipelineStatus: "failed",
+                pipelineStatus: "fallback",
                 cancellationToken: cancellationToken);
-            throw new MissionSuggestionPipelineFallbackException("Depot stage failed.", pipelineState, ex);
+            throw new MissionSuggestionPipelineFallbackException("Depot stage failed.", ex);
         }
 
         yield return Status("team");
@@ -186,7 +168,7 @@ public partial class RescueMissionSuggestionService
                         ["nearby_team_count"] = nearbyTeams.Count.ToString()
                     },
                     "Assign nearby teams, add rescue/medical/evacuate activities as JSON fragments, and decide the exact final activity order. A mission may use many teams, but each individual activity must remain SingleTeam."),
-                "Only getTeams and getAssemblyPoints are available. Do not invent team_id or assembly_point_id. Do not use SplitAcrossTeams, MultiTeam, or required_team_count > 1 on any activity or assignment. You may keep coordination_group_key only as a route-ordering hint, not as a multi-team split signal. Every additional activity must include activity_key. Return ordered_activity_keys covering every depot activity key plus every additional activity key exactly once, in the final execution order. Non-urgent mixed routes may do COLLECT->DELIVER before rescue. Urgent rescue routes must do COLLECT(for that urgent SOS only when requires_supply_before_rescue=true)->RESCUE->EVACUATE before unrelated work. Return JSON only.",
+                "Only getTeams and getAssemblyPoints are available. Do not invent team_id or assembly_point_id. Do not use SplitAcrossTeams, MultiTeam, or required_team_count > 1 on any activity or assignment. You may keep coordination_group_key only as a route-ordering hint, not as a multi-team split signal. Every additional activity should include activity_key when available. Return ordered_activity_keys when possible; if omitted, backend will keep the combined depot/team activity order. Non-urgent mixed routes may do COLLECT->DELIVER before rescue. Urgent rescue routes should still prioritize rescue work before unrelated work, but depot-backed COLLECT_SUPPLIES or DELIVER_SUPPLIES may appear before rescue when the same route must bring items or equipment to the scene, including for nearby urgent SOS handled in one combined route. A DELIVER_SUPPLIES activity must stay on the same route/team as the COLLECT_SUPPLIES that gathered its depot-backed supplies; cross-team inventory handoff is unsupported. Do not assign one team to COLLECT and another team to DELIVER the same collected supplies. Return JSON only.",
                 BuildAllowedTools("getTeams", "getAssemblyPoints"),
                 nearbyDepots,
                 nearbyTeams,
@@ -196,7 +178,6 @@ public partial class RescueMissionSuggestionService
 
             team = DeserializePipelineFragment<MissionTeamFragment>(stage.ResponseText);
             ValidateTeamFragment(team, depot);
-            pipelineState.Team = team;
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -220,9 +201,9 @@ public partial class RescueMissionSuggestionService
                 "failed",
                 PromptType.MissionTeamPlanning,
                 error: ex.Message,
-                pipelineStatus: "failed",
+                pipelineStatus: "fallback",
                 cancellationToken: cancellationToken);
-            throw new MissionSuggestionPipelineFallbackException("Team stage failed.", pipelineState, ex);
+            throw new MissionSuggestionPipelineFallbackException("Team stage failed.", ex);
         }
 
         yield return Status("assemble");
@@ -232,27 +213,6 @@ public partial class RescueMissionSuggestionService
         var draftActivities = draftBody.Activities
             .Select(MapDraftActivityToSuggestedActivity)
             .ToList();
-        var assembledDraftResult = MapDraftBodyToResult(draftBody, draftJson);
-        var assembledDraftAssessment = AssessExecutableMissionResult(assembledDraftResult, sosRequests, draftActivities, requirements);
-        if (!assembledDraftAssessment.IsExecutable)
-        {
-            await SavePipelineStageSnapshotAsync(
-                suggestionId,
-                metadata,
-                "assemble",
-                "failed",
-                outputJson: draftJson,
-                error: assembledDraftAssessment.FailureReason,
-                pipelineStatus: "failed",
-                cancellationToken: cancellationToken);
-
-            throw new MissionSuggestionPipelineFallbackException(
-                $"Assemble stage failed: {assembledDraftAssessment.FailureReason ?? "Draft route is not executable."}",
-                pipelineState);
-        }
-
-        pipelineState.DraftBody = draftBody;
-        pipelineState.DraftActivities = draftActivities.Select(CloneActivity).ToList();
 
         await SavePipelineStageSnapshotAsync(
             suggestionId,
@@ -265,7 +225,7 @@ public partial class RescueMissionSuggestionService
 
         yield return Status("validate");
 
-        const string finalResultSource = "validated";
+        var finalResultSource = "validated";
         RescueMissionSuggestionResult result;
 
         try
@@ -279,8 +239,8 @@ public partial class RescueMissionSuggestionService
                         ["sos_requests_data"] = BuildSosRequestsData(sosRequests),
                         ["mission_draft_body"] = draftJson
                     },
-                    "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the exact route order from ordered_activity_keys/activity_key, the single selected depot, needs_additional_depot, supply_shortages, warning_level, warning_title, warning_message, warning_related_sos_ids, and warning_reason fields. Preserve any inventory-backed transport or reusable equipment inside supplies_to_collect. Keep the JSON contract unchanged."),
-                "No tools are available. Return the full mission JSON only. Do not introduce a second depot. Every activity must stay SingleTeam with required_team_count = 1. Do not change the route dependency COLLECT->DELIVER and do not reorder urgent rescue safe-transfer sequences. Preserve or improve the warning_level/warning_title/warning_message/warning_related_sos_ids/warning_reason fields so they still reflect the real cluster risk.",
+                    "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields. Preserve any inventory-backed transport or reusable equipment inside supplies_to_collect. Keep the JSON contract unchanged."),
+                "No tools are available. Return the full mission JSON only. Do not introduce a second depot. Do not add warnings[] or any new warning schema.",
                 aiConfig,
                 options,
                 cancellationToken);
@@ -289,27 +249,6 @@ public partial class RescueMissionSuggestionService
             result.IsSuccess = true;
             result.ModelName = stage.ModelName;
             result.RawAiResponse = stage.ResponseText;
-
-            var validatedAssessment = AssessExecutableMissionResult(result, sosRequests, draftActivities, requirements);
-            if (!validatedAssessment.IsExecutable)
-            {
-                await SavePipelineStageSnapshotAsync(
-                    suggestionId,
-                    metadata,
-                    "validate",
-                    "failed",
-                    PromptType.MissionPlanValidation,
-                    stage.ModelName,
-                    stage.LatencyMs,
-                    ExtractJsonPayload(stage.ResponseText),
-                    validatedAssessment.FailureReason,
-                    "failed",
-                    cancellationToken);
-
-                throw new MissionSuggestionPipelineFallbackException(
-                    $"Validation stage failed: {validatedAssessment.FailureReason ?? "Final mission JSON is not executable."}",
-                    pipelineState);
-            }
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -323,10 +262,17 @@ public partial class RescueMissionSuggestionService
                 null,
                 "completed",
                 cancellationToken,
-                finalResultSource);
+                "validated");
         }
         catch (Exception ex)
         {
+            finalResultSource = "draft";
+            result = MapDraftBodyToResult(draftBody, draftJson);
+            result.NeedsManualReview = true;
+            result.SpecialNotes = AppendSpecialNote(
+                result.SpecialNotes,
+                "Final validation failed. Please review the assembled mission draft manually.");
+
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
                 metadata,
@@ -334,13 +280,9 @@ public partial class RescueMissionSuggestionService
                 "failed",
                 PromptType.MissionPlanValidation,
                 error: ex.Message,
-                pipelineStatus: "failed",
-                cancellationToken: cancellationToken);
-
-            if (ex is MissionSuggestionPipelineFallbackException)
-                throw;
-
-            throw new MissionSuggestionPipelineFallbackException("Validation stage failed.", pipelineState, ex);
+                pipelineStatus: "completed",
+                cancellationToken: cancellationToken,
+                finalResultSource: finalResultSource);
         }
 
         await FinalizeSuggestionResultAsync(
@@ -354,8 +296,6 @@ public partial class RescueMissionSuggestionService
             metadata,
             draftActivities,
             finalResultSource,
-            CreateAiWarningDecision(requirements),
-            requirements,
             options,
             cancellationToken);
 
@@ -634,9 +574,135 @@ public partial class RescueMissionSuggestionService
         if (node is not JsonObject root)
             return json;
 
+        NormalizePipelineSuggestedResources(root);
+        NormalizePipelineSosRequirements(root);
+        NormalizePipelineActivities(root, "activities");
+        NormalizePipelineActivityAssignments(root);
+        NormalizePipelineActivities(root, "additional_activities");
+        NormalizePipelineOrderedActivityKeys(root);
         NormalizePipelineSupplyShortages(root);
         NormalizePipelineWarningRelatedSosIds(root);
+        NormalizePipelineTopLevelSuggestedTeam(root);
         return root.ToJsonString();
+    }
+
+    private static void NormalizePipelineSuggestedResources(JsonObject root)
+    {
+        if (!root.TryGetPropertyValue("suggested_resources", out var node) || node is null)
+            return;
+
+        var normalized = new JsonArray();
+        foreach (var entry in CoerceNodeToArray(node))
+        {
+            switch (entry)
+            {
+                case JsonObject obj:
+                    normalized.Add(obj.DeepClone());
+                    break;
+                case JsonValue value when value.TryGetValue(out string? label) && !string.IsNullOrWhiteSpace(label):
+                    normalized.Add(new JsonObject
+                    {
+                        ["resource_type"] = "EQUIPMENT",
+                        ["description"] = label.Trim(),
+                        ["quantity"] = 1,
+                        ["priority"] = null
+                    });
+                    break;
+            }
+        }
+
+        root["suggested_resources"] = normalized;
+    }
+
+    private static void NormalizePipelineSosRequirements(JsonObject root)
+    {
+        if (!root.TryGetPropertyValue("sos_requirements", out var node) || node is null)
+            return;
+
+        var normalized = new JsonArray();
+        foreach (var entry in CoerceNodeToArray(node))
+        {
+            switch (entry)
+            {
+                case JsonObject obj:
+                    NormalizePipelineRequiredSupplies(obj);
+                    NormalizePipelineRequiredTeams(obj);
+                    normalized.Add(obj.DeepClone());
+                    break;
+                case JsonValue value:
+                {
+                    var sosId = ReadIntNode(value);
+                    if (sosId is > 0)
+                    {
+                        normalized.Add(new JsonObject
+                        {
+                            ["sos_request_id"] = sosId.Value,
+                            ["required_supplies"] = new JsonArray(),
+                            ["required_teams"] = new JsonArray()
+                        });
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        root["sos_requirements"] = normalized;
+    }
+
+    private static void NormalizePipelineActivities(JsonObject root, string propertyName)
+    {
+        if (!root.TryGetPropertyValue(propertyName, out var node) || node is null)
+            return;
+
+        var normalized = new JsonArray();
+        foreach (var entry in CoerceNodeToArray(node))
+        {
+            if (entry is not JsonObject obj)
+                continue;
+
+            NormalizePipelineSuppliesToCollect(obj);
+            NormalizeNestedSuggestedTeam(obj);
+            normalized.Add(obj.DeepClone());
+        }
+
+        root[propertyName] = normalized;
+    }
+
+    private static void NormalizePipelineActivityAssignments(JsonObject root)
+    {
+        if (!root.TryGetPropertyValue("activity_assignments", out var node) || node is null)
+            return;
+
+        var normalized = new JsonArray();
+        foreach (var entry in CoerceNodeToArray(node))
+        {
+            if (entry is not JsonObject obj)
+                continue;
+
+            NormalizeNestedSuggestedTeam(obj);
+            normalized.Add(obj.DeepClone());
+        }
+
+        root["activity_assignments"] = normalized;
+    }
+
+    private static void NormalizePipelineOrderedActivityKeys(JsonObject root)
+    {
+        if (!root.TryGetPropertyValue("ordered_activity_keys", out var node) || node is null)
+            return;
+
+        var normalized = new JsonArray();
+        foreach (var entry in CoerceNodeToArray(node))
+        {
+            if (entry is not JsonValue value)
+                continue;
+
+            if (value.TryGetValue(out string? key) && !string.IsNullOrWhiteSpace(key))
+                normalized.Add(key.Trim());
+        }
+
+        root["ordered_activity_keys"] = normalized;
     }
 
     private static void NormalizePipelineSupplyShortages(JsonObject root)
@@ -749,6 +815,122 @@ public partial class RescueMissionSuggestionService
         root["warning_related_sos_ids"] = normalized;
     }
 
+    private static void NormalizePipelineTopLevelSuggestedTeam(JsonObject root)
+    {
+        if (!root.TryGetPropertyValue("suggested_team", out var suggestedTeamNode))
+            return;
+
+        if (suggestedTeamNode is null or JsonObject)
+            return;
+
+        root["suggested_team"] = null;
+    }
+
+    private static JsonArray CoerceNodeToArray(JsonNode node)
+    {
+        return node switch
+        {
+            JsonArray array => array,
+            JsonObject obj => [(JsonNode)obj.DeepClone()],
+            JsonValue value => [JsonNode.Parse(value.ToJsonString())!],
+            _ => []
+        };
+    }
+
+    private static void NormalizePipelineRequiredSupplies(JsonObject source)
+    {
+        if (!source.TryGetPropertyValue("required_supplies", out var node) || node is null)
+            return;
+
+        var normalized = new JsonArray();
+        foreach (var entry in CoerceNodeToArray(node))
+        {
+            switch (entry)
+            {
+                case JsonObject obj:
+                    normalized.Add(obj.DeepClone());
+                    break;
+                case JsonValue value when value.TryGetValue(out string? label) && !string.IsNullOrWhiteSpace(label):
+                    normalized.Add(new JsonObject
+                    {
+                        ["item_name"] = label.Trim(),
+                        ["quantity"] = 1,
+                        ["unit"] = null,
+                        ["category"] = null,
+                        ["notes"] = null
+                    });
+                    break;
+            }
+        }
+
+        source["required_supplies"] = normalized;
+    }
+
+    private static void NormalizePipelineRequiredTeams(JsonObject source)
+    {
+        if (!source.TryGetPropertyValue("required_teams", out var node) || node is null)
+            return;
+
+        var normalized = new JsonArray();
+        foreach (var entry in CoerceNodeToArray(node))
+        {
+            switch (entry)
+            {
+                case JsonObject obj:
+                    normalized.Add(obj.DeepClone());
+                    break;
+                case JsonValue value when value.TryGetValue(out string? label) && !string.IsNullOrWhiteSpace(label):
+                    normalized.Add(new JsonObject
+                    {
+                        ["team_type"] = label.Trim(),
+                        ["quantity"] = 1,
+                        ["reason"] = null
+                    });
+                    break;
+            }
+        }
+
+        source["required_teams"] = normalized;
+    }
+
+    private static void NormalizePipelineSuppliesToCollect(JsonObject source)
+    {
+        if (!source.TryGetPropertyValue("supplies_to_collect", out var node) || node is null)
+            return;
+
+        var normalized = new JsonArray();
+        foreach (var entry in CoerceNodeToArray(node))
+        {
+            switch (entry)
+            {
+                case JsonObject obj:
+                    normalized.Add(obj.DeepClone());
+                    break;
+                case JsonValue value when value.TryGetValue(out string? label) && !string.IsNullOrWhiteSpace(label):
+                    normalized.Add(new JsonObject
+                    {
+                        ["item_name"] = label.Trim(),
+                        ["quantity"] = 1,
+                        ["unit"] = null
+                    });
+                    break;
+            }
+        }
+
+        source["supplies_to_collect"] = normalized;
+    }
+
+    private static void NormalizeNestedSuggestedTeam(JsonObject source)
+    {
+        if (!source.TryGetPropertyValue("suggested_team", out var suggestedTeamNode))
+            return;
+
+        if (suggestedTeamNode is null or JsonObject)
+            return;
+
+        source["suggested_team"] = null;
+    }
+
     private static int? ReadIntNode(JsonNode? node)
     {
         if (node is JsonValue value)
@@ -779,7 +961,6 @@ public partial class RescueMissionSuggestionService
 
         return null;
     }
-
     private static string ExtractJsonPayload(string rawResponse)
     {
         var cleaned = rawResponse.Trim();
@@ -809,179 +990,170 @@ public partial class RescueMissionSuggestionService
         MissionRequirementsFragment fragment,
         IReadOnlyCollection<SosRequestSummary> sosRequests)
     {
-        if (fragment.SosRequirements.Count == 0)
-            throw new InvalidOperationException("Requirements fragment must contain at least one SOS requirement.");
+        var requirementLookup = fragment.SosRequirements
+            .Where(requirement => requirement.SosRequestId > 0)
+            .GroupBy(requirement => requirement.SosRequestId)
+            .ToDictionary(group => group.Key, group => group.First());
 
-        var knownSosIds = sosRequests.Select(sos => sos.Id).ToHashSet();
-        foreach (var sosRequirement in fragment.SosRequirements)
-        {
-            if (!knownSosIds.Contains(sosRequirement.SosRequestId))
-                throw new InvalidOperationException($"Requirements fragment references unknown SOS #{sosRequirement.SosRequestId}.");
-        }
+        fragment.SosRequirements = sosRequests
+            .Select(sos =>
+            {
+                if (requirementLookup.TryGetValue(sos.Id, out var existing))
+                {
+                    existing.RequiredSupplies ??= [];
+                    existing.RequiredTeams ??= [];
+                    return existing;
+                }
+
+                return new MissionSosRequirementFragment
+                {
+                    SosRequestId = sos.Id,
+                    Summary = string.IsNullOrWhiteSpace(sos.RawMessage) ? $"SOS #{sos.Id}" : sos.RawMessage.Trim(),
+                    Priority = SosRequestAiAnalysisHelper.ResolveSuggestedPriority(sos.AiAnalysis, sos.PriorityLevel)
+                        ?? sos.PriorityLevel
+                        ?? "Medium",
+                    NeedsImmediateSafeTransfer = sos.AiAnalysis?.NeedsImmediateSafeTransfer,
+                    UrgentRescueRequiresImmediateSafeTransfer = sos.AiAnalysis?.NeedsImmediateSafeTransfer,
+                    CanWaitForCombinedMission = sos.AiAnalysis?.CanWaitForCombinedMission,
+                    HandlingReason = sos.AiAnalysis?.HandlingReason,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                };
+            })
+            .ToList();
 
         if (fragment.SplitClusterRecommended && string.IsNullOrWhiteSpace(fragment.SplitClusterReason))
-        {
-            throw new InvalidOperationException(
-                "Requirements fragment must provide split_cluster_reason when split_cluster_recommended is true.");
-        }
+            fragment.SplitClusterReason = "AI recommended cluster split but did not provide a specific reason.";
     }
 
     private static void ValidateDepotFragment(MissionDepotFragment fragment)
     {
-        var duplicateKey = fragment.Activities
-            .GroupBy(activity => activity.ActivityKey, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(group => !string.IsNullOrWhiteSpace(group.Key) && group.Count() > 1);
+        var selectedDepotId = fragment.Activities
+            .Where(activity => activity.DepotId is > 0)
+            .Select(activity => activity.DepotId)
+            .Concat(fragment.SupplyShortages.Where(shortage => shortage.SelectedDepotId is > 0).Select(shortage => shortage.SelectedDepotId))
+            .FirstOrDefault();
+        var selectedDepotName = fragment.Activities
+            .Select(activity => activity.DepotName)
+            .Concat(fragment.SupplyShortages.Select(shortage => shortage.SelectedDepotName))
+            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+        var selectedDepotAddress = fragment.Activities
+            .Select(activity => activity.DepotAddress)
+            .FirstOrDefault(address => !string.IsNullOrWhiteSpace(address));
 
-        if (duplicateKey is not null)
-            throw new InvalidOperationException($"Depot fragment contains duplicate activity key '{duplicateKey.Key}'.");
+        var normalizedActivities = new List<MissionActivityFragment>();
+        var usedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sequence = 1;
 
-        var collectedQuantities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var activity in fragment.Activities)
+        foreach (var activity in fragment.Activities.OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue))
         {
-            if (string.IsNullOrWhiteSpace(activity.ActivityKey))
-                throw new InvalidOperationException("Depot activity is missing activity_key.");
+            activity.ActivityKey = EnsureUniqueActivityKey(
+                activity.ActivityKey,
+                activity.ActivityType,
+                activity.SosRequestId,
+                ref sequence,
+                usedKeys);
 
-            if (!string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+            if (selectedDepotId is > 0 && IsSupplyPipelineActivity(activity.ActivityType))
             {
-                throw new InvalidOperationException(
-                    $"Depot fragment activity '{activity.ActivityKey}' has invalid type '{activity.ActivityType}'.");
+                activity.DepotId ??= selectedDepotId;
+                activity.DepotName ??= selectedDepotName;
+                activity.DepotAddress ??= selectedDepotAddress;
             }
 
-            if (activity.DepotId is null)
-                throw new InvalidOperationException($"Depot fragment activity '{activity.ActivityKey}' is missing depot_id.");
-
-            if (activity.SuppliesToCollect is not { Count: > 0 })
-                throw new InvalidOperationException(
-                    $"Depot fragment activity '{activity.ActivityKey}' must include supplies_to_collect.");
-
-            if (string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+            if (IsSupplyPipelineActivity(activity.ActivityType))
             {
-                foreach (var supply in activity.SuppliesToCollect.Where(supply => supply.Quantity > 0))
-                {
-                    var supplyKey = BuildSupplyLedgerKey(supply.ItemId, supply.ItemName);
-                    collectedQuantities.TryGetValue(supplyKey, out var quantity);
-                    collectedQuantities[supplyKey] = quantity + supply.Quantity;
-                }
+                activity.SuppliesToCollect = activity.SuppliesToCollect?
+                    .Where(supply => supply.Quantity > 0 && !string.IsNullOrWhiteSpace(supply.ItemName))
+                    .ToList();
 
-                continue;
+                if (activity.DepotId is null || activity.SuppliesToCollect is not { Count: > 0 })
+                    continue;
             }
 
-            foreach (var supply in activity.SuppliesToCollect.Where(supply => supply.Quantity > 0))
-            {
-                var supplyKey = BuildSupplyLedgerKey(supply.ItemId, supply.ItemName);
-                collectedQuantities.TryGetValue(supplyKey, out var availableQuantity);
-                if (availableQuantity < supply.Quantity)
-                {
-                    throw new InvalidOperationException(
-                        $"Depot fragment delivers '{supply.ItemName}' before a matching collect exists or exceeds collected quantity.");
-                }
-
-                collectedQuantities[supplyKey] = availableQuantity - supply.Quantity;
-            }
+            normalizedActivities.Add(activity);
         }
 
-        var activityDepotIds = fragment.Activities
-            .Where(activity => activity.DepotId.HasValue)
-            .Select(activity => activity.DepotId!.Value);
-        var shortageDepotIds = fragment.SupplyShortages
-            .Where(shortage => shortage.SelectedDepotId.HasValue)
-            .Select(shortage => shortage.SelectedDepotId!.Value);
-        var distinctDepotIds = activityDepotIds
-            .Concat(shortageDepotIds)
-            .Distinct()
-            .ToList();
+        fragment.Activities = normalizedActivities;
 
-        if (distinctDepotIds.Count > 1)
-            throw new InvalidOperationException("Depot fragment must use exactly one depot for the whole mission draft.");
+        if (selectedDepotId is not > 0)
+            return;
 
+        foreach (var activity in fragment.Activities.Where(activity => IsSupplyPipelineActivity(activity.ActivityType)))
+        {
+            activity.DepotId = selectedDepotId;
+            activity.DepotName ??= selectedDepotName;
+            activity.DepotAddress ??= selectedDepotAddress;
+        }
+
+        foreach (var shortage in fragment.SupplyShortages)
+        {
+            shortage.SelectedDepotId ??= selectedDepotId;
+            shortage.SelectedDepotName ??= selectedDepotName;
+        }
     }
 
-    private static void ValidateTeamFragment(
-        MissionTeamFragment fragment,
-        MissionDepotFragment depot)
+    private static void ValidateTeamFragment(MissionTeamFragment fragment, MissionDepotFragment depot)
     {
-        var duplicateKey = fragment.ActivityAssignments
-            .GroupBy(assignment => assignment.ActivityKey, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(group => !string.IsNullOrWhiteSpace(group.Key) && group.Count() > 1);
-
-        if (duplicateKey is not null)
-            throw new InvalidOperationException($"Team fragment contains duplicate activity assignment key '{duplicateKey.Key}'.");
-
         var depotKeys = depot.Activities
             .Select(activity => activity.ActivityKey)
             .Where(key => !string.IsNullOrWhiteSpace(key))
             .ToList();
 
+        var usedKeys = new HashSet<string>(depotKeys, StringComparer.OrdinalIgnoreCase);
+        var sequence = 1;
         var additionalKeys = new List<string>();
-        foreach (var activity in fragment.AdditionalActivities)
+        foreach (var activity in fragment.AdditionalActivities.OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue))
         {
-            if (string.IsNullOrWhiteSpace(activity.ActivityKey))
-                throw new InvalidOperationException("Team fragment additional activity is missing activity_key.");
-
-            if (string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException(
-                    $"Team fragment additional activity '{activity.ActivityKey}' cannot be '{activity.ActivityType}'.");
-            }
-
+            activity.ActivityKey = EnsureUniqueActivityKey(
+                activity.ActivityKey,
+                activity.ActivityType,
+                activity.SosRequestId,
+                ref sequence,
+                usedKeys);
             additionalKeys.Add(activity.ActivityKey);
         }
-
-        var duplicateActivityKey = depotKeys
-            .Concat(additionalKeys)
-            .GroupBy(key => key, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(group => group.Count() > 1);
-
-        if (duplicateActivityKey is not null)
-            throw new InvalidOperationException(
-                $"Team fragment references duplicate activity key '{duplicateActivityKey.Key}' across depot/additional activities.");
 
         var allKeys = depotKeys
             .Concat(additionalKeys)
             .ToList();
 
-        foreach (var assignment in fragment.ActivityAssignments)
-        {
-            if (!allKeys.Contains(assignment.ActivityKey, StringComparer.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException(
-                    $"Team fragment assignment references unknown activity key '{assignment.ActivityKey}'.");
-            }
-        }
+        fragment.ActivityAssignments = fragment.ActivityAssignments
+            .Where(assignment => !string.IsNullOrWhiteSpace(assignment.ActivityKey))
+            .Where(assignment => allKeys.Contains(assignment.ActivityKey, StringComparer.OrdinalIgnoreCase))
+            .GroupBy(assignment => assignment.ActivityKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
 
         if (allKeys.Count == 0)
             return;
 
-        if (fragment.OrderedActivityKeys.Count == 0)
-            throw new InvalidOperationException("Team fragment must return ordered_activity_keys for the full mission route.");
-
-        var duplicateOrderedKey = fragment.OrderedActivityKeys
-            .GroupBy(key => key, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(group => !string.IsNullOrWhiteSpace(group.Key) && group.Count() > 1);
-
-        if (duplicateOrderedKey is not null)
-            throw new InvalidOperationException($"ordered_activity_keys contains duplicate key '{duplicateOrderedKey.Key}'.");
-
-        var missingOrderedKeys = allKeys
-            .Where(key => !fragment.OrderedActivityKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+        var normalizedOrder = fragment.OrderedActivityKeys
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .Where(key => allKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        if (missingOrderedKeys.Count > 0)
+
+        if (normalizedOrder.Count == 0)
         {
-            throw new InvalidOperationException(
-                $"ordered_activity_keys is missing activity keys: {string.Join(", ", missingOrderedKeys)}.");
+            normalizedOrder = depot.Activities
+                .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+                .Select(activity => activity.ActivityKey)
+                .Concat(fragment.AdditionalActivities
+                    .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+                    .Select(activity => activity.ActivityKey))
+                .Where(key => !string.IsNullOrWhiteSpace(key))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
-        var unknownOrderedKeys = fragment.OrderedActivityKeys
-            .Where(key => !allKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
-            .ToList();
-        if (unknownOrderedKeys.Count > 0)
+        foreach (var key in allKeys)
         {
-            throw new InvalidOperationException(
-                $"ordered_activity_keys contains unknown keys: {string.Join(", ", unknownOrderedKeys)}.");
+            if (!normalizedOrder.Contains(key, StringComparer.OrdinalIgnoreCase))
+                normalizedOrder.Add(key);
         }
+
+        fragment.OrderedActivityKeys = normalizedOrder;
     }
 
     private static MissionDraftBody AssembleDraftBody(
@@ -997,26 +1169,60 @@ public partial class RescueMissionSuggestionService
 
         foreach (var activity in depot.Activities.OrderBy(item => item.Step))
         {
-            activityLookup[activity.ActivityKey] = ApplyActivityAssignment(
-                MapActivityFragmentToDraft(activity),
-                assignmentLookup);
+            var draftActivity = MapActivityFragmentToDraft(activity);
+            if (assignmentLookup.TryGetValue(activity.ActivityKey, out var assignment))
+            {
+                draftActivity.ExecutionMode = assignment.ExecutionMode ?? draftActivity.ExecutionMode;
+                draftActivity.RequiredTeamCount = assignment.RequiredTeamCount ?? draftActivity.RequiredTeamCount;
+                draftActivity.CoordinationGroupKey = assignment.CoordinationGroupKey ?? draftActivity.CoordinationGroupKey;
+                draftActivity.CoordinationNotes = assignment.CoordinationNotes ?? draftActivity.CoordinationNotes;
+                draftActivity.SuggestedTeam = CloneSuggestedTeam(assignment.SuggestedTeam) ?? draftActivity.SuggestedTeam;
+            }
+
+            activityLookup[activity.ActivityKey] = draftActivity;
         }
 
         foreach (var activity in team.AdditionalActivities.OrderBy(item => item.Step))
         {
-            activityLookup[activity.ActivityKey] = ApplyActivityAssignment(
-                MapActivityFragmentToDraft(activity),
-                assignmentLookup);
+            var draftActivity = MapActivityFragmentToDraft(activity);
+            if (assignmentLookup.TryGetValue(activity.ActivityKey, out var assignment))
+            {
+                draftActivity.ExecutionMode = assignment.ExecutionMode ?? draftActivity.ExecutionMode;
+                draftActivity.RequiredTeamCount = assignment.RequiredTeamCount ?? draftActivity.RequiredTeamCount;
+                draftActivity.CoordinationGroupKey = assignment.CoordinationGroupKey ?? draftActivity.CoordinationGroupKey;
+                draftActivity.CoordinationNotes = assignment.CoordinationNotes ?? draftActivity.CoordinationNotes;
+                draftActivity.SuggestedTeam = CloneSuggestedTeam(assignment.SuggestedTeam) ?? draftActivity.SuggestedTeam;
+            }
+
+            activityLookup[activity.ActivityKey] = draftActivity;
         }
 
-        var draftActivities = team.OrderedActivityKeys
-            .Select(activityKey =>
-            {
-                if (!activityLookup.TryGetValue(activityKey, out var activity))
-                    throw new InvalidOperationException($"Could not assemble draft activity for key '{activityKey}'.");
+        var orderedKeys = team.OrderedActivityKeys
+            .Where(activityKey => activityLookup.ContainsKey(activityKey))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-                return activity;
-            })
+        if (orderedKeys.Count == 0)
+        {
+            orderedKeys = depot.Activities
+                .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+                .Select(activity => activity.ActivityKey)
+                .Concat(team.AdditionalActivities
+                    .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+                    .Select(activity => activity.ActivityKey))
+                .Where(activityKey => activityLookup.ContainsKey(activityKey))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        foreach (var key in activityLookup.Keys)
+        {
+            if (!orderedKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+                orderedKeys.Add(key);
+        }
+
+        var draftActivities = orderedKeys
+            .Select(activityKey => activityLookup[activityKey])
             .ToList();
 
         for (var index = 0; index < draftActivities.Count; index++)
@@ -1034,11 +1240,6 @@ public partial class RescueMissionSuggestionService
             SuggestedTeam = CloneSuggestedTeam(team.SuggestedTeam),
             EstimatedDuration = requirements.EstimatedDuration,
             SpecialNotes = JoinNotes(requirements.SpecialNotes, depot.SpecialNotes, team.SpecialNotes),
-            WarningLevel = requirements.WarningLevel,
-            WarningTitle = requirements.WarningTitle,
-            WarningMessage = requirements.WarningMessage,
-            WarningRelatedSosIds = requirements.WarningRelatedSosIds.ToList(),
-            WarningReason = requirements.WarningReason,
             NeedsAdditionalDepot = depot.NeedsAdditionalDepot || requirements.NeedsAdditionalDepot,
             SupplyShortages = depot.SupplyShortages.Count > 0
                 ? depot.SupplyShortages.Select(CloneSupplyShortage).ToList()
@@ -1050,11 +1251,42 @@ public partial class RescueMissionSuggestionService
         };
     }
 
+    private static bool IsSupplyPipelineActivity(string? activityType) =>
+        string.Equals(activityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+
+    private static string EnsureUniqueActivityKey(
+        string? activityKey,
+        string? activityType,
+        int? sosRequestId,
+        ref int sequence,
+        ISet<string> usedKeys)
+    {
+        var candidate = string.IsNullOrWhiteSpace(activityKey)
+            ? BuildGeneratedActivityKey(activityType, sosRequestId, sequence++)
+            : activityKey.Trim();
+        var resolved = candidate;
+        var suffix = 2;
+
+        while (!usedKeys.Add(resolved))
+            resolved = $"{candidate}-{suffix++}";
+
+        return resolved;
+    }
+
+    private static string BuildGeneratedActivityKey(string? activityType, int? sosRequestId, int sequence)
+    {
+        var typeToken = string.IsNullOrWhiteSpace(activityType)
+            ? "activity"
+            : activityType.Trim().ToLowerInvariant().Replace('_', '-');
+        var sosToken = sosRequestId is > 0 ? sosRequestId.Value.ToString() : "auto";
+        return $"{typeToken}-{sosToken}-{sequence}";
+    }
+
     private static MissionDraftActivityDto MapActivityFragmentToDraft(MissionActivityFragment activity)
     {
         return new MissionDraftActivityDto
         {
-            ActivityKey = activity.ActivityKey,
             Step = activity.Step,
             ActivityType = activity.ActivityType,
             Description = activity.Description,
@@ -1079,21 +1311,6 @@ public partial class RescueMissionSuggestionService
         };
     }
 
-    private static MissionDraftActivityDto ApplyActivityAssignment(
-        MissionDraftActivityDto draftActivity,
-        IReadOnlyDictionary<string, MissionActivityAssignmentFragment> assignmentLookup)
-    {
-        if (!assignmentLookup.TryGetValue(draftActivity.ActivityKey, out var assignment))
-            return draftActivity;
-
-        draftActivity.ExecutionMode = assignment.ExecutionMode ?? draftActivity.ExecutionMode;
-        draftActivity.RequiredTeamCount = assignment.RequiredTeamCount ?? draftActivity.RequiredTeamCount;
-        draftActivity.CoordinationGroupKey = assignment.CoordinationGroupKey ?? draftActivity.CoordinationGroupKey;
-        draftActivity.CoordinationNotes = assignment.CoordinationNotes ?? draftActivity.CoordinationNotes;
-        draftActivity.SuggestedTeam = CloneSuggestedTeam(assignment.SuggestedTeam) ?? draftActivity.SuggestedTeam;
-        return draftActivity;
-    }
-
     private static string SerializeMissionDraftBody(MissionDraftBody draftBody)
     {
         var payload = new
@@ -1105,7 +1322,6 @@ public partial class RescueMissionSuggestionService
             overall_assessment = draftBody.OverallAssessment,
             activities = draftBody.Activities.Select(activity => new
             {
-                activity_key = activity.ActivityKey,
                 step = activity.Step,
                 activity_type = activity.ActivityType,
                 description = activity.Description,
@@ -1166,11 +1382,6 @@ public partial class RescueMissionSuggestionService
             },
             estimated_duration = draftBody.EstimatedDuration,
             special_notes = draftBody.SpecialNotes,
-            warning_level = draftBody.WarningLevel,
-            warning_title = draftBody.WarningTitle,
-            warning_message = draftBody.WarningMessage,
-            warning_related_sos_ids = draftBody.WarningRelatedSosIds,
-            warning_reason = draftBody.WarningReason,
             needs_additional_depot = draftBody.NeedsAdditionalDepot,
             supply_shortages = draftBody.SupplyShortages.Select(shortage => new
             {
@@ -1201,18 +1412,6 @@ public partial class RescueMissionSuggestionService
         return result;
     }
 
-    private static string BuildValidationFallbackNote(string failureReason)
-    {
-        return failureReason switch
-        {
-            var message when message.Contains("must include executable activities", StringComparison.OrdinalIgnoreCase)
-                => "Final validation output omitted executable activities. Backend kept the assembled mission draft and marked it for manual review.",
-            var message when message.Contains("must preserve both rescue and relief branches", StringComparison.OrdinalIgnoreCase)
-                => "Final validation output dropped rescue or relief branches from the executable route. Backend kept the assembled mission draft and marked it for manual review.",
-            _ => "Final validation failed. Please review the assembled mission draft manually."
-        };
-    }
-
     private async Task FinalizeSuggestionResultAsync(
         RescueMissionSuggestionResult result,
         List<SosRequestSummary> sosRequests,
@@ -1224,8 +1423,6 @@ public partial class RescueMissionSuggestionService
         MissionSuggestionMetadata? metadata,
         List<SuggestedActivityDto>? draftActivities,
         string finalResultSource,
-        AiWarningDecision? aiWarningFallback,
-        MissionRequirementsFragment? routeRequirements,
         MissionSuggestionExecutionOptions options,
         CancellationToken cancellationToken)
     {
@@ -1236,32 +1433,6 @@ public partial class RescueMissionSuggestionService
             nearbyTeams,
             isMultiDepotRecommended,
             cancellationToken);
-
-        ApplyAiWarningDecision(result, aiWarningFallback);
-
-        if (routeRequirements is not null)
-        {
-            var finalizedAssessment = AssessExecutableMissionResult(
-                result,
-                sosRequests,
-                draftActivities,
-                routeRequirements);
-
-            if (!finalizedAssessment.IsExecutable)
-            {
-                await SavePipelineStageSnapshotAsync(
-                    suggestionId,
-                    metadata ?? CreateSuggestionMetadataForPipeline(),
-                    "finalize",
-                    "failed",
-                    error: finalizedAssessment.FailureReason,
-                    pipelineStatus: "failed",
-                    cancellationToken: cancellationToken);
-
-                throw new MissionSuggestionPipelineFallbackException(
-                    $"Finalize stage failed: {finalizedAssessment.FailureReason ?? "Post-processed mission route is not executable."}");
-            }
-        }
 
         if (draftActivities is { Count: > 0 })
         {
@@ -1275,9 +1446,6 @@ public partial class RescueMissionSuggestionService
         effectiveMetadata.EstimatedDuration = result.EstimatedDuration;
         effectiveMetadata.SpecialNotes = result.SpecialNotes;
         effectiveMetadata.MixedRescueReliefWarning = result.MixedRescueReliefWarning;
-        effectiveMetadata.SplitClusterRecommended =
-            effectiveMetadata.SplitClusterRecommended || !string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning);
-        effectiveMetadata.SplitClusterReason ??= result.MixedRescueReliefWarning;
         effectiveMetadata.NeedsManualReview = result.NeedsManualReview;
         effectiveMetadata.LowConfidenceWarning = result.LowConfidenceWarning;
         effectiveMetadata.NeedsAdditionalDepot = result.NeedsAdditionalDepot;
@@ -1323,7 +1491,9 @@ public partial class RescueMissionSuggestionService
         BackfillItemIds(result.SuggestedActivities, nearbyDepots ?? []);
         await BackfillInventoryBackedItemIdsAsync(result.SuggestedActivities, cancellationToken);
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
-        ConvertUnresolvedSuppliesToShortages(result);
+        await EnsureInventoryBackedTransportSuppliesAsync(result, sosRequests, nearbyDepots ?? [], cancellationToken);
+        NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
+        BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
         await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
         await EnsureReusableReturnActivitiesAsync(result.SuggestedActivities, cancellationToken);
         await HydrateSupplyPlanningSnapshotsAsync(result.SuggestedActivities, cancellationToken);
@@ -1335,19 +1505,16 @@ public partial class RescueMissionSuggestionService
         RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(result, nearbyTeams);
         EnsureReturnAssemblyPointActivities(result);
         EnrichVictimTargets(result.SuggestedActivities, sosLookup);
-        ApplyMixedRescueReliefSafetyNote(result, sosLookup);
-        ApplyMixedMissionMissingAiAnalysisManualReview(result, sosLookup);
+        ApplyMixedRescueReliefSafetyNote(result);
         NormalizeMixedRescueReliefWarning(result, allowFallbackFromSpecialNotes: !string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning));
         NormalizeEstimatedDurations(result);
-        StripSupplyPresentationFields(result.SuggestedActivities);
 
         if (result.ConfidenceScore < LowConfidenceThreshold)
         {
             result.NeedsManualReview = true;
-            result.LowConfidenceWarning = AppendMultilineValue(
-                result.LowConfidenceWarning,
+            result.LowConfidenceWarning =
                 $"AI chi dat do tu tin {result.ConfidenceScore:P0} (nguong {LowConfidenceThreshold:P0}). " +
-                "Dieu phoi vien nen kiem tra lai ke hoach.");
+                "Dieu phoi vien nen kiem tra lai ke hoach.";
         }
 
         result.IsSuccess = true;
@@ -1369,12 +1536,6 @@ public partial class RescueMissionSuggestionService
         result.MixedRescueReliefWarning = normalized.MixedRescueReliefWarning;
     }
 
-    private static void StripSupplyPresentationFields(IEnumerable<SuggestedActivityDto> activities)
-    {
-        foreach (var supply in activities.SelectMany(activity => activity.SuppliesToCollect ?? []))
-            supply.ImageUrl = null;
-    }
-
     private async Task<int?> PersistSuggestionAsync(
         int? clusterId,
         int? suggestionId,
@@ -1388,8 +1549,7 @@ public partial class RescueMissionSuggestionService
             return suggestionId;
 
         var activities = new List<ActivityAiSuggestionModel>();
-        if (string.Equals(finalResultSource, "legacy", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(finalResultSource, "salvaged", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(finalResultSource, "legacy", StringComparison.OrdinalIgnoreCase))
         {
             activities.Add(BuildActivitySuggestionModel(
                 clusterId.Value,

@@ -142,7 +142,11 @@ public class GetMissionSuggestionsQueryHandlerTests
         Assert.Equal("2 gio 10 phut", mission.EstimatedDuration);
         Assert.Equal("Split rescue victims to safe zone before any relief delivery.", mission.SpecialNotes);
         Assert.Equal(
-            "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat.",
+            MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
+            [
+                new SuggestedActivityDto { ActivityType = "COLLECT_SUPPLIES", SosRequestId = 77 },
+                new SuggestedActivityDto { ActivityType = "RESCUE", SosRequestId = 91 }
+            ]),
             mission.MixedRescueReliefWarning);
         Assert.DoesNotContain("Safe Zone", mission.MixedRescueReliefWarning, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Assembly Point", mission.MixedRescueReliefWarning, StringComparison.OrdinalIgnoreCase);
@@ -159,9 +163,8 @@ public class GetMissionSuggestionsQueryHandlerTests
         Assert.Equal("VEHICLE", resource.ResourceType);
         Assert.Equal("Xe tai nhe", resource.Description);
 
-        var activityGroup = Assert.Single(mission.Activities);
-        var collectActivity = Assert.Single(activityGroup.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
-        var rescueActivity = Assert.Single(activityGroup.SuggestedActivities, activity => activity.ActivityType == "RESCUE");
+        var collectActivity = Assert.Single(mission.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
+        var rescueActivity = Assert.Single(mission.SuggestedActivities, activity => activity.ActivityType == "RESCUE");
 
         Assert.Equal("25 phut", collectActivity.EstimatedTime);
         Assert.Equal("SplitAcrossTeams", collectActivity.ExecutionMode);
@@ -206,104 +209,6 @@ public class GetMissionSuggestionsQueryHandlerTests
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.Handle(new GetMissionSuggestionsQuery(5), CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task Handle_UsesMetadataFallbackAndPrioritizesActivityGroupsWithSteps()
-    {
-        var handler = BuildHandler(
-            cluster: new SosClusterModel { Id = 5 },
-            suggestions:
-            [
-                new MissionAiSuggestionModel
-                {
-                    Id = 1,
-                    ClusterId = 5,
-                    ModelName = "gemini-3.1-flash-lite-preview",
-                    AnalysisType = "RescueMissionSuggestion",
-                    SuggestedMissionTitle = "Mission cu",
-                    SuggestedMissionType = null,
-                    SuggestedSeverityLevel = null,
-                    SuggestedPriorityScore = 8.8,
-                    ConfidenceScore = 0.81,
-                    Metadata = """
-                        {
-                          "overall_assessment": "fallback metadata should be used",
-                          "estimated_duration": "1 gio 40 phut",
-                          "special_notes": "Can tach cluster neu dieu kien xau di.",
-                          "suggested_mission_type": "MIXED",
-                          "suggested_severity_level": "Critical"
-                        }
-                        """,
-                    CreatedAt = new DateTime(2026, 4, 21, 6, 0, 0, DateTimeKind.Utc),
-                    Activities =
-                    [
-                        new ActivityAiSuggestionModel
-                        {
-                            Id = 10,
-                            ActivityType = "Mixed Rescue and Relief",
-                            SuggestionPhase = "Execution",
-                            ConfidenceScore = 0.8,
-                            CreatedAt = new DateTime(2026, 4, 21, 6, 5, 0, DateTimeKind.Utc),
-                            SuggestedActivities = "[]"
-                        },
-                        new ActivityAiSuggestionModel
-                        {
-                            Id = 11,
-                            ActivityType = "MIXED",
-                            SuggestionPhase = "Draft",
-                            ConfidenceScore = 0.8,
-                            CreatedAt = new DateTime(2026, 4, 21, 6, 1, 0, DateTimeKind.Utc),
-                            SuggestedActivities = """
-                                [
-                                  {
-                                    "step": 1,
-                                    "activity_type": "COLLECT_SUPPLIES",
-                                    "description": "Lay hang tu kho",
-                                    "estimated_time": "20 phut",
-                                    "sos_request_id": 22
-                                  },
-                                  {
-                                    "step": 2,
-                                    "activity_type": "RESCUE",
-                                    "description": "Dua nan nhan ra khoi diem nguy hiem",
-                                    "estimated_time": "30 phut",
-                                    "sos_request_id": 11
-                                  }
-                                ]
-                                """
-                        }
-                    ]
-                },
-                new MissionAiSuggestionModel
-                {
-                    Id = 2,
-                    ClusterId = 5,
-                    ModelName = "gemini-3.1-flash-lite-preview",
-                    AnalysisType = "RescueMissionSuggestion",
-                    SuggestedMissionTitle = "Mission moi hon",
-                    SuggestedMissionType = "RESCUE",
-                    SuggestedSeverityLevel = "Severe",
-                    SuggestedPriorityScore = 9.2,
-                    ConfidenceScore = 0.9,
-                    Metadata = "{}",
-                    CreatedAt = new DateTime(2026, 4, 21, 7, 0, 0, DateTimeKind.Utc),
-                    Activities = []
-                }
-            ]);
-
-        var response = await handler.Handle(new GetMissionSuggestionsQuery(5), CancellationToken.None);
-
-        Assert.Equal([2, 1], response.MissionSuggestions.Select(mission => mission.Id).ToArray());
-
-        var olderMission = response.MissionSuggestions[1];
-        Assert.Equal("MIXED", olderMission.SuggestedMissionType);
-        Assert.Equal("Critical", olderMission.SuggestedSeverityLevel);
-        Assert.Equal("fallback metadata should be used", olderMission.OverallAssessment);
-
-        Assert.Equal([11, 10], olderMission.Activities.Select(activity => activity.Id).ToArray());
-        Assert.NotEmpty(olderMission.Activities[0].SuggestedActivities);
-        Assert.Empty(olderMission.Activities[1].SuggestedActivities);
     }
 
     private static GetMissionSuggestionsQueryHandler BuildHandler(

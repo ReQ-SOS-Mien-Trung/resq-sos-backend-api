@@ -13,14 +13,6 @@ public class GetMissionSuggestionsQueryHandler(
     ILogger<GetMissionSuggestionsQueryHandler> logger
 ) : IRequestHandler<GetMissionSuggestionsQuery, GetMissionSuggestionsResponse>
 {
-    private static readonly IReadOnlyDictionary<string, int> SuggestionPhaseRank =
-        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Validated"] = 0,
-            ["Execution"] = 1,
-            ["Draft"] = 2
-        };
-
     private readonly IMissionAiSuggestionRepository _missionRepository = missionRepository;
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ILogger<GetMissionSuggestionsQueryHandler> _logger = logger;
@@ -35,31 +27,37 @@ public class GetMissionSuggestionsQueryHandler(
         if (cluster is null)
             throw new NotFoundException($"Không tìm thấy cluster với ID: {request.ClusterId}");
 
-        var suggestions = (await _missionRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken))
-            .OrderByDescending(suggestion => suggestion.CreatedAt ?? DateTime.MinValue)
-            .ThenByDescending(suggestion => suggestion.Id)
-            .ToList();
+        var suggestions = (await _missionRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken)).ToList();
 
         var missionDtos = suggestions.Select(m =>
         {
             var metadata = MissionAiSuggestionJsonHelper.ParseMetadata(m.Metadata);
-            var activityGroups = m.Activities.Select(a => new ActivitySuggestionDto
-            {
-                Id = a.Id,
-                ActivityType = a.ActivityType,
-                SuggestionPhase = a.SuggestionPhase,
-                ConfidenceScore = a.ConfidenceScore,
-                CreatedAt = a.CreatedAt,
-                SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(a.SuggestedActivities)
-            })
-            .OrderByDescending(activityGroup => activityGroup.SuggestedActivities.Count > 0)
-            .ThenBy(activityGroup => GetSuggestionPhaseRank(activityGroup.SuggestionPhase))
-            .ThenByDescending(activityGroup => activityGroup.CreatedAt ?? DateTime.MinValue)
-            .ThenByDescending(activityGroup => activityGroup.Id)
-            .ToList();
+
+            // Pick the Validated phase if exists, otherwise fall back to the latest activity group
+            var validatedActivity = m.Activities
+                .Where(a => a.SuggestionPhase == "Validated")
+                .OrderByDescending(a => a.CreatedAt)
+                .FirstOrDefault();
+
+            var bestActivity = validatedActivity
+                ?? m.Activities.OrderByDescending(a => a.CreatedAt).FirstOrDefault();
+
+            var suggestedActivities = bestActivity != null
+                ? MissionAiSuggestionJsonHelper.ParseActivities(bestActivity.SuggestedActivities)
+                : [];
+
+            var confidenceScore = bestActivity?.ConfidenceScore ?? m.ConfidenceScore;
+
             var mixedRescueReliefWarning = MissionSuggestionWarningHelper.ResolveMixedRescueReliefWarning(
-                activityGroups.SelectMany(activityGroup => activityGroup.SuggestedActivities),
+                suggestedActivities,
                 metadata?.MixedRescueReliefWarning);
+
+            // Count distinct SOS requests from activities
+            var sosRequestCount = suggestedActivities
+                .Where(a => a.SosRequestId.HasValue)
+                .Select(a => a.SosRequestId!.Value)
+                .Distinct()
+                .Count();
 
             return new MissionSuggestionDto
             {
@@ -68,10 +66,10 @@ public class GetMissionSuggestionsQueryHandler(
                 ModelName = m.ModelName,
                 AnalysisType = m.AnalysisType,
                 SuggestedMissionTitle = m.SuggestedMissionTitle,
-                SuggestedMissionType = m.SuggestedMissionType ?? metadata?.SuggestedMissionType,
+                SuggestedMissionType = m.SuggestedMissionType,
                 SuggestedPriorityScore = m.SuggestedPriorityScore,
-                SuggestedSeverityLevel = m.SuggestedSeverityLevel ?? metadata?.SuggestedSeverityLevel,
-                ConfidenceScore = m.ConfidenceScore,
+                SuggestedSeverityLevel = m.SuggestedSeverityLevel,
+                ConfidenceScore = confidenceScore,
                 OverallAssessment = metadata?.OverallAssessment,
                 EstimatedDuration = metadata?.EstimatedDuration,
                 SpecialNotes = metadata?.SpecialNotes,
@@ -83,7 +81,8 @@ public class GetMissionSuggestionsQueryHandler(
                 SuggestedResources = metadata?.SuggestedResources ?? [],
                 SuggestionScope = m.SuggestionScope,
                 CreatedAt = m.CreatedAt,
-                Activities = activityGroups
+                SuggestedActivities = suggestedActivities,
+                SosRequestCount = sosRequestCount
             };
         }).ToList();
 
@@ -93,15 +92,5 @@ public class GetMissionSuggestionsQueryHandler(
             TotalSuggestions = missionDtos.Count,
             MissionSuggestions = missionDtos
         };
-    }
-
-    private static int GetSuggestionPhaseRank(string? phase)
-    {
-        if (string.IsNullOrWhiteSpace(phase))
-            return int.MaxValue;
-
-        return SuggestionPhaseRank.TryGetValue(phase.Trim(), out var rank)
-            ? rank
-            : int.MaxValue;
     }
 }
