@@ -1,7 +1,7 @@
 namespace RESQ.Application.UseCases.Personnel.Queries.GetMyUpcomingAssemblyEvents;
 
 /// <summary>
-/// Thông tin sự kiện tập trung sắp tới (Scheduled hoặc Gathering) dành cho rescuer.
+/// Thông tin sự kiện tập trung sắp tới (Gathering) dành cho rescuer.
 /// </summary>
 public class UpcomingAssemblyEventDto
 {
@@ -19,7 +19,7 @@ public class UpcomingAssemblyEventDto
     /// <summary>Hạn chót check-in (giờ Việt Nam).</summary>
     public DateTime? CheckInDeadline { get; set; }
 
-    /// <summary>Trạng thái sự kiện: Scheduled hoặc Gathering.</summary>
+    /// <summary>Trạng thái sự kiện.</summary>
     public string EventStatus { get; set; } = string.Empty;
 
     /// <summary>Rescuer đã check-in chưa.</summary>

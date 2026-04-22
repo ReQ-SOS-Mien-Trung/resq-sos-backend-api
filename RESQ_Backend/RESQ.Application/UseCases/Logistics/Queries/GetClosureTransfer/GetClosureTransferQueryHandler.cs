@@ -2,6 +2,7 @@
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetClosureTransfer;
@@ -10,7 +11,8 @@ public class GetClosureTransferQueryHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotRepository depotRepository,
     IDepotClosureTransferRepository transferRepository,
-    IDepotInventoryRepository inventoryRepository)
+    IDepotInventoryRepository inventoryRepository,
+    IUserRepository userRepository)
     : IRequestHandler<GetClosureTransferQuery, ClosureTransferResponse>
 {
     public async Task<ClosureTransferResponse> Handle(
@@ -57,6 +59,15 @@ public class GetClosureTransferQueryHandler(
 
         var sourceDepot = await depotRepository.GetByIdAsync(transfer.SourceDepotId, cancellationToken);
         var targetDepot = await depotRepository.GetByIdAsync(transfer.TargetDepotId, cancellationToken);
+        var actorIds = new[] { transfer.ShippedBy, transfer.ReceivedBy }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+        var actors = actorIds.Count > 0
+            ? await userRepository.GetByIdsAsync(actorIds, cancellationToken)
+            : [];
+        var actorNames = actors.ToDictionary(user => user.Id, FormatFullName);
 
         return new ClosureTransferResponse
         {
@@ -72,9 +83,15 @@ public class GetClosureTransferQueryHandler(
             SnapshotReusableUnits = transfer.SnapshotReusableUnits,
             ShippedAt = transfer.ShippedAt,
             ShippedBy = transfer.ShippedBy,
+            ShippedByName = transfer.ShippedBy.HasValue
+                ? actorNames.GetValueOrDefault(transfer.ShippedBy.Value)
+                : null,
             ShipNote = transfer.ShipNote,
             ReceivedAt = transfer.ReceivedAt,
             ReceivedBy = transfer.ReceivedBy,
+            ReceivedByName = transfer.ReceivedBy.HasValue
+                ? actorNames.GetValueOrDefault(transfer.ReceivedBy.Value)
+                : null,
             ReceiveNote = transfer.ReceiveNote,
             CancelledAt = transfer.CancelledAt,
             CancelledBy = transfer.CancelledBy,
@@ -88,6 +105,11 @@ public class GetClosureTransferQueryHandler(
                 Quantity = item.Quantity
             }).ToList()
         };
+    }
+
+    private static string FormatFullName(RESQ.Domain.Entities.Identity.UserModel user)
+    {
+        return $"{user.LastName} {user.FirstName}".Trim();
     }
 }
 

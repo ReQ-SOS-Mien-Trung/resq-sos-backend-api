@@ -321,7 +321,7 @@ namespace RESQ.Presentation.Controllers.Personnel
         }
 
         /// <summary>
-        /// Rescuer xem danh sách sự kiện tập trung sắp tới (trạng thái Scheduled hoặc Gathering)
+        /// Rescuer xem danh sách sự kiện tập trung sắp tới đang ở trạng thái Gathering
         /// mà mình được gán vào. Kết quả sắp xếp theo thời gian triệu tập tăng dần (gần nhất trước).
         /// </summary>
         [HttpGet("events/my/upcoming")]
