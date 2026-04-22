@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -277,6 +277,38 @@ public class SubmitMissionTeamReportCommandHandler(
 
             var allActivitiesSettled = mission.Activities.Count > 0
                 && mission.Activities.All(IsActivitySettledForMissionCompletion);
+
+            // ── Diagnostic logging for mission completion check ──
+            logger.LogInformation(
+                "MissionCompletion check MissionId={MissionId}: ActivityCount={ActivityCount}, RequiredTeamIds=[{RequiredTeamIds}], AllActivitiesSettled={AllSettled}, AllTeamsReported={AllReported}",
+                request.MissionId,
+                mission.Activities.Count,
+                string.Join(",", requiredTeamIds),
+                allActivitiesSettled,
+                allRequiredTeamsReported);
+
+            foreach (var act in mission.Activities)
+            {
+                var settled = IsActivitySettledForMissionCompletion(act);
+                if (!settled)
+                {
+                    logger.LogWarning(
+                        "MissionCompletion BLOCKER: ActivityId={ActivityId} Type={Type} Status={Status} MissionTeamId={TeamId} → NOT settled",
+                        act.Id, act.ActivityType, act.Status, act.MissionTeamId);
+                }
+            }
+
+            foreach (var teamId in requiredTeamIds)
+            {
+                var team = refreshedTeams.FirstOrDefault(x => x.Id == teamId);
+                if (team is null || !string.Equals(team.Status, MissionTeamExecutionStatus.Reported.ToString(), StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.LogWarning(
+                        "MissionCompletion BLOCKER: MissionTeamId={TeamId} Status={Status} → NOT reported",
+                        teamId, team?.Status ?? "NOT_FOUND");
+                }
+            }
+            // ── End diagnostic logging ──
 
             if (allActivitiesSettled && allRequiredTeamsReported)
             {
