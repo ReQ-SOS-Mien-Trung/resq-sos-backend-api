@@ -1,8 +1,10 @@
 using MediatR;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosPriorityRuleConfig;
 using RESQ.Domain.Entities.System;
 
@@ -10,11 +12,13 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.ActivateSosPriorityRul
 
 public class ActivateSosPriorityRuleConfigCommandHandler(
     ISosPriorityRuleConfigRepository repository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService)
     : IRequestHandler<ActivateSosPriorityRuleConfigCommand, SosPriorityRuleConfigResponse>
 {
     private readonly ISosPriorityRuleConfigRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
 
     public async Task<SosPriorityRuleConfigResponse> Handle(ActivateSosPriorityRuleConfigCommand request, CancellationToken cancellationToken)
     {
@@ -67,6 +71,19 @@ public class ActivateSosPriorityRuleConfigCommandHandler(
             await _unitOfWork.SaveAsync();
             response = ToResponse(target);
         });
+
+        if (response != null)
+        {
+            await _adminRealtimeHubService.PushSystemConfigUpdateAsync(new AdminSystemConfigRealtimeUpdate
+            {
+                EntityId = response.Id,
+                EntityType = "SosPriorityRuleConfig",
+                ConfigKey = "sos-priority-rule",
+                Action = "Activated",
+                Status = response.Status,
+                ChangedAt = response.UpdatedAt
+            }, cancellationToken);
+        }
 
         return response
             ?? throw new NotFoundException($"Không thể tải config vừa activate với Id={request.Id}.");

@@ -1,8 +1,10 @@
 using MediatR;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosPriorityRuleConfig;
 using RESQ.Domain.Entities.System;
 
@@ -10,11 +12,13 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.CreateSosPriorityRuleC
 
 public class CreateSosPriorityRuleConfigDraftCommandHandler(
     ISosPriorityRuleConfigRepository repository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService)
     : IRequestHandler<CreateSosPriorityRuleConfigDraftCommand, SosPriorityRuleConfigResponse>
 {
     private readonly ISosPriorityRuleConfigRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
 
     public async Task<SosPriorityRuleConfigResponse> Handle(CreateSosPriorityRuleConfigDraftCommand request, CancellationToken cancellationToken)
     {
@@ -53,7 +57,19 @@ public class CreateSosPriorityRuleConfigDraftCommandHandler(
             .FirstOrDefault(x => string.Equals(x.ConfigVersion, draft.ConfigVersion, StringComparison.OrdinalIgnoreCase))
             ?? throw new NotFoundException("Không thể tải draft config vừa tạo.");
 
-        return ToResponse(created);
+        var response = ToResponse(created);
+
+        await _adminRealtimeHubService.PushSystemConfigUpdateAsync(new AdminSystemConfigRealtimeUpdate
+        {
+            EntityId = response.Id,
+            EntityType = "SosPriorityRuleConfig",
+            ConfigKey = "sos-priority-rule",
+            Action = "DraftCreated",
+            Status = response.Status,
+            ChangedAt = response.UpdatedAt
+        }, cancellationToken);
+
+        return response;
     }
 
     private async Task<string> BuildUniqueDraftVersionAsync(string? baseVersion, CancellationToken cancellationToken)

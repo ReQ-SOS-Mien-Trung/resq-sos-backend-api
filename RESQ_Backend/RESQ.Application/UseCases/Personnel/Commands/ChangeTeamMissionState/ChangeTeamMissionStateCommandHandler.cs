@@ -10,6 +10,7 @@ namespace RESQ.Application.UseCases.Personnel.RescueTeams.Handlers;
 public class ChangeTeamMissionStateCommandHandler(
     IRescueTeamRepository teamRepository,
     IOperationalHubService operationalHubService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork) : IRequestHandler<ChangeTeamMissionStateCommand>
 {
     public async Task Handle(ChangeTeamMissionStateCommand request, CancellationToken ct)
@@ -31,5 +32,16 @@ public class ChangeTeamMissionStateCommandHandler(
         await teamRepository.UpdateAsync(team, ct);
         await unitOfWork.SaveAsync();
         await operationalHubService.PushLogisticsUpdateAsync("rescue-teams", cancellationToken: ct);
+        await adminRealtimeHubService.PushRescueTeamUpdateAsync(
+            new RESQ.Application.Common.Models.AdminRescueTeamRealtimeUpdate
+            {
+                EntityId = team.Id,
+                EntityType = "RescueTeam",
+                TeamId = team.Id,
+                Action = request.Action,
+                Status = team.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            ct);
     }
 }

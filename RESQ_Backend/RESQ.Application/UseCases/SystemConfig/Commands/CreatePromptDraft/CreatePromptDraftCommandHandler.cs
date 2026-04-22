@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.SystemConfig.Commands.PromptVersioning;
 using RESQ.Domain.Entities.System;
 
@@ -12,10 +14,12 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.CreatePromptDraft;
 public class CreatePromptDraftCommandHandler(
     IPromptRepository promptRepository,
     IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<CreatePromptDraftCommandHandler> logger) : IRequestHandler<CreatePromptDraftCommand, PromptVersionActionResponse>
 {
     private readonly IPromptRepository _promptRepository = promptRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<CreatePromptDraftCommandHandler> _logger = logger;
 
     public async Task<PromptVersionActionResponse> Handle(CreatePromptDraftCommand request, CancellationToken cancellationToken)
@@ -57,6 +61,17 @@ public class CreatePromptDraftCommandHandler(
 
         await _promptRepository.CreateAsync(draft, cancellationToken);
         await _unitOfWork.SaveAsync();
+
+        await _adminRealtimeHubService.PushAiConfigUpdateAsync(new AdminAiConfigRealtimeUpdate
+        {
+            EntityId = draft.Id,
+            ConfigId = draft.Id,
+            EntityType = "Prompt",
+            ConfigScope = "Prompt",
+            Action = "DraftCreated",
+            Status = PromptLifecycleStatusResolver.DetermineStatus(draft),
+            ChangedAt = draft.UpdatedAt ?? DateTime.UtcNow
+        }, cancellationToken);
 
         return new PromptVersionActionResponse
         {

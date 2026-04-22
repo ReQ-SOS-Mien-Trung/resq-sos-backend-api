@@ -1,7 +1,9 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.ChangeCampaignStatus;
@@ -9,11 +11,16 @@ namespace RESQ.Application.UseCases.Finance.Commands.ChangeCampaignStatus;
 public class ChangeCampaignStatusCommandHandler : IRequestHandler<ChangeCampaignStatusCommand, bool>
 {
     private readonly IFundCampaignRepository _repository;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork;
 
-    public ChangeCampaignStatusCommandHandler(IFundCampaignRepository repository, IUnitOfWork unitOfWork)
+    public ChangeCampaignStatusCommandHandler(
+        IFundCampaignRepository repository,
+        IAdminRealtimeHubService adminRealtimeHubService,
+        IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _adminRealtimeHubService = adminRealtimeHubService;
         _unitOfWork = unitOfWork;
     }
 
@@ -51,6 +58,18 @@ public class ChangeCampaignStatusCommandHandler : IRequestHandler<ChangeCampaign
         }
 
         await _repository.UpdateAsync(campaign, cancellationToken);
-        return await _unitOfWork.SaveAsync() > 0;
+        var changed = await _unitOfWork.SaveAsync() > 0;
+        await _adminRealtimeHubService.PushCampaignUpdateAsync(
+            new AdminCampaignRealtimeUpdate
+            {
+                EntityId = campaign.Id,
+                EntityType = "Campaign",
+                CampaignId = campaign.Id,
+                Action = "StatusChanged",
+                Status = campaign.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
+        return changed;
     }
 }

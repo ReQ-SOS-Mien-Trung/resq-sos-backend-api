@@ -1,13 +1,16 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Personnel.Commands.SetTeamUnavailable;
 
 public class SetTeamUnavailableCommandHandler(
     IRescueTeamRepository teamRepository,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork)
     : IRequestHandler<SetTeamUnavailableCommand>
 {
@@ -37,5 +40,16 @@ public class SetTeamUnavailableCommandHandler(
 
         await teamRepository.UpdateAsync(team, cancellationToken);
         await unitOfWork.SaveAsync();
+        await adminRealtimeHubService.PushRescueTeamUpdateAsync(
+            new AdminRescueTeamRealtimeUpdate
+            {
+                EntityId = team.Id,
+                EntityType = "RescueTeam",
+                TeamId = team.Id,
+                Action = "SetUnavailable",
+                Status = team.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
     }
 }

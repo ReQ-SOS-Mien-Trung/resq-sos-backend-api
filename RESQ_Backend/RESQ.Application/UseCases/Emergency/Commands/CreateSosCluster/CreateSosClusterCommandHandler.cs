@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Enum.Emergency;
@@ -14,6 +15,7 @@ public class CreateSosClusterCommandHandler(
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
     ISosClusterGroupingConfigRepository sosClusterGroupingConfigRepository,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork,
     ILogger<CreateSosClusterCommandHandler> logger
 ) : IRequestHandler<CreateSosClusterCommand, CreateSosClusterResponse>
@@ -24,6 +26,7 @@ public class CreateSosClusterCommandHandler(
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly ISosClusterGroupingConfigRepository _sosClusterGroupingConfigRepository = sosClusterGroupingConfigRepository;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<CreateSosClusterCommandHandler> _logger = logger;
 
@@ -119,6 +122,17 @@ public class CreateSosClusterCommandHandler(
 
         var clusterId = await _sosClusterRepository.CreateAsync(cluster, cancellationToken);
         await _unitOfWork.SaveAsync();
+        await _adminRealtimeHubService.PushSOSClusterUpdateAsync(
+            new RESQ.Application.Common.Models.AdminSOSClusterRealtimeUpdate
+            {
+                EntityId = clusterId,
+                EntityType = "SOSCluster",
+                ClusterId = clusterId,
+                Action = "Created",
+                Status = cluster.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         _logger.LogInformation("SOS cluster created successfully: ClusterId={clusterId}", clusterId);
 

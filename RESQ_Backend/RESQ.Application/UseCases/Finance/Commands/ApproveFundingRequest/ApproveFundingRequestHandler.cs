@@ -1,6 +1,8 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Finance.Services;
 using RESQ.Domain.Enum.Finance;
@@ -21,6 +23,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
     private readonly IDepotFundRepository _depotFundRepo;
     private readonly ISystemFundRepository _systemFundRepo;
     private readonly IFundDistributionManager _distributionManager;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork;
 
     public ApproveFundingRequestHandler(
@@ -31,6 +34,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         IDepotFundRepository depotFundRepo,
         ISystemFundRepository systemFundRepo,
         IFundDistributionManager distributionManager,
+        IAdminRealtimeHubService adminRealtimeHubService,
         IUnitOfWork unitOfWork)
     {
         _fundingRequestRepo = fundingRequestRepo;
@@ -40,6 +44,7 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         _depotFundRepo = depotFundRepo;
         _systemFundRepo = systemFundRepo;
         _distributionManager = distributionManager;
+        _adminRealtimeHubService = adminRealtimeHubService;
         _unitOfWork = unitOfWork;
     }
 
@@ -130,6 +135,12 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         }, cancellationToken);
 
         await _unitOfWork.SaveAsync();
+        await PushCampaignApprovalRealtimeAsync(
+            fundingRequest,
+            campaignId,
+            campaign.Status.ToString(),
+            disbursementId,
+            cancellationToken);
         return disbursementId;
     }
 
@@ -187,8 +198,82 @@ public class ApproveFundingRequestHandler : IRequestHandler<ApproveFundingReques
         }, cancellationToken);
 
         await _unitOfWork.SaveAsync();
+        await _adminRealtimeHubService.PushFundingRequestUpdateAsync(
+            new AdminFundingRequestRealtimeUpdate
+            {
+                EntityId = fundingRequest.Id,
+                EntityType = "FundingRequest",
+                RequestId = fundingRequest.Id,
+                DepotId = fundingRequest.DepotId,
+                Action = "Approved",
+                Status = fundingRequest.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
+        await _adminRealtimeHubService.PushDisbursementUpdateAsync(
+            new AdminDisbursementRealtimeUpdate
+            {
+                EntityId = fundingRequest.Id,
+                EntityType = "Disbursement",
+                DisbursementId = null,
+                CampaignId = null,
+                DepotId = fundingRequest.DepotId,
+                Amount = fundingRequest.TotalAmount,
+                Action = "AllocatedFromSystemFund",
+                Status = FundSourceType.SystemFund.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         // Trả về 0 vì không tạo CampaignDisbursement (quỹ hệ thống không có disbursement record)
         return 0;
+    }
+
+    private async Task PushCampaignApprovalRealtimeAsync(
+        FundingRequestModel fundingRequest,
+        int campaignId,
+        string campaignStatus,
+        int disbursementId,
+        CancellationToken cancellationToken)
+    {
+        await _adminRealtimeHubService.PushFundingRequestUpdateAsync(
+            new AdminFundingRequestRealtimeUpdate
+            {
+                EntityId = fundingRequest.Id,
+                EntityType = "FundingRequest",
+                RequestId = fundingRequest.Id,
+                DepotId = fundingRequest.DepotId,
+                Action = "Approved",
+                Status = fundingRequest.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
+
+        await _adminRealtimeHubService.PushCampaignUpdateAsync(
+            new AdminCampaignRealtimeUpdate
+            {
+                EntityId = campaignId,
+                EntityType = "Campaign",
+                CampaignId = campaignId,
+                Action = "FundsDisbursed",
+                Status = campaignStatus,
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
+
+        await _adminRealtimeHubService.PushDisbursementUpdateAsync(
+            new AdminDisbursementRealtimeUpdate
+            {
+                EntityId = disbursementId,
+                EntityType = "Disbursement",
+                DisbursementId = disbursementId,
+                CampaignId = campaignId,
+                DepotId = fundingRequest.DepotId,
+                Amount = fundingRequest.TotalAmount,
+                Action = "CreatedFromFundingRequestApproval",
+                Status = DisbursementType.FundingRequestApproval.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
     }
 }

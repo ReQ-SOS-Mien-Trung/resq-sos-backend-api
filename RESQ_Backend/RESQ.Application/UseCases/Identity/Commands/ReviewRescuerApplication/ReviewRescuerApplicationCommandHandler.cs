@@ -10,12 +10,14 @@ namespace RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication
     public class ReviewRescuerApplicationCommandHandler(
         IRescuerApplicationRepository rescuerApplicationRepository,
         IUserRepository userRepository,
+        RESQ.Application.Services.IAdminRealtimeHubService adminRealtimeHubService,
         IUnitOfWork unitOfWork,
         ILogger<ReviewRescuerApplicationCommandHandler> logger
     ) : IRequestHandler<ReviewRescuerApplicationCommand, ReviewRescuerApplicationResponse>
     {
         private readonly IRescuerApplicationRepository _rescuerApplicationRepository = rescuerApplicationRepository;
         private readonly IUserRepository _userRepository = userRepository;
+        private readonly RESQ.Application.Services.IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly ILogger<ReviewRescuerApplicationCommandHandler> _logger = logger;
 
@@ -66,6 +68,19 @@ namespace RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication
 
             // 5. Save all changes
             await _unitOfWork.SaveAsync();
+            await _adminRealtimeHubService.PushRescuerApplicationUpdateAsync(
+                new RESQ.Application.Common.Models.AdminRescuerApplicationRealtimeUpdate
+                {
+                    EntityId = application.Id,
+                    EntityType = "RescuerApplication",
+                    ApplicationId = application.Id,
+                    UserId = application.UserId,
+                    ReviewedBy = request.ReviewedBy,
+                    Action = request.IsApproved ? "Approved" : "Rejected",
+                    Status = newStatus.ToString(),
+                    ChangedAt = DateTime.UtcNow
+                },
+                cancellationToken);
 
             _logger.LogInformation("Rescuer application reviewed: ApplicationId={ApplicationId}, Status={Status}",
                 request.ApplicationId, newStatus);

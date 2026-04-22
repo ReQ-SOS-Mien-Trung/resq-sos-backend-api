@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
@@ -26,6 +27,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
     private readonly IFundDistributionManager _distributionManager;
     private readonly ISystemFundRepository _systemFundRepo;
     private readonly IFirebaseService _firebaseService;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork;
 
     public AllocateFundToDepotHandler(
@@ -37,6 +39,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         IFundDistributionManager distributionManager,
         ISystemFundRepository systemFundRepo,
         IFirebaseService firebaseService,
+        IAdminRealtimeHubService adminRealtimeHubService,
         IUnitOfWork unitOfWork)
     {
         _campaignRepo = campaignRepo;
@@ -47,6 +50,7 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         _distributionManager = distributionManager;
         _systemFundRepo = systemFundRepo;
         _firebaseService = firebaseService;
+        _adminRealtimeHubService = adminRealtimeHubService;
         _unitOfWork = unitOfWork;
     }
 
@@ -117,6 +121,31 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         }, cancellationToken);
 
         await _unitOfWork.SaveAsync();
+        await _adminRealtimeHubService.PushCampaignUpdateAsync(
+            new AdminCampaignRealtimeUpdate
+            {
+                EntityId = campaignId,
+                EntityType = "Campaign",
+                CampaignId = campaignId,
+                Action = "FundsDisbursed",
+                Status = campaign.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
+        await _adminRealtimeHubService.PushDisbursementUpdateAsync(
+            new AdminDisbursementRealtimeUpdate
+            {
+                EntityId = disbursementId,
+                EntityType = "Disbursement",
+                DisbursementId = disbursementId,
+                CampaignId = campaignId,
+                DepotId = request.DepotId,
+                Amount = request.Amount,
+                Action = "CreatedByAdminAllocation",
+                Status = DisbursementType.AdminAllocation.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         // 6. Firebase notification
         await NotifyDepotManager(request.DepotId, request.Amount, $"chiến dịch \"{campaign.Name}\"", cancellationToken);
@@ -171,6 +200,20 @@ public class AllocateFundToDepotHandler : IRequestHandler<AllocateFundToDepotCom
         }, cancellationToken);
 
         await _unitOfWork.SaveAsync();
+        await _adminRealtimeHubService.PushDisbursementUpdateAsync(
+            new AdminDisbursementRealtimeUpdate
+            {
+                EntityId = depotFund.Id,
+                EntityType = "Disbursement",
+                DisbursementId = null,
+                CampaignId = null,
+                DepotId = request.DepotId,
+                Amount = request.Amount,
+                Action = "CreatedByAdminAllocation",
+                Status = FundSourceType.SystemFund.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         // 6. Firebase notification
         await NotifyDepotManager(request.DepotId, request.Amount, "quỹ hệ thống", cancellationToken);

@@ -8,9 +8,11 @@ namespace RESQ.Presentation.Services;
 
 public sealed class OperationalHubService(
     IHubContext<OperationalHub> hubContext,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<OperationalHubService> logger) : IOperationalHubService
 {
     private readonly IHubContext<OperationalHub> _hubContext = hubContext;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<OperationalHubService> _logger = logger;
 
     private const string EventApListUpdate = "ReceiveAssemblyPointListUpdate";
@@ -53,6 +55,18 @@ public sealed class OperationalHubService(
                 .SendAsync(EventDepotInventory, payload, cancellationToken);
 
             await Task.WhenAll(taskAll, taskDepot);
+
+            await _adminRealtimeHubService.PushDepotUpdateAsync(
+                new AdminDepotRealtimeUpdate
+                {
+                    EntityId = depotId,
+                    EntityType = "Depot",
+                    DepotId = depotId,
+                    Action = operation,
+                    Status = null,
+                    ChangedAt = DateTime.UtcNow
+                },
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -87,6 +101,36 @@ public sealed class OperationalHubService(
             }
 
             await Task.WhenAll(tasks);
+
+            switch (resourceType)
+            {
+                case "depots":
+                    await _adminRealtimeHubService.PushDepotUpdateAsync(
+                        new AdminDepotRealtimeUpdate
+                        {
+                            EntityId = null,
+                            EntityType = "Depot",
+                            DepotId = null,
+                            Action = "ListChanged",
+                            Status = null,
+                            ChangedAt = DateTime.UtcNow
+                        },
+                        cancellationToken);
+                    break;
+                case "rescue-teams":
+                    await _adminRealtimeHubService.PushRescueTeamUpdateAsync(
+                        new AdminRescueTeamRealtimeUpdate
+                        {
+                            EntityId = null,
+                            EntityType = "RescueTeam",
+                            TeamId = null,
+                            Action = "ListChanged",
+                            Status = null,
+                            ChangedAt = DateTime.UtcNow
+                        },
+                        cancellationToken);
+                    break;
+            }
         }
         catch (Exception ex)
         {
@@ -175,6 +219,43 @@ public sealed class OperationalHubService(
                 groups.Add(OperationalHub.TransferGroup(update.TransferId.Value));
 
             await SendToGroupsAsync(groups, EventDepotClosureUpdate, update, cancellationToken);
+
+            if (string.Equals(update.EntityType, "Transfer", StringComparison.OrdinalIgnoreCase)
+                && update.TransferId.HasValue
+                && update.TargetDepotId.HasValue)
+            {
+                await _adminRealtimeHubService.PushTransferUpdateAsync(
+                    new AdminTransferRealtimeUpdate
+                    {
+                        EntityId = update.TransferId,
+                        EntityType = "Transfer",
+                        TransferId = update.TransferId.Value,
+                        ClosureId = update.ClosureId,
+                        SourceDepotId = update.SourceDepotId,
+                        TargetDepotId = update.TargetDepotId.Value,
+                        Action = update.Action,
+                        Status = update.Status,
+                        ChangedAt = update.ChangedAt
+                    },
+                    cancellationToken);
+            }
+
+            if (string.Equals(update.EntityType, "Closure", StringComparison.OrdinalIgnoreCase))
+            {
+                await _adminRealtimeHubService.PushDepotClosureUpdateAsync(
+                    new AdminDepotClosureRealtimeUpdate
+                    {
+                        EntityId = update.ClosureId,
+                        EntityType = "DepotClosure",
+                        ClosureId = update.ClosureId,
+                        SourceDepotId = update.SourceDepotId,
+                        TargetDepotId = update.TargetDepotId,
+                        Action = update.Action,
+                        Status = update.Status,
+                        ChangedAt = update.ChangedAt
+                    },
+                    cancellationToken);
+            }
         }
         catch (Exception ex)
         {

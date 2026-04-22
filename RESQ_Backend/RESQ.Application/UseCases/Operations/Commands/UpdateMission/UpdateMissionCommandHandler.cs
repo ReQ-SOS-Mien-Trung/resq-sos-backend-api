@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 using RESQ.Application.UseCases.Operations.Shared;
@@ -14,6 +16,7 @@ public class UpdateMissionCommandHandler(
     IMissionRepository missionRepository,
     IUnitOfWork unitOfWork,
     IMissionPendingActivityUpdateService missionPendingActivityUpdateService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ISender sender,
     ILogger<UpdateMissionCommandHandler> logger
 ) : IRequestHandler<UpdateMissionCommand, MissionDto>
@@ -21,6 +24,7 @@ public class UpdateMissionCommandHandler(
     private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IMissionPendingActivityUpdateService _missionPendingActivityUpdateService = missionPendingActivityUpdateService;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ISender _sender = sender;
     private readonly ILogger<UpdateMissionCommandHandler> _logger = logger;
 
@@ -33,7 +37,7 @@ public class UpdateMissionCommandHandler(
 
         var mission = await _missionRepository.GetByIdAsync(request.MissionId, cancellationToken);
         if (mission is null)
-            throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
+            throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y mission vá»›i ID: {request.MissionId}");
 
         mission.MissionType = request.MissionType;
         mission.PriorityScore = request.PriorityScore;
@@ -56,6 +60,19 @@ public class UpdateMissionCommandHandler(
         });
 
         var result = await _sender.Send(new GetMissionByIdQuery(request.MissionId), cancellationToken);
-        return result ?? throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
+        await _adminRealtimeHubService.PushMissionUpdateAsync(
+            new AdminMissionRealtimeUpdate
+            {
+                EntityId = mission.Id,
+                EntityType = "Mission",
+                MissionId = mission.Id,
+                ClusterId = mission.ClusterId,
+                Action = "Updated",
+                Status = mission.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
+
+        return result ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y mission vá»›i ID: {request.MissionId}");
     }
 }
