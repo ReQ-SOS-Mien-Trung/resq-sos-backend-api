@@ -4789,10 +4789,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         return situation switch
         {
-            "Medical" => ["Medicine", "Water"],
             "NeedSupplies" => ["Water", "Food", "Blanket"],
-            "Evacuation" => ["Lifejacket", "Water"],
-            _ => ["Water", "Food", "Medicine"]
+            _ => Array.Empty<string>()
         };
     }
 

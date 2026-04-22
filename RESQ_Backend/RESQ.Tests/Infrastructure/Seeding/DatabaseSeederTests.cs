@@ -376,6 +376,10 @@ public class DatabaseSeederTests
             .Where(s => s.Status == "Pending" || s.Status == "Assigned" || s.Status == "InProgress" || s.Status == "Incident")
             .Select(s => new { s.Id, s.Status, s.CreatedAt, s.ReceivedAt, s.ReviewedAt, s.LastUpdatedAt })
             .ToListAsync();
+        var sosPayloads = await context.SosRequests
+            .Where(s => s.StructuredData != null)
+            .Select(s => new { s.SosType, s.StructuredData })
+            .ToListAsync();
         var sampleClusteredSos = (await context.SosRequests
                 .Where(s => new[] { 12, 95, 158, 221, 305 }.Contains(s.Id) && s.Location != null)
                 .OrderBy(s => s.Id)
@@ -400,6 +404,26 @@ public class DatabaseSeederTests
             > priorityCounts.GetValueOrDefault("High") + priorityCounts.GetValueOrDefault("Critical"));
         Assert.True(reliefCount >= 150, $"Expected at least 150 relief SOS requests but found {reliefCount}.");
         Assert.DoesNotContain(await context.SosRequests.Select(s => s.SosType).Distinct().ToListAsync(), sosType => sosType == "Both");
+        Assert.Contains(sosPayloads, payload => payload.SosType == "Relief");
+        Assert.Contains(sosPayloads, payload => payload.SosType == "Rescue");
+        Assert.All(sosPayloads, payload =>
+        {
+            using var payloadDocument = JsonDocument.Parse(payload.StructuredData!);
+            var supplies = payloadDocument.RootElement
+                .GetProperty("supplies")
+                .EnumerateArray()
+                .Select(element => element.GetString())
+                .ToList();
+
+            if (payload.SosType == "Relief")
+            {
+                Assert.NotEmpty(supplies);
+            }
+            else if (payload.SosType == "Rescue")
+            {
+                Assert.Empty(supplies);
+            }
+        });
         Assert.NotEmpty(recentOpenSos);
         Assert.All(recentOpenSos, sos =>
         {
