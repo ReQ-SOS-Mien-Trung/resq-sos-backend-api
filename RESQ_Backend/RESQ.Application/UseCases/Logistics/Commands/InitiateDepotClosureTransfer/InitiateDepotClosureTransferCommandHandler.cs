@@ -61,12 +61,32 @@ public class InitiateDepotClosureTransferCommandHandler(
             throw new ConflictException("Phiên đóng kho hiện tại đang được xử lý bởi tiến trình khác. Vui lòng thử lại sau.");
         }
 
-        if (existingClosure?.Status == DepotClosureStatus.TransferPending)
+        if (existingClosure.Status == DepotClosureStatus.TransferPending)
+        {
+            var hasOpenTransfers = await transferRepository.HasOpenTransfersAsync(existingClosure.Id, cancellationToken);
+            if (!hasOpenTransfers)
+            {
+                var remainingItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
+                if (remainingItems.Count > 0)
+                {
+                    existingClosure.ReopenForResidualHandling();
+                }
+                else
+                {
+                    existingClosure.Complete(existingClosure.CompletedAt ?? DateTime.UtcNow);
+                }
+
+                await closureRepository.UpdateAsync(existingClosure, cancellationToken);
+                await unitOfWork.SaveAsync();
+            }
+        }
+
+        if (existingClosure.Status == DepotClosureStatus.TransferPending)
         {
             throw new ConflictException("Kho đang có phiên chuyển kho chưa hoàn tất. Hủy hoặc hoàn tất phiên cũ trước khi tạo mới.");
         }
 
-        if (existingClosure?.ResolutionType != null)
+        if (existingClosure.ResolutionType != null)
         {
             throw new ConflictException(
                 "Phiên đóng kho hiện tại đã được chọn hình thức xử lý. Vui lòng hoàn tất hoặc hủy phiên hiện tại trước khi thao tác lại.");
