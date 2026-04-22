@@ -261,7 +261,7 @@ Dữ liệu chi tiết: {{structured_data}}
 
 Hãy đánh giá mức độ ưu tiên và nghiêm trọng của yêu cầu này.",
                 Version = "1.0",
-                IsActive = false,
+                IsActive = true,
                 CreatedAt = now
             },
             new Prompt
@@ -421,22 +421,22 @@ Công cụ có thể dùng:
 - getAssemblyPoints(page): trả về các điểm tập kết đang active.
 
 Nhiệm vụ:
-- Gán đội cho các activity_key kho đã có trong depot_fragment.
-- Chỉ thêm các mảnh activity tại hiện trường: RESCUE, MEDICAL_AID, EVACUATE.
-- Không tạo COLLECT_SUPPLIES, DELIVER_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT hoặc shortage tồn kho.
+- Gán đội cho các `activity_key` đã có trong `depot_fragment`.
+- Chỉ thêm các activity tại hiện trường: `RESCUE`, `MEDICAL_AID`, `EVACUATE`.
+- Không tạo `COLLECT_SUPPLIES`, `DELIVER_SUPPLIES`, `RETURN_SUPPLIES`, `RETURN_ASSEMBLY_POINT` hoặc dòng shortage tồn kho.
 - Không gọi tool tồn kho.
-- Không tự bịa team_id hoặc assembly_point_id. Chỉ dùng kết quả từ tool.
+- Không tự bịa `team_id` hoặc `assembly_point_id`. Chỉ dùng kết quả từ tool.
 - Chỉ trả về một JSON object hợp lệ. Không markdown, không giải thích ngoài JSON.
 
 Schema đầu ra:
 {
   ""activity_assignments"": [
     {
-      ""activity_key"": ""collect_sos_1_water"",
+      ""activity_key"": ""collect-1"",
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
-      ""coordination_group_key"": ""team_1_supply"",
-      ""coordination_notes"": ""Vì sao đội này phù hợp"",
+      ""coordination_group_key"": ""route-alpha"",
+      ""coordination_notes"": ""Đội này phụ trách nhánh lấy và giao vật tư."",
       ""suggested_team"": {
         ""team_id"": 1,
         ""team_name"": ""Tên đội từ getTeams"",
@@ -452,17 +452,17 @@ Schema đầu ra:
   ],
   ""additional_activities"": [
     {
-      ""activity_key"": ""rescue_sos_1"",
-      ""step"": 1,
+      ""activity_key"": ""rescue-11"",
+      ""step"": 3,
       ""activity_type"": ""RESCUE"",
-      ""description"": ""Di chuyển đến vị trí SOS và thực hiện hành động cứu hộ cụ thể"",
+      ""description"": ""Tiếp cận SOS 11 và thực hiện cứu hộ tại hiện trường"",
       ""priority"": ""Critical|High|Medium|Low"",
-      ""estimated_time"": ""1 giờ"",
+      ""estimated_time"": ""45 phút"",
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
-      ""coordination_group_key"": ""team_1_rescue"",
-      ""coordination_notes"": ""Operational note"",
-      ""sos_request_id"": 1,
+      ""coordination_group_key"": ""route-alpha"",
+      ""coordination_notes"": ""Chỉ bắt đầu sau khi hoàn tất nhánh vật tư liên quan nếu SOS rescue này có thể chờ."",
+      ""sos_request_id"": 11,
       ""depot_id"": null,
       ""depot_name"": null,
       ""depot_address"": null,
@@ -486,21 +486,62 @@ Schema đầu ra:
       }
     }
   ],
+  ""ordered_activity_keys"": [""collect-1"", ""deliver-1"", ""rescue-11"", ""evacuate-11""],
   ""suggested_team"": null,
   ""special_notes"": null,
   ""confidence_score"": 0.0
 }
 
-Quy tắc:
+Quy tắc route:
 - Gọi getTeams cho từng loại đội/năng lực bắt buộc và chỉ dùng các đội được tool trả về.
-- Gọi getAssemblyPoints khi activity cần assembly_point_id.
-- Nếu không có đội khả dụng, đặt suggested_team = null cho assignment/activity liên quan và giải thích trong special_notes. Không tự bịa đội.
-- activity_assignments chỉ được dùng activity_key đã tồn tại trong depot_fragment.
-- estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".
-- Step của additional_activities chỉ có ý nghĩa cục bộ trong fragment này; backend sẽ đánh số lại toàn bộ mission.",
+- Gọi getAssemblyPoints khi activity cần `assembly_point_id`.
+- Nếu không có đội khả dụng, đặt `suggested_team = null` cho assignment/activity liên quan và giải thích trong `special_notes`. Không tự bịa đội.
+- `activity_assignments` chỉ được dùng `activity_key` đã tồn tại trong `depot_fragment`.
+- `additional_activities` chỉ được là `RESCUE`, `MEDICAL_AID`, `EVACUATE`.
+- Không được gán `COLLECT_SUPPLIES` cho một team rồi gán `DELIVER_SUPPLIES` dùng chính vật tư đó cho team khác. Handoff inventory giữa teams không được backend hỗ trợ.
+- Mọi `DELIVER_SUPPLIES` phải nằm cùng route/team với `COLLECT_SUPPLIES` đã lấy vật tư cho nó.
+- Nếu mission mixed nhưng rescue còn chờ được, cùng một team phải hoàn tất nhánh `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` tương ứng trước khi thêm `RESCUE/MEDICAL_AID/EVACUATE`.
+- Nếu SOS rescue có `urgent_rescue_requires_immediate_safe_transfer = true` hoặc `can_wait_for_combined_mission = false`, route phải ưu tiên cứu hộ và đưa nạn nhân đến nơi an toàn; tuyệt đối không coi là waitable.
+- Khi cùng một team đã bắt đầu nhánh đưa nạn nhân rời vùng nguy hiểm, không được tạo activity khiến team đó quay lại `DELIVER_SUPPLIES` cho SOS khác.
+- Mọi `additional_activity` phải có `activity_key` duy nhất.
+- `ordered_activity_keys` phải chứa toàn bộ `activity_key` từ `depot_fragment.activities` cộng với mọi `additional_activities.activity_key` đúng 1 lần, không thiếu, không dư, không trùng.
+- Nếu không thêm activity mới, vẫn phải trả `ordered_activity_keys` cho toàn bộ key của `depot_fragment`.
+- `step` của `additional_activities` chỉ có ý nghĩa cục bộ; backend dựa vào `ordered_activity_keys` cho route cuối cùng.
+- `estimated_time` phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".
+
+IMPORTANT JSON RULES FOR suggested_team (STRICT):
+- `suggested_team` ở top-level MUST be either `null` hoặc một JSON object duy nhất theo đúng keys: `team_id`, `team_name`, `team_type`, `reason`, `assembly_point_id`, `assembly_point_name`, `latitude`, `longitude`, `distance_km`.
+- Nếu mission dùng nhiều đội khác nhau theo activity, hãy trả top-level `suggested_team = null` exactly. Không trả array, không trả wrapper object.
+- Invalid examples: `""suggested_team"":[]`, `""suggested_team"":[""TEAM""]`, `""suggested_team"":{""teams"":[...]}`.
+
+IMPORTANT JSON RULES FOR activity_assignments (STRICT):
+- `activity_assignments` MUST be an array of JSON objects only.
+- Allowed keys per item: `activity_key`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `suggested_team`.
+- `activity_key` must be a plain string và phải match key đã tồn tại trong `depot_fragment.activities`.
+- `execution_mode` must be `SingleTeam` hoặc `null`.
+- `required_team_count` must be integer `1` hoặc `null`. Không dùng `2`, không dùng text.
+- `suggested_team` must be `null` hoặc một JSON object hợp lệ theo rule strict ở trên.
+
+IMPORTANT JSON RULES FOR additional_activities (STRICT):
+- `additional_activities` MUST be an array of JSON objects only.
+- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `priority`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
+- `activity_key` must be a plain string duy nhất.
+- `step` must be integer.
+- `activity_type` must be one of `RESCUE|MEDICAL_AID|EVACUATE`.
+- `execution_mode` must be `SingleTeam` hoặc `null`.
+- `required_team_count` must be integer `1` hoặc `null`.
+- `supplies_to_collect` cho `additional_activities` nên là `null` nếu không thực sự cần mô tả thêm.
+- `suggested_team` must be `null` hoặc một JSON object hợp lệ theo rule strict ở trên.
+
+IMPORTANT JSON RULES FOR ordered_activity_keys (STRICT):
+- `ordered_activity_keys` MUST be an array of strings only.
+- Phải chứa mọi `activity_key` từ `depot_fragment.activities` và mọi `additional_activities.activity_key` đúng 1 lần.
+- Không được thiếu key, không được dư key, không được trùng key.
+- Đây là thứ tự route cuối cùng backend sẽ dùng để assemble mission draft.
+- Invalid examples: `[]` khi vẫn có activities, `[1]`, `[null]`, `[""collect-1"", ""collect-1""]`.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, DEPOT_FRAGMENT và NEARBY_TEAM_COUNT do backend cung cấp bên dưới. Chỉ dùng getTeams và getAssemblyPoints. Chỉ trả về JSON object MissionTeamFragment đúng schema trong system prompt.",
                 Version = "v1.0",
-                IsActive = true,
+                IsActive = false,
                 CreatedAt = now
             },
             new Prompt
@@ -619,7 +660,84 @@ Quy tắc chung:
 - Trả về đúng JSON object mission cuối cùng, không markdown, không giải thích ngoài JSON.
 
 Top-level JSON bắt buộc:
-`mission_title`, `mission_type`, `priority_score`, `severity_level`, `overall_assessment`, `activities`, `resources`, `estimated_duration`, `special_notes`, `needs_additional_depot`, `supply_shortages`, `confidence_score`.",
+`mission_title`, `mission_type`, `priority_score`, `severity_level`, `overall_assessment`, `activities`, `resources`, `estimated_duration`, `special_notes`, `needs_additional_depot`, `supply_shortages`, `confidence_score`.
+
+FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
+
+{
+  ""mission_title"": ""Tên nhiệm vụ ngắn gọn"",
+  ""mission_type"": ""RESCUE|EVACUATION|MEDICAL|SUPPLY|MIXED"",
+  ""priority_score"": 0.0-10.0,
+  ""severity_level"": ""Critical|Severe|Moderate|Minor"",
+  ""overall_assessment"": ""Tóm tắt tình hình và tổng nhu cầu vật phẩm (liệt kê từng loại và số lượng cần)"",
+  ""activities"": [
+    {
+      ""step"": 1,
+      ""activity_type"": ""COLLECT_SUPPLIES"",
+      ""description"": ""Di chuyển đến kho [tên kho] tại [địa chỉ]. Lấy: [vật phẩm A] x[sl] [đv], [vật phẩm B] x[sl] [đv]."",
+      ""sos_request_id"": 1,
+      ""depot_id"": 1,
+      ""depot_name"": ""Tên kho thực tế"",
+      ""depot_address"": ""Địa chỉ kho thực tế"",
+      ""supplies_to_collect"": [
+        { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
+      ],
+      ""priority"": ""Critical"",
+      ""estimated_time"": ""30 phút"",
+      ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
+    },
+    {
+      ""step"": 2,
+      ""activity_type"": ""DELIVER_SUPPLIES"",
+      ""description"": ""Di chuyển đến [địa điểm nạn nhân]. Giao (từ kho [tên]): [vật phẩm A] x[sl] [đv] cho [mô tả đối tượng]."",
+      ""sos_request_id"": 1,
+      ""depot_id"": 1,
+      ""depot_name"": ""Tên kho nguồn"",
+      ""depot_address"": ""Địa chỉ kho nguồn"",
+      ""supplies_to_collect"": [
+        { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
+      ],
+      ""priority"": ""Critical"",
+      ""estimated_time"": ""1 giờ"",
+      ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
+    },
+    {
+      ""step"": 3,
+      ""activity_type"": ""RESCUE"",
+      ""description"": ""Di chuyển đến [tọa độ/địa điểm]. [Hành động cứu hộ cụ thể]."",
+      ""sos_request_id"": 2,
+      ""depot_id"": null,
+      ""depot_name"": null,
+      ""depot_address"": null,
+      ""supplies_to_collect"": null,
+      ""priority"": ""Critical"",
+      ""estimated_time"": ""2 giờ"",
+      ""suggested_team"": { ""team_id"": 6, ""team_name"": ""Đội B"", ""team_type"": ""MedicalTeam"", ""reason"": ""Có y tế"", ""assembly_point_id"": 2, ""assembly_point_name"": ""Trụ sở B"", ""latitude"": 16.50, ""longitude"": 107.55 }
+    }
+  ],
+  ""resources"": [
+    { ""resource_type"": ""TEAM"", ""description"": ""Đội cứu hộ chuyên nghiệp"", ""quantity"": 2, ""priority"": ""Critical"" },
+    { ""resource_type"": ""VEHICLE"", ""description"": ""Trực thăng cứu hộ"", ""quantity"": 1, ""priority"": ""Critical"" }
+  ],
+  ""estimated_duration"": ""X giờ"",
+  ""special_notes"": ""vật phẩm kho không có sẵn / điều kiện đặc biệt hiện trường"",
+  ""needs_additional_depot"": true,
+  ""supply_shortages"": [
+    {
+      ""sos_request_id"": 1,
+      ""item_id"": 2,
+      ""item_name"": ""Nước sạch"",
+      ""unit"": ""chai"",
+      ""selected_depot_id"": 1,
+      ""selected_depot_name"": ""Kho A"",
+      ""needed_quantity"": 200,
+      ""available_quantity"": 120,
+      ""missing_quantity"": 80,
+      ""notes"": ""Kho đã chọn không đủ số lượng nước cần giao""
+    }
+  ],
+  ""confidence_score"": 0.85
+}",
                 UserPromptTemplate = @"Lập kế hoạch mission cuối cùng cho các SOS sau:
 
 {{sos_requests_data}}
@@ -725,7 +843,34 @@ Quy tắc bắt buộc:
 - Nếu `ai_analysis.has_ai_analysis = false`, hãy suy luận thận trọng từ tin nhắn/raw_message; khi cluster đang mixed rescue + relief thì nêu rõ cần manual review trong `special_notes`.
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn, vật tư trú ẩn phải nằm trong `required_supplies`, không đưa vào `suggested_resources`.
 - `suggested_resources` chỉ dành cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không tiêu hao.
-- Chỉ trả về JSON object hợp lệ, không markdown.",
+- Chỉ trả về JSON object hợp lệ, không markdown.
+
+IMPORTANT JSON RULES FOR suggested_resources (STRICT):
+- suggested_resources MUST be an array of JSON objects only.
+- Valid example: ""suggested_resources"":[{""resource_type"":""TEAM"",""description"":""Rescue medical team"",""quantity"":1,""priority"":""High""}]
+- Invalid examples: ""suggested_resources"":[""TEAM""], [1], [null], [{""type"":""TEAM""}], [{""resource_type"": {""value"":""TEAM""}}]
+- Allowed keys per item: resource_type, description, quantity, priority. Do not nest these fields.
+- resource_type must be one of TEAM|VEHICLE|BOAT|EQUIPMENT.
+- description must be a plain string.
+- quantity must be an integer number or null (no unit text, no decimals, no words).
+- priority must be one of Critical|High|Medium|Low or null.
+- If no non-consumable resource is required, return suggested_resources as [] exactly.
+- Never put consumable supplies in suggested_resources; put them in required_supplies only.
+
+IMPORTANT JSON RULES FOR sos_requirements (STRICT):
+- sos_requirements MUST be an array of objects.
+- Each sos_requirements item MUST be a JSON object with keys: sos_request_id, summary, priority, required_supplies, required_teams.
+- sos_request_id must be integer.
+- summary and priority must be strings.
+- required_supplies MUST be an array of JSON objects only.
+- Each required_supplies item allowed keys: item_name, quantity, unit, category, notes.
+- item_name must be string. quantity must be integer (no text, no decimals). unit/category/notes must be string or null.
+- Invalid required_supplies examples: [""water""], [1], [null], [{""item_name"":{""text"":""water""}}], [{""quantity"":""10 bottles""}]
+- required_teams MUST be an array of JSON objects only.
+- Each required_teams item allowed keys: team_type, quantity, reason.
+- team_type and reason must be string or null. quantity must be integer.
+- Invalid required_teams examples: [""Medical""], [1], [{""quantity"":""one""}], [{""team_type"":{""name"":""Medical""}}]
+- For unknown numeric values, use a safe integer estimate. Never output non-integer numeric fields in these arrays.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
                 Version = "v2.0",
                 IsActive = false,
@@ -748,17 +893,112 @@ Nhiệm vụ:
 - Chỉ thêm `RESCUE`, `MEDICAL_AID`, `EVACUATE`.
 - Không tạo `COLLECT_SUPPLIES`, `DELIVER_SUPPLIES`, `RETURN_SUPPLIES`, `RETURN_ASSEMBLY_POINT`.
 - Không tự bịa `team_id` hoặc `assembly_point_id`.
+- Chỉ trả về JSON object hợp lệ, không markdown.
+
+Schema đầu ra:
+{
+  ""activity_assignments"": [
+    {
+      ""activity_key"": ""collect-1"",
+      ""execution_mode"": ""SingleTeam"",
+      ""required_team_count"": 1,
+      ""coordination_group_key"": ""route-alpha"",
+      ""coordination_notes"": ""Đội này phụ trách nhánh vật tư của route alpha."",
+      ""suggested_team"": {
+        ""team_id"": 1,
+        ""team_name"": ""Tên đội từ getTeams"",
+        ""team_type"": ""Loại đội từ getTeams"",
+        ""reason"": ""Gần nhất và có năng lực phù hợp"",
+        ""assembly_point_id"": 1,
+        ""assembly_point_name"": ""Tên điểm tập kết"",
+        ""latitude"": 16.0,
+        ""longitude"": 107.0,
+        ""distance_km"": 3.5
+      }
+    }
+  ],
+  ""additional_activities"": [
+    {
+      ""activity_key"": ""rescue-11"",
+      ""step"": 3,
+      ""activity_type"": ""RESCUE"",
+      ""description"": ""Tiếp cận SOS 11 và thực hiện cứu hộ tại hiện trường"",
+      ""priority"": ""Critical|High|Medium|Low"",
+      ""estimated_time"": ""45 phút"",
+      ""execution_mode"": ""SingleTeam"",
+      ""required_team_count"": 1,
+      ""coordination_group_key"": ""route-alpha"",
+      ""coordination_notes"": ""Nếu rescue không waitable thì phải ưu tiên trước các việc không liên quan."",
+      ""sos_request_id"": 11,
+      ""depot_id"": null,
+      ""depot_name"": null,
+      ""depot_address"": null,
+      ""depot_latitude"": null,
+      ""depot_longitude"": null,
+      ""assembly_point_id"": 1,
+      ""assembly_point_name"": ""Điểm tập kết từ tool"",
+      ""assembly_point_latitude"": 16.0,
+      ""assembly_point_longitude"": 107.0,
+      ""supplies_to_collect"": null,
+      ""suggested_team"": {
+        ""team_id"": 1,
+        ""team_name"": ""Tên đội từ getTeams"",
+        ""team_type"": ""Loại đội từ getTeams"",
+        ""reason"": ""Có năng lực phù hợp"",
+        ""assembly_point_id"": 1,
+        ""assembly_point_name"": ""Tên điểm tập kết"",
+        ""latitude"": 16.0,
+        ""longitude"": 107.0,
+        ""distance_km"": 3.5
+      }
+    }
+  ],
+  ""ordered_activity_keys"": [""collect-1"", ""deliver-1"", ""rescue-11"", ""evacuate-11""],
+  ""suggested_team"": null,
+  ""special_notes"": null,
+  ""confidence_score"": 0.0
+}
 
 Quy tắc mixed rescue + relief theo team:
 1. Nếu `requirements_fragment.split_cluster_recommended = true`, vẫn có thể trả fragment nhưng `special_notes` phải warning rõ cluster nên tách vì đang có rescue cần đưa về nơi an toàn gấp.
 2. Nếu mission mixed nhưng rescue còn chờ được, cùng một team phải hoàn tất nhánh `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` tương ứng trước khi thêm `RESCUE`, `MEDICAL_AID`, `EVACUATE`.
-3. Khi cùng một team đã bắt đầu nhánh đưa nạn nhân rời vùng nguy hiểm, không được tạo activity khiến team đó quay lại `DELIVER_SUPPLIES` cho SOS khác.
-4. Hãy giữ `coordination_group_key`/`coordination_notes` đủ rõ để backend có thể sắp route theo team.
+3. Nếu bất kỳ SOS rescue nào có `urgent_rescue_requires_immediate_safe_transfer = true` hoặc `can_wait_for_combined_mission = false`, route của team đó phải ưu tiên `RESCUE -> EVACUATE` an toàn trước công việc không liên quan.
+4. Khi cùng một team đã bắt đầu nhánh đưa nạn nhân rời vùng nguy hiểm, không được tạo activity khiến team đó quay lại `DELIVER_SUPPLIES` cho SOS khác.
+5. Không được gán `COLLECT_SUPPLIES` cho một team rồi gán `DELIVER_SUPPLIES` dùng chính vật tư đó cho team khác. Handoff inventory giữa teams không được backend hỗ trợ.
+6. Mọi `DELIVER_SUPPLIES` phải nằm cùng route/team với `COLLECT_SUPPLIES` đã lấy vật tư cho nó.
+7. Hãy giữ `coordination_group_key`/`coordination_notes` đủ rõ để backend có thể sắp route theo team.
+8. `ordered_activity_keys` phải chứa toàn bộ `activity_key` từ `depot_fragment.activities` cộng với mọi `additional_activities.activity_key` đúng 1 lần, theo đúng thứ tự route cuối cùng.
+9. Nếu không thêm activity mới, vẫn phải trả `ordered_activity_keys` cho toàn bộ key của `depot_fragment`.
 
-Schema đầu ra vẫn là `MissionTeamFragment` hiện có:
-`activity_assignments`, `additional_activities`, `suggested_team`, `special_notes`, `confidence_score`.
+IMPORTANT JSON RULES FOR suggested_team (STRICT):
+- `suggested_team` ở top-level MUST be either `null` hoặc một JSON object duy nhất theo đúng keys: `team_id`, `team_name`, `team_type`, `reason`, `assembly_point_id`, `assembly_point_name`, `latitude`, `longitude`, `distance_km`.
+- Nếu mission dùng nhiều đội khác nhau theo activity, hãy trả top-level `suggested_team = null` exactly. Không trả array, không trả wrapper object.
+- Invalid examples: `""suggested_team"":[]`, `""suggested_team"":[""TEAM""]`, `""suggested_team"":{""teams"":[...]}`.
 
-Chỉ trả về JSON object hợp lệ, không markdown.",
+IMPORTANT JSON RULES FOR activity_assignments (STRICT):
+- `activity_assignments` MUST be an array of JSON objects only.
+- Allowed keys per item: `activity_key`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `suggested_team`.
+- `activity_key` must be a plain string và phải match key đã tồn tại trong `depot_fragment.activities`.
+- `execution_mode` must be `SingleTeam` hoặc `null`.
+- `required_team_count` must be integer `1` hoặc `null`.
+- `suggested_team` must be `null` hoặc một JSON object hợp lệ theo rule strict ở trên.
+
+IMPORTANT JSON RULES FOR additional_activities (STRICT):
+- `additional_activities` MUST be an array of JSON objects only.
+- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `priority`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
+- `activity_key` must be a plain string duy nhất.
+- `step` must be integer.
+- `activity_type` must be one of `RESCUE|MEDICAL_AID|EVACUATE`.
+- `execution_mode` must be `SingleTeam` hoặc `null`.
+- `required_team_count` must be integer `1` hoặc `null`.
+- `suggested_team` must be `null` hoặc một JSON object hợp lệ theo rule strict ở trên.
+
+IMPORTANT JSON RULES FOR ordered_activity_keys (STRICT):
+- `ordered_activity_keys` MUST be an array of strings only.
+- Phải chứa mọi `activity_key` từ `depot_fragment.activities` và mọi `additional_activities.activity_key` đúng 1 lần.
+- Không được thiếu key, không được dư key, không được trùng key.
+- Đây là thứ tự route cuối cùng backend sẽ dùng để assemble mission draft.
+- Invalid examples: `[]` khi vẫn có activities, `[1]`, `[null]`, `[""collect-1"", ""collect-1""]`.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, DEPOT_FRAGMENT và NEARBY_TEAM_COUNT do backend cung cấp bên dưới. Chỉ dùng getTeams và getAssemblyPoints. Chỉ trả về JSON object MissionTeamFragment đúng schema trong system prompt.",
                 Version = "v2.0",
                 IsActive = false,

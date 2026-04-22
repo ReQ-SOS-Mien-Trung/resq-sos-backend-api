@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -64,6 +64,26 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             AiConfigModel? aiConfigOverride) =>
             new(false, promptOverride, aiConfigOverride);
     }
+
+    private sealed record MissionExecutionAssessment(
+        bool HasExecutableActivities,
+        bool RequiresMixedBranches,
+        bool HasRescueBranch,
+        bool HasReliefBranch,
+        string? FailureReason)
+    {
+        public bool IsExecutable =>
+            HasExecutableActivities
+            && (!RequiresMixedBranches || (HasRescueBranch && HasReliefBranch))
+            && string.IsNullOrWhiteSpace(FailureReason);
+    }
+
+    private sealed record MissionSosRouteConstraint(
+        int SosRequestId,
+        bool IsRescueLike,
+        bool NeedsImmediateSafeTransfer,
+        bool? CanWaitForCombinedMission,
+        bool RequiresSupplyBeforeRescue);
 
     private sealed class InventoryBackedResourceNeed
     {
@@ -324,6 +344,25 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ## QUY TẮC AN TOÀN MISSION GHÉP CỨU HỘ + CỨU TRỢ
             - Nếu mission có cả nhánh `RESCUE|EVACUATE|MEDICAL_AID` và nhánh `COLLECT_SUPPLIES|DELIVER_SUPPLIES`, backend sẽ tự thêm cảnh báo an toàn sau khi parse kết quả.
             - Không tạo `warnings[]`, không tạo warning code riêng, không chèn warning schema mới vào JSON.
+            - Cảnh báo mixed mission không phải là lý do để bỏ trống `activities`. Khi đã trả mission JSON, `activities` phải là execution plan cụ thể.
+            - Nếu cluster mixed có SOS rescue khẩn cấp cần đưa về nơi an toàn ngay, hãy giữ route an toàn nhất có thể và cảnh báo coordinator thật rõ.
+            - Nếu SOS rescue không cần cứu gấp và có thể chờ mission kết hợp, có thể xếp route `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước rồi mới chuyển sang rescue branch.
+            - Nếu SOS rescue khẩn cấp, ưu tiên xử lý nhánh rescue trước phần việc không liên quan. Có thể `COLLECT_SUPPLIES` trước rescue nếu route thực tế cần lấy vật phẩm hoặc thiết bị từ kho để triển khai ngoài hiện trường.
+            - Nếu route mixed hiện tại không an toàn, hãy rewrite lại thứ tự hoạt động. Không được thay route bằng `activities = []`.
+
+            ## HỢP ĐỒNG CẢNH BÁO NỘI BỘ
+            - Bạn phải đọc toàn bộ cluster SOS, đặc biệt `raw_message`, `structured_data`, `incident_notes`, `target_victims`, `ai_analysis`, để tự đánh giá cảnh báo tổng thể.
+            - Luôn trả thêm 5 field top-level sau:
+              - `warning_level`: `none|light|medium|strong`
+              - `warning_title`
+              - `warning_message`
+              - `warning_related_sos_ids`
+              - `warning_reason`
+            - `warning_level = light` khi chỉ là rủi ro theo dõi hoặc lưu ý nhẹ, plan vẫn thực thi được bình thường.
+            - `warning_level = medium` khi coordinator nên xem xét thủ công trước khi chốt.
+            - `warning_level = strong` khi có nhiều SOS critical/urgent, mixed rescue-relief có rủi ro an toàn, hoặc thiếu dữ liệu/đội/vật tư quan trọng cần coordinator can thiệp.
+            - `warning_message` phải nói rõ SOS nào là nguồn rủi ro chính và coordinator cần chú ý điều gì.
+            - Nếu không có warning đáng kể thì trả `warning_level = "none"` và các field warning còn lại là null hoặc `[]`.
 
             ## ĐỊNH DẠNG overall_assessment
             - Toàn bộ nội dung phải nằm trên một dòng duy nhất.
@@ -1108,6 +1147,535 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static bool IsOnSiteActivity(SuggestedActivityDto activity) =>
         OnSiteActivityTypes.Contains(activity.ActivityType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+
+    private static bool HasRescueBranch(IEnumerable<SuggestedActivityDto> activities) =>
+        activities.Any(activity =>
+            string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasReliefBranch(IEnumerable<SuggestedActivityDto> activities) =>
+        activities.Any(activity =>
+            string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasMixedClusterRouteExpectation(IReadOnlyCollection<SosRequestSummary> sosRequests) =>
+        sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType))
+        && sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsReliefRequestType(sos.SosType));
+
+    private static MissionExecutionAssessment AssessExecutableMissionResult(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        IReadOnlyCollection<SuggestedActivityDto>? expectedActivities = null,
+        MissionRequirementsFragment? requirements = null)
+    {
+        if (sosRequests.Count == 0)
+        {
+            return new MissionExecutionAssessment(
+                HasExecutableActivities: true,
+                RequiresMixedBranches: false,
+                HasRescueBranch: false,
+                HasReliefBranch: false,
+                FailureReason: null);
+        }
+
+        BackfillMissingSupplyRouteDetailsFromExpectedActivities(result.SuggestedActivities, expectedActivities);
+
+        var executableActivities = result.SuggestedActivities
+            .Where(activity => !IsReturnAssemblyPointActivity(activity))
+            .ToList();
+
+        var hasExecutableActivities = executableActivities.Count > 0;
+        var hasRescueBranch = HasRescueBranch(executableActivities);
+        var hasReliefBranch = HasReliefBranch(executableActivities);
+
+        var requiresMixedBranches = expectedActivities is { Count: > 0 }
+            ? HasRescueBranch(expectedActivities) && HasReliefBranch(expectedActivities)
+            : HasMixedClusterRouteExpectation(sosRequests);
+
+        string? failureReason = null;
+        if (!hasExecutableActivities)
+        {
+            failureReason = "Mission suggestion must include executable activities for the current SOS cluster.";
+        }
+        else if (requiresMixedBranches && (!hasRescueBranch || !hasReliefBranch))
+        {
+            failureReason =
+                "Mission suggestion for a mixed rescue-relief cluster must preserve both rescue and relief branches in executable activities.";
+        }
+        else
+        {
+            failureReason = AssessMissionActivityRoute(executableActivities, sosRequests, requirements);
+        }
+
+        return new MissionExecutionAssessment(
+            HasExecutableActivities: hasExecutableActivities,
+            RequiresMixedBranches: requiresMixedBranches,
+            HasRescueBranch: hasRescueBranch,
+            HasReliefBranch: hasReliefBranch,
+            FailureReason: failureReason);
+    }
+
+    private static void BackfillMissingSupplyRouteDetailsFromExpectedActivities(
+        List<SuggestedActivityDto> activities,
+        IReadOnlyCollection<SuggestedActivityDto>? expectedActivities)
+    {
+        if (activities.Count == 0 || expectedActivities is not { Count: > 0 })
+            return;
+
+        var expectedSupplyActivities = expectedActivities
+            .Where(IsSupplyDependencyActivity)
+            .Where(activity => activity.DepotId.HasValue || activity.SuppliesToCollect is { Count: > 0 })
+            .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+            .ToList();
+
+        if (expectedSupplyActivities.Count == 0)
+            return;
+
+        foreach (var activity in activities
+                     .Where(IsSupplyDependencyActivity)
+                     .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue))
+        {
+            var needsDepot = !activity.DepotId.HasValue;
+            var needsSupplies = activity.SuppliesToCollect is not { Count: > 0 };
+            if (!needsDepot && !needsSupplies)
+                continue;
+
+            var referenceActivity = FindExpectedSupplyActivityForBackfill(activity, expectedSupplyActivities);
+            if (referenceActivity is null)
+                continue;
+
+            activity.DepotId ??= referenceActivity.DepotId;
+            activity.DepotName ??= referenceActivity.DepotName;
+            activity.DepotAddress ??= referenceActivity.DepotAddress;
+
+            if (needsSupplies && referenceActivity.SuppliesToCollect is { Count: > 0 })
+                activity.SuppliesToCollect = referenceActivity.SuppliesToCollect.Select(CloneSupply).ToList();
+        }
+    }
+
+    private static bool IsSupplyDependencyActivity(SuggestedActivityDto activity) =>
+        IsCollectActivity(activity)
+        || string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+
+    private static SuggestedActivityDto? FindExpectedSupplyActivityForBackfill(
+        SuggestedActivityDto activity,
+        IReadOnlyCollection<SuggestedActivityDto> expectedActivities)
+    {
+        var targetStep = activity.Step > 0 ? activity.Step : (int?)null;
+        var targetRouteKey = BuildSupplyRouteKey(activity);
+        var targetPrimarySosId = GetPrimarySosId(activity);
+        var targetSosIds = GetReferencedSosIds(activity);
+
+        return expectedActivities
+            .Where(candidate => string.Equals(candidate.ActivityType, activity.ActivityType, StringComparison.OrdinalIgnoreCase))
+            .Select(candidate => new
+            {
+                Candidate = candidate,
+                Score = ScoreExpectedSupplyActivityForBackfill(
+                    candidate,
+                    activity,
+                    targetRouteKey,
+                    targetStep,
+                    targetPrimarySosId,
+                    targetSosIds),
+                StepDistance = targetStep.HasValue && candidate.Step > 0
+                    ? Math.Abs(candidate.Step - targetStep.Value)
+                    : int.MaxValue
+            })
+            .Where(entry => entry.Score > 0)
+            .OrderByDescending(entry => entry.Score)
+            .ThenBy(entry => entry.StepDistance)
+            .FirstOrDefault()
+            ?.Candidate;
+    }
+
+    private static int ScoreExpectedSupplyActivityForBackfill(
+        SuggestedActivityDto candidate,
+        SuggestedActivityDto activity,
+        string targetRouteKey,
+        int? targetStep,
+        int? targetPrimarySosId,
+        IReadOnlySet<int> targetSosIds)
+    {
+        var score = 0;
+
+        if (targetStep.HasValue && candidate.Step == targetStep.Value)
+            score += 200;
+
+        var candidateRouteKey = BuildSupplyRouteKey(candidate);
+        if (string.Equals(candidateRouteKey, targetRouteKey, StringComparison.OrdinalIgnoreCase))
+            score += 80;
+
+        if (activity.DepotId.HasValue)
+        {
+            if (candidate.DepotId == activity.DepotId)
+                score += 60;
+            else if (candidate.DepotId.HasValue)
+                score -= 40;
+        }
+        else if (candidate.DepotId.HasValue)
+        {
+            score += 10;
+        }
+
+        if (targetPrimarySosId.HasValue && GetPrimarySosId(candidate) == targetPrimarySosId.Value)
+            score += 40;
+
+        if (targetSosIds.Count > 0)
+        {
+            var candidateSosIds = GetReferencedSosIds(candidate);
+            if (candidateSosIds.SetEquals(targetSosIds))
+                score += 30;
+            else if (candidateSosIds.Overlaps(targetSosIds))
+                score += 20;
+        }
+
+        if (candidate.SuppliesToCollect is { Count: > 0 })
+            score += 10;
+
+        return score;
+    }
+
+    private static string? AssessMissionActivityRoute(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionRequirementsFragment? requirements)
+    {
+        var routeConstraints = BuildMissionSosRouteConstraints(sosRequests, requirements);
+        var supplyFailure = AssessSupplyRouteDependencies(activities, routeConstraints);
+        if (!string.IsNullOrWhiteSpace(supplyFailure))
+            return supplyFailure;
+
+        return AssessMixedMissionSafety(activities, routeConstraints);
+    }
+
+    private static string? AssessSupplyRouteDependencies(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints)
+    {
+        var ledgers = new Dictionary<(int DepotId, string RouteKey), Dictionary<string, int>>();
+        var collectActivities = new List<(SuggestedActivityDto Activity, string RouteKey)>();
+
+        foreach (var activity in activities.OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue))
+        {
+            if (IsReturnAssemblyPointActivity(activity) || IsReturnActivity(activity))
+                continue;
+
+            if (!IsCollectActivity(activity)
+                && !string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!activity.DepotId.HasValue)
+                return $"Activity step {activity.Step} ({activity.ActivityType}) is missing depot_id.";
+
+            if (activity.SuppliesToCollect is not { Count: > 0 })
+                return $"Activity step {activity.Step} ({activity.ActivityType}) must include supplies_to_collect.";
+
+            var routeKey = BuildSupplyRouteKey(activity);
+            var ledgerKey = (activity.DepotId.Value, routeKey);
+            if (!ledgers.TryGetValue(ledgerKey, out var routeLedger))
+            {
+                routeLedger = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                ledgers[ledgerKey] = routeLedger;
+            }
+
+            if (IsCollectActivity(activity))
+            {
+                collectActivities.Add((activity, routeKey));
+
+                foreach (var supply in activity.SuppliesToCollect.Where(supply => supply.Quantity > 0))
+                {
+                    var supplyKey = BuildSupplyLedgerKey(supply.ItemId, supply.ItemName);
+                    routeLedger.TryGetValue(supplyKey, out var quantity);
+                    routeLedger[supplyKey] = quantity + supply.Quantity;
+                }
+
+                continue;
+            }
+
+            foreach (var supply in activity.SuppliesToCollect.Where(supply => supply.Quantity > 0))
+            {
+                var supplyKey = BuildSupplyLedgerKey(supply.ItemId, supply.ItemName);
+                routeLedger.TryGetValue(supplyKey, out var availableQuantity);
+                if (availableQuantity < supply.Quantity)
+                {
+                    return
+                        $"Activity step {activity.Step} (DELIVER_SUPPLIES) exceeds collected quantity or appears before COLLECT_SUPPLIES for '{supply.ItemName}'.";
+                }
+
+                routeLedger[supplyKey] = availableQuantity - supply.Quantity;
+            }
+        }
+
+        foreach (var (collectActivity, routeKey) in collectActivities)
+        {
+            if (CollectActivityHasFollowUpUsage(activities, collectActivity, routeKey, routeConstraints))
+                continue;
+
+            return
+                $"Activity step {collectActivity.Step} (COLLECT_SUPPLIES) does not feed any later delivery or rescue flow in the same route.";
+        }
+
+        return null;
+    }
+
+    private static string? AssessMixedMissionSafety(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints)
+    {
+        if (routeConstraints.Count == 0)
+            return null;
+
+        foreach (var constraint in routeConstraints.Values.Where(constraint => constraint.IsRescueLike))
+        {
+            var referencedActivities = activities
+                .Select((activity, index) => new { Activity = activity, Index = index })
+                .Where(entry => ReferencesSos(entry.Activity, constraint.SosRequestId))
+                .ToList();
+
+            if (referencedActivities.Count == 0)
+                continue;
+
+            var firstRescueIndex = referencedActivities
+                .Where(entry => IsSafetyCriticalActivity(entry.Activity.ActivityType))
+                .Select(entry => (int?)entry.Index)
+                .FirstOrDefault();
+
+            if (constraint.NeedsImmediateSafeTransfer && firstRescueIndex is null)
+            {
+                return $"Urgent SOS #{constraint.SosRequestId} is missing rescue/medical/evacuation activities.";
+            }
+
+            if (firstRescueIndex is null)
+                continue;
+
+            if (constraint.NeedsImmediateSafeTransfer)
+            {
+                var preRescueFailure = AssessPreRescueOrdering(
+                    activities,
+                    routeConstraints,
+                    constraint,
+                    firstRescueIndex.Value);
+                if (!string.IsNullOrWhiteSpace(preRescueFailure))
+                    return preRescueFailure;
+            }
+
+        }
+
+        return null;
+    }
+
+    private static string? AssessPreRescueOrdering(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints,
+        MissionSosRouteConstraint targetConstraint,
+        int firstRescueIndex)
+    {
+        for (var index = 0; index < firstRescueIndex; index++)
+        {
+            var activity = activities[index];
+            var referencedSosIds = GetReferencedSosIds(activity);
+            if (referencedSosIds.Count == 0)
+                continue;
+
+            if (referencedSosIds.Contains(targetConstraint.SosRequestId))
+            {
+                if (!string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+                {
+                    return
+                        $"Urgent SOS #{targetConstraint.SosRequestId} cannot start with '{activity.ActivityType}' before rescue begins.";
+                }
+
+                continue;
+            }
+
+            var referencedUrgentRescue = referencedSosIds.Any(
+                sosId => routeConstraints.TryGetValue(sosId, out var constraint)
+                    && constraint.IsRescueLike
+                    && constraint.NeedsImmediateSafeTransfer);
+
+            if (referencedUrgentRescue && IsAllowedUrgentPreRescueActivity(activity, routeConstraints))
+                continue;
+
+            return
+                $"Urgent SOS #{targetConstraint.SosRequestId} is delayed by step {activity.Step} ({activity.ActivityType}) before rescue starts.";
+        }
+
+        return null;
+    }
+
+    private static bool IsAllowedUrgentPreRescueActivity(
+        SuggestedActivityDto activity,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints)
+    {
+        var referencedSosIds = GetReferencedSosIds(activity);
+        if (referencedSosIds.Count == 0)
+            return false;
+
+        if (!IsSafetyCriticalActivity(activity.ActivityType)
+            && !string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        foreach (var sosId in referencedSosIds)
+        {
+            if (!routeConstraints.TryGetValue(sosId, out var constraint)
+                || !constraint.IsRescueLike
+                || !constraint.NeedsImmediateSafeTransfer)
+            {
+                return false;
+            }
+
+        }
+
+        return true;
+    }
+
+    private static bool CollectActivityHasFollowUpUsage(
+        IReadOnlyList<SuggestedActivityDto> activities,
+        SuggestedActivityDto collectActivity,
+        string routeKey,
+        IReadOnlyDictionary<int, MissionSosRouteConstraint> routeConstraints)
+    {
+        var collectIndex = activities
+            .Select((activity, index) => new { Activity = activity, Index = index })
+            .FirstOrDefault(entry => ReferenceEquals(entry.Activity, collectActivity))
+            ?.Index;
+
+        if (!collectIndex.HasValue)
+            return false;
+
+        var collectSosIds = GetReferencedSosIds(collectActivity);
+        var hasCollectSosIds = collectSosIds.Count > 0;
+
+        for (var index = collectIndex.Value + 1; index < activities.Count; index++)
+        {
+            var activity = activities[index];
+            if (!string.Equals(BuildSupplyRouteKey(activity), routeKey, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (IsReturnActivity(activity))
+                return true;
+
+            if (!IsSafetyCriticalActivity(activity.ActivityType))
+                continue;
+
+            if (!hasCollectSosIds)
+                return true;
+
+            var referencedSosIds = GetReferencedSosIds(activity);
+            foreach (var sosId in referencedSosIds)
+            {
+                if (!collectSosIds.Contains(sosId))
+                    continue;
+
+                if (!routeConstraints.TryGetValue(sosId, out var constraint))
+                    continue;
+
+                if (constraint.NeedsImmediateSafeTransfer || constraint.RequiresSupplyBeforeRescue)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Dictionary<int, MissionSosRouteConstraint> BuildMissionSosRouteConstraints(
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        MissionRequirementsFragment? requirements)
+    {
+        var requirementLookup = requirements?.SosRequirements
+            .GroupBy(requirement => requirement.SosRequestId)
+            .ToDictionary(group => group.Key, group => group.First()) ?? [];
+
+        return sosRequests.ToDictionary(
+            sos => sos.Id,
+            sos =>
+            {
+                requirementLookup.TryGetValue(sos.Id, out var requirement);
+                var isRescueLike = SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType);
+                var needsImmediateSafeTransfer =
+                    requirement?.UrgentRescueRequiresImmediateSafeTransfer
+                    ?? requirement?.NeedsImmediateSafeTransfer
+                    ?? sos.AiAnalysis?.NeedsImmediateSafeTransfer
+                    ?? false;
+                var canWait = requirement?.CanWaitForCombinedMission ?? sos.AiAnalysis?.CanWaitForCombinedMission;
+                var requiresSupplyBeforeRescue =
+                    requirement?.RequiresSupplyBeforeRescue
+                    ?? InferRequiresSupplyBeforeRescue(requirement);
+
+                return new MissionSosRouteConstraint(
+                    sos.Id,
+                    isRescueLike,
+                    needsImmediateSafeTransfer,
+                    canWait,
+                    requiresSupplyBeforeRescue);
+            });
+    }
+
+    private static bool InferRequiresSupplyBeforeRescue(MissionSosRequirementFragment? requirement)
+    {
+        if (requirement?.RequiredSupplies is not { Count: > 0 })
+            return false;
+
+        foreach (var supply in requirement.RequiredSupplies)
+        {
+            var normalizedCategory = NormalizeItemName(supply.Category ?? string.Empty);
+            var normalizedName = NormalizeItemName(supply.ItemName ?? string.Empty);
+            if (normalizedCategory.Contains("vehicle", StringComparison.OrdinalIgnoreCase)
+                || normalizedCategory.Contains("rescue", StringComparison.OrdinalIgnoreCase)
+                || normalizedCategory.Contains("equipment", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("xuong", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("cano", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("day", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("phao", StringComparison.OrdinalIgnoreCase)
+                || normalizedName.Contains("cang", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsSafetyCriticalActivity(string? activityType) =>
+        string.Equals(activityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activityType, "EVACUATE", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ReferencesSos(SuggestedActivityDto activity, int sosRequestId) =>
+        GetReferencedSosIds(activity).Contains(sosRequestId);
+
+    private static string BuildSupplyRouteKey(SuggestedActivityDto activity)
+    {
+        if (activity.SuggestedTeam?.TeamId is > 0)
+            return $"team:{activity.SuggestedTeam.TeamId}";
+
+        if (!string.IsNullOrWhiteSpace(activity.CoordinationGroupKey))
+            return $"coord:{activity.CoordinationGroupKey.Trim()}";
+
+        return "mission";
+    }
+
+    private static string BuildSupplyLedgerKey(int? itemId, string? itemName)
+    {
+        if (itemId.HasValue && itemId.Value > 0)
+            return $"item:{itemId.Value}";
+
+        var normalizedName = NormalizeItemName(itemName);
+        return string.IsNullOrWhiteSpace(normalizedName)
+            ? "item:unknown"
+            : $"name:{normalizedName}";
+    }
 
     private static HashSet<int> GetReferencedSosIds(SuggestedActivityDto activity)
     {
@@ -3682,4 +4250,3 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     #endregion
 }
-

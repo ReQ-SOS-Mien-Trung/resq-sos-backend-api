@@ -21,6 +21,11 @@ public class MissionSosRequirementFragment
     public int SosRequestId { get; set; }
     public string? Summary { get; set; }
     public string? Priority { get; set; }
+    public bool? NeedsImmediateSafeTransfer { get; set; }
+    public bool? UrgentRescueRequiresImmediateSafeTransfer { get; set; }
+    public bool? CanWaitForCombinedMission { get; set; }
+    public bool? RequiresSupplyBeforeRescue { get; set; }
+    public string? HandlingReason { get; set; }
     public List<MissionRequiredSupplyFragment> RequiredSupplies { get; set; } = [];
     public List<MissionRequiredTeamNeedFragment> RequiredTeams { get; set; } = [];
 }
@@ -35,6 +40,8 @@ public class MissionRequirementsFragment
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
+    public bool SplitClusterRecommended { get; set; }
+    public string? SplitClusterReason { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public double ConfidenceScore { get; set; }
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
@@ -90,6 +97,7 @@ public class MissionTeamFragment
 {
     public List<MissionActivityAssignmentFragment> ActivityAssignments { get; set; } = [];
     public List<MissionActivityFragment> AdditionalActivities { get; set; } = [];
+    public List<string> OrderedActivityKeys { get; set; } = [];
     public SuggestedTeamDto? SuggestedTeam { get; set; }
     public string? SpecialNotes { get; set; }
     public double ConfidenceScore { get; set; }

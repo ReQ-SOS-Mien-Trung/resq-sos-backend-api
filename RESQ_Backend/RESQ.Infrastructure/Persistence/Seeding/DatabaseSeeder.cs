@@ -35,6 +35,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int EligibleAssignedRescuerCount = 78;
     private const int HueStadiumUnclusteredSosCount = 10;
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
+    private const int HueStadiumReserveTeamCount = 2;
+    private const int HueStadiumReserveTeamMemberCount = 3;
+    private const string HueStadiumReserveTeamCodePrefix = "RT-HUE-TD-AV";
     private static readonly string[] DepotClosureTestDepotNames =
     [
         "Kho cứu trợ Đại học Phú Yên",
@@ -1139,7 +1142,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         await _db.SaveChangesAsync(cancellationToken);
 
         var memberIndex = 0;
-        for (var teamIndex = 0; teamIndex < seed.RescueTeams.Count; teamIndex++)
+        for (var teamIndex = 0; teamIndex < 20; teamIndex++)
         {
             var team = seed.RescueTeams[teamIndex];
             var count = teamIndex < 16 ? 5 : teamIndex == 16 ? 6 : 10;
@@ -1163,7 +1166,89 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
         }
 
+        await AddHueStadiumAvailableReserveTeamsAsync(seed, deployableRescuers, memberIndex, cancellationToken);
+
         _db.RescueTeamMembers.AddRange(seed.RescueTeamMembers);
+    }
+
+    private async Task AddHueStadiumAvailableReserveTeamsAsync(
+        DemoSeedContext seed,
+        IReadOnlyList<User> deployableRescuers,
+        int usedDeployableRescuerCount,
+        CancellationToken cancellationToken)
+    {
+        var hueStadium = GetHueStadiumAssemblyPoint(seed)
+            ?? throw new InvalidOperationException("Không tìm thấy điểm tập kết Sân vận động Tự Do trong demo seed.");
+        var requiredMemberCount = HueStadiumReserveTeamCount * HueStadiumReserveTeamMemberCount;
+        var assignedRescuerIds = seed.RescueTeamMembers.Select(member => member.UserId).ToHashSet();
+        var reserveRescuers = deployableRescuers
+            .Skip(usedDeployableRescuerCount)
+            .Concat(seed.Rescuers
+                .Skip(deployableRescuers.Count)
+                .Where(rescuer => rescuer.AssemblyPointId == hueStadium.Id))
+            .Where(rescuer => !assignedRescuerIds.Contains(rescuer.Id))
+            .Take(requiredMemberCount)
+            .ToList();
+
+        if (reserveRescuers.Count < requiredMemberCount)
+        {
+            throw new InvalidOperationException("Không đủ rescuer khả dụng để tạo 2 team Available tại Sân vận động Tự Do.");
+        }
+
+        foreach (var rescuer in reserveRescuers)
+        {
+            rescuer.AssemblyPointId = hueStadium.Id;
+        }
+
+        var reserveTeamTypes = new[] { "Mixed", "Rescue" };
+        var reserveTeamNames = new[] { "Đội thường trực Tự Do 1", "Đội cơ động Tự Do 2" };
+        var reserveTeams = new List<RescueTeam>();
+        for (var i = 0; i < HueStadiumReserveTeamCount; i++)
+        {
+            reserveTeams.Add(new RescueTeam
+            {
+                AssemblyPointId = hueStadium.Id,
+                ManagedBy = seed.Coordinators[i % seed.Coordinators.Count].Id,
+                Code = $"{HueStadiumReserveTeamCodePrefix}-{i + 1:00}",
+                Name = reserveTeamNames[i],
+                TeamType = reserveTeamTypes[i],
+                Status = "Available",
+                MaxMembers = 6,
+                AssemblyDate = seed.AnchorUtc.AddHours(-(i + 1)),
+                CreatedAt = seed.AnchorUtc.AddDays(-(i + 1)),
+                UpdatedAt = seed.AnchorUtc.AddMinutes(-(10 + i))
+            });
+        }
+
+        _db.RescueTeams.AddRange(reserveTeams);
+        await _db.SaveChangesAsync(cancellationToken);
+        seed.RescueTeams.AddRange(reserveTeams);
+
+        for (var teamIndex = 0; teamIndex < reserveTeams.Count; teamIndex++)
+        {
+            var team = reserveTeams[teamIndex];
+            var members = reserveRescuers
+                .Skip(teamIndex * HueStadiumReserveTeamMemberCount)
+                .Take(HueStadiumReserveTeamMemberCount)
+                .ToList();
+
+            for (var memberPosition = 0; memberPosition < members.Count; memberPosition++)
+            {
+                var rescuer = members[memberPosition];
+                var invitedAt = (team.CreatedAt ?? seed.StartUtc).AddHours(2 + memberPosition);
+                seed.RescueTeamMembers.Add(new RescueTeamMember
+                {
+                    TeamId = team.Id,
+                    UserId = rescuer.Id,
+                    Status = "Accepted",
+                    InvitedAt = invitedAt,
+                    RespondedAt = invitedAt.AddMinutes(10 + memberPosition * 3),
+                    IsLeader = memberPosition == 0,
+                    RoleInTeam = memberPosition == 0 ? "Leader" : TeamMemberRole(memberPosition, team.TeamType),
+                    CheckedIn = true
+                });
+            }
+        }
     }
 
     private async Task SeedLogisticsCatalogAsync(DemoSeedContext seed, CancellationToken cancellationToken)
@@ -3976,6 +4061,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private static List<User> GetDeployableRescuers(DemoSeedContext seed) =>
         seed.Rescuers.Take(seed.Rescuers.Count - UnassignedRescuerCount).ToList();
 
+    private static bool IsHueStadiumReserveTeam(RescueTeam team) =>
+        team.Code?.StartsWith(HueStadiumReserveTeamCodePrefix, StringComparison.Ordinal) == true;
+
     private static AssemblyPoint? GetHueStadiumAssemblyPoint(DemoSeedContext seed) =>
         seed.AssemblyPoints.FirstOrDefault(point =>
             string.Equals(point.Code, "AP-HUE-TD-241015", StringComparison.Ordinal)
@@ -4555,7 +4643,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             _ => "Rescue"
         };
         var candidates = seed.RescueTeams
-            .Where(t => t.TeamType == required && t.Status is "Available" or "Gathering")
+            .Where(t => !IsHueStadiumReserveTeam(t) && t.TeamType == required && t.Status is "Available" or "Gathering")
             .ToList();
 
         if (candidates.Count > 0)
@@ -4564,7 +4652,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
 
         candidates = seed.RescueTeams
-            .Where(t => t.TeamType == required && t.Status != "Disbanded" && t.Status != "Unavailable")
+            .Where(t => !IsHueStadiumReserveTeam(t) && t.TeamType == required && t.Status != "Disbanded" && t.Status != "Unavailable")
             .ToList();
 
         if (candidates.Count > 0)
@@ -4572,7 +4660,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             return candidates[(missionIndex + teamOffset) % candidates.Count];
         }
 
-        return seed.RescueTeams[(missionIndex + teamOffset) % seed.RescueTeams.Count];
+        candidates = seed.RescueTeams
+            .Where(t => !IsHueStadiumReserveTeam(t))
+            .ToList();
+        return candidates[(missionIndex + teamOffset) % candidates.Count];
     }
 
     private static void SyncRescueTeamStatusesFromAssignments(DemoSeedContext seed)

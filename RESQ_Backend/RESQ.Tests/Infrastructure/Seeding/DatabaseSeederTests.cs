@@ -140,6 +140,13 @@ public class DatabaseSeederTests
             .SingleAsync(e => e.AssemblyPointId == hueStadium.Id && e.Status == "Gathering");
         Assert.True(hueActiveEvent.CheckInDeadline > nowUtc);
 
+        var hueAvailableTeams = await context.RescueTeams
+            .Where(team => team.AssemblyPointId == hueStadium.Id && team.Status == "Available")
+            .OrderBy(team => team.Code)
+            .ToListAsync();
+        Assert.Contains(hueAvailableTeams, team => team.Code == "RT-HUE-TD-AV-01");
+        Assert.Contains(hueAvailableTeams, team => team.Code == "RT-HUE-TD-AV-02");
+
         var hueCheckedInStandbyRescuers = await context.Users
             .Where(u => u.RoleId == 3 && u.AssemblyPointId == hueStadium.Id)
             .Where(u => !context.RescueTeamMembers.Any(member => member.UserId == u.Id))
@@ -150,7 +157,7 @@ public class DatabaseSeederTests
                 && participant.IsCheckedIn
                 && !participant.IsCheckedOut))
             .ToListAsync();
-        Assert.Equal(10, hueCheckedInStandbyRescuers.Count);
+        Assert.Equal(8, hueCheckedInStandbyRescuers.Count);
 
         var depotHue = await context.Depots.SingleAsync(depot => depot.Name == "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế");
         var depotDaNang = await context.Depots.SingleAsync(depot => depot.Name == "Ủy ban MTTQVN TP Đà Nẵng");
