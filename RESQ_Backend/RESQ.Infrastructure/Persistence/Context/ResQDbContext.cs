@@ -111,6 +111,7 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<SystemMigrationAudit> SystemMigrationAudits { get; set; }
     public virtual DbSet<UserRelativeProfile> UserRelativeProfiles { get; set; }
     public virtual DbSet<CheckInRadiusConfig> CheckInRadiusConfigs { get; set; }
+    public virtual DbSet<AssemblyPointCheckInRadiusConfig> AssemblyPointCheckInRadiusConfigs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -231,6 +232,28 @@ public partial class ResQDbContext : DbContext
                     "CK_check_in_radius_configs_max_radius_meters_positive",
                     "\"max_radius_meters\" > 0");
             });
+        });
+
+        modelBuilder.Entity<AssemblyPointCheckInRadiusConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("assembly_point_check_in_radius_configs_pkey");
+
+            entity.HasIndex(e => e.AssemblyPointId)
+                .IsUnique()
+                .HasDatabaseName("IX_assembly_point_check_in_radius_configs_assembly_point_id");
+
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_assembly_point_check_in_radius_configs_max_radius_meters_positive",
+                    "\"max_radius_meters\" > 0");
+            });
+
+            entity.HasOne(e => e.AssemblyPoint)
+                .WithOne(a => a.CheckInRadiusConfig)
+                .HasForeignKey<AssemblyPointCheckInRadiusConfig>(e => e.AssemblyPointId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_assembly_point_check_in_radius_configs_assembly_point");
         });
 
         modelBuilder.Entity<DepotFund>(entity =>

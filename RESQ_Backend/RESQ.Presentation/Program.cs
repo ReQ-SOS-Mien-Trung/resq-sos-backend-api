@@ -65,7 +65,7 @@ builder.Services.AddCors(options =>
 // Swagger + JWT support
 builder.Services.AddSwaggerGen(c =>
 {
-    // DÃ¹ng full type name lÃ m schemaId Ä‘á»ƒ trÃ¡nh xung Ä‘á»™t khi cÃ³ 2 class cÃ¹ng tÃªn á»Ÿ namespace khÃ¡c nhau
+    // Dùng full type name làm schemaId để tránh xung đột khi có 2 class cùng tên ở namespace khác nhau
     c.CustomSchemaIds(type => type.FullName);
 
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -111,16 +111,16 @@ builder.Services.AddSwaggerGen(c =>
 // Health check
 builder.Services.AddHealthChecks();
 
-// Firebase Admin SDK initialization - Ä‘á»c tá»« appsettings section "Firebase"
+// Firebase Admin SDK initialization - đọc từ appsettings section "Firebase"
 if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 {
     var fb = builder.Configuration.GetSection("Firebase");
 
-    // Replace literal \n (2 chars) thÃ nh newline tháº­t - phÃ²ng trÆ°á»ng há»£p configuration
-    // khÃ´ng unescape JSON escape sequences (xáº£y ra trÃªn má»™t sá»‘ cloud platforms)
+    // Replace literal \n (2 chars) thành newline thật - phòng trường hợp configuration
+    // không unescape JSON escape sequences (xảy ra trên một số cloud platforms)
     var privateKey = (fb["PrivateKey"] ?? "").Replace("\\n", "\n");
 
-    // DÃ¹ng Dictionary Ä‘á»ƒ Ä‘áº£m báº£o tÃªn key JSON Ä‘Æ°á»£c giá»¯ nguyÃªn, khÃ´ng bá»‹ naming policy Ä‘á»•i
+    // Dùng Dictionary để đảm bảo tên key JSON được giữ nguyên, không bị naming policy đổi
     var credentialDict = new Dictionary<string, string?>
     {
         ["type"]                        = fb["Type"],
@@ -151,7 +151,7 @@ if (FirebaseAdmin.FirebaseApp.DefaultInstance == null)
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
 
-// -- Memory cache (dÃ¹ng bá»Ÿi PermissionAuthorizationHandler) --------------
+// -- Memory cache (dùng bởi PermissionAuthorizationHandler) --------------
 builder.Services.AddMemoryCache();
 
 // -- Dynamic Permission Authorization ------------------------------------
@@ -171,9 +171,9 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    // .NET 8 máº·c Ä‘á»‹nh dÃ¹ng JsonWebTokenHandler vá»›i MapInboundClaims = false,
-    // khiáº¿n claim "sub" trong JWT KHÃ”NG Ä‘Æ°á»£c map thÃ nh ClaimTypes.NameIdentifier.
-    // Báº­t láº¡i Ä‘á»ƒ User.FindFirst(ClaimTypes.NameIdentifier) hoáº¡t Ä‘á»™ng Ä‘Ãºng.
+    // .NET 8 mặc định dùng JsonWebTokenHandler với MapInboundClaims = false,
+    // khiến claim "sub" trong JWT KHÔNG được map thành ClaimTypes.NameIdentifier.
+    // Bật lại để User.FindFirst(ClaimTypes.NameIdentifier) hoạt động đúng.
     options.MapInboundClaims = true;
 
     options.TokenValidationParameters = new TokenValidationParameters
@@ -221,9 +221,9 @@ if (bootstrapDatabaseOnStartup)
     var dbContext = scope.ServiceProvider.GetRequiredService<ResQDbContext>();
 
     logger.LogInformation("Ensuring RESQ database is created and seeded.");
-    await dbContext.Database.MigrateAsync();
+    await dbContext.Database.EnsureCreatedAsync();
     await RESQ.Infrastructure.Extensions.ServiceCollectionExtensions.RunSeedAsync(dbContext);
-    logger.LogInformation("Database bootstrap finished (migrations applied).");
+    logger.LogInformation("Database bootstrap finished (schema created and seed applied).");
 }
 
 // Middleware pipeline

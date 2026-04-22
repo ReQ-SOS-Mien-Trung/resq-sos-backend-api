@@ -1,3 +1,5 @@
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
+
 namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureDetail;
 
 public class DepotClosureDetailResponse
@@ -28,6 +30,26 @@ public class DepotClosureDetailResponse
     public DateTime InitiatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
+    public bool HasOpenTransfers { get; set; }
+    public bool HasRemainingItems { get; set; }
+    public int RemainingItemCount { get; set; }
+    public bool HasTransferableRemainingItems { get; set; }
+    public int TransferableRemainingItemCount { get; set; }
+    public int TransferableRemainingUnitCount { get; set; }
+    public int BlockedRemainingItemCount { get; set; }
+    public int BlockedRemainingUnitCount { get; set; }
+    public bool HasClosingBlockers { get; set; }
+    public int ReservedConsumableItemCount { get; set; }
+    public int ReservedConsumableUnitCount { get; set; }
+    public int NonAvailableReusableItemModelCount { get; set; }
+    public int NonAvailableReusableUnitCount { get; set; }
+    public bool CanSelectResolutionOption { get; set; }
+    public bool CanConfirmClose { get; set; }
+    public bool CanDownloadExternalTemplate { get; set; }
+    public bool CanUploadExternalResolution { get; set; }
+    public bool HasTransferRecords { get; set; }
+    public bool HasExternalResolutionRecords { get; set; }
+    public List<ClosureInventoryItemDto> RemainingInventoryItems { get; set; } = [];
     public DepotClosureTransferDetailDto? TransferDetail { get; set; }
     public List<DepotClosureTransferDetailDto> TransferDetails { get; set; } = [];
     public List<DepotClosureExternalItemDetailResponse> ExternalItems { get; set; } = [];
@@ -38,7 +60,9 @@ public class DepotClosureTransferDetailDto
     public int Id { get; set; }
     public int ClosureId { get; set; }
     public int SourceDepotId { get; set; }
+    public string? SourceDepotName { get; set; }
     public int TargetDepotId { get; set; }
+    public string? TargetDepotName { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public int SnapshotConsumableUnits { get; set; }

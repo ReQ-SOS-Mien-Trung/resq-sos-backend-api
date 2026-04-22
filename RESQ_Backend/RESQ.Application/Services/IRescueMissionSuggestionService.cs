@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.System;
 
@@ -95,6 +96,7 @@ public class SosRequestSummary
     public DateTime? CreatedAt { get; set; }
     public string? TargetVictimSummary { get; set; }
     public List<MissionActivityTargetVictimDto> TargetVictims { get; set; } = [];
+    public SosRequestAiAnalysisSummary? AiAnalysis { get; set; }
 }
 
 public class RescueMissionSuggestionResult
@@ -158,6 +160,7 @@ public class SupplyToCollectDto
     /// <summary>ID của relief item tương ứng trong kho (khớp với DepotInventoryItemDto.ItemId).</summary>
     public int? ItemId { get; set; }
     public string ItemName { get; set; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ImageUrl { get; set; }
     public int Quantity { get; set; }
     public string? Unit { get; set; }

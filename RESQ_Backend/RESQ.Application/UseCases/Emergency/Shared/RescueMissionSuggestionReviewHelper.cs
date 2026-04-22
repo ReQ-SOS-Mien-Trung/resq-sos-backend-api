@@ -57,108 +57,26 @@ public static class RescueMissionSuggestionReviewHelper
     {
         foreach (var activity in activities)
         {
-            activity.ExecutionMode = NormalizeExecutionMode(
+            var normalizedExecutionMode = NormalizeExecutionMode(
                 activity.ExecutionMode,
                 activity.RequiredTeamCount,
                 activity.CoordinationGroupKey);
 
-            if (string.Equals(activity.ExecutionMode, SplitAcrossTeamsMode, StringComparison.OrdinalIgnoreCase))
-            {
-                activity.CoordinationGroupKey = string.IsNullOrWhiteSpace(activity.CoordinationGroupKey)
-                    ? BuildFallbackCoordinationGroupKey(activity)
-                    : activity.CoordinationGroupKey.Trim();
-                activity.CoordinationNotes = string.IsNullOrWhiteSpace(activity.CoordinationNotes)
-                    ? BuildDefaultSplitNotes(activity)
-                    : activity.CoordinationNotes.Trim();
-            }
-            else
-            {
-                activity.ExecutionMode = SingleTeamMode;
-                activity.RequiredTeamCount = 1;
-                activity.CoordinationGroupKey = null;
-                activity.CoordinationNotes = string.IsNullOrWhiteSpace(activity.CoordinationNotes)
-                    ? "Một đội có thể hoàn thành activity này độc lập."
-                    : activity.CoordinationNotes.Trim();
-            }
-        }
-
-        InferSameDepotSplitActivities(activities, warnings);
-
-        var splitGroups = activities
-            .Where(activity => string.Equals(activity.ExecutionMode, SplitAcrossTeamsMode, StringComparison.OrdinalIgnoreCase))
-            .GroupBy(activity => activity.CoordinationGroupKey ?? BuildFallbackCoordinationGroupKey(activity))
-            .ToList();
-
-        foreach (var group in splitGroups)
-        {
-            var assignedTeamCount = group
-                .Where(activity => activity.SuggestedTeam is not null)
-                .Select(activity => activity.SuggestedTeam!.TeamId)
-                .Distinct()
-                .Count();
-
-            var requiredTeamCount = Math.Max(
-                Math.Max(group.Max(activity => activity.RequiredTeamCount ?? 0), assignedTeamCount),
-                2);
-
-            foreach (var activity in group)
-            {
-                activity.ExecutionMode = SplitAcrossTeamsMode;
-                activity.CoordinationGroupKey = group.Key;
-                activity.RequiredTeamCount = requiredTeamCount;
-                activity.CoordinationNotes = string.IsNullOrWhiteSpace(activity.CoordinationNotes)
-                    ? BuildDefaultSplitNotes(activity)
-                    : activity.CoordinationNotes.Trim();
-            }
-
-            if (assignedTeamCount <= 1)
+            if (string.Equals(normalizedExecutionMode, SplitAcrossTeamsMode, StringComparison.OrdinalIgnoreCase)
+                || activity.RequiredTeamCount.GetValueOrDefault() > 1)
             {
                 warnings.Add(
-                    $"Nhóm phối hợp '{group.Key}' đang được đánh dấu SplitAcrossTeams nhưng mới có {assignedTeamCount} đội được gán.");
+                    $"Activity step {activity.Step} ({activity.ActivityType}) đã được backend chuẩn hóa về SingleTeam theo business rule.");
             }
-        }
-    }
 
-    private static void InferSameDepotSplitActivities(
-        IReadOnlyCollection<SuggestedActivityDto> activities,
-        ICollection<string> warnings)
-    {
-        var depotSplitGroups = activities
-            .Where(activity => activity.DepotId.HasValue
-                && string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
-                && activity.SuggestedTeam is not null)
-            .GroupBy(activity => new { activity.DepotId, activity.SosRequestId })
-            .Where(group => group
-                .Select(activity => activity.SuggestedTeam!.TeamId)
-                .Distinct()
-                .Count() > 1)
-            .ToList();
-
-        foreach (var group in depotSplitGroups)
-        {
-            var distinctTeamCount = group
-                .Select(activity => activity.SuggestedTeam!.TeamId)
-                .Distinct()
-                .Count();
-
-            var groupKey = group
-                .Select(activity => activity.CoordinationGroupKey)
-                .FirstOrDefault(key => !string.IsNullOrWhiteSpace(key))
-                ?? $"collect-depot-{group.Key.DepotId}-sos-{group.Key.SosRequestId ?? 0}";
-
-            foreach (var activity in group)
-            {
-                if (!string.Equals(activity.ExecutionMode, SplitAcrossTeamsMode, StringComparison.OrdinalIgnoreCase))
-                {
-                    warnings.Add(
-                        $"Activity step {activity.Step} được backend suy diễn là SplitAcrossTeams vì có nhiều đội cùng lấy vật phẩm tại depot #{group.Key.DepotId}.");
-                }
-
-                activity.ExecutionMode = SplitAcrossTeamsMode;
-                activity.CoordinationGroupKey = groupKey;
-                activity.RequiredTeamCount = Math.Max(activity.RequiredTeamCount ?? 0, distinctTeamCount);
-                activity.CoordinationNotes = BuildSameDepotSplitNotes(activity, distinctTeamCount);
-            }
+            activity.ExecutionMode = SingleTeamMode;
+            activity.RequiredTeamCount = 1;
+            activity.CoordinationGroupKey = string.IsNullOrWhiteSpace(activity.CoordinationGroupKey)
+                ? null
+                : activity.CoordinationGroupKey.Trim();
+            activity.CoordinationNotes = string.IsNullOrWhiteSpace(activity.CoordinationNotes)
+                ? "Một đội có thể hoàn thành activity này độc lập."
+                : activity.CoordinationNotes.Trim();
         }
     }
 

@@ -2467,6 +2467,44 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         return hasReusableInUse;
     }
 
+    public async Task<DepotClosingBlockersModel> GetDepotClosingBlockersAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+    {
+        var reservedConsumables = await _unitOfWork.Set<SupplyInventory>()
+            .Where(inv => inv.DepotId == depotId
+                          && !inv.IsDeleted
+                          && (inv.MissionReservedQuantity > 0 || inv.TransferReservedQuantity > 0))
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                ItemCount = g.Count(),
+                UnitCount = g.Sum(x => x.MissionReservedQuantity + x.TransferReservedQuantity)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var nonAvailableReusables = await _unitOfWork.Set<ReusableItem>()
+            .Where(ri => ri.DepotId == depotId
+                         && !ri.IsDeleted
+                         && ri.Status != nameof(ReusableItemStatus.Decommissioned)
+                         && ri.Status != nameof(ReusableItemStatus.Available))
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                ItemModelCount = g.Select(x => x.ItemModelId ?? 0).Distinct().Count(),
+                UnitCount = g.Count()
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new DepotClosingBlockersModel
+        {
+            ReservedConsumableItemCount = reservedConsumables?.ItemCount ?? 0,
+            ReservedConsumableUnitCount = reservedConsumables?.UnitCount ?? 0,
+            NonAvailableReusableItemModelCount = nonAvailableReusables?.ItemModelCount ?? 0,
+            NonAvailableReusableUnitCount = nonAvailableReusables?.UnitCount ?? 0
+        };
+    }
+
 
     public async Task ReserveForClosureShipmentAsync(
         int sourceDepotId,
@@ -2672,6 +2710,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     .ThenBy(l => l.ExpiredDate)
                     .ThenBy(l => l.ReceivedDate)
                     .ToList();
+                var trackedByLotsQuantity = lots.Sum(l => l.RemainingQuantity);
 
                 foreach (var srcLot in lots)
                 {
@@ -2732,7 +2771,57 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                 if (remainingToMove > 0)
                 {
-                    throw new ConflictException($"Không đủ lô khả dụng để chuyển vật phẩm #{assignment.ItemModelId} theo kế hoạch đóng kho. Còn thiếu {remainingToMove} đơn vị.");
+                    var legacyUntrackedQuantity = Math.Max(0, (srcInv.Quantity ?? 0) - trackedByLotsQuantity);
+                    if (legacyUntrackedQuantity < remainingToMove)
+                    {
+                        throw new ConflictException($"Không đủ lô khả dụng để chuyển vật phẩm #{assignment.ItemModelId} theo kế hoạch đóng kho. Còn thiếu {remainingToMove} đơn vị.");
+                    }
+
+                    var fallbackQuantity = remainingToMove;
+                    remainingToMove = 0;
+
+                    var outLog = new InventoryLog
+                    {
+                        SupplyInventory = srcInv,
+                        ActionType = InventoryActionType.TransferOut.ToString(),
+                        QuantityChange = -fallbackQuantity,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        PerformedBy = performedBy,
+                        Note = $"Đóng kho #{sourceDepotId}: chuyển theo transfer #{transferId} vật phẩm #{assignment.ItemModelId} SL {fallbackQuantity} từ tồn legacy/không có lô sang kho #{targetDepotId}",
+                        CreatedAt = now
+                    };
+                    newInventoryLogs.Add(outLog);
+
+                    var dstLot = new SupplyInventoryLot
+                    {
+                        SupplyInventory = dstInv,
+                        Quantity = fallbackQuantity,
+                        RemainingQuantity = fallbackQuantity,
+                        ReceivedDate = now,
+                        ExpiredDate = null,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        CreatedAt = now
+                    };
+                    newSupplyInventoryLots.Add(dstLot);
+
+                    var inLog = new InventoryLog
+                    {
+                        SupplyInventory = dstInv,
+                        SupplyInventoryLot = dstLot,
+                        ActionType = InventoryActionType.TransferIn.ToString(),
+                        QuantityChange = fallbackQuantity,
+                        SourceType = "DepotClosure",
+                        SourceId = closureId,
+                        PerformedBy = performedBy,
+                        Note = $"Đóng kho #{sourceDepotId}: nhận theo transfer #{transferId} vật phẩm #{assignment.ItemModelId} SL {fallbackQuantity} từ tồn legacy/không có lô của kho nguồn",
+                        CreatedAt = now
+                    };
+                    newInventoryLogs.Add(inLog);
+
+                    dstInv.Quantity = (dstInv.Quantity ?? 0) + fallbackQuantity;
+                    dstInv.LastStockedAt = now;
                 }
 
                 srcInv.Quantity = (srcInv.Quantity ?? 0) - assignment.Quantity;
@@ -2871,9 +2960,14 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             ?? throw new NotFoundException($"Không tìm thấy thông tin vật phẩm của lô #{lotId}.");
 
         var currentInventoryQuantity = inventory.Quantity ?? 0;
-        if (currentInventoryQuantity < quantity)
+        var reservedQuantity = inventory.MissionReservedQuantity + inventory.TransferReservedQuantity;
+        var availableQuantity = currentInventoryQuantity - reservedQuantity;
+
+        // Không cho phép tiêu hủy vượt quá số lượng khả dụng (chưa đặt trước)
+        if (availableQuantity < quantity)
             throw new ConflictException(
-                $"Tồn kho tổng hợp hiện chỉ còn {currentInventoryQuantity} đơn vị. Vui lòng tải lại dữ liệu trước khi tiêu hủy.");
+                $"Lô hàng #{lotId} chỉ còn {availableQuantity} đơn vị khả dụng (tổng {currentInventoryQuantity}, đang đặt trước {reservedQuantity}). " +
+                $"Không thể tiêu hủy {quantity} đơn vị vì một phần đã được đặt trước cho nhiệm vụ hoặc chuyển kho.");
 
         lot.RemainingQuantity -= quantity;
         inventory.Quantity = currentInventoryQuantity - quantity;
@@ -2895,9 +2989,13 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             depotEntity.CurrentWeightUtilization = Math.Max(0m, (depotEntity.CurrentWeightUtilization ?? 0m) - weightDelta);
         }
 
-        var sourceType = reason.Equals("Expired", StringComparison.OrdinalIgnoreCase)
-            ? InventorySourceType.Expired.ToString()
-            : InventorySourceType.Damaged.ToString();
+        // Map reason string sang InventorySourceType phù hợp
+        var sourceType = reason switch
+        {
+            var r when r.Equals("Expired", StringComparison.OrdinalIgnoreCase)  => InventorySourceType.Expired.ToString(),
+            var r when r.Equals("Damaged", StringComparison.OrdinalIgnoreCase)  => InventorySourceType.Damaged.ToString(),
+            _                                                                     => InventorySourceType.Disposed.ToString()
+        };
 
         await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
         {
@@ -2935,11 +3033,14 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             if (item.DepotId != depotId)
                 throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{reusableItemId} trong kho bạn đang quản lý.");
 
+            // Blocked: đã đặt trước, đang vận chuyển, đang được sử dụng trong nhiệm vụ,
+            //          đang bảo trì (chưa hoàn thành bảo trì), hoặc đã thanh lý
             var blockedStatuses = new[]
             {
                 ReusableItemStatus.Reserved.ToString(),
                 ReusableItemStatus.InTransit.ToString(),
                 ReusableItemStatus.InUse.ToString(),
+                ReusableItemStatus.Maintenance.ToString(),
                 ReusableItemStatus.Decommissioned.ToString()
             };
 
@@ -2964,7 +3065,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
                 var safeStatus = string.IsNullOrWhiteSpace(latestStatus) ? "không xác định" : latestStatus;
                 throw new ConflictException(
-                    $"Vật phẩm tái sử dụng #{reusableItemId} không thể tiêu hủy vì hiện đang ở trạng thái '{safeStatus}'. Vui lòng tải lại dữ liệu và kiểm tra lại.");
+                    $"Vật phẩm tái sử dụng #{reusableItemId} không thể tiêu hủy khi đang ở trạng thái '{safeStatus}'. " +
+                    $"Chỉ có thể tiêu hủy vật phẩm ở trạng thái 'Available'. " +
+                    $"Vật phẩm đang được đặt trước, vận chuyển, sử dụng trong nhiệm vụ, bảo trì hoặc đã thanh lý thì không được tiêu hủy.");
             }
 
             var itemModel = item.ItemModel;
@@ -3154,6 +3257,9 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
+        var resolvedNote = string.IsNullOrWhiteSpace(note)
+            ? $"Chuyển vật phẩm #{reusableItemId} sang trạng thái bảo trì."
+            : note.Trim();
 
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
@@ -3172,7 +3278,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(r => r.Status, ReusableItemStatus.Maintenance.ToString())
                     .SetProperty(r => r.UpdatedAt, now)
-                    .SetProperty(r => r.Note, note),
+                    .SetProperty(r => r.Note, resolvedNote),
                     cancellationToken);
 
             if (rowsAffected == 0)
@@ -3194,9 +3300,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 QuantityChange = 0,
                 SourceType = InventorySourceType.Maintenance.ToString(),
                 PerformedBy = performedBy,
-                Note = string.IsNullOrWhiteSpace(note)
-                    ? $"Chuyển vật phẩm #{reusableItemId} sang trạng thái bảo trì."
-                    : $"Chuyển vật phẩm #{reusableItemId} sang trạng thái bảo trì. Ghi chú: {note}",
+                Note = resolvedNote,
                 CreatedAt = now
             });
 

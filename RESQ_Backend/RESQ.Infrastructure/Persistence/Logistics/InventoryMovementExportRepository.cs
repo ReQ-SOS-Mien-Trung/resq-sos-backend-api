@@ -38,25 +38,79 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
 
         if (depotId.HasValue)
         {
+            var targetDepotId = depotId.Value;
             var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
-            query = query.Where(l =>
-                // Consumable: SupplyInventory.DepotId is stable
-                (l.DepotSupplyInventoryId != null && l.SupplyInventory!.DepotId == depotId.Value)
+            var depotClosures = _unitOfWork.Set<DepotClosure>();
+            var transferSourceType = InventorySourceType.Transfer.ToString();
+            const string depotClosureSourceType = "DepotClosure";
 
-                // Reusable – SupplyRequest: Reserve + TransferOut belong to SOURCE depot
-                || (l.ReusableItemId != null && l.SourceType == "SupplyRequest"
-                    && (l.ActionType == "Reserve" || l.ActionType == "TransferOut")
-                    && supplyRequests.Any(sr => sr.Id == l.SourceId && sr.SourceDepotId == depotId.Value))
-
-                // Reusable – SupplyRequest: TransferIn belongs to REQUESTING depot
-                || (l.ReusableItemId != null && l.SourceType == "SupplyRequest"
-                    && l.ActionType == "TransferIn"
-                    && supplyRequests.Any(sr => sr.Id == l.SourceId && sr.RequestingDepotId == depotId.Value))
-
-                // Reusable – non-SupplyRequest (Import, Export, Adjust, etc.)
-                || (l.ReusableItemId != null && l.SourceType != "SupplyRequest"
-                    && l.ReusableItem!.DepotId == depotId.Value)
-            );
+            query = query.Where(log =>
+                (
+                    log.DepotSupplyInventoryId != null
+                    && (
+                        (
+                            log.SourceType == transferSourceType
+                            && (
+                                (
+                                    (log.ActionType == "Reserve" || log.ActionType == "TransferOut")
+                                    && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == targetDepotId)
+                                )
+                                || (
+                                    log.ActionType == "TransferIn"
+                                    && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == targetDepotId)
+                                )
+                            )
+                        )
+                        || (
+                            log.SourceType == depotClosureSourceType
+                            && (
+                                (
+                                    log.ActionType == "TransferOut"
+                                    && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == targetDepotId)
+                                )
+                                || (log.ActionType == "TransferIn" && log.SupplyInventory!.DepotId == targetDepotId)
+                            )
+                        )
+                        || (
+                            log.SourceType != transferSourceType
+                            && log.SourceType != depotClosureSourceType
+                            && log.SupplyInventory!.DepotId == targetDepotId
+                        )
+                    )
+                )
+                || (
+                    log.ReusableItemId != null
+                    && (
+                        (
+                            log.SourceType == transferSourceType
+                            && (
+                                (
+                                    (log.ActionType == "Reserve" || log.ActionType == "TransferOut")
+                                    && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == targetDepotId)
+                                )
+                                || (
+                                    log.ActionType == "TransferIn"
+                                    && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == targetDepotId)
+                                )
+                            )
+                        )
+                        || (
+                            log.SourceType == depotClosureSourceType
+                            && (
+                                (
+                                    log.ActionType == "TransferOut"
+                                    && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == targetDepotId)
+                                )
+                                || (log.ActionType == "TransferIn" && log.ReusableItem!.DepotId == targetDepotId)
+                            )
+                        )
+                        || (
+                            log.SourceType != transferSourceType
+                            && log.SourceType != depotClosureSourceType
+                            && log.ReusableItem!.DepotId == targetDepotId
+                        )
+                    )
+                ));
         }
 
         var logs = await query
@@ -66,39 +120,37 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
         var rowNumber = 1;
         return logs.Select(log =>
         {
-            // Resolve item model: consumable via SupplyInventory, reusable via ReusableItem
-            var ri = log.SupplyInventory?.ItemModel ?? log.ReusableItem?.ItemModel;
+            var itemModel = log.SupplyInventory?.ItemModel ?? log.ReusableItem?.ItemModel;
             var quantityChange = log.QuantityChange ?? 0;
             var actionType = log.ActionType ?? string.Empty;
 
-            // UnitPrice: lấy từ VatInvoiceItem khớp với ItemModelId (nếu có)
             decimal? unitPrice = null;
-            if (log.VatInvoice != null && ri != null)
+            if (log.VatInvoice != null && itemModel != null)
             {
                 unitPrice = log.VatInvoice.VatInvoiceItems
-                    .FirstOrDefault(vi => vi.ItemModelId == ri.Id)
+                    .FirstOrDefault(vi => vi.ItemModelId == itemModel.Id)
                     ?.UnitPrice;
             }
 
             return new InventoryMovementRow
             {
-                RowNumber         = rowNumber++,
-                ItemName          = ri?.Name ?? string.Empty,
-                Category          = ri?.Category?.Name ?? string.Empty,
-                TargetGroup       = TranslateTargetGroup(ri != null
-                    ? string.Join(", ", ri.TargetGroups.Select(tg => tg.Name))
+                RowNumber = rowNumber++,
+                ItemName = itemModel?.Name ?? string.Empty,
+                Category = itemModel?.Category?.Name ?? string.Empty,
+                TargetGroup = TranslateTargetGroup(itemModel != null
+                    ? string.Join(", ", itemModel.TargetGroups.Select(tg => tg.Name))
                     : string.Empty),
-                ItemType          = TranslateItemType(ri?.ItemType ?? string.Empty),
-                Unit              = ri?.Unit ?? string.Empty,
-                UnitPrice         = unitPrice,
-                QuantityChange    = quantityChange,
+                ItemType = TranslateItemType(itemModel?.ItemType ?? string.Empty),
+                Unit = itemModel?.Unit ?? string.Empty,
+                UnitPrice = unitPrice,
+                QuantityChange = quantityChange,
                 FormattedQuantity = FormatQuantity(actionType, quantityChange),
-                CreatedAt         = log.CreatedAt,
-                ActionType        = TranslateActionType(actionType),
-                SourceType        = TranslateSourceType(log.SourceType ?? string.Empty),
-                MissionName       = log.MissionId.HasValue ? $"Nhiệm vụ #{log.MissionId.Value}" : null,
-                SerialNumber      = log.ReusableItem?.SerialNumber,
-                LotId             = log.SupplyInventoryLot?.Id,
+                CreatedAt = log.CreatedAt,
+                ActionType = TranslateActionType(actionType),
+                SourceType = TranslateSourceType(log.SourceType ?? string.Empty),
+                MissionName = log.MissionId.HasValue ? $"Nhiệm vụ #{log.MissionId.Value}" : null,
+                SerialNumber = log.ReusableItem?.SerialNumber,
+                LotId = log.SupplyInventoryLot?.Id,
             };
         }).ToList();
     }
@@ -107,49 +159,54 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
         => actionType.ToLowerInvariant() switch
         {
             "import" or "transferin" or "return" => $"+{quantityChange}",
-            "export" or "transferout"             => $"-{Math.Abs(quantityChange)}",
+            "export" or "transferout" => $"-{Math.Abs(quantityChange)}",
             "adjust" => quantityChange >= 0 ? $"+{quantityChange}" : $"-{Math.Abs(quantityChange)}",
-            _        => quantityChange.ToString()
+            _ => quantityChange.ToString()
         };
 
     private static string TranslateItemType(string itemType)
         => itemType switch
         {
             "Consumable" => "Tiêu thụ",
-            "Reusable"   => "Tái sử dụng",
+            "Reusable" => "Tái sử dụng",
             _ => itemType
         };
 
     private static string TranslateActionType(string actionType)
         => actionType switch
         {
-            "Import"      => "Nhập kho",
-            "Export"      => "Xuất kho",
-            "Adjust"      => "Điều chỉnh",
-            "TransferIn"  => "Nhận chuyển kho",
+            "Import" => "Nhập kho",
+            "Export" => "Xuất kho",
+            "Adjust" => "Điều chỉnh",
+            "TransferIn" => "Nhận chuyển kho",
             "TransferOut" => "Chuyển kho đi",
-            "Return"      => "Hoàn trả",
-            "Reserve"     => "Đặt trước",
+            "Return" => "Hoàn trả",
+            "Reserve" => "Đặt trước",
             _ => actionType
         };
 
     private static string TranslateTargetGroup(string targetGroup)
     {
-        if (string.IsNullOrEmpty(targetGroup)) return targetGroup;
+        if (string.IsNullOrEmpty(targetGroup))
+        {
+            return targetGroup;
+        }
+
         return TargetGroupTranslations.JoinAsVietnamese(
             targetGroup.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                       .Select(t => t.Trim()));
+                .Select(t => t.Trim()));
     }
 
     private static string TranslateSourceType(string sourceType)
         => sourceType switch
         {
-            "Purchase"   => "Mua sắm",
-            "Donation"   => "Quyên góp",
-            "Mission"    => "Nhiệm vụ",
+            "Purchase" => "Mua sắm",
+            "Donation" => "Quyên góp",
+            "Mission" => "Nhiệm vụ",
             "Adjustment" => "Điều chỉnh",
-            "Transfer"   => "Chuyển kho",
-            "System"     => "Hệ thống",
+            "Transfer" => "Chuyển kho",
+            "DepotClosure" => "Đóng kho",
+            "System" => "Hệ thống",
             "SupplyRequest" => "Yêu cầu tiếp tế",
             _ => sourceType
         };

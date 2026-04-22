@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -19,6 +20,7 @@ public class UploadExternalResolutionCommandHandler(
     IDepotClosureExternalItemRepository externalItemRepository,
     IDepotInventoryRepository inventoryRepository,
     IDepotFundRepository depotFundRepo,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<UploadExternalResolutionCommandHandler> logger)
     : IRequestHandler<UploadExternalResolutionCommand, UploadExternalResolutionResponse>
@@ -32,9 +34,9 @@ public class UploadExternalResolutionCommandHandler(
             request.ManagerUserId);
 
         var depotId = await managerDepotAccessService.ResolveAccessibleDepotIdAsync(
-            request.ManagerUserId,
-            request.DepotId,
-            cancellationToken)
+                request.ManagerUserId,
+                request.DepotId,
+                cancellationToken)
             ?? throw new NotFoundException("Bạn hiện không phụ trách kho nào.");
 
         var depot = await depotRepository.GetByIdAsync(depotId, cancellationToken)
@@ -173,6 +175,22 @@ public class UploadExternalResolutionCommandHandler(
 
         (_, var reusableInUse) = await depotRepository.GetReusableItemCountsAsync(depotId, cancellationToken);
 
+        await operationalHubService.PushDepotClosureUpdateAsync(
+            new DepotClosureRealtimeUpdate
+            {
+                SourceDepotId = depotId,
+                ClosureId = closureRecord.Id,
+                EntityType = "Closure",
+                Action = "ExternalResolutionUploaded",
+                Status = closureRecord.Status.ToString()
+            },
+            cancellationToken);
+
+        await operationalHubService.PushDepotInventoryUpdateAsync(
+            depotId,
+            "ExternalResolutionUploaded",
+            cancellationToken);
+
         return new UploadExternalResolutionResponse
         {
             DepotId = depotId,
@@ -183,7 +201,9 @@ public class UploadExternalResolutionCommandHandler(
             SnapshotConsumableUnits = closureRecord.SnapshotConsumableUnits,
             SnapshotReusableUnits = closureRecord.SnapshotReusableUnits,
             ReusableItemsSkipped = reusableInUse,
-            Message = $"Đã ghi nhận {items.Count} dòng xử lý bên ngoài và xóa toàn bộ tồn kho. Kho vẫn giữ trạng thái Closing, chờ xác nhận đóng kho."
+            ClosureStatus = closureRecord.Status.ToString(),
+            ResolutionType = CloseResolutionType.ExternalResolution.ToString(),
+            Message = $"Đã ghi nhận {items.Count} dòng xử lý bên ngoài và xóa toàn bộ tồn kho còn lại. Kho vẫn giữ trạng thái Closing, chờ xác nhận đóng kho."
         };
     }
 }

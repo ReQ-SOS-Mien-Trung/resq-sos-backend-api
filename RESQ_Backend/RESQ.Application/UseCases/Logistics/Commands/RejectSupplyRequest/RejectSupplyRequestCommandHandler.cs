@@ -1,4 +1,5 @@
-﻿using MediatR;
+using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -11,10 +12,12 @@ public class RejectSupplyRequestCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
     IDepotInventoryRepository depotInventoryRepository,
-    IFirebaseService firebaseService)
+    IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService)
     : IRequestHandler<RejectSupplyRequestCommand, RejectSupplyRequestResponse>
 {
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+
     public async Task<RejectSupplyRequestResponse> Handle(RejectSupplyRequestCommand request, CancellationToken cancellationToken)
     {
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
@@ -30,12 +33,24 @@ public class RejectSupplyRequestCommandHandler(
 
         await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Rejected", "Rejected", request.Reason, request.UserId, cancellationToken);
 
-        // Notify requesting manager - kèm lý do từ chối
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "Yêu cầu tiếp tế bị từ chối",
             $"Yêu cầu tiếp tế số {sr.Id} đã bị từ chối. Lý do: {request.Reason}",
             "supply_rejected",
+            cancellationToken);
+
+        await operationalHubService.PushSupplyRequestUpdateAsync(
+            new SupplyRequestRealtimeUpdate
+            {
+                RequestId = sr.Id,
+                RequestingDepotId = sr.RequestingDepotId,
+                SourceDepotId = sr.SourceDepotId,
+                Action = "Rejected",
+                SourceStatus = "Rejected",
+                RequestingStatus = "Rejected",
+                RejectedReason = request.Reason
+            },
             cancellationToken);
 
         return new RejectSupplyRequestResponse { Message = $"Đã từ chối yêu cầu số {sr.Id}." };

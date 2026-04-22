@@ -6,6 +6,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryMovementChart;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 using RESQ.Domain.Entities.Logistics.Models;
+using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
@@ -40,37 +41,11 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .Include(x => x.VatInvoice)
             .AsQueryable();
 
-        // Filter by depot - cover both Consumable (SupplyInventory) and Reusable (ReusableItem)
-        // For Reusable items we CANNOT use ReusableItem.DepotId because it reflects the
-        // CURRENT location of the item, not where it was at the time the log was created.
-        // e.g. after TransferIn to depot 1, ReusableItem.DepotId = 1 for ALL historical logs
-        // (Reserve, TransferOut) that happened at depot 2 - causing them to leak into depot 1's view.
         if (depotId.HasValue)
         {
-            var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
-
-            query = query.Where(x =>
-                // Consumable: SupplyInventory.DepotId is stable (one record per depot+item)
-                (x.DepotSupplyInventoryId != null && x.SupplyInventory!.DepotId == depotId.Value)
-
-                // Reusable – SupplyRequest: Reserve + TransferOut belong to the SOURCE depot
-                || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
-                    && (x.ActionType == "Reserve" || x.ActionType == "TransferOut")
-                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.SourceDepotId == depotId.Value))
-
-                // Reusable – SupplyRequest: TransferIn belongs to the REQUESTING depot
-                || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
-                    && x.ActionType == "TransferIn"
-                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.RequestingDepotId == depotId.Value))
-
-                // Reusable – non-SupplyRequest (Import, Export, Adjust, etc.):
-                // use current DepotId as best-effort (item hasn't moved between depots)
-                || (x.ReusableItemId != null && x.SourceType != "SupplyRequest"
-                    && x.ReusableItem!.DepotId == depotId.Value)
-            );
+            query = ApplyDepotFilter(query, depotId.Value);
         }
 
-        // Filter by item model
         if (itemModelId.HasValue)
         {
             query = query.Where(x =>
@@ -78,21 +53,18 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 || (x.ReusableItem != null && x.ReusableItem.ItemModelId == itemModelId.Value));
         }
 
-        // Filter by action types
         if (actionTypes != null && actionTypes.Count > 0)
         {
             var actionTypesLower = actionTypes.Select(a => a.ToLower()).ToList();
             query = query.Where(x => actionTypesLower.Contains(x.ActionType!.ToLower()));
         }
 
-        // Filter by source types
         if (sourceTypes != null && sourceTypes.Count > 0)
         {
             var sourceTypesLower = sourceTypes.Select(s => s.ToLower()).ToList();
             query = query.Where(x => sourceTypesLower.Contains(x.SourceType!.ToLower()));
         }
 
-        // Filter by date range
         if (fromDate.HasValue)
         {
             query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt!.Value) >= fromDate.Value);
@@ -103,22 +75,19 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt!.Value) <= toDate.Value);
         }
 
-        // Tìm kiếm tự do: ghi chú, tên người thực hiện, thông tin hóa đơn VAT
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
+            var normalizedSearch = search.Trim().ToLower();
             query = query.Where(x =>
-                (x.Note != null && x.Note.ToLower().Contains(s))
-                || (x.PerformedByUser != null &&
-                    (x.PerformedByUser.LastName + " " + x.PerformedByUser.FirstName).ToLower().Contains(s))
-                || (x.VatInvoice != null && x.VatInvoice.SupplierName != null && x.VatInvoice.SupplierName.ToLower().Contains(s))
-                || (x.VatInvoice != null && x.VatInvoice.InvoiceNumber != null && x.VatInvoice.InvoiceNumber.ToLower().Contains(s))
-                || (x.VatInvoice != null && x.VatInvoice.InvoiceSerial != null && x.VatInvoice.InvoiceSerial.ToLower().Contains(s))
-                || (x.VatInvoice != null && x.VatInvoice.SupplierTaxCode != null && x.VatInvoice.SupplierTaxCode.ToLower().Contains(s))
-            );
+                (x.Note != null && x.Note.ToLower().Contains(normalizedSearch))
+                || (x.PerformedByUser != null
+                    && (x.PerformedByUser.LastName + " " + x.PerformedByUser.FirstName).ToLower().Contains(normalizedSearch))
+                || (x.VatInvoice != null && x.VatInvoice.SupplierName != null && x.VatInvoice.SupplierName.ToLower().Contains(normalizedSearch))
+                || (x.VatInvoice != null && x.VatInvoice.InvoiceNumber != null && x.VatInvoice.InvoiceNumber.ToLower().Contains(normalizedSearch))
+                || (x.VatInvoice != null && x.VatInvoice.InvoiceSerial != null && x.VatInvoice.InvoiceSerial.ToLower().Contains(normalizedSearch))
+                || (x.VatInvoice != null && x.VatInvoice.SupplierTaxCode != null && x.VatInvoice.SupplierTaxCode.ToLower().Contains(normalizedSearch)));
         }
 
-        // Order by most recent first
         query = query.OrderByDescending(x => x.CreatedAt);
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -146,12 +115,12 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 : string.Empty,
             DepotId = x.SupplyInventory?.DepotId ?? x.ReusableItem?.DepotId,
             DepotName = x.SupplyInventory?.Depot?.Name ?? x.ReusableItem?.Depot?.Name ?? string.Empty,
-            ItemModelId   = x.SupplyInventory?.ItemModelId ?? x.ReusableItem?.ItemModelId,
+            ItemModelId = x.SupplyInventory?.ItemModelId ?? x.ReusableItem?.ItemModelId,
             ItemModelName = x.SupplyInventory?.ItemModel?.Name ?? x.ReusableItem?.ItemModel?.Name ?? string.Empty,
-            SerialNumber  = x.ReusableItem?.SerialNumber,
-            LotId         = x.SupplyInventoryLot?.Id,
+            SerialNumber = x.ReusableItem?.SerialNumber,
+            LotId = x.SupplyInventoryLot?.Id,
             ReusableItemId = x.ReusableItemId,
-            VatInvoiceId  = x.VatInvoiceId,
+            VatInvoiceId = x.VatInvoiceId,
             InvoiceSerial = x.VatInvoice?.InvoiceSerial,
             InvoiceNumber = x.VatInvoice?.InvoiceNumber,
             SupplierName = x.VatInvoice?.SupplierName,
@@ -194,33 +163,9 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .Include(x => x.VatInvoice)
             .AsQueryable();
 
-        // Depot filter: consumable logs via SupplyInventory, reusable logs via SupplyRequest depot fields.
-        // IMPORTANT: ReusableItem.DepotId reflects the CURRENT location of the item, NOT where
-        // it was at the time the log was created. Using it directly would cause historical logs
-        // (Reserve, TransferOut at depot 2) to appear in depot 1's view after a TransferIn.
         if (depotId.HasValue)
         {
-            var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
-
-            query = query.Where(x =>
-                // Consumable: SupplyInventory.DepotId is stable
-                (x.DepotSupplyInventoryId != null && x.SupplyInventory!.DepotId == depotId.Value)
-
-                // Reusable – SupplyRequest: Reserve + TransferOut belong to the SOURCE depot
-                || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
-                    && (x.ActionType == "Reserve" || x.ActionType == "TransferOut")
-                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.SourceDepotId == depotId.Value))
-
-                // Reusable – SupplyRequest: TransferIn belongs to the REQUESTING depot
-                || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
-                    && x.ActionType == "TransferIn"
-                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.RequestingDepotId == depotId.Value))
-
-                // Reusable – non-SupplyRequest (Import, Export, Adjust, etc.):
-                // use current DepotId as best-effort (item hasn't moved between depots)
-                || (x.ReusableItemId != null && x.SourceType != "SupplyRequest"
-                    && x.ReusableItem!.DepotId == depotId.Value)
-            );
+            query = ApplyDepotFilter(query, depotId.Value);
         }
 
         if (actionTypes != null && actionTypes.Count > 0)
@@ -245,16 +190,14 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt!.Value) <= toDate.Value);
         }
 
-        // Load filtered logs into memory first - EF Core cannot translate GroupBy + g.ToList() to SQL
         var rawLogs = await query
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        // Group in memory by transaction boundary
         var groups = rawLogs
             .GroupBy(x => new
             {
-                Date = x.CreatedAt?.Date,
+                x.CreatedAt,
                 x.ActionType,
                 x.SourceType,
                 x.SourceId,
@@ -296,35 +239,32 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 InvoiceDate = firstItem.VatInvoice?.InvoiceDate,
                 InvoiceTotalAmount = firstItem.VatInvoice?.TotalAmount,
                 InvoiceFileUrl = firstItem.VatInvoice?.FileUrl,
-                Items = g.Select(item =>
+                Items = g.Select(item => new InventoryTransactionItemDto
                 {
-                    return new InventoryTransactionItemDto
-                    {
-                        ItemId = item.SupplyInventory?.ItemModelId
-                                 ?? item.ReusableItem?.ItemModelId
-                                 ?? 0,
-                        SupplyInventoryLotId = item.SupplyInventoryLotId,
-                        ItemName = item.SupplyInventory?.ItemModel?.Name
-                                   ?? item.ReusableItem?.ItemModel?.Name
-                                   ?? string.Empty,
-                        QuantityChange = item.QuantityChange ?? 0,
-                        FormattedQuantityChange = FormatQuantityChange(item.ActionType ?? string.Empty, item.QuantityChange ?? 0),
-                        Unit = item.SupplyInventory?.ItemModel?.Unit
-                               ?? item.ReusableItem?.ItemModel?.Unit
+                    ItemId = item.SupplyInventory?.ItemModelId
+                             ?? item.ReusableItem?.ItemModelId
+                             ?? 0,
+                    SupplyInventoryLotId = item.SupplyInventoryLotId,
+                    ItemName = item.SupplyInventory?.ItemModel?.Name
+                               ?? item.ReusableItem?.ItemModel?.Name
                                ?? string.Empty,
-                        ItemType = item.SupplyInventory?.ItemModel?.ItemType
-                                   ?? item.ReusableItem?.ItemModel?.ItemType
-                                   ?? string.Empty,
-                        TargetGroup = TargetGroupTranslations.JoinAsVietnamese(
-                                          (item.SupplyInventory?.ItemModel?.TargetGroups
-                                           ?? item.ReusableItem?.ItemModel?.TargetGroups
-                                           ?? Enumerable.Empty<RESQ.Infrastructure.Entities.Logistics.TargetGroup>())
-                                          .Select(tg => tg.Name)),
-                        CategoryName = item.SupplyInventory?.ItemModel?.Category?.Name
-                                       ?? item.ReusableItem?.ItemModel?.Category?.Name,
-                        ReceivedDate = item.ReceivedDate,
-                        ExpiredDate = item.ExpiredDate
-                    };
+                    QuantityChange = item.QuantityChange ?? 0,
+                    FormattedQuantityChange = FormatQuantityChange(item.ActionType ?? string.Empty, item.QuantityChange ?? 0),
+                    Unit = item.SupplyInventory?.ItemModel?.Unit
+                           ?? item.ReusableItem?.ItemModel?.Unit
+                           ?? string.Empty,
+                    ItemType = item.SupplyInventory?.ItemModel?.ItemType
+                               ?? item.ReusableItem?.ItemModel?.ItemType
+                               ?? string.Empty,
+                    TargetGroup = TargetGroupTranslations.JoinAsVietnamese(
+                        (item.SupplyInventory?.ItemModel?.TargetGroups
+                         ?? item.ReusableItem?.ItemModel?.TargetGroups
+                         ?? Enumerable.Empty<RESQ.Infrastructure.Entities.Logistics.TargetGroup>())
+                        .Select(tg => tg.Name)),
+                    CategoryName = item.SupplyInventory?.ItemModel?.Category?.Name
+                                   ?? item.ReusableItem?.ItemModel?.Category?.Name,
+                    ReceivedDate = item.ReceivedDate,
+                    ExpiredDate = item.ExpiredDate
                 }).ToList()
             };
         }).ToList();
@@ -335,7 +275,9 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
     private string GetSourceName(string? sourceType, int? sourceId)
     {
         if (string.IsNullOrEmpty(sourceType) || !sourceId.HasValue)
+        {
             return string.Empty;
+        }
 
         return sourceType.ToLower() switch
         {
@@ -370,9 +312,11 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
     private static string? NormalizeMultilineText(string? text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return text;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return text;
+        }
 
-        // Handle historical values saved with literal "\\n" characters
         return text.Replace("\\r\\n", "\n").Replace("\\n", "\n");
     }
 
@@ -383,57 +327,39 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         DateTime? toUtc,
         CancellationToken cancellationToken = default)
     {
-        var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
+        var query = ApplyDepotFilter(_unitOfWork.Set<InventoryLog>(), depotId);
 
-        // Build depot filter query
-        var query = _unitOfWork.Set<InventoryLog>()
-            .Where(x =>
-                // Consumable: SupplyInventory.DepotId is stable
-                (x.DepotSupplyInventoryId != null && x.SupplyInventory!.DepotId == depotId)
-
-                // Reusable – SupplyRequest: Reserve + TransferOut belong to SOURCE depot
-                || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
-                    && (x.ActionType == "Reserve" || x.ActionType == "TransferOut")
-                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.SourceDepotId == depotId))
-
-                // Reusable – SupplyRequest: TransferIn belongs to REQUESTING depot
-                || (x.ReusableItemId != null && x.SourceType == "SupplyRequest"
-                    && x.ActionType == "TransferIn"
-                    && supplyRequests.Any(sr => sr.Id == x.SourceId && sr.RequestingDepotId == depotId))
-
-                // Reusable – non-SupplyRequest: use current DepotId
-                || (x.ReusableItemId != null && x.SourceType != "SupplyRequest"
-                    && x.ReusableItem!.DepotId == depotId)
-            );
-
-        // Apply time range filters only if provided
         if (fromUtc.HasValue)
+        {
             query = query.Where(x => x.CreatedAt >= fromUtc.Value);
-        if (toUtc.HasValue)
-            query = query.Where(x => x.CreatedAt <= toUtc.Value);
+        }
 
-        // Pull CreatedAt as DateTime, convert to DateOnly in memory to avoid EF/Npgsql
-        // translation issues with DateOnly.FromDateTime() inside SELECT.
+        if (toUtc.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt <= toUtc.Value);
+        }
+
         var rawRows = (await query
             .Select(x => new
             {
-                CreatedAt      = x.CreatedAt!.Value,
-                ActionType     = x.ActionType ?? string.Empty,
+                CreatedAt = x.CreatedAt!.Value,
+                ActionType = x.ActionType ?? string.Empty,
                 QuantityChange = x.QuantityChange ?? 0
             })
             .ToListAsync(cancellationToken))
             .Select(x => new
             {
-                Date           = DateOnly.FromDateTime(x.CreatedAt),
+                Date = DateOnly.FromDateTime(x.CreatedAt),
                 x.ActionType,
                 x.QuantityChange
             })
             .ToList();
 
         if (rawRows.Count == 0)
+        {
             return [];
+        }
 
-        // Determine the date range from actual data when caller didn’t provide bounds
         var effectiveFrom = fromUtc.HasValue
             ? DateOnly.FromDateTime(fromUtc.Value)
             : rawRows.Min(x => x.Date);
@@ -441,34 +367,37 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             ? DateOnly.FromDateTime(toUtc.Value)
             : rawRows.Max(x => x.Date);
 
-        // Group by date and categorise
         var grouped = rawRows
             .GroupBy(x => x.Date)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Action types that indicate goods leaving the depot (OUT)
         static bool IsIn(string action) => action is "import" or "transferin" or "return" or "advancereturn";
         static bool IsOut(string action) => action is "export" or "transferout" or "reserve" or "pickup" or "distribute";
 
-        // Fill every day in the range, even empty ones
         var result = new List<InventoryMovementDataPoint>();
-        for (var d = effectiveFrom; d <= effectiveTo; d = d.AddDays(1))
+        for (var day = effectiveFrom; day <= effectiveTo; day = day.AddDays(1))
         {
-            var point = new InventoryMovementDataPoint { Date = d };
+            var point = new InventoryMovementDataPoint { Date = day };
 
-            if (grouped.TryGetValue(d, out var rows))
+            if (grouped.TryGetValue(day, out var rows))
             {
-                foreach (var r in rows)
+                foreach (var row in rows)
                 {
-                    var action = r.ActionType.ToLowerInvariant();
-                    var qty    = Math.Abs(r.QuantityChange);
+                    var action = row.ActionType.ToLowerInvariant();
+                    var quantity = Math.Abs(row.QuantityChange);
 
                     if (IsIn(action))
-                        point.TotalIn += qty;
+                    {
+                        point.TotalIn += quantity;
+                    }
                     else if (IsOut(action))
-                        point.TotalOut += qty;
+                    {
+                        point.TotalOut += quantity;
+                    }
                     else if (action == "adjust")
-                        point.TotalAdjust += r.QuantityChange; // preserve sign
+                    {
+                        point.TotalAdjust += row.QuantityChange;
+                    }
                 }
             }
 
@@ -478,5 +407,79 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         return result;
     }
 
-    
+    private IQueryable<InventoryLog> ApplyDepotFilter(IQueryable<InventoryLog> query, int depotId)
+    {
+        var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
+        var depotClosures = _unitOfWork.Set<DepotClosure>();
+        var transferSourceType = InventorySourceType.Transfer.ToString();
+        const string depotClosureSourceType = "DepotClosure";
+
+        return query.Where(log =>
+            (
+                log.DepotSupplyInventoryId != null
+                && (
+                    (
+                        log.SourceType == transferSourceType
+                        && (
+                            (
+                                (log.ActionType == "Reserve" || log.ActionType == "TransferOut")
+                                && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == depotId)
+                            )
+                            || (
+                                log.ActionType == "TransferIn"
+                                && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == depotId)
+                            )
+                        )
+                    )
+                    || (
+                        log.SourceType == depotClosureSourceType
+                        && (
+                            (
+                                log.ActionType == "TransferOut"
+                                && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == depotId)
+                            )
+                            || (log.ActionType == "TransferIn" && log.SupplyInventory!.DepotId == depotId)
+                        )
+                    )
+                    || (
+                        log.SourceType != transferSourceType
+                        && log.SourceType != depotClosureSourceType
+                        && log.SupplyInventory!.DepotId == depotId
+                    )
+                )
+            )
+            || (
+                log.ReusableItemId != null
+                && (
+                    (
+                        log.SourceType == transferSourceType
+                        && (
+                            (
+                                (log.ActionType == "Reserve" || log.ActionType == "TransferOut")
+                                && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == depotId)
+                            )
+                            || (
+                                log.ActionType == "TransferIn"
+                                && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == depotId)
+                            )
+                        )
+                    )
+                    || (
+                        log.SourceType == depotClosureSourceType
+                        && (
+                            (
+                                log.ActionType == "TransferOut"
+                                && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == depotId)
+                            )
+                            || (log.ActionType == "TransferIn" && log.ReusableItem!.DepotId == depotId)
+                        )
+                    )
+                    || (
+                        log.SourceType != transferSourceType
+                        && log.SourceType != depotClosureSourceType
+                        && log.ReusableItem!.DepotId == depotId
+                    )
+                )
+            ));
+    }
 }

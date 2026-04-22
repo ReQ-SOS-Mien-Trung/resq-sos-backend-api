@@ -1,6 +1,7 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Logistics;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Base;
@@ -19,6 +20,7 @@ public class CreateSupplyRequestCommandHandler(
     ISupplyRequestRepository supplyRequestRepository,
     ISupplyRequestPriorityConfigRepository supplyRequestPriorityConfigRepository,
     IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<CreateSupplyRequestCommandHandler> logger)
     : IRequestHandler<CreateSupplyRequestCommand, CreateSupplyRequestResponse>
@@ -35,7 +37,6 @@ public class CreateSupplyRequestCommandHandler(
 
     public async Task<CreateSupplyRequestResponse> Handle(CreateSupplyRequestCommand request, CancellationToken cancellationToken)
     {
-        // 1. Lấy kho của manager đang đăng nhập
         var requestingDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.RequestingUserId, request.DepotId, cancellationToken);
         if (requestingDepotId == null)
             throw new BadRequestException("Tài khoản hiện tại không được chỉ định quản lý bất kỳ kho nào đang hoạt động.");
@@ -47,12 +48,10 @@ public class CreateSupplyRequestCommandHandler(
         var requestingDepot = await _depotRepository.GetByIdAsync(requestingDepotId.Value, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy kho yêu cầu #{requestingDepotId.Value}.");
 
-        // 2. Validate không có group nào trỏ về chính kho của manager
         var selfRequest = request.Requests.FirstOrDefault(r => r.SourceDepotId == requestingDepotId.Value);
         if (selfRequest != null)
             throw new InvalidSupplyRequestException("Không thể tạo yêu cầu cung cấp từ chính kho của bạn.");
 
-        // 3. Kiểm tra các kho nguồn không đang đóng
         foreach (var group in request.Requests)
         {
             var sourceStatus = await _depotRepository.GetStatusByIdAsync(group.SourceDepotId, cancellationToken);
@@ -60,7 +59,6 @@ public class CreateSupplyRequestCommandHandler(
                 throw new ConflictException($"Kho nguồn #{group.SourceDepotId} ngưng hoạt động, đang đóng hoặc đã đóng. Không thể gửi yêu cầu tiếp tế đến kho này.");
         }
 
-        // 4. Validate kho yêu cầu còn đủ sức chứa để nhận toàn bộ lượng hàng trong request
         var requestedItems = request.Requests
             .SelectMany(group => group.Items)
             .GroupBy(item => item.ItemModelId)
@@ -111,7 +109,6 @@ public class CreateSupplyRequestCommandHandler(
                 $"Kho yêu cầu không đủ sức chứa để nhận toàn bộ vật phẩm trong phiếu tiếp tế: {string.Join("; ", reasons)}.");
         }
 
-        // 5. Xử lý từng kho nguồn trong transaction
         var config = await _supplyRequestPriorityConfigRepository.GetAsync(cancellationToken);
         var timing = config == null
             ? SupplyRequestPriorityPolicy.DefaultTiming
@@ -144,14 +141,13 @@ public class CreateSupplyRequestCommandHandler(
 
                 createdRequests.Add(new CreatedSupplyRequestDto
                 {
-                    SupplyRequestId  = supplyRequestId,
-                    SourceDepotId    = group.SourceDepotId,
+                    SupplyRequestId = supplyRequestId,
+                    SourceDepotId = group.SourceDepotId,
                     ResponseDeadline = autoRejectAt.ToVietnamOffset()
                 });
             }
         });
 
-        // 6. Gửi notification cho manager của kho nguồn
         foreach (var created in createdRequests)
         {
             var sourceManagerUserId = await _supplyRequestRepository.GetActiveManagerUserIdByDepotIdAsync(created.SourceDepotId, cancellationToken);
@@ -181,12 +177,26 @@ public class CreateSupplyRequestCommandHandler(
             }
         }
 
+        foreach (var created in createdRequests)
+        {
+            await operationalHubService.PushSupplyRequestUpdateAsync(
+                new SupplyRequestRealtimeUpdate
+                {
+                    RequestId = created.SupplyRequestId,
+                    RequestingDepotId = requestingDepotId.Value,
+                    SourceDepotId = created.SourceDepotId,
+                    Action = "Created",
+                    SourceStatus = "Pending",
+                    RequestingStatus = "WaitingForApproval"
+                },
+                cancellationToken);
+        }
+
         return new CreateSupplyRequestResponse
         {
             CreatedRequests = createdRequests,
-            Message         = $"Đã tạo {createdRequests.Count} yêu cầu cung cấp vật phẩm thành công.",
-            ServerTime      = DateTime.UtcNow.ToVietnamOffset()
+            Message = $"Đã tạo {createdRequests.Count} yêu cầu cung cấp vật phẩm thành công.",
+            ServerTime = DateTime.UtcNow.ToVietnamOffset()
         };
     }
 }
-

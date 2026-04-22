@@ -237,4 +237,15 @@ public class DepotClosureRecord
         Status = DepotClosureStatus.TransferPending;
         RowVersion++;
     }
+
+    public void ReopenForResidualHandling()
+    {
+        Status = DepotClosureStatus.InProgress;
+        ResolutionType = null;
+        TargetDepotId = null;
+        ExternalNote = null;
+        ExternalMarkedBy = null;
+        CompletedAt = null;
+        RowVersion++;
+    }
 }

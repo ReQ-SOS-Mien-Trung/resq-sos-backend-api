@@ -1,5 +1,6 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
@@ -7,20 +8,18 @@ using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.ShipClosureTransfer;
 
-/// <summary>
-/// Quản lý kho nguồn xác nhận bắt đầu vận chuyển → chuyển transfer sang Shipping.
-/// Yêu cầu người thực hiện phải là manager của kho nguồn trong transfer.
-/// </summary>
 public class ShipClosureTransferCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotClosureTransferRepository transferRepository,
     IDepotInventoryRepository inventoryRepository,
     IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<ShipClosureTransferCommandHandler> logger)
     : IRequestHandler<ShipClosureTransferCommand, ShipClosureTransferResponse>
 {
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+
     public async Task<ShipClosureTransferResponse> Handle(
         ShipClosureTransferCommand request,
         CancellationToken cancellationToken)
@@ -28,17 +27,14 @@ public class ShipClosureTransferCommandHandler(
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
 
-        // Kiểm tra người thực hiện là manager của kho nguồn
         var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
         if (managerDepotId != transfer.SourceDepotId)
             throw new ForbiddenException("Bạn không phải manager của kho nguồn trong quá trình chuyển hàng này.");
 
-        // Transition: Preparing → Shipping (domain validates)
         transfer.MarkShipping(request.UserId, request.Note);
 
-        // Load snapshot items to reserve/mark in-transit
         var transferItems = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
         var moveDtos = transferItems
             .Select(item => new DepotClosureTransferItemMoveDto
@@ -71,7 +67,6 @@ public class ShipClosureTransferCommandHandler(
             "ClosureTransfer shipped | TransferId={TransferId} By={UserId}",
             transfer.Id, request.UserId);
 
-        // Notify target manager
         try
         {
             var targetManagerId = await inventoryRepository.GetActiveManagerUserIdByDepotIdAsync(
@@ -89,6 +84,21 @@ public class ShipClosureTransferCommandHandler(
         {
             logger.LogWarning(ex, "Failed to notify target manager for TransferId={Id}", transfer.Id);
         }
+
+        await operationalHubService.PushDepotClosureUpdateAsync(
+            new DepotClosureRealtimeUpdate
+            {
+                SourceDepotId = transfer.SourceDepotId,
+                TargetDepotId = transfer.TargetDepotId,
+                ClosureId = transfer.ClosureId,
+                TransferId = transfer.Id,
+                EntityType = "Transfer",
+                Action = "Shipped",
+                Status = transfer.Status
+            },
+            cancellationToken);
+
+        await operationalHubService.PushDepotInventoryUpdateAsync(transfer.SourceDepotId, "ClosureTransferShipped", cancellationToken);
 
         return new ShipClosureTransferResponse
         {

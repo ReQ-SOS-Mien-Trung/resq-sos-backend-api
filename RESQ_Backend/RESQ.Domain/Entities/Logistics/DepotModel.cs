@@ -91,8 +91,7 @@ public class DepotModel
         if (managerId.HasValue && managerId.Value != Guid.Empty)
         {
             depot.AssignManager(managerId.Value);
-            // Gán manager ngay lúc tạo → PendingAssignment (chưa hoạt động chính thức)
-            depot.Status = DepotStatus.PendingAssignment;
+            // AssignManager đã set Status = Available — không override ở đây
         }
 
         return depot;
@@ -332,6 +331,13 @@ public class DepotModel
         if (managerId == Guid.Empty)
             throw new InvalidDepotManagerException();
 
+        if (Status == DepotStatus.Closed)
+            throw new DepotClosedException();
+
+        if (Status == DepotStatus.Closing)
+            throw new InvalidDepotStatusTransitionException(Status, DepotStatus.Available,
+                "Kho đang trong quy trình đóng kho, không thể gán quản lý mới.");
+
         // Kiểm tra trùng: manager này đã đang active ở kho này chưa
         var alreadyActive = _managerHistory.Any(x => x.UserId == managerId && x.IsActive());
         if (alreadyActive)
@@ -354,6 +360,14 @@ public class DepotModel
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
 
+        if (Status == DepotStatus.Created)
+            throw new InvalidDepotStatusTransitionException(Status, DepotStatus.PendingAssignment,
+                "Kho chưa từng có quản lý, không có gì để gỡ.");
+
+        if (Status == DepotStatus.Closing)
+            throw new InvalidDepotStatusTransitionException(Status, DepotStatus.PendingAssignment,
+                "Kho đang trong quy trình đóng kho, không thể gỡ quản lý.");
+
         if (Status == DepotStatus.Unavailable)
             throw new DepotClosingException(
                 "Kho đang ngưng hoạt động (Unavailable), không thể gỡ quản lý.");
@@ -374,6 +388,14 @@ public class DepotModel
     {
         if (Status == DepotStatus.Closed)
             throw new DepotClosedException();
+
+        if (Status == DepotStatus.Created)
+            throw new InvalidDepotStatusTransitionException(Status, DepotStatus.PendingAssignment,
+                "Kho chưa từng có quản lý, không có gì để gỡ.");
+
+        if (Status == DepotStatus.Closing)
+            throw new InvalidDepotStatusTransitionException(Status, DepotStatus.PendingAssignment,
+                "Kho đang trong quy trình đóng kho, không thể gỡ quản lý.");
 
         if (Status == DepotStatus.Unavailable)
             throw new DepotClosingException(

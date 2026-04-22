@@ -158,6 +158,7 @@ public class MissionActivityStatusExecutionService(
         }
 
         var isCollectActivity = string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+        var inventoryChanged = false;
         var pickupExecution = new MissionSupplyPickupExecutionResult();
 
         if (effectiveStatus == MissionActivityStatus.Succeed
@@ -214,6 +215,7 @@ public class MissionActivityStatusExecutionService(
                         activity.DepotId.Value,
                         itemsToConsume.Count,
                         items.Sum(item => item.BufferUsedQuantity ?? 0));
+                    inventoryChanged = true;
                 }
             }
         }
@@ -243,6 +245,7 @@ public class MissionActivityStatusExecutionService(
                             activity.DepotId.Value,
                             effectiveStatus,
                             itemsToRelease.Count);
+                        inventoryChanged = true;
                     }
                 }
             }
@@ -363,6 +366,14 @@ public class MissionActivityStatusExecutionService(
             EffectiveStatus = effectiveStatus,
             CurrentServerStatus = activity.Status,
             ImageUrl = activity.ImageUrl,
+            ActivityId = activity.Id,
+            MissionId = activity.MissionId,
+            DepotId = activity.DepotId,
+            MissionTeamId = activity.MissionTeamId,
+            RescueTeamId = assignedMissionTeam?.RescuerTeamId,
+            ActivityType = activity.ActivityType,
+            EstimatedTime = activity.EstimatedTime,
+            InventoryChanged = inventoryChanged,
             ConsumedItems = pickupExecution.Items
         };
     }

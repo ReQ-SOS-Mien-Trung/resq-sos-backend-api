@@ -39,6 +39,7 @@ public class InitiateDepotClosureCommandHandlerTests
             LatestClosure = closure
         };
         var fundDrainService = new StubDepotFundDrainService();
+        var transferRepository = new StubDepotClosureTransferRepository();
         var managerDepotAccessService = new StubManagerDepotAccessService();
         var permissionResolver = new StubUserPermissionResolver();
         var unitOfWork = new TrackingUnitOfWork();
@@ -47,6 +48,7 @@ public class InitiateDepotClosureCommandHandlerTests
             managerDepotAccessService,
             depotRepository,
             closureRepository,
+            transferRepository,
             fundDrainService,
             permissionResolver,
             unitOfWork,
@@ -93,6 +95,7 @@ public class InitiateDepotClosureCommandHandlerTests
             LatestClosure = closure
         };
         var fundDrainService = new StubDepotFundDrainService();
+        var transferRepository = new StubDepotClosureTransferRepository();
         var managerDepotAccessService = new StubManagerDepotAccessService();
         var permissionResolver = new StubUserPermissionResolver();
         var unitOfWork = new TrackingUnitOfWork();
@@ -101,6 +104,7 @@ public class InitiateDepotClosureCommandHandlerTests
             managerDepotAccessService,
             depotRepository,
             closureRepository,
+            transferRepository,
             fundDrainService,
             permissionResolver,
             unitOfWork,
@@ -116,6 +120,77 @@ public class InitiateDepotClosureCommandHandlerTests
         Assert.Equal(1, unitOfWork.ExecuteInTransactionCalls);
         Assert.Equal(1, unitOfWork.SaveCalls);
         Assert.Equal(88, fundDrainService.LastClosureId);
+    }
+
+    [Fact]
+    public async Task Handle_TransferPendingWithoutOpenTransfers_ReopensClosureAndReturnsRemainingItems()
+    {
+        var depot = CreateClosingDepot();
+        var closure = DepotClosureRecord.Create(
+            depotId: depot.Id,
+            initiatedBy: Guid.NewGuid(),
+            closeReason: "close",
+            previousStatus: DepotStatus.Unavailable,
+            snapshotConsumableUnits: 12,
+            snapshotReusableUnits: 0,
+            totalConsumableRows: 1,
+            totalReusableUnits: 0);
+        closure.SetGeneratedId(101);
+        closure.SetTransferResolution(targetDepotId: 9);
+        closure.MarkTransferPending();
+
+        var depotRepository = new StubDepotRepository
+        {
+            Depot = depot,
+            ActiveDepotCountExcluding = 1,
+            DetailedInventory =
+            [
+                new ClosureInventoryItemDto
+                {
+                    ItemModelId = 65,
+                    ItemName = "Mì gói",
+                    ItemType = "Consumable",
+                    Quantity = 6,
+                    TransferableQuantity = 6
+                }
+            ]
+        };
+        var closureRepository = new StubDepotClosureRepository
+        {
+            LatestClosure = closure
+        };
+        var transferRepository = new StubDepotClosureTransferRepository
+        {
+            HasOpenTransfers = false
+        };
+        var fundDrainService = new StubDepotFundDrainService();
+        var managerDepotAccessService = new StubManagerDepotAccessService();
+        var permissionResolver = new StubUserPermissionResolver();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = new InitiateDepotClosureCommandHandler(
+            managerDepotAccessService,
+            depotRepository,
+            closureRepository,
+            transferRepository,
+            fundDrainService,
+            permissionResolver,
+            unitOfWork,
+            NullLogger<InitiateDepotClosureCommandHandler>.Instance);
+
+        var result = await handler.Handle(
+            new InitiateDepotClosureCommand(depot.Id, Guid.NewGuid(), "close"),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(closure.Id, result.ClosureId);
+        Assert.Single(result.RemainingItems);
+        Assert.Equal(DepotClosureStatus.InProgress, closure.Status);
+        Assert.Null(closure.ResolutionType);
+        Assert.Equal(1, closureRepository.UpdateCalls);
+        Assert.Equal(1, unitOfWork.SaveCalls);
+        Assert.Equal(0, unitOfWork.ExecuteInTransactionCalls);
+        Assert.Null(fundDrainService.LastClosureId);
     }
 
     private static DepotModel CreateClosingDepot()
@@ -206,6 +281,7 @@ public class InitiateDepotClosureCommandHandlerTests
         public DepotClosureRecord? LatestClosure { get; set; }
         public DepotClosureRecord? CreatedClosure { get; private set; }
         public int CreateResultId { get; set; } = 1;
+        public int UpdateCalls { get; private set; }
 
         public Task<int> CreateAsync(DepotClosureRecord record, CancellationToken cancellationToken = default)
         {
@@ -223,7 +299,11 @@ public class InitiateDepotClosureCommandHandlerTests
             => Task.FromResult(LatestClosure);
 
         public Task UpdateAsync(DepotClosureRecord record, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            UpdateCalls++;
+            LatestClosure = record;
+            return Task.CompletedTask;
+        }
 
         public Task<bool> TryClaimForProcessingAsync(int closureId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
@@ -241,6 +321,47 @@ public class InitiateDepotClosureCommandHandlerTests
             => throw new NotImplementedException();
 
         public Task<DepotClosureListItem?> GetClosureDetailAsync(int depotId, int closureId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+    }
+
+    private sealed class StubDepotClosureTransferRepository : IDepotClosureTransferRepository
+    {
+        public bool HasOpenTransfers { get; set; }
+
+        public Task<int> CreateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<int> CreateAsync(
+            DepotClosureTransferRecord record,
+            IReadOnlyCollection<DepotClosureTransferItemRecord> items,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<DepotClosureTransferRecord?> GetByIdAsync(int transferId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<DepotClosureTransferRecord?> GetByClosureIdAsync(int closureId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<DepotClosureTransferRecord>> GetAllByClosureIdAsync(int closureId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<DepotClosureTransferRecord?> GetActiveByClosureIdAsync(int closureId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<bool> HasOpenTransfersAsync(int closureId, CancellationToken cancellationToken = default)
+            => Task.FromResult(HasOpenTransfers);
+
+        public Task<DepotClosureTransferRecord?> GetActiveIncomingByTargetDepotIdAsync(int targetDepotId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<DepotClosureTransferListItem>> GetByRelatedDepotIdAsync(int depotId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<DepotClosureTransferItemRecord>> GetItemsByTransferIdAsync(int transferId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task UpdateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
 

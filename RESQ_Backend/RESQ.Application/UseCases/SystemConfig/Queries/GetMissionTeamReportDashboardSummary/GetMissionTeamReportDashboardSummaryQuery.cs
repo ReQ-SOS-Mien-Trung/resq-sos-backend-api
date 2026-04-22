@@ -1,0 +1,5 @@
+using MediatR;
+
+namespace RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportDashboardSummary;
+
+public record GetMissionTeamReportDashboardSummaryQuery : IRequest<MissionTeamReportDashboardSummaryResponse>;

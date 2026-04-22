@@ -11,7 +11,8 @@ internal static class MissionTeamReportResponseFactory
         MissionTeamModel missionTeam,
         MissionTeamReportModel? report,
         IEnumerable<MissionActivityModel> activities,
-        Guid requestedBy)
+        Guid requestedBy,
+        bool isReadOnlyViewer = false)
     {
         var isMember = missionTeam.RescueTeamMembers.Any(x => x.UserId == requestedBy);
         var isLeader = missionTeam.RescueTeamMembers.Any(x => x.UserId == requestedBy && x.IsLeader);
@@ -26,12 +27,13 @@ internal static class MissionTeamReportResponseFactory
             MissionTeamId = missionTeam.Id,
             ExecutionStatus = missionTeam.Status ?? MissionTeamExecutionStatus.Assigned.ToString(),
             ReportStatus = reportStatus,
-            CanEdit = isMember && !isCancelled && !isSubmitted,
-            CanSubmit = isLeader
+            CanEdit = !isReadOnlyViewer && isMember && !isCancelled && !isSubmitted,
+            CanSubmit = !isReadOnlyViewer
+                && isLeader
                 && !isCancelled
                 && !isSubmitted
                 && string.Equals(missionTeam.Status, MissionTeamExecutionStatus.CompletedWaitingReport.ToString(), StringComparison.OrdinalIgnoreCase),
-            CanEvaluateMembers = isLeader && !isCancelled && !isSubmitted,
+            CanEvaluateMembers = !isReadOnlyViewer && isLeader && !isCancelled && !isSubmitted,
             StartedAt = report?.StartedAt,
             LastEditedAt = report?.LastEditedAt,
             SubmittedAt = report?.SubmittedAt,

@@ -38,6 +38,9 @@ public class DepotClosureDto
     public DateTime InitiatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
+    public bool HasOpenTransfers { get; set; }
+    public bool CanDownloadExternalTemplate { get; set; }
+    public bool CanUploadExternalResolution { get; set; }
 
     public TransferSummaryDto? Transfer { get; set; }
     public List<TransferSummaryDto> Transfers { get; set; } = [];

@@ -1,5 +1,6 @@
-﻿using MediatR;
+using MediatR;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Domain.Enum.Logistics;
 
@@ -11,25 +12,32 @@ public class GetDepotClosureDetailQueryHandler(
     IDepotClosureRepository closureRepository,
     IDepotClosureTransferRepository transferRepository,
     IDepotInventoryRepository inventoryRepository,
-    IDepotClosureExternalItemRepository externalItemRepository)
+    IDepotClosureExternalItemRepository externalItemRepository,
+    IUnitOfWork unitOfWork)
     : IRequestHandler<GetDepotClosureDetailQuery, DepotClosureDetailResponse>
 {
     public async Task<DepotClosureDetailResponse> Handle(GetDepotClosureDetailQuery request, CancellationToken cancellationToken)
     {
         var closure = await closureRepository.GetByIdAsync(request.ClosureId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy phiên đóng kho.");
-        var transfers = await transferRepository.GetAllByClosureIdAsync(closure.Id, cancellationToken);
+
+        var transfers = (await transferRepository.GetAllByClosureIdAsync(closure.Id, cancellationToken))
+            .OrderBy(x => x.Id)
+            .ToList();
         var targetDepotIds = transfers.Select(x => x.TargetDepotId).Distinct().ToHashSet();
 
         if (request.RequestingUserId.HasValue)
         {
             var managerDepotId = await inventoryRepository.GetActiveDepotIdByManagerAsync(
-                request.RequestingUserId.Value, cancellationToken);
+                request.RequestingUserId.Value,
+                cancellationToken);
 
             if (managerDepotId.HasValue)
             {
                 if (managerDepotId != closure.DepotId && !targetDepotIds.Contains(managerDepotId.Value))
+                {
                     throw new ForbiddenException("Bạn không phải là manager của kho nguồn hoặc kho đích trong phiên đóng kho này.");
+                }
             }
             else if (request.DepotId != closure.DepotId && !targetDepotIds.Contains(request.DepotId))
             {
@@ -55,6 +63,61 @@ public class GetDepotClosureDetailQueryHandler(
             var targetDepot = await depotRepository.GetByIdAsync(singleTargetDepotId.Value, cancellationToken);
             singleTargetDepotName = targetDepot?.Name;
         }
+
+        var targetDepotNames = new Dictionary<int, string>();
+        foreach (var targetDepotId in transfers.Select(x => x.TargetDepotId).Distinct())
+        {
+            var targetDepot = await depotRepository.GetByIdAsync(targetDepotId, cancellationToken);
+            if (targetDepot != null)
+            {
+                targetDepotNames[targetDepotId] = targetDepot.Name;
+            }
+        }
+
+        var remainingInventoryItems = await depotRepository.GetDetailedInventoryForClosureAsync(closure.DepotId, cancellationToken);
+        var hasOpenTransfers = transfers.Any(x =>
+            !string.Equals(x.Status, "Received", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(x.Status, "Cancelled", StringComparison.OrdinalIgnoreCase));
+        var hasRemainingItems = remainingInventoryItems.Count > 0;
+        var hasTransferableRemainingItems = remainingInventoryItems.Any(x => x.TransferableQuantity > 0);
+        var transferableRemainingItemCount = remainingInventoryItems.Count(x => x.TransferableQuantity > 0);
+        var transferableRemainingUnitCount = remainingInventoryItems.Sum(x => x.TransferableQuantity);
+        var blockedRemainingItemCount = remainingInventoryItems.Count(x => x.BlockedQuantity > 0);
+        var blockedRemainingUnitCount = remainingInventoryItems.Sum(x => x.BlockedQuantity);
+        var closingBlockers = await inventoryRepository.GetDepotClosingBlockersAsync(closure.DepotId, cancellationToken);
+
+        if (!hasOpenTransfers)
+        {
+            var needsResidualReopen = hasRemainingItems
+                                      && (closure.Status == DepotClosureStatus.TransferPending
+                                          || closure.ResolutionType == CloseResolutionType.TransferToDepot);
+
+            var needsCompletionRecovery = !hasRemainingItems
+                                          && closure.Status == DepotClosureStatus.TransferPending;
+
+            if (needsResidualReopen)
+            {
+                closure.ReopenForResidualHandling();
+                await closureRepository.UpdateAsync(closure, cancellationToken);
+                await unitOfWork.SaveAsync();
+            }
+            else if (needsCompletionRecovery)
+            {
+                closure.Complete(closure.CompletedAt ?? DateTime.UtcNow);
+                await closureRepository.UpdateAsync(closure, cancellationToken);
+                await unitOfWork.SaveAsync();
+            }
+        }
+
+        var canHandleExternalResolution = depot.Status == DepotStatus.Closing
+                                          && closure.Status == DepotClosureStatus.InProgress
+                                          && closure.ResolutionType == CloseResolutionType.ExternalResolution
+                                          && hasRemainingItems
+                                          && !hasOpenTransfers;
+        var externalItems = (await externalItemRepository.GetByClosureIdAsync(closure.Id, cancellationToken))
+            .OrderBy(item => item.CreatedAt)
+            .ThenBy(item => item.Id)
+            .ToList();
 
         var response = new DepotClosureDetailResponse
         {
@@ -83,76 +146,93 @@ public class GetDepotClosureDetailQueryHandler(
             ForceReason = closure.ForceReason,
             InitiatedAt = closure.InitiatedAt,
             CompletedAt = closure.CompletedAt,
-            CancelledAt = closure.CancelledAt
+            CancelledAt = closure.CancelledAt,
+            HasOpenTransfers = hasOpenTransfers,
+            HasRemainingItems = hasRemainingItems,
+            RemainingItemCount = remainingInventoryItems.Count,
+            HasTransferableRemainingItems = hasTransferableRemainingItems,
+            TransferableRemainingItemCount = transferableRemainingItemCount,
+            TransferableRemainingUnitCount = transferableRemainingUnitCount,
+            BlockedRemainingItemCount = blockedRemainingItemCount,
+            BlockedRemainingUnitCount = blockedRemainingUnitCount,
+            HasClosingBlockers = closingBlockers.HasAnyBlockingItems,
+            ReservedConsumableItemCount = closingBlockers.ReservedConsumableItemCount,
+            ReservedConsumableUnitCount = closingBlockers.ReservedConsumableUnitCount,
+            NonAvailableReusableItemModelCount = closingBlockers.NonAvailableReusableItemModelCount,
+            NonAvailableReusableUnitCount = closingBlockers.NonAvailableReusableUnitCount,
+            CanSelectResolutionOption = closure.Status == DepotClosureStatus.InProgress
+                                        && closure.ResolutionType == null
+                                        && hasTransferableRemainingItems
+                                        && !hasOpenTransfers,
+            CanConfirmClose = closure.Status == DepotClosureStatus.Completed
+                              && depot.Status == DepotStatus.Closing
+                              && !hasRemainingItems
+                              && !hasOpenTransfers,
+            CanDownloadExternalTemplate = canHandleExternalResolution,
+            CanUploadExternalResolution = canHandleExternalResolution,
+            HasTransferRecords = transfers.Count > 0,
+            HasExternalResolutionRecords = externalItems.Count > 0,
+            RemainingInventoryItems = remainingInventoryItems,
+            ExternalItems = externalItems.Select(item => new DepotClosureExternalItemDetailResponse
+            {
+                Id = item.Id,
+                ItemName = item.ItemName,
+                CategoryName = item.CategoryName,
+                ItemType = item.ItemType,
+                Unit = item.Unit,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                TotalPrice = item.TotalPrice,
+                HandlingMethod = item.HandlingMethod,
+                HandlingMethodDisplay = item.HandlingMethodDisplay,
+                Recipient = item.Recipient,
+                Note = item.Note,
+                ImageUrl = item.ImageUrl,
+                ProcessedBy = item.ProcessedBy,
+                ProcessedAt = item.ProcessedAt,
+                CreatedAt = item.CreatedAt
+            }).ToList()
         };
 
-        if (closure.ResolutionType == CloseResolutionType.TransferToDepot)
+        foreach (var transfer in transfers)
         {
-            foreach (var transfer in transfers)
+            var items = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
+            response.TransferDetails.Add(new DepotClosureTransferDetailDto
             {
-                var items = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
-                response.TransferDetails.Add(new DepotClosureTransferDetailDto
+                Id = transfer.Id,
+                ClosureId = transfer.ClosureId,
+                SourceDepotId = transfer.SourceDepotId,
+                SourceDepotName = depot.Name,
+                TargetDepotId = transfer.TargetDepotId,
+                TargetDepotName = targetDepotNames.GetValueOrDefault(transfer.TargetDepotId),
+                Status = transfer.Status,
+                CreatedAt = transfer.CreatedAt,
+                SnapshotConsumableUnits = transfer.SnapshotConsumableUnits,
+                SnapshotReusableUnits = transfer.SnapshotReusableUnits,
+                ShippedAt = transfer.ShippedAt,
+                ShippedBy = transfer.ShippedBy,
+                ShipNote = transfer.ShipNote,
+                ReceivedAt = transfer.ReceivedAt,
+                ReceivedBy = transfer.ReceivedBy,
+                ReceiveNote = transfer.ReceiveNote,
+                CancelledAt = transfer.CancelledAt,
+                CancelledBy = transfer.CancelledBy,
+                CancellationReason = transfer.CancellationReason,
+                Items = items.Select(item => new DepotClosureTransferItemDetailDto
                 {
-                    Id = transfer.Id,
-                    ClosureId = transfer.ClosureId,
-                    SourceDepotId = transfer.SourceDepotId,
-                    TargetDepotId = transfer.TargetDepotId,
-                    Status = transfer.Status,
-                    CreatedAt = transfer.CreatedAt,
-                    SnapshotConsumableUnits = transfer.SnapshotConsumableUnits,
-                    SnapshotReusableUnits = transfer.SnapshotReusableUnits,
-                    ShippedAt = transfer.ShippedAt,
-                    ShippedBy = transfer.ShippedBy,
-                    ShipNote = transfer.ShipNote,
-                    ReceivedAt = transfer.ReceivedAt,
-                    ReceivedBy = transfer.ReceivedBy,
-                    ReceiveNote = transfer.ReceiveNote,
-                    CancelledAt = transfer.CancelledAt,
-                    CancelledBy = transfer.CancelledBy,
-                    CancellationReason = transfer.CancellationReason,
-                    Items = items.Select(item => new DepotClosureTransferItemDetailDto
-                    {
-                        ItemModelId = item.ItemModelId,
-                        ItemName = item.ItemName,
-                        ItemType = item.ItemType,
-                        Unit = item.Unit,
-                        Quantity = item.Quantity
-                    }).ToList()
-                });
-            }
-
-            response.TransferDetail = response.TransferDetails.Count == 1
-                ? response.TransferDetails[0]
-                : null;
-        }
-
-        if (closure.ResolutionType == CloseResolutionType.ExternalResolution)
-        {
-            response.ExternalItems = (await externalItemRepository.GetByClosureIdAsync(closure.Id, cancellationToken))
-                .Select(item => new DepotClosureExternalItemDetailResponse
-                {
-                    Id = item.Id,
+                    ItemModelId = item.ItemModelId,
                     ItemName = item.ItemName,
-                    CategoryName = item.CategoryName,
                     ItemType = item.ItemType,
                     Unit = item.Unit,
-                    Quantity = item.Quantity,
-                    UnitPrice = item.UnitPrice,
-                    TotalPrice = item.TotalPrice,
-                    HandlingMethod = item.HandlingMethod,
-                    HandlingMethodDisplay = item.HandlingMethodDisplay,
-                    Recipient = item.Recipient,
-                    Note = item.Note,
-                    ImageUrl = item.ImageUrl,
-                    ProcessedBy = item.ProcessedBy,
-                    ProcessedAt = item.ProcessedAt,
-                    CreatedAt = item.CreatedAt
-                })
-                .ToList();
+                    Quantity = item.Quantity
+                }).ToList()
+            });
         }
+
+        response.TransferDetail = response.TransferDetails.Count == 1
+            ? response.TransferDetails[0]
+            : null;
 
         return response;
     }
 }
-
-

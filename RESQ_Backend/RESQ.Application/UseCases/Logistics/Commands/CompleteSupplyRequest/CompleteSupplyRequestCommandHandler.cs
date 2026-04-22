@@ -1,4 +1,5 @@
-﻿using MediatR;
+using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
@@ -8,18 +9,16 @@ using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.CompleteSupplyRequest;
 
-/// <summary>
-/// Kho nguồn xác nhận đã hoàn tất giao hàng - chuyển SourceStatus: Shipping → Completed.
-/// RequestingDepotStatus vẫn giữ InTransit - đợi kho yêu cầu xác nhận nhận hàng sau.
-/// </summary>
 public class CompleteSupplyRequestCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
     IDepotRepository depotRepository,
-    IFirebaseService firebaseService)
+    IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService)
     : IRequestHandler<CompleteSupplyRequestCommand, CompleteSupplyRequestResponse>
 {
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+
     public async Task<CompleteSupplyRequestResponse> Handle(CompleteSupplyRequestCommand request, CancellationToken cancellationToken)
     {
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
@@ -44,6 +43,18 @@ public class CompleteSupplyRequestCommandHandler(
             "Kho nguồn đã hoàn tất giao hàng",
             $"Yêu cầu tiếp tế số {sr.Id}: kho nguồn xác nhận đã giao hàng. Vui lòng kiểm tra và xác nhận nhận hàng.",
             "supply_completed",
+            cancellationToken);
+
+        await operationalHubService.PushSupplyRequestUpdateAsync(
+            new SupplyRequestRealtimeUpdate
+            {
+                RequestId = sr.Id,
+                RequestingDepotId = sr.RequestingDepotId,
+                SourceDepotId = sr.SourceDepotId,
+                Action = "CompletedBySource",
+                SourceStatus = "Completed",
+                RequestingStatus = "InTransit"
+            },
             cancellationToken);
 
         return new CompleteSupplyRequestResponse { Message = $"Đã xác nhận hoàn tất giao hàng cho yêu cầu số {sr.Id}." };

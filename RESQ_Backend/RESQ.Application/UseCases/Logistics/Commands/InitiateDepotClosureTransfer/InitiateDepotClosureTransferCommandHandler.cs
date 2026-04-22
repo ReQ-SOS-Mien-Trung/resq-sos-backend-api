@@ -61,19 +61,39 @@ public class InitiateDepotClosureTransferCommandHandler(
             throw new ConflictException("Phiên đóng kho hiện tại đang được xử lý bởi tiến trình khác. Vui lòng thử lại sau.");
         }
 
-        if (existingClosure?.Status == DepotClosureStatus.TransferPending)
+        if (existingClosure.Status == DepotClosureStatus.TransferPending)
+        {
+            var hasOpenTransfers = await transferRepository.HasOpenTransfersAsync(existingClosure.Id, cancellationToken);
+            if (!hasOpenTransfers)
+            {
+                var remainingItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
+                if (remainingItems.Count > 0)
+                {
+                    existingClosure.ReopenForResidualHandling();
+                }
+                else
+                {
+                    existingClosure.Complete(existingClosure.CompletedAt ?? DateTime.UtcNow);
+                }
+
+                await closureRepository.UpdateAsync(existingClosure, cancellationToken);
+                await unitOfWork.SaveAsync();
+            }
+        }
+
+        if (existingClosure.Status == DepotClosureStatus.TransferPending)
         {
             throw new ConflictException("Kho đang có phiên chuyển kho chưa hoàn tất. Hủy hoặc hoàn tất phiên cũ trước khi tạo mới.");
         }
 
-        if (existingClosure?.ResolutionType != null)
+        if (existingClosure.ResolutionType != null)
         {
             throw new ConflictException(
                 "Phiên đóng kho hiện tại đã được chọn hình thức xử lý. Vui lòng hoàn tất hoặc hủy phiên hiện tại trước khi thao tác lại.");
         }
 
-        var remainingItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
-        var inventoryLookup = remainingItems.ToDictionary(
+        var currentInventoryItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
+        var inventoryLookup = currentInventoryItems.ToDictionary(
             item => BuildItemKey(item.ItemModelId, item.ItemType),
             item => item);
 
@@ -92,6 +112,33 @@ public class InitiateDepotClosureTransferCommandHandler(
             .ToList();
 
         ValidateAssignments(request.DepotId, normalizedAssignments, inventoryLookup);
+
+        var remainingAssignmentItems = inventoryLookup.Values
+            .Select(item =>
+            {
+                var assignedQuantity = normalizedAssignments
+                    .Where(x => x.ItemModelId == item.ItemModelId &&
+                                string.Equals(x.ItemType, item.ItemType, StringComparison.OrdinalIgnoreCase))
+                    .Sum(x => x.Quantity);
+
+                var remainingTransferableQuantity = Math.Max(0, item.TransferableQuantity - assignedQuantity);
+                return new InitiateDepotClosureTransferRemainingItemDto
+                {
+                    ItemModelId = item.ItemModelId,
+                    ItemName = item.ItemName,
+                    CategoryName = item.CategoryName,
+                    ItemType = item.ItemType,
+                    Unit = item.Unit,
+                    CurrentQuantity = item.Quantity,
+                    AssignedQuantity = assignedQuantity,
+                    RemainingTransferableQuantity = remainingTransferableQuantity,
+                    BlockedQuantity = item.BlockedQuantity
+                };
+            })
+            .Where(x => x.RemainingTransferableQuantity > 0 || x.BlockedQuantity > 0)
+            .OrderBy(x => x.ItemType)
+            .ThenBy(x => x.ItemName)
+            .ToList();
 
         var targetDepotIds = normalizedAssignments
             .Select(x => x.TargetDepotId)
@@ -117,11 +164,10 @@ public class InitiateDepotClosureTransferCommandHandler(
         {
             var targetDepot = targetDepots[targetGroup.Key];
             var requiredVolume = targetGroup
-                .Where(x => string.Equals(x.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
                 .Sum(x =>
                 {
                     var item = inventoryLookup[BuildItemKey(x.ItemModelId, x.ItemType)];
-                    return (item.VolumePerUnit ?? 0m) * x.Quantity;
+                    return ResolveVolumePerUnit(item) * x.Quantity;
                 });
 
             var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
@@ -133,11 +179,10 @@ public class InitiateDepotClosureTransferCommandHandler(
             }
 
             var requiredWeight = targetGroup
-                .Where(x => string.Equals(x.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
                 .Sum(x =>
                 {
                     var item = inventoryLookup[BuildItemKey(x.ItemModelId, x.ItemType)];
-                    return (item.WeightPerUnit ?? 0m) * x.Quantity;
+                    return ResolveWeightPerUnit(item) * x.Quantity;
                 });
 
             var availableWeightCapacity = targetDepot.WeightCapacity - targetDepot.CurrentWeightUtilization;
@@ -239,7 +284,9 @@ public class InitiateDepotClosureTransferCommandHandler(
                         "depot_closure_transfer_assigned",
                         new Dictionary<string, string>
                         {
+                            ["closureId"] = closure.Id.ToString(),
                             ["sourceDepotId"] = request.DepotId.ToString(),
+                            ["targetDepotId"] = transferSummary.TargetDepotId.ToString(),
                             ["transferId"] = transferSummary.TransferId.ToString()
                         },
                         cancellationToken);
@@ -251,6 +298,35 @@ public class InitiateDepotClosureTransferCommandHandler(
             }
         }
 
+        try
+        {
+            var sourceManagerId = await inventoryRepository.GetActiveManagerUserIdByDepotIdAsync(
+                request.DepotId,
+                cancellationToken);
+
+            if (sourceManagerId.HasValue)
+            {
+                await firebaseService.SendNotificationToUserAsync(
+                    sourceManagerId.Value,
+                    "Admin đã tạo phương án chuyển kho để đóng kho",
+                    transferSummaries.Count == 1
+                        ? $"Admin đã lập 1 đợt chuyển hàng từ kho '{depot.Name}' sang kho '{transferSummaries[0].TargetDepotName}'."
+                        : $"Admin đã lập {transferSummaries.Count} đợt chuyển hàng từ kho '{depot.Name}' sang các kho đích để xử lý đóng kho.",
+                    "depot_closure_transfer_assigned",
+                    new Dictionary<string, string>
+                    {
+                        ["closureId"] = closure.Id.ToString(),
+                        ["sourceDepotId"] = request.DepotId.ToString(),
+                        ["transferCount"] = transferSummaries.Count.ToString()
+                    },
+                    cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to notify source manager for closure transfer plan | ClosureId={ClosureId}", closure.Id);
+        }
+
         return new InitiateDepotClosureTransferResponse
         {
             ClosureId = closure.Id,
@@ -258,9 +334,9 @@ public class InitiateDepotClosureTransferCommandHandler(
             SourceDepotName = depot.Name,
             Transfers = transferSummaries.OrderBy(x => x.TargetDepotName).ThenBy(x => x.TransferId).ToList(),
             ReusableItemsSkipped = reusableInUse,
-            Message = transferSummaries.Count == 1
-                ? $"Đã tạo kế hoạch chuyển hàng sang kho '{transferSummaries[0].TargetDepotName}'. Manager kho nguồn và kho đích tiếp tục xác nhận theo từng bước."
-                : $"Đã tạo kế hoạch phân bổ hàng tồn sang {transferSummaries.Count} kho đích. Mỗi kho sẽ nhận một transfer riêng để xác nhận."
+            HasRemainingItems = remainingAssignmentItems.Count > 0,
+            RemainingItems = remainingAssignmentItems,
+            Message = BuildTransferPlanMessage(transferSummaries, remainingAssignmentItems.Count > 0)
         };
     }
 
@@ -297,12 +373,28 @@ public class InitiateDepotClosureTransferCommandHandler(
                             string.Equals(x.ItemType, item.ItemType, StringComparison.OrdinalIgnoreCase))
                 .Sum(x => x.Quantity);
 
-            if (assignedQuantity != item.TransferableQuantity)
+            if (assignedQuantity > item.TransferableQuantity)
             {
                 throw new ConflictException(
-                    $"vật phẩm '{item.ItemName}' cần được phân bổ đủ {item.TransferableQuantity} đơn vị có thể chuyển. Hiện mới phân bổ {assignedQuantity}.");
+                    $"vật phẩm '{item.ItemName}' chỉ có thể phân bổ tối đa {item.TransferableQuantity} đơn vị có thể chuyển. Hiện yêu cầu {assignedQuantity}.");
             }
         }
+    }
+
+    private static string BuildTransferPlanMessage(
+        IReadOnlyCollection<InitiateDepotClosureTransferSummaryDto> transferSummaries,
+        bool hasRemainingItems)
+    {
+        var transferMessage = transferSummaries.Count == 1
+            ? $"Đã tạo kế hoạch chuyển hàng sang kho '{transferSummaries.First().TargetDepotName}'."
+            : $"Đã tạo kế hoạch phân bổ hàng tồn sang {transferSummaries.Count} kho đích.";
+
+        if (hasRemainingItems)
+        {
+            return $"{transferMessage} Sau khi các transfer hiện tại hoàn tất hoặc bị hủy, admin có thể chọn tiếp chuyển kho đợt khác hoặc đánh dấu xử lý bên ngoài cho phần còn lại.";
+        }
+
+        return $"{transferMessage} Toàn bộ phần hàng có thể chuyển đã được đưa vào transfer batch hiện tại.";
     }
 
     private static string BuildItemKey(int itemModelId, string itemType)
@@ -310,6 +402,12 @@ public class InitiateDepotClosureTransferCommandHandler(
 
     private static string BuildAssignmentKey(int targetDepotId, int itemModelId, string itemType)
         => $"{targetDepotId}:{BuildItemKey(itemModelId, itemType)}";
+
+    private static decimal ResolveVolumePerUnit(ClosureInventoryItemDto item)
+        => item.VolumePerUnit.GetValueOrDefault(0.01m);
+
+    private static decimal ResolveWeightPerUnit(ClosureInventoryItemDto item)
+        => item.WeightPerUnit.GetValueOrDefault(0.01m);
 
     private sealed record NormalizedAssignment(
         int TargetDepotId,

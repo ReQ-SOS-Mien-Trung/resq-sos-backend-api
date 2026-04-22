@@ -19,5 +19,13 @@ public sealed class MissionActivityStatusExecutionResult
     public required MissionActivityStatus EffectiveStatus { get; init; }
     public required MissionActivityStatus? CurrentServerStatus { get; init; }
     public string? ImageUrl { get; init; }
+    public int ActivityId { get; init; }
+    public int? MissionId { get; init; }
+    public int? DepotId { get; init; }
+    public int? MissionTeamId { get; init; }
+    public int? RescueTeamId { get; init; }
+    public string? ActivityType { get; init; }
+    public int? EstimatedTime { get; init; }
+    public bool InventoryChanged { get; init; }
     public List<SupplyExecutionItemDto> ConsumedItems { get; init; } = [];
 }

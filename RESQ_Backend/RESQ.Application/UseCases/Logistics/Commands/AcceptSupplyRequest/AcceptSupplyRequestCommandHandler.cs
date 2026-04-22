@@ -1,4 +1,5 @@
-﻿using MediatR;
+using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.StateMachines;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -15,10 +16,12 @@ public class AcceptSupplyRequestCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
     IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork)
     : IRequestHandler<AcceptSupplyRequestCommand, AcceptSupplyRequestResponse>
 {
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+
     public async Task<AcceptSupplyRequestResponse> Handle(AcceptSupplyRequestCommand request, CancellationToken cancellationToken)
     {
         var sr = await supplyRequestRepository.GetByIdAsync(request.SupplyRequestId, cancellationToken)
@@ -26,7 +29,6 @@ public class AcceptSupplyRequestCommandHandler(
 
         SupplyRequestStateMachine.EnsureCanAccept(sr.SourceStatus, sr.RequestingStatus);
 
-        // Chỉ manager của kho nguồn mới được accept
         var managerDepotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
             ?? throw new BadRequestException("Tài khoản không quản lý kho nào đang hoạt động.");
 
@@ -37,7 +39,6 @@ public class AcceptSupplyRequestCommandHandler(
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             throw new ConflictException("Kho nguồn ngưng hoạt động hoặc đã đóng. Không thể chấp nhận yêu cầu tiếp tế.");
 
-        // Wrap trong transaction để đảm bảo Reserve + UpdateStatus đồng bộ
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             await supplyRequestRepository.ReserveItemsAsync(
@@ -46,12 +47,23 @@ public class AcceptSupplyRequestCommandHandler(
             await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Accepted", "Approved", null, request.UserId, cancellationToken);
         });
 
-        // Notify requesting manager
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "Yêu cầu tiếp tế được chấp nhận",
             $"Yêu cầu tiếp tế số {sr.Id} đã được kho nguồn chấp nhận và đang chuẩn bị hàng.",
             "supply_accepted",
+            cancellationToken);
+
+        await operationalHubService.PushSupplyRequestUpdateAsync(
+            new SupplyRequestRealtimeUpdate
+            {
+                RequestId = sr.Id,
+                RequestingDepotId = sr.RequestingDepotId,
+                SourceDepotId = sr.SourceDepotId,
+                Action = "Accepted",
+                SourceStatus = "Accepted",
+                RequestingStatus = "Approved"
+            },
             cancellationToken);
 
         return new AcceptSupplyRequestResponse { Message = $"Đã chấp nhận yêu cầu số {sr.Id}." };

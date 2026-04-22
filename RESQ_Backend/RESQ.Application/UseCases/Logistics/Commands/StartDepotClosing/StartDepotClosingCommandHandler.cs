@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -126,6 +127,14 @@ public class StartDepotClosingCommandHandler(
                 "Hãy hoàn thành hoặc hủy các tương tác nhiệm vụ trước khi chuyển kho sang Closing.");
         }
 
+        var closingBlockers = await depotInventoryRepository.GetDepotClosingBlockersAsync(
+            request.DepotId,
+            cancellationToken);
+        if (closingBlockers.HasAnyBlockingItems)
+        {
+            throw new ConflictException(BuildClosingBlockersMessage(closingBlockers, "Closing"));
+        }
+
         var relatedTransfers = await depotClosureTransferRepository.GetByRelatedDepotIdAsync(
             request.DepotId,
             cancellationToken);
@@ -177,6 +186,16 @@ public class StartDepotClosingCommandHandler(
         });
 
         await Task.WhenAll(
+            operationalHubService.PushDepotClosureUpdateAsync(
+                new DepotClosureRealtimeUpdate
+                {
+                    SourceDepotId = depot.Id,
+                    ClosureId = closureRecord.Id,
+                    EntityType = "Closure",
+                    Action = "StartedClosing",
+                    Status = closureRecord.Status.ToString()
+                },
+                cancellationToken),
             operationalHubService.PushDepotInventoryUpdateAsync(depot.Id, "StatusChange", cancellationToken),
             operationalHubService.PushLogisticsUpdateAsync("depots", cancellationToken: cancellationToken));
 
@@ -187,5 +206,26 @@ public class StartDepotClosingCommandHandler(
             Status = depot.Status.ToString(),
             Message = "Kho đã được chuyển sang trạng thái Closing. Hệ thống sẵn sàng cho bước xác nhận đóng kho."
         };
+    }
+
+    private static string BuildClosingBlockersMessage(RESQ.Domain.Entities.Logistics.Models.DepotClosingBlockersModel blockers, string targetStatus)
+    {
+        var messages = new List<string>();
+        if (blockers.HasBlockingReservedConsumables)
+        {
+            messages.Add(
+                $"{blockers.ReservedConsumableItemCount} dòng hàng tiêu hao đang có reserved quantity " +
+                $"(tổng {blockers.ReservedConsumableUnitCount} đơn vị)");
+        }
+
+        if (blockers.HasBlockingReusableStates)
+        {
+            messages.Add(
+                $"{blockers.NonAvailableReusableItemModelCount} loại vật phẩm tái sử dụng còn ở trạng thái khác Available " +
+                $"(tổng {blockers.NonAvailableReusableUnitCount} đơn vị)");
+        }
+
+        return $"Không thể chuyển kho sang {targetStatus} vì kho vẫn còn {string.Join(" và ", messages)}. " +
+               "Hãy xử lý hết reserved quantity và đưa toàn bộ đồ tái sử dụng về trạng thái Available trước.";
     }
 }

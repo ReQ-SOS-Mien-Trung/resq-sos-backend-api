@@ -215,6 +215,7 @@ public class AddMissionActivityCommandHandlerTests
             depotInventoryRepo ?? new StubDepotInventoryRepository(),
             new StubDepotRepository(),
             mediator ?? new RecordingMediator(),
+            new StubOperationalHubService(),
             unitOfWork ?? new StubUnitOfWork(),
             NullLogger<AddMissionActivityCommandHandler>.Instance);
     }

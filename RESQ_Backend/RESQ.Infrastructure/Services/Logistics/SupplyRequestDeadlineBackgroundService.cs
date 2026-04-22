@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Logistics;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Enum.Logistics;
@@ -22,7 +23,6 @@ public class SupplyRequestDeadlineBackgroundService(
     {
         _logger.LogInformation("Supply request deadline background service started.");
 
-        // Stagger startup to avoid connection pool exhaustion when all services start simultaneously
         await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
@@ -48,6 +48,7 @@ public class SupplyRequestDeadlineBackgroundService(
         var configRepository = scope.ServiceProvider.GetRequiredService<ISupplyRequestPriorityConfigRepository>();
         var supplyRequestRepository = scope.ServiceProvider.GetRequiredService<ISupplyRequestRepository>();
         var firebaseService = scope.ServiceProvider.GetRequiredService<IFirebaseService>();
+        var operationalHubService = scope.ServiceProvider.GetRequiredService<IOperationalHubService>();
 
         var config = await configRepository.GetAsync(cancellationToken);
         var timing = config == null
@@ -79,6 +80,23 @@ public class SupplyRequestDeadlineBackgroundService(
                     $"Yêu cầu tiếp tế số {request.Id} đã bị hệ thống tự động từ chối vì quá thời gian phản hồi từ kho nguồn.",
                     "supply_request_auto_rejected",
                     cancellationToken);
+
+                var requestDetail = await supplyRequestRepository.GetByIdAsync(request.Id, cancellationToken);
+                if (requestDetail != null)
+                {
+                    await operationalHubService.PushSupplyRequestUpdateAsync(
+                        new SupplyRequestRealtimeUpdate
+                        {
+                            RequestId = requestDetail.Id,
+                            RequestingDepotId = requestDetail.RequestingDepotId,
+                            SourceDepotId = requestDetail.SourceDepotId,
+                            Action = "AutoRejected",
+                            SourceStatus = "Rejected",
+                            RequestingStatus = "Rejected",
+                            RejectedReason = AutoRejectReason
+                        },
+                        cancellationToken);
+                }
 
                 continue;
             }

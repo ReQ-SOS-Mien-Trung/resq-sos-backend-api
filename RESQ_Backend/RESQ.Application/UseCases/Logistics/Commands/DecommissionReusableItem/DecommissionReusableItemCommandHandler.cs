@@ -25,7 +25,7 @@ public class DecommissionReusableItemCommandHandler(
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
         if (depotStatus is DepotStatus.Created or DepotStatus.PendingAssignment or DepotStatus.Closed or DepotStatus.Closing)
-            throw new ConflictException("Kho hiện không ở trạng thái cho phép tiêu hủy vật phẩm tái sử dụng.");
+            throw new ConflictException("Kho hiện không ở trạng thái cho phép tiêu hủy vật phẩm. Kho phải đang hoạt động (Available) hoặc tạm ngừng (Unavailable).");
 
         await _depotInventoryRepository.DecommissionReusableItemAsync(
             depotId,
