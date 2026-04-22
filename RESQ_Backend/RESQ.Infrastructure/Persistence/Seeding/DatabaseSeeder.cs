@@ -1036,9 +1036,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             var checkInDeadline = assemblyDate.AddMinutes(45);
             var status = checkInDeadline <= currentUtc
                 ? "Completed"
-                : assemblyDate <= currentUtc
-                    ? "Gathering"
-                    : "Scheduled";
+                : "Gathering";
             events.Add(new AssemblyEvent
             {
                 AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id,

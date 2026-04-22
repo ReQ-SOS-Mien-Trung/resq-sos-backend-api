@@ -34,7 +34,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             AssemblyPointId = assemblyPointId,
             AssemblyDate = assemblyDate,
             CheckInDeadline = checkInDeadline,
-            Status = AssemblyEventStatus.Scheduled.ToString(),
+            Status = AssemblyEventStatus.Gathering.ToString(),
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow
         };
@@ -382,24 +382,6 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             .ToListAsync(cancellationToken);
     }
 
-    public async Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default)
-    {
-        var evt = await _unitOfWork.SetTracked<AssemblyEvent>()
-            .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken)
-            ?? throw new InvalidOperationException($"Không tìm thấy sự kiện tập trung id = {eventId}");
-
-        // Idempotent: nếu đã Gathering thì không làm gì thêm
-        if (evt.Status == AssemblyEventStatus.Gathering.ToString())
-            return;
-
-        if (evt.Status != AssemblyEventStatus.Scheduled.ToString())
-            throw new InvalidOperationException(
-                $"Không thể bắt đầu tập trung. Trạng thái hiện tại: {evt.Status}. Yêu cầu: Scheduled hoặc Gathering.");
-
-        evt.Status = AssemblyEventStatus.Gathering.ToString();
-        evt.UpdatedAt = DateTime.UtcNow;
-    }
-
     public async Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetEventByIdAsync(
         int eventId, CancellationToken cancellationToken = default)
     {
@@ -518,7 +500,6 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task<List<UpcomingAssemblyEventDto>> GetUpcomingEventsForRescuerAsync(
         Guid rescuerId, CancellationToken cancellationToken = default)
     {
-        var scheduledStatus = AssemblyEventStatus.Scheduled.ToString();
         var gatheringStatus = AssemblyEventStatus.Gathering.ToString();
 
         var rawItems = await _unitOfWork.Set<AssemblyParticipant>()
@@ -527,7 +508,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 p => p.AssemblyEventId,
                 e => e.Id,
                 (p, e) => new { Participant = p, Event = e })
-            .Where(x => x.Event.Status == scheduledStatus || x.Event.Status == gatheringStatus)
+            .Where(x => x.Event.Status == gatheringStatus)
             .OrderBy(x => x.Event.AssemblyDate)
             .Select(x => new
             {
@@ -570,19 +551,6 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 CheckInTime = x.CheckInTime.HasValue ? x.CheckInTime.Value.ToVietnamTime() : null,
             };
         }).ToList();
-    }
-
-    public async Task<List<int>> GetScheduledEventsReadyForGatheringAsync(
-        CancellationToken cancellationToken = default)
-    {
-        var scheduledStatus = AssemblyEventStatus.Scheduled.ToString();
-        var now = DateTime.UtcNow;
-
-        // Sự kiện Scheduled mà assemblyDate đã đến hoặc đã qua → nên chuyển sang Gathering
-        return await _unitOfWork.Set<AssemblyEvent>()
-            .Where(e => e.Status == scheduledStatus && e.AssemblyDate <= now)
-            .Select(e => e.Id)
-            .ToListAsync(cancellationToken);
     }
 
     public async Task<List<int>> GetGatheringEventsWithExpiredDeadlineAsync(

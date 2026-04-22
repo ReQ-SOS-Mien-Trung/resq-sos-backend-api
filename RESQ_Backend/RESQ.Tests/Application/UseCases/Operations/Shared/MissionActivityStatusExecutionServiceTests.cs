@@ -506,13 +506,11 @@ public class MissionActivityStatusExecutionServiceTests
         public Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task UpdateEventStatusAsync(int eventId, string status, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<List<Guid>> GetParticipantIdsAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<Guid?> GetEventCreatedByAsync(int eventId, CancellationToken cancellationToken = default) => Task.FromResult<Guid?>(null);
         public Task<bool> MarkParticipantAbsentAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<PagedResult<MyAssemblyEventDto>> GetAssemblyEventsForRescuerAsync(Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<List<UpcomingAssemblyEventDto>> GetUpcomingEventsForRescuerAsync(Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<List<int>> GetScheduledEventsReadyForGatheringAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<List<int>> GetGatheringEventsWithExpiredDeadlineAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<List<int>> GetGatheringEventsExpiredAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task CompleteEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
