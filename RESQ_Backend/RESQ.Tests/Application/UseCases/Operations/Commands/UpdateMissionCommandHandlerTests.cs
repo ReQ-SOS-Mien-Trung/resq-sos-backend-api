@@ -18,6 +18,7 @@ using RESQ.Application.UseCases.Operations.Queries.GetMissionById;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
+using RESQ.Tests.TestDoubles;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -586,6 +587,7 @@ public class UpdateMissionCommandHandlerTests
             missionRepository,
             unitOfWork,
             pendingActivityUpdateService,
+            new StubAdminRealtimeHubService(),
             sender,
             NullLogger<UpdateMissionCommandHandler>.Instance);
     }

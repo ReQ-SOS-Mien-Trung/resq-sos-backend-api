@@ -24,6 +24,7 @@ public class AiConfigVersionLifecycleCommandHandlerTests
         var handler = new CreateAiConfigDraftCommandHandler(
             repository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<CreateAiConfigDraftCommandHandler>.Instance);
 
         var response = await handler.Handle(new CreateAiConfigDraftCommand(source.Id), CancellationToken.None);
@@ -47,6 +48,7 @@ public class AiConfigVersionLifecycleCommandHandlerTests
         var handler = new ActivateAiConfigVersionCommandHandler(
             repository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<ActivateAiConfigVersionCommandHandler>.Instance);
 
         var response = await handler.Handle(new ActivateAiConfigVersionCommand(targetDraft.Id), CancellationToken.None);
@@ -73,6 +75,7 @@ public class AiConfigVersionLifecycleCommandHandlerTests
         var handler = new ActivateAiConfigVersionCommandHandler(
             repository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<ActivateAiConfigVersionCommandHandler>.Instance);
 
         var exception = await Assert.ThrowsAsync<ConflictException>(() =>
@@ -95,6 +98,7 @@ public class AiConfigVersionLifecycleCommandHandlerTests
         var handler = new RollbackAiConfigVersionCommandHandler(
             repository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<RollbackAiConfigVersionCommandHandler>.Instance);
 
         var response = await handler.Handle(new RollbackAiConfigVersionCommand(archived.Id), CancellationToken.None);
@@ -119,6 +123,7 @@ public class AiConfigVersionLifecycleCommandHandlerTests
         var handler = new CreateAiConfigCommandHandler(
             repository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<CreateAiConfigCommandHandler>.Instance);
 
         var exception = await Assert.ThrowsAsync<ConflictException>(() =>

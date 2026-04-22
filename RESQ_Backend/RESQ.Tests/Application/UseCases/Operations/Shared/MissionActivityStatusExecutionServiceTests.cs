@@ -332,6 +332,7 @@ public class MissionActivityStatusExecutionServiceTests
             rescueTeamRepository,
             missionTeamRepository,
             new StubOperationalHubService(),
+            new StubAdminRealtimeHubService(),
             NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
 
         return new(

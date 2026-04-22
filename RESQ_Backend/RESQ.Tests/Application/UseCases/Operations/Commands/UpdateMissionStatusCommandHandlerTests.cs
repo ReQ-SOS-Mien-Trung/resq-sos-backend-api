@@ -234,6 +234,7 @@ public class UpdateMissionStatusCommandHandlerTests
             rescueTeamRepository,
             missionTeamRepository,
             operationalHubService,
+            new StubAdminRealtimeHubService(),
             NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
 
         return new(
@@ -244,6 +245,7 @@ public class UpdateMissionStatusCommandHandlerTests
             unitOfWork,
             NullLogger<UpdateMissionStatusCommandHandler>.Instance,
             assemblyEventRepository ?? new StubAssemblyEventRepository(),
+            new StubAdminRealtimeHubService(),
             lifecycleSyncService);
     }
 
