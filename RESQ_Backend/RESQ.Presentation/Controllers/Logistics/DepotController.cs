@@ -450,6 +450,7 @@ namespace RESQ.Presentation.Controllers.Logistics
         /// <summary>
         /// Legacy alias cho endpoint xác nhận đóng kho.
         /// </summary>
+        [HttpPost("{id}/close-legacy")]
         [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
         public async Task<IActionResult> CloseDepotLegacy(int id, [FromBody] InitiateDepotClosureRequestDto dto)
         {
