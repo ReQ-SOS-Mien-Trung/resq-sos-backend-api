@@ -5,6 +5,8 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetAdminTeamDetail;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetAdminTeamList;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionSuccessRateSummary;
+using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportDashboardSummary;
+using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportsDashboard;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerMissionScores;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuersDailyStatistics;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosRequestsSummary;
@@ -74,7 +76,38 @@ public class PersonnelDashboardController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// [Dashboard – Chi tiết rescuer] Điểm theo từng mission, overall score, avg per-criteria và lịch sử tham gia đội.
+    /// [Dashboard - Thẻ báo cáo] Tổng quan trạng thái báo cáo mission team sau khi hoàn tất thực thi.
+    /// </summary>
+    [HttpGet("mission-team-reports/summary")]
+    public async Task<IActionResult> GetMissionTeamReportsSummary()
+    {
+        var result = await _mediator.Send(new GetMissionTeamReportDashboardSummaryQuery());
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// [Dashboard - Danh sách báo cáo] Danh sách báo cáo mission team sau khi hoàn tất thực thi.
+    /// </summary>
+    [HttpGet("mission-team-reports")]
+    public async Task<IActionResult> GetMissionTeamReports(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? reportStatus = null,
+        [FromQuery] int? teamId = null,
+        [FromQuery] string? search = null)
+    {
+        var result = await _mediator.Send(new GetMissionTeamReportsDashboardQuery(
+            pageNumber,
+            pageSize,
+            reportStatus,
+            teamId,
+            search));
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// [Dashboard - Chi tiết rescuer] Điểm theo từng mission, overall score, avg per-criteria và lịch sử tham gia đội.
     /// </summary>
     [HttpGet("rescuers/{rescuerId:guid}/scores")]
     public async Task<IActionResult> GetRescuerScores(Guid rescuerId)

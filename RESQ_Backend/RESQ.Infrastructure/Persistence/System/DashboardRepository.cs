@@ -4,8 +4,11 @@ using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetAdminTeamDetail;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetAdminTeamList;
+using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportDashboardSummary;
+using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportsDashboard;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerMissionScores;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetVictimsByPeriod;
+using RESQ.Domain.Enum.Operations;
 using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Entities.Emergency;
@@ -17,6 +20,11 @@ namespace RESQ.Infrastructure.Persistence.System;
 public class DashboardRepository(ResQDbContext context) : IDashboardRepository
 {
     private readonly ResQDbContext _context = context;
+    private static readonly string[] CompletedMissionTeamStatuses =
+    [
+        MissionTeamExecutionStatus.CompletedWaitingReport.ToString(),
+        MissionTeamExecutionStatus.Reported.ToString()
+    ];
 
     /// <inheritdoc/>
     public async Task<List<VictimsByPeriodDto>> GetVictimsByPeriodAsync(
@@ -395,5 +403,149 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
             MissionEvaluations = missionEvals,
             TeamHistory = teamHistory
         };
+    }
+
+    /// <inheritdoc/>
+    public async Task<MissionTeamReportDashboardSummaryResponse> GetMissionTeamReportDashboardSummaryAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await BuildMissionTeamReportDashboardQuery()
+            .ToListAsync(cancellationToken);
+
+        var totalCompletedTeams = rows.Count;
+        var notStartedCount = rows.Count(row => string.Equals(
+            row.ReportStatus,
+            MissionTeamReportStatus.NotStarted.ToString(),
+            StringComparison.OrdinalIgnoreCase));
+        var draftCount = rows.Count(row => string.Equals(
+            row.ReportStatus,
+            MissionTeamReportStatus.Draft.ToString(),
+            StringComparison.OrdinalIgnoreCase));
+        var submittedCount = rows.Count(row => string.Equals(
+            row.ReportStatus,
+            MissionTeamReportStatus.Submitted.ToString(),
+            StringComparison.OrdinalIgnoreCase));
+
+        return new MissionTeamReportDashboardSummaryResponse
+        {
+            TotalCompletedTeams = totalCompletedTeams,
+            NotStartedCount = notStartedCount,
+            DraftCount = draftCount,
+            SubmittedCount = submittedCount,
+            SubmissionRate = totalCompletedTeams > 0
+                ? Math.Round((double)submittedCount / totalCompletedTeams * 100, 2)
+                : 0
+        };
+    }
+
+    /// <inheritdoc/>
+    public async Task<PagedResult<MissionTeamReportDashboardItemDto>> GetMissionTeamReportsDashboardAsync(
+        int pageNumber,
+        int pageSize,
+        string? reportStatus = null,
+        int? teamId = null,
+        string? search = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildMissionTeamReportDashboardQuery();
+
+        if (!string.IsNullOrWhiteSpace(reportStatus))
+        {
+            query = query.Where(row => row.ReportStatus == reportStatus);
+        }
+
+        if (teamId.HasValue)
+        {
+            query = query.Where(row => row.TeamId == teamId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim().ToLowerInvariant();
+            query = query.Where(row =>
+                (row.TeamCode ?? string.Empty).ToLower().Contains(normalizedSearch)
+                || (row.TeamName ?? string.Empty).ToLower().Contains(normalizedSearch));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(row => row.SortAt ?? row.AssignedAt)
+            .ThenByDescending(row => row.MissionTeamId)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(row => new MissionTeamReportDashboardItemDto
+            {
+                MissionId = row.MissionId,
+                MissionTeamId = row.MissionTeamId,
+                TeamId = row.TeamId,
+                TeamCode = row.TeamCode,
+                TeamName = row.TeamName,
+                AssemblyPointId = row.AssemblyPointId,
+                AssemblyPointName = row.AssemblyPointName,
+                MissionType = row.MissionType,
+                MissionStatus = row.MissionStatus,
+                ExecutionStatus = row.ExecutionStatus,
+                ReportStatus = row.ReportStatus,
+                LastEditedAt = row.LastEditedAt.ToVietnamTime(),
+                SubmittedAt = row.SubmittedAt.ToVietnamTime()
+            })
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<MissionTeamReportDashboardItemDto>(items, totalCount, pageNumber, pageSize);
+    }
+
+    private IQueryable<MissionTeamReportDashboardRow> BuildMissionTeamReportDashboardQuery()
+    {
+        return _context.Set<MissionTeam>()
+            .AsNoTracking()
+            .Where(missionTeam =>
+                missionTeam.MissionId.HasValue
+                && missionTeam.RescuerTeamId.HasValue
+                && missionTeam.Status != null
+                && CompletedMissionTeamStatuses.Contains(missionTeam.Status))
+            .Select(missionTeam => new MissionTeamReportDashboardRow
+            {
+                MissionId = missionTeam.MissionId!.Value,
+                MissionTeamId = missionTeam.Id,
+                TeamId = missionTeam.RescuerTeamId!.Value,
+                TeamCode = missionTeam.RescuerTeam != null ? missionTeam.RescuerTeam.Code : null,
+                TeamName = missionTeam.RescuerTeam != null ? missionTeam.RescuerTeam.Name : null,
+                AssemblyPointId = missionTeam.RescuerTeam != null ? missionTeam.RescuerTeam.AssemblyPointId : null,
+                AssemblyPointName = missionTeam.RescuerTeam != null && missionTeam.RescuerTeam.AssemblyPoint != null
+                    ? missionTeam.RescuerTeam.AssemblyPoint.Name
+                    : null,
+                MissionType = missionTeam.Mission != null ? missionTeam.Mission.MissionType : null,
+                MissionStatus = missionTeam.Mission != null ? missionTeam.Mission.Status : null,
+                ExecutionStatus = missionTeam.Status ?? MissionTeamExecutionStatus.Assigned.ToString(),
+                ReportStatus = missionTeam.MissionTeamReport != null && !string.IsNullOrWhiteSpace(missionTeam.MissionTeamReport.ReportStatus)
+                    ? missionTeam.MissionTeamReport.ReportStatus!
+                    : MissionTeamReportStatus.NotStarted.ToString(),
+                LastEditedAt = missionTeam.MissionTeamReport != null ? missionTeam.MissionTeamReport.LastEditedAt : null,
+                SubmittedAt = missionTeam.MissionTeamReport != null ? missionTeam.MissionTeamReport.SubmittedAt : null,
+                AssignedAt = missionTeam.AssignedAt,
+                SortAt = missionTeam.MissionTeamReport != null
+                    ? missionTeam.MissionTeamReport.SubmittedAt ?? missionTeam.MissionTeamReport.LastEditedAt
+                    : null
+            });
+    }
+
+    private sealed class MissionTeamReportDashboardRow
+    {
+        public int MissionId { get; set; }
+        public int MissionTeamId { get; set; }
+        public int TeamId { get; set; }
+        public string? TeamCode { get; set; }
+        public string? TeamName { get; set; }
+        public int? AssemblyPointId { get; set; }
+        public string? AssemblyPointName { get; set; }
+        public string? MissionType { get; set; }
+        public string? MissionStatus { get; set; }
+        public string ExecutionStatus { get; set; } = string.Empty;
+        public string ReportStatus { get; set; } = string.Empty;
+        public DateTime? LastEditedAt { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+        public DateTime? AssignedAt { get; set; }
+        public DateTime? SortAt { get; set; }
     }
 }
