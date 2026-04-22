@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.CreatePrompt;
@@ -11,10 +13,12 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.CreatePrompt;
 public class CreatePromptCommandHandler(
     IPromptRepository promptRepository,
     IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<CreatePromptCommandHandler> logger) : IRequestHandler<CreatePromptCommand, CreatePromptResponse>
 {
     private readonly IPromptRepository _promptRepository = promptRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<CreatePromptCommandHandler> _logger = logger;
 
     public async Task<CreatePromptResponse> Handle(CreatePromptCommand request, CancellationToken cancellationToken)
@@ -61,6 +65,17 @@ public class CreatePromptCommandHandler(
             await _promptRepository.DeactivateOthersByTypeAsync(prompt.Id, prompt.PromptType, cancellationToken);
             await _unitOfWork.SaveAsync();
         }
+
+        await _adminRealtimeHubService.PushAiConfigUpdateAsync(new AdminAiConfigRealtimeUpdate
+        {
+            EntityId = prompt.Id,
+            ConfigId = prompt.Id,
+            EntityType = "Prompt",
+            ConfigScope = "Prompt",
+            Action = "Created",
+            Status = prompt.IsActive ? "Active" : "Archived",
+            ChangedAt = prompt.UpdatedAt ?? DateTime.UtcNow
+        }, cancellationToken);
 
         _logger.LogInformation("Created prompt successfully: Name={Name}", request.Name);
 

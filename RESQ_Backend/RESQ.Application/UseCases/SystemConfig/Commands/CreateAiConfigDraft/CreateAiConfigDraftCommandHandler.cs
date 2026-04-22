@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
 using RESQ.Application.UseCases.SystemConfig.Commands.AiConfigVersioning;
 using RESQ.Domain.Entities.System;
@@ -13,10 +15,12 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.CreateAiConfigDraft;
 public class CreateAiConfigDraftCommandHandler(
     IAiConfigRepository aiConfigRepository,
     IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<CreateAiConfigDraftCommandHandler> logger) : IRequestHandler<CreateAiConfigDraftCommand, AiConfigVersionActionResponse>
 {
     private readonly IAiConfigRepository _aiConfigRepository = aiConfigRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<CreateAiConfigDraftCommandHandler> _logger = logger;
 
     public async Task<AiConfigVersionActionResponse> Handle(CreateAiConfigDraftCommand request, CancellationToken cancellationToken)
@@ -60,6 +64,17 @@ public class CreateAiConfigDraftCommandHandler(
 
         await _aiConfigRepository.CreateAsync(draft, cancellationToken);
         await _unitOfWork.SaveAsync();
+
+        await _adminRealtimeHubService.PushAiConfigUpdateAsync(new AdminAiConfigRealtimeUpdate
+        {
+            EntityId = draft.Id,
+            ConfigId = draft.Id,
+            EntityType = "AiConfig",
+            ConfigScope = "AiConfig",
+            Action = "DraftCreated",
+            Status = PromptLifecycleStatusResolver.DetermineStatus(draft),
+            ChangedAt = draft.UpdatedAt ?? DateTime.UtcNow
+        }, cancellationToken);
 
         return new AiConfigVersionActionResponse
         {

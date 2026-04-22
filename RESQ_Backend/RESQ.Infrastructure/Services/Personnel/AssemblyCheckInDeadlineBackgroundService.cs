@@ -47,31 +47,7 @@ public class AssemblyCheckInDeadlineBackgroundService(
         var assemblyEventRepo = scope.ServiceProvider.GetRequiredService<IAssemblyEventRepository>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-        // ── Bước 1: Scheduled → Gathering khi assemblyDate đã đến ──────────────
-        var readyToGatherIds = await assemblyEventRepo.GetScheduledEventsReadyForGatheringAsync(cancellationToken);
-
-        if (readyToGatherIds.Count > 0)
-        {
-            logger.LogInformation(
-                "Found {Count} Scheduled assembly event(s) whose assemblyDate has passed. Transitioning to Gathering...",
-                readyToGatherIds.Count);
-
-            foreach (var eventId in readyToGatherIds)
-            {
-                try
-                {
-                    await assemblyEventRepo.StartGatheringAsync(eventId, cancellationToken);
-                    await unitOfWork.SaveAsync();
-                    logger.LogInformation("Assembly event #{EventId}: transitioned Scheduled → Gathering.", eventId);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to transition assembly event #{EventId} to Gathering.", eventId);
-                }
-            }
-        }
-
-        // ── Bước 2: Auto-mark Absent khi CheckInDeadline đã hết ─────────────────
+        // ── Auto-mark Absent khi CheckInDeadline đã hết ────────────────────────
         var expiredEventIds = await assemblyEventRepo.GetGatheringEventsWithExpiredDeadlineAsync(cancellationToken);
 
         foreach (var eventId in expiredEventIds)

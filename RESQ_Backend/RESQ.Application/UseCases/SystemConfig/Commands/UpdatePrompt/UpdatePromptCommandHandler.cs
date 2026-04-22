@@ -1,19 +1,23 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.UpdatePrompt;
 
 public class UpdatePromptCommandHandler(
     IPromptRepository promptRepository,
     IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<UpdatePromptCommandHandler> logger) : IRequestHandler<UpdatePromptCommand>
 {
     private readonly IPromptRepository _promptRepository = promptRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<UpdatePromptCommandHandler> _logger = logger;
 
     public async Task Handle(UpdatePromptCommand request, CancellationToken cancellationToken)
@@ -74,6 +78,17 @@ public class UpdatePromptCommandHandler(
 
         await _promptRepository.UpdateAsync(prompt, cancellationToken);
         await _unitOfWork.SaveAsync();
+
+        await _adminRealtimeHubService.PushAiConfigUpdateAsync(new AdminAiConfigRealtimeUpdate
+        {
+            EntityId = prompt.Id,
+            ConfigId = prompt.Id,
+            EntityType = "Prompt",
+            ConfigScope = "Prompt",
+            Action = "Updated",
+            Status = "Draft",
+            ChangedAt = prompt.UpdatedAt ?? DateTime.UtcNow
+        }, cancellationToken);
 
         _logger.LogInformation("Updated prompt successfully: Id={Id}", request.Id);
     }

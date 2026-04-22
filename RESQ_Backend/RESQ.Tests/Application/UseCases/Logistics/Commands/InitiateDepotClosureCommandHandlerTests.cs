@@ -1,10 +1,13 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
+using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Logistics;
 
@@ -47,6 +50,7 @@ public class InitiateDepotClosureCommandHandlerTests
         var handler = new InitiateDepotClosureCommandHandler(
             managerDepotAccessService,
             depotRepository,
+            new StubDepotInventoryRepository(),
             closureRepository,
             transferRepository,
             fundDrainService,
@@ -103,6 +107,7 @@ public class InitiateDepotClosureCommandHandlerTests
         var handler = new InitiateDepotClosureCommandHandler(
             managerDepotAccessService,
             depotRepository,
+            new StubDepotInventoryRepository(),
             closureRepository,
             transferRepository,
             fundDrainService,
@@ -171,6 +176,7 @@ public class InitiateDepotClosureCommandHandlerTests
         var handler = new InitiateDepotClosureCommandHandler(
             managerDepotAccessService,
             depotRepository,
+            new StubDepotInventoryRepository(),
             closureRepository,
             transferRepository,
             fundDrainService,
@@ -435,6 +441,36 @@ public class InitiateDepotClosureCommandHandlerTests
             ExecuteInTransactionCalls++;
             await action();
         }
+    }
+
+    private sealed class StubDepotInventoryRepository : IDepotInventoryRepository
+    {
+        public Task<int?> GetActiveDepotIdByManagerAsync(Guid uid, CancellationToken ct = default) => Task.FromResult<int?>(null);
+        public Task<List<int>> GetActiveDepotIdsByManagerAsync(Guid uid, CancellationToken ct = default) => Task.FromResult(new List<int>());
+        public Task<PagedResult<RESQ.Domain.Entities.Logistics.InventoryItemModel>> GetInventoryPagedAsync(int d, List<int>? c, List<RESQ.Domain.Enum.Logistics.ItemType>? it, List<RESQ.Domain.Enum.Logistics.TargetGroup>? tg, string? n, int pn, int ps, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<PagedResult<InventoryLotModel>> GetInventoryLotsAsync(int d, int i, int pn, int ps, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<List<RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory.DepotCategoryQuantityDto>> GetInventoryByCategoryAsync(int d, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<(List<AgentInventoryItem> Items, int TotalCount)> SearchForAgentAsync(string ck, string? tk, int p, int ps, IReadOnlyCollection<int>? adids = null, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<(double Latitude, double Longitude)?> GetDepotLocationAsync(int d, CancellationToken ct = default) => Task.FromResult<(double, double)?>(null);
+        public Task<(List<RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems.WarehouseItemRow> Rows, int TotalItemCount)> SearchWarehousesByItemsAsync(List<int>? ids, Dictionary<int, int> q, bool a, int? e, int pn, int ps, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(int depotId, List<(int ItemModelId, string ItemName, int RequestedQuantity)> items, CancellationToken ct = default) => Task.FromResult(new List<SupplyShortageResult>());
+        public Task<MissionSupplyReservationResult> ReserveSuppliesAsync(int depotId, List<(int ItemModelId, int Quantity)> items, CancellationToken ct = default) => Task.FromResult(new MissionSupplyReservationResult());
+        public Task ReleaseReservedSuppliesAsync(int depotId, List<(int ItemModelId, int Quantity)> items, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<MissionSupplyPickupExecutionResult> ConsumeReservedSuppliesAsync(int d, List<(int ItemModelId, int Quantity)> i, Guid pb, int aid, int mid, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(int d, int mid, int aid, Guid pb, List<(int ItemModelId, int Quantity, DateTime? ExpiredDate)> ci, List<(int ReusableItemId, string? Condition, string? Note)> ri, List<(int ItemModelId, int Quantity)> lrq, string? dn, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task DisposeConsumableLotAsync(int depotId, int lotId, int quantity, string reason, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DecommissionReusableItemAsync(int depotId, int reusableItemId, string? note, Guid performedBy, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<List<ExpiringLotModel>> GetExpiringLotsAsync(int depotId, int daysAhead, CancellationToken cancellationToken = default) => Task.FromResult(new List<ExpiringLotModel>());
+        public Task<List<RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems.LowStockRawItemDto>> GetLowStockRawItemsAsync(int? d, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task ExportInventoryAsync(int d, int i, int q, Guid pb, string? n, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task AdjustInventoryAsync(int d, int i, int qc, Guid pb, string r, string? n, DateTime? e, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<(int ProcessedRows, int? LastInventoryId)> BulkTransferForClosureAsync(int s, int t, int c, Guid pb, int? lp = null, int bs = 100, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task TransferClosureItemsAsync(int s, int t, int c, int tid, Guid pb, IReadOnlyCollection<RESQ.Application.Repositories.Logistics.DepotClosureTransferItemMoveDto> i, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task ReserveForClosureShipmentAsync(int sourceDepotId, int transferId, int closureId, Guid performedBy, IReadOnlyCollection<RESQ.Application.Repositories.Logistics.DepotClosureTransferItemMoveDto> items, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<PagedResult<ReusableUnitDto>> GetReusableUnitsPagedAsync(int depotId, int? itemModelId, string? serialNumber, List<string>? statuses, List<string>? conditions, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<ReusableUnitDto>([], 0, pageNumber, pageSize));
+        public Task<Guid?> GetActiveManagerUserIdByDepotIdAsync(int d, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task ZeroOutForClosureAsync(int d, int c, Guid pb, string? n, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<bool> HasActiveInventoryCommitmentsAsync(int d, CancellationToken ct = default) => Task.FromResult(false);
     }
 }
 

@@ -10,6 +10,7 @@ namespace RESQ.Application.UseCases.Operations.Commands.UpdateActivityStatus;
 public class UpdateActivityStatusCommandHandler(
     IMissionActivityStatusExecutionService missionActivityStatusExecutionService,
     IOperationalHubService operationalHubService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork,
     ILogger<UpdateActivityStatusCommandHandler> logger
 ) : IRequestHandler<UpdateActivityStatusCommand, UpdateActivityStatusResponse>
@@ -62,6 +63,23 @@ public class UpdateActivityStatusCommandHandler(
             await operationalHubService.PushDepotInventoryUpdateAsync(
                 inventoryDepotId,
                 "MissionActivityStatus",
+                cancellationToken);
+        }
+
+        if (executionResult is not null)
+        {
+            await adminRealtimeHubService.PushMissionActivityUpdateAsync(
+                new AdminMissionActivityRealtimeUpdate
+                {
+                    EntityId = executionResult.ActivityId,
+                    EntityType = "MissionActivity",
+                    ActivityId = executionResult.ActivityId,
+                    MissionId = executionResult.MissionId,
+                    DepotId = executionResult.DepotId,
+                    Action = "StatusChanged",
+                    Status = executionResult.EffectiveStatus.ToString(),
+                    ChangedAt = DateTime.UtcNow
+                },
                 cancellationToken);
         }
 

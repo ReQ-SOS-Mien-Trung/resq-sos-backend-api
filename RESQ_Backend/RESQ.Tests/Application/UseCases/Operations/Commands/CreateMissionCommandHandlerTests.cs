@@ -564,6 +564,7 @@ public class CreateMissionCommandHandlerTests
             assemblyPointRepository ?? new StubAssemblyPointRepository(),
             unitOfWork,
             new RecordingMediator(),
+            new StubAdminRealtimeHubService(),
             new StubFirebaseService(),
             NullLogger<CreateMissionCommandHandler>.Instance);
     }

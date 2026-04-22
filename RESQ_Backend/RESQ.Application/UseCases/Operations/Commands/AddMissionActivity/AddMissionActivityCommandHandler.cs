@@ -29,6 +29,7 @@ public class AddMissionActivityCommandHandler(
     IDepotInventoryRepository depotInventoryRepository, IDepotRepository depotRepository,
     IMediator mediator,
     IOperationalHubService operationalHubService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork,
     ILogger<AddMissionActivityCommandHandler> logger
 ) : IRequestHandler<AddMissionActivityCommand, AddMissionActivityResponse>
@@ -228,6 +229,20 @@ public class AddMissionActivityCommandHandler(
                 },
                 cancellationToken);
         }
+
+        await adminRealtimeHubService.PushMissionActivityUpdateAsync(
+            new AdminMissionActivityRealtimeUpdate
+            {
+                EntityId = savedActivity.Id,
+                EntityType = "MissionActivity",
+                ActivityId = savedActivity.Id,
+                MissionId = savedActivity.MissionId,
+                DepotId = savedActivity.DepotId,
+                Action = "Created",
+                Status = savedActivity.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         return response;
     }

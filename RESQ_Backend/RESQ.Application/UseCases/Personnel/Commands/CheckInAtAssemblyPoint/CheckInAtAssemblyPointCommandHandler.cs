@@ -26,9 +26,8 @@ public class CheckInAtAssemblyPointCommandHandler(
         var evt = await assemblyEventRepository.GetEventByIdAsync(request.AssemblyEventId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy sự kiện tập trung id = {request.AssemblyEventId}");
 
-        // 2. Validate trạng thái event phải là Scheduled hoặc Gathering
-        if (evt.Status != AssemblyEventStatus.Scheduled.ToString() &&
-            evt.Status != AssemblyEventStatus.Gathering.ToString())
+        // 2. Validate trạng thái event phải là Gathering
+        if (evt.Status != AssemblyEventStatus.Gathering.ToString())
             throw new BadRequestException(
                 $"Sự kiện tập trung chưa mở hoặc đã kết thúc check-in. Trạng thái hiện tại: {evt.Status}.");
 

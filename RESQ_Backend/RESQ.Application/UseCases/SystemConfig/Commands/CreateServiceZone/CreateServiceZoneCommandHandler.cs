@@ -1,6 +1,8 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.SystemConfig.Commands.UpdateServiceZone;
 using RESQ.Domain.Entities.System;
 
@@ -8,11 +10,13 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.CreateServiceZone;
 
 public class CreateServiceZoneCommandHandler(
     IServiceZoneRepository serviceZoneRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService)
     : IRequestHandler<CreateServiceZoneCommand, CreateServiceZoneResponse>
 {
     private readonly IServiceZoneRepository _serviceZoneRepository = serviceZoneRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
 
     public async Task<CreateServiceZoneResponse> Handle(CreateServiceZoneCommand request, CancellationToken cancellationToken)
     {
@@ -31,7 +35,7 @@ public class CreateServiceZoneCommandHandler(
 
         await _serviceZoneRepository.CreateAsync(model, cancellationToken);
 
-        return new CreateServiceZoneResponse
+        var response = new CreateServiceZoneResponse
         {
             Id = model.Id,
             Name = model.Name,
@@ -41,5 +45,17 @@ public class CreateServiceZoneCommandHandler(
             IsActive = model.IsActive,
             CreatedAt = model.CreatedAt
         };
+
+        await _adminRealtimeHubService.PushSystemConfigUpdateAsync(new AdminSystemConfigRealtimeUpdate
+        {
+            EntityId = response.Id,
+            EntityType = "ServiceZone",
+            ConfigKey = "service-zones",
+            Action = "Created",
+            Status = response.IsActive ? "Active" : "Inactive",
+            ChangedAt = model.UpdatedAt
+        }, cancellationToken);
+
+        return response;
     }
 }

@@ -236,6 +236,7 @@ public class UpdateMissionActivityCommandHandlerTests
             depotRepo ?? new StubDepotRepo(),
             assemblyPointRepo ?? new StubAssemblyPointRepo(null),
             new StubOperationalHubService(),
+            new StubAdminRealtimeHubService(),
             new StubUnitOfWork(),
             NullLogger<UpdateMissionActivityCommandHandler>.Instance);
     }

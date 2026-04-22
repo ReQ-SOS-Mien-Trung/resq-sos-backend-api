@@ -1,8 +1,10 @@
 ﻿using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.AddDisbursementItems;
@@ -15,15 +17,18 @@ public class AddDisbursementItemsHandler : IRequestHandler<AddDisbursementItemsC
 {
     private readonly ICampaignDisbursementRepository _disbursementRepo;
     private readonly IDepotRepository _depotRepo;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork;
 
     public AddDisbursementItemsHandler(
         ICampaignDisbursementRepository disbursementRepo,
         IDepotRepository depotRepo,
+        IAdminRealtimeHubService adminRealtimeHubService,
         IUnitOfWork unitOfWork)
     {
         _disbursementRepo = disbursementRepo;
         _depotRepo = depotRepo;
+        _adminRealtimeHubService = adminRealtimeHubService;
         _unitOfWork = unitOfWork;
     }
 
@@ -55,6 +60,20 @@ public class AddDisbursementItemsHandler : IRequestHandler<AddDisbursementItemsC
 
         await _disbursementRepo.AddItemsAsync(disbursement.Id, newItems, cancellationToken);
         await _unitOfWork.SaveAsync();
+        await _adminRealtimeHubService.PushDisbursementUpdateAsync(
+            new AdminDisbursementRealtimeUpdate
+            {
+                EntityId = disbursement.Id,
+                EntityType = "Disbursement",
+                DisbursementId = disbursement.Id,
+                CampaignId = disbursement.FundCampaignId,
+                DepotId = disbursement.DepotId,
+                Amount = disbursement.Amount,
+                Action = "ItemsAdded",
+                Status = disbursement.Type.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         return Unit.Value;
     }

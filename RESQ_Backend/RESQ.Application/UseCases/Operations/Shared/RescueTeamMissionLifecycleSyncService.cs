@@ -13,11 +13,13 @@ public class RescueTeamMissionLifecycleSyncService(
     IRescueTeamRepository rescueTeamRepository,
     IMissionTeamRepository missionTeamRepository,
     IOperationalHubService operationalHubService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<RescueTeamMissionLifecycleSyncService> logger) : IRescueTeamMissionLifecycleSyncService
 {
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IOperationalHubService _operationalHubService = operationalHubService;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<RescueTeamMissionLifecycleSyncService> _logger = logger;
 
     public async Task<RescueTeamMissionLifecycleSyncResult> SyncTeamsToOnMissionAsync(
@@ -206,6 +208,20 @@ public class RescueTeamMissionLifecycleSyncService(
         try
         {
             await _operationalHubService.PushLogisticsUpdateAsync("rescue-teams", cancellationToken: cancellationToken);
+            foreach (var teamId in result.ChangedTeamIds)
+            {
+                await _adminRealtimeHubService.PushRescueTeamUpdateAsync(
+                    new RESQ.Application.Common.Models.AdminRescueTeamRealtimeUpdate
+                    {
+                        EntityId = teamId,
+                        EntityType = "RescueTeam",
+                        TeamId = teamId,
+                        Action = "StatusChanged",
+                        Status = null,
+                        ChangedAt = DateTime.UtcNow
+                    },
+                    cancellationToken);
+            }
         }
         catch (Exception ex)
         {

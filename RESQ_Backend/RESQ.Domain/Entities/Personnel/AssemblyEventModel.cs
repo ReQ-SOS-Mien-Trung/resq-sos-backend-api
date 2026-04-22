@@ -18,7 +18,7 @@ public class AssemblyEventModel
     public AssemblyEventModel() { }
 
     /// <summary>
-    /// Tạo sự kiện tập trung mới ở trạng thái Scheduled.
+    /// Tạo sự kiện tập trung mới ở trạng thái Gathering.
     /// </summary>
     public static AssemblyEventModel Create(int assemblyPointId, DateTime assemblyDate, Guid createdBy)
     {
@@ -26,23 +26,10 @@ public class AssemblyEventModel
         {
             AssemblyPointId = assemblyPointId,
             AssemblyDate = assemblyDate,
-            Status = AssemblyEventStatus.Scheduled,
+            Status = AssemblyEventStatus.Gathering,
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow
         };
-    }
-
-    /// <summary>
-    /// Chuyển trạng thái Scheduled → Gathering (mở check-in).
-    /// </summary>
-    public void StartGathering()
-    {
-        if (Status != AssemblyEventStatus.Scheduled)
-            throw new InvalidAssemblyEventStatusException(
-                $"Không thể bắt đầu tập trung. Trạng thái hiện tại: {Status}. Yêu cầu: Scheduled.");
-
-        Status = AssemblyEventStatus.Gathering;
-        UpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>

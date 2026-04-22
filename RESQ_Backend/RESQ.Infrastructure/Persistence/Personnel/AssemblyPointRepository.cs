@@ -86,7 +86,7 @@ public class AssemblyPointRepository(IUnitOfWork unitOfWork) : IAssemblyPointRep
                 Entity = ap,
                 HasActiveEvent = eventsQuery.Any(ae =>
                     ae.AssemblyPointId == ap.Id &&
-                    (ae.Status == "Scheduled" || ae.Status == "Gathering"))
+                    ae.Status == "Gathering")
             })
             .ToListAsync(cancellationToken);
 
