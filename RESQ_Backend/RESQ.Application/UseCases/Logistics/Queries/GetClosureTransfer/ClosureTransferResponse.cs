@@ -5,7 +5,9 @@ public class ClosureTransferResponse
     public int Id { get; set; }
     public int ClosureId { get; set; }
     public int SourceDepotId { get; set; }
+    public string? SourceDepotName { get; set; }
     public int TargetDepotId { get; set; }
+    public string? TargetDepotName { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 

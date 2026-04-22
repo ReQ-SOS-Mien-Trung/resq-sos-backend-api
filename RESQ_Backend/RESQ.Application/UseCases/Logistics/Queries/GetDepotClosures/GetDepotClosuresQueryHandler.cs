@@ -38,47 +38,51 @@ public class GetDepotClosuresQueryHandler(
 
         var items = await _closureRepository.GetClosuresByDepotIdAsync(request.DepotId, cancellationToken);
 
-        var result = items.Select(item => new DepotClosureDto
-        {
-            Id = item.Id,
-            DepotId = item.DepotId,
-            DepotRole = item.RelatedDepotRole,
-            Status = item.Status.ToString(),
-            PreviousStatus = item.PreviousStatus.ToString(),
-            CloseReason = item.CloseReason,
-            ResolutionType = item.ResolutionType?.ToString(),
-            TargetDepotId = item.TargetDepotId,
-            TargetDepotName = item.TargetDepotName,
-            ExternalNote = item.ExternalNote,
-            InitiatedBy = item.InitiatedBy,
-            InitiatedByFullName = item.InitiatedByFullName,
-            CancelledBy = item.CancelledBy,
-            CancelledByFullName = item.CancelledByFullName,
-            CancellationReason = item.CancellationReason,
-            SnapshotConsumableUnits = item.SnapshotConsumableUnits,
-            SnapshotReusableUnits = item.SnapshotReusableUnits,
-            InitiatedAt = item.InitiatedAt,
-            CompletedAt = item.CompletedAt,
-            CancelledAt = item.CancelledAt,
-            Transfer = item.TransferId.HasValue
-                ? new TransferSummaryDto
-                {
-                    TransferId = item.TransferId.Value,
-                    TargetDepotId = item.TargetDepotId,
-                    TargetDepotName = item.TargetDepotName,
-                    Status = item.TransferStatus ?? string.Empty
-                }
-                : null,
-            Transfers = item.Transfers
-                .Select(transfer => new TransferSummaryDto
-                {
-                    TransferId = transfer.TransferId,
-                    TargetDepotId = transfer.TargetDepotId,
-                    TargetDepotName = transfer.TargetDepotName,
-                    Status = transfer.Status
-                })
-                .ToList()
-        }).ToList();
+        var result = items
+            .OrderBy(item => item.Id)
+            .Select(item => new DepotClosureDto
+            {
+                Id = item.Id,
+                DepotId = item.DepotId,
+                DepotRole = item.RelatedDepotRole,
+                Status = item.Status.ToString(),
+                PreviousStatus = item.PreviousStatus.ToString(),
+                CloseReason = item.CloseReason,
+                ResolutionType = item.ResolutionType?.ToString(),
+                TargetDepotId = item.TargetDepotId,
+                TargetDepotName = item.TargetDepotName,
+                ExternalNote = item.ExternalNote,
+                InitiatedBy = item.InitiatedBy,
+                InitiatedByFullName = item.InitiatedByFullName,
+                CancelledBy = item.CancelledBy,
+                CancelledByFullName = item.CancelledByFullName,
+                CancellationReason = item.CancellationReason,
+                SnapshotConsumableUnits = item.SnapshotConsumableUnits,
+                SnapshotReusableUnits = item.SnapshotReusableUnits,
+                InitiatedAt = item.InitiatedAt,
+                CompletedAt = item.CompletedAt,
+                CancelledAt = item.CancelledAt,
+                Transfer = item.TransferId.HasValue
+                    ? new TransferSummaryDto
+                    {
+                        TransferId = item.TransferId.Value,
+                        TargetDepotId = item.TargetDepotId,
+                        TargetDepotName = item.TargetDepotName,
+                        Status = item.TransferStatus ?? string.Empty
+                    }
+                    : null,
+                Transfers = item.Transfers
+                    .OrderBy(transfer => transfer.TransferId)
+                    .Select(transfer => new TransferSummaryDto
+                    {
+                        TransferId = transfer.TransferId,
+                        TargetDepotId = transfer.TargetDepotId,
+                        TargetDepotName = transfer.TargetDepotName,
+                        Status = transfer.Status
+                    })
+                    .ToList()
+            })
+            .ToList();
 
         _logger.LogInformation(
             "{Handler} returned {Count} closure(s) for DepotId={DepotId}",
