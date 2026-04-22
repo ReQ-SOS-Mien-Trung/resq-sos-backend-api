@@ -19,7 +19,7 @@ public class AssemblyEvent
 
     [Column("status")]
     [StringLength(50)]
-    public string Status { get; set; } = "Scheduled";
+    public string Status { get; set; } = "Gathering";
 
     [Column("created_by")]
     public Guid CreatedBy { get; set; }

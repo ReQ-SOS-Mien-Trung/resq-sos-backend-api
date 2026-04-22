@@ -37,6 +37,7 @@ public class UpdateActivityStatusCommandHandlerTests
         var handler = new UpdateActivityStatusCommandHandler(
             executionService,
             new StubOperationalHubService(),
+            new StubAdminRealtimeHubService(),
             unitOfWork,
             NullLogger<UpdateActivityStatusCommandHandler>.Instance);
 

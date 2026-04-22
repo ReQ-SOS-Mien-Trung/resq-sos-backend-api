@@ -53,16 +53,13 @@ public interface IAssemblyEventRepository
     /// <summary>Lấy danh sách sự kiện tập trung của một điểm tập kết (phân trang).</summary>
     Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
-    /// <summary>Lấy event active (Scheduled/Gathering) mới nhất tại AP. Null nếu không có.</summary>
+    /// <summary>Lấy event active (Gathering) mới nhất tại AP. Null nếu không có.</summary>
     Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default);
 
     /// <summary>Cập nhật trạng thái event.</summary>
     Task UpdateEventStatusAsync(int eventId, string status, CancellationToken cancellationToken = default);
 
     Task<List<Guid>> GetParticipantIdsAsync(int eventId, CancellationToken cancellationToken = default);
-
-    /// <summary>Chuyển trạng thái Scheduled → Gathering.</summary>
-    Task StartGatheringAsync(int eventId, CancellationToken cancellationToken = default);
 
     /// <summary>Lấy event theo ID. Null nếu không tồn tại.</summary>
     Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default);
@@ -85,17 +82,11 @@ public interface IAssemblyEventRepository
         Guid rescuerId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lấy danh sách sự kiện sắp tới (Scheduled hoặc Gathering) mà rescuer được gán,
+    /// Lấy danh sách sự kiện sắp tới (Gathering) mà rescuer được gán,
     /// sắp xếp theo thời gian triệu tập tăng dần (gần nhất trước).
     /// </summary>
     Task<List<UpcomingAssemblyEventDto>> GetUpcomingEventsForRescuerAsync(
         Guid rescuerId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Lấy danh sách ID sự kiện Scheduled mà assemblyDate đã đến hoặc đã qua.
-    /// Dùng cho background service tự động chuyển trạng thái Scheduled → Gathering.
-    /// </summary>
-    Task<List<int>> GetScheduledEventsReadyForGatheringAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Lấy danh sách ID sự kiện (Gathering) đã quá CheckInDeadline mà vẫn còn participant chưa check-in.

@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
 using RESQ.Domain.Entities.System;
 
@@ -12,10 +14,12 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.CreateAiConfig;
 public class CreateAiConfigCommandHandler(
     IAiConfigRepository aiConfigRepository,
     IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<CreateAiConfigCommandHandler> logger) : IRequestHandler<CreateAiConfigCommand, CreateAiConfigResponse>
 {
     private readonly IAiConfigRepository _aiConfigRepository = aiConfigRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<CreateAiConfigCommandHandler> _logger = logger;
 
     public async Task<CreateAiConfigResponse> Handle(CreateAiConfigCommand request, CancellationToken cancellationToken)
@@ -66,6 +70,17 @@ public class CreateAiConfigCommandHandler(
             await _aiConfigRepository.DeactivateOthersAsync(aiConfig.Id, cancellationToken);
             await _unitOfWork.SaveAsync();
         }
+
+        await _adminRealtimeHubService.PushAiConfigUpdateAsync(new AdminAiConfigRealtimeUpdate
+        {
+            EntityId = aiConfig.Id,
+            ConfigId = aiConfig.Id,
+            EntityType = "AiConfig",
+            ConfigScope = "AiConfig",
+            Action = "Created",
+            Status = aiConfig.IsActive ? "Active" : "Archived",
+            ChangedAt = aiConfig.UpdatedAt ?? DateTime.UtcNow
+        }, cancellationToken);
 
         _logger.LogInformation("Created AI config successfully: Name={Name}", request.Name);
 

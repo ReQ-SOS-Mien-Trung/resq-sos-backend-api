@@ -23,6 +23,7 @@ public class UpdateMissionActivityCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     IAssemblyPointRepository assemblyPointRepository,
     IOperationalHubService operationalHubService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork,
     ILogger<UpdateMissionActivityCommandHandler> logger
 ) : IRequestHandler<UpdateMissionActivityCommand, UpdateMissionActivityResponse>
@@ -207,6 +208,20 @@ public class UpdateMissionActivityCommandHandler(
                 "MissionActivityUpdated",
                 cancellationToken);
         }
+
+        await adminRealtimeHubService.PushMissionActivityUpdateAsync(
+            new AdminMissionActivityRealtimeUpdate
+            {
+                EntityId = activity.Id,
+                EntityType = "MissionActivity",
+                ActivityId = activity.Id,
+                MissionId = activity.MissionId,
+                DepotId = activity.DepotId,
+                Action = "Updated",
+                Status = activity.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         return new UpdateMissionActivityResponse
         {

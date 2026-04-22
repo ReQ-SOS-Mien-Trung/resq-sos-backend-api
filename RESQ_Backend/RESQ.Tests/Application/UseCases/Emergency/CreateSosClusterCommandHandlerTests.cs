@@ -7,6 +7,7 @@ using RESQ.Application.UseCases.Emergency.Commands.CreateSosCluster;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Emergency;
+using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Emergency;
 
@@ -32,6 +33,7 @@ public class CreateSosClusterCommandHandlerTests
             clusterRepo ?? new StubSosClusterRepository(),
             sosRepo,
             configRepo ?? new StubSosClusterGroupingConfigRepository(null),
+            new StubAdminRealtimeHubService(),
             new StubUnitOfWork(),
             NullLogger<CreateSosClusterCommandHandler>.Instance);
     }

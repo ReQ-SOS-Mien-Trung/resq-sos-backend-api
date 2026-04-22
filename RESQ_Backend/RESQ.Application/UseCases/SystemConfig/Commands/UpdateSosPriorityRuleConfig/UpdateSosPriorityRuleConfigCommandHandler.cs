@@ -1,19 +1,23 @@
 using MediatR;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosPriorityRuleConfig;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.UpdateSosPriorityRuleConfig;
 
 public class UpdateSosPriorityRuleConfigCommandHandler(
     ISosPriorityRuleConfigRepository repository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService)
     : IRequestHandler<UpdateSosPriorityRuleConfigCommand, SosPriorityRuleConfigResponse>
 {
     private readonly ISosPriorityRuleConfigRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
 
     public async Task<SosPriorityRuleConfigResponse> Handle(UpdateSosPriorityRuleConfigCommand request, CancellationToken cancellationToken)
     {
@@ -38,7 +42,7 @@ public class UpdateSosPriorityRuleConfigCommandHandler(
         await _unitOfWork.SaveAsync();
 
         var responseConfig = SosPriorityRuleConfigSupport.FromModel(existing);
-        return new SosPriorityRuleConfigResponse
+        var response = new SosPriorityRuleConfigResponse
         {
             Id = existing.Id,
             Status = "Draft",
@@ -59,5 +63,17 @@ public class UpdateSosPriorityRuleConfigCommandHandler(
             UiOptions = responseConfig.UiOptions,
             UpdatedAt = existing.UpdatedAt
         };
+
+        await _adminRealtimeHubService.PushSystemConfigUpdateAsync(new AdminSystemConfigRealtimeUpdate
+        {
+            EntityId = response.Id,
+            EntityType = "SosPriorityRuleConfig",
+            ConfigKey = "sos-priority-rule",
+            Action = "Updated",
+            Status = response.Status,
+            ChangedAt = response.UpdatedAt
+        }, cancellationToken);
+
+        return response;
     }
 }

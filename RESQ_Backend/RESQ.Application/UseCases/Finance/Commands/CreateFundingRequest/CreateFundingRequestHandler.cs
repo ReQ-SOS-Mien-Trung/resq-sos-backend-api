@@ -1,8 +1,10 @@
 ﻿using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.CreateFundingRequest;
@@ -17,17 +19,20 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService;
     private readonly IFundingRequestRepository _fundingRequestRepo;
     private readonly IDepotInventoryRepository _depotInventoryRepo;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork;
 
     public CreateFundingRequestHandler(
             RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
         IFundingRequestRepository fundingRequestRepo,
         IDepotInventoryRepository depotInventoryRepo,
+        IAdminRealtimeHubService adminRealtimeHubService,
         IUnitOfWork unitOfWork)
     {
         _managerDepotAccessService = managerDepotAccessService;
         _fundingRequestRepo = fundingRequestRepo;
         _depotInventoryRepo = depotInventoryRepo;
+        _adminRealtimeHubService = adminRealtimeHubService;
         _unitOfWork = unitOfWork;
     }
 
@@ -73,6 +78,18 @@ public class CreateFundingRequestHandler : IRequestHandler<CreateFundingRequestC
         // 4. Persist - CreateAsync lưu ngay và trả về ID thực từ DB
         var fundingRequestId = await _fundingRequestRepo.CreateAsync(fundingRequest, cancellationToken);
         await _unitOfWork.SaveAsync();
+        await _adminRealtimeHubService.PushFundingRequestUpdateAsync(
+            new AdminFundingRequestRealtimeUpdate
+            {
+                EntityId = fundingRequestId,
+                EntityType = "FundingRequest",
+                RequestId = fundingRequestId,
+                DepotId = depotId,
+                Action = "Created",
+                Status = fundingRequest.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         return fundingRequestId;
     }

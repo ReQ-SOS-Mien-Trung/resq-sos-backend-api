@@ -35,6 +35,7 @@ public class CreateMissionCommandHandler(
     IAssemblyPointRepository assemblyPointRepository,
     IUnitOfWork unitOfWork,
     IMediator mediator,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IFirebaseService firebaseService,
     ILogger<CreateMissionCommandHandler> logger
 ) : IRequestHandler<CreateMissionCommand, CreateMissionResponse>
@@ -53,6 +54,7 @@ public class CreateMissionCommandHandler(
     private readonly IAssemblyPointRepository _assemblyPointRepository = assemblyPointRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IMediator _mediator = mediator;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ILogger<CreateMissionCommandHandler> _logger = logger;
 
@@ -290,6 +292,29 @@ public class CreateMissionCommandHandler(
 
         // Notify team members about the new mission assignment
         await NotifyTeamMembersAsync(activities, missionId, cancellationToken);
+        await _adminRealtimeHubService.PushMissionUpdateAsync(
+            new AdminMissionRealtimeUpdate
+            {
+                EntityId = missionId,
+                EntityType = "Mission",
+                MissionId = missionId,
+                ClusterId = request.ClusterId,
+                Action = "Created",
+                Status = MissionStatus.Planned.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
+        await _adminRealtimeHubService.PushSOSClusterUpdateAsync(
+            new AdminSOSClusterRealtimeUpdate
+            {
+                EntityId = request.ClusterId,
+                EntityType = "SOSCluster",
+                ClusterId = request.ClusterId,
+                Action = "MissionCreated",
+                Status = SosClusterStatus.InProgress.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         return new CreateMissionResponse
         {
