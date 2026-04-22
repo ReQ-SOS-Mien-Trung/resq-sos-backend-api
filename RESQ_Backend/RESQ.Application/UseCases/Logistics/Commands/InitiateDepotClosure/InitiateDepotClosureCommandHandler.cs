@@ -15,6 +15,7 @@ public class InitiateDepotClosureCommandHandler(
     IManagerDepotAccessService managerDepotAccessService,
     IDepotRepository depotRepository,
     IDepotClosureRepository closureRepository,
+    IDepotClosureTransferRepository transferRepository,
     IDepotFundDrainService depotFundDrainService,
     IUserPermissionResolver permissionResolver,
     IUnitOfWork unitOfWork,
@@ -79,6 +80,17 @@ public class InitiateDepotClosureCommandHandler(
         {
             throw new ConflictException(
                 "Không tìm thấy phiên đóng kho hợp lệ cho kho này. Vui lòng thực hiện lại bước chuyển kho sang trạng thái Closing.");
+        }
+
+        if (latestClosure.Status == DepotClosureStatus.TransferPending)
+        {
+            var hasOpenTransfers = await transferRepository.HasOpenTransfersAsync(latestClosure.Id, cancellationToken);
+            if (!hasOpenTransfers)
+            {
+                latestClosure.ReopenForResidualHandling();
+                await closureRepository.UpdateAsync(latestClosure, cancellationToken);
+                await unitOfWork.SaveAsync();
+            }
         }
 
         var inventoryItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
