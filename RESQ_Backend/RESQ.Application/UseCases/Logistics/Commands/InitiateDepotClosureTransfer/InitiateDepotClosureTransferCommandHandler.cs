@@ -284,7 +284,9 @@ public class InitiateDepotClosureTransferCommandHandler(
                         "depot_closure_transfer_assigned",
                         new Dictionary<string, string>
                         {
+                            ["closureId"] = closure.Id.ToString(),
                             ["sourceDepotId"] = request.DepotId.ToString(),
+                            ["targetDepotId"] = transferSummary.TargetDepotId.ToString(),
                             ["transferId"] = transferSummary.TransferId.ToString()
                         },
                         cancellationToken);
@@ -294,6 +296,35 @@ public class InitiateDepotClosureTransferCommandHandler(
             {
                 logger.LogWarning(ex, "Failed to notify target manager | TransferId={Id}", transferSummary.TransferId);
             }
+        }
+
+        try
+        {
+            var sourceManagerId = await inventoryRepository.GetActiveManagerUserIdByDepotIdAsync(
+                request.DepotId,
+                cancellationToken);
+
+            if (sourceManagerId.HasValue)
+            {
+                await firebaseService.SendNotificationToUserAsync(
+                    sourceManagerId.Value,
+                    "Admin đã tạo phương án chuyển kho để đóng kho",
+                    transferSummaries.Count == 1
+                        ? $"Admin đã lập 1 đợt chuyển hàng từ kho '{depot.Name}' sang kho '{transferSummaries[0].TargetDepotName}'."
+                        : $"Admin đã lập {transferSummaries.Count} đợt chuyển hàng từ kho '{depot.Name}' sang các kho đích để xử lý đóng kho.",
+                    "depot_closure_transfer_assigned",
+                    new Dictionary<string, string>
+                    {
+                        ["closureId"] = closure.Id.ToString(),
+                        ["sourceDepotId"] = request.DepotId.ToString(),
+                        ["transferCount"] = transferSummaries.Count.ToString()
+                    },
+                    cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to notify source manager for closure transfer plan | ClosureId={ClosureId}", closure.Id);
         }
 
         return new InitiateDepotClosureTransferResponse

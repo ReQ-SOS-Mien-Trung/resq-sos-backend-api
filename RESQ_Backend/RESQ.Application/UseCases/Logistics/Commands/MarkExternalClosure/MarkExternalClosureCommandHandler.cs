@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -12,8 +13,11 @@ public class MarkExternalClosureCommandHandler(
     IDepotRepository depotRepository,
     IDepotClosureRepository closureRepository,
     IDepotClosureTransferRepository transferRepository,
+    IDepotInventoryRepository inventoryRepository,
+    IFirebaseService firebaseService,
     IUnitOfWork unitOfWork,
-    IOperationalHubService operationalHubService)
+    IOperationalHubService operationalHubService,
+    ILogger<MarkExternalClosureCommandHandler> logger)
     : IRequestHandler<MarkExternalClosureCommand, MarkExternalClosureResponse>
 {
     public async Task<MarkExternalClosureResponse> Handle(
@@ -77,6 +81,32 @@ public class MarkExternalClosureCommandHandler(
                 Status = closure.Status.ToString()
             },
             cancellationToken);
+
+        try
+        {
+            var sourceManagerId = await inventoryRepository.GetActiveManagerUserIdByDepotIdAsync(
+                request.DepotId,
+                cancellationToken);
+
+            if (sourceManagerId.HasValue)
+            {
+                await firebaseService.SendNotificationToUserAsync(
+                    sourceManagerId.Value,
+                    "Admin đã chọn xử lý bên ngoài cho kho đang đóng",
+                    $"Kho '{depot.Name}' đã được admin đánh dấu xử lý bên ngoài cho phần hàng còn lại. Bạn có thể tải mẫu và gửi kết quả xử lý lên hệ thống.",
+                    "depot_closure_external_marked",
+                    new Dictionary<string, string>
+                    {
+                        ["closureId"] = closure.Id.ToString(),
+                        ["depotId"] = request.DepotId.ToString()
+                    },
+                    cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to notify source manager after external mark | ClosureId={ClosureId}", closure.Id);
+        }
 
         return new MarkExternalClosureResponse
         {

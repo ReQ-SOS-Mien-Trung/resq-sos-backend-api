@@ -5,6 +5,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 
@@ -16,6 +17,7 @@ public class ReceiveClosureTransferCommandHandler(
     IDepotClosureRepository closureRepository,
     IDepotRepository depotRepository,
     IDepotInventoryRepository inventoryRepository,
+    IUserRepository userRepository,
     IFirebaseService firebaseService,
     IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
@@ -112,27 +114,73 @@ public class ReceiveClosureTransferCommandHandler(
             closure.Id,
             transfer.Id);
 
-        // Chỉ gửi thông báo khi tất cả đợt chuyển kho đã hoàn tất (không còn đợt nào đang mở)
-        var allTransfersDone = requiresFurtherResolution || closure.CompletedAt.HasValue;
-        if (allTransfersDone)
+        try
         {
-            try
+            var recipientIds = new HashSet<Guid> { closure.InitiatedBy };
+
+            foreach (var adminId in await userRepository.GetActiveAdminUserIdsAsync(cancellationToken))
+            {
+                recipientIds.Add(adminId);
+            }
+
+            var sourceManagerId = await inventoryRepository.GetActiveManagerUserIdByDepotIdAsync(
+                transfer.SourceDepotId,
+                cancellationToken);
+            if (sourceManagerId.HasValue)
+            {
+                recipientIds.Add(sourceManagerId.Value);
+            }
+
+            var targetManagerId = await inventoryRepository.GetActiveManagerUserIdByDepotIdAsync(
+                transfer.TargetDepotId,
+                cancellationToken);
+            if (targetManagerId.HasValue)
+            {
+                recipientIds.Add(targetManagerId.Value);
+            }
+
+            var title = requiresFurtherResolution
+                ? "Đợt chuyển kho đã nhận xong, kho nguồn còn hàng cần xử lý tiếp"
+                : closure.CompletedAt.HasValue
+                    ? "Đợt chuyển kho đã nhận xong, closure chờ xác nhận đóng kho"
+                    : "Đợt chuyển kho đã được kho đích xác nhận nhận hàng";
+
+            var body = requiresFurtherResolution
+                ? $"Transfer #{transfer.Id} từ kho '{sourceDepot.Name}' đã nhận xong, nhưng kho nguồn vẫn còn hàng. Admin cần chọn bước xử lý tiếp theo."
+                : closure.CompletedAt.HasValue
+                    ? $"Transfer #{transfer.Id} từ kho '{sourceDepot.Name}' đã nhận xong và toàn bộ phần hàng chuyển kho đã được xử lý. Kho nguồn đang chờ admin xác nhận đóng kho."
+                    : $"Transfer #{transfer.Id} từ kho '{sourceDepot.Name}' đã được kho đích xác nhận nhận hàng thành công.";
+
+            var notificationData = new Dictionary<string, string>
+            {
+                ["closureId"] = closure.Id.ToString(),
+                ["transferId"] = transfer.Id.ToString(),
+                ["sourceDepotId"] = transfer.SourceDepotId.ToString(),
+                ["targetDepotId"] = transfer.TargetDepotId.ToString(),
+                ["requiresFurtherResolution"] = requiresFurtherResolution.ToString().ToLowerInvariant(),
+                ["remainingItemCount"] = remainingItemCount.ToString(),
+                ["closureStatus"] = closure.Status.ToString(),
+                ["transferStatus"] = transfer.Status
+            };
+
+            foreach (var recipientId in recipientIds)
             {
                 await firebaseService.SendNotificationToUserAsync(
-                    closure.InitiatedBy,
-                    requiresFurtherResolution
-                        ? "Toàn bộ đợt chuyển kho đã hoàn tất, còn hàng cần xử lý"
-                        : "Xử lý hàng tồn đã hoàn tất",
-                    requiresFurtherResolution
-                        ? $"Đợt chuyển kho #{transfer.Id} từ kho '{sourceDepot.Name}' đã nhận xong, nhưng kho nguồn vẫn còn hàng. Admin cần chọn bước xử lý tiếp theo."
-                        : $"Toàn bộ hàng tồn của kho '{sourceDepot.Name}' đã được xử lý xong theo kế hoạch chuyển kho. Kho chờ admin xác nhận đóng kho.",
-                    "depot_closure_completed",
+                    recipientId,
+                    title,
+                    body,
+                    "depot_closure_transfer_received",
+                    notificationData,
                     cancellationToken);
             }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to notify admin | ClosureId={ClosureId}", closure.Id);
-            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to notify closure transfer recipients | ClosureId={ClosureId} TransferId={TransferId}",
+                closure.Id,
+                transfer.Id);
         }
 
         await operationalHubService.PushDepotClosureUpdateAsync(

@@ -14,6 +14,7 @@ namespace RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 public class InitiateDepotClosureCommandHandler(
     IManagerDepotAccessService managerDepotAccessService,
     IDepotRepository depotRepository,
+    IDepotInventoryRepository depotInventoryRepository,
     IDepotClosureRepository closureRepository,
     IDepotClosureTransferRepository transferRepository,
     IDepotFundDrainService depotFundDrainService,
@@ -91,6 +92,12 @@ public class InitiateDepotClosureCommandHandler(
                 await closureRepository.UpdateAsync(latestClosure, cancellationToken);
                 await unitOfWork.SaveAsync();
             }
+        }
+
+        var closingBlockers = await depotInventoryRepository.GetDepotClosingBlockersAsync(request.DepotId, cancellationToken);
+        if (closingBlockers.HasAnyBlockingItems)
+        {
+            throw new ConflictException(BuildClosingBlockersMessage(closingBlockers));
         }
 
         var inventoryItems = await depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
@@ -202,5 +209,26 @@ public class InitiateDepotClosureCommandHandler(
                 ? "Đã xác nhận hoàn tất đóng kho sau khi xử lý xong hàng tồn. Quỹ kho đã được chuyển về quỹ hệ thống và manager đã được gỡ."
                 : "Kho không còn hàng tồn nên đã được đóng ngay. Quỹ kho đã được chuyển về quỹ hệ thống và manager đã được gỡ."
         };
+    }
+
+    private static string BuildClosingBlockersMessage(RESQ.Domain.Entities.Logistics.Models.DepotClosingBlockersModel blockers)
+    {
+        var messages = new List<string>();
+        if (blockers.HasBlockingReservedConsumables)
+        {
+            messages.Add(
+                $"{blockers.ReservedConsumableItemCount} dòng hàng tiêu hao đang có reserved quantity " +
+                $"(tổng {blockers.ReservedConsumableUnitCount} đơn vị)");
+        }
+
+        if (blockers.HasBlockingReusableStates)
+        {
+            messages.Add(
+                $"{blockers.NonAvailableReusableItemModelCount} loại vật phẩm tái sử dụng còn ở trạng thái khác Available " +
+                $"(tổng {blockers.NonAvailableReusableUnitCount} đơn vị)");
+        }
+
+        return $"Không thể xác nhận đóng kho vì kho vẫn còn {string.Join(" và ", messages)}. " +
+               "Hãy xử lý hết reserved quantity và đưa toàn bộ đồ tái sử dụng về trạng thái Available trước.";
     }
 }

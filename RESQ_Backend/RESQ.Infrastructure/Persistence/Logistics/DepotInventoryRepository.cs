@@ -2467,6 +2467,44 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         return hasReusableInUse;
     }
 
+    public async Task<DepotClosingBlockersModel> GetDepotClosingBlockersAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+    {
+        var reservedConsumables = await _unitOfWork.Set<SupplyInventory>()
+            .Where(inv => inv.DepotId == depotId
+                          && !inv.IsDeleted
+                          && (inv.MissionReservedQuantity > 0 || inv.TransferReservedQuantity > 0))
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                ItemCount = g.Count(),
+                UnitCount = g.Sum(x => x.MissionReservedQuantity + x.TransferReservedQuantity)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var nonAvailableReusables = await _unitOfWork.Set<ReusableItem>()
+            .Where(ri => ri.DepotId == depotId
+                         && !ri.IsDeleted
+                         && ri.Status != nameof(ReusableItemStatus.Decommissioned)
+                         && ri.Status != nameof(ReusableItemStatus.Available))
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                ItemModelCount = g.Select(x => x.ItemModelId ?? 0).Distinct().Count(),
+                UnitCount = g.Count()
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new DepotClosingBlockersModel
+        {
+            ReservedConsumableItemCount = reservedConsumables?.ItemCount ?? 0,
+            ReservedConsumableUnitCount = reservedConsumables?.UnitCount ?? 0,
+            NonAvailableReusableItemModelCount = nonAvailableReusables?.ItemModelCount ?? 0,
+            NonAvailableReusableUnitCount = nonAvailableReusables?.UnitCount ?? 0
+        };
+    }
+
 
     public async Task ReserveForClosureShipmentAsync(
         int sourceDepotId,

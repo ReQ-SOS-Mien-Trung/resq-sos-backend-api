@@ -272,6 +272,11 @@ public interface IDepotInventoryRepository
     /// </summary>
     Task<bool> HasActiveInventoryCommitmentsAsync(int depotId, CancellationToken cancellationToken = default);
 
+    Task<DepotClosingBlockersModel> GetDepotClosingBlockersAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(new DepotClosingBlockersModel());
+
     // -- Dispose / Decommission helpers ----------------------------------------
 
     /// <summary>
