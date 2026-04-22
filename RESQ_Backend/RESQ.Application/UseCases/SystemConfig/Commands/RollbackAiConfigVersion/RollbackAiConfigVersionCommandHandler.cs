@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
 using RESQ.Application.UseCases.SystemConfig.Commands.AiConfigVersioning;
 
@@ -12,10 +14,12 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.RollbackAiConfigVersio
 public class RollbackAiConfigVersionCommandHandler(
     IAiConfigRepository aiConfigRepository,
     IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<RollbackAiConfigVersionCommandHandler> logger) : IRequestHandler<RollbackAiConfigVersionCommand, AiConfigVersionActionResponse>
 {
     private readonly IAiConfigRepository _aiConfigRepository = aiConfigRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<RollbackAiConfigVersionCommandHandler> _logger = logger;
 
     public async Task<AiConfigVersionActionResponse> Handle(RollbackAiConfigVersionCommand request, CancellationToken cancellationToken)
@@ -67,6 +71,20 @@ public class RollbackAiConfigVersionCommandHandler(
         });
 
         _logger.LogInformation("Rolled back to AI config version Id={Id}", request.Id);
+
+        if (response != null)
+        {
+            await _adminRealtimeHubService.PushAiConfigUpdateAsync(new AdminAiConfigRealtimeUpdate
+            {
+                EntityId = response.Id,
+                ConfigId = response.Id,
+                EntityType = "AiConfig",
+                ConfigScope = "AiConfig",
+                Action = "RolledBack",
+                Status = response.Status,
+                ChangedAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
 
         return response ?? throw new NotFoundException($"Không tìm thấy AI config với Id={request.Id}");
     }

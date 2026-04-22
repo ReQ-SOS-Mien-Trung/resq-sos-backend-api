@@ -11,12 +11,14 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
     public class SubmitRescuerApplicationCommandHandler(
         IUserRepository userRepository,
         IRescuerApplicationRepository rescuerApplicationRepository,
+        RESQ.Application.Services.IAdminRealtimeHubService adminRealtimeHubService,
         IUnitOfWork unitOfWork,
         ILogger<SubmitRescuerApplicationCommandHandler> logger
     ) : IRequestHandler<SubmitRescuerApplicationCommand, SubmitRescuerApplicationResponse>
     {
         private readonly IUserRepository _userRepository = userRepository;
         private readonly IRescuerApplicationRepository _rescuerApplicationRepository = rescuerApplicationRepository;
+        private readonly RESQ.Application.Services.IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly ILogger<SubmitRescuerApplicationCommandHandler> _logger = logger;
 
@@ -70,6 +72,19 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
 
             // 5. Save all changes
             await _unitOfWork.SaveAsync();
+            await _adminRealtimeHubService.PushRescuerApplicationUpdateAsync(
+                new RESQ.Application.Common.Models.AdminRescuerApplicationRealtimeUpdate
+                {
+                    EntityId = applicationId,
+                    EntityType = "RescuerApplication",
+                    ApplicationId = applicationId,
+                    UserId = request.UserId,
+                    ReviewedBy = null,
+                    Action = "Submitted",
+                    Status = RescuerApplicationStatus.Pending.ToString(),
+                    ChangedAt = DateTime.UtcNow
+                },
+                cancellationToken);
 
             _logger.LogInformation("Rescuer application submitted successfully: ApplicationId={ApplicationId}, UserId={UserId}",
                 applicationId, request.UserId);

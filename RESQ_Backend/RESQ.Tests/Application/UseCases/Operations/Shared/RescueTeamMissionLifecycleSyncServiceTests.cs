@@ -8,6 +8,7 @@ using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Personnel;
+using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Operations.Shared;
 
@@ -150,7 +151,7 @@ public class RescueTeamMissionLifecycleSyncServiceTests
         RecordingRescueTeamRepository repository,
         RecordingOperationalHubService hubService,
         RecordingMissionTeamRepository? missionTeamRepository = null) =>
-        new(repository, missionTeamRepository ?? new RecordingMissionTeamRepository(), hubService, NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
+        new(repository, missionTeamRepository ?? new RecordingMissionTeamRepository(), hubService, new StubAdminRealtimeHubService(), NullLogger<RescueTeamMissionLifecycleSyncService>.Instance);
 
     private static RescueTeamModel BuildTeam(int id, RescueTeamStatus status)
     {

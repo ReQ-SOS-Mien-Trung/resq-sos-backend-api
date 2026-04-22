@@ -123,6 +123,7 @@ public class UpdatePromptCommandHandlerTests
         return new UpdatePromptCommandHandler(
             promptRepository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<UpdatePromptCommandHandler>.Instance);
     }
 

@@ -17,6 +17,7 @@ public class CreateRescueTeamCommandHandler(
     IAssemblyPointRepository assemblyPointRepository,
     IAssemblyEventRepository assemblyEventRepository,
     IUserRepository userRepository,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IFirebaseService firebaseService,
     IUnitOfWork unitOfWork,
     ILogger<CreateRescueTeamCommandHandler> logger) : IRequestHandler<CreateRescueTeamCommand, int>
@@ -106,6 +107,17 @@ public class CreateRescueTeamCommandHandler(
 
         var createdTeam = await teamRepository.GetByCodeAsync(team.Code, ct);
         var teamId = createdTeam?.Id ?? 0;
+        await adminRealtimeHubService.PushRescueTeamUpdateAsync(
+            new RESQ.Application.Common.Models.AdminRescueTeamRealtimeUpdate
+            {
+                EntityId = teamId,
+                EntityType = "RescueTeam",
+                TeamId = teamId,
+                Action = "Created",
+                Status = team.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            ct);
 
         // Gửi thông báo cho tất cả rescuer trong đội
         if (memberIds.Count > 0)

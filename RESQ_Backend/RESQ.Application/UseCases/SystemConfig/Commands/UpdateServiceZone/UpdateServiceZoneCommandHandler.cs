@@ -1,25 +1,28 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Domain.Entities.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.UpdateServiceZone;
 
 public class UpdateServiceZoneCommandHandler(
     IServiceZoneRepository serviceZoneRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService)
     : IRequestHandler<UpdateServiceZoneCommand, UpdateServiceZoneResponse>
 {
     private readonly IServiceZoneRepository _serviceZoneRepository = serviceZoneRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
 
     public async Task<UpdateServiceZoneResponse> Handle(UpdateServiceZoneCommand request, CancellationToken cancellationToken)
     {
         var existing = await _serviceZoneRepository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException($"Vùng phục vụ với Id={request.Id} không tồn tại.");
 
-        // Validate: phải có ít nhất 1 ServiceZone active
         if (!request.IsActive && existing.IsActive)
         {
             var allZones = await _serviceZoneRepository.GetAllAsync(cancellationToken);
@@ -39,7 +42,7 @@ public class UpdateServiceZoneCommandHandler(
         await _serviceZoneRepository.UpdateAsync(existing, cancellationToken);
         await _unitOfWork.SaveAsync();
 
-        return new UpdateServiceZoneResponse
+        var response = new UpdateServiceZoneResponse
         {
             Id = existing.Id,
             Name = existing.Name,
@@ -49,5 +52,17 @@ public class UpdateServiceZoneCommandHandler(
             IsActive = existing.IsActive,
             UpdatedAt = existing.UpdatedAt
         };
+
+        await _adminRealtimeHubService.PushSystemConfigUpdateAsync(new AdminSystemConfigRealtimeUpdate
+        {
+            EntityId = response.Id,
+            EntityType = "ServiceZone",
+            ConfigKey = "service-zones",
+            Action = "Updated",
+            Status = response.IsActive ? "Active" : "Inactive",
+            ChangedAt = response.UpdatedAt
+        }, cancellationToken);
+
+        return response;
     }
 }

@@ -23,6 +23,7 @@ public class PromptVersionLifecycleCommandHandlerTests
         var handler = new CreatePromptDraftCommandHandler(
             promptRepository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<CreatePromptDraftCommandHandler>.Instance);
 
         var response = await handler.Handle(new CreatePromptDraftCommand(source.Id), CancellationToken.None);
@@ -45,6 +46,7 @@ public class PromptVersionLifecycleCommandHandlerTests
         var handler = new ActivatePromptVersionCommandHandler(
             promptRepository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<ActivatePromptVersionCommandHandler>.Instance);
 
         var response = await handler.Handle(new ActivatePromptVersionCommand(targetDraft.Id), CancellationToken.None);
@@ -69,6 +71,7 @@ public class PromptVersionLifecycleCommandHandlerTests
         var handler = new ActivatePromptVersionCommandHandler(
             promptRepository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<ActivatePromptVersionCommandHandler>.Instance);
 
         var exception = await Assert.ThrowsAsync<ConflictException>(() =>
@@ -93,6 +96,7 @@ public class PromptVersionLifecycleCommandHandlerTests
         var handler = new RollbackPromptVersionCommandHandler(
             promptRepository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<RollbackPromptVersionCommandHandler>.Instance);
 
         var response = await handler.Handle(new RollbackPromptVersionCommand(legacyPreviousVersion.Id), CancellationToken.None);
@@ -116,6 +120,7 @@ public class PromptVersionLifecycleCommandHandlerTests
         var handler = new CreatePromptCommandHandler(
             promptRepository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<CreatePromptCommandHandler>.Instance);
 
         var exception = await Assert.ThrowsAsync<ConflictException>(() =>

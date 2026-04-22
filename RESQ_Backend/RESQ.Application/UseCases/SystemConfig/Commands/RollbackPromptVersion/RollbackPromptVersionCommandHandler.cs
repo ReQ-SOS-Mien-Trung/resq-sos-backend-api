@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.SystemConfig.Commands.PromptVersioning;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.RollbackPromptVersion;
@@ -11,10 +13,12 @@ namespace RESQ.Application.UseCases.SystemConfig.Commands.RollbackPromptVersion;
 public class RollbackPromptVersionCommandHandler(
     IPromptRepository promptRepository,
     IUnitOfWork unitOfWork,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<RollbackPromptVersionCommandHandler> logger) : IRequestHandler<RollbackPromptVersionCommand, PromptVersionActionResponse>
 {
     private readonly IPromptRepository _promptRepository = promptRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<RollbackPromptVersionCommandHandler> _logger = logger;
 
     public async Task<PromptVersionActionResponse> Handle(RollbackPromptVersionCommand request, CancellationToken cancellationToken)
@@ -60,6 +64,20 @@ public class RollbackPromptVersionCommandHandler(
         });
 
         _logger.LogInformation("Rolled back to prompt version Id={Id}", request.Id);
+
+        if (response != null)
+        {
+            await _adminRealtimeHubService.PushAiConfigUpdateAsync(new AdminAiConfigRealtimeUpdate
+            {
+                EntityId = response.Id,
+                ConfigId = response.Id,
+                EntityType = "Prompt",
+                ConfigScope = "Prompt",
+                Action = "RolledBack",
+                Status = response.Status,
+                ChangedAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
 
         return response ?? throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
     }

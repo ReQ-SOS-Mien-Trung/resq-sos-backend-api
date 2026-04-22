@@ -25,6 +25,7 @@ public class UpdateAiConfigCommandHandlerTests
         var handler = new UpdateAiConfigCommandHandler(
             repository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<UpdateAiConfigCommandHandler>.Instance);
 
         await handler.Handle(new UpdateAiConfigCommand(
@@ -53,6 +54,7 @@ public class UpdateAiConfigCommandHandlerTests
         var handler = new UpdateAiConfigCommandHandler(
             repository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<UpdateAiConfigCommandHandler>.Instance);
 
         await handler.Handle(new UpdateAiConfigCommand(
@@ -81,6 +83,7 @@ public class UpdateAiConfigCommandHandlerTests
         var handler = new UpdateAiConfigCommandHandler(
             repository,
             unitOfWork,
+            new StubAdminRealtimeHubService(),
             NullLogger<UpdateAiConfigCommandHandler>.Instance);
 
         await handler.Handle(new UpdateAiConfigCommand(

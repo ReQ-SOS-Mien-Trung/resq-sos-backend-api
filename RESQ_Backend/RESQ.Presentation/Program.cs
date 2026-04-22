@@ -50,6 +50,7 @@ builder.Services.AddSignalR();
 // Register NotificationHubService (Presentation implementation of Application interface)
 builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
 builder.Services.AddScoped<IDashboardHubService, DashboardHubService>();
+builder.Services.AddScoped<IAdminRealtimeHubService, AdminRealtimeHubService>();
 builder.Services.AddScoped<IOperationalHubService, OperationalHubService>();
 
 //jwt swagger
@@ -253,6 +254,10 @@ app.MapHub<ChatHub>("/hubs/chat");
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<DashboardHub>("/hubs/dashboard");
 app.MapHub<OperationalHub>("/hubs/operational");
+app.MapHub<AdminFinanceHub>("/hubs/admin-finance");
+app.MapHub<AdminIdentityHub>("/hubs/admin-identity");
+app.MapHub<AdminOperationsHub>("/hubs/admin-operations");
+app.MapHub<AdminSystemHub>("/hubs/admin-system");
 
 app.Run();
 

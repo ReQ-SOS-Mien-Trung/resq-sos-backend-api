@@ -11,7 +11,6 @@ using RESQ.Application.UseCases.Personnel.Commands.CreateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.UpdateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.AssignRescuerToAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.ScheduleGathering;
-using RESQ.Application.UseCases.Personnel.Commands.StartGathering;
 using RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.MarkParticipantAbsent;
@@ -240,17 +239,6 @@ namespace RESQ.Presentation.Controllers.Personnel
             var command = new ScheduleGatheringCommand(id, dto.AssemblyDate, dto.CheckInDeadline, createdBy);
             var eventId = await _mediator.Send(command);
             return Ok(new { EventId = eventId });
-        }
-
-                // [UN-DEPRECATED] Mở lại endpoint để test StartGathering
-        /// <summary>Mở check-in cho sự kiện tập trung (Scheduled -> Gathering).</summary>
-        [HttpPost("events/{eventId}/start-gathering")]
-        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
-        public async Task<IActionResult> StartGathering(int eventId)
-        {
-            var command = new StartGatheringCommand(eventId);
-            await _mediator.Send(command);
-            return NoContent();
         }
 
         /// <summary>Rescuer check-in tại sự kiện tập trung (kèm GPS validation trong bán kính 200m).</summary>

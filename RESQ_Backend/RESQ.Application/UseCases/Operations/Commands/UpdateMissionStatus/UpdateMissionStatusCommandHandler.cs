@@ -6,6 +6,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.Personnel;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Emergency;
@@ -22,6 +23,7 @@ public class UpdateMissionStatusCommandHandler(
     IUnitOfWork unitOfWork,
     ILogger<UpdateMissionStatusCommandHandler> logger,
     IAssemblyEventRepository assemblyEventRepository,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService
 ) : IRequestHandler<UpdateMissionStatusCommand, UpdateMissionStatusResponse>
 {
@@ -32,6 +34,7 @@ public class UpdateMissionStatusCommandHandler(
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<UpdateMissionStatusCommandHandler> _logger = logger;
     private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly IRescueTeamMissionLifecycleSyncService _rescueTeamMissionLifecycleSyncService = rescueTeamMissionLifecycleSyncService;
 
     public async Task<UpdateMissionStatusResponse> Handle(UpdateMissionStatusCommand request, CancellationToken cancellationToken)
@@ -92,6 +95,18 @@ public class UpdateMissionStatusCommandHandler(
         await _unitOfWork.SaveAsync();
         await _rescueTeamMissionLifecycleSyncService.PushRealtimeIfNeededAsync(
             rescueTeamLifecycleSyncResult,
+            cancellationToken);
+        await _adminRealtimeHubService.PushMissionUpdateAsync(
+            new RESQ.Application.Common.Models.AdminMissionRealtimeUpdate
+            {
+                EntityId = mission.Id,
+                EntityType = "Mission",
+                MissionId = mission.Id,
+                ClusterId = mission.ClusterId,
+                Action = "StatusChanged",
+                Status = request.Status.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
             cancellationToken);
 
         return new UpdateMissionStatusResponse
