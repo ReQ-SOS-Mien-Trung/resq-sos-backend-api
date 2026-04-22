@@ -18,7 +18,9 @@ public class GetDepotClosureDetailQueryHandler(
     {
         var closure = await closureRepository.GetByIdAsync(request.ClosureId, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy phiên đóng kho.");
-        var transfers = await transferRepository.GetAllByClosureIdAsync(closure.Id, cancellationToken);
+        var transfers = (await transferRepository.GetAllByClosureIdAsync(closure.Id, cancellationToken))
+            .OrderBy(x => x.Id)
+            .ToList();
         var targetDepotIds = transfers.Select(x => x.TargetDepotId).Distinct().ToHashSet();
 
         if (request.RequestingUserId.HasValue)
@@ -55,6 +57,21 @@ public class GetDepotClosureDetailQueryHandler(
             var targetDepot = await depotRepository.GetByIdAsync(singleTargetDepotId.Value, cancellationToken);
             singleTargetDepotName = targetDepot?.Name;
         }
+        var targetDepotNames = new Dictionary<int, string>();
+        foreach (var targetDepotId in transfers.Select(x => x.TargetDepotId).Distinct())
+        {
+            var targetDepot = await depotRepository.GetByIdAsync(targetDepotId, cancellationToken);
+            if (targetDepot != null)
+            {
+                targetDepotNames[targetDepotId] = targetDepot.Name;
+            }
+        }
+
+        var remainingInventoryItems = await depotRepository.GetDetailedInventoryForClosureAsync(closure.DepotId, cancellationToken);
+        var hasOpenTransfers = transfers.Any(x =>
+            !string.Equals(x.Status, "Received", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(x.Status, "Cancelled", StringComparison.OrdinalIgnoreCase));
+        var hasRemainingItems = remainingInventoryItems.Count > 0;
 
         var response = new DepotClosureDetailResponse
         {
@@ -84,7 +101,18 @@ public class GetDepotClosureDetailQueryHandler(
             InitiatedAt = closure.InitiatedAt,
             CompletedAt = closure.CompletedAt,
             CancelledAt = closure.CancelledAt,
-            RemainingInventoryItems = await depotRepository.GetDetailedInventoryForClosureAsync(closure.DepotId, cancellationToken)
+            HasOpenTransfers = hasOpenTransfers,
+            HasRemainingItems = hasRemainingItems,
+            RemainingItemCount = remainingInventoryItems.Count,
+            CanSelectResolutionOption = closure.Status == DepotClosureStatus.InProgress
+                                        && closure.ResolutionType == null
+                                        && hasRemainingItems
+                                        && !hasOpenTransfers,
+            CanConfirmClose = closure.Status == DepotClosureStatus.Completed
+                              && depot.Status == DepotStatus.Closing
+                              && !hasRemainingItems
+                              && !hasOpenTransfers,
+            RemainingInventoryItems = remainingInventoryItems
         };
 
         if (closure.ResolutionType == CloseResolutionType.TransferToDepot)
@@ -97,7 +125,9 @@ public class GetDepotClosureDetailQueryHandler(
                     Id = transfer.Id,
                     ClosureId = transfer.ClosureId,
                     SourceDepotId = transfer.SourceDepotId,
+                    SourceDepotName = depot.Name,
                     TargetDepotId = transfer.TargetDepotId,
+                    TargetDepotName = targetDepotNames.GetValueOrDefault(transfer.TargetDepotId),
                     Status = transfer.Status,
                     CreatedAt = transfer.CreatedAt,
                     SnapshotConsumableUnits = transfer.SnapshotConsumableUnits,

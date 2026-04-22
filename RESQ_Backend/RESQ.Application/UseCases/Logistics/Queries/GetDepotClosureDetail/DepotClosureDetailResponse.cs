@@ -30,6 +30,11 @@ public class DepotClosureDetailResponse
     public DateTime InitiatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
+    public bool HasOpenTransfers { get; set; }
+    public bool HasRemainingItems { get; set; }
+    public int RemainingItemCount { get; set; }
+    public bool CanSelectResolutionOption { get; set; }
+    public bool CanConfirmClose { get; set; }
     public List<ClosureInventoryItemDto> RemainingInventoryItems { get; set; } = [];
     public DepotClosureTransferDetailDto? TransferDetail { get; set; }
     public List<DepotClosureTransferDetailDto> TransferDetails { get; set; } = [];
@@ -41,7 +46,9 @@ public class DepotClosureTransferDetailDto
     public int Id { get; set; }
     public int ClosureId { get; set; }
     public int SourceDepotId { get; set; }
+    public string? SourceDepotName { get; set; }
     public int TargetDepotId { get; set; }
+    public string? TargetDepotName { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public int SnapshotConsumableUnits { get; set; }

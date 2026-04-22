@@ -1,6 +1,7 @@
 using MediatR;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Enum.Logistics;
@@ -11,6 +12,7 @@ public class MarkExternalClosureCommandHandler(
     IDepotRepository depotRepository,
     IDepotClosureRepository closureRepository,
     IDepotClosureTransferRepository transferRepository,
+    IUnitOfWork unitOfWork,
     IOperationalHubService operationalHubService)
     : IRequestHandler<MarkExternalClosureCommand, MarkExternalClosureResponse>
 {
@@ -63,6 +65,7 @@ public class MarkExternalClosureCommandHandler(
 
         closure.SetExternalResolution(request.ExternalNote, request.AdminUserId);
         await closureRepository.UpdateAsync(closure, cancellationToken);
+        await unitOfWork.SaveAsync();
 
         await operationalHubService.PushDepotClosureUpdateAsync(
             new DepotClosureRealtimeUpdate

@@ -12,4 +12,5 @@ namespace RESQ.Application.UseCases.Logistics.Queries.GetClosureTransfer;
 public record GetClosureTransferQuery(
     int DepotId,
     int TransferId,
+    int? ClosureId = null,
     Guid? RequestingUserId = null) : IRequest<ClosureTransferResponse>;

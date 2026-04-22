@@ -144,11 +144,10 @@ public class InitiateDepotClosureTransferCommandHandler(
         {
             var targetDepot = targetDepots[targetGroup.Key];
             var requiredVolume = targetGroup
-                .Where(x => string.Equals(x.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
                 .Sum(x =>
                 {
                     var item = inventoryLookup[BuildItemKey(x.ItemModelId, x.ItemType)];
-                    return (item.VolumePerUnit ?? 0m) * x.Quantity;
+                    return ResolveVolumePerUnit(item) * x.Quantity;
                 });
 
             var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
@@ -160,11 +159,10 @@ public class InitiateDepotClosureTransferCommandHandler(
             }
 
             var requiredWeight = targetGroup
-                .Where(x => string.Equals(x.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
                 .Sum(x =>
                 {
                     var item = inventoryLookup[BuildItemKey(x.ItemModelId, x.ItemType)];
-                    return (item.WeightPerUnit ?? 0m) * x.Quantity;
+                    return ResolveWeightPerUnit(item) * x.Quantity;
                 });
 
             var availableWeightCapacity = targetDepot.WeightCapacity - targetDepot.CurrentWeightUtilization;
@@ -353,6 +351,12 @@ public class InitiateDepotClosureTransferCommandHandler(
 
     private static string BuildAssignmentKey(int targetDepotId, int itemModelId, string itemType)
         => $"{targetDepotId}:{BuildItemKey(itemModelId, itemType)}";
+
+    private static decimal ResolveVolumePerUnit(ClosureInventoryItemDto item)
+        => item.VolumePerUnit.GetValueOrDefault(0.01m);
+
+    private static decimal ResolveWeightPerUnit(ClosureInventoryItemDto item)
+        => item.WeightPerUnit.GetValueOrDefault(0.01m);
 
     private sealed record NormalizedAssignment(
         int TargetDepotId,
