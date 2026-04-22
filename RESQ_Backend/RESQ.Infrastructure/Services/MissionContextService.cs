@@ -16,7 +16,6 @@ public class MissionContextService(
     ISosClusterRepository sosClusterRepository,
     ISosRequestRepository sosRequestRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
-    ISosAiAnalysisRepository sosAiAnalysisRepository,
     IDepotRepository depotRepository,
     IPersonnelQueryRepository personnelQueryRepository,
     IRescueTeamRadiusConfigRepository rescueTeamRadiusConfigRepository,
@@ -48,9 +47,6 @@ public class MissionContextService(
         var incidentLookup = await sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(
             sosRequestList.Select(x => x.Id),
             cancellationToken);
-        var aiAnalysisLookup = await sosAiAnalysisRepository.GetLatestBySosRequestIdsAsync(
-            sosRequestList.Select(x => x.Id),
-            cancellationToken);
 
         if (sosRequestList.Count == 0)
             throw new BadRequestException($"Cluster {clusterId} không có SOS request nào");
@@ -64,7 +60,6 @@ public class MissionContextService(
         var sosRequestSummaries = effectiveSosRequests.Select(sos =>
         {
             incidentLookup.TryGetValue(sos.Id, out var incidentHistory);
-            aiAnalysisLookup.TryGetValue(sos.Id, out var aiAnalysis);
             var victimContext = MissionActivityVictimContextHelper.BuildContext(sos.StructuredData, sos.Id);
 
             return new SosRequestSummary
@@ -81,11 +76,7 @@ public class MissionContextService(
                 Longitude = sos.Location?.Longitude,
                 CreatedAt = sos.CreatedAt,
                 TargetVictimSummary = victimContext.Summary,
-                TargetVictims = MissionActivityVictimContextHelper.CloneVictims(victimContext.Victims),
-                AiAnalysis = SosRequestAiAnalysisHelper.FromAnalysis(aiAnalysis)
-                    ?? SosRequestAiAnalysisHelper.CreateFallback(
-                        sos.PriorityLevel?.ToString(),
-                        handlingReason: "Chưa có SOS AI analysis từ raw_message; cần coordinator review khi gộp cứu hộ với cứu trợ.")
+                TargetVictims = MissionActivityVictimContextHelper.CloneVictims(victimContext.Victims)
             };
         }).ToList();
 
@@ -353,11 +344,7 @@ public class MissionContextService(
     private static SosRequestSummary? FindHighestPrioritySos(List<SosRequestSummary> sosRequests) =>
         sosRequests
             .Where(s => s.Latitude.HasValue && s.Longitude.HasValue)
-            .OrderByDescending(s =>
-            {
-                var priority = SosRequestAiAnalysisHelper.ResolveSuggestedPriority(s.AiAnalysis, s.PriorityLevel);
-                return PriorityRank.TryGetValue(priority ?? string.Empty, out var rank) ? rank : 0;
-            })
+            .OrderByDescending(s => PriorityRank.TryGetValue(s.PriorityLevel ?? string.Empty, out var rank) ? rank : 0)
             .ThenBy(s => s.CreatedAt ?? DateTime.MaxValue)
             .FirstOrDefault();
 

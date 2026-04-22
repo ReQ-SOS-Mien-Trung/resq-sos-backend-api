@@ -22,21 +22,16 @@ public static class MissionSuggestionWarningHelper
         IEnumerable<SuggestedActivityDto>? activities,
         string? explicitWarning)
     {
-        var recomputedWarning = BuildMixedRescueReliefWarning(activities, sosLookup: null);
+        var recomputedWarning = BuildMixedRescueReliefWarning(activities);
         return !string.IsNullOrWhiteSpace(recomputedWarning)
             ? recomputedWarning
             : NormalizeExplicitWarning(explicitWarning);
     }
 
-    public static string BuildMixedRescueReliefWarning(IEnumerable<SuggestedActivityDto>? activities) =>
-        BuildMixedRescueReliefWarning(activities, sosLookup: null);
-
-    public static string BuildMixedRescueReliefWarning(
-        IEnumerable<SuggestedActivityDto>? activities,
-        IReadOnlyDictionary<int, SosRequestSummary>? sosLookup)
+    public static string BuildMixedRescueReliefWarning(IEnumerable<SuggestedActivityDto>? activities)
     {
         var activityList = activities?.ToList() ?? [];
-        if (activityList.Count == 0 || sosLookup is null || sosLookup.Count == 0)
+        if (activityList.Count == 0)
             return string.Empty;
 
         var rescueActivities = activityList
@@ -55,11 +50,6 @@ public static class MissionSuggestionWarningHelper
             .Distinct()
             .OrderBy(id => id)
             .ToList();
-        var urgentRescueSosIds = rescueSosIds
-            .Where(id =>
-                sosLookup.TryGetValue(id, out var sos)
-                && SosRequestAiAnalysisHelper.HasUrgentMixedMissionConstraint(sos.AiAnalysis, sos.PriorityLevel))
-            .ToList();
         var reliefSosIds = reliefActivities
             .Where(activity => activity.SosRequestId.HasValue)
             .Select(activity => activity.SosRequestId!.Value)
@@ -67,14 +57,14 @@ public static class MissionSuggestionWarningHelper
             .OrderBy(id => id)
             .ToList();
 
-        if (urgentRescueSosIds.Count == 0 || reliefSosIds.Count == 0)
-            return string.Empty;
+        if (rescueSosIds.Count == 0 || reliefSosIds.Count == 0)
+            return MixedRescueReliefWarningMessage;
 
         return
             "Kế hoạch đang gộp chung cứu hộ/cấp cứu với cứu trợ cấp phát. " +
             "Nguyên tắc an toàn: sau khi cứu nạn nhân phải đưa họ về điểm an toàn hoặc điểm tập kết ngay để cấp cứu, " +
             "không tiếp tục cho nạn nhân đi theo luồng cấp phát vật phẩm. " +
-            $"Khuyến nghị tách thành 2 nhiệm vụ riêng: nhiệm vụ cứu hộ/cấp cứu cho {FormatSosGroup(urgentRescueSosIds)}; " +
+            $"Khuyến nghị tách thành 2 nhiệm vụ riêng: nhiệm vụ cứu hộ/cấp cứu cho {FormatSosGroup(rescueSosIds)}; " +
             $"nhiệm vụ cứu trợ/cấp phát cho {FormatSosGroup(reliefSosIds)}. " +
             "Điều phối viên chỉ nên bỏ qua cảnh báo này khi chủ động chấp nhận trách nhiệm.";
     }

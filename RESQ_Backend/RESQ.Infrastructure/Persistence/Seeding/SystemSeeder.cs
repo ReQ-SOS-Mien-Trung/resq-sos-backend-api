@@ -223,7 +223,7 @@ QUAN TRỌNG — LÀM THEO ĐÚNG THỨ TỰ NÀY:
 
 Trả về JSON (không giải thích, không markdown).",
                 Version = "v1.0",
-                IsActive = false,
+                IsActive = true,
                 CreatedAt = now
             },
             new Prompt
@@ -316,7 +316,7 @@ Quy tắc:
 - confidence_score phải nằm trong khoảng từ 0 đến 1.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
                 Version = "v1.0",
-                IsActive = false,
+                IsActive = true,
                 CreatedAt = now
             },
             new Prompt
@@ -402,7 +402,7 @@ Quy tắc một kho:
 - estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED và ELIGIBLE_DEPOT_COUNT do backend cung cấp bên dưới. Chỉ dùng kết quả từ tool searchInventory. Chỉ trả về JSON object MissionDepotFragment đúng schema trong system prompt.",
                 Version = "v1.0",
-                IsActive = false,
+                IsActive = true,
                 CreatedAt = now
             },
             new Prompt
@@ -581,7 +581,7 @@ Quy tắc kiểm tra:
 - Nếu draft còn thiếu nhưng vẫn dùng được, giữ kế hoạch an toàn nhất và thêm cảnh báo ngắn gọn trong special_notes thay vì trả JSON không hợp lệ.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
                 Version = "v1.0",
-                IsActive = false,
+                IsActive = true,
                 CreatedAt = now
             },
             new Prompt
@@ -627,7 +627,7 @@ Tổng số SOS: {{total_count}}
 
 Chỉ trả về JSON object mission cuối cùng.",
                 Version = "v2.0",
-                IsActive = true,
+                IsActive = false,
                 CreatedAt = now
             },
             new Prompt
@@ -725,7 +725,7 @@ Quy tắc bắt buộc:
 - Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
                 Version = "v2.0",
-                IsActive = true,
+                IsActive = false,
                 CreatedAt = now
             },
             new Prompt
@@ -758,7 +758,7 @@ Schema đầu ra vẫn là `MissionTeamFragment` hiện có:
 Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, DEPOT_FRAGMENT và NEARBY_TEAM_COUNT do backend cung cấp bên dưới. Chỉ dùng getTeams và getAssemblyPoints. Chỉ trả về JSON object MissionTeamFragment đúng schema trong system prompt.",
                 Version = "v2.0",
-                IsActive = true,
+                IsActive = false,
                 CreatedAt = now
             },
             new Prompt
@@ -787,7 +787,7 @@ Quy tắc mixed mission bắt buộc:
 Schema đầu ra giữ nguyên schema mission cuối cùng hiện có. Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
                 Version = "v2.0",
-                IsActive = true,
+                IsActive = false,
                 CreatedAt = now
             }
         ];

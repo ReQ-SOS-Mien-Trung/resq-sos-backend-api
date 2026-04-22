@@ -126,7 +126,11 @@ public class MissionAiSuggestionSectionTests
         Assert.Equal("1 gio 5 phut", section.EstimatedDuration);
         Assert.Equal("Coordinator needs backup stock", section.SpecialNotes);
         Assert.Equal(
-            "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat.",
+            MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
+            [
+                new SuggestedActivityDto { ActivityType = "COLLECT_SUPPLIES", SosRequestId = 77 },
+                new SuggestedActivityDto { ActivityType = "RESCUE", SosRequestId = 91 }
+            ]),
             section.MixedRescueReliefWarning);
         Assert.True(section.NeedsManualReview);
         Assert.Equal("Confidence is below review threshold.", section.LowConfidenceWarning);

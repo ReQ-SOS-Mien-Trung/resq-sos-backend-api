@@ -13,14 +13,6 @@ public class GetMissionSuggestionsQueryHandler(
     ILogger<GetMissionSuggestionsQueryHandler> logger
 ) : IRequestHandler<GetMissionSuggestionsQuery, GetMissionSuggestionsResponse>
 {
-    private static readonly IReadOnlyDictionary<string, int> SuggestionPhaseRank =
-        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Validated"] = 0,
-            ["Execution"] = 1,
-            ["Draft"] = 2
-        };
-
     private readonly IMissionAiSuggestionRepository _missionRepository = missionRepository;
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ILogger<GetMissionSuggestionsQueryHandler> _logger = logger;
@@ -35,10 +27,7 @@ public class GetMissionSuggestionsQueryHandler(
         if (cluster is null)
             throw new NotFoundException($"Không tìm thấy cluster với ID: {request.ClusterId}");
 
-        var suggestions = (await _missionRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken))
-            .OrderByDescending(suggestion => suggestion.CreatedAt ?? DateTime.MinValue)
-            .ThenByDescending(suggestion => suggestion.Id)
-            .ToList();
+        var suggestions = (await _missionRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken)).ToList();
 
         var missionDtos = suggestions.Select(m =>
         {
@@ -51,12 +40,7 @@ public class GetMissionSuggestionsQueryHandler(
                 ConfidenceScore = a.ConfidenceScore,
                 CreatedAt = a.CreatedAt,
                 SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(a.SuggestedActivities)
-            })
-            .OrderByDescending(activityGroup => activityGroup.SuggestedActivities.Count > 0)
-            .ThenBy(activityGroup => GetSuggestionPhaseRank(activityGroup.SuggestionPhase))
-            .ThenByDescending(activityGroup => activityGroup.CreatedAt ?? DateTime.MinValue)
-            .ThenByDescending(activityGroup => activityGroup.Id)
-            .ToList();
+            }).ToList();
             var mixedRescueReliefWarning = MissionSuggestionWarningHelper.ResolveMixedRescueReliefWarning(
                 activityGroups.SelectMany(activityGroup => activityGroup.SuggestedActivities),
                 metadata?.MixedRescueReliefWarning);
@@ -68,9 +52,9 @@ public class GetMissionSuggestionsQueryHandler(
                 ModelName = m.ModelName,
                 AnalysisType = m.AnalysisType,
                 SuggestedMissionTitle = m.SuggestedMissionTitle,
-                SuggestedMissionType = m.SuggestedMissionType ?? metadata?.SuggestedMissionType,
+                SuggestedMissionType = m.SuggestedMissionType,
                 SuggestedPriorityScore = m.SuggestedPriorityScore,
-                SuggestedSeverityLevel = m.SuggestedSeverityLevel ?? metadata?.SuggestedSeverityLevel,
+                SuggestedSeverityLevel = m.SuggestedSeverityLevel,
                 ConfidenceScore = m.ConfidenceScore,
                 OverallAssessment = metadata?.OverallAssessment,
                 EstimatedDuration = metadata?.EstimatedDuration,
@@ -93,15 +77,5 @@ public class GetMissionSuggestionsQueryHandler(
             TotalSuggestions = missionDtos.Count,
             MissionSuggestions = missionDtos
         };
-    }
-
-    private static int GetSuggestionPhaseRank(string? phase)
-    {
-        if (string.IsNullOrWhiteSpace(phase))
-            return int.MaxValue;
-
-        return SuggestionPhaseRank.TryGetValue(phase.Trim(), out var rank)
-            ? rank
-            : int.MaxValue;
     }
 }
