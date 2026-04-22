@@ -33,14 +33,14 @@ public class DatabaseSeederTests
         Assert.Empty(validationErrors);
         Assert.Equal(296, firstCounts.Users);
         Assert.Equal(360, firstCounts.SosRequests);
-        Assert.Equal(110, firstCounts.SosClusters);
+        Assert.Equal(190, firstCounts.SosClusters);
         Assert.Equal(100, firstCounts.Missions);
         Assert.Equal(420, firstCounts.MissionActivities);
         Assert.Equal(140, firstCounts.Conversations);
         Assert.Equal(1900, firstCounts.Messages);
-        Assert.Equal(842, firstCounts.SupplyInventories);
+        Assert.Equal(841, firstCounts.SupplyInventories);
         Assert.Equal(95, firstCounts.SupplyRequests);
-        Assert.Equal(2003, firstCounts.InventoryLogs);
+        Assert.Equal(2001, firstCounts.InventoryLogs);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v1-2026-04-16"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
@@ -321,10 +321,29 @@ public class DatabaseSeederTests
                 .GroupBy(item => item.ItemModelId!.Value)
                 .Select(group => new { ItemModelId = group.Key, Count = group.Count() })
                 .ToDictionaryAsync(group => group.ItemModelId, group => group.Count);
-            Assert.All(
-                closureInventories.Where(inventory => inventory.ItemModel!.ItemType == "Reusable"),
-                inventory => Assert.Equal(inventory.Quantity, closureReusableUnitsByModel[inventory.ItemModelId!.Value]));
+        Assert.All(
+            closureInventories.Where(inventory => inventory.ItemModel!.ItemType == "Reusable"),
+            inventory => Assert.Equal(inventory.Quantity, closureReusableUnitsByModel[inventory.ItemModelId!.Value]));
         }
+
+        Assert.False(await context.SupplyInventories.AnyAsync(inventory =>
+            inventory.DepotId == 1
+            && inventory.ItemModel != null
+            && inventory.ItemModel.Name == "Pin dự phòng 10000mAh"));
+        Assert.False(await context.ReusableItems.AnyAsync(item =>
+            item.DepotId == 1
+            && item.ItemModel != null
+            && item.ItemModel.Name == "Bộ đèn pin đội đầu"));
+        Assert.Empty(await context.SupplyInventoryLots
+            .Where(lot => lot.SupplyInventory.DepotId == 1
+                && lot.SupplyInventory.ItemModel != null
+                && lot.SupplyInventory.ItemModel.Name == "Pin dự phòng 10000mAh")
+            .ToListAsync());
+        Assert.All(
+            await context.InventoryLogs
+                .Where(log => log.ReusableItemId != null && log.ActionType == "Import")
+                .ToListAsync(),
+            log => Assert.Equal(log.CreatedAt, log.ReceivedDate));
 
         var depotFundCounts = await context.DepotFunds
             .GroupBy(fund => fund.DepotId)
@@ -343,6 +362,20 @@ public class DatabaseSeederTests
             .Where(s => s.Location!.Y >= 16.455 && s.Location.Y <= 16.479)
             .Where(s => s.Location!.X >= 107.586 && s.Location.X <= 107.609)
             .ToListAsync();
+        var clusteredSosCounts = await context.SosRequests
+            .Where(s => s.ClusterId != null)
+            .GroupBy(s => s.ClusterId)
+            .Select(group => group.Count())
+            .ToListAsync();
+        var priorityCounts = await context.SosRequests
+            .GroupBy(s => s.PriorityLevel)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key ?? string.Empty, group => group.Count);
+        var reliefCount = await context.SosRequests.CountAsync(s => s.SosType == "Relief");
+        var recentOpenSos = await context.SosRequests
+            .Where(s => s.Status == "Pending" || s.Status == "Assigned" || s.Status == "InProgress" || s.Status == "Incident")
+            .Select(s => new { s.Id, s.Status, s.CreatedAt, s.ReceivedAt, s.ReviewedAt, s.LastUpdatedAt })
+            .ToListAsync();
         var sampleClusteredSos = (await context.SosRequests
                 .Where(s => new[] { 12, 95, 158, 221, 305 }.Contains(s.Id) && s.Location != null)
                 .OrderBy(s => s.Id)
@@ -352,12 +385,45 @@ public class DatabaseSeederTests
             .ToList();
 
         Assert.Equal(10, unclusteredHueSos.Count);
+        Assert.Equal(190, clusteredSosCounts.Count);
+        Assert.Equal(160, clusteredSosCounts.Count(size => size == 2));
+        Assert.Equal(30, clusteredSosCounts.Count(size => size == 1));
+        Assert.All(clusteredSosCounts, size => Assert.InRange(size, 1, 2));
         Assert.Equal(5, sampleClusteredSos.Count);
         Assert.Equal(5, sampleClusteredSos.Select(s => s.Latitude).Distinct().Count());
         Assert.Equal(5, sampleClusteredSos.Select(s => s.Longitude).Distinct().Count());
         Assert.True(sampleClusteredSos.Max(s => s.Latitude) - sampleClusteredSos.Min(s => s.Latitude) > 0.0025);
         Assert.True(sampleClusteredSos.Max(s => s.Longitude) - sampleClusteredSos.Min(s => s.Longitude) > 0.004);
         Assert.DoesNotContain(await context.SosRequests.Select(s => s.PriorityLevel).Distinct().ToListAsync(), value => value == "Moderate");
+        Assert.True(
+            priorityCounts.GetValueOrDefault("Medium") + priorityCounts.GetValueOrDefault("Low")
+            > priorityCounts.GetValueOrDefault("High") + priorityCounts.GetValueOrDefault("Critical"));
+        Assert.True(reliefCount >= 150, $"Expected at least 150 relief SOS requests but found {reliefCount}.");
+        Assert.DoesNotContain(await context.SosRequests.Select(s => s.SosType).Distinct().ToListAsync(), sosType => sosType == "Both");
+        Assert.NotEmpty(recentOpenSos);
+        Assert.All(recentOpenSos, sos =>
+        {
+            Assert.NotNull(sos.CreatedAt);
+            Assert.NotNull(sos.ReceivedAt);
+            Assert.NotNull(sos.LastUpdatedAt);
+            Assert.InRange(sos.CreatedAt!.Value, seedAnchorUtc.AddHours(-24), seedAnchorUtc);
+            Assert.InRange(sos.ReceivedAt!.Value, sos.CreatedAt.Value, seedAnchorUtc);
+            Assert.InRange(sos.LastUpdatedAt!.Value, sos.ReceivedAt.Value, seedAnchorUtc);
+
+            if (sos.Status == "Pending")
+            {
+                Assert.Null(sos.ReviewedAt);
+            }
+            else
+            {
+                Assert.NotNull(sos.ReviewedAt);
+                Assert.InRange(sos.ReviewedAt!.Value, sos.CreatedAt.Value, seedAnchorUtc);
+                Assert.InRange(sos.LastUpdatedAt.Value, sos.ReviewedAt.Value, seedAnchorUtc);
+            }
+        });
+        Assert.True(await context.SosRequests.AnyAsync(s =>
+            (s.Status == "Resolved" || s.Status == "Cancelled")
+            && s.CreatedAt < seedAnchorUtc.AddHours(-24)));
         Assert.All(
             await context.SosRequests.Select(s => s.SosType).Distinct().ToListAsync(),
             sosType => Assert.False(IsCapsLockToken(sosType), $"Expected PascalCase sos_type but found '{sosType}'."));

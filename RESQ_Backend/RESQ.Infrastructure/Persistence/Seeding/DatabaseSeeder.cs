@@ -37,11 +37,17 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
     private const int HueStadiumReserveTeamCount = 2;
     private const int HueStadiumReserveTeamMemberCount = 3;
+    private const int ClusteredSosClusterCount = 190;
     private const string HueStadiumReserveTeamCodePrefix = "RT-HUE-TD-AV";
     private static readonly string[] DepotClosureTestDepotNames =
     [
         "Kho cứu trợ Đại học Phú Yên",
         "Ga đường sắt Sài Gòn"
+    ];
+    private static readonly string[] HueDepotExcludedItemNames =
+    [
+        "Pin dự phòng 10000mAh",
+        "Bộ đèn pin đội đầu"
     ];
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly string[] ReferenceIdentityTables =
@@ -1446,6 +1452,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var blanketModel = seed.ItemModels.Single(m => m.Name == "Chăn ấm giữ nhiệt");
         EnsureEssentialDepotStock(seed, lifeJacketModel, blanketModel);
         EnsureClosureTestDepotsFullInventory(seed);
+        ExcludeHueDepotItems(seed);
 
         _db.SupplyInventories.AddRange(seed.Inventories);
         await _db.SaveChangesAsync(cancellationToken);
@@ -1496,6 +1503,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         EnsureLifeJacketReusableUnits(seed, lifeJacketModel);
         EnsureClosureTestDepotsReusableUnits(seed);
         EnsureManagerReturnFixtureReusableUnits(seed);
+        ExcludeHueDepotReusableUnits(seed);
         _db.ReusableItems.AddRange(seed.ReusableItems);
 
         await SeedVatInvoicesAsync(seed);
@@ -1545,14 +1553,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedEmergencyAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
-        var clusterSosCounts = Enumerable.Range(0, 110).Select(i => i < 20 ? 4 : 3).ToArray();
+        var clusterSosCounts = GetClusteredSosCounts();
         var createdSos = new List<SosRequest>();
 
         for (var i = 0; i < clusterSosCounts.Length; i++)
         {
             var area = Area(i);
             var localDate = RandomEventLocal(seed, i);
-            var severity = i < 22 ? "Critical" : i < 80 ? "High" : i < 101 ? "Medium" : "Low";
+            var severity = ClusterSeverityForSeedIndex(i);
             var clusterStatus = ClusterStatusForSeedIndex(i);
             var scatterPoints = BuildClusterScatterPoints(area, i, clusterSosCounts[i]);
             var avgLat = scatterPoints.Average(p => p.Lat);
@@ -1577,14 +1585,22 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             for (var j = 0; j < clusterSosCounts[i]; j++)
             {
                 var victim = seed.Victims[(i * 4 + j) % seed.Victims.Count];
-                var situation = Situation(i + j);
                 var priority = severity;
-                var createdAt = VnToUtc(localDate.AddMinutes(j * 18));
+                var situation = ClusterSituationForSeedIndex(i, j, priority);
                 var onBehalf = (i + j) % 5 == 0;
                 var reporterOther = !onBehalf && (i + j) % 10 == 0;
                 var reporter = reporterOther ? seed.Victims[(i * 7 + j + 11) % seed.Victims.Count] : victim;
                 var coordinator = seed.Coordinators[(i + j) % seed.Coordinators.Count];
                 var status = SosRequestStatusForClusterSeedIndex(i);
+                var historicalCreatedAt = VnToUtc(localDate.AddMinutes(j * 18));
+                var timeline = IsRecentOpenSosStatus(status)
+                    ? BuildRecentOpenSosTimeline(seed.AnchorUtc, i, j, status, onBehalf)
+                    : (
+                        CreatedAt: historicalCreatedAt,
+                        ReceivedAt: historicalCreatedAt.AddMinutes(onBehalf ? 2 : 0),
+                        ReviewedAt: status == "Pending" ? null : historicalCreatedAt.AddMinutes(20 + i % 30),
+                        LastUpdatedAt: historicalCreatedAt.AddHours(status == "Resolved" ? 8 : 1));
+                var createdAt = timeline.CreatedAt;
                 var people = 1 + (i + j) % 6;
                 var hasInjured = situation is "Medical" or "Landslide" || (i + j) % 11 == 0;
 
@@ -1595,7 +1611,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     UserId = victim.Id,
                     Location = Point(scatterPoints[j].Lon, scatterPoints[j].Lat),
                     LocationAccuracy = 12 + (i + j) % 35,
-                    SosType = situation is "NeedSupplies" ? "Relief" : hasInjured || situation is "Flooding" ? "Both" : "Rescue",
+                    SosType = SosTypeForSituation(situation),
                     RawMessage = SosMessage(situation, people, hasInjured),
                     StructuredData = Json(new
                     {
@@ -1618,11 +1634,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     PriorityScore = PriorityScore(priority, i + j),
                     Status = status,
                     AiAnalysis = null,
-                    ReceivedAt = createdAt.AddMinutes(onBehalf ? 2 : 0),
+                    ReceivedAt = timeline.ReceivedAt,
                     Timestamp = new DateTimeOffset(createdAt).ToUnixTimeMilliseconds(),
                     CreatedAt = createdAt,
-                    LastUpdatedAt = createdAt.AddHours(status == "Resolved" ? 8 : 1),
-                    ReviewedAt = status == "Pending" ? null : createdAt.AddMinutes(20 + i % 30),
+                    LastUpdatedAt = timeline.LastUpdatedAt,
+                    ReviewedAt = timeline.ReviewedAt,
                     ReviewedById = status == "Pending" ? null : coordinator.Id,
                     CreatedByCoordinatorId = onBehalf ? coordinator.Id : null
                 });
@@ -1709,7 +1725,15 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 var people = 2 + i % 4;
                 var hasInjured = i % 3 == 0;
                 var localDate = new DateTime(2026, 4, 6 + i, 6 + i % 5, 15 + i * 3 % 35, 0, DateTimeKind.Unspecified);
-                var createdAt = VnToUtc(localDate);
+                var historicalCreatedAt = VnToUtc(localDate);
+                var timeline = IsRecentOpenSosStatus(status)
+                    ? BuildRecentOpenSosTimeline(seed.AnchorUtc, 10_000 + i, 0, status, false)
+                    : (
+                        CreatedAt: historicalCreatedAt,
+                        ReceivedAt: historicalCreatedAt,
+                        ReviewedAt: status == "Pending" ? null : historicalCreatedAt.AddMinutes(16 + i),
+                        LastUpdatedAt: historicalCreatedAt.AddHours(status == "Resolved" ? 6 : 2));
+                var createdAt = timeline.CreatedAt;
                 var location = Point(uniqueHueStadiumCoordinates[i].Lon, uniqueHueStadiumCoordinates[i].Lat);
 
                 createdSos.Add(new SosRequest
@@ -1719,7 +1743,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     UserId = victim.Id,
                     Location = location,
                     LocationAccuracy = 9 + i,
-                    SosType = situation is "NeedSupplies" ? "Relief" : situation is "Flooding" ? "Both" : "Rescue",
+                    SosType = SosTypeForSituation(situation),
                     RawMessage = SosMessage(situation, people, hasInjured),
                     StructuredData = Json(new
                     {
@@ -1742,11 +1766,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     PriorityScore = i < 3 ? 69 + i : i < 8 ? 48 + i : 28 + i,
                     Status = status,
                     AiAnalysis = null,
-                    ReceivedAt = createdAt,
+                    ReceivedAt = timeline.ReceivedAt,
                     Timestamp = new DateTimeOffset(createdAt).ToUnixTimeMilliseconds(),
                     CreatedAt = createdAt,
-                    LastUpdatedAt = createdAt.AddHours(status == "Resolved" ? 6 : 2),
-                    ReviewedAt = status == "Pending" ? null : createdAt.AddMinutes(16 + i),
+                    LastUpdatedAt = timeline.LastUpdatedAt,
+                    ReviewedAt = timeline.ReviewedAt,
                     ReviewedById = status == "Pending" ? null : coordinator.Id,
                     CreatedByCoordinatorId = null
                 });
@@ -3084,6 +3108,61 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             .OrderBy(depot => depot.Id)
             .ToList();
 
+    private static Depot? FindHueDepot(DemoSeedContext seed) =>
+        seed.Depots.FirstOrDefault();
+
+    private static HashSet<int> HueDepotExcludedItemModelIds(DemoSeedContext seed) =>
+        seed.ItemModels
+            .Where(item => item.Name != null
+                && HueDepotExcludedItemNames.Contains(item.Name, StringComparer.OrdinalIgnoreCase))
+            .Select(item => item.Id)
+            .ToHashSet();
+
+    private static void ExcludeHueDepotItems(DemoSeedContext seed)
+    {
+        var hueDepot = FindHueDepot(seed);
+        if (hueDepot is null)
+        {
+            return;
+        }
+
+        var excludedItemModelIds = HueDepotExcludedItemModelIds(seed);
+        if (excludedItemModelIds.Count == 0)
+        {
+            return;
+        }
+
+        seed.Inventories.RemoveAll(inventory =>
+            inventory.DepotId == hueDepot.Id
+            && inventory.ItemModelId.HasValue
+            && excludedItemModelIds.Contains(inventory.ItemModelId.Value));
+    }
+
+    private static void ExcludeHueDepotReusableUnits(DemoSeedContext seed)
+    {
+        var hueDepot = FindHueDepot(seed);
+        if (hueDepot is null)
+        {
+            return;
+        }
+
+        var excludedReusableModelIds = seed.ItemModels
+            .Where(item => string.Equals(item.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
+            .Where(item => item.Name != null
+                && HueDepotExcludedItemNames.Contains(item.Name, StringComparer.OrdinalIgnoreCase))
+            .Select(item => item.Id)
+            .ToHashSet();
+        if (excludedReusableModelIds.Count == 0)
+        {
+            return;
+        }
+
+        seed.ReusableItems.RemoveAll(item =>
+            item.DepotId == hueDepot.Id
+            && item.ItemModelId.HasValue
+            && excludedReusableModelIds.Contains(item.ItemModelId.Value));
+    }
+
     private static void EnsureEssentialDepotStock(DemoSeedContext seed, ItemModel lifeJacketModel, ItemModel blanketModel)
     {
         for (var depotIndex = 0; depotIndex < seed.Depots.Count; depotIndex++)
@@ -3812,6 +3891,60 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static DateTime RandomEventUtc(DemoSeedContext seed, int index) => VnToUtc(RandomEventLocal(seed, index));
 
+    private static bool IsRecentOpenSosStatus(string? status) => status is "Pending" or "Assigned" or "InProgress" or "Incident";
+
+    private static (DateTime CreatedAt, DateTime ReceivedAt, DateTime? ReviewedAt, DateTime LastUpdatedAt) BuildRecentOpenSosTimeline(
+        DateTime anchorUtc,
+        int primaryIndex,
+        int secondaryIndex,
+        string status,
+        bool onBehalf)
+    {
+        if (!IsRecentOpenSosStatus(status))
+        {
+            throw new InvalidOperationException($"Status '{status}' does not use recent open SOS timeline.");
+        }
+
+        var seed = StableGuid($"recent-open-sos-{status}-{primaryIndex}-{secondaryIndex}-{(onBehalf ? 1 : 0)}");
+        var createdHoursAgo = status switch
+        {
+            "Pending" => DeterministicRange(seed, 0, 2.5, 23.5),
+            "Assigned" => DeterministicRange(seed, 0, 4.0, 21.0),
+            "InProgress" => DeterministicRange(seed, 0, 5.5, 18.0),
+            _ => DeterministicRange(seed, 0, 6.0, 14.0)
+        };
+
+        var createdAt = TrimUtcToMinute(anchorUtc.AddHours(-createdHoursAgo));
+        var receivedAt = TrimUtcToMinute(createdAt.AddMinutes(onBehalf ? 2 : 0));
+
+        if (status == "Pending")
+        {
+            var pendingLastUpdatedAt = TrimUtcToMinute(createdAt.AddMinutes(DeterministicRange(seed, 4, 12, 55)));
+            return (createdAt, receivedAt, null, MinUtc(pendingLastUpdatedAt, anchorUtc.AddMinutes(-1)));
+        }
+
+        var reviewedAt = TrimUtcToMinute(createdAt.AddMinutes(DeterministicRange(seed, 4, 8, 45)));
+        var followUpMinutes = status switch
+        {
+            "Assigned" => DeterministicRange(seed, 8, 18, 95),
+            "InProgress" => DeterministicRange(seed, 8, 55, 220),
+            _ => DeterministicRange(seed, 8, 70, 260)
+        };
+        var lastUpdatedAtCandidate = TrimUtcToMinute(reviewedAt.AddMinutes(followUpMinutes));
+        var lastUpdatedAt = MinUtc(lastUpdatedAtCandidate, anchorUtc.AddMinutes(-1));
+        if (lastUpdatedAt < reviewedAt)
+        {
+            lastUpdatedAt = reviewedAt;
+        }
+
+        return (createdAt, receivedAt, reviewedAt, lastUpdatedAt);
+    }
+
+    private static DateTime TrimUtcToMinute(DateTime value) =>
+        new DateTime(value.Ticks - value.Ticks % TimeSpan.TicksPerMinute, DateTimeKind.Utc);
+
+    private static DateTime MinUtc(DateTime left, DateTime right) => left <= right ? left : right;
+
     private static SeedArea Area(int index)
     {
         var areas = new[]
@@ -3921,6 +4054,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         var templates = count switch
         {
+            1 => SinglePointClusterScatterTemplates,
+            2 => TwoPointClusterScatterTemplates,
             3 => ThreePointClusterScatterTemplates,
             4 => FourPointClusterScatterTemplates,
             _ => throw new InvalidOperationException($"Không hỗ trợ {count} SOS trong một cluster demo.")
@@ -3928,13 +4063,25 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var templateSeed = StableGuid($"cluster-template-{clusterIndex}-{count}-{area.Code}-{area.Ward}");
         var templateIndex = (DeterministicIndex(templateSeed, templates.Length) + clusterIndex % templates.Length) % templates.Length;
         var template = templates[templateIndex];
+        var latJitterAmplitude = count switch
+        {
+            1 => 0.00018,
+            2 => 0.00024,
+            _ => 0.00035
+        };
+        var lonJitterAmplitude = count switch
+        {
+            1 => 0.00022,
+            2 => 0.00030,
+            _ => 0.00042
+        };
 
         return Enumerable.Range(0, count)
             .Select(pointIndex =>
             {
                 var jitterSeed = StableGuid($"cluster-point-{clusterIndex}-{pointIndex}-{area.Code}-{area.Ward}");
-                var latJitter = DeterministicRange(jitterSeed, 0, -0.00035, 0.00035);
-                var lonJitter = DeterministicRange(jitterSeed, 4, -0.00042, 0.00042);
+                var latJitter = DeterministicRange(jitterSeed, 0, -latJitterAmplitude, latJitterAmplitude);
+                var lonJitter = DeterministicRange(jitterSeed, 4, -lonJitterAmplitude, lonJitterAmplitude);
                 return new SeedCoordinate(
                     anchor.Lat + template[pointIndex].Lat + latJitter,
                     anchor.Lon + template[pointIndex].Lon + lonJitter);
@@ -3955,6 +4102,34 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var ratio = BitConverter.ToUInt32(bytes, offset) / (double)uint.MaxValue;
         return min + (max - min) * ratio;
     }
+
+    private static readonly SeedCoordinate[][] SinglePointClusterScatterTemplates =
+    [
+        [new SeedCoordinate(0.00042, -0.00028)],
+        [new SeedCoordinate(-0.00031, 0.00047)],
+        [new SeedCoordinate(0.00018, 0.00039)],
+        [new SeedCoordinate(-0.00046, -0.00012)]
+    ];
+
+    private static readonly SeedCoordinate[][] TwoPointClusterScatterTemplates =
+    [
+        [
+            new SeedCoordinate(0.00074, -0.00041),
+            new SeedCoordinate(-0.00028, 0.00063)
+        ],
+        [
+            new SeedCoordinate(-0.00061, -0.00022),
+            new SeedCoordinate(0.00047, 0.00058)
+        ],
+        [
+            new SeedCoordinate(0.00032, -0.00079),
+            new SeedCoordinate(-0.00054, 0.00035)
+        ],
+        [
+            new SeedCoordinate(-0.00072, 0.00048),
+            new SeedCoordinate(0.00026, -0.00057)
+        ]
+    ];
 
     private static readonly SeedCoordinate[][] ThreePointClusterScatterTemplates =
     [
@@ -4578,10 +4753,36 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         return groups.ToList();
     }
 
-    private static string Situation(int index)
+    private static int[] GetClusteredSosCounts()
     {
-        var situations = new[] { "Flooding", "Landslide", "Stranded", "CannotMove", "Medical", "NeedSupplies", "Evacuation" };
-        return situations[index % situations.Length];
+        var counts = Enumerable.Repeat(2, ClusteredSosClusterCount).ToArray();
+        foreach (var index in Enumerable.Range(0, 30).Select(offset => 5 + offset * 6))
+        {
+            counts[index] = 1;
+        }
+
+        return counts;
+    }
+
+    private static string ClusterSeverityForSeedIndex(int index) => index switch
+    {
+        < 8 => "Critical",
+        < 40 => "High",
+        < 130 => "Medium",
+        _ => "Low"
+    };
+
+    private static string ClusterSituationForSeedIndex(int clusterIndex, int requestIndex, string priority)
+    {
+        var situations = priority switch
+        {
+            "Critical" => CriticalClusterSituations,
+            "High" => HighClusterSituations,
+            "Medium" => MediumClusterSituations,
+            _ => LowClusterSituations
+        };
+        var seed = StableGuid($"cluster-situation-{clusterIndex}-{requestIndex}-{priority}");
+        return situations[DeterministicIndex(seed, situations.Length)];
     }
 
     private static string[] SuppliesFor(string situation)
@@ -4620,6 +4821,56 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             _ => 20 + index % 18
         };
     }
+
+    private static string SosTypeForSituation(string situation) => situation == "NeedSupplies" ? "Relief" : "Rescue";
+
+    private static readonly string[] CriticalClusterSituations =
+    [
+        "Flooding",
+        "Medical",
+        "CannotMove",
+        "Landslide",
+        "Stranded",
+        "Evacuation"
+    ];
+
+    private static readonly string[] HighClusterSituations =
+    [
+        "Flooding",
+        "Stranded",
+        "NeedSupplies",
+        "CannotMove",
+        "Medical",
+        "Evacuation",
+        "Landslide",
+        "Flooding"
+    ];
+
+    private static readonly string[] MediumClusterSituations =
+    [
+        "NeedSupplies",
+        "Stranded",
+        "NeedSupplies",
+        "Evacuation",
+        "NeedSupplies",
+        "Medical",
+        "CannotMove",
+        "NeedSupplies"
+    ];
+
+    private static readonly string[] LowClusterSituations =
+    [
+        "NeedSupplies",
+        "NeedSupplies",
+        "Stranded",
+        "NeedSupplies",
+        "Evacuation",
+        "NeedSupplies",
+        "NeedSupplies",
+        "Flooding",
+        "NeedSupplies",
+        "NeedSupplies"
+    ];
 
     private static string MissionType(int index, string? severity)
     {
@@ -4954,21 +5205,21 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static string ClusterStatusForSeedIndex(int index) => index switch
     {
-        < 20 => SosClusterStatus.Pending.ToString(),
-        < 45 => SosClusterStatus.InProgress.ToString(),
-        < 95 => SosClusterStatus.Completed.ToString(),
-        < 100 => SosClusterStatus.InProgress.ToString(),
+        < 32 => SosClusterStatus.Pending.ToString(),
+        < 58 => SosClusterStatus.InProgress.ToString(),
+        < 148 => SosClusterStatus.Completed.ToString(),
+        < 164 => SosClusterStatus.InProgress.ToString(),
         _ => SosClusterStatus.Pending.ToString()
     };
 
     private static string SosRequestStatusForClusterSeedIndex(int index) => index switch
     {
-        < 20 => SosRequestStatus.Pending.ToString(),
-        < 30 => SosRequestStatus.Assigned.ToString(),
-        < 45 => SosRequestStatus.InProgress.ToString(),
-        < 95 => SosRequestStatus.Resolved.ToString(),
-        < 100 => SosRequestStatus.Incident.ToString(),
-        < 104 => SosRequestStatus.Pending.ToString(),
+        < 32 => SosRequestStatus.Pending.ToString(),
+        < 44 => SosRequestStatus.Assigned.ToString(),
+        < 58 => SosRequestStatus.InProgress.ToString(),
+        < 148 => SosRequestStatus.Resolved.ToString(),
+        < 164 => SosRequestStatus.Incident.ToString(),
+        < 176 => SosRequestStatus.Pending.ToString(),
         _ => SosRequestStatus.Cancelled.ToString()
     };
 
