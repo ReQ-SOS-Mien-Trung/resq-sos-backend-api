@@ -83,7 +83,8 @@ public class GetDepotClosureDetailQueryHandler(
             ForceReason = closure.ForceReason,
             InitiatedAt = closure.InitiatedAt,
             CompletedAt = closure.CompletedAt,
-            CancelledAt = closure.CancelledAt
+            CancelledAt = closure.CancelledAt,
+            RemainingInventoryItems = await depotRepository.GetDetailedInventoryForClosureAsync(closure.DepotId, cancellationToken)
         };
 
         if (closure.ResolutionType == CloseResolutionType.TransferToDepot)

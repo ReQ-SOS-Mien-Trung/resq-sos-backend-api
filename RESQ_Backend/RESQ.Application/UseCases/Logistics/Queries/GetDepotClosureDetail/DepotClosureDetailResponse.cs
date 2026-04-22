@@ -1,3 +1,5 @@
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
+
 namespace RESQ.Application.UseCases.Logistics.Queries.GetDepotClosureDetail;
 
 public class DepotClosureDetailResponse
@@ -28,6 +30,7 @@ public class DepotClosureDetailResponse
     public DateTime InitiatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
+    public List<ClosureInventoryItemDto> RemainingInventoryItems { get; set; } = [];
     public DepotClosureTransferDetailDto? TransferDetail { get; set; }
     public List<DepotClosureTransferDetailDto> TransferDetails { get; set; } = [];
     public List<DepotClosureExternalItemDetailResponse> ExternalItems { get; set; } = [];
