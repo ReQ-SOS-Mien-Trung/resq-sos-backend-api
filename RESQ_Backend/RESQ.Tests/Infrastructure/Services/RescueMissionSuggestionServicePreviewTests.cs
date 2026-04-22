@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Personnel;
@@ -8,6 +9,7 @@ using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
 using RESQ.Domain.Entities.Emergency;
+using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.System;
@@ -114,6 +116,76 @@ public class RescueMissionSuggestionServicePreviewTests
         Assert.Equal(0, suggestionRepository.SavePipelineSnapshotCalls);
     }
 
+    [Fact]
+    public async Task PreviewSuggestionAsync_LegacyPrompt_MapsBoatResourceIntoCollectAndReturnActivities()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(new LegacyTransportStubAiProviderClient()),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            ThrowingProxy<IPromptRepository>.Create(),
+            suggestionRepository,
+            CreateInventoryBackedTransportDepotRepository(),
+            CreateInventoryBackedTransportItemMetadataRepository(),
+            new EmptyAssemblyPointRepository(),
+            Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = false }),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+        var result = await service.PreviewSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 1,
+                    RawMessage = "Khu vuc ngap sau, can ca no cuu ho de so tan nguoi mac ket.",
+                    PriorityLevel = "Critical",
+                    Latitude = 16.4661,
+                    Longitude = 107.5978
+                }
+            ],
+            [
+                new DepotSummary
+                {
+                    Id = 1,
+                    Name = "Kho Hue",
+                    Address = "1 Le Loi",
+                    Latitude = 16.4545,
+                    Longitude = 107.5680,
+                    Inventories =
+                    [
+                        new DepotInventoryItemDto { ItemId = 15, ItemName = "Nuoc sach", Unit = "chai", AvailableQuantity = 30 },
+                        new DepotInventoryItemDto { ItemId = 105, ItemName = "Ca no cuu ho", Unit = "chiec", AvailableQuantity = 4 }
+                    ]
+                }
+            ],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            promptOverride: new PromptModel
+            {
+                Id = 12,
+                Name = "Draft mission planning prompt",
+                PromptType = PromptType.MissionPlanning,
+                SystemPrompt = "mission-planning-legacy",
+                UserPromptTemplate = "{{sos_requests_data}}",
+                IsActive = false
+            },
+            aiConfigOverride: BuildAiConfig(model: "gemini-preview"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var collectActivity = Assert.Single(result.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
+        Assert.Contains(collectActivity.SuppliesToCollect!, supply => supply.ItemId == 105 && supply.Quantity == 2);
+
+        var returnActivity = Assert.Single(result.SuggestedActivities, activity => activity.ActivityType == "RETURN_SUPPLIES");
+        var returnSupply = Assert.Single(returnActivity.SuppliesToCollect!);
+        Assert.Equal(105, returnSupply.ItemId);
+        Assert.Equal(2, returnSupply.Quantity);
+
+        Assert.DoesNotContain(result.SuggestedResources, resource => string.Equals(resource.ResourceType, "BOAT", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static PromptModel BuildStagePrompt(
         int id,
         PromptType promptType,
@@ -144,6 +216,78 @@ public class RescueMissionSuggestionServicePreviewTests
         IsActive = true
     };
 
+    private static IDepotInventoryRepository CreateInventoryBackedTransportDepotRepository()
+    {
+        return ThrowingProxy<IDepotInventoryRepository>.Create((method, _) =>
+            method?.Name switch
+            {
+                nameof(IDepotInventoryRepository.SearchForAgentAsync) => Task.FromResult((
+                    new List<AgentInventoryItem>
+                    {
+                        new()
+                        {
+                            ItemId = 105,
+                            ItemName = "Ca no cuu ho",
+                            CategoryName = "Phuong tien",
+                            ItemType = "Reusable",
+                            Unit = "chiec",
+                            AvailableQuantity = 4,
+                            GoodAvailableCount = 4,
+                            DepotId = 1,
+                            DepotName = "Kho Hue",
+                            DepotAddress = "1 Le Loi",
+                            DepotLatitude = 16.4545,
+                            DepotLongitude = 107.5680
+                        }
+                    },
+                    1)),
+                nameof(IDepotInventoryRepository.PreviewReserveSuppliesAsync) => Task.FromResult(
+                    new MissionSupplyReservationResult
+                    {
+                        Items =
+                        [
+                            new SupplyExecutionItemDto
+                            {
+                                ItemModelId = 105,
+                                ItemName = "Ca no cuu ho",
+                                Unit = "chiec",
+                                Quantity = 2,
+                                ReusableUnits =
+                                [
+                                    new SupplyExecutionReusableUnitDto { ReusableItemId = 501, ItemModelId = 105, ItemName = "Ca no cuu ho", SerialNumber = "CN-001", Condition = "Good" },
+                                    new SupplyExecutionReusableUnitDto { ReusableItemId = 502, ItemModelId = 105, ItemName = "Ca no cuu ho", SerialNumber = "CN-002", Condition = "Good" }
+                                ]
+                            }
+                        ]
+                    }),
+                nameof(IDepotInventoryRepository.GetDepotLocationAsync) => Task.FromResult<(double Latitude, double Longitude)?>(null),
+                _ => throw new NotImplementedException(method?.Name ?? typeof(IDepotInventoryRepository).Name)
+            });
+    }
+
+    private static IItemModelMetadataRepository CreateInventoryBackedTransportItemMetadataRepository()
+    {
+        return ThrowingProxy<IItemModelMetadataRepository>.Create((method, args) =>
+            method?.Name switch
+            {
+                nameof(IItemModelMetadataRepository.GetByIdsAsync) => Task.FromResult(
+                    (((IReadOnlyList<int>)args![0]!).Contains(105))
+                        ? new Dictionary<int, ItemModelRecord>
+                        {
+                            [105] = new()
+                            {
+                                Id = 105,
+                                CategoryId = 10,
+                                Name = "Ca no cuu ho",
+                                Unit = "chiec",
+                                ItemType = "Reusable"
+                            }
+                        }
+                        : new Dictionary<int, ItemModelRecord>()),
+                _ => throw new NotImplementedException(method?.Name ?? typeof(IItemModelMetadataRepository).Name)
+            });
+    }
+
     private sealed class StubAiProviderClientFactory(IAiProviderClient client) : IAiProviderClientFactory
     {
         public IAiProviderClient GetClient(AiProvider provider) => client;
@@ -169,6 +313,78 @@ public class RescueMissionSuggestionServicePreviewTests
                   "activities": [],
                   "resources": [],
                   "estimated_duration": "20 phut",
+                  "special_notes": null,
+                  "needs_additional_depot": false,
+                  "supply_shortages": [],
+                  "confidence_score": 0.9
+                }
+                """,
+                HttpStatusCode = 200,
+                LatencyMs = 10
+            });
+        }
+    }
+
+    private sealed class LegacyTransportStubAiProviderClient : IAiProviderClient
+    {
+        public AiProvider Provider => AiProvider.Gemini;
+
+        public Task<AiCompletionResponse> CompleteAsync(
+            AiCompletionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new AiCompletionResponse
+            {
+                Text = """
+                {
+                  "mission_title": "Boat preview",
+                  "mission_type": "MIXED",
+                  "priority_score": 8.8,
+                  "severity_level": "Critical",
+                  "overall_assessment": "Flooded area requires rescue and supply support",
+                  "activities": [
+                    {
+                      "step": 1,
+                      "activity_type": "COLLECT_SUPPLIES",
+                      "description": "Lay nuoc tu Kho Hue",
+                      "sos_request_id": 1,
+                      "depot_id": 1,
+                      "depot_name": "Kho Hue",
+                      "depot_address": "1 Le Loi",
+                      "supplies_to_collect": [
+                        { "item_id": 15, "item_name": "Nuoc sach", "quantity": 10, "unit": "chai" }
+                      ],
+                      "priority": "Critical",
+                      "estimated_time": "30 phut",
+                      "suggested_team": null
+                    },
+                    {
+                      "step": 2,
+                      "activity_type": "RESCUE",
+                      "description": "Cuu ho nguoi mac ket tai SOS ID 1",
+                      "sos_request_id": 1,
+                      "depot_id": null,
+                      "depot_name": null,
+                      "depot_address": null,
+                      "supplies_to_collect": null,
+                      "priority": "Critical",
+                      "estimated_time": "1 gio",
+                      "suggested_team": {
+                        "team_id": 21,
+                        "team_name": "Team A",
+                        "team_type": "Rescue",
+                        "reason": "Gan nhat",
+                        "assembly_point_id": 1,
+                        "assembly_point_name": "AP 1",
+                        "latitude": 16.46,
+                        "longitude": 107.58
+                      }
+                    }
+                  ],
+                  "resources": [
+                    { "resource_type": "BOAT", "description": "Ca no cuu ho cho khu vuc ngap sau", "quantity": 2, "priority": "Critical" }
+                  ],
+                  "estimated_duration": "1 gio 30 phut",
                   "special_notes": null,
                   "needs_additional_depot": false,
                   "supply_shortages": [],
@@ -395,10 +611,22 @@ public class RescueMissionSuggestionServicePreviewTests
     private class ThrowingProxy<T> : DispatchProxy
         where T : class
     {
+        private Func<MethodInfo?, object?[]?, object?>? _handler;
+
         public static T Create() => DispatchProxy.Create<T, ThrowingProxy<T>>();
+
+        public static T Create(Func<MethodInfo?, object?[]?, object?> handler)
+        {
+            var proxy = DispatchProxy.Create<T, ThrowingProxy<T>>();
+            ((ThrowingProxy<T>)(object)proxy)._handler = handler;
+            return proxy;
+        }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
+            if (_handler is not null)
+                return _handler(targetMethod, args);
+
             throw new NotImplementedException(targetMethod?.Name ?? typeof(T).Name);
         }
     }

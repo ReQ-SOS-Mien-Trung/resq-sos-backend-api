@@ -111,8 +111,8 @@ public partial class RescueMissionSuggestionService
                         ["single_depot_required"] = bool.TrueString,
                         ["eligible_depot_count"] = (nearbyDepots?.Count ?? 0).ToString()
                     },
-                    "Plan depot collection and delivery fragments. Use only inventory lookup results. Choose exactly one depot for the whole mission. Do not split supplies across multiple depots. Search both relief stock and transport or reusable equipment from inventory when the plan needs vehicles or field gear. If the chosen depot lacks stock, keep the one-depot plan and fill needs_additional_depot plus supply_shortages."),
-                "Only searchInventory is available. It is already scoped to eligible depots for this cluster. If a depot-backed vehicle or reusable item is selected, keep it inside COLLECT_SUPPLIES and RETURN_SUPPLIES with depot and item identifiers; do not demote it to resources[]. This stage only suggests the plan and does not reserve inventory. Do not invent depot_id or item_id. Return JSON only.",
+                    "Plan depot collection and delivery fragments. Use only inventory lookup results. Choose exactly one depot for the whole mission. Do not split supplies across multiple depots. Search both relief stock and transport or reusable equipment from inventory when the plan needs vehicles or field gear. If SOS context mentions flooding, isolation, or evacuation, you must also search transportation/rescue inventory before finalizing the depot plan. If the chosen depot lacks stock, keep the one-depot plan and fill needs_additional_depot plus supply_shortages."),
+                "Only searchInventory is available. It is already scoped to eligible depots for this cluster. If a depot-backed vehicle or reusable item is selected, keep it inside COLLECT_SUPPLIES and RETURN_SUPPLIES with depot and item identifiers; do not demote it to resources[]. When searchInventory returns a matching boat, vehicle, or rescue equipment item, put that real inventory item into supplies_to_collect instead of leaving it as a generic resource. This stage only suggests the plan and does not reserve inventory. Do not invent depot_id or item_id. Return JSON only.",
                 BuildAllowedTools("searchInventory"),
                 nearbyDepots,
                 nearbyTeams,
@@ -900,6 +900,9 @@ public partial class RescueMissionSuggestionService
         NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
         BackfillItemIds(result.SuggestedActivities, nearbyDepots ?? []);
         await BackfillInventoryBackedItemIdsAsync(result.SuggestedActivities, cancellationToken);
+        BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
+        await EnsureInventoryBackedTransportSuppliesAsync(result, sosRequests, nearbyDepots ?? [], cancellationToken);
+        NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
         await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
         await EnsureReusableReturnActivitiesAsync(result.SuggestedActivities, cancellationToken);

@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Repositories.Base;
@@ -5,6 +6,7 @@ using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Logistics;
 
@@ -38,6 +40,10 @@ public class InitiateDepotClosureCommandHandlerTests
         {
             LatestClosure = closure
         };
+        var inventoryRepository = ThrowingProxy<IDepotInventoryRepository>.Create((method, _) =>
+            method?.Name == nameof(IDepotInventoryRepository.GetDepotClosingBlockersAsync)
+                ? Task.FromResult(new DepotClosingBlockersModel())
+                : throw new NotImplementedException(method?.Name ?? typeof(IDepotInventoryRepository).Name));
         var fundDrainService = new StubDepotFundDrainService();
         var transferRepository = new StubDepotClosureTransferRepository();
         var managerDepotAccessService = new StubManagerDepotAccessService();
@@ -47,6 +53,7 @@ public class InitiateDepotClosureCommandHandlerTests
         var handler = new InitiateDepotClosureCommandHandler(
             managerDepotAccessService,
             depotRepository,
+            inventoryRepository,
             closureRepository,
             transferRepository,
             fundDrainService,
@@ -94,6 +101,10 @@ public class InitiateDepotClosureCommandHandlerTests
         {
             LatestClosure = closure
         };
+        var inventoryRepository = ThrowingProxy<IDepotInventoryRepository>.Create((method, _) =>
+            method?.Name == nameof(IDepotInventoryRepository.GetDepotClosingBlockersAsync)
+                ? Task.FromResult(new DepotClosingBlockersModel())
+                : throw new NotImplementedException(method?.Name ?? typeof(IDepotInventoryRepository).Name));
         var fundDrainService = new StubDepotFundDrainService();
         var transferRepository = new StubDepotClosureTransferRepository();
         var managerDepotAccessService = new StubManagerDepotAccessService();
@@ -103,6 +114,7 @@ public class InitiateDepotClosureCommandHandlerTests
         var handler = new InitiateDepotClosureCommandHandler(
             managerDepotAccessService,
             depotRepository,
+            inventoryRepository,
             closureRepository,
             transferRepository,
             fundDrainService,
@@ -159,6 +171,10 @@ public class InitiateDepotClosureCommandHandlerTests
         {
             LatestClosure = closure
         };
+        var inventoryRepository = ThrowingProxy<IDepotInventoryRepository>.Create((method, _) =>
+            method?.Name == nameof(IDepotInventoryRepository.GetDepotClosingBlockersAsync)
+                ? Task.FromResult(new DepotClosingBlockersModel())
+                : throw new NotImplementedException(method?.Name ?? typeof(IDepotInventoryRepository).Name));
         var transferRepository = new StubDepotClosureTransferRepository
         {
             HasOpenTransfers = false
@@ -171,6 +187,7 @@ public class InitiateDepotClosureCommandHandlerTests
         var handler = new InitiateDepotClosureCommandHandler(
             managerDepotAccessService,
             depotRepository,
+            inventoryRepository,
             closureRepository,
             transferRepository,
             fundDrainService,
@@ -434,6 +451,27 @@ public class InitiateDepotClosureCommandHandlerTests
         {
             ExecuteInTransactionCalls++;
             await action();
+        }
+    }
+
+    private class ThrowingProxy<T> : DispatchProxy
+        where T : class
+    {
+        private Func<MethodInfo?, object?[]?, object?>? _handler;
+
+        public static T Create(Func<MethodInfo?, object?[]?, object?> handler)
+        {
+            var proxy = DispatchProxy.Create<T, ThrowingProxy<T>>();
+            ((ThrowingProxy<T>)(object)proxy)._handler = handler;
+            return proxy;
+        }
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            if (_handler is not null)
+                return _handler(targetMethod, args);
+
+            throw new NotImplementedException(targetMethod?.Name ?? typeof(T).Name);
         }
     }
 }

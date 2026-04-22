@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
@@ -241,103 +243,111 @@ public class MissionContextService(
         var needed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var sos in sosRequests)
         {
-            if (string.IsNullOrWhiteSpace(sos.StructuredData)) continue;
-            try
+            if (!string.IsNullOrWhiteSpace(sos.StructuredData))
             {
-                using var doc = JsonDocument.Parse(sos.StructuredData);
-                var root = doc.RootElement;
-
-                // Dual-read: try new nested format first, fallback to old flat
-                if (root.TryGetProperty("group_needs", out var groupNeeds))
+                try
                 {
-                    // New nested format
-                    if (groupNeeds.TryGetProperty("supplies", out var supplies)
-                        && supplies.ValueKind == JsonValueKind.Array)
+                    using var doc = JsonDocument.Parse(sos.StructuredData);
+                    var root = doc.RootElement;
+
+                    // Dual-read: try new nested format first, fallback to old flat
+                    if (root.TryGetProperty("group_needs", out var groupNeeds))
                     {
-                        foreach (var item in supplies.EnumerateArray())
+                        // New nested format
+                        if (groupNeeds.TryGetProperty("supplies", out var supplies)
+                            && supplies.ValueKind == JsonValueKind.Array)
                         {
-                            var val = item.GetString();
-                            if (!string.IsNullOrWhiteSpace(val))
-                                needed.Add(val.Trim().ToUpperInvariant());
+                            foreach (var item in supplies.EnumerateArray())
+                            {
+                                var val = item.GetString();
+                                if (!string.IsNullOrWhiteSpace(val))
+                                    needed.Add(val.Trim().ToUpperInvariant());
+                            }
+                        }
+
+                        if (groupNeeds.TryGetProperty("water", out var water) && water.ValueKind == JsonValueKind.Object)
+                        {
+                            if (water.TryGetProperty("duration", out var wd) && wd.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(wd.GetString()))
+                                needed.Add("WATER");
+                            if (water.TryGetProperty("remaining", out var wr) && wr.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(wr.GetString()))
+                                needed.Add("WATER");
+                        }
+
+                        if (groupNeeds.TryGetProperty("food", out var food) && food.ValueKind == JsonValueKind.Object)
+                        {
+                            if (food.TryGetProperty("duration", out var fd) && fd.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(fd.GetString()))
+                                needed.Add("FOOD");
+                        }
+
+                        if (groupNeeds.TryGetProperty("blanket", out var blanket) && blanket.ValueKind == JsonValueKind.Object)
+                        {
+                            if (blanket.TryGetProperty("request_count", out var rc) && rc.ValueKind == JsonValueKind.Number && rc.GetInt32() > 0)
+                                needed.Add("CLOTHING");
+                        }
+
+                        if (groupNeeds.TryGetProperty("medicine", out var medicine) && medicine.ValueKind == JsonValueKind.Object)
+                        {
+                            if (medicine.TryGetProperty("medical_needs", out var mn) && mn.ValueKind == JsonValueKind.Array && mn.GetArrayLength() > 0)
+                                needed.Add("MEDICINE");
+                            if (medicine.TryGetProperty("medical_description", out var md) && md.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(md.GetString()))
+                                needed.Add("MEDICINE");
+                        }
+
+                        if (groupNeeds.TryGetProperty("clothing", out var clothing) && clothing.ValueKind == JsonValueKind.Object)
+                        {
+                            if (clothing.TryGetProperty("status", out var cs) && cs.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(cs.GetString()))
+                                needed.Add("CLOTHING");
                         }
                     }
-
-                    if (groupNeeds.TryGetProperty("water", out var water) && water.ValueKind == JsonValueKind.Object)
+                    else
                     {
-                        if (water.TryGetProperty("duration", out var wd) && wd.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(wd.GetString()))
-                            needed.Add("WATER");
-                        if (water.TryGetProperty("remaining", out var wr) && wr.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(wr.GetString()))
-                            needed.Add("WATER");
-                    }
+                        // Old flat format
+                        if (root.TryGetProperty("supplies", out var supplies)
+                            && supplies.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var item in supplies.EnumerateArray())
+                            {
+                                var val = item.GetString();
+                                if (!string.IsNullOrWhiteSpace(val))
+                                    needed.Add(val.Trim().ToUpperInvariant());
+                            }
+                        }
 
-                    if (groupNeeds.TryGetProperty("food", out var food) && food.ValueKind == JsonValueKind.Object)
-                    {
-                        if (food.TryGetProperty("duration", out var fd) && fd.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(fd.GetString()))
-                            needed.Add("FOOD");
-                    }
+                        if (root.TryGetProperty("supply_details", out var supplyDetails) && supplyDetails.ValueKind == JsonValueKind.Object)
+                        {
+                            if (supplyDetails.TryGetProperty("are_blankets_enough", out var blanketsEnough) && blanketsEnough.ValueKind == JsonValueKind.False)
+                                needed.Add("CLOTHING");
+                            if (supplyDetails.TryGetProperty("blanket_request_count", out var blanketCount) && blanketCount.ValueKind == JsonValueKind.Number && blanketCount.GetInt32() > 0)
+                                needed.Add("CLOTHING");
+                            if (supplyDetails.TryGetProperty("clothing_persons", out var clothingArr) && clothingArr.ValueKind == JsonValueKind.Array && clothingArr.GetArrayLength() > 0)
+                                needed.Add("CLOTHING");
 
-                    if (groupNeeds.TryGetProperty("blanket", out var blanket) && blanket.ValueKind == JsonValueKind.Object)
-                    {
-                        if (blanket.TryGetProperty("request_count", out var rc) && rc.ValueKind == JsonValueKind.Number && rc.GetInt32() > 0)
-                            needed.Add("CLOTHING");
-                    }
+                            if (supplyDetails.TryGetProperty("food_duration", out var foodDur) && foodDur.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(foodDur.GetString()))
+                                needed.Add("FOOD");
+                            if (supplyDetails.TryGetProperty("special_diet_persons", out var dietArr) && dietArr.ValueKind == JsonValueKind.Array && dietArr.GetArrayLength() > 0)
+                                needed.Add("FOOD");
 
-                    if (groupNeeds.TryGetProperty("medicine", out var medicine) && medicine.ValueKind == JsonValueKind.Object)
-                    {
-                        if (medicine.TryGetProperty("medical_needs", out var mn) && mn.ValueKind == JsonValueKind.Array && mn.GetArrayLength() > 0)
-                            needed.Add("MEDICINE");
-                        if (medicine.TryGetProperty("medical_description", out var md) && md.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(md.GetString()))
-                            needed.Add("MEDICINE");
-                    }
+                            if (supplyDetails.TryGetProperty("water_duration", out var waterDur) && waterDur.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(waterDur.GetString()))
+                                needed.Add("WATER");
+                            if (supplyDetails.TryGetProperty("water_remaining", out var waterRem) && waterRem.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(waterRem.GetString()))
+                                needed.Add("WATER");
 
-                    if (groupNeeds.TryGetProperty("clothing", out var clothing) && clothing.ValueKind == JsonValueKind.Object)
-                    {
-                        if (clothing.TryGetProperty("status", out var cs) && cs.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(cs.GetString()))
-                            needed.Add("CLOTHING");
+                            if (supplyDetails.TryGetProperty("medical_needs", out var medNeeds) && medNeeds.ValueKind == JsonValueKind.Array && medNeeds.GetArrayLength() > 0)
+                                needed.Add("MEDICINE");
+                            if (supplyDetails.TryGetProperty("medical_description", out var medDesc) && medDesc.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(medDesc.GetString()))
+                                needed.Add("MEDICINE");
+                        }
                     }
                 }
-                else
+                catch (JsonException)
                 {
-                    // Old flat format
-                    if (root.TryGetProperty("supplies", out var supplies)
-                        && supplies.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var item in supplies.EnumerateArray())
-                        {
-                            var val = item.GetString();
-                            if (!string.IsNullOrWhiteSpace(val))
-                                needed.Add(val.Trim().ToUpperInvariant());
-                        }
-                    }
-
-                    if (root.TryGetProperty("supply_details", out var supplyDetails) && supplyDetails.ValueKind == JsonValueKind.Object)
-                    {
-                        if (supplyDetails.TryGetProperty("are_blankets_enough", out var blanketsEnough) && blanketsEnough.ValueKind == JsonValueKind.False)
-                            needed.Add("CLOTHING");
-                        if (supplyDetails.TryGetProperty("blanket_request_count", out var blanketCount) && blanketCount.ValueKind == JsonValueKind.Number && blanketCount.GetInt32() > 0)
-                            needed.Add("CLOTHING");
-                        if (supplyDetails.TryGetProperty("clothing_persons", out var clothingArr) && clothingArr.ValueKind == JsonValueKind.Array && clothingArr.GetArrayLength() > 0)
-                            needed.Add("CLOTHING");
-
-                        if (supplyDetails.TryGetProperty("food_duration", out var foodDur) && foodDur.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(foodDur.GetString()))
-                            needed.Add("FOOD");
-                        if (supplyDetails.TryGetProperty("special_diet_persons", out var dietArr) && dietArr.ValueKind == JsonValueKind.Array && dietArr.GetArrayLength() > 0)
-                            needed.Add("FOOD");
-
-                        if (supplyDetails.TryGetProperty("water_duration", out var waterDur) && waterDur.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(waterDur.GetString()))
-                            needed.Add("WATER");
-                        if (supplyDetails.TryGetProperty("water_remaining", out var waterRem) && waterRem.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(waterRem.GetString()))
-                            needed.Add("WATER");
-
-                        if (supplyDetails.TryGetProperty("medical_needs", out var medNeeds) && medNeeds.ValueKind == JsonValueKind.Array && medNeeds.GetArrayLength() > 0)
-                            needed.Add("MEDICINE");
-                        if (supplyDetails.TryGetProperty("medical_description", out var medDesc) && medDesc.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(medDesc.GetString()))
-                            needed.Add("MEDICINE");
-                    }
+                    // ignore invalid StructuredData
                 }
             }
-            catch (JsonException) { /* ignore invalid StructuredData */ }
+
+            ApplyOperationalSupplyHeuristics(needed, BuildOperationalSignalText(sos));
         }
+
         return needed;
     }
 
@@ -461,6 +471,19 @@ public class MissionContextService(
             ["TRANSPORTATION"]   = ["transportation", "xe", "phương tiện"],
         };
 
+    private static readonly Dictionary<string, string[]> NormalizedSupplyCategoryKeywords =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["FOOD"]             = ["food", "gao", "mi", "luong thuc", "thuc pham", "banh", "do an"],
+            ["WATER"]            = ["water", "nuoc"],
+            ["MEDICINE"]         = ["medicine", "thuoc", "y te", "medical", "bang", "bong", "so cuu"],
+            ["RESCUE_EQUIPMENT"] = ["rescue", "cuu ho", "day", "phao", "xuong", "thuyen", "boat", "cano", "canoe", "ca no", "cang", "ao phao"],
+            ["HYGIENE"]          = ["hygiene", "ve sinh", "xa phong", "khan", "giay ve sinh"],
+            ["SHELTER"]          = ["shelter", "leu", "bat", "tam che"],
+            ["CLOTHING"]         = ["clothing", "quan ao", "ao", "chan", "men", "giu am"],
+            ["TRANSPORTATION"]   = ["transportation", "transport", "vehicle", "xe", "phuong tien", "boat", "cano", "canoe", "ca no", "xuong", "thuyen", "ambulance", "truck"],
+        };
+
     private static bool CoversSingleSupply(IReadOnlyList<string> itemNamesUpper, string supply)
     {
         return itemNamesUpper.Any(itemName => MatchesSupply(itemName, supply));
@@ -471,10 +494,119 @@ public class MissionContextService(
         if (string.IsNullOrWhiteSpace(itemName))
             return false;
 
-        if (SupplyCategoryKeywords.TryGetValue(supply, out var keywords))
-            return keywords.Any(keyword => itemName.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+        var normalizedItemName = NormalizeSupplyText(itemName);
+        if (NormalizedSupplyCategoryKeywords.TryGetValue(supply, out var keywords))
+            return keywords.Any(keyword => normalizedItemName.Contains(NormalizeSupplyText(keyword), StringComparison.Ordinal));
 
-        return itemName.Contains(supply, StringComparison.OrdinalIgnoreCase);
+        return normalizedItemName.Contains(NormalizeSupplyText(supply), StringComparison.Ordinal);
+    }
+
+    private static void ApplyOperationalSupplyHeuristics(ISet<string> needed, string operationalText)
+    {
+        if (string.IsNullOrWhiteSpace(operationalText))
+            return;
+
+        var mentionsFlooding = ContainsAny(
+            operationalText,
+            "ngap",
+            "lut",
+            "nuoc dang len",
+            "nuoc sau",
+            "ngap sau",
+            "flood",
+            "flooded",
+            "water level",
+            "duong thuy");
+        var mentionsIsolation = ContainsAny(
+            operationalText,
+            "co lap",
+            "mac ket",
+            "chia cat",
+            "khong the tiep can",
+            "khong tiep can",
+            "trapped",
+            "isolated",
+            "stranded",
+            "cut off");
+        var mentionsEvacuation = ContainsAny(
+            operationalText,
+            "so tan",
+            "evacuate",
+            "evacuation",
+            "di doi",
+            "dua ra khoi vung nguy hiem",
+            "dua den noi an toan");
+        var mentionsWatercraft = ContainsAny(
+            operationalText,
+            "ca no",
+            "cano",
+            "canoe",
+            "xuong",
+            "thuyen",
+            "boat");
+        var mentionsRescueGear = ContainsAny(
+            operationalText,
+            "cuu ho",
+            "phao",
+            "day",
+            "cang",
+            "ao phao",
+            "rescue equipment");
+
+        if (mentionsFlooding || mentionsIsolation || mentionsEvacuation || mentionsWatercraft)
+            needed.Add("TRANSPORTATION");
+
+        if (mentionsFlooding || mentionsIsolation || mentionsWatercraft || mentionsRescueGear)
+            needed.Add("RESCUE_EQUIPMENT");
+    }
+
+    private static string BuildOperationalSignalText(SosRequestSummary sos)
+    {
+        var parts = new List<string?>(4)
+        {
+            sos.SosType,
+            sos.RawMessage,
+            sos.StructuredData,
+            sos.LatestIncidentNote
+        };
+
+        if (sos.IncidentNotes.Count > 0)
+            parts.AddRange(sos.IncidentNotes);
+
+        return NormalizeSupplyText(string.Join(' ', parts.Where(part => !string.IsNullOrWhiteSpace(part))));
+    }
+
+    private static bool ContainsAny(string text, params string[] keywords) =>
+        keywords.Any(keyword => text.Contains(NormalizeSupplyText(keyword), StringComparison.Ordinal));
+
+    private static string NormalizeSupplyText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var ch in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            var mapped = ch switch
+            {
+                'đ' => 'd',
+                'Đ' => 'd',
+                _ => char.ToLowerInvariant(ch)
+            };
+
+            builder.Append(char.IsLetterOrDigit(mapped) ? mapped : ' ');
+        }
+
+        return string.Join(
+            ' ',
+            builder
+                .ToString()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
 
     private static DepotSummary MapToDepotSummary(DepotModel depot, double distKm) => new()

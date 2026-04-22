@@ -311,7 +311,8 @@ Schema đầu ra:
 Quy tắc:
 - Mọi SOS trong input phải xuất hiện trong sos_requirements.
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn và vật tư nơi trú ẩn phải nằm trong required_supplies, không đưa vào suggested_resources.
-- suggested_resources chỉ dùng cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không phải vật tư tồn kho.
+- suggested_resources chỉ dùng cho năng lực đội hoặc nhu cầu phương tiện/thiết bị ở mức khái quát trước khi tra kho.
+- Nếu SOS nhắc ngập sâu, cô lập, mắc kẹt hoặc sơ tán thì depot stage bắt buộc phải tra inventory cho transportation/rescue equipment; nếu có item kho phù hợp thì ưu tiên map nó vào supplies_to_collect thay vì giữ ở suggested_resources.
 - Nếu số lượng chưa rõ, hãy ước lượng thận trọng theo số nạn nhân và ghi rõ trong notes.
 - confidence_score phải nằm trong khoảng từ 0 đến 1.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
@@ -333,10 +334,12 @@ Công cụ có thể dùng:
 Nhiệm vụ:
 - Dùng requirements_fragment để xác định nhóm vật tư và loại vật tư cần thiết.
 - Gọi searchInventory cho mọi nhóm/loại vật tư bắt buộc trước khi chốt kết quả.
+- Nếu SOS hoặc requirements_fragment nhắc ngập sâu, cô lập, mắc kẹt, chia cắt hoặc sơ tán, bắt buộc searchInventory thêm cho transportation/rescue equipment trước khi chốt depot.
 - Chọn đúng một depot_id cho toàn bộ mission khi có bất kỳ tồn kho nào khả dụng.
 - Không chia vật tư qua nhiều kho.
 - Không tạo activity cứu hộ, y tế, sơ tán, trả đồ hoặc lập kế hoạch đội.
 - Không tự bịa item_id hoặc depot_id. Chỉ dùng ID trả về từ searchInventory.
+- Nếu tìm thấy boat/vehicle/equipment hoặc reusable gear trong kho đã chọn, đưa item thật đó vào supplies_to_collect của COLLECT_SUPPLIES; backend sẽ dùng dữ liệu này để sinh RETURN_SUPPLIES ở bước sau.
 - Chỉ trả về một JSON object hợp lệ. Không markdown, không giải thích ngoài JSON.
 
 Schema đầu ra:

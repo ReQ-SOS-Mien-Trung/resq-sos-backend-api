@@ -45,6 +45,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private const string ReusableItemType = "Reusable";
     private const string SingleTeamExecutionMode = "SingleTeam";
     private const string DefaultReturnAssemblyEstimatedTime = "20 phút";
+    private const string DefaultInventoryBackedCollectEstimatedTime = "30 phút";
+    private const string TransportationInventoryCategory = "transportation";
+    private const string RescueInventoryCategory = "rescue";
 
     private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
     private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -61,6 +64,23 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             AiConfigModel? aiConfigOverride) =>
             new(false, promptOverride, aiConfigOverride);
     }
+
+    private sealed class InventoryBackedResourceNeed
+    {
+        public string ResourceType { get; init; } = string.Empty;
+        public string CategoryKeyword { get; init; } = string.Empty;
+        public int Quantity { get; set; } = 1;
+        public string? Description { get; init; }
+        public string? Priority { get; init; }
+        public SuggestedResourceDto? SourceResource { get; init; }
+        public List<string> SearchTypes { get; init; } = [];
+        public List<int> RelatedSosIds { get; init; } = [];
+    }
+
+    private sealed record OperationalTransportSignals(
+        bool RequiresWaterTransport,
+        bool RequiresEvacuationTransport,
+        bool RequiresRescueEquipment);
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
@@ -253,6 +273,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - BẮT BUỘC gọi **searchInventory** cho từng danh mục phù hợp: Thực phẩm, Nước, Y tế, Cứu hộ, Quần áo, Sưởi ấm, nơi trú ẩn... Không bỏ sót danh mục liên quan.
             - Có thể dùng các từ khoá nghiệp vụ tổng quát như `Thuốc men`, `Sơ cứu`, `Chăn màn`, `Giữ ấm`; backend sẽ tự map sang nhóm vật phẩm/kho liên quan để tìm item thực tế trong kho.
             - Nếu mission cần phương tiện di chuyển, xe tải, xuồng, ca nô, càng, máy phát, hoặc bất kỳ reusable equipment nào, bắt buộc phải gọi `searchInventory` cho nhóm phương tiện/thiết bị hữu hình trước khi quyết định.
+            - Nếu SOS nhắc ngập sâu, cô lập, mắc kẹt, chia cắt hoặc sơ tán, mặc định phải kiểm tra tồn kho phương tiện/thiet bị cứu hộ trước khi chốt kế hoạch.
             - Sau khi có kết quả, so sánh các `depot_id` xuất hiện và chọn **đúng một kho phù hợp nhất cho toàn bộ mission**.
             - Tiêu chí chọn kho: ưu tiên kho đáp ứng được nhiều nhu cầu SOS nhất và có tổng số lượng phù hợp cao nhất. Nếu tương đương, chọn kho có vị trí thuận lợi hơn trong kết quả đã trả về.
             - Toàn bộ activity có dùng kho trong mission này phải dùng cùng một `depot_id`, `depot_name`, `depot_address` của kho đã chọn.
@@ -2145,6 +2166,570 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 }
             }
         }
+    }
+
+    private async Task EnsureInventoryBackedTransportSuppliesAsync(
+        RescueMissionSuggestionResult result,
+        List<SosRequestSummary> sosRequests,
+        List<DepotSummary> nearbyDepots,
+        CancellationToken cancellationToken)
+    {
+        if (result.SuggestedResources.Count == 0 && result.SuggestedActivities.Count == 0)
+            return;
+
+        var needs = BuildInventoryBackedResourceNeeds(result, sosRequests);
+        if (needs.Count == 0)
+            return;
+
+        var preferredDepotIds = ResolvePreferredDepotIds(result, nearbyDepots);
+        if (preferredDepotIds.Count == 0)
+            return;
+
+        var depotPreferenceOrder = preferredDepotIds
+            .Select((depotId, index) => new { depotId, index })
+            .ToDictionary(entry => entry.depotId, entry => entry.index);
+
+        foreach (var need in needs)
+        {
+            var matchedItem = await FindInventoryBackedResourceMatchAsync(
+                need,
+                preferredDepotIds,
+                depotPreferenceOrder,
+                cancellationToken);
+
+            if (matchedItem is null)
+                continue;
+
+            var quantityToCollect = Math.Min(Math.Max(need.Quantity, 1), matchedItem.AvailableQuantity);
+            if (quantityToCollect <= 0)
+                continue;
+
+            var collectActivity = FindCollectActivityForInventoryBackedResource(
+                result.SuggestedActivities,
+                matchedItem.DepotId,
+                need.RelatedSosIds);
+
+            if (collectActivity is null)
+            {
+                collectActivity = CreateInventoryBackedCollectActivity(matchedItem, need, quantityToCollect);
+                result.SuggestedActivities.Add(collectActivity);
+            }
+            else
+            {
+                ApplyInventoryBackedCollectDefaults(collectActivity, matchedItem, need);
+                AddOrUpdateInventoryBackedSupply(collectActivity, matchedItem, quantityToCollect);
+                collectActivity.Description = AppendInventoryBackedCollectDescription(
+                    collectActivity.Description,
+                    matchedItem,
+                    quantityToCollect,
+                    need.RelatedSosIds);
+            }
+
+            TrimInventoryBackedSuggestedResource(result.SuggestedResources, need.SourceResource, quantityToCollect);
+        }
+    }
+
+    private static List<InventoryBackedResourceNeed> BuildInventoryBackedResourceNeeds(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var relatedSosIds = ResolveInventoryBackedResourceSosIds(result.SuggestedActivities, sosRequests);
+        var signals = InferOperationalTransportSignals(sosRequests, result.SuggestedActivities);
+
+        var needs = result.SuggestedResources
+            .Where(resource => IsInventoryBackedTransportResource(resource))
+            .Select(resource => CreateInventoryBackedResourceNeed(resource, relatedSosIds))
+            .Where(need => need is not null)
+            .Select(need => need!)
+            .ToList();
+
+        if (signals.RequiresWaterTransport
+            && !needs.Any(need => string.Equals(need.ResourceType, "BOAT", StringComparison.OrdinalIgnoreCase)))
+        {
+            needs.Add(new InventoryBackedResourceNeed
+            {
+                ResourceType = "BOAT",
+                CategoryKeyword = TransportationInventoryCategory,
+                Quantity = 1,
+                Description = "Water transport support",
+                Priority = SelectTransportNeedPriority(result.SuggestedActivities),
+                SearchTypes = BuildSearchTypeList("ca no cuu ho", "ca no", "cano", "xuong", "boat", "thuyen"),
+                RelatedSosIds = relatedSosIds
+            });
+        }
+        else if (signals.RequiresEvacuationTransport
+            && !needs.Any(need => string.Equals(need.ResourceType, "VEHICLE", StringComparison.OrdinalIgnoreCase)))
+        {
+            needs.Add(new InventoryBackedResourceNeed
+            {
+                ResourceType = "VEHICLE",
+                CategoryKeyword = TransportationInventoryCategory,
+                Quantity = 1,
+                Description = "Evacuation transport",
+                Priority = SelectTransportNeedPriority(result.SuggestedActivities),
+                SearchTypes = BuildSearchTypeList("xe", "phuong tien", "xe cuu thuong", "xe khach"),
+                RelatedSosIds = relatedSosIds
+            });
+        }
+
+        if (signals.RequiresRescueEquipment
+            && !needs.Any(need => string.Equals(need.ResourceType, "EQUIPMENT", StringComparison.OrdinalIgnoreCase)))
+        {
+            needs.Add(new InventoryBackedResourceNeed
+            {
+                ResourceType = "EQUIPMENT",
+                CategoryKeyword = RescueInventoryCategory,
+                Quantity = 1,
+                Description = "Rescue equipment",
+                Priority = SelectTransportNeedPriority(result.SuggestedActivities),
+                SearchTypes = BuildSearchTypeList("phao", "day", "cang", "ao phao", "cuu ho"),
+                RelatedSosIds = relatedSosIds
+            });
+        }
+
+        return needs;
+    }
+
+    private static InventoryBackedResourceNeed? CreateInventoryBackedResourceNeed(
+        SuggestedResourceDto resource,
+        List<int> relatedSosIds)
+    {
+        var normalizedType = (resource.ResourceType ?? string.Empty).Trim().ToUpperInvariant();
+        return normalizedType switch
+        {
+            "BOAT" => new InventoryBackedResourceNeed
+            {
+                ResourceType = normalizedType,
+                CategoryKeyword = TransportationInventoryCategory,
+                Quantity = Math.Max(resource.Quantity ?? 1, 1),
+                Description = resource.Description,
+                Priority = resource.Priority,
+                SourceResource = resource,
+                SearchTypes = BuildSearchTypeList(resource.Description, "ca no cuu ho", "ca no", "cano", "xuong", "boat", "thuyen"),
+                RelatedSosIds = relatedSosIds
+            },
+            "VEHICLE" => new InventoryBackedResourceNeed
+            {
+                ResourceType = normalizedType,
+                CategoryKeyword = TransportationInventoryCategory,
+                Quantity = Math.Max(resource.Quantity ?? 1, 1),
+                Description = resource.Description,
+                Priority = resource.Priority,
+                SourceResource = resource,
+                SearchTypes = BuildSearchTypeList(resource.Description, "xe", "phuong tien", "xe cuu thuong", "xe khach"),
+                RelatedSosIds = relatedSosIds
+            },
+            "EQUIPMENT" => new InventoryBackedResourceNeed
+            {
+                ResourceType = normalizedType,
+                CategoryKeyword = RescueInventoryCategory,
+                Quantity = Math.Max(resource.Quantity ?? 1, 1),
+                Description = resource.Description,
+                Priority = resource.Priority,
+                SourceResource = resource,
+                SearchTypes = BuildSearchTypeList(resource.Description, "phao", "day", "cang", "ao phao", "cuu ho"),
+                RelatedSosIds = relatedSosIds
+            },
+            _ => null
+        };
+    }
+
+    private static bool IsInventoryBackedTransportResource(SuggestedResourceDto resource)
+    {
+        var normalizedType = (resource.ResourceType ?? string.Empty).Trim().ToUpperInvariant();
+        return normalizedType is "BOAT" or "VEHICLE" or "EQUIPMENT";
+    }
+
+    private static List<int> ResolveInventoryBackedResourceSosIds(
+        IReadOnlyCollection<SuggestedActivityDto> activities,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var relatedIds = activities
+            .Where(IsOnSiteActivity)
+            .SelectMany(activity => GetReferencedSosIds(activity))
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList();
+
+        if (relatedIds.Count > 0)
+            return relatedIds;
+
+        return sosRequests
+            .Select(sos => sos.Id)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList();
+    }
+
+    private static OperationalTransportSignals InferOperationalTransportSignals(
+        IReadOnlyCollection<SosRequestSummary> sosRequests,
+        IReadOnlyCollection<SuggestedActivityDto> activities)
+    {
+        var context = NormalizeItemName(string.Join(
+            ' ',
+            sosRequests.SelectMany(sos => new[]
+            {
+                sos.SosType,
+                sos.RawMessage,
+                sos.StructuredData,
+                sos.LatestIncidentNote,
+                string.Join(' ', sos.IncidentNotes)
+            })));
+
+        var mentionsFlooding = ContainsOperationalKeyword(
+            context,
+            "ngap",
+            "lut",
+            "nuoc dang len",
+            "nuoc sau",
+            "ngap sau",
+            "flood",
+            "flooded",
+            "water level");
+        var mentionsIsolation = ContainsOperationalKeyword(
+            context,
+            "co lap",
+            "mac ket",
+            "chia cat",
+            "khong the tiep can",
+            "khong tiep can",
+            "trapped",
+            "isolated",
+            "stranded",
+            "cut off");
+        var mentionsEvacuation = activities.Any(activity =>
+                string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase))
+            || ContainsOperationalKeyword(
+                context,
+                "so tan",
+                "evacuate",
+                "evacuation",
+                "di doi",
+                "dua ra khoi vung nguy hiem",
+                "dua den noi an toan");
+        var mentionsRescueGear = activities.Any(activity =>
+                string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase))
+            || ContainsOperationalKeyword(
+                context,
+                "cuu ho",
+                "phao",
+                "day",
+                "cang",
+                "sat lo",
+                "do nat",
+                "rescue");
+
+        return new OperationalTransportSignals(
+            RequiresWaterTransport: mentionsFlooding || mentionsIsolation,
+            RequiresEvacuationTransport: mentionsEvacuation,
+            RequiresRescueEquipment: mentionsFlooding || mentionsIsolation || mentionsRescueGear);
+    }
+
+    private static bool ContainsOperationalKeyword(string normalizedText, params string[] keywords) =>
+        keywords.Any(keyword => normalizedText.Contains(NormalizeItemName(keyword), StringComparison.Ordinal));
+
+    private static string? SelectTransportNeedPriority(IReadOnlyCollection<SuggestedActivityDto> activities)
+    {
+        return activities
+            .Select(activity => activity.Priority)
+            .Where(priority => !string.IsNullOrWhiteSpace(priority))
+            .OrderByDescending(GetPriorityRank)
+            .FirstOrDefault();
+    }
+
+    private static List<string> BuildSearchTypeList(string? description, params string[] fallbacks)
+    {
+        var results = new List<string>();
+
+        AddSearchType(results, description);
+        foreach (var fallback in fallbacks)
+            AddSearchType(results, fallback);
+
+        return results;
+    }
+
+    private static void AddSearchType(List<string> searchTypes, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        var normalized = NormalizeItemName(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return;
+
+        if (searchTypes.Any(existing => string.Equals(NormalizeItemName(existing), normalized, StringComparison.Ordinal)))
+            return;
+
+        searchTypes.Add(value.Trim());
+    }
+
+    private static List<int> ResolvePreferredDepotIds(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<DepotSummary> nearbyDepots)
+    {
+        var activityDepotIds = result.SuggestedActivities
+            .Where(activity => activity.DepotId.HasValue)
+            .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+            .Select(activity => activity.DepotId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (activityDepotIds.Count > 0)
+            return activityDepotIds.Count == 1 ? activityDepotIds : [activityDepotIds[0]];
+
+        var shortageDepotIds = result.SupplyShortages
+            .Where(shortage => shortage.SelectedDepotId.HasValue)
+            .Select(shortage => shortage.SelectedDepotId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (shortageDepotIds.Count > 0)
+            return [shortageDepotIds[0]];
+
+        return nearbyDepots
+            .Select(depot => depot.Id)
+            .Distinct()
+            .ToList();
+    }
+
+    private async Task<AgentInventoryItem?> FindInventoryBackedResourceMatchAsync(
+        InventoryBackedResourceNeed need,
+        IReadOnlyList<int> preferredDepotIds,
+        IReadOnlyDictionary<int, int> depotPreferenceOrder,
+        CancellationToken cancellationToken)
+    {
+        var candidates = new Dictionary<(int ItemId, int DepotId), AgentInventoryItem>();
+        var searchTypes = need.SearchTypes.Count == 0 ? [""] : need.SearchTypes;
+
+        foreach (var searchType in searchTypes)
+        {
+            var (items, _) = await _depotInventoryRepository.SearchForAgentAsync(
+                need.CategoryKeyword,
+                string.IsNullOrWhiteSpace(searchType) ? null : searchType,
+                page: 1,
+                pageSize: AgentPageSize * 5,
+                allowedDepotIds: preferredDepotIds,
+                ct: cancellationToken);
+
+            foreach (var item in items.Where(item => item.AvailableQuantity > 0))
+                candidates[(item.ItemId, item.DepotId)] = item;
+
+            var bestMatch = SelectBestInventoryBackedResourceMatch(candidates.Values, need, depotPreferenceOrder);
+            if (bestMatch is not null)
+                return bestMatch;
+        }
+
+        if (candidates.Count > 0)
+            return SelectBestInventoryBackedResourceMatch(candidates.Values, need, depotPreferenceOrder);
+
+        return null;
+    }
+
+    private static AgentInventoryItem? SelectBestInventoryBackedResourceMatch(
+        IEnumerable<AgentInventoryItem> candidates,
+        InventoryBackedResourceNeed need,
+        IReadOnlyDictionary<int, int> depotPreferenceOrder)
+    {
+        var normalizedDescription = NormalizeItemName(need.Description ?? string.Empty);
+
+        return candidates
+            .Where(item => item.AvailableQuantity > 0)
+            .OrderBy(item => depotPreferenceOrder.TryGetValue(item.DepotId, out var order) ? order : int.MaxValue)
+            .ThenByDescending(item => ScoreInventoryBackedResourceMatch(item, need, normalizedDescription))
+            .ThenByDescending(item => item.AvailableQuantity >= Math.Max(need.Quantity, 1))
+            .ThenByDescending(item => item.AvailableQuantity)
+            .ThenByDescending(item => item.GoodAvailableCount ?? 0)
+            .ThenBy(item => item.ItemName)
+            .FirstOrDefault();
+    }
+
+    private static int ScoreInventoryBackedResourceMatch(
+        AgentInventoryItem item,
+        InventoryBackedResourceNeed need,
+        string normalizedDescription)
+    {
+        var normalizedItemName = NormalizeItemName(item.ItemName);
+        var normalizedCategoryName = NormalizeItemName(item.CategoryName);
+        var score = 0;
+
+        if (!string.IsNullOrWhiteSpace(normalizedDescription))
+        {
+            if (normalizedItemName.Contains(normalizedDescription, StringComparison.Ordinal)
+                || normalizedDescription.Contains(normalizedItemName, StringComparison.Ordinal))
+            {
+                score += 80;
+            }
+
+            foreach (var token in normalizedDescription.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (token.Length >= 3 && normalizedItemName.Contains(token, StringComparison.Ordinal))
+                    score += 10;
+            }
+        }
+
+        score += need.ResourceType switch
+        {
+            "BOAT" when ContainsOperationalKeyword(normalizedItemName, "ca no", "cano", "canoe", "xuong", "thuyen", "boat") => 100,
+            "VEHICLE" when ContainsOperationalKeyword(normalizedItemName, "xe", "truck", "ambulance", "cuu thuong", "xe khach") => 100,
+            "EQUIPMENT" when ContainsOperationalKeyword(normalizedItemName, "phao", "day", "cang", "ao phao", "cuu ho") => 100,
+            _ => 0
+        };
+
+        if (normalizedCategoryName.Contains(NormalizeItemName(need.CategoryKeyword), StringComparison.Ordinal))
+            score += 20;
+
+        return score;
+    }
+
+    private static SuggestedActivityDto? FindCollectActivityForInventoryBackedResource(
+        IReadOnlyCollection<SuggestedActivityDto> activities,
+        int depotId,
+        IReadOnlyCollection<int> relatedSosIds)
+    {
+        var collectActivities = activities
+            .Where(IsCollectActivity)
+            .Where(activity => activity.DepotId == depotId)
+            .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+            .ToList();
+
+        if (collectActivities.Count == 0)
+            return null;
+
+        return collectActivities.FirstOrDefault(activity =>
+                relatedSosIds.Count == 0
+                || (activity.SosRequestId.HasValue && relatedSosIds.Contains(activity.SosRequestId.Value))
+                || relatedSosIds.Any(id => GetReferencedSosIds(activity).Contains(id)))
+            ?? collectActivities[0];
+    }
+
+    private static SuggestedActivityDto CreateInventoryBackedCollectActivity(
+        AgentInventoryItem item,
+        InventoryBackedResourceNeed need,
+        int quantity)
+    {
+        var activity = new SuggestedActivityDto
+        {
+            Step = 0,
+            SuppliesToCollect = []
+        };
+
+        ApplyInventoryBackedCollectDefaults(activity, item, need);
+        AddOrUpdateInventoryBackedSupply(activity, item, quantity);
+        activity.Description = AppendInventoryBackedCollectDescription(
+            activity.Description,
+            item,
+            quantity,
+            need.RelatedSosIds);
+
+        return activity;
+    }
+
+    private static void ApplyInventoryBackedCollectDefaults(
+        SuggestedActivityDto activity,
+        AgentInventoryItem item,
+        InventoryBackedResourceNeed need)
+    {
+        activity.ActivityType = CollectSuppliesActivityType;
+        activity.DepotId ??= item.DepotId;
+        activity.DepotName ??= item.DepotName;
+        activity.DepotAddress ??= item.DepotAddress;
+        activity.Priority = SelectHigherPriority(activity.Priority, need.Priority);
+        activity.EstimatedTime ??= DefaultInventoryBackedCollectEstimatedTime;
+        activity.ExecutionMode ??= SingleTeamExecutionMode;
+        activity.RequiredTeamCount ??= 1;
+        activity.CoordinationNotes ??= "Lay phuong tien/thiet bi huu hinh tu kho de ho tro hien truong.";
+        activity.DestinationName ??= item.DepotName;
+        activity.DestinationLatitude ??= item.DepotLatitude;
+        activity.DestinationLongitude ??= item.DepotLongitude;
+
+        if (!activity.SosRequestId.HasValue && need.RelatedSosIds.Count > 0)
+            activity.SosRequestId = need.RelatedSosIds[0];
+
+        activity.SuppliesToCollect ??= [];
+    }
+
+    private static void AddOrUpdateInventoryBackedSupply(
+        SuggestedActivityDto activity,
+        AgentInventoryItem item,
+        int quantity)
+    {
+        activity.SuppliesToCollect ??= [];
+
+        var existingSupply = activity.SuppliesToCollect.FirstOrDefault(supply =>
+            (supply.ItemId.HasValue && supply.ItemId.Value == item.ItemId)
+            || string.Equals(NormalizeItemName(supply.ItemName), NormalizeItemName(item.ItemName), StringComparison.Ordinal));
+
+        if (existingSupply is null)
+        {
+            activity.SuppliesToCollect.Add(new SupplyToCollectDto
+            {
+                ItemId = item.ItemId,
+                ItemName = item.ItemName,
+                Quantity = quantity,
+                Unit = item.Unit
+            });
+            return;
+        }
+
+        existingSupply.ItemId ??= item.ItemId;
+        if (string.IsNullOrWhiteSpace(existingSupply.ItemName))
+            existingSupply.ItemName = item.ItemName;
+        existingSupply.Unit ??= item.Unit;
+        existingSupply.Quantity = Math.Max(existingSupply.Quantity, quantity);
+    }
+
+    private static string AppendInventoryBackedCollectDescription(
+        string? existingDescription,
+        AgentInventoryItem item,
+        int quantity,
+        IReadOnlyCollection<int> relatedSosIds)
+    {
+        var unitSuffix = string.IsNullOrWhiteSpace(item.Unit) ? string.Empty : $" {item.Unit}";
+        var sosSuffix = relatedSosIds.Count == 0
+            ? string.Empty
+            : $" cho SOS ID {string.Join(", SOS ID ", relatedSosIds.OrderBy(id => id))}";
+        var addition = $"Lay {item.ItemName} x{quantity}{unitSuffix}{sosSuffix}.";
+
+        if (string.IsNullOrWhiteSpace(existingDescription))
+        {
+            var depotLabel = string.IsNullOrWhiteSpace(item.DepotName)
+                ? $"kho #{item.DepotId}"
+                : item.DepotName;
+            return $"Di chuyen den {depotLabel} va {addition.ToLowerInvariant()}";
+        }
+
+        if (existingDescription.Contains(item.ItemName, StringComparison.OrdinalIgnoreCase))
+            return existingDescription;
+
+        return $"{existingDescription.TrimEnd().TrimEnd('.')}. Bo sung tu kho: {item.ItemName} x{quantity}{unitSuffix}{sosSuffix}.";
+    }
+
+    private static void TrimInventoryBackedSuggestedResource(
+        List<SuggestedResourceDto> suggestedResources,
+        SuggestedResourceDto? sourceResource,
+        int coveredQuantity)
+    {
+        if (sourceResource is null)
+            return;
+
+        var resource = suggestedResources.FirstOrDefault(item => ReferenceEquals(item, sourceResource))
+            ?? suggestedResources.FirstOrDefault(item =>
+                string.Equals(item.ResourceType, sourceResource.ResourceType, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(item.Description, sourceResource.Description, StringComparison.OrdinalIgnoreCase));
+
+        if (resource is null)
+            return;
+
+        if (!resource.Quantity.HasValue || resource.Quantity.Value <= coveredQuantity)
+        {
+            suggestedResources.Remove(resource);
+            return;
+        }
+
+        resource.Quantity = Math.Max(resource.Quantity.Value - coveredQuantity, 0);
+        if (resource.Quantity == 0)
+            suggestedResources.Remove(resource);
     }
 
     private static void ApplyMixedRescueReliefSafetyNote(RescueMissionSuggestionResult result)
