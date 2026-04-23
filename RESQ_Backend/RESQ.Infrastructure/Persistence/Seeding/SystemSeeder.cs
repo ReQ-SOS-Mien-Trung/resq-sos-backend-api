@@ -203,7 +203,6 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""notes"": ""Kho đã chọn không đủ số lượng nước cần giao""
     }
   ],
-  ""confidence_score"": 0.85
 }",
                 UserPromptTemplate = @"Lập kế hoạch nhiệm vụ cứu hộ cho các SOS sau:
 
@@ -250,10 +249,11 @@ Các mức độ nghiêm trọng:
 
 Bạn phải trả lời bằng JSON với format sau:
 {
-  ""priority"": ""Critical|High|Medium|Low"",
+  ""suggested_priority"": ""Critical|High|Medium|Low"",
   ""severity_level"": ""Critical|Severe|Moderate|Minor"",
   ""explanation"": ""Giải thích ngắn gọn lý do đánh giá"",
-  ""confidence_score"": 0.0-1.0
+  ""suggested_priority_score"": 0.0-10.0,
+  ""agrees_with_rule_base"": true
 }",
                 UserPromptTemplate = @"Phân tích yêu cầu SOS sau:
 
@@ -291,7 +291,6 @@ Schema đầu ra:
   ""special_notes"": null,
   ""needs_additional_depot"": false,
   ""supply_shortages"": [],
-  ""confidence_score"": 0.0,
   ""suggested_resources"": [
     { ""resource_type"": ""TEAM|VEHICLE|BOAT|EQUIPMENT"", ""description"": ""Chỉ ghi năng lực hoặc nguồn lực không tiêu hao"", ""quantity"": 1, ""priority"": ""Critical|High|Medium|Low"" }
   ],
@@ -315,7 +314,7 @@ Quy tắc:
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn và vật tư nơi trú ẩn phải nằm trong required_supplies, không đưa vào suggested_resources.
 - suggested_resources chỉ dùng cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không phải vật tư tồn kho.
 - Nếu số lượng chưa rõ, hãy ước lượng thận trọng theo số nạn nhân và ghi rõ trong notes.
-- confidence_score phải nằm trong khoảng từ 0 đến 1.",
+",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
                 Version = "v1.0",
                 IsActive = false,
@@ -392,7 +391,6 @@ Schema đầu ra:
   ""special_notes"": null,
   ""needs_additional_depot"": false,
   ""supply_shortages"": [],
-  ""confidence_score"": 0.0
 }
 
 Quy tắc một kho:
@@ -403,7 +401,7 @@ Quy tắc một kho:
 - activity_key phải ổn định và duy nhất vì giai đoạn Team sẽ gán đội theo khóa này.
 - estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED và ELIGIBLE_DEPOT_COUNT do backend cung cấp bên dưới. Chỉ dùng kết quả từ tool searchInventory. Chỉ trả về JSON object MissionDepotFragment đúng schema trong system prompt.",
-                Version = "v1.0",
+                Version = "v1.1",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -488,7 +486,6 @@ Schema đầu ra:
   ""ordered_activity_keys"": [""collect-1"", ""deliver-1"", ""rescue-11"", ""evacuate-11""],
   ""suggested_team"": null,
   ""special_notes"": null,
-  ""confidence_score"": 0.0
 }
 
 Quy tắc route:
@@ -610,7 +607,6 @@ Schema đầu ra cuối cùng:
   ""special_notes"": null,
   ""needs_additional_depot"": false,
   ""supply_shortages"": [],
-  ""confidence_score"": 0.0
 }
 
 Quy tắc kiểm tra:
@@ -660,7 +656,7 @@ Quy tắc chung:
 - Trả về đúng JSON object mission cuối cùng, không markdown, không giải thích ngoài JSON.
 
 Top-level JSON bắt buộc:
-`mission_title`, `mission_type`, `priority_score`, `severity_level`, `overall_assessment`, `activities`, `resources`, `estimated_duration`, `special_notes`, `needs_additional_depot`, `supply_shortages`, `confidence_score`.
+`mission_title`, `mission_type`, `priority_score`, `severity_level`, `overall_assessment`, `activities`, `resources`, `estimated_duration`, `special_notes`, `needs_additional_depot`, `supply_shortages`.
 
 FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
 
@@ -735,8 +731,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""missing_quantity"": 80,
       ""notes"": ""Kho đã chọn không đủ số lượng nước cần giao""
     }
-  ],
-  ""confidence_score"": 0.85
+  ]
 }",
                 UserPromptTemplate = @"Lập kế hoạch mission cuối cùng cho các SOS sau:
 
@@ -765,13 +760,14 @@ Bạn phải đặc biệt xác định:
 
 Trả về đúng JSON:
 {
-  ""priority"": ""Critical|High|Medium|Low"",
-  ""severity_level"": ""Critical|Severe|Moderate|Minor"",
+  ""suggested_priority"": ""Critical|High|Medium|Low"",
+  ""suggested_priority_score"": 0.0-10.0,
+  ""suggested_severity_level"": ""Critical|Severe|Moderate|Minor"",
+  ""agrees_with_rule_base"": true,
   ""needs_immediate_safe_transfer"": true,
   ""can_wait_for_combined_mission"": false,
-  ""handling_reason"": ""Giải thích ngắn gọn vì sao có thể/không thể chờ mission ghép"",
-  ""explanation"": ""Giải thích ngắn gọn lý do đánh giá"",
-  ""confidence_score"": 0.0
+  ""handling_reason"": ""Explain briefly why the SOS can or cannot wait for a combined mission."",
+  ""explanation"": ""Explain the suggested_priority_score, whether AI agrees with the current rule-base score, and where the gap comes from if AI disagrees.""
 }
 
 Quy tắc:
@@ -786,7 +782,7 @@ Tin nhắn: {{raw_message}}
 Dữ liệu chi tiết: {{structured_data}}
 
 Chỉ trả về JSON đúng schema.",
-                Version = "v2.0",
+                Version = "v3.0",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -820,7 +816,6 @@ Schema đầu ra:
   ""split_cluster_reason"": null,
   ""needs_additional_depot"": false,
   ""supply_shortages"": [],
-  ""confidence_score"": 0.0,
   ""suggested_resources"": [],
   ""sos_requirements"": [
     {
@@ -872,7 +867,7 @@ IMPORTANT JSON RULES FOR sos_requirements (STRICT):
 - Invalid required_teams examples: [""Medical""], [1], [{""quantity"":""one""}], [{""team_type"":{""name"":""Medical""}}]
 - For unknown numeric values, use a safe integer estimate. Never output non-integer numeric fields in these arrays.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
-                Version = "v2.0",
+                Version = "v2.1",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -955,8 +950,7 @@ Schema đầu ra:
   ],
   ""ordered_activity_keys"": [""collect-1"", ""deliver-1"", ""rescue-11"", ""evacuate-11""],
   ""suggested_team"": null,
-  ""special_notes"": null,
-  ""confidence_score"": 0.0
+  ""special_notes"": null
 }
 
 Quy tắc mixed rescue + relief theo team:
@@ -998,7 +992,7 @@ IMPORTANT JSON RULES FOR ordered_activity_keys (STRICT):
 - Đây là thứ tự route cuối cùng backend sẽ dùng để assemble mission draft.
 - Invalid examples: `[]` khi vẫn có activities, `[1]`, `[null]`, `[""collect-1"", ""collect-1""]`.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, DEPOT_FRAGMENT và NEARBY_TEAM_COUNT do backend cung cấp bên dưới. Chỉ dùng getTeams và getAssemblyPoints. Chỉ trả về JSON object MissionTeamFragment đúng schema trong system prompt.",
-                Version = "v2.0",
+                Version = "v2.1",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -1027,7 +1021,7 @@ Quy tắc mixed mission bắt buộc:
 
 Schema đầu ra giữ nguyên schema mission cuối cùng hiện có. Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
-                Version = "v2.0",
+                Version = "v2.1",
                 IsActive = true,
                 CreatedAt = now
             }

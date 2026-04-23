@@ -33,7 +33,6 @@ public static class AiAnalysisSeeder
                 ModelVersion = "v1.0",
                 AnalysisType = "Severity",
                 Metadata = "{\"event_assessment\": {\"severity\": \"critical\", \"risk_factors\": [\"rapid_water_rise\", \"night_time\"]}, \"suggested_plan\": {\"actions\": [\"deploy_boats\", \"prioritize_vulnerable\"]}}",
-                ConfidenceScore = 0.92,
                 SuggestedSeverityLevel = "Critical",
                 CreatedAt = now
             },
@@ -45,7 +44,6 @@ public static class AiAnalysisSeeder
                 ModelVersion = "v1.0",
                 AnalysisType = "Resource",
                 Metadata = "{\"event_assessment\": {\"severity\": \"high\", \"risk_factors\": [\"road_blocked\"]}, \"suggested_plan\": {\"actions\": [\"air_drop_supplies\", \"use_amphibious_vehicles\"]}}",
-                ConfidenceScore = 0.85,
                 SuggestedSeverityLevel = "High",
                 CreatedAt = now
             }
@@ -72,7 +70,6 @@ public static class AiAnalysisSeeder
                 ActivityType = "Evacuation",
                 SuggestionPhase = "Execution",
                 SuggestedActivities = "{\"steps\": [\"scout_safe_path\", \"transport_elderly_first\", \"mark_cleared_houses\"]}",
-                ConfidenceScore = 0.9,
                 CreatedAt = now
             },
             new ActivityAiSuggestion
@@ -84,7 +81,6 @@ public static class AiAnalysisSeeder
                 ActivityType = "Distribution",
                 SuggestionPhase = "Planning",
                 SuggestedActivities = "{\"steps\": [\"verify_road_access\", \"prepare_dry_food\", \"coordinate_with_local_militia\"]}",
-                ConfidenceScore = 0.88,
                 CreatedAt = now
             }
         ];
@@ -110,7 +106,6 @@ public static class AiAnalysisSeeder
                 ModelVersion = "v1.0",
                 AnalysisType = "Assignment",
                 SuggestionScope = "{\"reasons\": [\"closest_proximity\", \"flood_experience\"]}",
-                ConfidenceScore = 0.95,
                 CreatedAt = now
             },
             new RescueTeamAiSuggestion
@@ -122,7 +117,6 @@ public static class AiAnalysisSeeder
                 ModelVersion = "v1.0",
                 AnalysisType = "Assignment",
                 SuggestionScope = "{\"reasons\": [\"local_knowledge\", \"available_equipment\"]}",
-                ConfidenceScore = 0.89,
                 CreatedAt = now
             }
         ];

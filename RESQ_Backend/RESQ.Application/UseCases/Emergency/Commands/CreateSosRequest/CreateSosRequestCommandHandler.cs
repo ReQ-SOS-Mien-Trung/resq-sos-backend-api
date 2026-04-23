@@ -112,11 +112,12 @@ public class CreateSosRequestCommandHandler(
             created.Id, evaluation.TotalScore, evaluation.PriorityLevel);
 
         // Queue AI analysis to run in background (non-blocking)
-        await _aiAnalysisQueue.QueueAsync(new SosAiAnalysisTask(
+        await _aiAnalysisQueue.QueueAsync(SosAiAnalysisTask.Create(
             created.Id,
             request.StructuredData,
             request.RawMessage,
-            request.SosType));
+            request.SosType,
+            evaluation));
 
         _logger.LogInformation("Queued AI analysis task for SOS Request Id={sosRequestId}", created.Id);
 

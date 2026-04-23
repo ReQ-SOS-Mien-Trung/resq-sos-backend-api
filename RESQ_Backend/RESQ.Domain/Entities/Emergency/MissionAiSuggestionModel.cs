@@ -11,7 +11,6 @@ public class MissionAiSuggestionModel
     public string? SuggestedMissionType { get; set; }
     public double? SuggestedPriorityScore { get; set; }
     public string? SuggestedSeverityLevel { get; set; }
-    public double? ConfidenceScore { get; set; }
     public string? SuggestionScope { get; set; }
     /// <summary>Full serialized AI response as JSON</summary>
     public string? Metadata { get; set; }
@@ -30,6 +29,5 @@ public class ActivityAiSuggestionModel
     public string? SuggestionPhase { get; set; }
     /// <summary>Serialized List&lt;SuggestedActivityDto&gt; as JSON</summary>
     public string? SuggestedActivities { get; set; }
-    public double? ConfidenceScore { get; set; }
     public DateTime? CreatedAt { get; set; }
 }

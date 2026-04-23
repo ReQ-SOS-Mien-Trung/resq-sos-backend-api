@@ -1,9 +1,7 @@
-using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
-using RESQ.Domain.Entities.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 
@@ -47,47 +45,7 @@ public class GetSosEvaluationQueryHandler(
             "GetSosEvaluationQuery SosRequestId={id} - RuleEvaluation={hasRule}, AiAnalyses={aiCount}",
             request.SosRequestId, ruleEvaluation is not null, aiAnalyses.Count);
 
-        // 4. Map rule evaluation
-        SosRuleEvaluationDto? ruleDto = null;
-        if (ruleEvaluation is not null)
-        {
-            var itemsNeeded = DeserializeItems(ruleEvaluation.ItemsNeeded);
-            var breakdown = ParseJson<SosPriorityEvaluationDetails>(ruleEvaluation.BreakdownJson ?? ruleEvaluation.DetailsJson);
-            ruleDto = new SosRuleEvaluationDto
-            {
-                Id = ruleEvaluation.Id,
-                ConfigId = ruleEvaluation.ConfigId,
-                ConfigVersion = ruleEvaluation.ConfigVersion,
-                MedicalScore = ruleEvaluation.MedicalScore,
-                InjuryScore = ruleEvaluation.InjuryScore,
-                MobilityScore = ruleEvaluation.MobilityScore,
-                EnvironmentScore = ruleEvaluation.EnvironmentScore,
-                FoodScore = ruleEvaluation.FoodScore,
-                TotalScore = ruleEvaluation.TotalScore,
-                PriorityLevel = ruleEvaluation.PriorityLevel.ToString(),
-                RuleVersion = ruleEvaluation.RuleVersion,
-                ItemsNeeded = itemsNeeded,
-                Breakdown = breakdown,
-                CreatedAt = ruleEvaluation.CreatedAt
-            };
-        }
-
-        // 5. Map AI analyses
-        var aiDtos = aiAnalyses.Select(ai => new SosAiAnalysisDto
-        {
-            Id = ai.Id,
-            ModelName = ai.ModelName,
-            ModelVersion = ai.ModelVersion,
-            AnalysisType = ai.AnalysisType,
-            SuggestedSeverityLevel = ai.SuggestedSeverityLevel,
-            SuggestedPriority = ai.SuggestedPriority,
-            Explanation = ai.Explanation,
-            ConfidenceScore = ai.ConfidenceScore,
-            SuggestionScope = ai.SuggestionScope,
-            Metadata = ParseJson(ai.Metadata),
-            CreatedAt = ai.CreatedAt,
-            AdoptedAt = ai.AdoptedAt
-        }).ToList();
+        var evaluation = SosEvaluationViewFactory.CreateEvaluation(ruleEvaluation, aiAnalyses);
 
         return new GetSosEvaluationResponse
         {
@@ -95,29 +53,7 @@ public class GetSosEvaluationQueryHandler(
             SosType = sosRequest.SosType,
             Status = sosRequest.Status.ToString(),
             CurrentPriorityLevel = sosRequest.PriorityLevel?.ToString(),
-            RuleEvaluation = ruleDto,
-            AiAnalyses = aiDtos
+            Evaluation = evaluation
         };
-    }
-
-    private static List<string> DeserializeItems(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return [];
-        try { return JsonSerializer.Deserialize<List<string>>(json) ?? []; }
-        catch { return []; }
-    }
-
-    private static JsonElement? ParseJson(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return null;
-        try { return JsonSerializer.Deserialize<JsonElement>(json); }
-        catch { return null; }
-    }
-
-    private static T? ParseJson<T>(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return default;
-        try { return JsonSerializer.Deserialize<T>(json); }
-        catch { return default; }
     }
 }

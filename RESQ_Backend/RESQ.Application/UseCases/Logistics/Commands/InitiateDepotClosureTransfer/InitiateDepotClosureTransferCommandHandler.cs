@@ -20,6 +20,7 @@ public class InitiateDepotClosureTransferCommandHandler(
     IDepotClosureTransferRepository transferRepository,
     IDepotInventoryRepository inventoryRepository,
     IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<InitiateDepotClosureTransferCommandHandler> logger)
     : IRequestHandler<InitiateDepotClosureTransferCommand, InitiateDepotClosureTransferResponse>
@@ -49,14 +50,11 @@ public class InitiateDepotClosureTransferCommandHandler(
             throw new ConflictException("Không thể đóng kho duy nhất còn đang hoạt động trong hệ thống.");
         }
 
-        var existingClosure = await closureRepository.GetActiveClosureByDepotIdAsync(request.DepotId, cancellationToken);
-        if (existingClosure == null)
-        {
-            throw new ConflictException(
+        var existingClosure = await closureRepository.GetActiveClosureByDepotIdAsync(request.DepotId, cancellationToken)
+            ?? throw new ConflictException(
                 "Không tìm thấy phiên đóng kho đang mở cho kho này. Vui lòng gọi POST /{id}/closed trước để hệ thống kiểm tra và khởi tạo phiên đóng kho.");
-        }
 
-        if (existingClosure?.Status == DepotClosureStatus.Processing)
+        if (existingClosure.Status == DepotClosureStatus.Processing)
         {
             throw new ConflictException("Phiên đóng kho hiện tại đang được xử lý bởi tiến trình khác. Vui lòng thử lại sau.");
         }
@@ -267,6 +265,37 @@ public class InitiateDepotClosureTransferCommandHandler(
             await closureRepository.UpdateAsync(closure, cancellationToken);
             await unitOfWork.SaveAsync();
         });
+
+        var realtimeTasks = new List<Task>
+        {
+            operationalHubService.PushDepotClosureUpdateAsync(
+                new Common.Models.DepotClosureRealtimeUpdate
+                {
+                    SourceDepotId = request.DepotId,
+                    TargetDepotId = targetDepotIds.Count == 1 ? targetDepotIds[0] : null,
+                    ClosureId = closure.Id,
+                    EntityType = "Closure",
+                    Action = "TransferPending",
+                    Status = closure.Status.ToString()
+                },
+                cancellationToken)
+        };
+
+        realtimeTasks.AddRange(transferSummaries.Select(transferSummary =>
+            operationalHubService.PushDepotClosureUpdateAsync(
+                new Common.Models.DepotClosureRealtimeUpdate
+                {
+                    SourceDepotId = request.DepotId,
+                    TargetDepotId = transferSummary.TargetDepotId,
+                    ClosureId = closure.Id,
+                    TransferId = transferSummary.TransferId,
+                    EntityType = "Transfer",
+                    Action = "AwaitingPreparation",
+                    Status = transferSummary.TransferStatus
+                },
+                cancellationToken)));
+
+        await Task.WhenAll(realtimeTasks);
 
         foreach (var transferSummary in transferSummaries)
         {

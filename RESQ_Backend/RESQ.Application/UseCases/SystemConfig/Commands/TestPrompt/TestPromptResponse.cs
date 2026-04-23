@@ -38,9 +38,7 @@ public class TestPromptResponse
     public string MixedRescueReliefWarning { get; set; } = string.Empty;
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
-    public double ConfidenceScore { get; set; }
     public bool NeedsManualReview { get; set; }
-    public string? LowConfidenceWarning { get; set; }
     public bool MultiDepotRecommended { get; set; }
     public string? PipelineExecutionMode { get; set; }
     public string? PipelineStatus { get; set; }

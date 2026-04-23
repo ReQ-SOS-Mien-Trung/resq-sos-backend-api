@@ -10,5 +10,5 @@ public interface ISosAiAnalysisService
     /// <summary>
     /// Analyze SOS request using AI and save results to database
     /// </summary>
-    Task AnalyzeAndSaveAsync(int sosRequestId, string? structuredData, string? rawMessage, string? sosType, CancellationToken cancellationToken = default);
+    Task AnalyzeAndSaveAsync(SosAiAnalysisTask task, CancellationToken cancellationToken = default);
 }

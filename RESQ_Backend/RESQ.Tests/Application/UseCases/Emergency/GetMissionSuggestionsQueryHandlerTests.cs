@@ -26,7 +26,6 @@ public class GetMissionSuggestionsQueryHandlerTests
                     SuggestedMissionType = "MixedResponse",
                     SuggestedSeverityLevel = "Critical",
                     SuggestedPriorityScore = 9.5,
-                    ConfidenceScore = 0.95,
                     Metadata = """
                         {
                           "overall_assessment": "[SOS ID 77]: urgent support is required",
@@ -34,7 +33,6 @@ public class GetMissionSuggestionsQueryHandlerTests
                           "special_notes": "Split rescue victims to safe zone before any relief delivery.",
                           "mixed_rescue_relief_warning": "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat.",
                           "needs_manual_review": true,
-                          "low_confidence_warning": "Coordinator should verify the mixed mission plan.",
                           "needs_additional_depot": true,
                           "supply_shortages": [
                             {
@@ -68,7 +66,6 @@ public class GetMissionSuggestionsQueryHandlerTests
                             Id = 3,
                             ActivityType = "MIXED",
                             SuggestionPhase = "Execution",
-                            ConfidenceScore = 0.95,
                             CreatedAt = new DateTime(2026, 4, 12, 2, 35, 38, DateTimeKind.Utc),
                             SuggestedActivities = """
                                 [
@@ -151,7 +148,6 @@ public class GetMissionSuggestionsQueryHandlerTests
         Assert.DoesNotContain("Safe Zone", mission.MixedRescueReliefWarning, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Assembly Point", mission.MixedRescueReliefWarning, StringComparison.OrdinalIgnoreCase);
         Assert.True(mission.NeedsManualReview);
-        Assert.Equal("Coordinator should verify the mixed mission plan.", mission.LowConfidenceWarning);
         Assert.True(mission.NeedsAdditionalDepot);
 
         var shortage = Assert.Single(mission.SupplyShortages);

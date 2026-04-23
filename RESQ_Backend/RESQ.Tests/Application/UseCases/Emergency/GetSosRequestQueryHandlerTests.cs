@@ -3,6 +3,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Identity;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Identity;
@@ -221,12 +222,16 @@ public class GetSosRequestQueryHandlerTests
         StubSosRequestRepository? sosRepo = null,
         StubSosRequestCompanionRepository? companionRepo = null,
         StubSosRequestUpdateRepository? updateRepo = null,
+        StubSosRuleEvaluationRepository? ruleRepo = null,
+        StubSosAiAnalysisRepository? aiRepo = null,
         StubUserRepository? userRepo = null)
     {
         return new GetSosRequestQueryHandler(
             sosRepo ?? new StubSosRequestRepository(null),
             companionRepo ?? new StubSosRequestCompanionRepository(isCompanion: false),
             updateRepo ?? new StubSosRequestUpdateRepository(),
+            ruleRepo ?? new StubSosRuleEvaluationRepository(null),
+            aiRepo ?? new StubSosAiAnalysisRepository([]),
             userRepo ?? new StubUserRepository([]),
             NullLogger<GetSosRequestQueryHandler>.Instance);
     }
@@ -314,5 +319,23 @@ public class GetSosRequestQueryHandlerTests
         public Task<List<Guid>> GetActiveAdminUserIdsAsync(CancellationToken ct = default) => Task.FromResult(new List<Guid>());
         public Task<List<Guid>> GetActiveCoordinatorUserIdsAsync(CancellationToken ct = default) => Task.FromResult(new List<Guid>());
         public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken ct = default) => Task.FromResult(new List<AvailableManagerDto>());
+    }
+
+    private sealed class StubSosRuleEvaluationRepository(SosRuleEvaluationModel? evaluation) : ISosRuleEvaluationRepository
+    {
+        public Task CreateAsync(SosRuleEvaluationModel evaluation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<SosRuleEvaluationModel?> GetBySosRequestIdAsync(int sosRequestId, CancellationToken cancellationToken = default)
+            => Task.FromResult(evaluation);
+    }
+
+    private sealed class StubSosAiAnalysisRepository(List<SosAiAnalysisModel> analyses) : ISosAiAnalysisRepository
+    {
+        public Task CreateAsync(SosAiAnalysisModel analysis, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<SosAiAnalysisModel?> GetBySosRequestIdAsync(int sosRequestId, CancellationToken cancellationToken = default)
+            => Task.FromResult(analyses.FirstOrDefault());
+        public Task<IEnumerable<SosAiAnalysisModel>> GetAllBySosRequestIdAsync(int sosRequestId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IEnumerable<SosAiAnalysisModel>>(analyses);
+        public Task<IReadOnlyDictionary<int, SosAiAnalysisModel>> GetLatestBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<int, SosAiAnalysisModel>>(new Dictionary<int, SosAiAnalysisModel>());
     }
 }

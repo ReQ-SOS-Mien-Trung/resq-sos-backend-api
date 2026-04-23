@@ -18,7 +18,6 @@ public static class MissionAiSuggestionMapper
             SuggestedMissionType = model.SuggestedMissionType,
             SuggestedPriorityScore = model.SuggestedPriorityScore,
             SuggestedSeverityLevel = model.SuggestedSeverityLevel,
-            ConfidenceScore = model.ConfidenceScore,
             SuggestionScope = model.SuggestionScope,
             Metadata = model.Metadata,
             CreatedAt = model.CreatedAt
@@ -35,7 +34,6 @@ public static class MissionAiSuggestionMapper
             ActivityType = model.ActivityType,
             SuggestionPhase = model.SuggestionPhase,
             SuggestedActivities = model.SuggestedActivities,
-            ConfidenceScore = model.ConfidenceScore,
             CreatedAt = model.CreatedAt
         };
     }
@@ -53,7 +51,6 @@ public static class MissionAiSuggestionMapper
             SuggestedMissionType = entity.SuggestedMissionType,
             SuggestedPriorityScore = entity.SuggestedPriorityScore,
             SuggestedSeverityLevel = entity.SuggestedSeverityLevel,
-            ConfidenceScore = entity.ConfidenceScore,
             SuggestionScope = entity.SuggestionScope,
             Metadata = entity.Metadata,
             CreatedAt = entity.CreatedAt,
@@ -72,7 +69,6 @@ public static class MissionAiSuggestionMapper
             ActivityType = entity.ActivityType,
             SuggestionPhase = entity.SuggestionPhase,
             SuggestedActivities = entity.SuggestedActivities,
-            ConfidenceScore = entity.ConfidenceScore,
             CreatedAt = entity.CreatedAt
         };
     }

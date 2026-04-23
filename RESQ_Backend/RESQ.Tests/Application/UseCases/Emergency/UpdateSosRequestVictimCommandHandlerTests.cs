@@ -37,7 +37,8 @@ public class UpdateSosRequestVictimCommandHandlerTests
         ISosRequestCompanionRepository companionRepo,
         ISosRequestUpdateRepository? sosUpdateRepo = null,
         ISosRuleEvaluationRepository? evalRepo = null,
-        ISosPriorityEvaluationService? evalService = null)
+        ISosPriorityEvaluationService? evalService = null,
+        ISosAiAnalysisQueue? aiQueue = null)
     {
         return new UpdateSosRequestVictimCommandHandler(
             sosRepo,
@@ -45,6 +46,7 @@ public class UpdateSosRequestVictimCommandHandlerTests
             sosUpdateRepo ?? new StubSosRequestUpdateRepository(),
             evalRepo ?? new StubSosRuleEvaluationRepository(),
             evalService ?? new StubPriorityEvaluationService(),
+            aiQueue ?? new StubSosAiAnalysisQueue(),
             new StubUnitOfWork());
     }
 
@@ -237,6 +239,11 @@ public class UpdateSosRequestVictimCommandHandlerTests
 
         public Task<SosRuleEvaluationModel> EvaluateWithConfigAsync(int sosRequestId, string? structuredDataJson, string? sosType, RESQ.Domain.Entities.System.SosPriorityRuleConfigModel? configModel, CancellationToken cancellationToken = default)
             => EvaluateAsync(sosRequestId, structuredDataJson, sosType, cancellationToken);
+    }
+
+    private sealed class StubSosAiAnalysisQueue : ISosAiAnalysisQueue
+    {
+        public ValueTask QueueAsync(SosAiAnalysisTask task) => ValueTask.CompletedTask;
     }
 
     private sealed class StubUnitOfWork : IUnitOfWork

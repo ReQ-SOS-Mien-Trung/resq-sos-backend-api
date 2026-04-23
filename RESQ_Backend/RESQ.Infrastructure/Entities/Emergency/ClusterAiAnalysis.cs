@@ -36,9 +36,6 @@ public partial class ClusterAiAnalysis
     [StringLength(255)]
     public string? SuggestedMissionTypes { get; set; }
 
-    [Column("confidence_score")]
-    public double? ConfidenceScore { get; set; }
-
     [Column("suggestion_scope")]
     [StringLength(100)]
     public string? SuggestionScope { get; set; }

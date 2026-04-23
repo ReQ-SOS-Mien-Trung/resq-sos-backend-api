@@ -35,9 +35,6 @@ public partial class RescueTeamAiSuggestion
     [Column("suggested_members", TypeName = "jsonb")]
     public string? SuggestedMembers { get; set; }
 
-    [Column("confidence_score")]
-    public double? ConfidenceScore { get; set; }
-
     [Column("suggestion_scope")]
     public string? SuggestionScope { get; set; }
 

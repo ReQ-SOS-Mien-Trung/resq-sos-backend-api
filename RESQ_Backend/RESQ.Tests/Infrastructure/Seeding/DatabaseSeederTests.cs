@@ -320,9 +320,12 @@ public class DatabaseSeederTests
                 .GroupBy(item => item.ItemModelId!.Value)
                 .Select(group => new { ItemModelId = group.Key, Count = group.Count() })
                 .ToDictionaryAsync(group => group.ItemModelId, group => group.Count);
-        Assert.All(
-            closureInventories.Where(inventory => inventory.ItemModel!.ItemType == "Reusable"),
-            inventory => Assert.Equal(inventory.Quantity, closureReusableUnitsByModel[inventory.ItemModelId!.Value]));
+            Assert.All(
+                closureInventories.Where(inventory => inventory.ItemModel!.ItemType == "Reusable"),
+                inventory => Assert.Equal(inventory.Quantity, closureReusableUnitsByModel[inventory.ItemModelId!.Value]));
+            Assert.False(await context.ReusableItems.AnyAsync(item =>
+                item.DepotId == closureTestDepot.Id
+                && item.Status != "Available"));
         }
 
         Assert.False(await context.SupplyInventories.AnyAsync(inventory =>

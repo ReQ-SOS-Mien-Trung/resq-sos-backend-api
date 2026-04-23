@@ -1262,11 +1262,7 @@ public partial class RescueMissionSuggestionService
             NeedsAdditionalDepot = depot.NeedsAdditionalDepot || requirements.NeedsAdditionalDepot,
             SupplyShortages = depot.SupplyShortages.Count > 0
                 ? depot.SupplyShortages.Select(CloneSupplyShortage).ToList()
-                : requirements.SupplyShortages.Select(CloneSupplyShortage).ToList(),
-            ConfidenceScore = CalculateDraftConfidence(
-                requirements.ConfidenceScore,
-                depot.ConfidenceScore,
-                team.ConfidenceScore)
+                : requirements.SupplyShortages.Select(CloneSupplyShortage).ToList()
         };
     }
 
@@ -1414,8 +1410,7 @@ public partial class RescueMissionSuggestionService
                 available_quantity = shortage.AvailableQuantity,
                 missing_quantity = shortage.MissingQuantity,
                 notes = shortage.Notes
-            }).ToList(),
-            confidence_score = draftBody.ConfidenceScore
+            }).ToList()
         };
 
         return JsonSerializer.Serialize(payload, _jsonOpts);
@@ -1500,7 +1495,6 @@ public partial class RescueMissionSuggestionService
         effectiveMetadata.SpecialNotes = result.SpecialNotes;
         effectiveMetadata.MixedRescueReliefWarning = result.MixedRescueReliefWarning;
         effectiveMetadata.NeedsManualReview = result.NeedsManualReview;
-        effectiveMetadata.LowConfidenceWarning = result.LowConfidenceWarning;
         effectiveMetadata.NeedsAdditionalDepot = result.NeedsAdditionalDepot;
         effectiveMetadata.SupplyShortages = result.SupplyShortages;
         effectiveMetadata.SuggestedResources = result.SuggestedResources;
@@ -1565,14 +1559,6 @@ public partial class RescueMissionSuggestionService
         NormalizeMixedRescueReliefWarning(result, allowFallbackFromSpecialNotes: !string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning));
         NormalizeEstimatedDurations(result);
 
-        if (result.ConfidenceScore < LowConfidenceThreshold)
-        {
-            result.NeedsManualReview = true;
-            result.LowConfidenceWarning =
-                $"AI chi dat do tu tin {result.ConfidenceScore:P0} (nguong {LowConfidenceThreshold:P0}). " +
-                "Dieu phoi vien nen kiem tra lai ke hoach.";
-        }
-
         result.IsSuccess = true;
         result.MultiDepotRecommended = false;
     }
@@ -1613,8 +1599,7 @@ public partial class RescueMissionSuggestionService
                 result.ModelName,
                 result.SuggestedMissionType,
                 DraftSuggestionPhase,
-                draftActivities,
-                result.ConfidenceScore));
+                draftActivities));
         }
 
         if (string.Equals(finalResultSource, "validated", StringComparison.OrdinalIgnoreCase)
@@ -1625,8 +1610,7 @@ public partial class RescueMissionSuggestionService
                 result.ModelName,
                 result.SuggestedMissionType,
                 ValidatedSuggestionPhase,
-                result.SuggestedActivities,
-                result.ConfidenceScore));
+                result.SuggestedActivities));
         }
 
         var missionModel = new MissionAiSuggestionModel
@@ -1639,7 +1623,6 @@ public partial class RescueMissionSuggestionService
             SuggestedMissionType = result.SuggestedMissionType,
             SuggestedPriorityScore = result.SuggestedPriorityScore,
             SuggestedSeverityLevel = result.SuggestedSeverityLevel,
-            ConfidenceScore = result.ConfidenceScore,
             Metadata = JsonSerializer.Serialize(metadata, _jsonOpts),
             CreatedAt = suggestionId.HasValue ? null : DateTime.UtcNow,
             Activities = activities
@@ -1659,8 +1642,7 @@ public partial class RescueMissionSuggestionService
         string? modelName,
         string? missionType,
         string phase,
-        List<SuggestedActivityDto> activities,
-        double confidenceScore)
+        List<SuggestedActivityDto> activities)
     {
         return new ActivityAiSuggestionModel
         {
@@ -1669,7 +1651,6 @@ public partial class RescueMissionSuggestionService
             ActivityType = missionType ?? "RescueActivities",
             SuggestionPhase = phase,
             SuggestedActivities = JsonSerializer.Serialize(activities, _jsonOpts),
-            ConfidenceScore = confidenceScore,
             CreatedAt = DateTime.UtcNow
         };
     }
@@ -1767,15 +1748,6 @@ public partial class RescueMissionSuggestionService
 
     private static string SerializePipelineFragment<T>(T fragment) =>
         JsonSerializer.Serialize(fragment, _jsonOpts);
-
-    private static double CalculateDraftConfidence(params double[] scores)
-    {
-        var validScores = scores.Where(score => score > 0).ToList();
-        if (validScores.Count == 0)
-            return 0;
-
-        return Math.Round(validScores.Average(), 2);
-    }
 
     private static SuggestedActivityDto MapDraftActivityToSuggestedActivity(MissionDraftActivityDto activity)
     {

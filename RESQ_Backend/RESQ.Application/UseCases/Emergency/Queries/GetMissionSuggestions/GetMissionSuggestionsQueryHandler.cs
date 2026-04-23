@@ -39,7 +39,6 @@ public class GetMissionSuggestionsQueryHandler(
                 Id = a.Id,
                 ActivityType = a.ActivityType,
                 SuggestionPhase = a.SuggestionPhase,
-                ConfidenceScore = a.ConfidenceScore,
                 CreatedAt = a.CreatedAt,
                 SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(a.SuggestedActivities)
             }).ToList();
@@ -62,7 +61,6 @@ public class GetMissionSuggestionsQueryHandler(
                 SuggestedMissionType = m.SuggestedMissionType,
                 SuggestedPriorityScore = m.SuggestedPriorityScore,
                 SuggestedSeverityLevel = m.SuggestedSeverityLevel,
-                ConfidenceScore = m.ConfidenceScore,
                 IsSuccess = isSuccess,
                 ErrorMessage = errorMessage,
                 OverallAssessment = metadata?.OverallAssessment,
@@ -70,7 +68,6 @@ public class GetMissionSuggestionsQueryHandler(
                 SpecialNotes = metadata?.SpecialNotes,
                 MixedRescueReliefWarning = mixedRescueReliefWarning,
                 NeedsManualReview = (metadata?.NeedsManualReview ?? false) || !string.IsNullOrWhiteSpace(mixedRescueReliefWarning),
-                LowConfidenceWarning = metadata?.LowConfidenceWarning,
                 NeedsAdditionalDepot = metadata?.NeedsAdditionalDepot ?? false,
                 SupplyShortages = metadata?.SupplyShortages ?? [],
                 SuggestedResources = metadata?.SuggestedResources ?? [],

@@ -489,7 +489,6 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 AnalysisType = template.AnalysisType,
                 SuggestedSeverityLevel = template.SuggestedSeverityLevel,
                 SuggestedMissionTypes = template.SuggestedMissionTypes,
-                ConfidenceScore = template.ConfidenceScore,
                 SuggestionScope = template.SuggestionScope,
                 Metadata = template.Metadata,
                 CreatedAt = template.CreatedAt,
@@ -521,7 +520,6 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ActivityType = template.ActivityType,
                 SuggestionPhase = template.SuggestionPhase,
                 SuggestedActivities = template.SuggestedActivities,
-                ConfidenceScore = template.ConfidenceScore,
                 SuggestionScope = template.SuggestionScope,
                 CreatedAt = template.CreatedAt,
                 AdoptedAt = template.AdoptedAt
@@ -550,7 +548,6 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ModelVersion = template.ModelVersion,
                 AnalysisType = template.AnalysisType,
                 SuggestedMembers = template.SuggestedMembers,
-                ConfidenceScore = template.ConfidenceScore,
                 SuggestionScope = template.SuggestionScope,
                 CreatedAt = template.CreatedAt,
                 AdoptedAt = template.AdoptedAt
@@ -1861,8 +1858,15 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 AnalysisType = "SosAssessment",
                 SuggestedSeverityLevel = sos.PriorityLevel,
                 SuggestedPriority = sos.PriorityLevel,
+                SuggestedPriorityScore = sos.PriorityLevel == "Critical"
+                    ? 9.0
+                    : sos.PriorityLevel == "High"
+                        ? 7.0
+                        : sos.PriorityLevel == "Medium"
+                            ? 5.0
+                            : 2.0,
+                AgreesWithRuleBase = true,
                 Explanation = $"Đề xuất {sos.PriorityLevel} dựa trên vị trí, khả năng di chuyển và nhóm dễ tổn thương.",
-                ConfidenceScore = 0.72 + (sos.Id % 24) / 100.0,
                 SuggestionScope = "DemoSeed",
                 Metadata = Json(new { risk_factors = new[] { "flood", "vulnerable_people", "limited_access" } }),
                 CreatedAt = ClampHistoricalUtc(
@@ -3494,6 +3498,15 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 if (!string.Equals(itemModel.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
+                }
+
+                foreach (var existingItem in seed.ReusableItems.Where(item =>
+                             item.DepotId == closureDepot.Id
+                             && item.ItemModelId == itemModel.Id))
+                {
+                    existingItem.Status = ReusableItemStatus.Available.ToString();
+                    existingItem.Note = ClosureTestDepotReusableNote(closureDepot);
+                    existingItem.UpdatedAt = seed.AnchorUtc.AddDays(-((itemModel.Id + existingItem.Id) % 18));
                 }
 
                 var targetQuantity = inventory.Quantity ?? 0;

@@ -32,8 +32,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private readonly IAssemblyPointRepository _assemblyPointRepository;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
 
-    private const double LowConfidenceThreshold = 0.65;
-
     private const int AgentPageSize = 10;
     private const string CollectSuppliesActivityType = "COLLECT_SUPPLIES";
     private const string ReturnSuppliesActivityType = "RETURN_SUPPLIES";
@@ -430,7 +428,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static RescueMissionSuggestionResult MapParsedToResult(AiMissionSuggestion parsed)
     {
-        return new RescueMissionSuggestionResult
+        var result = new RescueMissionSuggestionResult
         {
             SuggestedMissionTitle = parsed.MissionTitle,
             SuggestedMissionType = parsed.MissionType,
@@ -504,9 +502,18 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             EstimatedDuration = parsed.EstimatedDuration,
             SpecialNotes = parsed.SpecialNotes,
             NeedsAdditionalDepot = parsed.NeedsAdditionalDepot,
-            SupplyShortages = parsed.SupplyShortages?.Select(MapSupplyShortage).ToList() ?? [],
-            ConfidenceScore = parsed.ConfidenceScore
+            SupplyShortages = parsed.SupplyShortages?.Select(MapSupplyShortage).ToList() ?? []
         };
+
+        ApplyPipelineWarning(
+            result,
+            parsed.WarningLevel,
+            parsed.WarningTitle,
+            parsed.WarningMessage,
+            parsed.WarningRelatedSosIds,
+            parsed.WarningReason);
+
+        return result;
     }
 
     private static RescueMissionSuggestionResult ExtractPartialFromJson(string jsonStr)
@@ -528,7 +535,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (root.TryGetProperty("special_notes", out var sn)) result.SpecialNotes = sn.GetString();
         if (root.TryGetProperty("needs_additional_depot", out var nad) && nad.ValueKind is JsonValueKind.True or JsonValueKind.False) result.NeedsAdditionalDepot = nad.GetBoolean();
         result.SupplyShortages = ParseSupplyShortages(root);
-        if (root.TryGetProperty("confidence_score", out var cs) && cs.TryGetDouble(out var csVal)) result.ConfidenceScore = csVal;
 
         if (root.TryGetProperty("activities", out var acts) && acts.ValueKind == JsonValueKind.Array)
         {
@@ -614,6 +620,14 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             result.SuggestedTeam = teamDto;
         }
 
+        ApplyPipelineWarning(
+            result,
+            GetOptionalString(root, "warning_level"),
+            GetOptionalString(root, "warning_title"),
+            GetOptionalString(root, "warning_message"),
+            ParseWarningRelatedSosIds(root),
+            GetOptionalString(root, "warning_reason"));
+
         return result;
     }
 
@@ -662,6 +676,139 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         };
     }
 
+    private static void ApplyPipelineWarning(
+        RescueMissionSuggestionResult result,
+        string? warningLevel,
+        string? warningTitle,
+        string? warningMessage,
+        IEnumerable<int>? warningRelatedSosIds,
+        string? warningReason)
+    {
+        var normalizedLevel = NormalizePipelineWarningLevel(warningLevel);
+        if (string.IsNullOrWhiteSpace(normalizedLevel) || string.Equals(normalizedLevel, "none", StringComparison.Ordinal))
+            return;
+
+        var warningText = BuildPipelineWarningText(warningTitle, warningMessage, warningRelatedSosIds, warningReason);
+        if (string.IsNullOrWhiteSpace(warningText))
+            return;
+
+        if (normalizedLevel is "medium" or "strong")
+            result.NeedsManualReview = true;
+
+        if (normalizedLevel == "strong" && LooksLikeMixedRouteWarning(warningText))
+        {
+            result.MixedRescueReliefWarning = warningText;
+            return;
+        }
+
+        result.SpecialNotes = AppendSpecialNote(result.SpecialNotes, warningText);
+    }
+
+    private static string? NormalizePipelineWarningLevel(string? warningLevel)
+    {
+        return warningLevel?.Trim().ToLowerInvariant() switch
+        {
+            "light" => "light",
+            "medium" => "medium",
+            "strong" => "strong",
+            "none" => "none",
+            _ => null
+        };
+    }
+
+    private static string? BuildPipelineWarningText(
+        string? warningTitle,
+        string? warningMessage,
+        IEnumerable<int>? warningRelatedSosIds,
+        string? warningReason)
+    {
+        var relatedIds = warningRelatedSosIds?
+            .Where(id => id > 0)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList() ?? [];
+
+        var relatedSosNote = relatedIds.Count == 0
+            ? null
+            : $"SOS liên quan: {string.Join(", ", relatedIds.Select(id => $"#{id}"))}.";
+        var reasonNote = string.IsNullOrWhiteSpace(warningReason)
+            ? null
+            : $"Lý do: {warningReason.Trim()}";
+
+        return JoinNotes(warningTitle, warningMessage, reasonNote, relatedSosNote);
+    }
+
+    private static bool LooksLikeMixedRouteWarning(string warningText)
+    {
+        var normalized = SosPriorityRuleConfigSupport.NormalizeKey(warningText);
+        if (normalized.Contains("MIXED", StringComparison.Ordinal))
+            return true;
+
+        var hasRescueSignal =
+            normalized.Contains("RESCUE", StringComparison.Ordinal)
+            || normalized.Contains("CUU_HO", StringComparison.Ordinal)
+            || normalized.Contains("CAP_CUU", StringComparison.Ordinal)
+            || normalized.Contains("EVACUATE", StringComparison.Ordinal);
+        var hasReliefSignal =
+            normalized.Contains("RELIEF", StringComparison.Ordinal)
+            || normalized.Contains("CUU_TRO", StringComparison.Ordinal)
+            || normalized.Contains("CAP_PHAT", StringComparison.Ordinal)
+            || normalized.Contains("DELIVER_SUPPLIES", StringComparison.Ordinal);
+
+        return hasRescueSignal && hasReliefSignal;
+    }
+
+    private static string? GetOptionalString(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var value)
+            || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return null;
+        }
+
+        return value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : value.ToString();
+    }
+
+    private static List<int> ParseWarningRelatedSosIds(JsonElement root)
+    {
+        if (!root.TryGetProperty("warning_related_sos_ids", out var value)
+            || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return [];
+        }
+
+        if (value.ValueKind == JsonValueKind.Array)
+        {
+            return value.EnumerateArray()
+                .Select(element =>
+                {
+                    if (element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out var numberValue))
+                        return numberValue;
+
+                    return element.ValueKind == JsonValueKind.String
+                        && int.TryParse(element.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var stringValue)
+                            ? stringValue
+                            : (int?)null;
+                })
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToList();
+        }
+
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            return Regex.Matches(value.GetString() ?? string.Empty, @"\d+")
+                .Select(match => int.Parse(match.Value, CultureInfo.InvariantCulture))
+                .ToList();
+        }
+
+        return value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var singleValue)
+            ? [singleValue]
+            : [];
+    }
+
     private static RescueMissionSuggestionResult ExtractViaRegex(string text)
     {
         static string? ExtractStr(string src, string field)
@@ -681,8 +828,18 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             var m = Regex.Match(src, $@"""{field}""\s*:\s*(true|false)", RegexOptions.IgnoreCase);
             return m.Success && bool.TryParse(m.Groups[1].Value, out var value) && value;
         }
+        static List<int> ExtractIntArray(string src, string field)
+        {
+            var arrayMatch = Regex.Match(src, $@"""{field}""\s*:\s*\[(.*?)\]", RegexOptions.Singleline);
+            if (!arrayMatch.Success)
+                return [];
 
-        return new RescueMissionSuggestionResult
+            return Regex.Matches(arrayMatch.Groups[1].Value, @"\d+")
+                .Select(match => int.Parse(match.Value, CultureInfo.InvariantCulture))
+                .ToList();
+        }
+
+        var result = new RescueMissionSuggestionResult
         {
             SuggestedMissionTitle = ExtractStr(text, "mission_title") ?? "Nhiệm vụ giải cứu",
             SuggestedMissionType = ExtractStr(text, "mission_type"),
@@ -691,9 +848,18 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             OverallAssessment = ExtractStr(text, "overall_assessment")?.Replace("\n", " ").Replace("\r", " ").Trim(),
             EstimatedDuration = ExtractStr(text, "estimated_duration"),
             SpecialNotes = ExtractStr(text, "special_notes"),
-            NeedsAdditionalDepot = ExtractBool(text, "needs_additional_depot"),
-            ConfidenceScore = ExtractNum(text, "confidence_score") ?? 0.3
+            NeedsAdditionalDepot = ExtractBool(text, "needs_additional_depot")
         };
+
+        ApplyPipelineWarning(
+            result,
+            ExtractStr(text, "warning_level"),
+            ExtractStr(text, "warning_title"),
+            ExtractStr(text, "warning_message"),
+            ExtractIntArray(text, "warning_related_sos_ids"),
+            ExtractStr(text, "warning_reason"));
+
+        return result;
     }
 
     private static void BackfillShortageItemIds(List<SupplyShortageDto> shortages, List<DepotSummary> depots)
@@ -3857,8 +4023,21 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         [JsonPropertyName("supply_shortages")]
         public List<AiSupplyShortage>? SupplyShortages { get; set; }
 
-        [JsonPropertyName("confidence_score")]
-        public double ConfidenceScore { get; set; }
+        [JsonPropertyName("warning_level")]
+        public string? WarningLevel { get; set; }
+
+        [JsonPropertyName("warning_title")]
+        public string? WarningTitle { get; set; }
+
+        [JsonPropertyName("warning_message")]
+        public string? WarningMessage { get; set; }
+
+        [JsonPropertyName("warning_related_sos_ids")]
+        public List<int>? WarningRelatedSosIds { get; set; }
+
+        [JsonPropertyName("warning_reason")]
+        public string? WarningReason { get; set; }
+
     }
 
     private class AiSupplyShortage
