@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Emergency.Commands.AddSosRequestToCluster;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosCluster;
 using RESQ.Application.UseCases.Emergency.Commands.GenerateRescueMissionSuggestion;
 using RESQ.Application.UseCases.Emergency.Commands.RemoveSosRequestFromCluster;
@@ -57,6 +58,23 @@ public class SosClusterController(IMediator mediator) : ControllerBase
             return Unauthorized();
 
         var command = new RemoveSosRequestFromClusterCommand(clusterId, sosRequestId, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Admin hoáº·c coordinator thÃªm má»™t SOS request Ä‘Æ¡n láº» vÃ o cluster hiá»‡n cÃ³.
+    /// </summary>
+    [HttpPost("{clusterId:int}/sos-requests/{sosRequestId:int}")]
+    [Authorize(Policy = PermissionConstants.PolicyMissionManage)]
+    [ProducesResponseType(typeof(AddSosRequestToClusterResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> AddSosRequestToCluster([FromRoute] int clusterId, [FromRoute] int sosRequestId)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var command = new AddSosRequestToClusterCommand(clusterId, sosRequestId, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

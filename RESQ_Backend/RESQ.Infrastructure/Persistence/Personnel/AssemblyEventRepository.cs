@@ -361,6 +361,18 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         return (evt.Id, evt.Status);
     }
 
+    public async Task<(int EventId, string Status)?> GetLatestEventByAssemblyPointAsync(
+        int assemblyPointId, CancellationToken cancellationToken = default)
+    {
+        var evt = await _unitOfWork.Set<AssemblyEvent>()
+            .Where(e => e.AssemblyPointId == assemblyPointId)
+            .OrderByDescending(e => e.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (evt == null) return null;
+        return (evt.Id, evt.Status);
+    }
+
     public async Task UpdateEventStatusAsync(int eventId, string status,
         CancellationToken cancellationToken = default)
     {

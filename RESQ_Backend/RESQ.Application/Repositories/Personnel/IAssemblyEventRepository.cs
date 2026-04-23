@@ -55,6 +55,8 @@ public interface IAssemblyEventRepository
 
     /// <summary>Lấy event active (Gathering) mới nhất tại AP. Null nếu không có.</summary>
     Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default);
+    /// <summary>Láº¥y event gáº§n nháº¥t táº¡i AP Ä‘á»ƒ Ä‘á»‘i chiáº¿u danh sÃ¡ch participant/check-in khi táº¡o team.</summary>
+    Task<(int EventId, string Status)?> GetLatestEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default);
 
     /// <summary>Cập nhật trạng thái event.</summary>
     Task UpdateEventStatusAsync(int eventId, string status, CancellationToken cancellationToken = default);

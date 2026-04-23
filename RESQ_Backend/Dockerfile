@@ -24,8 +24,10 @@ RUN dotnet publish "RESQ.Presentation.csproj" -c Release -o /app/publish /p:UseA
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-# Install PostgreSQL client for health checks (optional)
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install runtime utilities and timezone data for Linux time zone resolution.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 8080
 EXPOSE 8081

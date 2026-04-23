@@ -5,6 +5,7 @@ using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportDashboa
 using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportsDashboard;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerMissionScores;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetVictimsByPeriod;
+using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Application.Repositories.System;
 
@@ -45,6 +46,7 @@ public interface IDashboardRepository
         CancellationToken cancellationToken = default);
 
     Task<MissionTeamReportDashboardSummaryResponse> GetMissionTeamReportDashboardSummaryAsync(
+        IReadOnlyCollection<MissionTeamReportStatus>? reportStatuses = null,
         CancellationToken cancellationToken = default);
 
     Task<PagedResult<MissionTeamReportDashboardItemDto>> GetMissionTeamReportsDashboardAsync(
