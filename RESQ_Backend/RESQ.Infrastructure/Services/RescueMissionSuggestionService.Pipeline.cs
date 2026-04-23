@@ -1538,6 +1538,8 @@ public partial class RescueMissionSuggestionService
     {
         var sosLookup = sosRequests.ToDictionary(sos => sos.Id);
         NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
+        RescueMissionSuggestionReviewHelper.ApplyNearbyDepotConstraints(result, nearbyDepots ?? []);
+        ApplySingleSelectedDepotToSupplyActivities(result, nearbyDepots ?? []);
         BackfillItemIds(result.SuggestedActivities, nearbyDepots ?? []);
         await BackfillInventoryBackedItemIdsAsync(result.SuggestedActivities, cancellationToken);
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
@@ -1551,6 +1553,7 @@ public partial class RescueMissionSuggestionService
         BackfillShortageItemIds(result.SupplyShortages, nearbyDepots ?? []);
         ReconcileSupplyShortagesWithInventory(result.SupplyShortages, nearbyDepots ?? [], result.SuggestedActivities);
         NormalizeSupplyShortages(result);
+        ApplySingleSelectedDepotToSupplyActivities(result, nearbyDepots ?? []);
         ApplySingleDepotConstraint(result);
         RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(result, nearbyTeams);
         EnsureReturnAssemblyPointActivities(result);

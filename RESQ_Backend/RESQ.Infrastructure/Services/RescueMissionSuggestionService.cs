@@ -1169,6 +1169,44 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return depots.Count == 1 ? (depots[0].DepotId, depots[0].DepotName) : null;
     }
 
+    private static void ApplySingleSelectedDepotToSupplyActivities(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<DepotSummary> nearbyDepots)
+    {
+        var selectedDepot = GetSingleDepotSelection(result.SuggestedActivities);
+
+        if (!selectedDepot.HasValue)
+        {
+            var shortageDepots = result.SupplyShortages
+                .Where(shortage => shortage.SelectedDepotId.HasValue)
+                .GroupBy(shortage => shortage.SelectedDepotId!.Value)
+                .Select(group => new
+                {
+                    DepotId = group.Key,
+                    DepotName = group
+                        .Select(shortage => shortage.SelectedDepotName)
+                        .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
+                })
+                .ToList();
+
+            if (shortageDepots.Count == 1)
+                selectedDepot = (shortageDepots[0].DepotId, shortageDepots[0].DepotName);
+        }
+
+        if (!selectedDepot.HasValue)
+            return;
+
+        var canonicalDepot = nearbyDepots
+            .FirstOrDefault(depot => depot.Id == selectedDepot.Value.DepotId);
+
+        foreach (var activity in result.SuggestedActivities.Where(activity => IsSupplyPipelineActivity(activity.ActivityType)))
+        {
+            activity.DepotId ??= selectedDepot.Value.DepotId;
+            activity.DepotName ??= canonicalDepot?.Name ?? selectedDepot.Value.DepotName;
+            activity.DepotAddress ??= canonicalDepot?.Address;
+        }
+    }
+
     private static void ApplySingleDepotConstraint(RescueMissionSuggestionResult result)
     {
         var depots = result.SuggestedActivities
@@ -3568,47 +3606,20 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     /// Populates DestinationLatitude / DestinationLongitude / DestinationName on each activity
     /// from structured context data (depots and SOS requests), then cleans up descriptions so
     /// that named destinations are shown by name rather than raw coordinates.
-    /// Falls back to a DB lookup when the depot picked by the AI is not already present in the
-    /// scoped nearby-depot context used for the current mission suggestion.
+    /// Depot coordinates are only trusted when they come from the scoped nearby-depot context
+    /// already approved for the current mission suggestion.
     /// </summary>
-    private async Task BackfillDestinationInfoAsync(
+    private Task BackfillDestinationInfoAsync(
         List<SuggestedActivityDto> activities,
         List<DepotSummary> nearbyDepots,
         List<SosRequestSummary> sosRequests,
         CancellationToken cancellationToken)
     {
+        _ = cancellationToken;
         var depotMap = nearbyDepots.ToDictionary(d => d.Id);
         var sosMap   = sosRequests
             .Where(s => s.Latitude.HasValue && s.Longitude.HasValue)
             .ToDictionary(s => s.Id);
-
-        // Collect depot IDs that are used by supply activities but not in nearbyDepots
-        // so we can batch-load their coordinates from DB.
-        var missingDepotIds = activities
-            .Where(a => (a.ActivityType is "COLLECT_SUPPLIES" or "RETURN_SUPPLIES")
-                        && !a.DestinationLatitude.HasValue
-                        && a.DepotId.HasValue
-                        && !depotMap.ContainsKey(a.DepotId.Value))
-            .Select(a => a.DepotId!.Value)
-            .Distinct()
-            .ToList();
-
-        // Batch DB lookups for missing depots
-        foreach (var depotId in missingDepotIds)
-        {
-            var loc = await _depotInventoryRepository.GetDepotLocationAsync(depotId, cancellationToken);
-            if (loc.HasValue)
-            {
-                // Synthesise a minimal DepotSummary so the switch below can use it uniformly
-                depotMap[depotId] = new DepotSummary
-                {
-                    Id        = depotId,
-                    Name      = activities.First(a => a.DepotId == depotId).DepotName ?? string.Empty,
-                    Latitude  = loc.Value.Latitude,
-                    Longitude = loc.Value.Longitude
-                };
-            }
-        }
 
         foreach (var activity in activities)
         {
@@ -3662,6 +3673,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     activity.DestinationName);
             }
         }
+
+        return Task.CompletedTask;
     }
 
     // Matches bare or parenthesised coordinate pairs, e.g. "10.123, 106.456" or "(10.123, 106.456)".

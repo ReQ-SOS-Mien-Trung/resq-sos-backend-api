@@ -229,6 +229,69 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
+    public void ApplySingleSelectedDepotToSupplyActivities_FillsMissingDepotOnDeliverActivity()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto
+                {
+                    Step = 1,
+                    ActivityType = "COLLECT_SUPPLIES",
+                    DepotId = 1,
+                    DepotName = "Kho A",
+                    DepotAddress = "1 Le Loi",
+                    SuppliesToCollect =
+                    [
+                        new SupplyToCollectDto
+                        {
+                            ItemId = 15,
+                            ItemName = "Nuoc sach",
+                            Quantity = 10,
+                            Unit = "chai"
+                        }
+                    ]
+                },
+                new SuggestedActivityDto
+                {
+                    Step = 2,
+                    ActivityType = "DELIVER_SUPPLIES",
+                    SosRequestId = 22,
+                    SuppliesToCollect =
+                    [
+                        new SupplyToCollectDto
+                        {
+                            ItemId = 15,
+                            ItemName = "Nuoc sach",
+                            Quantity = 10,
+                            Unit = "chai"
+                        }
+                    ]
+                }
+            ]
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "ApplySingleSelectedDepotToSupplyActivities",
+            result,
+            new List<DepotSummary>
+            {
+                new()
+                {
+                    Id = 1,
+                    Name = "Kho A",
+                    Address = "1 Le Loi"
+                }
+            });
+
+        Assert.Equal(1, result.SuggestedActivities[1].DepotId);
+        Assert.Equal("Kho A", result.SuggestedActivities[1].DepotName);
+        Assert.Equal("1 Le Loi", result.SuggestedActivities[1].DepotAddress);
+    }
+
+    [Fact]
     public void AssessMissionActivityRoute_AllowsCollectBeforeUrgentRescueWithoutRequiresSupplyFlag()
     {
         var team = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" };

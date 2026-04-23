@@ -1,4 +1,6 @@
-﻿using RESQ.Application.Services;
+using System.Globalization;
+using System.Text;
+using RESQ.Application.Services;
 
 namespace RESQ.Application.UseCases.Emergency.Shared;
 
@@ -16,6 +18,10 @@ public static class RescueMissionSuggestionReviewHelper
             .Where(team => team.TeamId > 0)
             .GroupBy(team => team.TeamId)
             .ToDictionary(group => group.Key, group => group.First());
+        var nearbyTeamNameLookup = nearbyTeams
+            .Where(team => !string.IsNullOrWhiteSpace(team.TeamName))
+            .GroupBy(team => NormalizeLookupKey(team.TeamName))
+            .ToDictionary(group => group.Key, group => group.First());
 
         if (nearbyTeamLookup.Count == 0)
         {
@@ -27,6 +33,7 @@ public static class RescueMissionSuggestionReviewHelper
         result.SuggestedTeam = SanitizeSuggestedTeam(
             result.SuggestedTeam,
             nearbyTeamLookup,
+            nearbyTeamNameLookup,
             "Đội tổng thể của mission suggestion",
             warnings);
 
@@ -35,6 +42,7 @@ public static class RescueMissionSuggestionReviewHelper
             activity.SuggestedTeam = SanitizeSuggestedTeam(
                 activity.SuggestedTeam,
                 nearbyTeamLookup,
+                nearbyTeamNameLookup,
                 $"Activity step {activity.Step} ({activity.ActivityType})",
                 warnings);
 
@@ -42,6 +50,108 @@ public static class RescueMissionSuggestionReviewHelper
             {
                 warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) chưa được gán đội trong pool nearby teams.");
             }
+        }
+
+        if (warnings.Count == 0)
+            return;
+
+        result.NeedsManualReview = true;
+        result.SpecialNotes = AppendWarnings(result.SpecialNotes, warnings);
+    }
+
+    public static void ApplyNearbyDepotConstraints(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<DepotSummary> nearbyDepots)
+    {
+        var warnings = new List<string>();
+        var nearbyDepotLookup = nearbyDepots
+            .Where(depot => depot.Id > 0)
+            .GroupBy(depot => depot.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+        var nearbyDepotNameLookup = nearbyDepots
+            .Where(depot => !string.IsNullOrWhiteSpace(depot.Name))
+            .GroupBy(depot => NormalizeLookupKey(depot.Name))
+            .ToDictionary(group => group.Key, group => group.First());
+
+        if (nearbyDepotLookup.Count == 0
+            && result.SuggestedActivities.Any(RequiresDepotAssignment))
+        {
+            warnings.Add("Không có kho eligible nào trong pool nearby depots của cluster hiện tại; điều phối viên cần chọn kho thủ công.");
+        }
+
+        foreach (var activity in result.SuggestedActivities.OrderBy(activity => activity.Step))
+        {
+            if (!RequiresDepotAssignment(activity)
+                && !activity.DepotId.HasValue
+                && string.IsNullOrWhiteSpace(activity.DepotName))
+            {
+                continue;
+            }
+
+            var canonicalDepot = ResolveCanonicalDepot(
+                activity.DepotId,
+                activity.DepotName,
+                nearbyDepotLookup,
+                nearbyDepotNameLookup);
+
+            if (canonicalDepot is null)
+            {
+                if (activity.DepotId.HasValue && activity.DepotId.Value > 0)
+                {
+                    warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) đang tham chiếu depot_id={activity.DepotId.Value} nằm ngoài pool nearby depots.");
+                }
+                else if (!string.IsNullOrWhiteSpace(activity.DepotName))
+                {
+                    warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) đang tham chiếu depot_name='{activity.DepotName!.Trim()}' nằm ngoài pool nearby depots.");
+                }
+                else if (RequiresDepotAssignment(activity))
+                {
+                    warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) thiếu depot_id hợp lệ.");
+                }
+
+                ClearActivityDepot(activity);
+
+                if (RequiresDepotAssignment(activity) && nearbyDepotLookup.Count > 0)
+                {
+                    warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) chưa được gán kho trong pool nearby depots.");
+                }
+
+                continue;
+            }
+
+            activity.DepotId = canonicalDepot.Id;
+            activity.DepotName = canonicalDepot.Name;
+            activity.DepotAddress = string.IsNullOrWhiteSpace(canonicalDepot.Address)
+                ? activity.DepotAddress?.Trim()
+                : canonicalDepot.Address.Trim();
+        }
+
+        foreach (var shortage in result.SupplyShortages)
+        {
+            var canonicalDepot = ResolveCanonicalDepot(
+                shortage.SelectedDepotId,
+                shortage.SelectedDepotName,
+                nearbyDepotLookup,
+                nearbyDepotNameLookup);
+
+            if (canonicalDepot is null)
+            {
+                if (shortage.SelectedDepotId.HasValue && shortage.SelectedDepotId.Value > 0)
+                {
+                    warnings.Add($"Supply shortage '{shortage.ItemName}' đang tham chiếu selected_depot_id={shortage.SelectedDepotId.Value} nằm ngoài pool nearby depots.");
+                }
+                else if (!string.IsNullOrWhiteSpace(shortage.SelectedDepotName))
+                {
+                    warnings.Add($"Supply shortage '{shortage.ItemName}' đang tham chiếu selected_depot_name='{shortage.SelectedDepotName!.Trim()}' nằm ngoài pool nearby depots.");
+                }
+
+                shortage.SelectedDepotId = null;
+                shortage.SelectedDepotName = null;
+                continue;
+            }
+
+            shortage.SelectedDepotId = canonicalDepot.Id;
+            shortage.SelectedDepotName = canonicalDepot.Name;
         }
 
         if (warnings.Count == 0)
@@ -83,21 +193,25 @@ public static class RescueMissionSuggestionReviewHelper
     private static SuggestedTeamDto? SanitizeSuggestedTeam(
         SuggestedTeamDto? suggestedTeam,
         IReadOnlyDictionary<int, AgentTeamInfo> nearbyTeamLookup,
+        IReadOnlyDictionary<string, AgentTeamInfo> nearbyTeamNameLookup,
         string contextLabel,
         ICollection<string> warnings)
     {
         if (suggestedTeam is null)
             return null;
 
-        if (suggestedTeam.TeamId <= 0)
+        var canonicalTeam = ResolveCanonicalTeam(suggestedTeam, nearbyTeamLookup, nearbyTeamNameLookup);
+        if (canonicalTeam is null)
         {
-            warnings.Add($"{contextLabel} thiếu team_id hợp lệ.");
-            return null;
-        }
+            if (suggestedTeam.TeamId > 0)
+            {
+                warnings.Add($"{contextLabel} đang tham chiếu team_id={suggestedTeam.TeamId} nằm ngoài pool nearby teams.");
+            }
+            else
+            {
+                warnings.Add($"{contextLabel} thiếu team_id hợp lệ.");
+            }
 
-        if (!nearbyTeamLookup.TryGetValue(suggestedTeam.TeamId, out var canonicalTeam))
-        {
-            warnings.Add($"{contextLabel} đang tham chiếu team_id={suggestedTeam.TeamId} nằm ngoài pool nearby teams.");
             return null;
         }
 
@@ -180,6 +294,110 @@ public static class RescueMissionSuggestionReviewHelper
         return team.DistanceKm.HasValue
             ? $"Đội nằm trong pool nearby teams của cluster, cách tâm cluster khoảng {team.DistanceKm.Value:0.##} km."
             : "Đội nằm trong pool nearby teams của cluster hiện tại.";
+    }
+
+    private static AgentTeamInfo? ResolveCanonicalTeam(
+        SuggestedTeamDto suggestedTeam,
+        IReadOnlyDictionary<int, AgentTeamInfo> nearbyTeamLookup,
+        IReadOnlyDictionary<string, AgentTeamInfo> nearbyTeamNameLookup)
+    {
+        if (suggestedTeam.TeamId > 0
+            && nearbyTeamLookup.TryGetValue(suggestedTeam.TeamId, out var canonicalById))
+        {
+            return canonicalById;
+        }
+
+        if (!string.IsNullOrWhiteSpace(suggestedTeam.TeamName))
+        {
+            var normalizedName = NormalizeLookupKey(suggestedTeam.TeamName);
+            if (nearbyTeamNameLookup.TryGetValue(normalizedName, out var canonicalByName))
+                return canonicalByName;
+        }
+
+        return null;
+    }
+
+    private static DepotSummary? ResolveCanonicalDepot(
+        int? depotId,
+        string? depotName,
+        IReadOnlyDictionary<int, DepotSummary> nearbyDepotLookup,
+        IReadOnlyDictionary<string, DepotSummary> nearbyDepotNameLookup)
+    {
+        if (depotId is > 0
+            && nearbyDepotLookup.TryGetValue(depotId.Value, out var canonicalById))
+        {
+            return canonicalById;
+        }
+
+        if (!string.IsNullOrWhiteSpace(depotName))
+        {
+            var normalizedName = NormalizeLookupKey(depotName);
+            if (nearbyDepotNameLookup.TryGetValue(normalizedName, out var canonicalByName))
+                return canonicalByName;
+        }
+
+        return null;
+    }
+
+    private static bool RequiresDepotAssignment(SuggestedActivityDto activity) =>
+        activity.ActivityType is not null
+        && (activity.ActivityType.Equals("COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+            || activity.ActivityType.Equals("DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+            || activity.ActivityType.Equals("RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase));
+
+    private static void ClearActivityDepot(SuggestedActivityDto activity)
+    {
+        var previousDepotName = activity.DepotName?.Trim();
+
+        activity.DepotId = null;
+        activity.DepotName = null;
+        activity.DepotAddress = null;
+
+        if (activity.ActivityType is not null
+            && (activity.ActivityType.Equals("COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
+                || activity.ActivityType.Equals("RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (!string.IsNullOrWhiteSpace(previousDepotName)
+                && string.Equals(activity.DestinationName?.Trim(), previousDepotName, StringComparison.OrdinalIgnoreCase))
+            {
+                activity.DestinationName = null;
+            }
+
+            activity.DestinationLatitude = null;
+            activity.DestinationLongitude = null;
+        }
+    }
+
+    private static string NormalizeLookupKey(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        var previousWasWhitespace = false;
+
+        foreach (var ch in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            if (char.IsWhiteSpace(ch))
+            {
+                if (!previousWasWhitespace)
+                {
+                    builder.Append(' ');
+                    previousWasWhitespace = true;
+                }
+
+                continue;
+            }
+
+            builder.Append(char.ToUpperInvariant(ch));
+            previousWasWhitespace = false;
+        }
+
+        return builder.ToString().Trim();
     }
 
     private static string AppendWarnings(string? existingNotes, IEnumerable<string> warnings)
