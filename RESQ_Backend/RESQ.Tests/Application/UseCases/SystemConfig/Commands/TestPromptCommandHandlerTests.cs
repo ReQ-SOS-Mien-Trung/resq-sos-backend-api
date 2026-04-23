@@ -300,7 +300,7 @@ public class TestPromptCommandHandlerTests
         ModelName = "gemini-preview",
         SuggestedMissionTitle = "Preview plan",
         SuggestedMissionType = "MIXED",
-        ConfidenceScore = 0.82,
+        SuggestedPriorityScore = 8.2,
         RawAiResponse = "{\"mission_title\":\"Preview plan\"}",
         MixedRescueReliefWarning = "warning riêng",
         PipelineMetadata = new MissionSuggestionPipelineMetadata

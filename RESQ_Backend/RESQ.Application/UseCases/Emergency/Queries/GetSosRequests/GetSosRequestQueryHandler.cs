@@ -5,6 +5,7 @@ using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Identity;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 
@@ -12,6 +13,8 @@ public class GetSosRequestQueryHandler(
     ISosRequestRepository sosRequestRepository,
     ISosRequestCompanionRepository companionRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
+    ISosRuleEvaluationRepository sosRuleEvaluationRepository,
+    ISosAiAnalysisRepository sosAiAnalysisRepository,
     IUserRepository userRepository,
     ILogger<GetSosRequestQueryHandler> logger
 ) : IRequestHandler<GetSosRequestQuery, GetSosRequestResponse>
@@ -19,6 +22,8 @@ public class GetSosRequestQueryHandler(
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly ISosRequestCompanionRepository _companionRepository = companionRepository;
     private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
+    private readonly ISosRuleEvaluationRepository _sosRuleEvaluationRepository = sosRuleEvaluationRepository;
+    private readonly ISosAiAnalysisRepository _sosAiAnalysisRepository = sosAiAnalysisRepository;
     private readonly IUserRepository _userRepository = userRepository;
     private readonly ILogger<GetSosRequestQueryHandler> _logger = logger;
 
@@ -44,6 +49,9 @@ public class GetSosRequestQueryHandler(
         var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync([sosRequest.Id], cancellationToken);
         incidentLookup.TryGetValue(sosRequest.Id, out var incidents);
         var latestIncident = incidents?.FirstOrDefault();
+        var ruleEvaluation = await _sosRuleEvaluationRepository.GetBySosRequestIdAsync(sosRequest.Id, cancellationToken);
+        var aiAnalyses = await _sosAiAnalysisRepository.GetAllBySosRequestIdAsync(sosRequest.Id, cancellationToken);
+        var evaluation = SosEvaluationViewFactory.CreateEvaluation(ruleEvaluation, aiAnalyses);
 
         // Load companion list
         var companionRecords = await _companionRepository.GetBySosRequestIdAsync(request.Id, cancellationToken);
@@ -96,6 +104,7 @@ public class GetSosRequestQueryHandler(
                 ReviewedAt = effectiveSosRequest.ReviewedAt,
                 ReviewedById = effectiveSosRequest.ReviewedById,
                 CreatedByCoordinatorId = effectiveSosRequest.CreatedByCoordinatorId,
+                Evaluation = evaluation,
                 LatestIncidentNote = latestIncident?.Note,
                 LatestIncidentAt = latestIncident?.CreatedAt,
                 IncidentHistory = incidents?.Select(x => new SosIncidentNoteDto

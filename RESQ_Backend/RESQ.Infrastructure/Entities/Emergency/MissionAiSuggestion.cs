@@ -52,9 +52,6 @@ public partial class MissionAiSuggestion
     [Column("suggested_depot_ids", TypeName = "jsonb")]
     public string? SuggestedDepotIds { get; set; }
 
-    [Column("confidence_score")]
-    public double? ConfidenceScore { get; set; }
-
     [Column("suggestion_scope")]
     public string? SuggestionScope { get; set; }
 

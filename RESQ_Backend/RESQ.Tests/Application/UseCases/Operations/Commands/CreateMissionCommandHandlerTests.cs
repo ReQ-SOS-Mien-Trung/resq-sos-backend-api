@@ -689,8 +689,9 @@ public class CreateMissionCommandHandlerTests
             "PRIORITY_ANALYSIS",
             severity,
             priority,
+            string.Equals(priority, "Critical", StringComparison.OrdinalIgnoreCase) ? 9.5 : 7.5,
+            true,
             handlingReason,
-            0.91,
             "SOS_REQUEST",
             JsonSerializer.Serialize(new
             {

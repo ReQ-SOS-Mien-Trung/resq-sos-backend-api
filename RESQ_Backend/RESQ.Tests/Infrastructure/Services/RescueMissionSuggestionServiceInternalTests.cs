@@ -28,8 +28,7 @@ public class RescueMissionSuggestionServiceInternalTests
                   "missing_quantity": 15,
                   "notes": "selected depot lacks stock"
                 }
-              ],
-              "confidence_score": 0.8
+              ]
             }
             """);
 
@@ -53,15 +52,14 @@ public class RescueMissionSuggestionServiceInternalTests
               "warning_title": "Can xem xet bo sung",
               "warning_message": "Co 2 SOS priority cao can coordinator kiem tra lai route.",
               "warning_related_sos_ids": [11, 12],
-              "warning_reason": "Cluster co nhieu diem nguy co dang xem xet.",
-              "confidence_score": 0.8
+              "warning_reason": "Cluster co nhieu diem nguy co dang xem xet."
             }
             """);
 
         Assert.True(result.NeedsManualReview);
-        Assert.Contains("Can xem xet bo sung", result.LowConfidenceWarning);
-        Assert.Contains("#11", result.LowConfidenceWarning);
-        Assert.Contains("#12", result.LowConfidenceWarning);
+        Assert.Contains("Can xem xet bo sung", result.SpecialNotes);
+        Assert.Contains("#11", result.SpecialNotes);
+        Assert.Contains("#12", result.SpecialNotes);
     }
 
     [Fact]
@@ -75,8 +73,7 @@ public class RescueMissionSuggestionServiceInternalTests
               "warning_title": "Mixed route khong an toan",
               "warning_message": "Cluster dang ghep nhanh rescue va relief cho SOS critical.",
               "warning_related_sos_ids": [11, 22],
-              "warning_reason": "Can uu tien safe transfer truoc khi tiep te.",
-              "confidence_score": 0.8
+              "warning_reason": "Can uu tien safe transfer truoc khi tiep te."
             }
             """);
 
@@ -95,7 +92,6 @@ public class RescueMissionSuggestionServiceInternalTests
               "suggested_mission_title": "Mission",
               "warning_level": "light",
               "supply_shortages": ["Nuoc sach"],
-              "confidence_score": 0.8,
               "sos_requirements": [
                 {
                   "sos_request_id": 11,
@@ -134,8 +130,7 @@ public class RescueMissionSuggestionServiceInternalTests
                   "quantity": "2",
                   "unit": "cai"
                 }
-              },
-              "confidence_score": "0.8"
+              }
             }
             """);
 
@@ -157,8 +152,7 @@ public class RescueMissionSuggestionServiceInternalTests
               "activity_assignments": [],
               "additional_activities": [],
               "ordered_activity_keys": ["collect-1"],
-              "suggested_team": [],
-              "confidence_score": 0.8
+              "suggested_team": []
             }
             """);
 

@@ -36,11 +36,14 @@ public partial class SosAiAnalysis
     [StringLength(50)]
     public string? SuggestedPriority { get; set; }
 
+    [Column("suggested_priority_score")]
+    public double? SuggestedPriorityScore { get; set; }
+
+    [Column("agrees_with_rule_base")]
+    public bool? AgreesWithRuleBase { get; set; }
+
     [Column("explanation")]
     public string? Explanation { get; set; }
-
-    [Column("confidence_score")]
-    public double? ConfidenceScore { get; set; }
 
     [Column("suggestion_scope")]
     public string? SuggestionScope { get; set; }

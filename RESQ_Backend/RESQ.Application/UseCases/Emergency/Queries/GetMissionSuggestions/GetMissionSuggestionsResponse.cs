@@ -20,7 +20,6 @@ public class MissionSuggestionDto
     public string? SuggestedMissionType { get; set; }
     public double? SuggestedPriorityScore { get; set; }
     public string? SuggestedSeverityLevel { get; set; }
-    public double? ConfidenceScore { get; set; }
     public bool IsSuccess { get; set; }
     public string? ErrorMessage { get; set; }
     public string? OverallAssessment { get; set; }
@@ -28,7 +27,6 @@ public class MissionSuggestionDto
     public string? SpecialNotes { get; set; }
     public string MixedRescueReliefWarning { get; set; } = string.Empty;
     public bool NeedsManualReview { get; set; }
-    public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
@@ -47,6 +45,5 @@ public class ActivitySuggestionDto
     public string? ActivityType { get; set; }
     public string? SuggestionPhase { get; set; }
     public List<SuggestedActivityDto> SuggestedActivities { get; set; } = [];
-    public double? ConfidenceScore { get; set; }
     public DateTime? CreatedAt { get; set; }
 }

@@ -87,7 +87,6 @@ public class MissionAiSuggestionSectionTests
                   "special_notes": "Coordinator needs backup stock",
                   "mixed_rescue_relief_warning": "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat.",
                   "needs_manual_review": true,
-                  "low_confidence_warning": "Confidence is below review threshold.",
                   "needs_additional_depot": true,
                   "supply_shortages": [
                     {
@@ -133,7 +132,6 @@ public class MissionAiSuggestionSectionTests
             ]),
             section.MixedRescueReliefWarning);
         Assert.True(section.NeedsManualReview);
-        Assert.Equal("Confidence is below review threshold.", section.LowConfidenceWarning);
         Assert.True(section.NeedsAdditionalDepot);
 
         var shortage = Assert.Single(section.SupplyShortages);

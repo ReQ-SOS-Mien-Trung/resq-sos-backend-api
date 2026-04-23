@@ -79,13 +79,11 @@ public class MissionAiSuggestionSection
     public string? SuggestedMissionType { get; set; }
     public double? SuggestedPriorityScore { get; set; }
     public string? SuggestedSeverityLevel { get; set; }
-    public double? ConfidenceScore { get; set; }
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
     public string MixedRescueReliefWarning { get; set; } = string.Empty;
     public bool NeedsManualReview { get; set; }
-    public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public List<SuggestedActivityDto> SuggestedActivities { get; set; } = [];
@@ -105,7 +103,6 @@ public class MissionAiSuggestionSection
             SuggestedMissionType = model.SuggestedMissionType,
             SuggestedPriorityScore = model.SuggestedPriorityScore,
             SuggestedSeverityLevel = model.SuggestedSeverityLevel,
-            ConfidenceScore = model.ConfidenceScore,
             CreatedAt = model.CreatedAt
         };
 
@@ -117,7 +114,6 @@ public class MissionAiSuggestionSection
             section.SpecialNotes = meta.SpecialNotes;
             section.MixedRescueReliefWarning = meta.MixedRescueReliefWarning ?? string.Empty;
             section.NeedsManualReview = meta.NeedsManualReview;
-            section.LowConfidenceWarning = meta.LowConfidenceWarning;
             section.NeedsAdditionalDepot = meta.NeedsAdditionalDepot;
             section.SupplyShortages = meta.SupplyShortages ?? [];
             section.SuggestedResources = meta.SuggestedResources ?? [];

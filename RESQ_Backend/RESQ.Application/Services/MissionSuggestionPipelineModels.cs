@@ -43,7 +43,6 @@ public class MissionRequirementsFragment
     public bool SplitClusterRecommended { get; set; }
     public string? SplitClusterReason { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
-    public double ConfidenceScore { get; set; }
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
     public List<MissionSosRequirementFragment> SosRequirements { get; set; } = [];
 }
@@ -80,7 +79,6 @@ public class MissionDepotFragment
     public string? SpecialNotes { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
-    public double ConfidenceScore { get; set; }
 }
 
 public class MissionActivityAssignmentFragment
@@ -100,7 +98,6 @@ public class MissionTeamFragment
     public List<string> OrderedActivityKeys { get; set; } = [];
     public SuggestedTeamDto? SuggestedTeam { get; set; }
     public string? SpecialNotes { get; set; }
-    public double ConfidenceScore { get; set; }
 }
 
 public class MissionDraftBody
@@ -117,7 +114,6 @@ public class MissionDraftBody
     public string? SpecialNotes { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
-    public double ConfidenceScore { get; set; }
 }
 
 public class MissionDraftActivityDto
@@ -177,7 +173,6 @@ public class MissionSuggestionMetadata
     public string? SpecialNotes { get; set; }
     public string? MixedRescueReliefWarning { get; set; }
     public bool NeedsManualReview { get; set; }
-    public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto>? SupplyShortages { get; set; }
     public List<SuggestedResourceDto>? SuggestedResources { get; set; }
