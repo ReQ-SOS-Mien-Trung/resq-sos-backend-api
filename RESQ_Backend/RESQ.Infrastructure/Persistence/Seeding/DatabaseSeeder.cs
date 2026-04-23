@@ -3496,6 +3496,15 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     continue;
                 }
 
+                foreach (var existingItem in seed.ReusableItems.Where(item =>
+                             item.DepotId == closureDepot.Id
+                             && item.ItemModelId == itemModel.Id))
+                {
+                    existingItem.Status = ReusableItemStatus.Available.ToString();
+                    existingItem.Note = ClosureTestDepotReusableNote(closureDepot);
+                    existingItem.UpdatedAt = seed.AnchorUtc.AddDays(-((itemModel.Id + existingItem.Id) % 18));
+                }
+
                 var targetQuantity = inventory.Quantity ?? 0;
                 var existingCount = seed.ReusableItems.Count(item =>
                     item.DepotId == closureDepot.Id && item.ItemModelId == itemModel.Id);
