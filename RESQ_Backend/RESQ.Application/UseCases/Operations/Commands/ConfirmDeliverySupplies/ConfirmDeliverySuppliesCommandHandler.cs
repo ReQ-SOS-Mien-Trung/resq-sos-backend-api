@@ -203,7 +203,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
         {
             var actualQuantity = providedLots.Sum(lot => lot.QuantityTaken);
             EnsureActualQuantityMatches(itemId, deliveredItem.ActualQuantity, actualQuantity);
-            EnsureWithinPlannedQuantity(itemId, supply.Quantity, actualQuantity);
+            EnsureWithinPlannedQuantity(itemId, supply.Quantity, supply.BufferUsedQuantity ?? 0, actualQuantity);
 
             var deliveredLots = new List<SupplyExecutionLotDto>();
             foreach (var lot in providedLots)
@@ -237,7 +237,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
         {
             var actualQuantity = providedUnits.Count;
             EnsureActualQuantityMatches(itemId, deliveredItem.ActualQuantity, actualQuantity);
-            EnsureWithinPlannedQuantity(itemId, supply.Quantity, actualQuantity);
+            EnsureWithinPlannedQuantity(itemId, supply.Quantity, supply.BufferUsedQuantity ?? 0, actualQuantity);
 
             var deliveredUnits = new List<SupplyExecutionReusableUnitDto>();
             foreach (var unit in providedUnits)
@@ -276,7 +276,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
                 $"Item #{itemId}: mission này yêu cầu xác nhận delivery theo lot hoặc reusable unit, không chỉ gửi quantity.");
         }
 
-        EnsureWithinPlannedQuantity(itemId, supply.Quantity, deliveredItem.ActualQuantity);
+        EnsureWithinPlannedQuantity(itemId, supply.Quantity, supply.BufferUsedQuantity ?? 0, deliveredItem.ActualQuantity);
         supply.DeliveredLotAllocations = null;
         supply.DeliveredReusableUnits = null;
         supply.ActualDeliveredQuantity = deliveredItem.ActualQuantity;
@@ -540,14 +540,17 @@ public class ConfirmDeliverySuppliesCommandHandler(
                 $"Item #{itemId}: ActualQuantity ({requestQuantity}) không khớp tổng số lượng lot/unit ({detailedQuantity}).");
     }
 
-    private static void EnsureWithinPlannedQuantity(int itemId, int plannedQuantity, int actualQuantity)
+    private static void EnsureWithinPlannedQuantity(int itemId, int plannedQuantity, int bufferUsedQuantity, int actualQuantity)
     {
         if (actualQuantity < 0)
             throw new BadRequestException($"Item #{itemId}: ActualQuantity phải >= 0.");
 
-        if (actualQuantity > plannedQuantity)
+        var maxAllowed = plannedQuantity + bufferUsedQuantity;
+        if (actualQuantity > maxAllowed)
             throw new BadRequestException(
-                $"Item #{itemId}: số lượng giao thực tế {actualQuantity} vượt quá số lượng kế hoạch {plannedQuantity}.");
+                bufferUsedQuantity > 0
+                    ? $"Item #{itemId}: số lượng giao thực tế {actualQuantity} vượt quá số lượng kế hoạch {plannedQuantity} + buffer đã dùng {bufferUsedQuantity} = {maxAllowed}."
+                    : $"Item #{itemId}: số lượng giao thực tế {actualQuantity} vượt quá số lượng kế hoạch {plannedQuantity}.");
     }
 
     private static SupplyExecutionLotDto CloneLot(SupplyExecutionLotDto lot) => new()
