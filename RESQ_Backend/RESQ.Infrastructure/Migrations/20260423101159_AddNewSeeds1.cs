@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace RESQ.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class AddNewSeeds : Migration
+    public partial class AddNewSeeds1 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
