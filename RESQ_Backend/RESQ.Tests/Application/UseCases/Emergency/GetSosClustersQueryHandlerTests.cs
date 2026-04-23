@@ -151,6 +151,28 @@ public class GetSosClustersQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ForwardsDistinctPrioritiesAndSosTypes()
+    {
+        var repository = new StubClusterRepo(
+            [new SosClusterModel { Id = 1, Status = SosClusterStatus.Pending, SosRequestIds = [10] }]);
+        var handler = new GetSosClustersQueryHandler(repository, NullLogger<GetSosClustersQueryHandler>.Instance);
+
+        var result = await handler.Handle(
+            new GetSosClustersQuery(
+                PageNumber: 1,
+                PageSize: 10,
+                SosRequestId: 10,
+                Statuses: [SosClusterStatus.Pending],
+                Priorities: [SosPriorityLevel.High, SosPriorityLevel.High],
+                SosTypes: [SosRequestType.Rescue, SosRequestType.Rescue]),
+            CancellationToken.None);
+
+        Assert.Equal([SosPriorityLevel.High], repository.LastPriorities?.ToArray());
+        Assert.Equal([SosRequestType.Rescue], repository.LastSosTypes?.ToArray());
+        Assert.Single(result.Items);
+    }
+
+    [Fact]
     public async Task Handle_NormalizesInvalidPaging_AndReturnsRequestedPage()
     {
         var clusters = new List<SosClusterModel>
@@ -180,6 +202,9 @@ public class GetSosClustersQueryHandlerTests
 
     private sealed class StubClusterRepo(List<SosClusterModel> clusters) : ISosClusterRepository
     {
+        public IReadOnlyCollection<SosPriorityLevel>? LastPriorities { get; private set; }
+        public IReadOnlyCollection<SosRequestType>? LastSosTypes { get; private set; }
+
         public Task<IEnumerable<SosClusterModel>> GetAllAsync(CancellationToken ct = default)
             => Task.FromResult<IEnumerable<SosClusterModel>>(clusters);
 
@@ -188,8 +213,13 @@ public class GetSosClustersQueryHandlerTests
             int pageSize,
             int? sosRequestId = null,
             IReadOnlyCollection<SosClusterStatus>? statuses = null,
+            IReadOnlyCollection<SosPriorityLevel>? priorities = null,
+            IReadOnlyCollection<SosRequestType>? sosTypes = null,
             CancellationToken cancellationToken = default)
         {
+            LastPriorities = priorities;
+            LastSosTypes = sosTypes;
+
             var statusSet = statuses?.ToHashSet();
             var filtered = clusters
                 .Where(cluster => !sosRequestId.HasValue || cluster.SosRequestIds.Contains(sosRequestId.Value))

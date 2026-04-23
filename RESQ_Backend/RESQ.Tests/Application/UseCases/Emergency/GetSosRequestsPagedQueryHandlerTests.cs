@@ -13,13 +13,13 @@ public class GetSosRequestsPagedQueryHandlerTests
     private static readonly Guid UserId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
 
     [Fact]
-    public async Task Handle_ForwardsStatusesToRepository_AndReturnsFilteredPage()
+    public async Task Handle_ForwardsFiltersToRepository_AndReturnsFilteredPage()
     {
         var repository = new StubSosRequestRepository(
         [
-            BuildSos(1, SosRequestStatus.Pending, new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)),
-            BuildSos(2, SosRequestStatus.Assigned, new DateTime(2026, 4, 3, 0, 0, 0, DateTimeKind.Utc)),
-            BuildSos(3, SosRequestStatus.Assigned, new DateTime(2026, 4, 2, 0, 0, 0, DateTimeKind.Utc))
+            BuildSos(1, SosRequestStatus.Pending, new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc), priorityLevel: SosPriorityLevel.Low, sosType: SosRequestType.Rescue),
+            BuildSos(2, SosRequestStatus.Assigned, new DateTime(2026, 4, 3, 0, 0, 0, DateTimeKind.Utc), priorityLevel: SosPriorityLevel.High, sosType: SosRequestType.Rescue),
+            BuildSos(3, SosRequestStatus.Assigned, new DateTime(2026, 4, 2, 0, 0, 0, DateTimeKind.Utc), priorityLevel: SosPriorityLevel.High, sosType: SosRequestType.Relief)
         ]);
         var handler = new GetSosRequestsPagedQueryHandler(
             repository,
@@ -30,23 +30,34 @@ public class GetSosRequestsPagedQueryHandlerTests
         {
             PageNumber = 1,
             PageSize = 2,
-            Statuses = [SosRequestStatus.Assigned]
+            Statuses = [SosRequestStatus.Assigned],
+            Priorities = [SosPriorityLevel.High, SosPriorityLevel.High],
+            SosTypes = [SosRequestType.Rescue, SosRequestType.Rescue]
         }, CancellationToken.None);
 
         Assert.Equal([SosRequestStatus.Assigned], repository.LastStatuses);
-        Assert.Equal([2, 3], result.Items.Select(item => item.Id).ToArray());
-        Assert.Equal(2, result.TotalCount);
+        Assert.Equal([SosPriorityLevel.High], repository.LastPriorities);
+        Assert.Equal([SosRequestType.Rescue], repository.LastSosTypes);
+        Assert.Equal([2], result.Items.Select(item => item.Id).ToArray());
+        Assert.Equal(1, result.TotalCount);
         Assert.Equal(1, result.PageNumber);
         Assert.Equal(2, result.PageSize);
     }
 
-    private static SosRequestModel BuildSos(int id, SosRequestStatus status, DateTime createdAtUtc)
+    private static SosRequestModel BuildSos(
+        int id,
+        SosRequestStatus status,
+        DateTime createdAtUtc,
+        SosPriorityLevel? priorityLevel = null,
+        SosRequestType? sosType = null)
     {
         var sos = SosRequestModel.Create(
             UserId,
             new GeoLocation(10.75, 106.66),
             $"SOS {id}",
+            sosType: sosType?.ToString(),
             status: status,
+            priorityLevel: priorityLevel,
             clientCreatedAt: createdAtUtc);
 
         sos.Id = id;
@@ -59,6 +70,8 @@ public class GetSosRequestsPagedQueryHandlerTests
     private sealed class StubSosRequestRepository(List<SosRequestModel> requests) : ISosRequestRepository
     {
         public IReadOnlyCollection<SosRequestStatus>? LastStatuses { get; private set; }
+        public IReadOnlyCollection<SosPriorityLevel>? LastPriorities { get; private set; }
+        public IReadOnlyCollection<SosRequestType>? LastSosTypes { get; private set; }
 
         public Task CreateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -69,13 +82,21 @@ public class GetSosRequestsPagedQueryHandlerTests
             int pageNumber,
             int pageSize,
             IReadOnlyCollection<SosRequestStatus>? statuses = null,
+            IReadOnlyCollection<SosPriorityLevel>? priorities = null,
+            IReadOnlyCollection<SosRequestType>? sosTypes = null,
             CancellationToken cancellationToken = default)
         {
             LastStatuses = statuses;
+            LastPriorities = priorities;
+            LastSosTypes = sosTypes;
 
             var query = requests.AsEnumerable();
             if (statuses is { Count: > 0 })
                 query = query.Where(request => statuses.Contains(request.Status));
+            if (priorities is { Count: > 0 })
+                query = query.Where(request => request.PriorityLevel.HasValue && priorities.Contains(request.PriorityLevel.Value));
+            if (sosTypes is { Count: > 0 })
+                query = query.Where(request => !string.IsNullOrWhiteSpace(request.SosType) && sosTypes.Select(sosType => sosType.ToString()).Contains(request.SosType));
 
             var filtered = query
                 .OrderByDescending(request => request.CreatedAt)

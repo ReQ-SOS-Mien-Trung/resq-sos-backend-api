@@ -65,6 +65,32 @@ public class GetSosRequestsByBoundsQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_FiltersByPriorityAndSosType()
+    {
+        var repository = new StubSosRequestMapReadRepository(
+        [
+            BuildSos(1, 10.75, 106.66, SosRequestStatus.Pending, new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc), priorityLevel: SosPriorityLevel.High, sosType: SosRequestType.Rescue),
+            BuildSos(2, 10.76, 106.67, SosRequestStatus.Pending, new DateTime(2026, 4, 2, 0, 0, 0, DateTimeKind.Utc), priorityLevel: SosPriorityLevel.Critical, sosType: SosRequestType.Relief),
+            BuildSos(3, 10.77, 106.68, SosRequestStatus.Pending, new DateTime(2026, 4, 3, 0, 0, 0, DateTimeKind.Utc), priorityLevel: SosPriorityLevel.High, sosType: SosRequestType.Relief)
+        ]);
+        var handler = BuildHandler(repository);
+
+        var result = await handler.Handle(new GetSosRequestsByBoundsQuery
+        {
+            MinLat = 10.70,
+            MaxLat = 10.80,
+            MinLng = 106.60,
+            MaxLng = 106.70,
+            Priorities = [SosPriorityLevel.High, SosPriorityLevel.High],
+            SosTypes = [SosRequestType.Relief, SosRequestType.Relief]
+        }, CancellationToken.None);
+
+        Assert.Equal([3], result.Select(x => x.Id).ToArray());
+        Assert.Equal([SosPriorityLevel.High], repository.LastPriorities?.ToArray());
+        Assert.Equal([SosRequestType.Relief], repository.LastSosTypes?.ToArray());
+    }
+
+    [Fact]
     public async Task Handle_AppliesLatestVictimUpdate_AndLatestIncidentNote()
     {
         var sos = BuildSos(1, 10.75, 106.66, SosRequestStatus.Pending, new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc));
@@ -116,13 +142,17 @@ public class GetSosRequestsByBoundsQueryHandlerTests
         double latitude,
         double longitude,
         SosRequestStatus status,
-        DateTime createdAtUtc)
+        DateTime createdAtUtc,
+        SosPriorityLevel? priorityLevel = null,
+        SosRequestType? sosType = null)
     {
         var sos = SosRequestModel.Create(
             UserId,
             new GeoLocation(latitude, longitude),
             $"SOS {id}",
+            sosType: sosType?.ToString(),
             status: status,
+            priorityLevel: priorityLevel,
             clientCreatedAt: createdAtUtc);
 
         sos.Id = id;
@@ -149,6 +179,8 @@ public class GetSosRequestsByBoundsQueryHandlerTests
         public double LastMinLng { get; private set; }
         public double LastMaxLng { get; private set; }
         public IReadOnlyCollection<SosRequestStatus>? LastStatuses { get; private set; }
+        public IReadOnlyCollection<SosPriorityLevel>? LastPriorities { get; private set; }
+        public IReadOnlyCollection<SosRequestType>? LastSosTypes { get; private set; }
 
         public Task<List<SosRequestModel>> GetByBoundsAsync(
             double minLat,
@@ -156,6 +188,8 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             double minLng,
             double maxLng,
             IReadOnlyCollection<SosRequestStatus>? statuses = null,
+            IReadOnlyCollection<SosPriorityLevel>? priorities = null,
+            IReadOnlyCollection<SosRequestType>? sosTypes = null,
             CancellationToken cancellationToken = default)
         {
             LastMinLat = minLat;
@@ -163,6 +197,8 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             LastMinLng = minLng;
             LastMaxLng = maxLng;
             LastStatuses = statuses;
+            LastPriorities = priorities;
+            LastSosTypes = sosTypes;
 
             var query = requests
                 .Where(x => x.Location != null
@@ -174,6 +210,16 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             if (statuses is { Count: > 0 })
             {
                 query = query.Where(x => statuses.Contains(x.Status));
+            }
+
+            if (priorities is { Count: > 0 })
+            {
+                query = query.Where(x => x.PriorityLevel.HasValue && priorities.Contains(x.PriorityLevel.Value));
+            }
+
+            if (sosTypes is { Count: > 0 })
+            {
+                query = query.Where(x => !string.IsNullOrWhiteSpace(x.SosType) && sosTypes.Select(sosType => sosType.ToString()).Contains(x.SosType));
             }
 
             return Task.FromResult(query

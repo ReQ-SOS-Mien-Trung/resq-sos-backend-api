@@ -137,6 +137,46 @@ public class SosClusterRepositoryTests
     }
 
     [Fact]
+    public async Task GetPagedAsync_FiltersByPriorityAndSosTypeOnSameSosRequest()
+    {
+        await using var context = CreateContext();
+
+        context.SosClusters.AddRange(
+            new SosCluster
+            {
+                Id = 1,
+                Status = "Pending",
+                CreatedAt = new DateTime(2026, 4, 3, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 2,
+                Status = "Pending",
+                CreatedAt = new DateTime(2026, 4, 2, 8, 0, 0, DateTimeKind.Utc)
+            });
+
+        context.SosRequests.AddRange(
+            new SosRequest { Id = 101, ClusterId = 1, Status = "Pending", RawMessage = "SOS 101", PriorityLevel = "High", SosType = "Rescue" },
+            new SosRequest { Id = 201, ClusterId = 2, Status = "Pending", RawMessage = "SOS 201", PriorityLevel = "High", SosType = "Relief" },
+            new SosRequest { Id = 202, ClusterId = 2, Status = "Pending", RawMessage = "SOS 202", PriorityLevel = "Low", SosType = "Rescue" });
+
+        await context.SaveChangesAsync();
+
+        var repository = CreateRepository(context);
+
+        var result = await repository.GetPagedAsync(
+            pageNumber: 1,
+            pageSize: 10,
+            priorities: [SosPriorityLevel.High],
+            sosTypes: [SosRequestType.Rescue]);
+
+        var cluster = Assert.Single(result.Items);
+        Assert.Equal(1, cluster.Id);
+        Assert.Equal([101], cluster.SosRequestIds);
+        Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
     public async Task DeleteAsync_RemovesCluster()
     {
         await using var context = CreateContext();

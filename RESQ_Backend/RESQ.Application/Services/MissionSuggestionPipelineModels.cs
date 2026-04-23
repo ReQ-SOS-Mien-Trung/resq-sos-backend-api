@@ -161,6 +161,8 @@ public class MissionSuggestionPipelineMetadata
     public string PipelineStatus { get; set; } = "pending";
     public string ExecutionMode { get; set; } = "legacy";
     public string? FinalResultSource { get; set; }
+    public string? FailedStage { get; set; }
+    public string? FailureReason { get; set; }
     public bool UsedLegacyFallback { get; set; }
     public string? LegacyFallbackReason { get; set; }
     public Dictionary<string, MissionSuggestionStageSnapshot> Stages { get; set; } = [];
@@ -168,6 +170,8 @@ public class MissionSuggestionPipelineMetadata
 
 public class MissionSuggestionMetadata
 {
+    public bool IsSuccess { get; set; } = true;
+    public string? ErrorMessage { get; set; }
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }

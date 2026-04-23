@@ -6,6 +6,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
+using RESQ.Domain.Enum.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.UpdatePrompt;
 
@@ -33,6 +34,11 @@ public class UpdatePromptCommandHandler(
         if (!PromptLifecycleStatusResolver.IsDraft(prompt))
         {
             throw new BadRequestException("Chỉ có thể cập nhật draft prompt. Hãy tạo draft mới từ version hiện có.");
+        }
+
+        if (prompt.PromptType == PromptType.MissionPlanning)
+        {
+            throw new BadRequestException("Prompt type 'MissionPlanning' da bi ngung ho tro va khong the chinh sua.");
         }
 
         if (request.IsActive == true)

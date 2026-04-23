@@ -61,20 +61,39 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         double minLng,
         double maxLng,
         IReadOnlyCollection<SosRequestStatus>? statuses = null,
+        IReadOnlyCollection<SosPriorityLevel>? priorities = null,
+        IReadOnlyCollection<SosRequestType>? sosTypes = null,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.GetRepository<SosRequest>()
             .AsQueryable(tracked: false)
             .Where(x => x.Location != null);
+        var statusNames = statuses?
+            .Select(x => x.ToString())
+            .Distinct()
+            .ToArray();
+        var priorityNames = priorities?
+            .Select(x => x.ToString())
+            .Distinct()
+            .ToArray();
+        var sosTypeNames = sosTypes?
+            .Select(x => x.ToString())
+            .Distinct()
+            .ToArray();
 
-        if (statuses is { Count: > 0 })
+        if (statusNames is { Length: > 0 })
         {
-            var statusNames = statuses
-                .Select(x => x.ToString())
-                .Distinct()
-                .ToArray();
-
             query = query.Where(x => x.Status != null && statusNames.Contains(x.Status));
+        }
+
+        if (priorityNames is { Length: > 0 })
+        {
+            query = query.Where(x => x.PriorityLevel != null && priorityNames.Contains(x.PriorityLevel));
+        }
+
+        if (sosTypeNames is { Length: > 0 })
+        {
+            query = query.Where(x => x.SosType != null && sosTypeNames.Contains(x.SosType));
         }
 
         var entities = await query
@@ -103,6 +122,8 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         int pageNumber,
         int pageSize,
         IReadOnlyCollection<SosRequestStatus>? statuses = null,
+        IReadOnlyCollection<SosPriorityLevel>? priorities = null,
+        IReadOnlyCollection<SosRequestType>? sosTypes = null,
         CancellationToken cancellationToken = default)
     {
         var repository = _unitOfWork.GetRepository<SosRequest>();
@@ -110,12 +131,26 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
             .Select(status => status.ToString())
             .Distinct()
             .ToArray();
+        var priorityNames = priorities?
+            .Select(priority => priority.ToString())
+            .Distinct()
+            .ToArray();
+        var sosTypeNames = sosTypes?
+            .Select(sosType => sosType.ToString())
+            .Distinct()
+            .ToArray();
+        var hasStatusFilter = statusNames is { Length: > 0 };
+        var hasPriorityFilter = priorityNames is { Length: > 0 };
+        var hasSosTypeFilter = sosTypeNames is { Length: > 0 };
 
         var pagedEntities = await repository.GetPagedAsync(
             pageNumber,
             pageSize,
-            filter: statusNames is { Length: > 0 }
-                ? request => request.Status != null && statusNames.Contains(request.Status)
+            filter: hasStatusFilter || hasPriorityFilter || hasSosTypeFilter
+                ? request =>
+                    (!hasStatusFilter || (request.Status != null && statusNames!.Contains(request.Status)))
+                    && (!hasPriorityFilter || (request.PriorityLevel != null && priorityNames!.Contains(request.PriorityLevel)))
+                    && (!hasSosTypeFilter || (request.SosType != null && sosTypeNames!.Contains(request.SosType)))
                 : null,
             orderBy: q => q.OrderByDescending(x => x.CreatedAt)
         );

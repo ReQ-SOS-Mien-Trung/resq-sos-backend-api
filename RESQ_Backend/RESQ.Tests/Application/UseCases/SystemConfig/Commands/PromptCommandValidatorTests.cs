@@ -12,7 +12,7 @@ public class PromptCommandValidatorTests
         var validator = new CreatePromptCommandValidator();
         var command = new CreatePromptCommand(
             Name: "Prompt test",
-            PromptType: PromptType.MissionPlanning,
+            PromptType: PromptType.MissionTeamPlanning,
             Purpose: "Test purpose",
             SystemPrompt: "System prompt",
             UserPromptTemplate: "User prompt",
@@ -31,7 +31,7 @@ public class PromptCommandValidatorTests
         var validator = new CreatePromptCommandValidator();
         var command = new CreatePromptCommand(
             Name: "Prompt test",
-            PromptType: PromptType.MissionPlanning,
+            PromptType: PromptType.MissionTeamPlanning,
             Purpose: "Test purpose",
             SystemPrompt: "System prompt",
             UserPromptTemplate: "User prompt",

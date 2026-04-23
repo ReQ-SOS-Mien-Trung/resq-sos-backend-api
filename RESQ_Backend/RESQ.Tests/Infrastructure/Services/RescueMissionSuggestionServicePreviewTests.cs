@@ -1,6 +1,5 @@
 using System.Reflection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
@@ -13,7 +12,6 @@ using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.System;
-using RESQ.Infrastructure.Options;
 using RESQ.Infrastructure.Services;
 using RESQ.Infrastructure.Services.Ai;
 
@@ -34,7 +32,6 @@ public class RescueMissionSuggestionServicePreviewTests
             ThrowingProxy<IDepotInventoryRepository>.Create(),
             ThrowingProxy<IItemModelMetadataRepository>.Create(),
             new EmptyAssemblyPointRepository(),
-            Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = true }),
             NullLogger<RescueMissionSuggestionService>.Instance);
 
         var result = await service.PreviewSuggestionAsync(
@@ -55,10 +52,10 @@ public class RescueMissionSuggestionServicePreviewTests
             aiConfigOverride: BuildAiConfig(model: "gemini-preview"),
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
+        Assert.False(result.IsSuccess);
         Assert.Null(result.SuggestionId);
-        Assert.Equal("Preview plan", result.SuggestedMissionTitle);
-        Assert.Equal("legacy", result.PipelineMetadata?.ExecutionMode);
+        Assert.Contains("MissionPlanning", result.ErrorMessage ?? string.Empty);
+        Assert.Null(result.PipelineMetadata);
         Assert.Equal(0, suggestionRepository.CreateCalls);
         Assert.Equal(0, suggestionRepository.UpdateCalls);
         Assert.Equal(0, suggestionRepository.SavePipelineSnapshotCalls);
@@ -86,7 +83,6 @@ public class RescueMissionSuggestionServicePreviewTests
             ThrowingProxy<IDepotInventoryRepository>.Create(),
             ThrowingProxy<IItemModelMetadataRepository>.Create(),
             new EmptyAssemblyPointRepository(),
-            Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = false }),
             NullLogger<RescueMissionSuggestionService>.Instance);
 
         var result = await service.PreviewSuggestionAsync(
@@ -129,7 +125,6 @@ public class RescueMissionSuggestionServicePreviewTests
             CreateInventoryBackedTransportDepotRepository(),
             CreateInventoryBackedTransportItemMetadataRepository(),
             new EmptyAssemblyPointRepository(),
-            Options.Create(new MissionSuggestionPipelineOptions { UseMissionSuggestionPipeline = false }),
             NullLogger<RescueMissionSuggestionService>.Instance);
 
         var result = await service.PreviewSuggestionAsync(
@@ -173,17 +168,139 @@ public class RescueMissionSuggestionServicePreviewTests
             aiConfigOverride: BuildAiConfig(model: "gemini-preview"),
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("MissionPlanning", result.ErrorMessage ?? string.Empty);
+        Assert.Empty(result.SuggestedActivities);
+        Assert.Empty(result.SuggestedResources);
+    }
 
-        var collectActivity = Assert.Single(result.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
-        Assert.Contains(collectActivity.SuppliesToCollect!, supply => supply.ItemId == 105 && supply.Quantity == 2);
+    [Fact]
+    public async Task GenerateSuggestionAsync_DepotStageFailure_DoesNotFallbackToLegacyPrompt_AndPersistsFailureSnapshot()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient(failingStage: "active-depot");
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(aiClient),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            CreatePipelinePromptRepository(),
+            suggestionRepository,
+            ThrowingProxy<IDepotInventoryRepository>.Create(),
+            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new EmptyAssemblyPointRepository(),
+            NullLogger<RescueMissionSuggestionService>.Instance);
 
-        var returnActivity = Assert.Single(result.SuggestedActivities, activity => activity.ActivityType == "RETURN_SUPPLIES");
-        var returnSupply = Assert.Single(returnActivity.SuppliesToCollect!);
-        Assert.Equal(105, returnSupply.ItemId);
-        Assert.Equal(2, returnSupply.Quantity);
+        var result = await service.GenerateSuggestionAsync(
+            [new SosRequestSummary { Id = 1, RawMessage = "Need rescue supplies" }],
+            [],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
 
-        Assert.DoesNotContain(result.SuggestedResources, resource => string.Equals(resource.ResourceType, "BOAT", StringComparison.OrdinalIgnoreCase));
+        Assert.False(result.IsSuccess);
+        Assert.Equal(123, result.SuggestionId);
+        Assert.Contains("active-depot failed", result.ErrorMessage ?? string.Empty);
+        Assert.NotNull(result.PipelineMetadata);
+        Assert.Equal("failed", result.PipelineMetadata!.PipelineStatus);
+        Assert.Equal("failed", result.PipelineMetadata.FinalResultSource);
+        Assert.Equal("depot", result.PipelineMetadata.FailedStage);
+        Assert.Contains("active-depot failed", result.PipelineMetadata.FailureReason ?? string.Empty);
+        Assert.Equal(["active-requirements", "active-depot"], aiClient.StageMarkers);
+        Assert.Equal(1, suggestionRepository.CreateCalls);
+        Assert.Equal(0, suggestionRepository.UpdateCalls);
+        Assert.True(suggestionRepository.SavePipelineSnapshotCalls > 0);
+        Assert.NotNull(suggestionRepository.LastSavedMetadata);
+        Assert.False(suggestionRepository.LastSavedMetadata!.IsSuccess);
+        Assert.Equal("failed", suggestionRepository.LastSavedMetadata.Pipeline!.PipelineStatus);
+        Assert.Equal("depot", suggestionRepository.LastSavedMetadata.Pipeline.FailedStage);
+    }
+
+    [Fact]
+    public async Task PreviewSuggestionAsync_ValidationStageFailure_ReturnsFailedResult_InsteadOfDraftSuggestion()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient();
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(aiClient),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            new RecordingPromptRepository(
+            [
+                BuildStagePrompt(4, PromptType.MissionRequirementsAssessment, "active-requirements"),
+                BuildStagePrompt(5, PromptType.MissionDepotPlanning, "active-depot"),
+                BuildStagePrompt(6, PromptType.MissionTeamPlanning, "active-team"),
+                BuildStagePrompt(8, PromptType.MissionPlanning, "legacy-should-not-run")
+            ]),
+            suggestionRepository,
+            ThrowingProxy<IDepotInventoryRepository>.Create(),
+            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new EmptyAssemblyPointRepository(),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+        var result = await service.PreviewSuggestionAsync(
+            [new SosRequestSummary { Id = 1, RawMessage = "Need rescue supplies" }],
+            [],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            promptOverride: BuildStagePrompt(99, PromptType.MissionDepotPlanning, "override-depot", isActive: false),
+            aiConfigOverride: BuildAiConfig(),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.SuggestionId);
+        Assert.Empty(result.SuggestedActivities);
+        Assert.Empty(result.SuggestedResources);
+        Assert.NotNull(result.PipelineMetadata);
+        Assert.Equal("failed", result.PipelineMetadata!.PipelineStatus);
+        Assert.Equal("failed", result.PipelineMetadata.FinalResultSource);
+        Assert.Equal("validate", result.PipelineMetadata.FailedStage);
+        Assert.DoesNotContain("draft", result.PipelineMetadata.FinalResultSource ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(
+            ["active-requirements", "override-depot", "active-team"],
+            aiClient.StageMarkers);
+        Assert.Equal(0, suggestionRepository.CreateCalls);
+        Assert.Equal(0, suggestionRepository.UpdateCalls);
+        Assert.Equal(0, suggestionRepository.SavePipelineSnapshotCalls);
+    }
+
+    [Fact]
+    public async Task GenerateSuggestionStreamAsync_PipelineFailure_EmitsStructuredErrorResult()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient(failingStage: "active-depot");
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(aiClient),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            CreatePipelinePromptRepository(),
+            suggestionRepository,
+            ThrowingProxy<IDepotInventoryRepository>.Create(),
+            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new EmptyAssemblyPointRepository(),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+        var events = new List<SseMissionEvent>();
+        await foreach (var evt in service.GenerateSuggestionStreamAsync(
+            [new SosRequestSummary { Id = 1, RawMessage = "Need rescue supplies" }],
+            [],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None))
+        {
+            events.Add(evt);
+        }
+
+        var errorEvent = Assert.Single(events, evt => evt.EventType == "error");
+        Assert.Null(events.SingleOrDefault(evt => evt.EventType == "result"));
+        Assert.NotNull(errorEvent.Result);
+        Assert.False(errorEvent.Result!.IsSuccess);
+        Assert.Equal(123, errorEvent.Result.SuggestionId);
+        Assert.Equal("depot", errorEvent.Result.PipelineMetadata?.FailedStage);
+        Assert.Equal("failed", errorEvent.Result.PipelineMetadata?.PipelineStatus);
+        Assert.Contains("active-depot failed", errorEvent.Data ?? string.Empty);
     }
 
     private static PromptModel BuildStagePrompt(
@@ -201,6 +318,16 @@ public class RescueMissionSuggestionServicePreviewTests
             Version = "v1.0",
             IsActive = isActive
         };
+
+    private static RecordingPromptRepository CreatePipelinePromptRepository()
+        => new(
+        [
+            BuildStagePrompt(4, PromptType.MissionRequirementsAssessment, "active-requirements"),
+            BuildStagePrompt(5, PromptType.MissionDepotPlanning, "active-depot"),
+            BuildStagePrompt(6, PromptType.MissionTeamPlanning, "active-team"),
+            BuildStagePrompt(7, PromptType.MissionPlanValidation, "active-validation"),
+            BuildStagePrompt(8, PromptType.MissionPlanning, "legacy-should-not-run")
+        ]);
 
     private static AiConfigModel BuildAiConfig(string model = "gemini-2.5-flash") => new()
     {
@@ -399,6 +526,13 @@ public class RescueMissionSuggestionServicePreviewTests
 
     private sealed class PipelineStubAiProviderClient : IAiProviderClient
     {
+        private readonly string? _failingStage;
+
+        public PipelineStubAiProviderClient(string? failingStage = null)
+        {
+            _failingStage = failingStage;
+        }
+
         public AiProvider Provider => AiProvider.Gemini;
         public List<string> StageMarkers { get; } = [];
 
@@ -408,6 +542,9 @@ public class RescueMissionSuggestionServicePreviewTests
         {
             var marker = ExtractMarker(request.SystemPrompt);
             StageMarkers.Add(marker);
+
+            if (string.Equals(marker, _failingStage, StringComparison.Ordinal))
+                throw new InvalidOperationException($"{marker} failed");
 
             var text = marker switch
             {
@@ -576,10 +713,13 @@ public class RescueMissionSuggestionServicePreviewTests
         public int CreateCalls { get; private set; }
         public int UpdateCalls { get; private set; }
         public int SavePipelineSnapshotCalls { get; private set; }
+        public MissionAiSuggestionModel? LastCreatedModel { get; private set; }
+        public MissionSuggestionMetadata? LastSavedMetadata { get; private set; }
 
         public Task<int> CreateAsync(MissionAiSuggestionModel model, CancellationToken cancellationToken = default)
         {
             CreateCalls++;
+            LastCreatedModel = model;
             return Task.FromResult(123);
         }
 
@@ -595,6 +735,7 @@ public class RescueMissionSuggestionServicePreviewTests
             CancellationToken cancellationToken = default)
         {
             SavePipelineSnapshotCalls++;
+            LastSavedMetadata = metadata;
             return Task.CompletedTask;
         }
 

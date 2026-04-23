@@ -13,7 +13,7 @@ namespace RESQ.Tests.Presentation.Controllers.Emergency;
 public class SosRequestControllerTests
 {
     [Fact]
-    public async Task GetSosRequests_ForwardsBoundsAndStatusesToMediator()
+    public async Task GetSosRequests_ForwardsBoundsFiltersToMediator()
     {
         var response = new List<SosRequestDto>
         {
@@ -32,7 +32,9 @@ public class SosRequestControllerTests
             MaxLat = 10.80,
             MinLng = 106.60,
             MaxLng = 106.70,
-            Statuses = [SosRequestStatus.Pending, SosRequestStatus.Assigned]
+            Statuses = [SosRequestStatus.Pending, SosRequestStatus.Assigned],
+            Priorities = [SosPriorityLevel.High, SosPriorityLevel.Critical],
+            SosTypes = [SosRequestType.Rescue, SosRequestType.Relief]
         };
 
         var result = await controller.GetSosRequests(query);
@@ -45,11 +47,13 @@ public class SosRequestControllerTests
         Assert.Equal(106.60, sentQuery.MinLng);
         Assert.Equal(106.70, sentQuery.MaxLng);
         Assert.Equal([SosRequestStatus.Pending, SosRequestStatus.Assigned], sentQuery.Statuses);
+        Assert.Equal([SosPriorityLevel.High, SosPriorityLevel.Critical], sentQuery.Priorities);
+        Assert.Equal([SosRequestType.Rescue, SosRequestType.Relief], sentQuery.SosTypes);
         Assert.Same(response, okResult.Value);
     }
 
     [Fact]
-    public async Task GetSosRequests_WithoutBounds_ForwardsPagedQueryToMediator()
+    public async Task GetSosRequests_WithoutBounds_ForwardsPagedFiltersToMediator()
     {
         var response = new GetSosRequestsPagedResponse
         {
@@ -64,7 +68,9 @@ public class SosRequestControllerTests
         {
             PageNumber = 2,
             PageSize = 25,
-            Statuses = [SosRequestStatus.Pending]
+            Statuses = [SosRequestStatus.Pending],
+            Priorities = [SosPriorityLevel.Medium],
+            SosTypes = [SosRequestType.Both]
         };
 
         var result = await controller.GetSosRequests(query);
@@ -75,6 +81,8 @@ public class SosRequestControllerTests
         Assert.Equal(2, sentQuery.PageNumber);
         Assert.Equal(25, sentQuery.PageSize);
         Assert.Equal([SosRequestStatus.Pending], sentQuery.Statuses);
+        Assert.Equal([SosPriorityLevel.Medium], sentQuery.Priorities);
+        Assert.Equal([SosRequestType.Both], sentQuery.SosTypes);
         Assert.Same(response, okResult.Value);
     }
 

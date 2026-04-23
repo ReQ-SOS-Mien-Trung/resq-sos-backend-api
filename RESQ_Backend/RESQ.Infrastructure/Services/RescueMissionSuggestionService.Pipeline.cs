@@ -18,7 +18,6 @@ public partial class RescueMissionSuggestionService
     private const int MaxPipelineToolTurns = 8;
     private const string DraftSuggestionPhase = "Draft";
     private const string ValidatedSuggestionPhase = "Validated";
-    private const string ExecutionSuggestionPhase = "Execution";
 
     private static readonly JsonSerializerOptions PipelineJsonDeserializeOptions = new()
     {
@@ -28,8 +27,15 @@ public partial class RescueMissionSuggestionService
         NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
-    private sealed class MissionSuggestionPipelineFallbackException(string message, Exception? innerException = null)
-        : Exception(message, innerException);
+    private sealed class MissionSuggestionPipelineException(
+        string failedStage,
+        string failureReason,
+        Exception? innerException = null)
+        : Exception(failureReason, innerException)
+    {
+        public string FailedStage { get; } = failedStage;
+        public string FailureReason { get; } = failureReason;
+    }
 
     private sealed record PromptStageResult(
         string ModelName,
@@ -95,9 +101,9 @@ public partial class RescueMissionSuggestionService
                 "failed",
                 PromptType.MissionRequirementsAssessment,
                 error: ex.Message,
-                pipelineStatus: "fallback",
+                pipelineStatus: "failed",
                 cancellationToken: cancellationToken);
-            throw new MissionSuggestionPipelineFallbackException("Requirements stage failed.", ex);
+            throw new MissionSuggestionPipelineException("requirements", ex.Message, ex);
         }
 
         yield return Status("depot");
@@ -148,9 +154,9 @@ public partial class RescueMissionSuggestionService
                 "failed",
                 PromptType.MissionDepotPlanning,
                 error: ex.Message,
-                pipelineStatus: "fallback",
+                pipelineStatus: "failed",
                 cancellationToken: cancellationToken);
-            throw new MissionSuggestionPipelineFallbackException("Depot stage failed.", ex);
+            throw new MissionSuggestionPipelineException("depot", ex.Message, ex);
         }
 
         yield return Status("team");
@@ -201,31 +207,50 @@ public partial class RescueMissionSuggestionService
                 "failed",
                 PromptType.MissionTeamPlanning,
                 error: ex.Message,
-                pipelineStatus: "fallback",
+                pipelineStatus: "failed",
                 cancellationToken: cancellationToken);
-            throw new MissionSuggestionPipelineFallbackException("Team stage failed.", ex);
+            throw new MissionSuggestionPipelineException("team", ex.Message, ex);
         }
 
         yield return Status("assemble");
 
-        var draftBody = AssembleDraftBody(requirements, depot, team);
-        var draftJson = SerializeMissionDraftBody(draftBody);
-        var draftActivities = draftBody.Activities
-            .Select(MapDraftActivityToSuggestedActivity)
-            .ToList();
+        MissionDraftBody draftBody;
+        string draftJson;
+        List<SuggestedActivityDto> draftActivities;
 
-        await SavePipelineStageSnapshotAsync(
-            suggestionId,
-            metadata,
-            "assemble",
-            "completed",
-            outputJson: draftJson,
-            pipelineStatus: "running",
-            cancellationToken: cancellationToken);
+        try
+        {
+            draftBody = AssembleDraftBody(requirements, depot, team);
+            draftJson = SerializeMissionDraftBody(draftBody);
+            draftActivities = draftBody.Activities
+                .Select(MapDraftActivityToSuggestedActivity)
+                .ToList();
+
+            await SavePipelineStageSnapshotAsync(
+                suggestionId,
+                metadata,
+                "assemble",
+                "completed",
+                outputJson: draftJson,
+                pipelineStatus: "running",
+                cancellationToken: cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await SavePipelineStageSnapshotAsync(
+                suggestionId,
+                metadata,
+                "assemble",
+                "failed",
+                error: ex.Message,
+                pipelineStatus: "failed",
+                cancellationToken: cancellationToken,
+                finalResultSource: "failed");
+            throw new MissionSuggestionPipelineException("assemble", ex.Message, ex);
+        }
 
         yield return Status("validate");
 
-        var finalResultSource = "validated";
         RescueMissionSuggestionResult result;
 
         try
@@ -266,13 +291,6 @@ public partial class RescueMissionSuggestionService
         }
         catch (Exception ex)
         {
-            finalResultSource = "draft";
-            result = MapDraftBodyToResult(draftBody, draftJson);
-            result.NeedsManualReview = true;
-            result.SpecialNotes = AppendSpecialNote(
-                result.SpecialNotes,
-                "Final validation failed. Please review the assembled mission draft manually.");
-
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
                 metadata,
@@ -280,9 +298,10 @@ public partial class RescueMissionSuggestionService
                 "failed",
                 PromptType.MissionPlanValidation,
                 error: ex.Message,
-                pipelineStatus: "completed",
+                pipelineStatus: "failed",
                 cancellationToken: cancellationToken,
-                finalResultSource: finalResultSource);
+                finalResultSource: "failed");
+            throw new MissionSuggestionPipelineException("validate", ex.Message, ex);
         }
 
         await FinalizeSuggestionResultAsync(
@@ -295,7 +314,7 @@ public partial class RescueMissionSuggestionService
             suggestionId,
             metadata,
             draftActivities,
-            finalResultSource,
+            "validated",
             options,
             cancellationToken);
 
@@ -432,7 +451,7 @@ public partial class RescueMissionSuggestionService
             : await _promptRepository.GetActiveByTypeAsync(promptType, cancellationToken);
 
         if (prompt is null)
-            throw new MissionSuggestionPipelineFallbackException($"Missing active prompt '{promptType}'.");
+            throw new InvalidOperationException($"Missing active prompt '{promptType}'.");
 
         var settings = _settingsResolver.Resolve(aiConfig);
 
@@ -1402,14 +1421,46 @@ public partial class RescueMissionSuggestionService
         return JsonSerializer.Serialize(payload, _jsonOpts);
     }
 
-    private static RescueMissionSuggestionResult MapDraftBodyToResult(
-        MissionDraftBody draftBody,
-        string rawAiResponse)
+    private static RescueMissionSuggestionResult CreateFailureResult(
+        string errorMessage,
+        int? suggestionId = null,
+        MissionSuggestionPipelineMetadata? pipelineMetadata = null) =>
+        new()
+        {
+            IsSuccess = false,
+            SuggestionId = suggestionId,
+            ErrorMessage = errorMessage,
+            PipelineMetadata = pipelineMetadata
+        };
+
+    private async Task<RescueMissionSuggestionResult> CreateFailedSuggestionResultAsync(
+        string failedStage,
+        string failureReason,
+        int? suggestionId,
+        MissionSuggestionMetadata metadata,
+        MissionSuggestionExecutionOptions options,
+        CancellationToken cancellationToken)
     {
-        var result = ParseMissionSuggestion(SerializeMissionDraftBody(draftBody));
-        result.IsSuccess = true;
-        result.RawAiResponse = rawAiResponse;
-        return result;
+        var errorMessage = $"Mission suggestion pipeline failed at stage '{failedStage}'. {failureReason}";
+
+        metadata.IsSuccess = false;
+        metadata.ErrorMessage = errorMessage;
+        metadata.Pipeline ??= new MissionSuggestionPipelineMetadata();
+        metadata.Pipeline.ExecutionMode = "pipeline";
+        metadata.Pipeline.PipelineStatus = "failed";
+        metadata.Pipeline.FinalResultSource = "failed";
+        metadata.Pipeline.FailedStage = failedStage;
+        metadata.Pipeline.FailureReason = failureReason;
+        metadata.Pipeline.UsedLegacyFallback = false;
+        metadata.Pipeline.LegacyFallbackReason = null;
+
+        if (options.PersistSuggestion && suggestionId.HasValue)
+            await SaveSuggestionMetadataAsync(suggestionId, metadata, cancellationToken);
+
+        return CreateFailureResult(
+            errorMessage,
+            options.PersistSuggestion ? suggestionId : null,
+            metadata.Pipeline);
     }
 
     private async Task FinalizeSuggestionResultAsync(
@@ -1441,7 +1492,9 @@ public partial class RescueMissionSuggestionService
             EnrichVictimTargets(draftActivities, sosLookup);
         }
 
-        var effectiveMetadata = metadata ?? CreateSuggestionMetadataForLegacy();
+        var effectiveMetadata = metadata ?? CreateSuggestionMetadataForPipeline();
+        effectiveMetadata.IsSuccess = true;
+        effectiveMetadata.ErrorMessage = null;
         effectiveMetadata.OverallAssessment = result.OverallAssessment;
         effectiveMetadata.EstimatedDuration = result.EstimatedDuration;
         effectiveMetadata.SpecialNotes = result.SpecialNotes;
@@ -1459,6 +1512,8 @@ public partial class RescueMissionSuggestionService
         {
             effectiveMetadata.Pipeline.PipelineStatus = "completed";
             effectiveMetadata.Pipeline.FinalResultSource = finalResultSource;
+            effectiveMetadata.Pipeline.FailedStage = null;
+            effectiveMetadata.Pipeline.FailureReason = null;
         }
 
         if (!options.PersistSuggestion)
@@ -1476,6 +1531,7 @@ public partial class RescueMissionSuggestionService
             draftActivities,
             finalResultSource,
             cancellationToken);
+        result.PipelineMetadata = effectiveMetadata.Pipeline;
     }
 
     private async Task ApplySharedPostProcessingAsync(
@@ -1549,40 +1605,28 @@ public partial class RescueMissionSuggestionService
             return suggestionId;
 
         var activities = new List<ActivityAiSuggestionModel>();
-        if (string.Equals(finalResultSource, "legacy", StringComparison.OrdinalIgnoreCase))
+
+        if (draftActivities is { Count: > 0 })
         {
             activities.Add(BuildActivitySuggestionModel(
                 clusterId.Value,
                 result.ModelName,
                 result.SuggestedMissionType,
-                ExecutionSuggestionPhase,
-                result.SuggestedActivities,
+                DraftSuggestionPhase,
+                draftActivities,
                 result.ConfidenceScore));
         }
-        else
-        {
-            if (draftActivities is { Count: > 0 })
-            {
-                activities.Add(BuildActivitySuggestionModel(
-                    clusterId.Value,
-                    result.ModelName,
-                    result.SuggestedMissionType,
-                    DraftSuggestionPhase,
-                    draftActivities,
-                    result.ConfidenceScore));
-            }
 
-            if (string.Equals(finalResultSource, "validated", StringComparison.OrdinalIgnoreCase)
-                && result.SuggestedActivities.Count > 0)
-            {
-                activities.Add(BuildActivitySuggestionModel(
-                    clusterId.Value,
-                    result.ModelName,
-                    result.SuggestedMissionType,
-                    ValidatedSuggestionPhase,
-                    result.SuggestedActivities,
-                    result.ConfidenceScore));
-            }
+        if (string.Equals(finalResultSource, "validated", StringComparison.OrdinalIgnoreCase)
+            && result.SuggestedActivities.Count > 0)
+        {
+            activities.Add(BuildActivitySuggestionModel(
+                clusterId.Value,
+                result.ModelName,
+                result.SuggestedMissionType,
+                ValidatedSuggestionPhase,
+                result.SuggestedActivities,
+                result.ConfidenceScore));
         }
 
         var missionModel = new MissionAiSuggestionModel
@@ -1699,6 +1743,12 @@ public partial class RescueMissionSuggestionService
         if (!string.IsNullOrWhiteSpace(finalResultSource))
             metadata.Pipeline.FinalResultSource = finalResultSource;
 
+        if (string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase))
+        {
+            metadata.Pipeline.FailedStage = stageName;
+            metadata.Pipeline.FailureReason = error;
+        }
+
         await SaveSuggestionMetadataAsync(suggestionId, metadata, cancellationToken);
     }
 
@@ -1706,23 +1756,11 @@ public partial class RescueMissionSuggestionService
     {
         return new MissionSuggestionMetadata
         {
+            IsSuccess = true,
             Pipeline = new MissionSuggestionPipelineMetadata
             {
                 ExecutionMode = "pipeline",
                 PipelineStatus = "running"
-            }
-        };
-    }
-
-    private static MissionSuggestionMetadata CreateSuggestionMetadataForLegacy()
-    {
-        return new MissionSuggestionMetadata
-        {
-            Pipeline = new MissionSuggestionPipelineMetadata
-            {
-                ExecutionMode = "legacy",
-                PipelineStatus = "completed",
-                FinalResultSource = "legacy"
             }
         };
     }

@@ -13,6 +13,8 @@ public interface ISosClusterRepository
         int pageSize,
         int? sosRequestId = null,
         IReadOnlyCollection<SosClusterStatus>? statuses = null,
+        IReadOnlyCollection<SosPriorityLevel>? priorities = null,
+        IReadOnlyCollection<SosRequestType>? sosTypes = null,
         CancellationToken cancellationToken = default)
     {
         var normalizedPageNumber = pageNumber <= 0 ? 1 : pageNumber;

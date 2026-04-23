@@ -15,7 +15,7 @@ public class TestPromptCommandHandlerTests
     [Fact]
     public async Task Handle_ExistingPromptDraft_MergesDraftFieldsWithoutMutatingStoredPrompt()
     {
-        var storedPrompt = BuildPrompt(PromptType.MissionPlanning);
+        var storedPrompt = BuildPrompt(PromptType.MissionTeamPlanning);
         var promptRepository = new StubPromptRepository(storedPrompt);
         var aiConfigRepository = new StubAiConfigRepository(BuildAiConfig());
         var contextService = new StubMissionContextService();
@@ -46,7 +46,7 @@ public class TestPromptCommandHandlerTests
         Assert.Equal("draft system", suggestionService.PromptOverride?.SystemPrompt);
         Assert.Equal("draft user", suggestionService.PromptOverride?.UserPromptTemplate);
         Assert.False(suggestionService.PromptOverride?.IsActive);
-        Assert.Equal(PromptType.MissionPlanning, storedPrompt.PromptType);
+        Assert.Equal(PromptType.MissionTeamPlanning, storedPrompt.PromptType);
         Assert.Equal("stored system", storedPrompt.SystemPrompt);
         Assert.Equal("stored user", storedPrompt.UserPromptTemplate);
         Assert.Equal(0, promptRepository.CreateCalls);
@@ -113,7 +113,7 @@ public class TestPromptCommandHandlerTests
     {
         var aiConfig = BuildAiConfig(id: 99, model: "override-model");
         var handler = BuildHandler(
-            new StubPromptRepository(BuildPrompt(PromptType.MissionPlanning)),
+            new StubPromptRepository(BuildPrompt(PromptType.MissionTeamPlanning)),
             new StubAiConfigRepository(aiConfig),
             suggestionService: new StubSuggestionService(BuildSuggestion()));
 
@@ -137,7 +137,7 @@ public class TestPromptCommandHandlerTests
     [Fact]
     public async Task Handle_DraftPromptTypeSosPriority_RejectsMissionPreview()
     {
-        var storedPrompt = BuildPrompt(PromptType.MissionPlanning);
+        var storedPrompt = BuildPrompt(PromptType.MissionTeamPlanning);
         var handler = BuildHandler(
             new StubPromptRepository(storedPrompt),
             new StubAiConfigRepository(BuildAiConfig()));
@@ -172,7 +172,7 @@ public class TestPromptCommandHandlerTests
     public async Task Handle_MissingAiConfig_ThrowsClearError()
     {
         var handler = BuildHandler(
-            new StubPromptRepository(BuildPrompt(PromptType.MissionPlanning)),
+            new StubPromptRepository(BuildPrompt(PromptType.MissionTeamPlanning)),
             new StubAiConfigRepository(null));
 
         await Assert.ThrowsAsync<BadRequestException>(() =>

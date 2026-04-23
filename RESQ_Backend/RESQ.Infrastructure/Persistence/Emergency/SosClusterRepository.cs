@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
@@ -36,48 +36,68 @@ public class SosClusterRepository(IUnitOfWork unitOfWork) : ISosClusterRepositor
         int pageSize,
         int? sosRequestId = null,
         IReadOnlyCollection<SosClusterStatus>? statuses = null,
+        IReadOnlyCollection<SosPriorityLevel>? priorities = null,
+        IReadOnlyCollection<SosRequestType>? sosTypes = null,
         CancellationToken cancellationToken = default)
     {
-        var repository = _unitOfWork.GetRepository<SosCluster>();
-        Expression<Func<SosCluster, bool>>? filter = null;
         var statusNames = statuses?
             .Select(status => status.ToString())
             .Distinct()
             .ToArray();
+        var priorityNames = priorities?
+            .Select(priority => priority.ToString())
+            .Distinct()
+            .ToArray();
+        var sosTypeNames = sosTypes?
+            .Select(sosType => sosType.ToString())
+            .Distinct()
+            .ToArray();
+        var normalizedPageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        var normalizedPageSize = pageSize <= 0 ? 10 : pageSize;
+        var hasStatusFilter = statusNames is { Length: > 0 };
+        var hasPriorityFilter = priorityNames is { Length: > 0 };
+        var hasSosTypeFilter = sosTypeNames is { Length: > 0 };
+        var hasChildFilters = hasPriorityFilter || hasSosTypeFilter;
 
-        if (sosRequestId.HasValue && statusNames is { Length: > 0 } requestStatusNames)
+        IQueryable<SosCluster> query = _unitOfWork.GetRepository<SosCluster>()
+            .AsQueryable(tracked: false)
+            .Include(cluster => cluster.SosRequests);
+
+        if (sosRequestId.HasValue)
         {
             var requestId = sosRequestId.Value;
-            filter = cluster =>
-                cluster.SosRequests.Any(sosRequest => sosRequest.Id == requestId)
-                && requestStatusNames.Contains(cluster.Status);
-        }
-        else if (sosRequestId.HasValue)
-        {
-            var requestId = sosRequestId.Value;
-            filter = cluster => cluster.SosRequests.Any(sosRequest => sosRequest.Id == requestId);
-        }
-        else if (statusNames is { Length: > 0 } statusFilterNames)
-        {
-            filter = cluster => statusFilterNames.Contains(cluster.Status);
+            query = query.Where(cluster => cluster.SosRequests.Any(sosRequest => sosRequest.Id == requestId));
         }
 
-        var pagedEntities = await repository.GetPagedAsync(
-            pageNumber,
-            pageSize,
-            filter: filter,
-            orderBy: query => query.OrderByDescending(cluster => cluster.CreatedAt),
-            includeProperties: "SosRequests");
+        if (hasStatusFilter)
+        {
+            query = query.Where(cluster => statusNames!.Contains(cluster.Status));
+        }
 
-        var models = pagedEntities.Items
+        if (hasChildFilters)
+        {
+            query = query.Where(cluster => cluster.SosRequests.Any(sosRequest =>
+                (!hasPriorityFilter || (sosRequest.PriorityLevel != null && priorityNames!.Contains(sosRequest.PriorityLevel)))
+                && (!hasSosTypeFilter || (sosRequest.SosType != null && sosTypeNames!.Contains(sosRequest.SosType)))));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var entities = await query
+            .OrderByDescending(cluster => cluster.CreatedAt)
+            .ThenByDescending(cluster => cluster.Id)
+            .Skip((normalizedPageNumber - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        var models = entities
             .Select(entity => SosClusterMapper.ToDomain(entity))
             .ToList();
 
         return new PagedResult<SosClusterModel>(
             models,
-            pagedEntities.TotalCount,
-            pagedEntities.PageNumber,
-            pagedEntities.PageSize);
+            totalCount,
+            normalizedPageNumber,
+            normalizedPageSize);
     }
 
     public async Task<int> CreateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default)

@@ -42,5 +42,10 @@ public class TestPromptResponse
     public bool NeedsManualReview { get; set; }
     public string? LowConfidenceWarning { get; set; }
     public bool MultiDepotRecommended { get; set; }
+    public string? PipelineExecutionMode { get; set; }
+    public string? PipelineStatus { get; set; }
+    public string? PipelineFinalResultSource { get; set; }
+    public string? PipelineFailedStage { get; set; }
+    public string? PipelineFailureReason { get; set; }
     public MissionSuggestionPipelineMetadata? PipelineMetadata { get; set; }
 }
