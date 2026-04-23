@@ -110,4 +110,10 @@ public partial class DepotSupplyRequest
 
     [InverseProperty("DepotSupplyRequest")]
     public virtual ICollection<DepotSupplyRequestItem> Items { get; set; } = new List<DepotSupplyRequestItem>();
+
+    [InverseProperty(nameof(DepotSupplyRequestReusableItem.SupplyRequest))]
+    public virtual ICollection<DepotSupplyRequestReusableItem> ReusableItems { get; set; } = new List<DepotSupplyRequestReusableItem>();
+
+    [InverseProperty(nameof(DepotSupplyRequestConsumableReservation.SupplyRequest))]
+    public virtual ICollection<DepotSupplyRequestConsumableReservation> ConsumableReservations { get; set; } = new List<DepotSupplyRequestConsumableReservation>();
 }

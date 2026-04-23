@@ -242,6 +242,19 @@ public class InitiateDepotClosureTransferCommandHandler(
                     transferItems.Select(x => x.Record).ToList(),
                     cancellationToken);
 
+                await inventoryRepository.ReserveForClosurePreparationAsync(
+                    request.DepotId,
+                    transferId,
+                    closureId,
+                    request.InitiatedBy,
+                    transferItems.Select(x => new DepotClosureTransferItemMoveDto
+                    {
+                        ItemModelId = x.Record.ItemModelId,
+                        ItemType = x.Record.ItemType,
+                        Quantity = x.Record.Quantity
+                    }).ToList(),
+                    cancellationToken);
+
                 transferSummaries.Add(new InitiateDepotClosureTransferSummaryDto
                 {
                     TransferId = transferId,
@@ -268,6 +281,10 @@ public class InitiateDepotClosureTransferCommandHandler(
 
         var realtimeTasks = new List<Task>
         {
+            operationalHubService.PushDepotInventoryUpdateAsync(
+                request.DepotId,
+                "ClosureTransferReserved",
+                cancellationToken),
             operationalHubService.PushDepotClosureUpdateAsync(
                 new Common.Models.DepotClosureRealtimeUpdate
                 {

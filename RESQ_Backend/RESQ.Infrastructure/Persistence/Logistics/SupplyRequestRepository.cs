@@ -242,94 +242,242 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
+        var normalizedItems = items
+            .GroupBy(x => x.ItemModelId)
+            .Select(g => (ItemModelId: g.Key, Quantity: g.Sum(x => x.Quantity)))
+            .ToList();
 
-        await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        var existingReusableReservations = await _unitOfWork.SetTracked<DepotSupplyRequestReusableItem>()
+            .AnyAsync(x => x.SupplyRequestId == supplyRequestId && x.Status != "Released", cancellationToken);
+        var existingConsumableReservations = await _unitOfWork.SetTracked<DepotSupplyRequestConsumableReservation>()
+            .AnyAsync(x => x.SupplyRequestId == supplyRequestId && x.Status != "Released", cancellationToken);
+
+        if (existingReusableReservations || existingConsumableReservations)
         {
-            foreach (var (itemModelId, quantity) in items)
+            throw new ConflictException(
+                $"Yêu cầu tiếp tế #{supplyRequestId} đã có reservation trước đó. Vui lòng tải lại dữ liệu trước khi thao tác tiếp.");
+        }
+
+        var itemModelIds = normalizedItems.Select(x => x.ItemModelId).ToList();
+        var itemModels = await _unitOfWork.Set<ItemModelEntity>()
+            .Where(x => itemModelIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        var consumableItems = normalizedItems
+            .Where(x => itemModels.TryGetValue(x.ItemModelId, out var model) && string.Equals(model.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (consumableItems.Count > 0)
+        {
+            var consumableItemModelIds = consumableItems.Select(x => x.ItemModelId).ToList();
+            var inventories = await _unitOfWork.SetTracked<SupplyInventory>()
+                .Where(inv => inv.DepotId == sourceDepotId && consumableItemModelIds.Contains(inv.ItemModelId ?? 0))
+                .Include(inv => inv.Lots)
+                .ToListAsync(cancellationToken);
+
+            var activeSupplyReservations = await _unitOfWork.Set<DepotSupplyRequestConsumableReservation>()
+                .AsNoTracking()
+                .Where(r => r.SupplyInventory.DepotId == sourceDepotId
+                         && consumableItemModelIds.Contains(r.ItemModelId)
+                         && (r.Status == "Reserved" || r.Status == "Shipped"))
+                .Select(r => new
+                {
+                    r.SupplyInventoryId,
+                    r.SupplyInventoryLotId,
+                    r.ReservedQuantity
+                })
+                .ToListAsync(cancellationToken);
+
+            var activeClosureReservations = await _unitOfWork.Set<DepotClosureTransferConsumableReservation>()
+                .AsNoTracking()
+                .Where(r => r.SupplyInventory.DepotId == sourceDepotId
+                         && consumableItemModelIds.Contains(r.ItemModelId)
+                         && (r.Status == "Reserved" || r.Status == "Shipped"))
+                .Select(r => new
+                {
+                    r.SupplyInventoryId,
+                    r.SupplyInventoryLotId,
+                    r.ReservedQuantity
+                })
+                .ToListAsync(cancellationToken);
+
+            var newReservations = new List<DepotSupplyRequestConsumableReservation>();
+
+            foreach (var ci in consumableItems)
             {
-                var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
-                    .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
-                    ?? throw new NotFoundException($"vật phẩm #{itemModelId} không tồn tại trong hệ thống.");
+                var itemModel = itemModels[ci.ItemModelId];
+                var inventory = inventories.FirstOrDefault(x => x.ItemModelId == ci.ItemModelId)
+                    ?? throw new BadRequestException(
+                        $"Kho nguồn không có vật phẩm '{itemModel.Name}' (#{ci.ItemModelId}) trong tồn kho.");
 
-                if (itemModel.ItemType == "Reusable")
+                var available = (inventory.Quantity ?? 0) - (inventory.MissionReservedQuantity + inventory.TransferReservedQuantity);
+                if (available < ci.Quantity)
                 {
-                    var availableUnits = await _unitOfWork.Set<ReusableItem>()
-                        .Where(x =>
-                            x.DepotId == sourceDepotId &&
-                            x.ItemModelId == itemModelId &&
-                            !x.IsDeleted &&
-                            x.Status == nameof(ReusableItemStatus.Available))
-                        .OrderBy(x => x.Id)
-                        .Take(quantity)
-                        .ToListAsync(cancellationToken);
-
-                    if (availableUnits.Count < quantity)
-                        throw new BadRequestException(
-                            $"Vật phẩm '{itemModel.Name}' (#{itemModelId}): kho nguồn chỉ có {availableUnits.Count} đơn vị khả dụng, yêu cầu {quantity}.");
-
-                    foreach (var unit in availableUnits)
-                    {
-                        var rowsAffected = await _unitOfWork.SetTracked<ReusableItem>()
-                            .Where(x =>
-                                x.Id == unit.Id &&
-                                x.DepotId == sourceDepotId &&
-                                x.ItemModelId == itemModelId &&
-                                !x.IsDeleted &&
-                                x.Status == nameof(ReusableItemStatus.Available))
-                            .ExecuteUpdateAsync(s => s
-                                .SetProperty(x => x.Status, ReusableItemStatus.Reserved.ToString())
-                                .SetProperty(x => x.SupplyRequestId, supplyRequestId)
-                                .SetProperty(x => x.UpdatedAt, now),
-                                cancellationToken);
-
-                        if (rowsAffected == 0)
-                            throw new ConflictException(
-                                $"Vật phẩm tái sử dụng #{unit.Id} vừa được thao tác bởi yêu cầu khác. Vui lòng tải lại dữ liệu và thử lại.");
-
-                        await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
-                        {
-                            ReusableItemId = unit.Id,
-                            ActionType     = "Reserve",
-                            QuantityChange = 1,
-                            SourceType     = InventorySourceType.Transfer.ToString(),
-                            SourceId       = supplyRequestId,
-                            PerformedBy    = performedBy,
-                            Note           = $"Đặt trữ {itemModel.Name} (S/N: {unit.SerialNumber}) cho yêu cầu #{supplyRequestId}",
-                            CreatedAt      = now
-                        });
-                    }
+                    throw new BadRequestException(
+                        $"Vật phẩm '{itemModel.Name}' (#{ci.ItemModelId}): tồn kho khả dụng ({available}) không đủ so với yêu cầu ({ci.Quantity}).");
                 }
-                else
+
+                inventory.TransferReservedQuantity += ci.Quantity;
+                inventory.LastStockedAt = now;
+
+                var remainingToReserve = ci.Quantity;
+                var lots = inventory.Lots
+                    .Where(l => l.RemainingQuantity > 0)
+                    .OrderBy(l => l.ExpiredDate == null ? 1 : 0)
+                    .ThenBy(l => l.ExpiredDate)
+                    .ThenBy(l => l.ReceivedDate)
+                    .ThenBy(l => l.Id)
+                    .ToList();
+
+                foreach (var lot in lots)
                 {
-                    var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
-                        .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
-                        ?? throw new BadRequestException(
-                            $"Kho nguồn không có vật phẩm '{itemModel.Name}' (#{itemModelId}) trong tồn kho.");
+                    if (remainingToReserve <= 0) break;
 
-                    var available = (inventory.Quantity ?? 0) - (inventory.MissionReservedQuantity + inventory.TransferReservedQuantity);
-                    if (available < quantity)
-                        throw new BadRequestException(
-                            $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tồn kho khả dụng ({available}) không đủ so với yêu cầu ({quantity}).");
+                    var alreadyReserved = activeSupplyReservations
+                        .Where(x => x.SupplyInventoryLotId == lot.Id)
+                        .Sum(x => x.ReservedQuantity)
+                        + activeClosureReservations
+                            .Where(x => x.SupplyInventoryLotId == lot.Id)
+                            .Sum(x => x.ReservedQuantity);
 
-                    inventory.TransferReservedQuantity += quantity;
-                    inventory.LastStockedAt             = now;
+                    var lotAvailable = Math.Max(0, lot.RemainingQuantity - alreadyReserved);
+                    if (lotAvailable <= 0) continue;
 
-                    await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                    var reservedQuantity = Math.Min(lotAvailable, remainingToReserve);
+                    newReservations.Add(new DepotSupplyRequestConsumableReservation
                     {
-                        DepotSupplyInventoryId = inventory.Id,
-                        ActionType             = "Reserve",
-                        QuantityChange         = quantity,
-                        SourceType             = InventorySourceType.Transfer.ToString(),
-                        SourceId               = supplyRequestId,
-                        PerformedBy            = performedBy,
-                        Note                   = $"Đặt trữ {itemModel.Name} (#{itemModelId}) cho yêu cầu #{supplyRequestId}",
-                        CreatedAt              = now
+                        SupplyRequestId = supplyRequestId,
+                        SupplyInventoryId = inventory.Id,
+                        SupplyInventoryLotId = lot.Id,
+                        ItemModelId = ci.ItemModelId,
+                        ReservedQuantity = reservedQuantity,
+                        Status = "Reserved",
+                        ReceivedDate = lot.ReceivedDate,
+                        ExpiredDate = lot.ExpiredDate,
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    });
+                    remainingToReserve -= reservedQuantity;
+                }
+
+                if (remainingToReserve > 0)
+                {
+                    var trackedByLotsQuantity = lots.Sum(l => l.RemainingQuantity);
+                    var reservedLegacyQuantity = activeSupplyReservations
+                        .Where(x => x.SupplyInventoryId == inventory.Id && x.SupplyInventoryLotId == null)
+                        .Sum(x => x.ReservedQuantity)
+                        + activeClosureReservations
+                            .Where(x => x.SupplyInventoryId == inventory.Id && x.SupplyInventoryLotId == null)
+                            .Sum(x => x.ReservedQuantity);
+
+                    var availableLegacyQuantity = Math.Max(0, (inventory.Quantity ?? 0) - trackedByLotsQuantity - reservedLegacyQuantity);
+                    if (availableLegacyQuantity < remainingToReserve)
+                    {
+                        throw new ConflictException(
+                            $"Không đủ lô hoặc tồn legacy khả dụng để đặt trữ vật phẩm '{itemModel.Name}' (#{ci.ItemModelId}) cho yêu cầu #{supplyRequestId}. Còn thiếu {remainingToReserve} đơn vị.");
+                    }
+
+                    newReservations.Add(new DepotSupplyRequestConsumableReservation
+                    {
+                        SupplyRequestId = supplyRequestId,
+                        SupplyInventoryId = inventory.Id,
+                        SupplyInventoryLotId = null,
+                        ItemModelId = ci.ItemModelId,
+                        ReservedQuantity = remainingToReserve,
+                        Status = "Reserved",
+                        CreatedAt = now,
+                        UpdatedAt = now
                     });
                 }
+
+                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                {
+                    DepotSupplyInventoryId = inventory.Id,
+                    ActionType = "Reserve",
+                    QuantityChange = ci.Quantity,
+                    SourceType = InventorySourceType.Transfer.ToString(),
+                    SourceId = supplyRequestId,
+                    PerformedBy = performedBy,
+                    Note = $"Đặt trữ {itemModel.Name} (#{ci.ItemModelId}) cho yêu cầu #{supplyRequestId}",
+                    CreatedAt = now
+                });
             }
 
-            await _unitOfWork.SaveAsync();
-        });
+            if (newReservations.Count > 0)
+            {
+                await _unitOfWork.GetRepository<DepotSupplyRequestConsumableReservation>().AddRangeAsync(newReservations);
+            }
+        }
+
+        var reusableItems = normalizedItems
+            .Where(x => itemModels.TryGetValue(x.ItemModelId, out var model) && string.Equals(model.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (reusableItems.Count > 0)
+        {
+            var reusableItemModelIds = reusableItems.Select(x => x.ItemModelId).ToList();
+            var availableUnits = await _unitOfWork.SetTracked<ReusableItem>()
+                .Where(x => x.DepotId == sourceDepotId
+                         && reusableItemModelIds.Contains(x.ItemModelId ?? 0)
+                         && !x.IsDeleted
+                         && x.Status == nameof(ReusableItemStatus.Available))
+                .OrderBy(x => x.ItemModelId)
+                .ThenBy(x => x.Id)
+                .ToListAsync(cancellationToken);
+
+            var newInventoryLogs = new List<InventoryLog>();
+
+            foreach (var ri in reusableItems)
+            {
+                var itemModel = itemModels[ri.ItemModelId];
+                var pickedUnits = availableUnits
+                    .Where(x => x.ItemModelId == ri.ItemModelId)
+                    .Take(ri.Quantity)
+                    .ToList();
+
+                if (pickedUnits.Count < ri.Quantity)
+                {
+                    throw new BadRequestException(
+                        $"Vật phẩm '{itemModel.Name}' (#{ri.ItemModelId}): kho nguồn chỉ có {pickedUnits.Count} đơn vị khả dụng, yêu cầu {ri.Quantity}.");
+                }
+
+                foreach (var unit in pickedUnits)
+                {
+                    unit.Status = nameof(ReusableItemStatus.Reserved);
+                    unit.UpdatedAt = now;
+
+                    await _unitOfWork.GetRepository<DepotSupplyRequestReusableItem>().AddAsync(new DepotSupplyRequestReusableItem
+                    {
+                        SupplyRequestId = supplyRequestId,
+                        ReusableItemId = unit.Id,
+                        Status = "Reserved",
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    });
+
+                    newInventoryLogs.Add(new InventoryLog
+                    {
+                        ReusableItemId = unit.Id,
+                        ActionType = "Reserve",
+                        QuantityChange = 1,
+                        SourceType = InventorySourceType.Transfer.ToString(),
+                        SourceId = supplyRequestId,
+                        PerformedBy = performedBy,
+                        Note = $"Đặt trữ {itemModel.Name} (S/N: {unit.SerialNumber}) cho yêu cầu #{supplyRequestId}",
+                        CreatedAt = now
+                    });
+                }
+
+                availableUnits.RemoveAll(x => x.ItemModelId == ri.ItemModelId && pickedUnits.Any(p => p.Id == x.Id));
+            }
+
+            if (newInventoryLogs.Count > 0)
+            {
+                await _unitOfWork.GetRepository<InventoryLog>().AddRangeAsync(newInventoryLogs);
+            }
+        }
+
+        await _unitOfWork.SaveAsync();
     }
 
     public async Task TransferOutAsync(
@@ -343,8 +491,12 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         var hasReusableChanges = false;
         decimal totalVolume = 0m;
         decimal totalWeight = 0m;
+        var normalizedItems = items
+            .GroupBy(x => x.ItemModelId)
+            .Select(g => (ItemModelId: g.Key, Quantity: g.Sum(x => x.Quantity)))
+            .ToList();
 
-        foreach (var (itemModelId, quantity) in items)
+        foreach (var (itemModelId, quantity) in normalizedItems)
         {
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
@@ -355,25 +507,30 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
             if (itemModel.ItemType == "Reusable")
             {
-                // -- Reusable: transition Reserved → InTransit per unit --
-                var reservedUnits = await _unitOfWork.GetRepository<ReusableItem>()
-                    .GetAllByPropertyAsync(x =>
-                        x.SupplyRequestId == supplyRequestId &&
-                        x.ItemModelId     == itemModelId &&
-                        x.Status          == nameof(ReusableItemStatus.Reserved));
+                var reservedUnits = await _unitOfWork.SetTracked<DepotSupplyRequestReusableItem>()
+                    .Include(x => x.ReusableItem)
+                    .Where(x => x.SupplyRequestId == supplyRequestId
+                             && x.Status == "Reserved"
+                             && x.ReusableItem != null
+                             && x.ReusableItem.DepotId == sourceDepotId
+                             && x.ReusableItem.ItemModelId == itemModelId
+                             && x.ReusableItem.Status == nameof(ReusableItemStatus.Reserved))
+                    .OrderBy(x => x.ReusableItemId)
+                    .ToListAsync(cancellationToken);
 
                 if (reservedUnits.Count != quantity)
                     throw new BadRequestException(
-                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tìm thấy {reservedUnits.Count} đơn vị đặt trữ, " +
-                        $"không khớp với yêu cầu {quantity}. Quy trình có thể bị bỏ qua bước Accept.");
+                        $"Vật phẩm '{itemModel.Name}' (#{itemModelId}): tìm thấy {reservedUnits.Count} đơn vị đặt trữ, " +
+                        $"không khớp với yêu cầu {quantity}. Quy trình có thể bị bỏ qua bước Prepare.");
 
-                foreach (var unit in reservedUnits)
+                foreach (var reservation in reservedUnits)
                 {
+                    var unit = reservation.ReusableItem!;
                     unit.Status    = nameof(ReusableItemStatus.InTransit);
                     unit.DepotId   = null;   // en route - not at any depot
                     unit.UpdatedAt = now;
-
-                    await _unitOfWork.GetRepository<ReusableItem>().UpdateAsync(unit);
+                    reservation.Status = "Shipped";
+                    reservation.UpdatedAt = now;
 
                     await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                     {
@@ -392,18 +549,25 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             }
             else
             {
-                // -- Consumable: deduct Quantity + ReservedQuantity from supply_inventory --
-                var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
-                    .GetByPropertyAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, tracked: true)
+                var inventory = await _unitOfWork.SetTracked<SupplyInventory>()
+                    .Include(x => x.Lots)
+                    .FirstOrDefaultAsync(x => x.DepotId == sourceDepotId && x.ItemModelId == itemModelId, cancellationToken)
                     ?? throw new BadRequestException(
                         $"vật phẩm '{itemModel.Name}' (#{itemModelId}): không tìm thấy tồn kho tại kho nguồn. " +
-                        "Quy trình có thể bị bỏ qua bước Accept.");
+                        "Quy trình có thể bị bỏ qua bước Prepare.");
 
-                var reserved = inventory.TransferReservedQuantity;
-                if (reserved < quantity)
+                var reservations = await _unitOfWork.SetTracked<DepotSupplyRequestConsumableReservation>()
+                    .Where(x => x.SupplyRequestId == supplyRequestId
+                             && x.ItemModelId == itemModelId
+                             && x.Status == "Reserved")
+                    .OrderBy(x => x.Id)
+                    .ToListAsync(cancellationToken);
+
+                var reserved = reservations.Sum(x => x.ReservedQuantity);
+                if (reserved != quantity)
                     throw new BadRequestException(
                         $"vật phẩm '{itemModel.Name}' (#{itemModelId}): số lượng đặt trữ tiếp tế ({reserved}) không đủ so với yêu cầu ({quantity}). " +
-                        "Quy trình có thể bị bỏ qua bước Accept.");
+                        "Quy trình có thể bị bỏ qua bước Prepare.");
 
                 if ((inventory.Quantity ?? 0) < quantity)
                     throw new BadRequestException(
@@ -412,55 +576,57 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 inventory.Quantity                  = (inventory.Quantity ?? 0) - quantity;
                 inventory.TransferReservedQuantity  = reserved - quantity;
                 inventory.LastStockedAt             = now;
-
-                // -- FEFO lot deduction ------------------------------------------
-                var lots = await _unitOfWork.SetTracked<SupplyInventoryLot>()
-                    .Where(l => l.SupplyInventoryId == inventory.Id && l.RemainingQuantity > 0)
-                    .OrderBy(l => l.ExpiredDate == null ? 1 : 0)  // items WITH expiry first
-                    .ThenBy(l => l.ExpiredDate)                    // soonest expiry first (FEFO)
-                    .ThenBy(l => l.ReceivedDate)                   // oldest received first (FIFO tie-breaker)
-                    .ToListAsync(cancellationToken);
-
-                if (lots.Count > 0)
+                if ((inventory.Quantity ?? 0) <= 0
+                    && inventory.MissionReservedQuantity == 0
+                    && inventory.TransferReservedQuantity == 0)
                 {
-                    var remaining = quantity;
-                    foreach (var lot in lots)
-                    {
-                        if (remaining <= 0) break;
-                        var deduct = Math.Min(lot.RemainingQuantity, remaining);
-                        lot.RemainingQuantity -= deduct;
-                        remaining -= deduct;
+                    inventory.IsDeleted = true;
+                }
 
-                        await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
-                        {
-                            DepotSupplyInventoryId = inventory.Id,
-                            SupplyInventoryLotId   = lot.Id,
-                            ActionType             = InventoryActionType.TransferOut.ToString(),
-                            QuantityChange         = deduct,
-                            SourceType             = InventorySourceType.Transfer.ToString(),
-                            SourceId               = supplyRequestId,
-                            PerformedBy            = performedBy,
-                            Note                   = $"Xuất tiếp tế FEFO lô #{lot.Id} {itemModel.Name} (#{itemModelId}) SL {deduct} cho yêu cầu #{supplyRequestId}",
-                            CreatedAt              = now
-                        });
+                foreach (var reservation in reservations.Where(x => x.SupplyInventoryLotId.HasValue))
+                {
+                    var lot = inventory.Lots.FirstOrDefault(l => l.Id == reservation.SupplyInventoryLotId)
+                        ?? throw new ConflictException(
+                            $"Không tìm thấy lô #{reservation.SupplyInventoryLotId} đã được reserve cho yêu cầu #{supplyRequestId}.");
+
+                    if (lot.RemainingQuantity < reservation.ReservedQuantity)
+                    {
+                        throw new ConflictException(
+                            $"Lô #{lot.Id} không còn đủ số lượng để xuất cho yêu cầu #{supplyRequestId}. Cần {reservation.ReservedQuantity}, còn {lot.RemainingQuantity}.");
                     }
 
-                    if (remaining > 0)
-                        throw new InvalidOperationException(
-                            $"vật phẩm '{itemModel.Name}' (#{itemModelId}): không đủ lô để xuất tiếp tế {quantity} đơn vị.");
+                    lot.RemainingQuantity -= reservation.ReservedQuantity;
+                    reservation.Status = "Shipped";
+                    reservation.UpdatedAt = now;
+
+                    await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                    {
+                        DepotSupplyInventoryId = inventory.Id,
+                        SupplyInventoryLotId   = lot.Id,
+                        ActionType             = InventoryActionType.TransferOut.ToString(),
+                        QuantityChange         = reservation.ReservedQuantity,
+                        SourceType             = InventorySourceType.Transfer.ToString(),
+                        SourceId               = supplyRequestId,
+                        PerformedBy            = performedBy,
+                        Note                   = $"Xuất tiếp tế FEFO lô #{lot.Id} {itemModel.Name} (#{itemModelId}) SL {reservation.ReservedQuantity} cho yêu cầu #{supplyRequestId}",
+                        CreatedAt              = now
+                    });
                 }
-                else
+
+                foreach (var reservation in reservations.Where(x => !x.SupplyInventoryLotId.HasValue))
                 {
-                    // Fallback: no lots yet (legacy data) - single log
+                    reservation.Status = "Shipped";
+                    reservation.UpdatedAt = now;
+
                     await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                     {
                         DepotSupplyInventoryId = inventory.Id,
                         ActionType             = InventoryActionType.TransferOut.ToString(),
-                        QuantityChange         = quantity,
+                        QuantityChange         = reservation.ReservedQuantity,
                         SourceType             = InventorySourceType.Transfer.ToString(),
                         SourceId               = supplyRequestId,
                         PerformedBy            = performedBy,
-                        Note                   = $"Xuất tiếp tế {itemModel.Name} (#{itemModelId}) SL {quantity} cho yêu cầu #{supplyRequestId} (legacy – không có lô)",
+                        Note                   = $"Xuất tiếp tế {itemModel.Name} (#{itemModelId}) SL {reservation.ReservedQuantity} cho yêu cầu #{supplyRequestId} (legacy - không có lô)",
                         CreatedAt              = now
                     });
                 }
@@ -516,8 +682,12 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
         var now = DateTime.UtcNow;
         decimal totalVolume = 0m;
         decimal totalWeight = 0m;
+        var normalizedItems = items
+            .GroupBy(x => x.ItemModelId)
+            .Select(g => (ItemModelId: g.Key, Quantity: g.Sum(x => x.Quantity)))
+            .ToList();
 
-        foreach (var (itemModelId, quantity) in items)
+        foreach (var (itemModelId, quantity) in normalizedItems)
         {
             var itemModel = await _unitOfWork.GetRepository<ItemModelEntity>()
                 .GetByPropertyAsync(x => x.Id == itemModelId, tracked: false)
@@ -528,26 +698,29 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
 
             if (itemModel.ItemType == "Reusable")
             {
-                // -- Reusable: transition InTransit → Available at destination depot --
-                var inTransitUnits = await _unitOfWork.GetRepository<ReusableItem>()
-                    .GetAllByPropertyAsync(x =>
-                        x.SupplyRequestId == supplyRequestId &&
-                        x.ItemModelId     == itemModelId &&
-                        x.Status          == nameof(ReusableItemStatus.InTransit));
+                var shippedUnits = await _unitOfWork.SetTracked<DepotSupplyRequestReusableItem>()
+                    .Include(x => x.ReusableItem)
+                    .Where(x => x.SupplyRequestId == supplyRequestId
+                             && x.Status == "Shipped"
+                             && x.ReusableItem != null
+                             && x.ReusableItem.ItemModelId == itemModelId
+                             && x.ReusableItem.Status == nameof(ReusableItemStatus.InTransit))
+                    .OrderBy(x => x.ReusableItemId)
+                    .ToListAsync(cancellationToken);
 
-                if (inTransitUnits.Count != quantity)
+                if (shippedUnits.Count != quantity)
                     throw new BadRequestException(
-                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tìm thấy {inTransitUnits.Count} đơn vị đang vận chuyển, " +
+                        $"vật phẩm '{itemModel.Name}' (#{itemModelId}): tìm thấy {shippedUnits.Count} đơn vị đang vận chuyển, " +
                         $"không khớp với yêu cầu {quantity}. Quy trình có thể bị bỏ qua bước Ship.");
 
-                foreach (var unit in inTransitUnits)
+                foreach (var reservation in shippedUnits)
                 {
+                    var unit = reservation.ReusableItem!;
                     unit.DepotId         = requestingDepotId;
                     unit.Status          = nameof(ReusableItemStatus.Available);
-                    unit.SupplyRequestId = null;   // no longer tied to a transfer
                     unit.UpdatedAt       = now;
-
-                    await _unitOfWork.GetRepository<ReusableItem>().UpdateAsync(unit);
+                    reservation.Status = "Received";
+                    reservation.UpdatedAt = now;
 
                     await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                     {
@@ -564,7 +737,20 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
             }
             else
             {
-                // -- Consumable: increase Quantity at destination supply_inventory --
+                var reservations = await _unitOfWork.SetTracked<DepotSupplyRequestConsumableReservation>()
+                    .Where(x => x.SupplyRequestId == supplyRequestId
+                             && x.ItemModelId == itemModelId
+                             && x.Status == "Shipped")
+                    .OrderBy(x => x.Id)
+                    .ToListAsync(cancellationToken);
+
+                var shippedQuantity = reservations.Sum(x => x.ReservedQuantity);
+                if (shippedQuantity != quantity)
+                {
+                    throw new ConflictException(
+                        $"Reservation của vật phẩm '{itemModel.Name}' (#{itemModelId}) cho yêu cầu #{supplyRequestId} không khớp. Cần {quantity}, hệ thống đang ghi nhận {shippedQuantity} đơn vị đã xuất.");
+                }
+
                 var inventory = await _unitOfWork.GetRepository<SupplyInventory>()
                     .GetByPropertyAsync(x => x.DepotId == requestingDepotId && x.ItemModelId == itemModelId, tracked: true);
 
@@ -580,39 +766,44 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                         LastStockedAt             = now
                     };
                     await _unitOfWork.GetRepository<SupplyInventory>().AddAsync(inventory);
-                    await _unitOfWork.SaveAsync(); // flush to get inventory.Id
+                    await _unitOfWork.SaveAsync();
                 }
 
-                // Tạo lô mới cho hàng được tiếp tế vào kho
-                var lot = new SupplyInventoryLot
+                foreach (var reservation in reservations)
                 {
-                    SupplyInventoryId = inventory.Id,
-                    Quantity          = quantity,
-                    RemainingQuantity = quantity,
-                    ReceivedDate      = now,
-                    ExpiredDate       = null,
-                    SourceType        = InventorySourceType.Transfer.ToString(),
-                    SourceId          = supplyRequestId,
-                    CreatedAt         = now
-                };
-                await _unitOfWork.GetRepository<SupplyInventoryLot>().AddAsync(lot);
-                await _unitOfWork.SaveAsync(); // flush để lấy lot.Id
+                    var lot = new SupplyInventoryLot
+                    {
+                        SupplyInventoryId = inventory.Id,
+                        Quantity = reservation.ReservedQuantity,
+                        RemainingQuantity = reservation.ReservedQuantity,
+                        ReceivedDate = reservation.ReceivedDate ?? now,
+                        ExpiredDate = reservation.ExpiredDate,
+                        SourceType = InventorySourceType.Transfer.ToString(),
+                        SourceId = supplyRequestId,
+                        CreatedAt = now
+                    };
 
-                inventory.Quantity      = (inventory.Quantity ?? 0) + quantity;
-                inventory.LastStockedAt = now;
+                    await _unitOfWork.GetRepository<SupplyInventoryLot>().AddAsync(lot);
+                    await _unitOfWork.SaveAsync();
 
-                await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
-                {
-                    DepotSupplyInventoryId = inventory.Id,
-                    SupplyInventoryLotId   = lot.Id,
-                    ActionType             = InventoryActionType.TransferIn.ToString(),
-                    QuantityChange         = quantity,
-                    SourceType             = InventorySourceType.Transfer.ToString(),
-                    SourceId               = supplyRequestId,
-                    PerformedBy            = performedBy,
-                    Note                   = $"Nhận tiếp tế {itemModel.Name} (#{itemModelId}) từ yêu cầu #{supplyRequestId}",
-                    CreatedAt              = now
-                });
+                    inventory.Quantity = (inventory.Quantity ?? 0) + reservation.ReservedQuantity;
+                    inventory.LastStockedAt = now;
+                    reservation.Status = "Received";
+                    reservation.UpdatedAt = now;
+
+                    await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+                    {
+                        DepotSupplyInventoryId = inventory.Id,
+                        SupplyInventoryLotId   = lot.Id,
+                        ActionType             = InventoryActionType.TransferIn.ToString(),
+                        QuantityChange         = reservation.ReservedQuantity,
+                        SourceType             = InventorySourceType.Transfer.ToString(),
+                        SourceId               = supplyRequestId,
+                        PerformedBy            = performedBy,
+                        Note                   = $"Nhận tiếp tế {itemModel.Name} (#{itemModelId}) từ yêu cầu #{supplyRequestId}",
+                        CreatedAt              = now
+                    });
+                }
             }
         }
 

@@ -12,7 +12,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.PrepareSupplyRequest;
 public class PrepareSupplyRequestCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
-    IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
     IFirebaseService firebaseService,
     IOperationalHubService operationalHubService)
@@ -35,9 +34,15 @@ public class PrepareSupplyRequestCommandHandler(
 
         var depotStatus = await depotRepository.GetStatusByIdAsync(managerDepotId, cancellationToken);
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
-            throw new ConflictException("Kho nguồn ngưng hoạt động hoặc đã đóng. Không thể chuẩn bị yêu cầu tiếp tế.");
+            throw new ConflictException("Kho nguồn ngừng hoạt động hoặc đã đóng. Không thể chuẩn bị yêu cầu tiếp tế.");
 
-        await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Preparing", "Approved", null, request.UserId, cancellationToken);
+        await supplyRequestRepository.UpdateStatusAsync(
+            sr.Id,
+            nameof(SourceDepotStatus.Preparing),
+            nameof(RequestingDepotStatus.Approved),
+            null,
+            request.UserId,
+            cancellationToken);
 
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
@@ -53,11 +58,14 @@ public class PrepareSupplyRequestCommandHandler(
                 RequestingDepotId = sr.RequestingDepotId,
                 SourceDepotId = sr.SourceDepotId,
                 Action = "Preparing",
-                SourceStatus = "Preparing",
-                RequestingStatus = "Approved"
+                SourceStatus = nameof(SourceDepotStatus.Preparing),
+                RequestingStatus = nameof(RequestingDepotStatus.Approved)
             },
             cancellationToken);
 
-        return new PrepareSupplyRequestResponse { Message = $"Yêu cầu số {sr.Id} đã chuyển sang trạng thái đang chuẩn bị hàng." };
+        return new PrepareSupplyRequestResponse
+        {
+            Message = $"Yêu cầu số {sr.Id} đã chuyển sang trạng thái đang chuẩn bị hàng."
+        };
     }
 }

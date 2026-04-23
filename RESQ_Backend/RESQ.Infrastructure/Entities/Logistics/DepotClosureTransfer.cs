@@ -72,4 +72,10 @@ public class DepotClosureTransfer
 
     [InverseProperty(nameof(DepotClosureTransferItem.Transfer))]
     public ICollection<DepotClosureTransferItem> Items { get; set; } = new List<DepotClosureTransferItem>();
+
+    [InverseProperty(nameof(DepotClosureTransferReusableItem.Transfer))]
+    public ICollection<DepotClosureTransferReusableItem> ReusableItems { get; set; } = new List<DepotClosureTransferReusableItem>();
+
+    [InverseProperty(nameof(DepotClosureTransferConsumableReservation.Transfer))]
+    public ICollection<DepotClosureTransferConsumableReservation> ConsumableReservations { get; set; } = new List<DepotClosureTransferConsumableReservation>();
 }

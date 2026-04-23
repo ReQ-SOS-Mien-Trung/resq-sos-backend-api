@@ -33,26 +33,26 @@ public interface ISupplyRequestRepository
 
     /// <summary>
     /// <summary>
-    /// Đặt trữ (Reserve) vật phẩm tại kho nguồn khi Accept.<br/>
-    /// • Consumable: tăng ReservedQuantity ở DepotSupplyInventory, log với DepotSupplyInventoryId.<br/>
-    /// • Reusable: chọn N đơn vị Status=Available → Status=Reserved + SupplyRequestId, log một bản ghi per unit với ReusableItemId.<br/>
+    /// Đặt trữ (Reserve) vật phẩm tại kho nguồn khi Prepare.<br/>
+    /// • Consumable: tăng TransferReservedQuantity và tạo reservation row theo đúng lot/legacy inventory.<br/>
+    /// • Reusable: chọn đúng từng unit Status=Available → Status=Reserved và tạo bản ghi link riêng cho supply request.<br/>
     /// Throws BadRequestException nếu không đủ hàng khả dụng.
     /// </summary>
     Task ReserveItemsAsync(int sourceDepotId, List<(int ItemModelId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Xuất kho (TransferOut) từ kho nguồn khi Ship.<br/>
-    /// • Consumable: giảm Quantity + ReservedQuantity ở DepotSupplyInventory, log với DepotSupplyInventoryId.<br/>
+    /// • Consumable: trừ Quantity tại kho nguồn, giảm TransferReservedQuantity, trừ đúng từng lot đã reserve và ghi log đầy đủ.<br/>
     /// • Reusable: chuyển Status=Reserved → InTransit, DepotId = null, log per unit với ReusableItemId.<br/>
-    /// Throws BadRequestException nếu số đơn vị đặt trữ không khớp.
+    /// Throws nếu reservation không khớp hoặc source inventory không còn đủ hàng.
     /// </summary>
     Task TransferOutAsync(int sourceDepotId, List<(int ItemModelId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Nhập kho (TransferIn) cho kho yêu cầu khi Confirm/Received.<br/>
-    /// • Consumable: tăng Quantity ở DepotSupplyInventory tại kho đích (tạo mới nếu chưa có), log với DepotSupplyInventoryId.<br/>
-    /// • Reusable: chuyển Status=InTransit → Available, DepotId = requestingDepotId, SupplyRequestId = null, log per unit với ReusableItemId.<br/>
-    /// Throws BadRequestException nếu số đơn vị InTransit không khớp.
+    /// • Consumable: tăng Quantity ở kho đích và tạo lot mới từ đúng reservation snapshot đã ship.<br/>
+    /// • Reusable: chuyển Status=InTransit → Available, DepotId = requestingDepotId, log per unit với ReusableItemId.<br/>
+    /// Throws nếu shipment manifest không khớp.
     /// </summary>
     Task TransferInAsync(int requestingDepotId, List<(int ItemModelId, int Quantity)> items, int supplyRequestId, Guid performedBy, CancellationToken cancellationToken = default);
 
