@@ -391,6 +391,8 @@ public class UpdateMissionStatusCommandHandlerTests
 
         public Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
             => Task.FromResult(_activeEvents.TryGetValue(assemblyPointId, out var value) ? value : ((int EventId, string Status)?)null);
+        public Task<(int EventId, string Status)?> GetLatestEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+            => Task.FromResult(_activeEvents.TryGetValue(assemblyPointId, out var value) ? value : ((int EventId, string Status)?)null);
 
         public Task<bool> CheckOutAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default)
         {
