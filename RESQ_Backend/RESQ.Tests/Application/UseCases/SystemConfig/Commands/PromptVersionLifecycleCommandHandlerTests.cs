@@ -78,7 +78,7 @@ public class PromptVersionLifecycleCommandHandlerTests
             handler.Handle(new ActivatePromptVersionCommand(draft.Id), CancellationToken.None));
 
         Assert.Equal(
-            "Version phát hành 'v1.0' của prompt type 'MissionPlanning' đã tồn tại. Hãy đổi version draft trước khi kích hoạt.",
+            "Version phát hành 'v1.0' của prompt type 'MissionTeamPlanning' đã tồn tại. Hãy đổi version draft trước khi kích hoạt.",
             exception.Message);
         Assert.False(draft.IsActive);
         Assert.Equal("v1.0-D26041612", draft.Version);
@@ -127,7 +127,7 @@ public class PromptVersionLifecycleCommandHandlerTests
             handler.Handle(
                 new CreatePromptCommand(
                     Name: "New prompt",
-                    PromptType: PromptType.MissionPlanning,
+                    PromptType: PromptType.MissionTeamPlanning,
                     Purpose: "purpose",
                     SystemPrompt: "system",
                     UserPromptTemplate: "user",
@@ -135,7 +135,7 @@ public class PromptVersionLifecycleCommandHandlerTests
                     IsActive: false),
                 CancellationToken.None));
 
-        Assert.Equal("Prompt type 'MissionPlanning' đã tồn tại version 'v1.0'.", exception.Message);
+        Assert.Equal("Prompt type 'MissionTeamPlanning' đã tồn tại version 'v1.0'.", exception.Message);
         Assert.Equal(0, unitOfWork.SaveCalls);
     }
 
@@ -143,7 +143,7 @@ public class PromptVersionLifecycleCommandHandlerTests
     {
         Id = id,
         Name = $"Prompt #{id}",
-        PromptType = PromptType.MissionPlanning,
+        PromptType = PromptType.MissionTeamPlanning,
         Purpose = "Prompt purpose",
         SystemPrompt = "system",
         UserPromptTemplate = "user",

@@ -13,7 +13,7 @@ namespace RESQ.Tests.Presentation.Controllers.Emergency;
 public class SosClusterControllerTests
 {
     [Fact]
-    public async Task GetClusters_ForwardsPagingAndSosRequestFilterToMediator()
+    public async Task GetClusters_ForwardsAllFiltersToMediator()
     {
         var mediator = new RecordingMediator(request =>
         {
@@ -22,12 +22,16 @@ public class SosClusterControllerTests
         var controller = new SosClusterController(mediator);
 
         var statuses = new List<SosClusterStatus> { SosClusterStatus.Pending, SosClusterStatus.Suggested };
+        var priorities = new List<SosPriorityLevel> { SosPriorityLevel.High, SosPriorityLevel.Critical };
+        var sosTypes = new List<SosRequestType> { SosRequestType.Rescue, SosRequestType.Relief };
 
         var result = await controller.GetClusters(
             pageNumber: 2,
             pageSize: 5,
             sosRequestId: 99,
-            statuses: statuses);
+            statuses: statuses,
+            priorities: priorities,
+            sosTypes: sosTypes);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var sentQuery = Assert.IsType<GetSosClustersQuery>(Assert.Single(mediator.SentRequests));
@@ -36,6 +40,8 @@ public class SosClusterControllerTests
         Assert.Equal(5, sentQuery.PageSize);
         Assert.Equal(99, sentQuery.SosRequestId);
         Assert.Same(statuses, sentQuery.Statuses);
+        Assert.Same(priorities, sentQuery.Priorities);
+        Assert.Same(sosTypes, sentQuery.SosTypes);
         Assert.IsType<PagedResult<SosClusterDto>>(okResult.Value);
     }
 

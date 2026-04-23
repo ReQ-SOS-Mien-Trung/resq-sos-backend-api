@@ -13,14 +13,6 @@ public class GetMissionSuggestionsQueryHandler(
     ILogger<GetMissionSuggestionsQueryHandler> logger
 ) : IRequestHandler<GetMissionSuggestionsQuery, GetMissionSuggestionsResponse>
 {
-    private static readonly IReadOnlyDictionary<string, int> SuggestionPhaseRank =
-        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Validated"] = 0,
-            ["Execution"] = 1,
-            ["Draft"] = 2
-        };
-
     private readonly IMissionAiSuggestionRepository _missionRepository = missionRepository;
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ILogger<GetMissionSuggestionsQueryHandler> _logger = logger;
@@ -35,14 +27,13 @@ public class GetMissionSuggestionsQueryHandler(
         if (cluster is null)
             throw new NotFoundException($"Không tìm thấy cluster với ID: {request.ClusterId}");
 
-        var suggestions = (await _missionRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken))
-            .OrderByDescending(suggestion => suggestion.CreatedAt ?? DateTime.MinValue)
-            .ThenByDescending(suggestion => suggestion.Id)
-            .ToList();
+        var suggestions = (await _missionRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken)).ToList();
 
         var missionDtos = suggestions.Select(m =>
         {
             var metadata = MissionAiSuggestionJsonHelper.ParseMetadata(m.Metadata);
+            var pipeline = metadata?.Pipeline;
+
             var activityGroups = m.Activities.Select(a => new ActivitySuggestionDto
             {
                 Id = a.Id,
@@ -51,15 +42,15 @@ public class GetMissionSuggestionsQueryHandler(
                 ConfidenceScore = a.ConfidenceScore,
                 CreatedAt = a.CreatedAt,
                 SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(a.SuggestedActivities)
-            })
-            .OrderByDescending(activityGroup => activityGroup.SuggestedActivities.Count > 0)
-            .ThenBy(activityGroup => GetSuggestionPhaseRank(activityGroup.SuggestionPhase))
-            .ThenByDescending(activityGroup => activityGroup.CreatedAt ?? DateTime.MinValue)
-            .ThenByDescending(activityGroup => activityGroup.Id)
-            .ToList();
+            }).ToList();
+
             var mixedRescueReliefWarning = MissionSuggestionWarningHelper.ResolveMixedRescueReliefWarning(
                 activityGroups.SelectMany(activityGroup => activityGroup.SuggestedActivities),
                 metadata?.MixedRescueReliefWarning);
+
+            var isSuccess = metadata?.IsSuccess
+                ?? !string.Equals(pipeline?.PipelineStatus, "failed", StringComparison.OrdinalIgnoreCase);
+            var errorMessage = metadata?.ErrorMessage;
 
             return new MissionSuggestionDto
             {
@@ -68,10 +59,12 @@ public class GetMissionSuggestionsQueryHandler(
                 ModelName = m.ModelName,
                 AnalysisType = m.AnalysisType,
                 SuggestedMissionTitle = m.SuggestedMissionTitle,
-                SuggestedMissionType = m.SuggestedMissionType ?? metadata?.SuggestedMissionType,
+                SuggestedMissionType = m.SuggestedMissionType,
                 SuggestedPriorityScore = m.SuggestedPriorityScore,
-                SuggestedSeverityLevel = m.SuggestedSeverityLevel ?? metadata?.SuggestedSeverityLevel,
+                SuggestedSeverityLevel = m.SuggestedSeverityLevel,
                 ConfidenceScore = m.ConfidenceScore,
+                IsSuccess = isSuccess,
+                ErrorMessage = errorMessage,
                 OverallAssessment = metadata?.OverallAssessment,
                 EstimatedDuration = metadata?.EstimatedDuration,
                 SpecialNotes = metadata?.SpecialNotes,
@@ -81,6 +74,10 @@ public class GetMissionSuggestionsQueryHandler(
                 NeedsAdditionalDepot = metadata?.NeedsAdditionalDepot ?? false,
                 SupplyShortages = metadata?.SupplyShortages ?? [],
                 SuggestedResources = metadata?.SuggestedResources ?? [],
+                PipelineStatus = pipeline?.PipelineStatus,
+                PipelineFinalResultSource = pipeline?.FinalResultSource,
+                PipelineFailedStage = pipeline?.FailedStage,
+                PipelineFailureReason = pipeline?.FailureReason,
                 SuggestionScope = m.SuggestionScope,
                 CreatedAt = m.CreatedAt,
                 Activities = activityGroups
@@ -93,15 +90,5 @@ public class GetMissionSuggestionsQueryHandler(
             TotalSuggestions = missionDtos.Count,
             MissionSuggestions = missionDtos
         };
-    }
-
-    private static int GetSuggestionPhaseRank(string? phase)
-    {
-        if (string.IsNullOrWhiteSpace(phase))
-            return int.MaxValue;
-
-        return SuggestionPhaseRank.TryGetValue(phase.Trim(), out var rank)
-            ? rank
-            : int.MaxValue;
     }
 }

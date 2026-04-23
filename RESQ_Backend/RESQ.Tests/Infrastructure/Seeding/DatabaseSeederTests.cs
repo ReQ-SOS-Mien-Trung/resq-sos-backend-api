@@ -33,14 +33,14 @@ public class DatabaseSeederTests
         Assert.Empty(validationErrors);
         Assert.Equal(296, firstCounts.Users);
         Assert.Equal(360, firstCounts.SosRequests);
-        Assert.Equal(110, firstCounts.SosClusters);
+        Assert.Equal(190, firstCounts.SosClusters);
         Assert.Equal(100, firstCounts.Missions);
         Assert.Equal(420, firstCounts.MissionActivities);
         Assert.Equal(140, firstCounts.Conversations);
         Assert.Equal(1900, firstCounts.Messages);
-        Assert.Equal(842, firstCounts.SupplyInventories);
+        Assert.Equal(841, firstCounts.SupplyInventories);
         Assert.Equal(95, firstCounts.SupplyRequests);
-        Assert.Equal(2003, firstCounts.InventoryLogs);
+        Assert.Equal(2001, firstCounts.InventoryLogs);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v1-2026-04-16"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
@@ -63,7 +63,7 @@ public class DatabaseSeederTests
         }
 
         var recentRescuerCutoff = new DateTime(2026, 3, 16, 0, 0, 0, DateTimeKind.Utc);
-        var seedAnchorUtc = new DateTime(2026, 4, 16, 16, 59, 59, DateTimeKind.Utc);
+        var seedAnchorUtc = SeedAnchorUtc();
         var recentRescuers = await context.Users
             .Where(u => u.RoleId == 3 && u.CreatedAt >= recentRescuerCutoff && u.CreatedAt <= seedAnchorUtc)
             .OrderBy(u => u.CreatedAt)
@@ -130,15 +130,21 @@ public class DatabaseSeederTests
             zone => Assert.Equal("Tỉnh Lâm Đồng", zone.Name));
         Assert.All(serviceZones, zone => Assert.False(string.IsNullOrWhiteSpace(zone.CoordinatesJson)));
 
-        var nowUtc = DateTime.UtcNow;
         var overdueOpenEvents = await context.AssemblyEvents
-            .Where(e => e.CheckInDeadline <= nowUtc && e.Status != "Completed")
+            .Where(e => e.CheckInDeadline <= seedAnchorUtc && e.Status != "Completed")
             .ToListAsync();
         Assert.Empty(overdueOpenEvents);
 
         var hueActiveEvent = await context.AssemblyEvents
             .SingleAsync(e => e.AssemblyPointId == hueStadium.Id && e.Status == "Gathering");
-        Assert.True(hueActiveEvent.CheckInDeadline > nowUtc);
+        Assert.True(hueActiveEvent.CheckInDeadline > seedAnchorUtc);
+
+        var hueAvailableTeams = await context.RescueTeams
+            .Where(team => team.AssemblyPointId == hueStadium.Id && team.Status == "Available")
+            .OrderBy(team => team.Code)
+            .ToListAsync();
+        Assert.Contains(hueAvailableTeams, team => team.Code == "RT-HUE-TD-AV-01");
+        Assert.Contains(hueAvailableTeams, team => team.Code == "RT-HUE-TD-AV-02");
 
         var hueCheckedInStandbyRescuers = await context.Users
             .Where(u => u.RoleId == 3 && u.AssemblyPointId == hueStadium.Id)
@@ -150,7 +156,7 @@ public class DatabaseSeederTests
                 && participant.IsCheckedIn
                 && !participant.IsCheckedOut))
             .ToListAsync();
-        Assert.Equal(10, hueCheckedInStandbyRescuers.Count);
+        Assert.Equal(8, hueCheckedInStandbyRescuers.Count);
 
         var depotHue = await context.Depots.SingleAsync(depot => depot.Name == "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế");
         var depotDaNang = await context.Depots.SingleAsync(depot => depot.Name == "Ủy ban MTTQVN TP Đà Nẵng");
@@ -314,10 +320,29 @@ public class DatabaseSeederTests
                 .GroupBy(item => item.ItemModelId!.Value)
                 .Select(group => new { ItemModelId = group.Key, Count = group.Count() })
                 .ToDictionaryAsync(group => group.ItemModelId, group => group.Count);
-            Assert.All(
-                closureInventories.Where(inventory => inventory.ItemModel!.ItemType == "Reusable"),
-                inventory => Assert.Equal(inventory.Quantity, closureReusableUnitsByModel[inventory.ItemModelId!.Value]));
+        Assert.All(
+            closureInventories.Where(inventory => inventory.ItemModel!.ItemType == "Reusable"),
+            inventory => Assert.Equal(inventory.Quantity, closureReusableUnitsByModel[inventory.ItemModelId!.Value]));
         }
+
+        Assert.False(await context.SupplyInventories.AnyAsync(inventory =>
+            inventory.DepotId == 1
+            && inventory.ItemModel != null
+            && inventory.ItemModel.Name == "Pin dự phòng 10000mAh"));
+        Assert.False(await context.ReusableItems.AnyAsync(item =>
+            item.DepotId == 1
+            && item.ItemModel != null
+            && item.ItemModel.Name == "Bộ đèn pin đội đầu"));
+        Assert.Empty(await context.SupplyInventoryLots
+            .Where(lot => lot.SupplyInventory.DepotId == 1
+                && lot.SupplyInventory.ItemModel != null
+                && lot.SupplyInventory.ItemModel.Name == "Pin dự phòng 10000mAh")
+            .ToListAsync());
+        Assert.All(
+            await context.InventoryLogs
+                .Where(log => log.ReusableItemId != null && log.ActionType == "Import")
+                .ToListAsync(),
+            log => Assert.Equal(log.CreatedAt, log.ReceivedDate));
 
         var depotFundCounts = await context.DepotFunds
             .GroupBy(fund => fund.DepotId)
@@ -336,6 +361,24 @@ public class DatabaseSeederTests
             .Where(s => s.Location!.Y >= 16.455 && s.Location.Y <= 16.479)
             .Where(s => s.Location!.X >= 107.586 && s.Location.X <= 107.609)
             .ToListAsync();
+        var clusteredSosCounts = await context.SosRequests
+            .Where(s => s.ClusterId != null)
+            .GroupBy(s => s.ClusterId)
+            .Select(group => group.Count())
+            .ToListAsync();
+        var priorityCounts = await context.SosRequests
+            .GroupBy(s => s.PriorityLevel)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key ?? string.Empty, group => group.Count);
+        var reliefCount = await context.SosRequests.CountAsync(s => s.SosType == "Relief");
+        var recentOpenSos = await context.SosRequests
+            .Where(s => s.Status == "Pending" || s.Status == "Assigned" || s.Status == "InProgress" || s.Status == "Incident")
+            .Select(s => new { s.Id, s.Status, s.CreatedAt, s.ReceivedAt, s.ReviewedAt, s.LastUpdatedAt })
+            .ToListAsync();
+        var sosPayloads = await context.SosRequests
+            .Where(s => s.StructuredData != null)
+            .Select(s => new { s.SosType, s.StructuredData })
+            .ToListAsync();
         var sampleClusteredSos = (await context.SosRequests
                 .Where(s => new[] { 12, 95, 158, 221, 305 }.Contains(s.Id) && s.Location != null)
                 .OrderBy(s => s.Id)
@@ -345,12 +388,65 @@ public class DatabaseSeederTests
             .ToList();
 
         Assert.Equal(10, unclusteredHueSos.Count);
+        Assert.Equal(190, clusteredSosCounts.Count);
+        Assert.Equal(160, clusteredSosCounts.Count(size => size == 2));
+        Assert.Equal(30, clusteredSosCounts.Count(size => size == 1));
+        Assert.All(clusteredSosCounts, size => Assert.InRange(size, 1, 2));
         Assert.Equal(5, sampleClusteredSos.Count);
         Assert.Equal(5, sampleClusteredSos.Select(s => s.Latitude).Distinct().Count());
         Assert.Equal(5, sampleClusteredSos.Select(s => s.Longitude).Distinct().Count());
         Assert.True(sampleClusteredSos.Max(s => s.Latitude) - sampleClusteredSos.Min(s => s.Latitude) > 0.0025);
         Assert.True(sampleClusteredSos.Max(s => s.Longitude) - sampleClusteredSos.Min(s => s.Longitude) > 0.004);
         Assert.DoesNotContain(await context.SosRequests.Select(s => s.PriorityLevel).Distinct().ToListAsync(), value => value == "Moderate");
+        Assert.True(
+            priorityCounts.GetValueOrDefault("Medium") + priorityCounts.GetValueOrDefault("Low")
+            > priorityCounts.GetValueOrDefault("High") + priorityCounts.GetValueOrDefault("Critical"));
+        Assert.True(reliefCount >= 150, $"Expected at least 150 relief SOS requests but found {reliefCount}.");
+        Assert.DoesNotContain(await context.SosRequests.Select(s => s.SosType).Distinct().ToListAsync(), sosType => sosType == "Both");
+        Assert.Contains(sosPayloads, payload => payload.SosType == "Relief");
+        Assert.Contains(sosPayloads, payload => payload.SosType == "Rescue");
+        Assert.All(sosPayloads, payload =>
+        {
+            using var payloadDocument = JsonDocument.Parse(payload.StructuredData!);
+            var supplies = payloadDocument.RootElement
+                .GetProperty("supplies")
+                .EnumerateArray()
+                .Select(element => element.GetString())
+                .ToList();
+
+            if (payload.SosType == "Relief")
+            {
+                Assert.NotEmpty(supplies);
+            }
+            else if (payload.SosType == "Rescue")
+            {
+                Assert.Empty(supplies);
+            }
+        });
+        Assert.NotEmpty(recentOpenSos);
+        Assert.All(recentOpenSos, sos =>
+        {
+            Assert.NotNull(sos.CreatedAt);
+            Assert.NotNull(sos.ReceivedAt);
+            Assert.NotNull(sos.LastUpdatedAt);
+            Assert.InRange(sos.CreatedAt!.Value, seedAnchorUtc.AddHours(-24), seedAnchorUtc);
+            Assert.InRange(sos.ReceivedAt!.Value, sos.CreatedAt.Value, seedAnchorUtc);
+            Assert.InRange(sos.LastUpdatedAt!.Value, sos.ReceivedAt.Value, seedAnchorUtc);
+
+            if (sos.Status == "Pending")
+            {
+                Assert.Null(sos.ReviewedAt);
+            }
+            else
+            {
+                Assert.NotNull(sos.ReviewedAt);
+                Assert.InRange(sos.ReviewedAt!.Value, sos.CreatedAt.Value, seedAnchorUtc);
+                Assert.InRange(sos.LastUpdatedAt.Value, sos.ReviewedAt.Value, seedAnchorUtc);
+            }
+        });
+        Assert.True(await context.SosRequests.AnyAsync(s =>
+            (s.Status == "Resolved" || s.Status == "Cancelled")
+            && s.CreatedAt < seedAnchorUtc.AddHours(-24)));
         Assert.All(
             await context.SosRequests.Select(s => s.SosType).Distinct().ToListAsync(),
             sosType => Assert.False(IsCapsLockToken(sosType), $"Expected PascalCase sos_type but found '{sosType}'."));
@@ -488,7 +584,7 @@ public class DatabaseSeederTests
 
         await CreateSeeder(context).SeedAsync();
 
-        var anchorUtc = new DateTime(2026, 4, 16, 16, 59, 59, DateTimeKind.Utc).AddTicks(TimeSpan.TicksPerSecond - 1);
+        var anchorUtc = SeedAnchorUtc();
         var expiringThreshold = anchorUtc.AddDays(30);
         var expectedLots = new[]
         {
@@ -532,6 +628,103 @@ public class DatabaseSeederTests
             Assert.Equal(expected.ReceivedDate, importLog.ReceivedDate);
             Assert.Equal(expected.ExpiredDate, importLog.ExpiredDate);
         }
+    }
+
+    [Fact]
+    public async Task SeedAsync_KeepsOperationalAuditTimestampsWithinSeedAnchor()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+
+        await CreateSeeder(context).SeedAsync();
+
+        var seedAnchorUtc = SeedAnchorUtc();
+        var futureInventoryLogs = await context.InventoryLogs
+            .Select(log => new { log.Id, CreatedAt = (DateTime?)log.CreatedAt, log.ReceivedDate })
+            .Where(log => log.CreatedAt > seedAnchorUtc || log.ReceivedDate > seedAnchorUtc)
+            .ToListAsync();
+        var futureSupplyRequestActuals = await context.DepotSupplyRequests
+            .Select(request => new
+            {
+                request.Id,
+                request.HighEscalationNotifiedAt,
+                request.UrgentEscalationNotifiedAt,
+                request.RespondedAt,
+                request.ShippedAt,
+                request.CompletedAt,
+                request.UpdatedAt
+            })
+            .Where(request =>
+                request.HighEscalationNotifiedAt > seedAnchorUtc
+                || request.UrgentEscalationNotifiedAt > seedAnchorUtc
+                || request.RespondedAt > seedAnchorUtc
+                || request.ShippedAt > seedAnchorUtc
+                || request.CompletedAt > seedAnchorUtc
+                || request.UpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureAssemblyAudit = await context.AssemblyEvents
+            .Select(assemblyEvent => new { assemblyEvent.Id, CreatedAt = (DateTime?)assemblyEvent.CreatedAt, UpdatedAt = (DateTime?)assemblyEvent.UpdatedAt })
+            .Where(assemblyEvent => assemblyEvent.CreatedAt > seedAnchorUtc || assemblyEvent.UpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureAssemblyParticipantAudit = await context.AssemblyParticipants
+            .Select(participant => new { participant.AssemblyEventId, participant.RescuerId, participant.CheckInTime, participant.CheckOutTime })
+            .Where(participant => participant.CheckInTime > seedAnchorUtc || participant.CheckOutTime > seedAnchorUtc)
+            .ToListAsync();
+        var futureSosAudit = await context.SosRequests
+            .Select(sos => new { sos.Id, CreatedAt = (DateTime?)sos.CreatedAt, sos.ReceivedAt, sos.ReviewedAt, sos.LastUpdatedAt })
+            .Where(sos => sos.CreatedAt > seedAnchorUtc || sos.ReceivedAt > seedAnchorUtc || sos.ReviewedAt > seedAnchorUtc || sos.LastUpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureClusterAudit = await context.SosClusters
+            .Select(cluster => new { cluster.Id, CreatedAt = (DateTime?)cluster.CreatedAt, LastUpdatedAt = (DateTime?)cluster.LastUpdatedAt })
+            .Where(cluster => cluster.CreatedAt > seedAnchorUtc || cluster.LastUpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureDerivedSosAudit = await context.SosRequestCompanions
+            .Select(companion => new { companion.SosRequestId, companion.UserId, AddedAt = (DateTime?)companion.AddedAt })
+            .Where(companion => companion.AddedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureRuleEvaluations = await context.SosRuleEvaluations
+            .Select(evaluation => new { evaluation.SosRequestId, CreatedAt = (DateTime?)evaluation.CreatedAt })
+            .Where(evaluation => evaluation.CreatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureSosUpdates = await context.SosRequestUpdates
+            .Select(update => new { update.SosRequestId, CreatedAt = (DateTime?)update.CreatedAt })
+            .Where(update => update.CreatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureSosAi = await context.SosAiAnalyses
+            .Select(analysis => new { analysis.SosRequestId, CreatedAt = (DateTime?)analysis.CreatedAt, analysis.AdoptedAt })
+            .Where(analysis => analysis.CreatedAt > seedAnchorUtc || analysis.AdoptedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureConversationAudit = await context.Conversations
+            .Select(conversation => new { conversation.Id, conversation.CreatedAt, conversation.UpdatedAt })
+            .Where(conversation => conversation.CreatedAt > seedAnchorUtc || conversation.UpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureConversationParticipants = await context.ConversationParticipants
+            .Select(participant => new { participant.ConversationId, participant.UserId, participant.JoinedAt, participant.LeftAt })
+            .Where(participant => participant.JoinedAt > seedAnchorUtc || participant.LeftAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureMessages = await context.Messages
+            .Select(message => new { message.Id, CreatedAt = (DateTime?)message.CreatedAt })
+            .Where(message => message.CreatedAt > seedAnchorUtc)
+            .ToListAsync();
+
+        Assert.Empty(futureInventoryLogs);
+        Assert.Empty(futureSupplyRequestActuals);
+        Assert.Empty(futureAssemblyAudit);
+        Assert.Empty(futureAssemblyParticipantAudit);
+        Assert.Empty(futureSosAudit);
+        Assert.Empty(futureClusterAudit);
+        Assert.Empty(futureDerivedSosAudit);
+        Assert.Empty(futureRuleEvaluations);
+        Assert.Empty(futureSosUpdates);
+        Assert.Empty(futureSosAi);
+        Assert.Empty(futureConversationAudit);
+        Assert.Empty(futureConversationParticipants);
+        Assert.Empty(futureMessages);
+
+        Assert.True(await context.SupplyInventoryLots.AnyAsync(lot => lot.ExpiredDate > seedAnchorUtc));
+        Assert.True(await context.AssemblyEvents.AnyAsync(assemblyEvent =>
+            assemblyEvent.Status == "Gathering"
+            && assemblyEvent.CheckInDeadline > seedAnchorUtc));
     }
 
     [Fact]
@@ -644,6 +837,9 @@ public class DatabaseSeederTests
             new DemoSeedValidator(),
             NullLogger<DatabaseSeeder>.Instance);
     }
+
+    private static DateTime SeedAnchorUtc() =>
+        new DateTime(2026, 4, 16, 16, 59, 59, DateTimeKind.Utc).AddTicks(TimeSpan.TicksPerSecond - 1);
 
     private static ResQDbContext CreateContext()
     {

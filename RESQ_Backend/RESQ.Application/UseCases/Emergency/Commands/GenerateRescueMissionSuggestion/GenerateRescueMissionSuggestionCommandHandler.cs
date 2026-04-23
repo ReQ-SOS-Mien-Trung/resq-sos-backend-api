@@ -74,7 +74,10 @@ public class GenerateRescueMissionSuggestionCommandHandler(
             LowConfidenceWarning = result.LowConfidenceWarning,
             MultiDepotRecommended = result.MultiDepotRecommended,
             PipelineExecutionMode = result.PipelineMetadata?.ExecutionMode,
+            PipelineStatus = result.PipelineMetadata?.PipelineStatus,
             PipelineFinalResultSource = result.PipelineMetadata?.FinalResultSource,
+            PipelineFailedStage = result.PipelineMetadata?.FailedStage,
+            PipelineFailureReason = result.PipelineMetadata?.FailureReason,
             PipelineUsedLegacyFallback = result.PipelineMetadata?.UsedLegacyFallback
         };
     }

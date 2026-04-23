@@ -5,19 +5,18 @@ namespace RESQ.Application.UseCases.Emergency.Shared;
 
 internal sealed class MissionAiSuggestionMetadataView
 {
+    public bool IsSuccess { get; set; } = true;
+    public string? ErrorMessage { get; set; }
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
     public string? MixedRescueReliefWarning { get; set; }
-    public bool SplitClusterRecommended { get; set; }
-    public string? SplitClusterReason { get; set; }
     public bool NeedsManualReview { get; set; }
     public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto>? SupplyShortages { get; set; }
     public List<SuggestedResourceDto>? SuggestedResources { get; set; }
-    public string? SuggestedMissionType { get; set; }
-    public string? SuggestedSeverityLevel { get; set; }
+    public MissionSuggestionPipelineMetadata? Pipeline { get; set; }
 }
 
 internal static class MissionAiSuggestionJsonHelper
@@ -44,9 +43,7 @@ internal static class MissionAiSuggestionJsonHelper
             "mixed_rescue_relief_warning",
             "needs_additional_depot",
             "supply_shortages",
-            "overall_assessment",
-            "suggested_mission_type",
-            "suggested_severity_level");
+            "overall_assessment");
 
         if (metadata is null)
             return null;

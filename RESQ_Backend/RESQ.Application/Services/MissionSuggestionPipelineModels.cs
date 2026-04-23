@@ -39,14 +39,9 @@ public class MissionRequirementsFragment
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
-    public string? WarningLevel { get; set; }
-    public string? WarningTitle { get; set; }
-    public string? WarningMessage { get; set; }
-    public List<int> WarningRelatedSosIds { get; set; } = [];
-    public string? WarningReason { get; set; }
+    public bool NeedsAdditionalDepot { get; set; }
     public bool SplitClusterRecommended { get; set; }
     public string? SplitClusterReason { get; set; }
-    public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public double ConfidenceScore { get; set; }
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
@@ -120,11 +115,6 @@ public class MissionDraftBody
     public SuggestedTeamDto? SuggestedTeam { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
-    public string? WarningLevel { get; set; }
-    public string? WarningTitle { get; set; }
-    public string? WarningMessage { get; set; }
-    public List<int> WarningRelatedSosIds { get; set; } = [];
-    public string? WarningReason { get; set; }
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public double ConfidenceScore { get; set; }
@@ -132,7 +122,6 @@ public class MissionDraftBody
 
 public class MissionDraftActivityDto
 {
-    public string ActivityKey { get; set; } = string.Empty;
     public int Step { get; set; }
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
@@ -172,6 +161,8 @@ public class MissionSuggestionPipelineMetadata
     public string PipelineStatus { get; set; } = "pending";
     public string ExecutionMode { get; set; } = "legacy";
     public string? FinalResultSource { get; set; }
+    public string? FailedStage { get; set; }
+    public string? FailureReason { get; set; }
     public bool UsedLegacyFallback { get; set; }
     public string? LegacyFallbackReason { get; set; }
     public Dictionary<string, MissionSuggestionStageSnapshot> Stages { get; set; } = [];
@@ -179,12 +170,12 @@ public class MissionSuggestionPipelineMetadata
 
 public class MissionSuggestionMetadata
 {
+    public bool IsSuccess { get; set; } = true;
+    public string? ErrorMessage { get; set; }
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
     public string? MixedRescueReliefWarning { get; set; }
-    public bool SplitClusterRecommended { get; set; }
-    public string? SplitClusterReason { get; set; }
     public bool NeedsManualReview { get; set; }
     public string? LowConfidenceWarning { get; set; }
     public bool NeedsAdditionalDepot { get; set; }

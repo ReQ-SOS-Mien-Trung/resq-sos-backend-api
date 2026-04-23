@@ -14,6 +14,7 @@ public class GetPromptTypesMetadataQueryHandler
         CancellationToken cancellationToken)
     {
         var result = Enum.GetValues<PromptType>()
+            .Where(promptType => promptType != PromptType.MissionPlanning)
             .Select(promptType => new MetadataDto
             {
                 Key = promptType.ToString(),

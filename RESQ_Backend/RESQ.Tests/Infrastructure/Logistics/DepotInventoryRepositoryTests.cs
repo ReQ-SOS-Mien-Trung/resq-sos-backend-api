@@ -106,6 +106,65 @@ public class DepotInventoryRepositoryTests
         Assert.Equal(9, lot.RemainingQuantity);
     }
 
+    [Fact]
+    public async Task GetLotDetailedInventoryForClosureAsync_WithReusableItems_ReturnsEarliestReceivedDate()
+    {
+        await using var context = CreateContext();
+        context.Categories.Add(new Category { Id = 1, Code = "OTHERS", Name = "Khác" });
+        context.Depots.Add(new Depot
+        {
+            Id = 1,
+            Name = "Kho Huế",
+            Status = "Available"
+        });
+        context.ItemModels.Add(new ItemModel
+        {
+            Id = 108,
+            CategoryId = 1,
+            Name = "Bộ đèn pin đội đầu",
+            Unit = "bộ",
+            ItemType = "Reusable"
+        });
+
+        var firstReceivedAt = new DateTime(2026, 4, 10, 8, 0, 0, DateTimeKind.Utc);
+        var secondReceivedAt = firstReceivedAt.AddDays(4);
+        context.ReusableItems.AddRange(
+            new ReusableItem
+            {
+                Id = 1,
+                DepotId = 1,
+                ItemModelId = 108,
+                SerialNumber = "HEADLAMP-001",
+                Status = "Available",
+                Condition = "Good",
+                CreatedAt = firstReceivedAt,
+                UpdatedAt = firstReceivedAt
+            },
+            new ReusableItem
+            {
+                Id = 2,
+                DepotId = 1,
+                ItemModelId = 108,
+                SerialNumber = "HEADLAMP-002",
+                Status = "Available",
+                Condition = "Good",
+                CreatedAt = secondReceivedAt,
+                UpdatedAt = secondReceivedAt
+            });
+        await context.SaveChangesAsync();
+
+        var unitOfWork = new UnitOfWork(context, NullLogger<UnitOfWork>.Instance);
+        var repository = new DepotRepository(unitOfWork, context);
+
+        var result = await repository.GetLotDetailedInventoryForClosureAsync(1);
+
+        var reusableRow = Assert.Single(result);
+        Assert.Equal("Reusable", reusableRow.ItemType);
+        Assert.Equal(2, reusableRow.Quantity);
+        Assert.Null(reusableRow.LotId);
+        Assert.Equal(firstReceivedAt, reusableRow.ReceivedDate);
+    }
+
     private static ResQDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ResQDbContext>()

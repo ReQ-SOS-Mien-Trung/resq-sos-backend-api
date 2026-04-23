@@ -437,7 +437,7 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
                     ItemType     = "Reusable",
                     Unit         = first.ItemModel?.Unit ?? "N/A",
                     LotId        = null,
-                    ReceivedDate = null,
+                    ReceivedDate = g.Min(item => item.CreatedAt),
                     ExpiredDate  = null,
                     Quantity     = g.Count()
                 };

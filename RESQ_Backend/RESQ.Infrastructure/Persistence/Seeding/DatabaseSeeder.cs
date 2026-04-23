@@ -35,10 +35,19 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int EligibleAssignedRescuerCount = 78;
     private const int HueStadiumUnclusteredSosCount = 10;
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
+    private const int HueStadiumReserveTeamCount = 2;
+    private const int HueStadiumReserveTeamMemberCount = 3;
+    private const int ClusteredSosClusterCount = 190;
+    private const string HueStadiumReserveTeamCodePrefix = "RT-HUE-TD-AV";
     private static readonly string[] DepotClosureTestDepotNames =
     [
         "Kho cứu trợ Đại học Phú Yên",
         "Ga đường sắt Sài Gòn"
+    ];
+    private static readonly string[] HueDepotExcludedItemNames =
+    [
+        "Pin dự phòng 10000mAh",
+        "Bộ đèn pin đội đầu"
     ];
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly string[] ReferenceIdentityTables =
@@ -1004,22 +1013,19 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var events = new List<AssemblyEvent>();
         var hueStadium = GetHueStadiumAssemblyPoint(seed);
         AssemblyEvent? activeHueEvent = null;
-        var currentUtc = DateTime.UtcNow;
-        var currentVietnamLocal = currentUtc.AddHours(7);
 
         if (hueStadium is not null)
         {
-            var activeAssemblyLocal = currentVietnamLocal.Date.AddDays(1).AddHours(6).AddMinutes(30);
-            var assemblyDate = VnToUtc(activeAssemblyLocal);
-            var checkInDeadline = VnToUtc(activeAssemblyLocal.AddMinutes(45));
+            var assemblyDate = TrimUtcToMinute(seed.AnchorUtc.AddMinutes(-30));
+            var checkInDeadline = assemblyDate.AddMinutes(45);
             activeHueEvent = new AssemblyEvent
             {
                 AssemblyPointId = hueStadium.Id,
                 AssemblyDate = assemblyDate,
                 Status = "Gathering",
                 CreatedBy = seed.Coordinators[0].Id,
-                CreatedAt = currentUtc.AddHours(-2),
-                UpdatedAt = currentUtc.AddMinutes(-5),
+                CreatedAt = seed.AnchorUtc.AddHours(-2),
+                UpdatedAt = seed.AnchorUtc.AddMinutes(-5),
                 CheckInDeadline = checkInDeadline
             };
             events.Add(activeHueEvent);
@@ -1032,11 +1038,15 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         for (var i = 0; i < 44; i++)
         {
-            var assemblyDate = RandomEventUtc(seed, i).AddHours(6 + i % 3);
-            var checkInDeadline = assemblyDate.AddMinutes(45);
-            var status = checkInDeadline <= currentUtc
+            var plannedAssemblyDate = RandomEventUtc(seed, i).AddHours(6 + i % 3);
+            var plannedCheckInDeadline = plannedAssemblyDate.AddMinutes(45);
+            var status = plannedCheckInDeadline <= seed.AnchorUtc
                 ? "Completed"
                 : "Gathering";
+            var assemblyDate = status == "Gathering"
+                ? TrimUtcToMinute(seed.AnchorUtc.AddMinutes(-(26 + i % 15)))
+                : plannedAssemblyDate;
+            var checkInDeadline = assemblyDate.AddMinutes(45);
             events.Add(new AssemblyEvent
             {
                 AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id,
@@ -1045,10 +1055,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 CreatedBy = seed.Coordinators[i % seed.Coordinators.Count].Id,
                 CreatedAt = assemblyDate.AddHours(-8),
                 UpdatedAt = status == "Completed"
-                    ? assemblyDate.AddHours(8)
-                    : status == "Gathering"
-                        ? currentUtc.AddMinutes(-10)
-                        : assemblyDate.AddHours(-2),
+                    ? ClampHistoricalUtc(assemblyDate.AddHours(8), assemblyDate, seed.AnchorUtc)
+                    : ClampHistoricalUtc(seed.AnchorUtc.AddMinutes(-(10 + i % 5)), assemblyDate, seed.AnchorUtc),
                 CheckInDeadline = checkInDeadline
             });
         }
@@ -1092,9 +1100,19 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     RescuerId = rescuer.Id,
                     Status = absent ? "Absent" : "CheckedIn",
                     IsCheckedIn = !absent,
-                    CheckInTime = absent ? null : assemblyEvent.AssemblyDate.AddMinutes(late ? 55 : 20 + i),
+                    CheckInTime = absent
+                        ? null
+                        : ClampHistoricalUtc(
+                            assemblyEvent.AssemblyDate.AddMinutes(
+                                assemblyEvent.Status == "Gathering"
+                                    ? late ? 35 : 12 + i * 2
+                                    : late ? 55 : 20 + i),
+                            assemblyEvent.AssemblyDate,
+                            seed.AnchorUtc),
                     IsCheckedOut = !absent && assemblyEvent.Status == "Completed",
-                    CheckOutTime = !absent && assemblyEvent.Status == "Completed" ? assemblyEvent.AssemblyDate.AddHours(8) : null
+                    CheckOutTime = !absent && assemblyEvent.Status == "Completed"
+                        ? ClampHistoricalUtc(assemblyEvent.AssemblyDate.AddHours(8), assemblyEvent.AssemblyDate, seed.AnchorUtc)
+                        : null
                 });
             }
         }
@@ -1137,7 +1155,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         await _db.SaveChangesAsync(cancellationToken);
 
         var memberIndex = 0;
-        for (var teamIndex = 0; teamIndex < seed.RescueTeams.Count; teamIndex++)
+        for (var teamIndex = 0; teamIndex < 20; teamIndex++)
         {
             var team = seed.RescueTeams[teamIndex];
             var count = teamIndex < 16 ? 5 : teamIndex == 16 ? 6 : 10;
@@ -1161,7 +1179,89 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
         }
 
+        await AddHueStadiumAvailableReserveTeamsAsync(seed, deployableRescuers, memberIndex, cancellationToken);
+
         _db.RescueTeamMembers.AddRange(seed.RescueTeamMembers);
+    }
+
+    private async Task AddHueStadiumAvailableReserveTeamsAsync(
+        DemoSeedContext seed,
+        IReadOnlyList<User> deployableRescuers,
+        int usedDeployableRescuerCount,
+        CancellationToken cancellationToken)
+    {
+        var hueStadium = GetHueStadiumAssemblyPoint(seed)
+            ?? throw new InvalidOperationException("Không tìm thấy điểm tập kết Sân vận động Tự Do trong demo seed.");
+        var requiredMemberCount = HueStadiumReserveTeamCount * HueStadiumReserveTeamMemberCount;
+        var assignedRescuerIds = seed.RescueTeamMembers.Select(member => member.UserId).ToHashSet();
+        var reserveRescuers = deployableRescuers
+            .Skip(usedDeployableRescuerCount)
+            .Concat(seed.Rescuers
+                .Skip(deployableRescuers.Count)
+                .Where(rescuer => rescuer.AssemblyPointId == hueStadium.Id))
+            .Where(rescuer => !assignedRescuerIds.Contains(rescuer.Id))
+            .Take(requiredMemberCount)
+            .ToList();
+
+        if (reserveRescuers.Count < requiredMemberCount)
+        {
+            throw new InvalidOperationException("Không đủ rescuer khả dụng để tạo 2 team Available tại Sân vận động Tự Do.");
+        }
+
+        foreach (var rescuer in reserveRescuers)
+        {
+            rescuer.AssemblyPointId = hueStadium.Id;
+        }
+
+        var reserveTeamTypes = new[] { "Mixed", "Rescue" };
+        var reserveTeamNames = new[] { "Đội thường trực Tự Do 1", "Đội cơ động Tự Do 2" };
+        var reserveTeams = new List<RescueTeam>();
+        for (var i = 0; i < HueStadiumReserveTeamCount; i++)
+        {
+            reserveTeams.Add(new RescueTeam
+            {
+                AssemblyPointId = hueStadium.Id,
+                ManagedBy = seed.Coordinators[i % seed.Coordinators.Count].Id,
+                Code = $"{HueStadiumReserveTeamCodePrefix}-{i + 1:00}",
+                Name = reserveTeamNames[i],
+                TeamType = reserveTeamTypes[i],
+                Status = "Available",
+                MaxMembers = 6,
+                AssemblyDate = seed.AnchorUtc.AddHours(-(i + 1)),
+                CreatedAt = seed.AnchorUtc.AddDays(-(i + 1)),
+                UpdatedAt = seed.AnchorUtc.AddMinutes(-(10 + i))
+            });
+        }
+
+        _db.RescueTeams.AddRange(reserveTeams);
+        await _db.SaveChangesAsync(cancellationToken);
+        seed.RescueTeams.AddRange(reserveTeams);
+
+        for (var teamIndex = 0; teamIndex < reserveTeams.Count; teamIndex++)
+        {
+            var team = reserveTeams[teamIndex];
+            var members = reserveRescuers
+                .Skip(teamIndex * HueStadiumReserveTeamMemberCount)
+                .Take(HueStadiumReserveTeamMemberCount)
+                .ToList();
+
+            for (var memberPosition = 0; memberPosition < members.Count; memberPosition++)
+            {
+                var rescuer = members[memberPosition];
+                var invitedAt = (team.CreatedAt ?? seed.StartUtc).AddHours(2 + memberPosition);
+                seed.RescueTeamMembers.Add(new RescueTeamMember
+                {
+                    TeamId = team.Id,
+                    UserId = rescuer.Id,
+                    Status = "Accepted",
+                    InvitedAt = invitedAt,
+                    RespondedAt = invitedAt.AddMinutes(10 + memberPosition * 3),
+                    IsLeader = memberPosition == 0,
+                    RoleInTeam = memberPosition == 0 ? "Leader" : TeamMemberRole(memberPosition, team.TeamType),
+                    CheckedIn = true
+                });
+            }
+        }
     }
 
     private async Task SeedLogisticsCatalogAsync(DemoSeedContext seed, CancellationToken cancellationToken)
@@ -1359,6 +1459,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var blanketModel = seed.ItemModels.Single(m => m.Name == "Chăn ấm giữ nhiệt");
         EnsureEssentialDepotStock(seed, lifeJacketModel, blanketModel);
         EnsureClosureTestDepotsFullInventory(seed);
+        ExcludeHueDepotItems(seed);
 
         _db.SupplyInventories.AddRange(seed.Inventories);
         await _db.SaveChangesAsync(cancellationToken);
@@ -1409,6 +1510,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         EnsureLifeJacketReusableUnits(seed, lifeJacketModel);
         EnsureClosureTestDepotsReusableUnits(seed);
         EnsureManagerReturnFixtureReusableUnits(seed);
+        ExcludeHueDepotReusableUnits(seed);
         _db.ReusableItems.AddRange(seed.ReusableItems);
 
         await SeedVatInvoicesAsync(seed);
@@ -1458,14 +1560,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedEmergencyAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
-        var clusterSosCounts = Enumerable.Range(0, 110).Select(i => i < 20 ? 4 : 3).ToArray();
+        var clusterSosCounts = GetClusteredSosCounts();
         var createdSos = new List<SosRequest>();
 
         for (var i = 0; i < clusterSosCounts.Length; i++)
         {
             var area = Area(i);
             var localDate = RandomEventLocal(seed, i);
-            var severity = i < 22 ? "Critical" : i < 80 ? "High" : i < 101 ? "Medium" : "Low";
+            var severity = ClusterSeverityForSeedIndex(i);
             var clusterStatus = ClusterStatusForSeedIndex(i);
             var scatterPoints = BuildClusterScatterPoints(area, i, clusterSosCounts[i]);
             var avgLat = scatterPoints.Average(p => p.Lat);
@@ -1482,7 +1584,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ElderlyCount = i % 7,
                 MedicalUrgencyScore = Math.Round(0.35 + (i % 60) / 100.0, 2),
                 CreatedAt = VnToUtc(localDate),
-                LastUpdatedAt = VnToUtc(localDate.AddHours(clusterStatus == SosClusterStatus.Completed.ToString() ? 8 : 3)),
+                LastUpdatedAt = ClampHistoricalUtc(
+                    VnToUtc(localDate.AddHours(clusterStatus == SosClusterStatus.Completed.ToString() ? 8 : 3)),
+                    VnToUtc(localDate),
+                    seed.AnchorUtc),
                 Status = clusterStatus
             };
             seed.SosClusters.Add(cluster);
@@ -1490,14 +1595,23 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             for (var j = 0; j < clusterSosCounts[i]; j++)
             {
                 var victim = seed.Victims[(i * 4 + j) % seed.Victims.Count];
-                var situation = Situation(i + j);
                 var priority = severity;
-                var createdAt = VnToUtc(localDate.AddMinutes(j * 18));
+                var situation = ClusterSituationForSeedIndex(i, j, priority);
                 var onBehalf = (i + j) % 5 == 0;
                 var reporterOther = !onBehalf && (i + j) % 10 == 0;
                 var reporter = reporterOther ? seed.Victims[(i * 7 + j + 11) % seed.Victims.Count] : victim;
                 var coordinator = seed.Coordinators[(i + j) % seed.Coordinators.Count];
                 var status = SosRequestStatusForClusterSeedIndex(i);
+                var historicalCreatedAt = VnToUtc(localDate.AddMinutes(j * 18));
+                var timeline = IsRecentOpenSosStatus(status)
+                    ? BuildRecentOpenSosTimeline(seed.AnchorUtc, i, j, status, onBehalf)
+                    : BuildClampedHistoricalSosTimeline(
+                        historicalCreatedAt,
+                        TimeSpan.FromMinutes(onBehalf ? 2 : 0),
+                        status == "Pending" ? null : TimeSpan.FromMinutes(20 + i % 30),
+                        TimeSpan.FromHours(status == "Resolved" ? 8 : 1),
+                        seed.AnchorUtc);
+                var createdAt = timeline.CreatedAt;
                 var people = 1 + (i + j) % 6;
                 var hasInjured = situation is "Medical" or "Landslide" || (i + j) % 11 == 0;
 
@@ -1508,7 +1622,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     UserId = victim.Id,
                     Location = Point(scatterPoints[j].Lon, scatterPoints[j].Lat),
                     LocationAccuracy = 12 + (i + j) % 35,
-                    SosType = situation is "NeedSupplies" ? "Relief" : hasInjured || situation is "Flooding" ? "Both" : "Rescue",
+                    SosType = SosTypeForSituation(situation),
                     RawMessage = SosMessage(situation, people, hasInjured),
                     StructuredData = Json(new
                     {
@@ -1531,11 +1645,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     PriorityScore = PriorityScore(priority, i + j),
                     Status = status,
                     AiAnalysis = null,
-                    ReceivedAt = createdAt.AddMinutes(onBehalf ? 2 : 0),
+                    ReceivedAt = timeline.ReceivedAt,
                     Timestamp = new DateTimeOffset(createdAt).ToUnixTimeMilliseconds(),
                     CreatedAt = createdAt,
-                    LastUpdatedAt = createdAt.AddHours(status == "Resolved" ? 8 : 1),
-                    ReviewedAt = status == "Pending" ? null : createdAt.AddMinutes(20 + i % 30),
+                    LastUpdatedAt = timeline.LastUpdatedAt,
+                    ReviewedAt = timeline.ReviewedAt,
                     ReviewedById = status == "Pending" ? null : coordinator.Id,
                     CreatedByCoordinatorId = onBehalf ? coordinator.Id : null
                 });
@@ -1622,7 +1736,16 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 var people = 2 + i % 4;
                 var hasInjured = i % 3 == 0;
                 var localDate = new DateTime(2026, 4, 6 + i, 6 + i % 5, 15 + i * 3 % 35, 0, DateTimeKind.Unspecified);
-                var createdAt = VnToUtc(localDate);
+                var historicalCreatedAt = VnToUtc(localDate);
+                var timeline = IsRecentOpenSosStatus(status)
+                    ? BuildRecentOpenSosTimeline(seed.AnchorUtc, 10_000 + i, 0, status, false)
+                    : BuildClampedHistoricalSosTimeline(
+                        historicalCreatedAt,
+                        TimeSpan.Zero,
+                        status == "Pending" ? null : TimeSpan.FromMinutes(16 + i),
+                        TimeSpan.FromHours(status == "Resolved" ? 6 : 2),
+                        seed.AnchorUtc);
+                var createdAt = timeline.CreatedAt;
                 var location = Point(uniqueHueStadiumCoordinates[i].Lon, uniqueHueStadiumCoordinates[i].Lat);
 
                 createdSos.Add(new SosRequest
@@ -1632,7 +1755,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     UserId = victim.Id,
                     Location = location,
                     LocationAccuracy = 9 + i,
-                    SosType = situation is "NeedSupplies" ? "Relief" : situation is "Flooding" ? "Both" : "Rescue",
+                    SosType = SosTypeForSituation(situation),
                     RawMessage = SosMessage(situation, people, hasInjured),
                     StructuredData = Json(new
                     {
@@ -1655,11 +1778,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     PriorityScore = i < 3 ? 69 + i : i < 8 ? 48 + i : 28 + i,
                     Status = status,
                     AiAnalysis = null,
-                    ReceivedAt = createdAt,
+                    ReceivedAt = timeline.ReceivedAt,
                     Timestamp = new DateTimeOffset(createdAt).ToUnixTimeMilliseconds(),
                     CreatedAt = createdAt,
-                    LastUpdatedAt = createdAt.AddHours(status == "Resolved" ? 6 : 2),
-                    ReviewedAt = status == "Pending" ? null : createdAt.AddMinutes(16 + i),
+                    LastUpdatedAt = timeline.LastUpdatedAt,
+                    ReviewedAt = timeline.ReviewedAt,
                     ReviewedById = status == "Pending" ? null : coordinator.Id,
                     CreatedByCoordinatorId = null
                 });
@@ -1686,7 +1809,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 SosRequestId = sos.Id,
                 UserId = companion.Id,
                 PhoneNumber = companion.Phone,
-                AddedAt = (sos.CreatedAt ?? seed.StartUtc).AddMinutes(4)
+                AddedAt = ClampHistoricalUtc(
+                    (sos.CreatedAt ?? seed.StartUtc).AddMinutes(4),
+                    sos.CreatedAt ?? seed.StartUtc,
+                    seed.AnchorUtc)
             });
         }
         _db.SosRequestCompanions.AddRange(companions.GroupBy(c => new { c.SosRequestId, c.UserId }).Select(g => g.First()));
@@ -1709,7 +1835,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ItemsNeeded = Json(new[] { "Water", "Food", "Medicine" }),
                 BreakdownJson = Json(new { priority = sos.PriorityLevel, reason = "Generated by deterministic demo seed" }),
                 DetailsJson = sos.StructuredData,
-                CreatedAt = createdAt.AddMinutes(1)
+                CreatedAt = ClampHistoricalUtc(createdAt.AddMinutes(1), createdAt, seed.AnchorUtc)
             });
 
             for (var u = 0; u < 2; u++)
@@ -1719,7 +1845,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     SosRequestId = sos.Id,
                     Type = u == 0 ? "CoordinatorNote" : sos.Status == "Resolved" ? "Rescued" : "TeamApproaching",
                     Content = u == 0 ? "Đã tiếp nhận thông tin và kiểm tra vị trí." : SosUpdateContent(sos.Status),
-                    CreatedAt = createdAt.AddMinutes(15 + u * 35),
+                    CreatedAt = ClampHistoricalUtc(createdAt.AddMinutes(15 + u * 35), createdAt, seed.AnchorUtc),
                     Status = "Visible"
                 });
             }
@@ -1739,8 +1865,16 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ConfidenceScore = 0.72 + (sos.Id % 24) / 100.0,
                 SuggestionScope = "DemoSeed",
                 Metadata = Json(new { risk_factors = new[] { "flood", "vulnerable_people", "limited_access" } }),
-                CreatedAt = (sos.CreatedAt ?? seed.StartUtc).AddMinutes(2),
-                AdoptedAt = sos.Status == "Pending" ? null : (sos.ReviewedAt ?? sos.CreatedAt)?.AddMinutes(1)
+                CreatedAt = ClampHistoricalUtc(
+                    (sos.CreatedAt ?? seed.StartUtc).AddMinutes(2),
+                    sos.CreatedAt ?? seed.StartUtc,
+                    seed.AnchorUtc),
+                AdoptedAt = sos.Status == "Pending"
+                    ? null
+                    : ClampHistoricalUtc(
+                        (sos.ReviewedAt ?? sos.CreatedAt)?.AddMinutes(1),
+                        sos.ReviewedAt ?? sos.CreatedAt ?? seed.StartUtc,
+                        seed.AnchorUtc)
             });
         }
 
@@ -1940,6 +2074,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             var sos = sosByVictim.GetValueOrDefault(victim.Id) ?? seed.SosRequests[i % seed.SosRequests.Count];
             var mission = seed.Missions.FirstOrDefault(m => m.ClusterId == sos.ClusterId);
             var status = i < 20 ? "AiAssist" : i < 50 ? "WaitingCoordinator" : i < 95 ? "CoordinatorActive" : "Closed";
+            var conversationCreatedAt = ClampHistoricalUtc(
+                (sos.CreatedAt ?? seed.StartUtc).AddMinutes(8),
+                sos.CreatedAt ?? seed.StartUtc,
+                seed.AnchorUtc);
             seed.Conversations.Add(new Conversation
             {
                 VictimId = victim.Id,
@@ -1947,8 +2085,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 Status = status,
                 SelectedTopic = status == "AiAssist" ? "SosRequestSupport" : "Cần cập nhật ETA và vật phẩm",
                 LinkedSosRequestId = sos.Id,
-                CreatedAt = (sos.CreatedAt ?? seed.StartUtc).AddMinutes(8),
-                UpdatedAt = (sos.CreatedAt ?? seed.StartUtc).AddHours(status == "Closed" ? 9 : 1)
+                CreatedAt = conversationCreatedAt,
+                UpdatedAt = ClampHistoricalUtc(
+                    conversationCreatedAt.AddHours(status == "Closed" ? 9 : 1),
+                    conversationCreatedAt,
+                    seed.AnchorUtc)
             });
         }
 
@@ -1972,7 +2113,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ConversationId = conversation.Id,
                 UserId = coordinator.Id,
                 RoleInConversation = "Coordinator",
-                JoinedAt = conversation.CreatedAt?.AddMinutes(conversation.Status == "WaitingCoordinator" ? 30 : 3),
+                JoinedAt = ClampHistoricalUtc(
+                    conversation.CreatedAt?.AddMinutes(conversation.Status == "WaitingCoordinator" ? 30 : 3),
+                    conversation.CreatedAt ?? seed.StartUtc,
+                    seed.AnchorUtc),
                 LeftAt = conversation.Status == "Closed" ? conversation.UpdatedAt : null
             });
         }
@@ -1993,7 +2137,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     SenderId = messageType == "SystemMessage" ? null : messageType == "AiMessage" ? null : i % 2 == 0 ? victim.Id : coordinator.Id,
                     Content = ChatMessage(i, conversation.Status),
                     MessageType = messageType,
-                    CreatedAt = (conversation.CreatedAt ?? seed.StartUtc).AddMinutes(i * 4)
+                    CreatedAt = ClampHistoricalUtc(
+                        (conversation.CreatedAt ?? seed.StartUtc).AddMinutes(i * 4),
+                        conversation.CreatedAt ?? seed.StartUtc,
+                        seed.AnchorUtc)
                 });
             }
         }
@@ -2042,6 +2189,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
 
             var created = RandomEventUtc(seed, i + 220);
+            var timeline = BuildSupplyRequestTimeline(created, status.SourceStatus, seed.AnchorUtc);
             var sourceManager = seed.Managers[(source.Id - 1) % seed.Managers.Count];
             var requestingManager = seed.Managers[(requesting.Id - 1) % seed.Managers.Count];
             seed.SupplyRequests.Add(new DepotSupplyRequest
@@ -2061,19 +2209,13 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 CreatedAt = created,
                 AutoRejectAt = status.SourceStatus == "Pending" ? created.AddHours(i % 3 == 0 ? 2 : 6) : null,
                 HighEscalationNotified = status.SourceStatus is "Accepted" or "Preparing" or "Shipping" or "Pending",
-                HighEscalationNotifiedAt = status.SourceStatus is "Accepted" or "Preparing" or "Shipping" or "Pending"
-                    ? created.AddMinutes(60)
-                    : null,
+                HighEscalationNotifiedAt = timeline.HighEscalationNotifiedAt,
                 UrgentEscalationNotified = status.SourceStatus == "Pending",
-                UrgentEscalationNotifiedAt = status.SourceStatus == "Pending" ? created.AddMinutes(25) : null,
-                RespondedAt = status.SourceStatus == "Pending" ? null : created.AddMinutes(30),
-                ShippedAt = status.SourceStatus is "Shipping" or "Completed" ? created.AddHours(3) : null,
-                CompletedAt = status.SourceStatus == "Completed" ? created.AddHours(7) : null,
-                UpdatedAt = status.SourceStatus == "Completed"
-                    ? created.AddHours(7)
-                    : status.SourceStatus == "Shipping"
-                        ? created.AddHours(3)
-                        : created.AddHours(1),
+                UrgentEscalationNotifiedAt = timeline.UrgentEscalationNotifiedAt,
+                RespondedAt = timeline.RespondedAt,
+                ShippedAt = timeline.ShippedAt,
+                CompletedAt = timeline.CompletedAt,
+                UpdatedAt = timeline.UpdatedAt,
                 AcceptedBy = status.SourceStatus is "Accepted" or "Preparing" or "Shipping" or "Completed" ? sourceManager.Id : null,
                 RejectedBy = null,
                 PreparedBy = status.SourceStatus is "Preparing" or "Shipping" or "Completed" ? sourceManager.Id : null,
@@ -2102,6 +2244,41 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static (
+        DateTime? HighEscalationNotifiedAt,
+        DateTime? UrgentEscalationNotifiedAt,
+        DateTime? RespondedAt,
+        DateTime? ShippedAt,
+        DateTime? CompletedAt,
+        DateTime UpdatedAt)
+        BuildSupplyRequestTimeline(DateTime createdAt, string sourceStatus, DateTime anchorUtc)
+    {
+        DateTime? highEscalationNotifiedAt = sourceStatus is "Accepted" or "Preparing" or "Shipping" or "Pending"
+            ? ClampHistoricalUtc(createdAt.AddMinutes(60), createdAt, anchorUtc)
+            : null;
+        DateTime? urgentEscalationNotifiedAt = sourceStatus == "Pending"
+            ? ClampHistoricalUtc(createdAt.AddMinutes(25), createdAt, anchorUtc)
+            : null;
+        DateTime? respondedAt = sourceStatus == "Pending"
+            ? null
+            : ClampHistoricalUtc(createdAt.AddMinutes(30), createdAt, anchorUtc);
+        DateTime? shippedAt = sourceStatus is "Shipping" or "Completed"
+            ? ClampHistoricalUtc(createdAt.AddHours(3), respondedAt ?? createdAt, anchorUtc)
+            : null;
+        DateTime? completedAt = sourceStatus == "Completed"
+            ? ClampHistoricalUtc(createdAt.AddHours(7), shippedAt ?? respondedAt ?? createdAt, anchorUtc)
+            : null;
+        var updatedAtCandidate = sourceStatus switch
+        {
+            "Completed" => createdAt.AddHours(7),
+            "Shipping" => createdAt.AddHours(3),
+            _ => createdAt.AddHours(1)
+        };
+        var updatedAtLowerBound = completedAt ?? shippedAt ?? respondedAt ?? highEscalationNotifiedAt ?? urgentEscalationNotifiedAt ?? createdAt;
+        var updatedAt = ClampHistoricalUtc(updatedAtCandidate, updatedAtLowerBound, anchorUtc);
+        return (highEscalationNotifiedAt, urgentEscalationNotifiedAt, respondedAt, shippedAt, completedAt, updatedAt);
     }
 
     private async Task SeedFinanceAsync(DemoSeedContext seed, CancellationToken cancellationToken)
@@ -2580,7 +2757,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             consumablePlans,
             missionExportTarget);
 
-        BuildAdjustmentHistory(consumablePlans.Values.ToList());
+        BuildAdjustmentHistory(consumablePlans.Values.ToList(), seed.AnchorUtc);
 
         var inventoryLogs = new List<InventoryLog>(820);
         BuildConsumableInventoryHistory(seed, vatInvoiceIds, consumablePlans.Values.ToList(), inventoryLogs);
@@ -2633,8 +2810,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     continue;
                 }
 
-                var shippedAt = request.ShippedAt ?? request.CompletedAt ?? request.CreatedAt.AddHours(3);
-                var completedAt = request.CompletedAt ?? shippedAt.AddHours(4);
+                var shippedAt = ClampHistoricalUtc(
+                    request.ShippedAt ?? request.CompletedAt ?? request.CreatedAt.AddHours(3),
+                    request.CreatedAt,
+                    seed.AnchorUtc);
+                var completedAt = ClampHistoricalUtc(
+                    request.CompletedAt ?? shippedAt.AddHours(4),
+                    shippedAt,
+                    seed.AnchorUtc);
 
                 sourcePlan.OutboundEvents.Add(new ConsumableOutboundEvent
                 {
@@ -2720,7 +2903,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
     }
 
-    private static void BuildAdjustmentHistory(IReadOnlyList<ConsumableInventoryHistoryPlan> plans)
+    private static void BuildAdjustmentHistory(IReadOnlyList<ConsumableInventoryHistoryPlan> plans, DateTime anchorUtc)
     {
         foreach (var plan in plans
                      .OrderBy(p => p.Inventory.Id)
@@ -2728,10 +2911,15 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                      .Take(45))
         {
             var quantity = Math.Min(3 + plan.Inventory.Id % 8, Math.Max(2, Math.Max(1, plan.FinalQuantity / 30)));
+            var baseCreatedAt = plan.Inventory.LastStockedAt ?? plan.BaseLot.ReceivedDate ?? anchorUtc.AddDays(-90);
+            var createdAtCandidate = baseCreatedAt.AddDays(18 + plan.Inventory.Id % 40);
+            var fallbackCreatedAt = TrimUtcToMinute(anchorUtc.AddHours(-(6 + plan.Inventory.Id % 96)));
             plan.Adjustments.Add(new ConsumableAdjustmentEvent
             {
                 Quantity = quantity,
-                CreatedAt = (plan.Inventory.LastStockedAt ?? plan.BaseLot.ReceivedDate ?? DateTime.UtcNow).AddDays(18 + plan.Inventory.Id % 40),
+                CreatedAt = createdAtCandidate <= anchorUtc
+                    ? createdAtCandidate
+                    : ClampHistoricalUtc(fallbackCreatedAt, baseCreatedAt, anchorUtc),
                 PerformedBy = plan.PerformedBy,
                 Note = $"Điều chỉnh giảm {plan.ItemModel.Name} sau kiểm kê do hư hỏng hoặc quá hạn"
             });
@@ -2996,6 +3184,61 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             .Where(IsDepotClosureTestCandidate)
             .OrderBy(depot => depot.Id)
             .ToList();
+
+    private static Depot? FindHueDepot(DemoSeedContext seed) =>
+        seed.Depots.FirstOrDefault();
+
+    private static HashSet<int> HueDepotExcludedItemModelIds(DemoSeedContext seed) =>
+        seed.ItemModels
+            .Where(item => item.Name != null
+                && HueDepotExcludedItemNames.Contains(item.Name, StringComparer.OrdinalIgnoreCase))
+            .Select(item => item.Id)
+            .ToHashSet();
+
+    private static void ExcludeHueDepotItems(DemoSeedContext seed)
+    {
+        var hueDepot = FindHueDepot(seed);
+        if (hueDepot is null)
+        {
+            return;
+        }
+
+        var excludedItemModelIds = HueDepotExcludedItemModelIds(seed);
+        if (excludedItemModelIds.Count == 0)
+        {
+            return;
+        }
+
+        seed.Inventories.RemoveAll(inventory =>
+            inventory.DepotId == hueDepot.Id
+            && inventory.ItemModelId.HasValue
+            && excludedItemModelIds.Contains(inventory.ItemModelId.Value));
+    }
+
+    private static void ExcludeHueDepotReusableUnits(DemoSeedContext seed)
+    {
+        var hueDepot = FindHueDepot(seed);
+        if (hueDepot is null)
+        {
+            return;
+        }
+
+        var excludedReusableModelIds = seed.ItemModels
+            .Where(item => string.Equals(item.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
+            .Where(item => item.Name != null
+                && HueDepotExcludedItemNames.Contains(item.Name, StringComparer.OrdinalIgnoreCase))
+            .Select(item => item.Id)
+            .ToHashSet();
+        if (excludedReusableModelIds.Count == 0)
+        {
+            return;
+        }
+
+        seed.ReusableItems.RemoveAll(item =>
+            item.DepotId == hueDepot.Id
+            && item.ItemModelId.HasValue
+            && excludedReusableModelIds.Contains(item.ItemModelId.Value));
+    }
 
     private static void EnsureEssentialDepotStock(DemoSeedContext seed, ItemModel lifeJacketModel, ItemModel blanketModel)
     {
@@ -3725,6 +3968,89 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static DateTime RandomEventUtc(DemoSeedContext seed, int index) => VnToUtc(RandomEventLocal(seed, index));
 
+    private static bool IsRecentOpenSosStatus(string? status) => status is "Pending" or "Assigned" or "InProgress" or "Incident";
+
+    private static (DateTime CreatedAt, DateTime ReceivedAt, DateTime? ReviewedAt, DateTime LastUpdatedAt) BuildRecentOpenSosTimeline(
+        DateTime anchorUtc,
+        int primaryIndex,
+        int secondaryIndex,
+        string status,
+        bool onBehalf)
+    {
+        if (!IsRecentOpenSosStatus(status))
+        {
+            throw new InvalidOperationException($"Status '{status}' does not use recent open SOS timeline.");
+        }
+
+        var seed = StableGuid($"recent-open-sos-{status}-{primaryIndex}-{secondaryIndex}-{(onBehalf ? 1 : 0)}");
+        var createdHoursAgo = status switch
+        {
+            "Pending" => DeterministicRange(seed, 0, 2.5, 23.5),
+            "Assigned" => DeterministicRange(seed, 0, 4.0, 21.0),
+            "InProgress" => DeterministicRange(seed, 0, 5.5, 18.0),
+            _ => DeterministicRange(seed, 0, 6.0, 14.0)
+        };
+
+        var createdAt = TrimUtcToMinute(anchorUtc.AddHours(-createdHoursAgo));
+        var receivedAt = TrimUtcToMinute(createdAt.AddMinutes(onBehalf ? 2 : 0));
+
+        if (status == "Pending")
+        {
+            var pendingLastUpdatedAt = TrimUtcToMinute(createdAt.AddMinutes(DeterministicRange(seed, 4, 12, 55)));
+            return (createdAt, receivedAt, null, MinUtc(pendingLastUpdatedAt, anchorUtc.AddMinutes(-1)));
+        }
+
+        var reviewedAt = TrimUtcToMinute(createdAt.AddMinutes(DeterministicRange(seed, 4, 8, 45)));
+        var followUpMinutes = status switch
+        {
+            "Assigned" => DeterministicRange(seed, 8, 18, 95),
+            "InProgress" => DeterministicRange(seed, 8, 55, 220),
+            _ => DeterministicRange(seed, 8, 70, 260)
+        };
+        var lastUpdatedAtCandidate = TrimUtcToMinute(reviewedAt.AddMinutes(followUpMinutes));
+        var lastUpdatedAt = MinUtc(lastUpdatedAtCandidate, anchorUtc.AddMinutes(-1));
+        if (lastUpdatedAt < reviewedAt)
+        {
+            lastUpdatedAt = reviewedAt;
+        }
+
+        return (createdAt, receivedAt, reviewedAt, lastUpdatedAt);
+    }
+
+    private static (DateTime CreatedAt, DateTime ReceivedAt, DateTime? ReviewedAt, DateTime LastUpdatedAt) BuildClampedHistoricalSosTimeline(
+        DateTime createdAtCandidate,
+        TimeSpan receivedOffset,
+        TimeSpan? reviewedOffset,
+        TimeSpan lastUpdatedOffset,
+        DateTime anchorUtc)
+    {
+        var createdAt = ClampHistoricalUtc(createdAtCandidate, anchorUtc);
+        var receivedAt = ClampHistoricalUtc(createdAtCandidate.Add(receivedOffset), createdAt, anchorUtc);
+        DateTime? reviewedAt = reviewedOffset.HasValue
+            ? ClampHistoricalUtc(createdAtCandidate.Add(reviewedOffset.Value), receivedAt, anchorUtc)
+            : null;
+        var lastUpdatedLowerBound = reviewedAt ?? receivedAt;
+        var lastUpdatedAt = ClampHistoricalUtc(createdAtCandidate.Add(lastUpdatedOffset), lastUpdatedLowerBound, anchorUtc);
+        return (createdAt, receivedAt, reviewedAt, lastUpdatedAt);
+    }
+
+    private static DateTime TrimUtcToMinute(DateTime value) =>
+        new DateTime(value.Ticks - value.Ticks % TimeSpan.TicksPerMinute, DateTimeKind.Utc);
+
+    private static DateTime ClampHistoricalUtc(DateTime candidateUtc, DateTime anchorUtc) =>
+        candidateUtc <= anchorUtc ? candidateUtc : anchorUtc;
+
+    private static DateTime ClampHistoricalUtc(DateTime candidateUtc, DateTime floorUtc, DateTime anchorUtc)
+    {
+        var capped = ClampHistoricalUtc(candidateUtc, anchorUtc);
+        return capped < floorUtc ? floorUtc : capped;
+    }
+
+    private static DateTime? ClampHistoricalUtc(DateTime? candidateUtc, DateTime floorUtc, DateTime anchorUtc) =>
+        candidateUtc.HasValue ? ClampHistoricalUtc(candidateUtc.Value, floorUtc, anchorUtc) : null;
+
+    private static DateTime MinUtc(DateTime left, DateTime right) => left <= right ? left : right;
+
     private static SeedArea Area(int index)
     {
         var areas = new[]
@@ -3834,6 +4160,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         var templates = count switch
         {
+            1 => SinglePointClusterScatterTemplates,
+            2 => TwoPointClusterScatterTemplates,
             3 => ThreePointClusterScatterTemplates,
             4 => FourPointClusterScatterTemplates,
             _ => throw new InvalidOperationException($"Không hỗ trợ {count} SOS trong một cluster demo.")
@@ -3841,13 +4169,25 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var templateSeed = StableGuid($"cluster-template-{clusterIndex}-{count}-{area.Code}-{area.Ward}");
         var templateIndex = (DeterministicIndex(templateSeed, templates.Length) + clusterIndex % templates.Length) % templates.Length;
         var template = templates[templateIndex];
+        var latJitterAmplitude = count switch
+        {
+            1 => 0.00018,
+            2 => 0.00024,
+            _ => 0.00035
+        };
+        var lonJitterAmplitude = count switch
+        {
+            1 => 0.00022,
+            2 => 0.00030,
+            _ => 0.00042
+        };
 
         return Enumerable.Range(0, count)
             .Select(pointIndex =>
             {
                 var jitterSeed = StableGuid($"cluster-point-{clusterIndex}-{pointIndex}-{area.Code}-{area.Ward}");
-                var latJitter = DeterministicRange(jitterSeed, 0, -0.00035, 0.00035);
-                var lonJitter = DeterministicRange(jitterSeed, 4, -0.00042, 0.00042);
+                var latJitter = DeterministicRange(jitterSeed, 0, -latJitterAmplitude, latJitterAmplitude);
+                var lonJitter = DeterministicRange(jitterSeed, 4, -lonJitterAmplitude, lonJitterAmplitude);
                 return new SeedCoordinate(
                     anchor.Lat + template[pointIndex].Lat + latJitter,
                     anchor.Lon + template[pointIndex].Lon + lonJitter);
@@ -3868,6 +4208,34 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var ratio = BitConverter.ToUInt32(bytes, offset) / (double)uint.MaxValue;
         return min + (max - min) * ratio;
     }
+
+    private static readonly SeedCoordinate[][] SinglePointClusterScatterTemplates =
+    [
+        [new SeedCoordinate(0.00042, -0.00028)],
+        [new SeedCoordinate(-0.00031, 0.00047)],
+        [new SeedCoordinate(0.00018, 0.00039)],
+        [new SeedCoordinate(-0.00046, -0.00012)]
+    ];
+
+    private static readonly SeedCoordinate[][] TwoPointClusterScatterTemplates =
+    [
+        [
+            new SeedCoordinate(0.00074, -0.00041),
+            new SeedCoordinate(-0.00028, 0.00063)
+        ],
+        [
+            new SeedCoordinate(-0.00061, -0.00022),
+            new SeedCoordinate(0.00047, 0.00058)
+        ],
+        [
+            new SeedCoordinate(0.00032, -0.00079),
+            new SeedCoordinate(-0.00054, 0.00035)
+        ],
+        [
+            new SeedCoordinate(-0.00072, 0.00048),
+            new SeedCoordinate(0.00026, -0.00057)
+        ]
+    ];
 
     private static readonly SeedCoordinate[][] ThreePointClusterScatterTemplates =
     [
@@ -3973,6 +4341,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static List<User> GetDeployableRescuers(DemoSeedContext seed) =>
         seed.Rescuers.Take(seed.Rescuers.Count - UnassignedRescuerCount).ToList();
+
+    private static bool IsHueStadiumReserveTeam(RescueTeam team) =>
+        team.Code?.StartsWith(HueStadiumReserveTeamCodePrefix, StringComparison.Ordinal) == true;
 
     private static AssemblyPoint? GetHueStadiumAssemblyPoint(DemoSeedContext seed) =>
         seed.AssemblyPoints.FirstOrDefault(point =>
@@ -4488,20 +4859,44 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         return groups.ToList();
     }
 
-    private static string Situation(int index)
+    private static int[] GetClusteredSosCounts()
     {
-        var situations = new[] { "Flooding", "Landslide", "Stranded", "CannotMove", "Medical", "NeedSupplies", "Evacuation" };
-        return situations[index % situations.Length];
+        var counts = Enumerable.Repeat(2, ClusteredSosClusterCount).ToArray();
+        foreach (var index in Enumerable.Range(0, 30).Select(offset => 5 + offset * 6))
+        {
+            counts[index] = 1;
+        }
+
+        return counts;
+    }
+
+    private static string ClusterSeverityForSeedIndex(int index) => index switch
+    {
+        < 8 => "Critical",
+        < 40 => "High",
+        < 130 => "Medium",
+        _ => "Low"
+    };
+
+    private static string ClusterSituationForSeedIndex(int clusterIndex, int requestIndex, string priority)
+    {
+        var situations = priority switch
+        {
+            "Critical" => CriticalClusterSituations,
+            "High" => HighClusterSituations,
+            "Medium" => MediumClusterSituations,
+            _ => LowClusterSituations
+        };
+        var seed = StableGuid($"cluster-situation-{clusterIndex}-{requestIndex}-{priority}");
+        return situations[DeterministicIndex(seed, situations.Length)];
     }
 
     private static string[] SuppliesFor(string situation)
     {
         return situation switch
         {
-            "Medical" => ["Medicine", "Water"],
             "NeedSupplies" => ["Water", "Food", "Blanket"],
-            "Evacuation" => ["Lifejacket", "Water"],
-            _ => ["Water", "Food", "Medicine"]
+            _ => Array.Empty<string>()
         };
     }
 
@@ -4531,6 +4926,56 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         };
     }
 
+    private static string SosTypeForSituation(string situation) => situation == "NeedSupplies" ? "Relief" : "Rescue";
+
+    private static readonly string[] CriticalClusterSituations =
+    [
+        "Flooding",
+        "Medical",
+        "CannotMove",
+        "Landslide",
+        "Stranded",
+        "Evacuation"
+    ];
+
+    private static readonly string[] HighClusterSituations =
+    [
+        "Flooding",
+        "Stranded",
+        "NeedSupplies",
+        "CannotMove",
+        "Medical",
+        "Evacuation",
+        "Landslide",
+        "Flooding"
+    ];
+
+    private static readonly string[] MediumClusterSituations =
+    [
+        "NeedSupplies",
+        "Stranded",
+        "NeedSupplies",
+        "Evacuation",
+        "NeedSupplies",
+        "Medical",
+        "CannotMove",
+        "NeedSupplies"
+    ];
+
+    private static readonly string[] LowClusterSituations =
+    [
+        "NeedSupplies",
+        "NeedSupplies",
+        "Stranded",
+        "NeedSupplies",
+        "Evacuation",
+        "NeedSupplies",
+        "NeedSupplies",
+        "Flooding",
+        "NeedSupplies",
+        "NeedSupplies"
+    ];
+
     private static string MissionType(int index, string? severity)
     {
         if (severity == "Critical" && index % 2 == 0)
@@ -4553,7 +4998,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             _ => "Rescue"
         };
         var candidates = seed.RescueTeams
-            .Where(t => t.TeamType == required && t.Status is "Available" or "Gathering")
+            .Where(t => !IsHueStadiumReserveTeam(t) && t.TeamType == required && t.Status is "Available" or "Gathering")
             .ToList();
 
         if (candidates.Count > 0)
@@ -4562,7 +5007,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
 
         candidates = seed.RescueTeams
-            .Where(t => t.TeamType == required && t.Status != "Disbanded" && t.Status != "Unavailable")
+            .Where(t => !IsHueStadiumReserveTeam(t) && t.TeamType == required && t.Status != "Disbanded" && t.Status != "Unavailable")
             .ToList();
 
         if (candidates.Count > 0)
@@ -4570,7 +5015,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             return candidates[(missionIndex + teamOffset) % candidates.Count];
         }
 
-        return seed.RescueTeams[(missionIndex + teamOffset) % seed.RescueTeams.Count];
+        candidates = seed.RescueTeams
+            .Where(t => !IsHueStadiumReserveTeam(t))
+            .ToList();
+        return candidates[(missionIndex + teamOffset) % candidates.Count];
     }
 
     private static void SyncRescueTeamStatusesFromAssignments(DemoSeedContext seed)
@@ -4861,21 +5309,21 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static string ClusterStatusForSeedIndex(int index) => index switch
     {
-        < 20 => SosClusterStatus.Pending.ToString(),
-        < 45 => SosClusterStatus.InProgress.ToString(),
-        < 95 => SosClusterStatus.Completed.ToString(),
-        < 100 => SosClusterStatus.InProgress.ToString(),
+        < 32 => SosClusterStatus.Pending.ToString(),
+        < 58 => SosClusterStatus.InProgress.ToString(),
+        < 148 => SosClusterStatus.Completed.ToString(),
+        < 164 => SosClusterStatus.InProgress.ToString(),
         _ => SosClusterStatus.Pending.ToString()
     };
 
     private static string SosRequestStatusForClusterSeedIndex(int index) => index switch
     {
-        < 20 => SosRequestStatus.Pending.ToString(),
-        < 30 => SosRequestStatus.Assigned.ToString(),
-        < 45 => SosRequestStatus.InProgress.ToString(),
-        < 95 => SosRequestStatus.Resolved.ToString(),
-        < 100 => SosRequestStatus.Incident.ToString(),
-        < 104 => SosRequestStatus.Pending.ToString(),
+        < 32 => SosRequestStatus.Pending.ToString(),
+        < 44 => SosRequestStatus.Assigned.ToString(),
+        < 58 => SosRequestStatus.InProgress.ToString(),
+        < 148 => SosRequestStatus.Resolved.ToString(),
+        < 164 => SosRequestStatus.Incident.ToString(),
+        < 176 => SosRequestStatus.Pending.ToString(),
         _ => SosRequestStatus.Cancelled.ToString()
     };
 

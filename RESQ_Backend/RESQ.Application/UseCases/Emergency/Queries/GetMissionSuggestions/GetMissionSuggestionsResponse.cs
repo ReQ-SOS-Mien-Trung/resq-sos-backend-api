@@ -21,6 +21,8 @@ public class MissionSuggestionDto
     public double? SuggestedPriorityScore { get; set; }
     public string? SuggestedSeverityLevel { get; set; }
     public double? ConfidenceScore { get; set; }
+    public bool IsSuccess { get; set; }
+    public string? ErrorMessage { get; set; }
     public string? OverallAssessment { get; set; }
     public string? EstimatedDuration { get; set; }
     public string? SpecialNotes { get; set; }
@@ -30,6 +32,10 @@ public class MissionSuggestionDto
     public bool NeedsAdditionalDepot { get; set; }
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
     public List<SuggestedResourceDto> SuggestedResources { get; set; } = [];
+    public string? PipelineStatus { get; set; }
+    public string? PipelineFinalResultSource { get; set; }
+    public string? PipelineFailedStage { get; set; }
+    public string? PipelineFailureReason { get; set; }
     public string? SuggestionScope { get; set; }
     public DateTime? CreatedAt { get; set; }
     public List<ActivitySuggestionDto> Activities { get; set; } = [];

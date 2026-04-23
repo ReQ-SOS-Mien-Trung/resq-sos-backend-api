@@ -1,7 +1,6 @@
 using System.Reflection;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
-using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Infrastructure.Services;
 
 namespace RESQ.Tests.Infrastructure.Services;
@@ -113,6 +112,703 @@ public class RescueMissionSuggestionServiceInternalTests
         Assert.Equal("Nuoc sach", shortage.ItemName);
         Assert.Equal(1, shortage.NeededQuantity);
         Assert.Equal(1, shortage.MissingQuantity);
+    }
+
+    [Fact]
+    public void DeserializePipelineFragment_Depot_WrapsSingletonActivityAndSupplyObject()
+    {
+        var fragment = DeserializePipelineFragment<MissionDepotFragment>(
+            """
+            {
+              "activities": {
+                "activity_key": "collect-1",
+                "step": "1",
+                "activity_type": "COLLECT_SUPPLIES",
+                "description": "Lay ao phao",
+                "sos_request_id": "1",
+                "depot_id": "9",
+                "depot_name": "Kho Preview",
+                "supplies_to_collect": {
+                  "item_id": "501",
+                  "item_name": "Ao phao",
+                  "quantity": "2",
+                  "unit": "cai"
+                }
+              },
+              "confidence_score": "0.8"
+            }
+            """);
+
+        var activity = Assert.Single(fragment.Activities);
+        Assert.Equal("collect-1", activity.ActivityKey);
+        Assert.Equal(1, activity.Step);
+        Assert.Equal(9, activity.DepotId);
+        var supply = Assert.Single(activity.SuppliesToCollect!);
+        Assert.Equal(501, supply.ItemId);
+        Assert.Equal(2, supply.Quantity);
+    }
+
+    [Fact]
+    public void DeserializePipelineFragment_Team_ToleratesNonObjectTopLevelSuggestedTeam()
+    {
+        var fragment = DeserializePipelineFragment<MissionTeamFragment>(
+            """
+            {
+              "activity_assignments": [],
+              "additional_activities": [],
+              "ordered_activity_keys": ["collect-1"],
+              "suggested_team": [],
+              "confidence_score": 0.8
+            }
+            """);
+
+        Assert.Null(fragment.SuggestedTeam);
+        Assert.Single(fragment.OrderedActivityKeys);
+        Assert.Equal("collect-1", fragment.OrderedActivityKeys[0]);
+    }
+
+    [Fact]
+    public void ValidateTeamFragment_FillsMissingOrderedActivityKeysAndDropsUnknownAssignments()
+    {
+        var depot = new MissionDepotFragment
+        {
+            Activities =
+            [
+                new MissionActivityFragment
+                {
+                    ActivityKey = "collect-22",
+                    Step = 1,
+                    ActivityType = "COLLECT_SUPPLIES",
+                    DepotId = 9,
+                    SuppliesToCollect =
+                    [
+                        new SupplyToCollectDto
+                        {
+                            ItemId = 88,
+                            ItemName = "Nuoc sach",
+                            Quantity = 10,
+                            Unit = "chai"
+                        }
+                    ]
+                },
+                new MissionActivityFragment
+                {
+                    ActivityKey = "deliver-22",
+                    Step = 2,
+                    ActivityType = "DELIVER_SUPPLIES",
+                    DepotId = 9,
+                    SuppliesToCollect =
+                    [
+                        new SupplyToCollectDto
+                        {
+                            ItemId = 88,
+                            ItemName = "Nuoc sach",
+                            Quantity = 10,
+                            Unit = "chai"
+                        }
+                    ]
+                }
+            ]
+        };
+        var team = new MissionTeamFragment
+        {
+            ActivityAssignments =
+            [
+                new MissionActivityAssignmentFragment
+                {
+                    ActivityKey = "collect-22",
+                    SuggestedTeam = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" }
+                },
+                new MissionActivityAssignmentFragment
+                {
+                    ActivityKey = "unknown-key",
+                    SuggestedTeam = new SuggestedTeamDto { TeamId = 22, TeamName = "Team B" }
+                }
+            ],
+            OrderedActivityKeys = []
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "ValidateTeamFragment", team, depot);
+
+        Assert.Single(team.ActivityAssignments);
+        Assert.Equal(["collect-22", "deliver-22"], team.OrderedActivityKeys);
+    }
+
+    [Fact]
+    public void AssessMissionActivityRoute_AllowsCollectBeforeUrgentRescueWithoutRequiresSupplyFlag()
+    {
+        var team = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" };
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                Step = 1,
+                ActivityType = "COLLECT_SUPPLIES",
+                SosRequestId = 96,
+                DepotId = 1,
+                DepotName = "Kho A",
+                SuggestedTeam = team,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Ao phao",
+                        Quantity = 2,
+                        Unit = "cai"
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 2,
+                ActivityType = "RESCUE",
+                SosRequestId = 96,
+                SuggestedTeam = team
+            },
+            new()
+            {
+                Step = 3,
+                ActivityType = "EVACUATE",
+                SosRequestId = 96,
+                SuggestedTeam = team
+            }
+        };
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 96,
+                SosType = "RESCUE",
+                PriorityLevel = "Critical",
+                AiAnalysis = new SosRequestAiAnalysisSummary
+                {
+                    HasAiAnalysis = true,
+                    SuggestedPriority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false
+                }
+            }
+        };
+        var requirements = new MissionRequirementsFragment
+        {
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 96,
+                    Priority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false,
+                    RequiresSupplyBeforeRescue = false
+                }
+            ]
+        };
+
+        var failure = InvokeStaticResult<string?>(
+            nameof(RescueMissionSuggestionService),
+            "AssessMissionActivityRoute",
+            activities,
+            sosRequests,
+            requirements);
+
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void AssessMissionActivityRoute_AllowsDeliverBeforeUrgentRescueForSameSos()
+    {
+        var team = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" };
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                Step = 1,
+                ActivityType = "COLLECT_SUPPLIES",
+                SosRequestId = 44,
+                DepotId = 1,
+                DepotName = "Kho A",
+                SuggestedTeam = team,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Ao phao",
+                        Quantity = 3,
+                        Unit = "cai"
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 2,
+                ActivityType = "DELIVER_SUPPLIES",
+                SosRequestId = 44,
+                DepotId = 1,
+                DepotName = "Kho A",
+                SuggestedTeam = team,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Ao phao",
+                        Quantity = 3,
+                        Unit = "cai"
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 3,
+                ActivityType = "RESCUE",
+                SosRequestId = 44,
+                SuggestedTeam = team
+            },
+            new()
+            {
+                Step = 4,
+                ActivityType = "EVACUATE",
+                SosRequestId = 44,
+                SuggestedTeam = team
+            }
+        };
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 44,
+                SosType = "RESCUE",
+                PriorityLevel = "Critical",
+                AiAnalysis = new SosRequestAiAnalysisSummary
+                {
+                    HasAiAnalysis = true,
+                    SuggestedPriority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false
+                }
+            }
+        };
+        var requirements = new MissionRequirementsFragment
+        {
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 44,
+                    Priority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false,
+                    RequiresSupplyBeforeRescue = false
+                }
+            ]
+        };
+
+        var failure = InvokeStaticResult<string?>(
+            nameof(RescueMissionSuggestionService),
+            "AssessMissionActivityRoute",
+            activities,
+            sosRequests,
+            requirements);
+
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void AssessMissionActivityRoute_AllowsUrgentDeliveryForAnotherUrgentSosBeforeTargetRescueStarts()
+    {
+        var team = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" };
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                Step = 1,
+                ActivityType = "COLLECT_SUPPLIES",
+                SosRequestId = 86,
+                DepotId = 1,
+                DepotName = "Kho A",
+                SuggestedTeam = team,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Ao phao",
+                        Quantity = 4,
+                        Unit = "cai"
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 2,
+                ActivityType = "DELIVER_SUPPLIES",
+                SosRequestId = 86,
+                DepotId = 1,
+                DepotName = "Kho A",
+                SuggestedTeam = team,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Ao phao",
+                        Quantity = 4,
+                        Unit = "cai"
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 3,
+                ActivityType = "RESCUE",
+                SosRequestId = 86,
+                SuggestedTeam = team
+            },
+            new()
+            {
+                Step = 4,
+                ActivityType = "EVACUATE",
+                SosRequestId = 85,
+                SuggestedTeam = team
+            }
+        };
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 85,
+                SosType = "RESCUE",
+                PriorityLevel = "Critical",
+                AiAnalysis = new SosRequestAiAnalysisSummary
+                {
+                    HasAiAnalysis = true,
+                    SuggestedPriority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false
+                }
+            },
+            new()
+            {
+                Id = 86,
+                SosType = "RESCUE",
+                PriorityLevel = "Critical",
+                AiAnalysis = new SosRequestAiAnalysisSummary
+                {
+                    HasAiAnalysis = true,
+                    SuggestedPriority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false
+                }
+            }
+        };
+        var requirements = new MissionRequirementsFragment
+        {
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 85,
+                    Priority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                },
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 86,
+                    Priority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                }
+            ]
+        };
+
+        var failure = InvokeStaticResult<string?>(
+            nameof(RescueMissionSuggestionService),
+            "AssessMissionActivityRoute",
+            activities,
+            sosRequests,
+            requirements);
+
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void AssessExecutableMissionResult_BackfillsMissingSupplyRouteDetailsFromExpectedActivities()
+    {
+        var team = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" };
+        var expectedActivities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                Step = 1,
+                ActivityType = "COLLECT_SUPPLIES",
+                SosRequestId = 49,
+                DepotId = 5,
+                DepotName = "Kho Hue",
+                SuggestedTeam = team,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Ao phao",
+                        Quantity = 2,
+                        Unit = "cai"
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 2,
+                ActivityType = "DELIVER_SUPPLIES",
+                SosRequestId = 49,
+                DepotId = 5,
+                DepotName = "Kho Hue",
+                SuggestedTeam = team,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Ao phao",
+                        Quantity = 2,
+                        Unit = "cai"
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 3,
+                ActivityType = "RESCUE",
+                SosRequestId = 49,
+                SuggestedTeam = team
+            },
+            new()
+            {
+                Step = 4,
+                ActivityType = "EVACUATE",
+                SosRequestId = 49,
+                SuggestedTeam = team
+            }
+        };
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto
+                {
+                    Step = 1,
+                    ActivityType = "COLLECT_SUPPLIES",
+                    SosRequestId = 49,
+                    DepotId = 5,
+                    DepotName = "Kho Hue",
+                    SuggestedTeam = team,
+                    SuppliesToCollect =
+                    [
+                        new SupplyToCollectDto
+                        {
+                            ItemId = 15,
+                            ItemName = "Ao phao",
+                            Quantity = 2,
+                            Unit = "cai"
+                        }
+                    ]
+                },
+                new SuggestedActivityDto
+                {
+                    Step = 2,
+                    ActivityType = "DELIVER_SUPPLIES",
+                    SosRequestId = 49,
+                    SuggestedTeam = team
+                },
+                new SuggestedActivityDto
+                {
+                    Step = 3,
+                    ActivityType = "RESCUE",
+                    SosRequestId = 49,
+                    SuggestedTeam = team
+                },
+                new SuggestedActivityDto
+                {
+                    Step = 4,
+                    ActivityType = "EVACUATE",
+                    SosRequestId = 49,
+                    SuggestedTeam = team
+                }
+            ]
+        };
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 49,
+                SosType = "RESCUE",
+                PriorityLevel = "Critical",
+                AiAnalysis = new SosRequestAiAnalysisSummary
+                {
+                    HasAiAnalysis = true,
+                    SuggestedPriority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false
+                }
+            }
+        };
+        var requirements = new MissionRequirementsFragment
+        {
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 49,
+                    Priority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false,
+                    RequiresSupplyBeforeRescue = false,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                }
+            ]
+        };
+
+        var assessment = InvokeStaticResult<object>(
+            nameof(RescueMissionSuggestionService),
+            "AssessExecutableMissionResult",
+            result,
+            sosRequests,
+            expectedActivities,
+            requirements);
+
+        Assert.NotNull(assessment);
+        var isExecutable = (bool)assessment!.GetType().GetProperty("IsExecutable")!.GetValue(assessment)!;
+        Assert.True(isExecutable);
+
+        var deliveredSupply = Assert.Single(result.SuggestedActivities[1].SuppliesToCollect!);
+        Assert.Equal(5, result.SuggestedActivities[1].DepotId);
+        Assert.Equal("Kho Hue", result.SuggestedActivities[1].DepotName);
+        Assert.Equal(15, deliveredSupply.ItemId);
+        Assert.Equal(2, deliveredSupply.Quantity);
+    }
+
+    [Fact]
+    public void AssessMissionActivityRoute_AllowsUrgentRescueWithoutEvacuateBeforeLaterReliefWork()
+    {
+        var team = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" };
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                Step = 1,
+                ActivityType = "RESCUE",
+                SosRequestId = 93,
+                SuggestedTeam = team
+            },
+            new()
+            {
+                Step = 2,
+                ActivityType = "COLLECT_SUPPLIES",
+                SosRequestId = 22,
+                DepotId = 1,
+                DepotName = "Kho A",
+                SuggestedTeam = team,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Nuoc sach",
+                        Quantity = 5,
+                        Unit = "chai"
+                    }
+                ]
+            },
+            new()
+            {
+                Step = 3,
+                ActivityType = "DELIVER_SUPPLIES",
+                SosRequestId = 22,
+                DepotId = 1,
+                DepotName = "Kho A",
+                SuggestedTeam = team,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Nuoc sach",
+                        Quantity = 5,
+                        Unit = "chai"
+                    }
+                ]
+            }
+        };
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 93,
+                SosType = "RESCUE",
+                PriorityLevel = "Critical",
+                AiAnalysis = new SosRequestAiAnalysisSummary
+                {
+                    HasAiAnalysis = true,
+                    SuggestedPriority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false
+                }
+            },
+            new()
+            {
+                Id = 22,
+                SosType = "RELIEF",
+                PriorityLevel = "High",
+                AiAnalysis = new SosRequestAiAnalysisSummary
+                {
+                    HasAiAnalysis = true,
+                    SuggestedPriority = "High",
+                    NeedsImmediateSafeTransfer = false,
+                    CanWaitForCombinedMission = true
+                }
+            }
+        };
+        var requirements = new MissionRequirementsFragment
+        {
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 93,
+                    Priority = "Critical",
+                    NeedsImmediateSafeTransfer = true,
+                    CanWaitForCombinedMission = false,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                },
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 22,
+                    Priority = "High",
+                    NeedsImmediateSafeTransfer = false,
+                    CanWaitForCombinedMission = true,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                }
+            ]
+        };
+
+        var failure = InvokeStaticResult<string?>(
+            nameof(RescueMissionSuggestionService),
+            "AssessMissionActivityRoute",
+            activities,
+            sosRequests,
+            requirements);
+
+        Assert.Null(failure);
     }
 
     [Fact]
@@ -278,168 +974,6 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
-    public void BackfillItemIds_MapsAliasBasedSupplyLabelsToInventoryItems()
-    {
-        var activities = new List<SuggestedActivityDto>
-        {
-            new()
-            {
-                Step = 1,
-                ActivityType = "COLLECT_SUPPLIES",
-                DepotId = 9,
-                DepotName = "Kho A",
-                SuppliesToCollect =
-                [
-                    new SupplyToCollectDto
-                    {
-                        ItemName = "Nuoc",
-                        Quantity = 10,
-                        Unit = "chai"
-                    },
-                    new SupplyToCollectDto
-                    {
-                        ItemName = "Sua",
-                        Quantity = 2,
-                        Unit = "hop"
-                    }
-                ]
-            }
-        };
-        var depots = new List<DepotSummary>
-        {
-            new()
-            {
-                Id = 9,
-                Name = "Kho A",
-                Inventories =
-                [
-                    new DepotInventoryItemDto
-                    {
-                        ItemId = 41,
-                        ItemName = "Nuoc khoang dong chai",
-                        Unit = "chai",
-                        AvailableQuantity = 50
-                    },
-                    new DepotInventoryItemDto
-                    {
-                        ItemId = 42,
-                        ItemName = "Sua dinh duong tre em",
-                        Unit = "hop",
-                        AvailableQuantity = 12
-                    }
-                ]
-            }
-        };
-
-        InvokeStatic(nameof(RescueMissionSuggestionService), "BackfillItemIds", activities, depots);
-
-        var supplies = activities[0].SuppliesToCollect!;
-        Assert.Equal(41, supplies[0].ItemId);
-        Assert.Equal("Nuoc khoang dong chai", supplies[0].ItemName);
-        Assert.Equal(42, supplies[1].ItemId);
-        Assert.Equal("Sua dinh duong tre em", supplies[1].ItemName);
-    }
-
-    [Fact]
-    public void ConvertUnresolvedSuppliesToShortages_RemovesFakeSupplyFromActivities()
-    {
-        var result = new RescueMissionSuggestionResult
-        {
-            SuggestedActivities =
-            [
-                new SuggestedActivityDto
-                {
-                    Step = 1,
-                    ActivityType = "COLLECT_SUPPLIES",
-                    SosRequestId = 7,
-                    DepotId = 9,
-                    DepotName = "Kho A",
-                    SuppliesToCollect =
-                    [
-                        new SupplyToCollectDto
-                        {
-                            ItemName = "Nhu yeu pham thiet yeu",
-                            Quantity = 1,
-                            Unit = "goi"
-                        },
-                        new SupplyToCollectDto
-                        {
-                            ItemId = 50,
-                            ItemName = "Nuoc khoang",
-                            Quantity = 4,
-                            Unit = "chai"
-                        }
-                    ]
-                },
-                new SuggestedActivityDto
-                {
-                    Step = 2,
-                    ActivityType = "DELIVER_SUPPLIES",
-                    SosRequestId = 7,
-                    DepotId = 9,
-                    DepotName = "Kho A",
-                    SuppliesToCollect =
-                    [
-                        new SupplyToCollectDto
-                        {
-                            ItemName = "Nhu yeu pham thiet yeu",
-                            Quantity = 1,
-                            Unit = "goi"
-                        }
-                    ]
-                }
-            ]
-        };
-
-        InvokeStatic(nameof(RescueMissionSuggestionService), "ConvertUnresolvedSuppliesToShortages", result);
-
-        Assert.True(result.NeedsManualReview);
-        var collectSupplies = Assert.Single(result.SuggestedActivities[0].SuppliesToCollect!);
-        Assert.Equal(50, collectSupplies.ItemId);
-        Assert.Null(result.SuggestedActivities[1].SuppliesToCollect);
-        var shortage = Assert.Single(result.SupplyShortages);
-        Assert.Equal("Nhu yeu pham thiet yeu", shortage.ItemName);
-        Assert.Contains("supply_shortages", result.SpecialNotes, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void ApplyNearbyTeamConstraints_NormalizesActivitiesToSingleTeam()
-    {
-        var result = new RescueMissionSuggestionResult
-        {
-            SuggestedActivities =
-            [
-                new SuggestedActivityDto
-                {
-                    Step = 1,
-                    ActivityType = "RESCUE",
-                    ExecutionMode = "SplitAcrossTeams",
-                    RequiredTeamCount = 3,
-                    CoordinationGroupKey = "urgent-cluster",
-                    CoordinationNotes = "Batch SOS gan nhau"
-                }
-            ]
-        };
-
-        RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(
-            result,
-            [
-                new AgentTeamInfo
-                {
-                    TeamId = 7,
-                    TeamName = "Team 7",
-                    TeamType = "Rescue",
-                    IsAvailable = true
-                }
-            ]);
-
-        var activity = Assert.Single(result.SuggestedActivities);
-        Assert.Equal("SingleTeam", activity.ExecutionMode);
-        Assert.Equal(1, activity.RequiredTeamCount);
-        Assert.Equal("urgent-cluster", activity.CoordinationGroupKey);
-    }
-
-    [Fact]
     public void ApplySingleDepotConstraint_FlagsManualReviewWhenMultipleDepotsAppear()
     {
         var result = new RescueMissionSuggestionResult
@@ -490,30 +1024,8 @@ public class RescueMissionSuggestionServiceInternalTests
                 new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 22 }
             ]
         };
-        var sosLookup = new Dictionary<int, SosRequestSummary>
-        {
-            [11] = new()
-            {
-                Id = 11,
-                PriorityLevel = "Critical",
-                AiAnalysis = new SosRequestAiAnalysisSummary
-                {
-                    HasAiAnalysis = true,
-                    SuggestedPriority = "Critical",
-                    NeedsImmediateSafeTransfer = true,
-                    CanWaitForCombinedMission = false,
-                    HandlingReason = "Immediate evacuation required."
-                }
-            },
-            [22] = new()
-            {
-                Id = 22,
-                PriorityLevel = "Medium",
-                AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("Medium")
-            }
-        };
 
-        InvokeStatic(nameof(RescueMissionSuggestionService), "ApplyMixedRescueReliefSafetyNote", result, sosLookup);
+        InvokeStatic(nameof(RescueMissionSuggestionService), "ApplyMixedRescueReliefSafetyNote", result);
 
         Assert.True(result.NeedsManualReview);
         Assert.Contains("SOS #11", result.MixedRescueReliefWarning);
@@ -526,129 +1038,16 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
-    public void BuildMixedRescueReliefWarning_ReturnsEmptyWhenRescueCanWait()
+    public void BuildMixedRescueReliefWarning_KeepsSameSosIdInBothBranches()
     {
         var warning = MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
-            [
-                new SuggestedActivityDto { Step = 1, ActivityType = "MEDICAL_AID", SosRequestId = 15 },
-                new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 15 }
-            ],
-            new Dictionary<int, SosRequestSummary>
-            {
-                [15] = new()
-                {
-                    Id = 15,
-                    PriorityLevel = "High",
-                    AiAnalysis = new SosRequestAiAnalysisSummary
-                    {
-                        HasAiAnalysis = true,
-                        SuggestedPriority = "High",
-                        NeedsImmediateSafeTransfer = false,
-                        CanWaitForCombinedMission = true
-                    }
-                }
-            });
+        [
+            new SuggestedActivityDto { Step = 1, ActivityType = "MEDICAL_AID", SosRequestId = 15 },
+            new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 15 }
+        ]);
 
-        Assert.Equal(string.Empty, warning);
-    }
-
-    [Fact]
-    public void NormalizeActivitySequence_PreservesPipelineOrderAndResequencesSteps()
-    {
-        var team = new SuggestedTeamDto { TeamId = 7, TeamName = "Team 7" };
-        var activities = new List<SuggestedActivityDto>
-        {
-            new() { Step = 1, ActivityType = "RESCUE", SosRequestId = 11, SuggestedTeam = team },
-            new() { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 22, SuggestedTeam = team },
-            new() { Step = 3, ActivityType = "COLLECT_SUPPLIES", SosRequestId = 22, SuggestedTeam = team }
-        };
-
-        InvokeStatic(
-            nameof(RescueMissionSuggestionService),
-            "NormalizeActivitySequence",
-            activities,
-            new Dictionary<int, SosRequestSummary>
-            {
-                [11] = new() { Id = 11, PriorityLevel = "High", AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("High") },
-                [22] = new() { Id = 22, PriorityLevel = "Medium", AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("Medium") }
-            });
-
-        Assert.Equal(["RESCUE", "DELIVER_SUPPLIES", "COLLECT_SUPPLIES"], activities.Select(activity => activity.ActivityType).ToArray());
-        Assert.Equal([1, 2, 3], activities.Select(activity => activity.Step).ToArray());
-    }
-
-    [Fact]
-    public void ApplyMixedMissionMissingAiAnalysisManualReview_FlagsReviewWithoutUrgentWarning()
-    {
-        var result = new RescueMissionSuggestionResult
-        {
-            SuggestedActivities =
-            [
-                new SuggestedActivityDto { Step = 1, ActivityType = "RESCUE", SosRequestId = 11 },
-                new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 22 }
-            ]
-        };
-
-        InvokeStatic(
-            nameof(RescueMissionSuggestionService),
-            "ApplyMixedMissionMissingAiAnalysisManualReview",
-            result,
-            new Dictionary<int, SosRequestSummary>
-            {
-                [11] = new() { Id = 11, PriorityLevel = "High", AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("High") },
-                [22] = new() { Id = 22, PriorityLevel = "Medium", AiAnalysis = SosRequestAiAnalysisHelper.CreateFallback("Medium") }
-            });
-
-        Assert.True(result.NeedsManualReview);
-        Assert.Contains("missing SOS AI analysis", result.SpecialNotes, StringComparison.OrdinalIgnoreCase);
-        Assert.True(string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning));
-    }
-
-    [Fact]
-    public void EnrichVictimTargets_PopulatesTargetVictimsFromStructuredData()
-    {
-        var activities = new List<SuggestedActivityDto>
-        {
-            new()
-            {
-                Step = 1,
-                ActivityType = "RESCUE",
-                SosRequestId = 9,
-                Description = "Tiep can hien truong"
-            }
-        };
-        var sosLookup = new Dictionary<int, SosRequestSummary>
-        {
-            [9] = new()
-            {
-                Id = 9,
-                StructuredData =
-                """
-                {
-                  "incident": {
-                    "people_count": {
-                      "adult": 1,
-                      "child": 1
-                    }
-                  },
-                  "victims": [
-                    {
-                      "person_id": "victim-1",
-                      "person_type": "CHILD",
-                      "custom_name": "Khoa"
-                    }
-                  ]
-                }
-                """
-            }
-        };
-
-        InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
-
-        var activity = Assert.Single(activities);
-        Assert.Contains("Khoa", activity.TargetVictimSummary);
-        Assert.Equal(2, activity.TargetVictims.Count);
-        Assert.Contains("Khoa", activity.Description);
+        Assert.Contains("nhi\u1EC7m v\u1EE5 c\u1EE9u h\u1ED9/c\u1EA5p c\u1EE9u cho SOS #15", warning);
+        Assert.Contains("nhi\u1EC7m v\u1EE5 c\u1EE9u tr\u1EE3/c\u1EA5p ph\u00E1t cho SOS #15", warning);
     }
 
     [Fact]
@@ -769,99 +1168,6 @@ public class RescueMissionSuggestionServiceInternalTests
             });
     }
 
-    [Fact]
-    public void HydrateDeliverySuppliesFromCollectSnapshots_SplitsCollectedLotsAcrossDeliveriesInRouteOrder()
-    {
-        var receivedDate = new DateTime(2026, 4, 20, 0, 0, 0, DateTimeKind.Utc);
-        var team = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" };
-        var activities = new List<SuggestedActivityDto>
-        {
-            new()
-            {
-                Step = 1,
-                ActivityType = "COLLECT_SUPPLIES",
-                DepotId = 1,
-                SuggestedTeam = team,
-                SuppliesToCollect =
-                [
-                    new SupplyToCollectDto
-                    {
-                        ItemId = 15,
-                        ItemName = "Nuoc khoang",
-                        Quantity = 9,
-                        Unit = "chai",
-                        PlannedPickupLotAllocations =
-                        [
-                            new SupplyExecutionLotDto { LotId = 7001, QuantityTaken = 5, ReceivedDate = receivedDate, RemainingQuantityAfterExecution = 95 },
-                            new SupplyExecutionLotDto { LotId = 7002, QuantityTaken = 4, ReceivedDate = receivedDate.AddDays(1), RemainingQuantityAfterExecution = 96 }
-                        ]
-                    }
-                ]
-            },
-            new()
-            {
-                Step = 2,
-                ActivityType = "DELIVER_SUPPLIES",
-                DepotId = 1,
-                SuggestedTeam = team,
-                SuppliesToCollect =
-                [
-                    new SupplyToCollectDto
-                    {
-                        ItemId = 15,
-                        ItemName = "Nuoc khoang",
-                        Quantity = 6,
-                        Unit = "chai"
-                    }
-                ]
-            },
-            new()
-            {
-                Step = 3,
-                ActivityType = "DELIVER_SUPPLIES",
-                DepotId = 1,
-                SuggestedTeam = team,
-                SuppliesToCollect =
-                [
-                    new SupplyToCollectDto
-                    {
-                        ItemId = 15,
-                        ItemName = "Nuoc khoang",
-                        Quantity = 3,
-                        Unit = "chai"
-                    }
-                ]
-            }
-        };
-
-        InvokeStatic(nameof(RescueMissionSuggestionService), "HydrateDeliverySuppliesFromCollectSnapshots", activities);
-
-        var firstDeliveryLots = Assert.Single(activities[1].SuppliesToCollect!).AvailableDeliveryLotAllocations;
-        Assert.NotNull(firstDeliveryLots);
-        Assert.Collection(
-            firstDeliveryLots!,
-            lot =>
-            {
-                Assert.Equal(7001, lot.LotId);
-                Assert.Equal(5, lot.QuantityTaken);
-            },
-            lot =>
-            {
-                Assert.Equal(7002, lot.LotId);
-                Assert.Equal(1, lot.QuantityTaken);
-            });
-
-        var secondDeliveryLots = Assert.Single(activities[2].SuppliesToCollect!).AvailableDeliveryLotAllocations;
-        Assert.NotNull(secondDeliveryLots);
-        Assert.Collection(
-            secondDeliveryLots!,
-            lot =>
-            {
-                Assert.Equal(7002, lot.LotId);
-                Assert.Equal(3, lot.QuantityTaken);
-            });
-    }
-
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
     {
         var method = typeof(RescueMissionSuggestionService).GetMethod(
@@ -872,15 +1178,15 @@ public class RescueMissionSuggestionServiceInternalTests
         return (RescueMissionSuggestionResult)method!.Invoke(null, [response])!;
     }
 
-    private static T DeserializePipelineFragment<T>(string response)
+    private static T DeserializePipelineFragment<T>(string rawResponse)
     {
-        var method = typeof(RescueMissionSuggestionService).GetMethod(
-            "DeserializePipelineFragment",
-            BindingFlags.NonPublic | BindingFlags.Static);
+        var method = typeof(RescueMissionSuggestionService)
+            .GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+            .FirstOrDefault(m => m.Name == "DeserializePipelineFragment" && m.IsGenericMethodDefinition);
 
         Assert.NotNull(method);
-        var genericMethod = method!.MakeGenericMethod(typeof(T));
-        return (T)genericMethod.Invoke(null, [response])!;
+        var generic = method!.MakeGenericMethod(typeof(T));
+        return (T)generic.Invoke(null, [rawResponse])!;
     }
 
     private static void InvokeStatic(string typeName, string methodName, params object?[] args)
@@ -892,5 +1198,16 @@ public class RescueMissionSuggestionServiceInternalTests
 
         Assert.NotNull(method);
         method!.Invoke(null, args);
+    }
+
+    private static T? InvokeStaticResult<T>(string typeName, string methodName, params object?[] args)
+    {
+        _ = typeName;
+        var method = typeof(RescueMissionSuggestionService).GetMethod(
+            methodName,
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        return (T?)method!.Invoke(null, args);
     }
 }
