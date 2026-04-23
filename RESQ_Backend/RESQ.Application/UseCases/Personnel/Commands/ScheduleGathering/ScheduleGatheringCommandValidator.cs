@@ -12,21 +12,18 @@ public class ScheduleGatheringCommandValidator : AbstractValidator<ScheduleGathe
             .WithMessage("AssemblyPointId không hợp lệ.");
 
         RuleFor(x => x.AssemblyDate)
-            .Must(BeOnOrAfterTodayInVietnam)
-            .WithMessage("Ngày triệu tập không được là ngày quá khứ.");
+            .Must(BeInTheFutureOrNow)
+            .WithMessage("Thời gian triệu tập không được là thời điểm trong quá khứ.");
 
         RuleFor(x => x.CheckInDeadline)
             .Must(d => d.ToUtcForStorage() > DateTime.UtcNow)
             .WithMessage("Thời hạn check-in phải là thời điểm trong tương lai.")
             .Must((cmd, deadline) => deadline.ToUtcForStorage() >= cmd.AssemblyDate.ToUtcForStorage())
-            .WithMessage("Thời hạn check-in phải sau hoặc bằng thời gian triệu tập (assemblyDate) — có thể đặt buffer thêm giờ để rescuer vẫn có thể check-in muộn.");
+            .WithMessage("Thời hạn check-in phải sau hoặc bằng thời gian triệu tập (assemblyDate) để rescuer vẫn có thể check-in trước khi quá deadline.");
     }
 
-    private static bool BeOnOrAfterTodayInVietnam(DateTime assemblyDate)
+    private static bool BeInTheFutureOrNow(DateTime assemblyDate)
     {
-        var assemblyDateInVietnam = assemblyDate.ToUtcForStorage().ToVietnamTime().Date;
-        var todayInVietnam = DateTime.UtcNow.ToVietnamTime().Date;
-
-        return assemblyDateInVietnam >= todayInVietnam;
+        return assemblyDate.ToUtcForStorage() >= DateTime.UtcNow;
     }
 }

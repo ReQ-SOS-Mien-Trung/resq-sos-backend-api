@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Entities.Exceptions;
+using RESQ.Domain.Entities.Exceptions;
 
 namespace RESQ.Domain.Entities.Logistics.Exceptions
 {

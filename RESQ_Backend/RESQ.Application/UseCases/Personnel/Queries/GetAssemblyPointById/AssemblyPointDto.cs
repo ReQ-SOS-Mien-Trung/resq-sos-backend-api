@@ -33,8 +33,10 @@ public class AssemblyPointDto
     public string Status { get; set; } = string.Empty;
     public string? ImageUrl { get; set; }
     public DateTime? LastUpdatedAt { get; set; }
-    /// <summary>True khi điểm tập kết đang có sự kiện triệu tập (Scheduled/Gathering).</summary>
+
+    /// <summary>True khi điểm tập kết đang có sự kiện triệu tập đang hoạt động.</summary>
     public bool HasActiveEvent { get; set; }
+
     public string? StatusReason { get; set; }
     public DateTime? StatusChangedAt { get; set; }
     public Guid? StatusChangedBy { get; set; }

@@ -7,7 +7,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.GoogleLogin
         public GoogleLoginCommandValidator()
         {
             RuleFor(x => x.IdToken)
-                .NotEmpty().WithMessage("Token Google ID là bắt buộc");
+                .NotEmpty().WithMessage("Token Google ID l├á bß║»t buß╗Öc");
         }
     }
 }

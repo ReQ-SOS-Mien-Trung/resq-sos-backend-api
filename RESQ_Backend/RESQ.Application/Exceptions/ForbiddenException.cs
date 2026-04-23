@@ -1,4 +1,4 @@
-﻿namespace RESQ.Application.Exceptions;
+namespace RESQ.Application.Exceptions;
 
 public class ForbiddenException : Exception
 {

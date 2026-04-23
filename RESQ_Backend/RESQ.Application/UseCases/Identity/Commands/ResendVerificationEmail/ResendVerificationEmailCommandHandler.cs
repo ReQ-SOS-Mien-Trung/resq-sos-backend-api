@@ -33,7 +33,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail
                 return new ResendVerificationEmailResponse
                 {
                     Success = true,
-                    Message = "Nếu email tồn tại trong hệ thống, email xác minh sẽ được gửi đi."
+                    Message = "Nß║┐u email tß╗ôn tß║íi trong hß╗ç thß╗æng, email x├íc minh sß║╜ ─æ╞░ß╗úc gß╗¡i ─æi."
                 };
             }
 
@@ -41,7 +41,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail
             if (user.IsEmailVerified)
             {
                 _logger.LogInformation("Email already verified for Email={email}", user.Email);
-                throw new BadRequestException("Email đã được xác minh");
+                throw new BadRequestException("Email ─æ├ú ─æ╞░ß╗úc x├íc minh");
             }
 
             // Generate new verification token
@@ -57,7 +57,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail
 
             if (succeedCount < 1)
             {
-                throw new BadRequestException("Không thể tạo mã xác minh. Vui lòng thử lại.");
+                throw new BadRequestException("Kh├┤ng thß╗â tß║ío m├ú x├íc minh. Vui l├▓ng thß╗¡ lß║íi.");
             }
 
             // Send verification email
@@ -69,13 +69,13 @@ namespace RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to resend verification email to {email}", user.Email);
-                throw new NetworkException("Không thể gửi email xác minh. Vui lòng thử lại sau.");
+                throw new NetworkException("Kh├┤ng thß╗â gß╗¡i email x├íc minh. Vui l├▓ng thß╗¡ lß║íi sau.");
             }
 
             return new ResendVerificationEmailResponse
             {
                 Success = true,
-                Message = "Email xác minh đã được gửi thành công. Vui lòng kiểm tra hộp thư đến."
+                Message = "Email x├íc minh ─æ├ú ─æ╞░ß╗úc gß╗¡i th├ánh c├┤ng. Vui l├▓ng kiß╗âm tra hß╗Öp th╞░ ─æß║┐n."
             };
         }
 

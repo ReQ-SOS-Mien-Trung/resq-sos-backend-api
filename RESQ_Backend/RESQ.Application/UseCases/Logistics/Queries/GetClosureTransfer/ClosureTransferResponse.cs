@@ -17,11 +17,13 @@ public class ClosureTransferResponse
     // Source side
     public DateTime? ShippedAt { get; set; }
     public Guid? ShippedBy { get; set; }
+    public string? ShippedByName { get; set; }
     public string? ShipNote { get; set; }
 
     // Target side
     public DateTime? ReceivedAt { get; set; }
     public Guid? ReceivedBy { get; set; }
+    public string? ReceivedByName { get; set; }
     public string? ReceiveNote { get; set; }
 
     // Cancel

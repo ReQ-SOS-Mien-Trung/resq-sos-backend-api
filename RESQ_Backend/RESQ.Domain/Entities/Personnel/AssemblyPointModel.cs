@@ -1,4 +1,4 @@
-﻿using RESQ.Domain.Entities.Personnel.ValueObjects;
+using RESQ.Domain.Entities.Personnel.ValueObjects;
 using RESQ.Domain.Entities.Personnel.Exceptions;
 using RESQ.Domain.Enum.Personnel;
 
@@ -26,7 +26,7 @@ public class AssemblyPointModel
     public Guid? StatusChangedBy { get; set; }
 
     /// <summary>
-    /// True khi điểm tập kết đang có sự kiện triệu tập (Scheduled hoặc Gathering).
+    /// True khi điểm tập kết đang có sự kiện triệu tập đang hoạt động.
     /// Giá trị này được tính toán khi query, không lưu vào DB.
     /// </summary>
     public bool HasActiveEvent { get; set; }
