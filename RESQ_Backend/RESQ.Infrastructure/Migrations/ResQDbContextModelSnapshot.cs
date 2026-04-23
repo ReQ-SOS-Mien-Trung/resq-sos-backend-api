@@ -217,6 +217,11 @@ namespace RESQ.Infrastructure.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("suggested_mission_title");
 
+                    b.Property<string>("SuggestedMissionType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("suggested_mission_type");
+
                     b.Property<int?>("SuggestedPrimaryTeamId")
                         .HasColumnType("integer")
                         .HasColumnName("suggested_primary_team_id");
@@ -224,6 +229,11 @@ namespace RESQ.Infrastructure.Migrations
                     b.Property<double?>("SuggestedPriorityScore")
                         .HasColumnType("double precision")
                         .HasColumnName("suggested_priority_score");
+
+                    b.Property<string>("SuggestedSeverityLevel")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("suggested_severity_level");
 
                     b.Property<string>("SuggestionScope")
                         .HasColumnType("text")
@@ -4749,6 +4759,44 @@ namespace RESQ.Infrastructure.Migrations
                     b.ToTable("assembly_points");
                 });
 
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Personnel.AssemblyPointCheckInRadiusConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssemblyPointId")
+                        .HasColumnType("integer")
+                        .HasColumnName("assembly_point_id");
+
+                    b.Property<double>("MaxRadiusMeters")
+                        .HasColumnType("double precision")
+                        .HasColumnName("max_radius_meters");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("assembly_point_check_in_radius_configs_pkey");
+
+                    b.HasIndex("AssemblyPointId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_assembly_point_check_in_radius_configs_assembly_point_id");
+
+                    b.ToTable("assembly_point_check_in_radius_configs", t =>
+                        {
+                            t.HasCheckConstraint("CK_assembly_point_check_in_radius_configs_max_radius_meters_positive", "\"max_radius_meters\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Personnel.RescueTeam", b =>
                 {
                     b.Property<int>("Id")
@@ -6312,6 +6360,18 @@ namespace RESQ.Infrastructure.Migrations
                     b.Navigation("Rescuer");
                 });
 
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Personnel.AssemblyPointCheckInRadiusConfig", b =>
+                {
+                    b.HasOne("RESQ.Infrastructure.Entities.Personnel.AssemblyPoint", "AssemblyPoint")
+                        .WithOne("CheckInRadiusConfig")
+                        .HasForeignKey("RESQ.Infrastructure.Entities.Personnel.AssemblyPointCheckInRadiusConfig", "AssemblyPointId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_assembly_point_check_in_radius_configs_assembly_point");
+
+                    b.Navigation("AssemblyPoint");
+                });
+
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Personnel.RescueTeam", b =>
                 {
                     b.HasOne("RESQ.Infrastructure.Entities.Personnel.AssemblyPoint", "AssemblyPoint")
@@ -6661,6 +6721,8 @@ namespace RESQ.Infrastructure.Migrations
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Personnel.AssemblyPoint", b =>
                 {
+                    b.Navigation("CheckInRadiusConfig");
+
                     b.Navigation("RescueTeams");
                 });
 
