@@ -53,16 +53,6 @@ builder.Services.AddScoped<IDashboardHubService, DashboardHubService>();
 builder.Services.AddScoped<IAdminRealtimeHubService, AdminRealtimeHubService>();
 builder.Services.AddScoped<IOperationalHubService, OperationalHubService>();
 
-//jwt swagger
-// CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod());
-});
-
 // Swagger + JWT support
 builder.Services.AddSwaggerGen(c =>
 {
