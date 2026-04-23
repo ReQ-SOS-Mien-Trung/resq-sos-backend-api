@@ -109,11 +109,13 @@ public class CreateSosRequestCommandHandler(
             created.Id, evaluation.TotalScore, evaluation.PriorityLevel);
 
         // Queue AI analysis to run in background (non-blocking)
+        // Use created.* (from DB) instead of request.* so the fingerprint
+        // matches what SosAiAnalysisService will compute from the DB later.
         await _aiAnalysisQueue.QueueAsync(SosAiAnalysisTask.Create(
             created.Id,
-            request.StructuredData,
-            request.RawMessage,
-            request.SosType,
+            created.StructuredData,
+            created.RawMessage,
+            created.SosType,
             evaluation));
 
         _logger.LogInformation("Queued AI analysis task for SOS Request Id={sosRequestId}", created.Id);
