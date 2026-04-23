@@ -38,10 +38,15 @@ public class MissionSuggestionDto
     public string? PipelineFailureReason { get; set; }
     public string? SuggestionScope { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public List<ActivitySuggestionDto> Activities { get; set; } = [];
+}
 
-    /// <summary>Flat list of suggested activities from the latest Validated phase, matching POST response format.</summary>
+public class ActivitySuggestionDto
+{
+    public int Id { get; set; }
+    public string? ActivityType { get; set; }
+    public string? SuggestionPhase { get; set; }
     public List<SuggestedActivityDto> SuggestedActivities { get; set; } = [];
-
-    /// <summary>Number of SOS requests covered by this suggestion.</summary>
-    public int SosRequestCount { get; set; }
+    public double? ConfidenceScore { get; set; }
+    public DateTime? CreatedAt { get; set; }
 }

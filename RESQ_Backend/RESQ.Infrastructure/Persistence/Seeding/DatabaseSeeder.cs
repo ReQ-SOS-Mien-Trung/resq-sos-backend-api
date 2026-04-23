@@ -1013,22 +1013,19 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var events = new List<AssemblyEvent>();
         var hueStadium = GetHueStadiumAssemblyPoint(seed);
         AssemblyEvent? activeHueEvent = null;
-        var currentUtc = DateTime.UtcNow;
-        var currentVietnamLocal = currentUtc.AddHours(7);
 
         if (hueStadium is not null)
         {
-            var activeAssemblyLocal = currentVietnamLocal.Date.AddDays(1).AddHours(6).AddMinutes(30);
-            var assemblyDate = VnToUtc(activeAssemblyLocal);
-            var checkInDeadline = VnToUtc(activeAssemblyLocal.AddMinutes(45));
+            var assemblyDate = TrimUtcToMinute(seed.AnchorUtc.AddMinutes(-30));
+            var checkInDeadline = assemblyDate.AddMinutes(45);
             activeHueEvent = new AssemblyEvent
             {
                 AssemblyPointId = hueStadium.Id,
                 AssemblyDate = assemblyDate,
                 Status = "Gathering",
                 CreatedBy = seed.Coordinators[0].Id,
-                CreatedAt = currentUtc.AddHours(-2),
-                UpdatedAt = currentUtc.AddMinutes(-5),
+                CreatedAt = seed.AnchorUtc.AddHours(-2),
+                UpdatedAt = seed.AnchorUtc.AddMinutes(-5),
                 CheckInDeadline = checkInDeadline
             };
             events.Add(activeHueEvent);
@@ -1041,11 +1038,15 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         for (var i = 0; i < 44; i++)
         {
-            var assemblyDate = RandomEventUtc(seed, i).AddHours(6 + i % 3);
-            var checkInDeadline = assemblyDate.AddMinutes(45);
-            var status = checkInDeadline <= currentUtc
+            var plannedAssemblyDate = RandomEventUtc(seed, i).AddHours(6 + i % 3);
+            var plannedCheckInDeadline = plannedAssemblyDate.AddMinutes(45);
+            var status = plannedCheckInDeadline <= seed.AnchorUtc
                 ? "Completed"
                 : "Gathering";
+            var assemblyDate = status == "Gathering"
+                ? TrimUtcToMinute(seed.AnchorUtc.AddMinutes(-(26 + i % 15)))
+                : plannedAssemblyDate;
+            var checkInDeadline = assemblyDate.AddMinutes(45);
             events.Add(new AssemblyEvent
             {
                 AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id,
@@ -1054,10 +1055,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 CreatedBy = seed.Coordinators[i % seed.Coordinators.Count].Id,
                 CreatedAt = assemblyDate.AddHours(-8),
                 UpdatedAt = status == "Completed"
-                    ? assemblyDate.AddHours(8)
-                    : status == "Gathering"
-                        ? currentUtc.AddMinutes(-10)
-                        : assemblyDate.AddHours(-2),
+                    ? ClampHistoricalUtc(assemblyDate.AddHours(8), assemblyDate, seed.AnchorUtc)
+                    : ClampHistoricalUtc(seed.AnchorUtc.AddMinutes(-(10 + i % 5)), assemblyDate, seed.AnchorUtc),
                 CheckInDeadline = checkInDeadline
             });
         }
@@ -1101,9 +1100,19 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     RescuerId = rescuer.Id,
                     Status = absent ? "Absent" : "CheckedIn",
                     IsCheckedIn = !absent,
-                    CheckInTime = absent ? null : assemblyEvent.AssemblyDate.AddMinutes(late ? 55 : 20 + i),
+                    CheckInTime = absent
+                        ? null
+                        : ClampHistoricalUtc(
+                            assemblyEvent.AssemblyDate.AddMinutes(
+                                assemblyEvent.Status == "Gathering"
+                                    ? late ? 35 : 12 + i * 2
+                                    : late ? 55 : 20 + i),
+                            assemblyEvent.AssemblyDate,
+                            seed.AnchorUtc),
                     IsCheckedOut = !absent && assemblyEvent.Status == "Completed",
-                    CheckOutTime = !absent && assemblyEvent.Status == "Completed" ? assemblyEvent.AssemblyDate.AddHours(8) : null
+                    CheckOutTime = !absent && assemblyEvent.Status == "Completed"
+                        ? ClampHistoricalUtc(assemblyEvent.AssemblyDate.AddHours(8), assemblyEvent.AssemblyDate, seed.AnchorUtc)
+                        : null
                 });
             }
         }
@@ -1575,7 +1584,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ElderlyCount = i % 7,
                 MedicalUrgencyScore = Math.Round(0.35 + (i % 60) / 100.0, 2),
                 CreatedAt = VnToUtc(localDate),
-                LastUpdatedAt = VnToUtc(localDate.AddHours(clusterStatus == SosClusterStatus.Completed.ToString() ? 8 : 3)),
+                LastUpdatedAt = ClampHistoricalUtc(
+                    VnToUtc(localDate.AddHours(clusterStatus == SosClusterStatus.Completed.ToString() ? 8 : 3)),
+                    VnToUtc(localDate),
+                    seed.AnchorUtc),
                 Status = clusterStatus
             };
             seed.SosClusters.Add(cluster);
@@ -1593,11 +1605,12 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 var historicalCreatedAt = VnToUtc(localDate.AddMinutes(j * 18));
                 var timeline = IsRecentOpenSosStatus(status)
                     ? BuildRecentOpenSosTimeline(seed.AnchorUtc, i, j, status, onBehalf)
-                    : (
-                        CreatedAt: historicalCreatedAt,
-                        ReceivedAt: historicalCreatedAt.AddMinutes(onBehalf ? 2 : 0),
-                        ReviewedAt: status == "Pending" ? null : historicalCreatedAt.AddMinutes(20 + i % 30),
-                        LastUpdatedAt: historicalCreatedAt.AddHours(status == "Resolved" ? 8 : 1));
+                    : BuildClampedHistoricalSosTimeline(
+                        historicalCreatedAt,
+                        TimeSpan.FromMinutes(onBehalf ? 2 : 0),
+                        status == "Pending" ? null : TimeSpan.FromMinutes(20 + i % 30),
+                        TimeSpan.FromHours(status == "Resolved" ? 8 : 1),
+                        seed.AnchorUtc);
                 var createdAt = timeline.CreatedAt;
                 var people = 1 + (i + j) % 6;
                 var hasInjured = situation is "Medical" or "Landslide" || (i + j) % 11 == 0;
@@ -1726,11 +1739,12 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 var historicalCreatedAt = VnToUtc(localDate);
                 var timeline = IsRecentOpenSosStatus(status)
                     ? BuildRecentOpenSosTimeline(seed.AnchorUtc, 10_000 + i, 0, status, false)
-                    : (
-                        CreatedAt: historicalCreatedAt,
-                        ReceivedAt: historicalCreatedAt,
-                        ReviewedAt: status == "Pending" ? null : historicalCreatedAt.AddMinutes(16 + i),
-                        LastUpdatedAt: historicalCreatedAt.AddHours(status == "Resolved" ? 6 : 2));
+                    : BuildClampedHistoricalSosTimeline(
+                        historicalCreatedAt,
+                        TimeSpan.Zero,
+                        status == "Pending" ? null : TimeSpan.FromMinutes(16 + i),
+                        TimeSpan.FromHours(status == "Resolved" ? 6 : 2),
+                        seed.AnchorUtc);
                 var createdAt = timeline.CreatedAt;
                 var location = Point(uniqueHueStadiumCoordinates[i].Lon, uniqueHueStadiumCoordinates[i].Lat);
 
@@ -1795,7 +1809,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 SosRequestId = sos.Id,
                 UserId = companion.Id,
                 PhoneNumber = companion.Phone,
-                AddedAt = (sos.CreatedAt ?? seed.StartUtc).AddMinutes(4)
+                AddedAt = ClampHistoricalUtc(
+                    (sos.CreatedAt ?? seed.StartUtc).AddMinutes(4),
+                    sos.CreatedAt ?? seed.StartUtc,
+                    seed.AnchorUtc)
             });
         }
         _db.SosRequestCompanions.AddRange(companions.GroupBy(c => new { c.SosRequestId, c.UserId }).Select(g => g.First()));
@@ -1818,7 +1835,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ItemsNeeded = Json(new[] { "Water", "Food", "Medicine" }),
                 BreakdownJson = Json(new { priority = sos.PriorityLevel, reason = "Generated by deterministic demo seed" }),
                 DetailsJson = sos.StructuredData,
-                CreatedAt = createdAt.AddMinutes(1)
+                CreatedAt = ClampHistoricalUtc(createdAt.AddMinutes(1), createdAt, seed.AnchorUtc)
             });
 
             for (var u = 0; u < 2; u++)
@@ -1828,7 +1845,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     SosRequestId = sos.Id,
                     Type = u == 0 ? "CoordinatorNote" : sos.Status == "Resolved" ? "Rescued" : "TeamApproaching",
                     Content = u == 0 ? "Đã tiếp nhận thông tin và kiểm tra vị trí." : SosUpdateContent(sos.Status),
-                    CreatedAt = createdAt.AddMinutes(15 + u * 35),
+                    CreatedAt = ClampHistoricalUtc(createdAt.AddMinutes(15 + u * 35), createdAt, seed.AnchorUtc),
                     Status = "Visible"
                 });
             }
@@ -1848,8 +1865,16 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ConfidenceScore = 0.72 + (sos.Id % 24) / 100.0,
                 SuggestionScope = "DemoSeed",
                 Metadata = Json(new { risk_factors = new[] { "flood", "vulnerable_people", "limited_access" } }),
-                CreatedAt = (sos.CreatedAt ?? seed.StartUtc).AddMinutes(2),
-                AdoptedAt = sos.Status == "Pending" ? null : (sos.ReviewedAt ?? sos.CreatedAt)?.AddMinutes(1)
+                CreatedAt = ClampHistoricalUtc(
+                    (sos.CreatedAt ?? seed.StartUtc).AddMinutes(2),
+                    sos.CreatedAt ?? seed.StartUtc,
+                    seed.AnchorUtc),
+                AdoptedAt = sos.Status == "Pending"
+                    ? null
+                    : ClampHistoricalUtc(
+                        (sos.ReviewedAt ?? sos.CreatedAt)?.AddMinutes(1),
+                        sos.ReviewedAt ?? sos.CreatedAt ?? seed.StartUtc,
+                        seed.AnchorUtc)
             });
         }
 
@@ -2049,6 +2074,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             var sos = sosByVictim.GetValueOrDefault(victim.Id) ?? seed.SosRequests[i % seed.SosRequests.Count];
             var mission = seed.Missions.FirstOrDefault(m => m.ClusterId == sos.ClusterId);
             var status = i < 20 ? "AiAssist" : i < 50 ? "WaitingCoordinator" : i < 95 ? "CoordinatorActive" : "Closed";
+            var conversationCreatedAt = ClampHistoricalUtc(
+                (sos.CreatedAt ?? seed.StartUtc).AddMinutes(8),
+                sos.CreatedAt ?? seed.StartUtc,
+                seed.AnchorUtc);
             seed.Conversations.Add(new Conversation
             {
                 VictimId = victim.Id,
@@ -2056,8 +2085,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 Status = status,
                 SelectedTopic = status == "AiAssist" ? "SosRequestSupport" : "Cần cập nhật ETA và vật phẩm",
                 LinkedSosRequestId = sos.Id,
-                CreatedAt = (sos.CreatedAt ?? seed.StartUtc).AddMinutes(8),
-                UpdatedAt = (sos.CreatedAt ?? seed.StartUtc).AddHours(status == "Closed" ? 9 : 1)
+                CreatedAt = conversationCreatedAt,
+                UpdatedAt = ClampHistoricalUtc(
+                    conversationCreatedAt.AddHours(status == "Closed" ? 9 : 1),
+                    conversationCreatedAt,
+                    seed.AnchorUtc)
             });
         }
 
@@ -2081,7 +2113,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ConversationId = conversation.Id,
                 UserId = coordinator.Id,
                 RoleInConversation = "Coordinator",
-                JoinedAt = conversation.CreatedAt?.AddMinutes(conversation.Status == "WaitingCoordinator" ? 30 : 3),
+                JoinedAt = ClampHistoricalUtc(
+                    conversation.CreatedAt?.AddMinutes(conversation.Status == "WaitingCoordinator" ? 30 : 3),
+                    conversation.CreatedAt ?? seed.StartUtc,
+                    seed.AnchorUtc),
                 LeftAt = conversation.Status == "Closed" ? conversation.UpdatedAt : null
             });
         }
@@ -2102,7 +2137,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     SenderId = messageType == "SystemMessage" ? null : messageType == "AiMessage" ? null : i % 2 == 0 ? victim.Id : coordinator.Id,
                     Content = ChatMessage(i, conversation.Status),
                     MessageType = messageType,
-                    CreatedAt = (conversation.CreatedAt ?? seed.StartUtc).AddMinutes(i * 4)
+                    CreatedAt = ClampHistoricalUtc(
+                        (conversation.CreatedAt ?? seed.StartUtc).AddMinutes(i * 4),
+                        conversation.CreatedAt ?? seed.StartUtc,
+                        seed.AnchorUtc)
                 });
             }
         }
@@ -2151,6 +2189,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
 
             var created = RandomEventUtc(seed, i + 220);
+            var timeline = BuildSupplyRequestTimeline(created, status.SourceStatus, seed.AnchorUtc);
             var sourceManager = seed.Managers[(source.Id - 1) % seed.Managers.Count];
             var requestingManager = seed.Managers[(requesting.Id - 1) % seed.Managers.Count];
             seed.SupplyRequests.Add(new DepotSupplyRequest
@@ -2170,19 +2209,13 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 CreatedAt = created,
                 AutoRejectAt = status.SourceStatus == "Pending" ? created.AddHours(i % 3 == 0 ? 2 : 6) : null,
                 HighEscalationNotified = status.SourceStatus is "Accepted" or "Preparing" or "Shipping" or "Pending",
-                HighEscalationNotifiedAt = status.SourceStatus is "Accepted" or "Preparing" or "Shipping" or "Pending"
-                    ? created.AddMinutes(60)
-                    : null,
+                HighEscalationNotifiedAt = timeline.HighEscalationNotifiedAt,
                 UrgentEscalationNotified = status.SourceStatus == "Pending",
-                UrgentEscalationNotifiedAt = status.SourceStatus == "Pending" ? created.AddMinutes(25) : null,
-                RespondedAt = status.SourceStatus == "Pending" ? null : created.AddMinutes(30),
-                ShippedAt = status.SourceStatus is "Shipping" or "Completed" ? created.AddHours(3) : null,
-                CompletedAt = status.SourceStatus == "Completed" ? created.AddHours(7) : null,
-                UpdatedAt = status.SourceStatus == "Completed"
-                    ? created.AddHours(7)
-                    : status.SourceStatus == "Shipping"
-                        ? created.AddHours(3)
-                        : created.AddHours(1),
+                UrgentEscalationNotifiedAt = timeline.UrgentEscalationNotifiedAt,
+                RespondedAt = timeline.RespondedAt,
+                ShippedAt = timeline.ShippedAt,
+                CompletedAt = timeline.CompletedAt,
+                UpdatedAt = timeline.UpdatedAt,
                 AcceptedBy = status.SourceStatus is "Accepted" or "Preparing" or "Shipping" or "Completed" ? sourceManager.Id : null,
                 RejectedBy = null,
                 PreparedBy = status.SourceStatus is "Preparing" or "Shipping" or "Completed" ? sourceManager.Id : null,
@@ -2211,6 +2244,41 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static (
+        DateTime? HighEscalationNotifiedAt,
+        DateTime? UrgentEscalationNotifiedAt,
+        DateTime? RespondedAt,
+        DateTime? ShippedAt,
+        DateTime? CompletedAt,
+        DateTime UpdatedAt)
+        BuildSupplyRequestTimeline(DateTime createdAt, string sourceStatus, DateTime anchorUtc)
+    {
+        DateTime? highEscalationNotifiedAt = sourceStatus is "Accepted" or "Preparing" or "Shipping" or "Pending"
+            ? ClampHistoricalUtc(createdAt.AddMinutes(60), createdAt, anchorUtc)
+            : null;
+        DateTime? urgentEscalationNotifiedAt = sourceStatus == "Pending"
+            ? ClampHistoricalUtc(createdAt.AddMinutes(25), createdAt, anchorUtc)
+            : null;
+        DateTime? respondedAt = sourceStatus == "Pending"
+            ? null
+            : ClampHistoricalUtc(createdAt.AddMinutes(30), createdAt, anchorUtc);
+        DateTime? shippedAt = sourceStatus is "Shipping" or "Completed"
+            ? ClampHistoricalUtc(createdAt.AddHours(3), respondedAt ?? createdAt, anchorUtc)
+            : null;
+        DateTime? completedAt = sourceStatus == "Completed"
+            ? ClampHistoricalUtc(createdAt.AddHours(7), shippedAt ?? respondedAt ?? createdAt, anchorUtc)
+            : null;
+        var updatedAtCandidate = sourceStatus switch
+        {
+            "Completed" => createdAt.AddHours(7),
+            "Shipping" => createdAt.AddHours(3),
+            _ => createdAt.AddHours(1)
+        };
+        var updatedAtLowerBound = completedAt ?? shippedAt ?? respondedAt ?? highEscalationNotifiedAt ?? urgentEscalationNotifiedAt ?? createdAt;
+        var updatedAt = ClampHistoricalUtc(updatedAtCandidate, updatedAtLowerBound, anchorUtc);
+        return (highEscalationNotifiedAt, urgentEscalationNotifiedAt, respondedAt, shippedAt, completedAt, updatedAt);
     }
 
     private async Task SeedFinanceAsync(DemoSeedContext seed, CancellationToken cancellationToken)
@@ -2689,7 +2757,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             consumablePlans,
             missionExportTarget);
 
-        BuildAdjustmentHistory(consumablePlans.Values.ToList());
+        BuildAdjustmentHistory(consumablePlans.Values.ToList(), seed.AnchorUtc);
 
         var inventoryLogs = new List<InventoryLog>(820);
         BuildConsumableInventoryHistory(seed, vatInvoiceIds, consumablePlans.Values.ToList(), inventoryLogs);
@@ -2742,8 +2810,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     continue;
                 }
 
-                var shippedAt = request.ShippedAt ?? request.CompletedAt ?? request.CreatedAt.AddHours(3);
-                var completedAt = request.CompletedAt ?? shippedAt.AddHours(4);
+                var shippedAt = ClampHistoricalUtc(
+                    request.ShippedAt ?? request.CompletedAt ?? request.CreatedAt.AddHours(3),
+                    request.CreatedAt,
+                    seed.AnchorUtc);
+                var completedAt = ClampHistoricalUtc(
+                    request.CompletedAt ?? shippedAt.AddHours(4),
+                    shippedAt,
+                    seed.AnchorUtc);
 
                 sourcePlan.OutboundEvents.Add(new ConsumableOutboundEvent
                 {
@@ -2829,7 +2903,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
     }
 
-    private static void BuildAdjustmentHistory(IReadOnlyList<ConsumableInventoryHistoryPlan> plans)
+    private static void BuildAdjustmentHistory(IReadOnlyList<ConsumableInventoryHistoryPlan> plans, DateTime anchorUtc)
     {
         foreach (var plan in plans
                      .OrderBy(p => p.Inventory.Id)
@@ -2837,10 +2911,15 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                      .Take(45))
         {
             var quantity = Math.Min(3 + plan.Inventory.Id % 8, Math.Max(2, Math.Max(1, plan.FinalQuantity / 30)));
+            var baseCreatedAt = plan.Inventory.LastStockedAt ?? plan.BaseLot.ReceivedDate ?? anchorUtc.AddDays(-90);
+            var createdAtCandidate = baseCreatedAt.AddDays(18 + plan.Inventory.Id % 40);
+            var fallbackCreatedAt = TrimUtcToMinute(anchorUtc.AddHours(-(6 + plan.Inventory.Id % 96)));
             plan.Adjustments.Add(new ConsumableAdjustmentEvent
             {
                 Quantity = quantity,
-                CreatedAt = (plan.Inventory.LastStockedAt ?? plan.BaseLot.ReceivedDate ?? DateTime.UtcNow).AddDays(18 + plan.Inventory.Id % 40),
+                CreatedAt = createdAtCandidate <= anchorUtc
+                    ? createdAtCandidate
+                    : ClampHistoricalUtc(fallbackCreatedAt, baseCreatedAt, anchorUtc),
                 PerformedBy = plan.PerformedBy,
                 Note = $"Điều chỉnh giảm {plan.ItemModel.Name} sau kiểm kê do hư hỏng hoặc quá hạn"
             });
@@ -3938,8 +4017,37 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         return (createdAt, receivedAt, reviewedAt, lastUpdatedAt);
     }
 
+    private static (DateTime CreatedAt, DateTime ReceivedAt, DateTime? ReviewedAt, DateTime LastUpdatedAt) BuildClampedHistoricalSosTimeline(
+        DateTime createdAtCandidate,
+        TimeSpan receivedOffset,
+        TimeSpan? reviewedOffset,
+        TimeSpan lastUpdatedOffset,
+        DateTime anchorUtc)
+    {
+        var createdAt = ClampHistoricalUtc(createdAtCandidate, anchorUtc);
+        var receivedAt = ClampHistoricalUtc(createdAtCandidate.Add(receivedOffset), createdAt, anchorUtc);
+        DateTime? reviewedAt = reviewedOffset.HasValue
+            ? ClampHistoricalUtc(createdAtCandidate.Add(reviewedOffset.Value), receivedAt, anchorUtc)
+            : null;
+        var lastUpdatedLowerBound = reviewedAt ?? receivedAt;
+        var lastUpdatedAt = ClampHistoricalUtc(createdAtCandidate.Add(lastUpdatedOffset), lastUpdatedLowerBound, anchorUtc);
+        return (createdAt, receivedAt, reviewedAt, lastUpdatedAt);
+    }
+
     private static DateTime TrimUtcToMinute(DateTime value) =>
         new DateTime(value.Ticks - value.Ticks % TimeSpan.TicksPerMinute, DateTimeKind.Utc);
+
+    private static DateTime ClampHistoricalUtc(DateTime candidateUtc, DateTime anchorUtc) =>
+        candidateUtc <= anchorUtc ? candidateUtc : anchorUtc;
+
+    private static DateTime ClampHistoricalUtc(DateTime candidateUtc, DateTime floorUtc, DateTime anchorUtc)
+    {
+        var capped = ClampHistoricalUtc(candidateUtc, anchorUtc);
+        return capped < floorUtc ? floorUtc : capped;
+    }
+
+    private static DateTime? ClampHistoricalUtc(DateTime? candidateUtc, DateTime floorUtc, DateTime anchorUtc) =>
+        candidateUtc.HasValue ? ClampHistoricalUtc(candidateUtc.Value, floorUtc, anchorUtc) : null;
 
     private static DateTime MinUtc(DateTime left, DateTime right) => left <= right ? left : right;
 

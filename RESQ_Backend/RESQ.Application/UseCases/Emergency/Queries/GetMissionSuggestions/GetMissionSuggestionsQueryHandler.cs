@@ -34,34 +34,23 @@ public class GetMissionSuggestionsQueryHandler(
             var metadata = MissionAiSuggestionJsonHelper.ParseMetadata(m.Metadata);
             var pipeline = metadata?.Pipeline;
 
-            // Pick the Validated phase if exists, otherwise fall back to the latest activity group
-            var validatedActivity = m.Activities
-                .Where(a => a.SuggestionPhase == "Validated")
-                .OrderByDescending(a => a.CreatedAt)
-                .FirstOrDefault();
+            var activityGroups = m.Activities.Select(a => new ActivitySuggestionDto
+            {
+                Id = a.Id,
+                ActivityType = a.ActivityType,
+                SuggestionPhase = a.SuggestionPhase,
+                ConfidenceScore = a.ConfidenceScore,
+                CreatedAt = a.CreatedAt,
+                SuggestedActivities = MissionAiSuggestionJsonHelper.ParseActivities(a.SuggestedActivities)
+            }).ToList();
 
-            var bestActivity = validatedActivity
-                ?? m.Activities.OrderByDescending(a => a.CreatedAt).FirstOrDefault();
+            var mixedRescueReliefWarning = MissionSuggestionWarningHelper.ResolveMixedRescueReliefWarning(
+                activityGroups.SelectMany(activityGroup => activityGroup.SuggestedActivities),
+                metadata?.MixedRescueReliefWarning);
 
-            var suggestedActivities = bestActivity != null
-                ? MissionAiSuggestionJsonHelper.ParseActivities(bestActivity.SuggestedActivities)
-                : [];
-
-            var confidenceScore = bestActivity?.ConfidenceScore ?? m.ConfidenceScore;
             var isSuccess = metadata?.IsSuccess
                 ?? !string.Equals(pipeline?.PipelineStatus, "failed", StringComparison.OrdinalIgnoreCase);
             var errorMessage = metadata?.ErrorMessage;
-
-            var mixedRescueReliefWarning = MissionSuggestionWarningHelper.ResolveMixedRescueReliefWarning(
-                suggestedActivities,
-                metadata?.MixedRescueReliefWarning);
-
-            // Count distinct SOS requests from activities
-            var sosRequestCount = suggestedActivities
-                .Where(a => a.SosRequestId.HasValue)
-                .Select(a => a.SosRequestId!.Value)
-                .Distinct()
-                .Count();
 
             return new MissionSuggestionDto
             {
@@ -73,7 +62,7 @@ public class GetMissionSuggestionsQueryHandler(
                 SuggestedMissionType = m.SuggestedMissionType,
                 SuggestedPriorityScore = m.SuggestedPriorityScore,
                 SuggestedSeverityLevel = m.SuggestedSeverityLevel,
-                ConfidenceScore = confidenceScore,
+                ConfidenceScore = m.ConfidenceScore,
                 IsSuccess = isSuccess,
                 ErrorMessage = errorMessage,
                 OverallAssessment = metadata?.OverallAssessment,
@@ -91,8 +80,7 @@ public class GetMissionSuggestionsQueryHandler(
                 PipelineFailureReason = pipeline?.FailureReason,
                 SuggestionScope = m.SuggestionScope,
                 CreatedAt = m.CreatedAt,
-                SuggestedActivities = suggestedActivities,
-                SosRequestCount = sosRequestCount
+                Activities = activityGroups
             };
         }).ToList();
 

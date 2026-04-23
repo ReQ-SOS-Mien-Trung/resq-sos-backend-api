@@ -63,7 +63,7 @@ public class DatabaseSeederTests
         }
 
         var recentRescuerCutoff = new DateTime(2026, 3, 16, 0, 0, 0, DateTimeKind.Utc);
-        var seedAnchorUtc = new DateTime(2026, 4, 16, 16, 59, 59, DateTimeKind.Utc);
+        var seedAnchorUtc = SeedAnchorUtc();
         var recentRescuers = await context.Users
             .Where(u => u.RoleId == 3 && u.CreatedAt >= recentRescuerCutoff && u.CreatedAt <= seedAnchorUtc)
             .OrderBy(u => u.CreatedAt)
@@ -130,15 +130,14 @@ public class DatabaseSeederTests
             zone => Assert.Equal("Tỉnh Lâm Đồng", zone.Name));
         Assert.All(serviceZones, zone => Assert.False(string.IsNullOrWhiteSpace(zone.CoordinatesJson)));
 
-        var nowUtc = DateTime.UtcNow;
         var overdueOpenEvents = await context.AssemblyEvents
-            .Where(e => e.CheckInDeadline <= nowUtc && e.Status != "Completed")
+            .Where(e => e.CheckInDeadline <= seedAnchorUtc && e.Status != "Completed")
             .ToListAsync();
         Assert.Empty(overdueOpenEvents);
 
         var hueActiveEvent = await context.AssemblyEvents
             .SingleAsync(e => e.AssemblyPointId == hueStadium.Id && e.Status == "Gathering");
-        Assert.True(hueActiveEvent.CheckInDeadline > nowUtc);
+        Assert.True(hueActiveEvent.CheckInDeadline > seedAnchorUtc);
 
         var hueAvailableTeams = await context.RescueTeams
             .Where(team => team.AssemblyPointId == hueStadium.Id && team.Status == "Available")
@@ -585,7 +584,7 @@ public class DatabaseSeederTests
 
         await CreateSeeder(context).SeedAsync();
 
-        var anchorUtc = new DateTime(2026, 4, 16, 16, 59, 59, DateTimeKind.Utc).AddTicks(TimeSpan.TicksPerSecond - 1);
+        var anchorUtc = SeedAnchorUtc();
         var expiringThreshold = anchorUtc.AddDays(30);
         var expectedLots = new[]
         {
@@ -629,6 +628,103 @@ public class DatabaseSeederTests
             Assert.Equal(expected.ReceivedDate, importLog.ReceivedDate);
             Assert.Equal(expected.ExpiredDate, importLog.ExpiredDate);
         }
+    }
+
+    [Fact]
+    public async Task SeedAsync_KeepsOperationalAuditTimestampsWithinSeedAnchor()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+
+        await CreateSeeder(context).SeedAsync();
+
+        var seedAnchorUtc = SeedAnchorUtc();
+        var futureInventoryLogs = await context.InventoryLogs
+            .Select(log => new { log.Id, CreatedAt = (DateTime?)log.CreatedAt, log.ReceivedDate })
+            .Where(log => log.CreatedAt > seedAnchorUtc || log.ReceivedDate > seedAnchorUtc)
+            .ToListAsync();
+        var futureSupplyRequestActuals = await context.DepotSupplyRequests
+            .Select(request => new
+            {
+                request.Id,
+                request.HighEscalationNotifiedAt,
+                request.UrgentEscalationNotifiedAt,
+                request.RespondedAt,
+                request.ShippedAt,
+                request.CompletedAt,
+                request.UpdatedAt
+            })
+            .Where(request =>
+                request.HighEscalationNotifiedAt > seedAnchorUtc
+                || request.UrgentEscalationNotifiedAt > seedAnchorUtc
+                || request.RespondedAt > seedAnchorUtc
+                || request.ShippedAt > seedAnchorUtc
+                || request.CompletedAt > seedAnchorUtc
+                || request.UpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureAssemblyAudit = await context.AssemblyEvents
+            .Select(assemblyEvent => new { assemblyEvent.Id, CreatedAt = (DateTime?)assemblyEvent.CreatedAt, UpdatedAt = (DateTime?)assemblyEvent.UpdatedAt })
+            .Where(assemblyEvent => assemblyEvent.CreatedAt > seedAnchorUtc || assemblyEvent.UpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureAssemblyParticipantAudit = await context.AssemblyParticipants
+            .Select(participant => new { participant.AssemblyEventId, participant.RescuerId, participant.CheckInTime, participant.CheckOutTime })
+            .Where(participant => participant.CheckInTime > seedAnchorUtc || participant.CheckOutTime > seedAnchorUtc)
+            .ToListAsync();
+        var futureSosAudit = await context.SosRequests
+            .Select(sos => new { sos.Id, CreatedAt = (DateTime?)sos.CreatedAt, sos.ReceivedAt, sos.ReviewedAt, sos.LastUpdatedAt })
+            .Where(sos => sos.CreatedAt > seedAnchorUtc || sos.ReceivedAt > seedAnchorUtc || sos.ReviewedAt > seedAnchorUtc || sos.LastUpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureClusterAudit = await context.SosClusters
+            .Select(cluster => new { cluster.Id, CreatedAt = (DateTime?)cluster.CreatedAt, LastUpdatedAt = (DateTime?)cluster.LastUpdatedAt })
+            .Where(cluster => cluster.CreatedAt > seedAnchorUtc || cluster.LastUpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureDerivedSosAudit = await context.SosRequestCompanions
+            .Select(companion => new { companion.SosRequestId, companion.UserId, AddedAt = (DateTime?)companion.AddedAt })
+            .Where(companion => companion.AddedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureRuleEvaluations = await context.SosRuleEvaluations
+            .Select(evaluation => new { evaluation.SosRequestId, CreatedAt = (DateTime?)evaluation.CreatedAt })
+            .Where(evaluation => evaluation.CreatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureSosUpdates = await context.SosRequestUpdates
+            .Select(update => new { update.SosRequestId, CreatedAt = (DateTime?)update.CreatedAt })
+            .Where(update => update.CreatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureSosAi = await context.SosAiAnalyses
+            .Select(analysis => new { analysis.SosRequestId, CreatedAt = (DateTime?)analysis.CreatedAt, analysis.AdoptedAt })
+            .Where(analysis => analysis.CreatedAt > seedAnchorUtc || analysis.AdoptedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureConversationAudit = await context.Conversations
+            .Select(conversation => new { conversation.Id, conversation.CreatedAt, conversation.UpdatedAt })
+            .Where(conversation => conversation.CreatedAt > seedAnchorUtc || conversation.UpdatedAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureConversationParticipants = await context.ConversationParticipants
+            .Select(participant => new { participant.ConversationId, participant.UserId, participant.JoinedAt, participant.LeftAt })
+            .Where(participant => participant.JoinedAt > seedAnchorUtc || participant.LeftAt > seedAnchorUtc)
+            .ToListAsync();
+        var futureMessages = await context.Messages
+            .Select(message => new { message.Id, CreatedAt = (DateTime?)message.CreatedAt })
+            .Where(message => message.CreatedAt > seedAnchorUtc)
+            .ToListAsync();
+
+        Assert.Empty(futureInventoryLogs);
+        Assert.Empty(futureSupplyRequestActuals);
+        Assert.Empty(futureAssemblyAudit);
+        Assert.Empty(futureAssemblyParticipantAudit);
+        Assert.Empty(futureSosAudit);
+        Assert.Empty(futureClusterAudit);
+        Assert.Empty(futureDerivedSosAudit);
+        Assert.Empty(futureRuleEvaluations);
+        Assert.Empty(futureSosUpdates);
+        Assert.Empty(futureSosAi);
+        Assert.Empty(futureConversationAudit);
+        Assert.Empty(futureConversationParticipants);
+        Assert.Empty(futureMessages);
+
+        Assert.True(await context.SupplyInventoryLots.AnyAsync(lot => lot.ExpiredDate > seedAnchorUtc));
+        Assert.True(await context.AssemblyEvents.AnyAsync(assemblyEvent =>
+            assemblyEvent.Status == "Gathering"
+            && assemblyEvent.CheckInDeadline > seedAnchorUtc));
     }
 
     [Fact]
@@ -741,6 +837,9 @@ public class DatabaseSeederTests
             new DemoSeedValidator(),
             NullLogger<DatabaseSeeder>.Instance);
     }
+
+    private static DateTime SeedAnchorUtc() =>
+        new DateTime(2026, 4, 16, 16, 59, 59, DateTimeKind.Utc).AddTicks(TimeSpan.TicksPerSecond - 1);
 
     private static ResQDbContext CreateContext()
     {

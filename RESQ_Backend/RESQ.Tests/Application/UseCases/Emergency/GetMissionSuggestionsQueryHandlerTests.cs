@@ -163,8 +163,9 @@ public class GetMissionSuggestionsQueryHandlerTests
         Assert.Equal("VEHICLE", resource.ResourceType);
         Assert.Equal("Xe tai nhe", resource.Description);
 
-        var collectActivity = Assert.Single(mission.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
-        var rescueActivity = Assert.Single(mission.SuggestedActivities, activity => activity.ActivityType == "RESCUE");
+        var activityGroup = Assert.Single(mission.Activities);
+        var collectActivity = Assert.Single(activityGroup.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
+        var rescueActivity = Assert.Single(activityGroup.SuggestedActivities, activity => activity.ActivityType == "RESCUE");
 
         Assert.Equal("25 phut", collectActivity.EstimatedTime);
         Assert.Equal("SplitAcrossTeams", collectActivity.ExecutionMode);
