@@ -13,8 +13,14 @@ public class GetMissionTeamReportDashboardSummaryHandler(
         GetMissionTeamReportDashboardSummaryQuery request,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation("GetMissionTeamReportDashboardSummary: fetching mission team report summary");
+        logger.LogInformation(
+            "GetMissionTeamReportDashboardSummary: fetching mission team report summary reportStatuses={reportStatuses}",
+            request.ReportStatuses is { Count: > 0 }
+                ? string.Join(", ", request.ReportStatuses)
+                : "ALL");
 
-        return await dashboardRepository.GetMissionTeamReportDashboardSummaryAsync(cancellationToken);
+        return await dashboardRepository.GetMissionTeamReportDashboardSummaryAsync(
+            request.ReportStatuses,
+            cancellationToken);
     }
 }

@@ -10,6 +10,7 @@ using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportsDashbo
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerMissionScores;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuersDailyStatistics;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosRequestsSummary;
+using RESQ.Domain.Enum.Operations;
 
 namespace RESQ.Presentation.Controllers.Personnel;
 
@@ -78,10 +79,12 @@ public class PersonnelDashboardController(IMediator mediator) : ControllerBase
     /// <summary>
     /// [Dashboard - Thẻ báo cáo] Tổng quan trạng thái báo cáo mission team sau khi hoàn tất thực thi.
     /// </summary>
+    /// <param name="reportStatuses">Danh sách trạng thái báo cáo cần lọc: NotStarted, Draft, Submitted.</param>
     [HttpGet("mission-team-reports/summary")]
-    public async Task<IActionResult> GetMissionTeamReportsSummary()
+    public async Task<IActionResult> GetMissionTeamReportsSummary(
+        [FromQuery] List<MissionTeamReportStatus>? reportStatuses = null)
     {
-        var result = await _mediator.Send(new GetMissionTeamReportDashboardSummaryQuery());
+        var result = await _mediator.Send(new GetMissionTeamReportDashboardSummaryQuery(reportStatuses));
         return Ok(result);
     }
 

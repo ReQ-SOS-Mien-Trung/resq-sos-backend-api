@@ -29,6 +29,25 @@ public class DashboardRepositoryMissionTeamReportTests
     }
 
     [Fact]
+    public async Task GetMissionTeamReportDashboardSummaryAsync_AppliesReportStatusFilter()
+    {
+        await using var context = CreateContext();
+        SeedMissionTeamReportDashboardData(context);
+        await context.SaveChangesAsync();
+
+        var repository = new DashboardRepository(context);
+
+        var result = await repository.GetMissionTeamReportDashboardSummaryAsync(
+            [MissionTeamReportStatus.Draft, MissionTeamReportStatus.Submitted]);
+
+        Assert.Equal(2, result.TotalCompletedTeams);
+        Assert.Equal(0, result.NotStartedCount);
+        Assert.Equal(1, result.DraftCount);
+        Assert.Equal(1, result.SubmittedCount);
+        Assert.Equal(50, result.SubmissionRate);
+    }
+
+    [Fact]
     public async Task GetMissionTeamReportsDashboardAsync_ReturnsOnlyPostExecutionTeams_InExpectedSortOrder()
     {
         await using var context = CreateContext();
