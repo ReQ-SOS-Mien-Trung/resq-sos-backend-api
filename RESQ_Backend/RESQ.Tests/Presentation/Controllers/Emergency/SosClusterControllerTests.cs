@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Emergency.Commands.AddSosRequestToCluster;
 using RESQ.Application.UseCases.Emergency.Commands.RemoveSosRequestFromCluster;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 using RESQ.Domain.Enum.Emergency;
@@ -75,6 +76,42 @@ public class SosClusterControllerTests
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var sentCommand = Assert.IsType<RemoveSosRequestFromClusterCommand>(Assert.Single(mediator.SentRequests));
+
+        Assert.Equal(7, sentCommand.ClusterId);
+        Assert.Equal(101, sentCommand.SosRequestId);
+        Assert.Equal(Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"), sentCommand.RequestedByUserId);
+        Assert.Same(response, okResult.Value);
+    }
+
+    [Fact]
+    public async Task AddSosRequestToCluster_ForwardsRouteValuesAndUserIdToMediator()
+    {
+        var response = new AddSosRequestToClusterResponse
+        {
+            ClusterId = 7,
+            AddedSosRequestId = 101
+        };
+        var mediator = new RecordingMediator(_ => response);
+        var controller = new SosClusterController(mediator)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(
+                        new ClaimsIdentity(
+                        [
+                            new Claim(ClaimTypes.NameIdentifier, "aaaaaaaa-1111-1111-1111-111111111111")
+                        ],
+                        "test"))
+                }
+            }
+        };
+
+        var result = await controller.AddSosRequestToCluster(7, 101);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var sentCommand = Assert.IsType<AddSosRequestToClusterCommand>(Assert.Single(mediator.SentRequests));
 
         Assert.Equal(7, sentCommand.ClusterId);
         Assert.Equal(101, sentCommand.SosRequestId);
