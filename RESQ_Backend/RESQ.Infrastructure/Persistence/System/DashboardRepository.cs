@@ -407,9 +407,12 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
 
     /// <inheritdoc/>
     public async Task<MissionTeamReportDashboardSummaryResponse> GetMissionTeamReportDashboardSummaryAsync(
+        IReadOnlyCollection<MissionTeamReportStatus>? reportStatuses = null,
         CancellationToken cancellationToken = default)
     {
-        var rows = await BuildMissionTeamReportDashboardQuery()
+        var rows = await ApplyMissionTeamReportStatusFilter(
+                BuildMissionTeamReportDashboardQuery(),
+                reportStatuses)
             .ToListAsync(cancellationToken);
 
         var totalCompletedTeams = rows.Count;
@@ -493,6 +496,23 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
             .ToListAsync(cancellationToken);
 
         return new PagedResult<MissionTeamReportDashboardItemDto>(items, totalCount, pageNumber, pageSize);
+    }
+
+    private static IQueryable<MissionTeamReportDashboardRow> ApplyMissionTeamReportStatusFilter(
+        IQueryable<MissionTeamReportDashboardRow> query,
+        IReadOnlyCollection<MissionTeamReportStatus>? reportStatuses)
+    {
+        if (reportStatuses is null || reportStatuses.Count == 0)
+        {
+            return query;
+        }
+
+        var statusNames = reportStatuses
+            .Select(status => status.ToString())
+            .Distinct()
+            .ToList();
+
+        return query.Where(row => statusNames.Contains(row.ReportStatus));
     }
 
     private IQueryable<MissionTeamReportDashboardRow> BuildMissionTeamReportDashboardQuery()
