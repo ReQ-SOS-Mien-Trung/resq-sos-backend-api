@@ -32,6 +32,7 @@ public class GetMissionSuggestionsQueryHandler(
         var missionDtos = suggestions.Select(m =>
         {
             var metadata = MissionAiSuggestionJsonHelper.ParseMetadata(m.Metadata);
+            var pipeline = metadata?.Pipeline;
 
             // Pick the Validated phase if exists, otherwise fall back to the latest activity group
             var validatedActivity = m.Activities
@@ -47,6 +48,9 @@ public class GetMissionSuggestionsQueryHandler(
                 : [];
 
             var confidenceScore = bestActivity?.ConfidenceScore ?? m.ConfidenceScore;
+            var isSuccess = metadata?.IsSuccess
+                ?? !string.Equals(pipeline?.PipelineStatus, "failed", StringComparison.OrdinalIgnoreCase);
+            var errorMessage = metadata?.ErrorMessage;
 
             var mixedRescueReliefWarning = MissionSuggestionWarningHelper.ResolveMixedRescueReliefWarning(
                 suggestedActivities,
@@ -70,6 +74,8 @@ public class GetMissionSuggestionsQueryHandler(
                 SuggestedPriorityScore = m.SuggestedPriorityScore,
                 SuggestedSeverityLevel = m.SuggestedSeverityLevel,
                 ConfidenceScore = confidenceScore,
+                IsSuccess = isSuccess,
+                ErrorMessage = errorMessage,
                 OverallAssessment = metadata?.OverallAssessment,
                 EstimatedDuration = metadata?.EstimatedDuration,
                 SpecialNotes = metadata?.SpecialNotes,
@@ -79,6 +85,10 @@ public class GetMissionSuggestionsQueryHandler(
                 NeedsAdditionalDepot = metadata?.NeedsAdditionalDepot ?? false,
                 SupplyShortages = metadata?.SupplyShortages ?? [],
                 SuggestedResources = metadata?.SuggestedResources ?? [],
+                PipelineStatus = pipeline?.PipelineStatus,
+                PipelineFinalResultSource = pipeline?.FinalResultSource,
+                PipelineFailedStage = pipeline?.FailedStage,
+                PipelineFailureReason = pipeline?.FailureReason,
                 SuggestionScope = m.SuggestionScope,
                 CreatedAt = m.CreatedAt,
                 SuggestedActivities = suggestedActivities,

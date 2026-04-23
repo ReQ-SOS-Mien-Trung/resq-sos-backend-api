@@ -17,7 +17,6 @@ public class TestPromptCommandHandler(
 {
     private static readonly HashSet<PromptType> MissionPromptTypes =
     [
-        PromptType.MissionPlanning,
         PromptType.MissionRequirementsAssessment,
         PromptType.MissionDepotPlanning,
         PromptType.MissionTeamPlanning,
@@ -187,6 +186,11 @@ public class TestPromptCommandHandler(
             NeedsManualReview = result.NeedsManualReview,
             LowConfidenceWarning = result.LowConfidenceWarning,
             MultiDepotRecommended = result.MultiDepotRecommended,
+            PipelineExecutionMode = result.PipelineMetadata?.ExecutionMode,
+            PipelineStatus = result.PipelineMetadata?.PipelineStatus,
+            PipelineFinalResultSource = result.PipelineMetadata?.FinalResultSource,
+            PipelineFailedStage = result.PipelineMetadata?.FailedStage,
+            PipelineFailureReason = result.PipelineMetadata?.FailureReason,
             PipelineMetadata = result.PipelineMetadata
         };
     }

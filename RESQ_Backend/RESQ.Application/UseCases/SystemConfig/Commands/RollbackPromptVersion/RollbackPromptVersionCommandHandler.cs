@@ -7,6 +7,7 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.SystemConfig.Commands.PromptVersioning;
+using RESQ.Domain.Enum.System;
 
 namespace RESQ.Application.UseCases.SystemConfig.Commands.RollbackPromptVersion;
 
@@ -29,6 +30,11 @@ public class RollbackPromptVersionCommandHandler(
         {
             var target = await _promptRepository.GetByIdAsync(request.Id, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy prompt với Id={request.Id}");
+
+            if (target.PromptType == PromptType.MissionPlanning)
+            {
+                throw new BadRequestException("Prompt type 'MissionPlanning' da bi ngung ho tro va khong the rollback.");
+            }
 
             if (target.IsActive)
             {

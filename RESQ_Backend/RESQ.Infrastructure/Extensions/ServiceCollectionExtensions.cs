@@ -51,7 +51,6 @@ public static class ServiceCollectionExtensions
             aiSecretsSection.Exists()
                 ? aiSecretsSection
                 : configuration.GetSection("PromptSecrets"));
-        services.Configure<MissionSuggestionPipelineOptions>(configuration.GetSection("MissionSuggestionPipeline"));
         services.AddOptions<SeedDataOptions>();
         services.AddHttpClient("Goong", client =>
         {

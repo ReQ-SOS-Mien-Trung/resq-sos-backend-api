@@ -34,6 +34,9 @@ public class GenerateRescueMissionSuggestionResponse
     /// <summary>true khi AI được gợi ý phối hợp nhiều kho vì không kho nào đủ đồ cho một lần cấp phát.</summary>
     public bool MultiDepotRecommended { get; set; }
     public string? PipelineExecutionMode { get; set; }
+    public string? PipelineStatus { get; set; }
     public string? PipelineFinalResultSource { get; set; }
+    public string? PipelineFailedStage { get; set; }
+    public string? PipelineFailureReason { get; set; }
     public bool? PipelineUsedLegacyFallback { get; set; }
 }

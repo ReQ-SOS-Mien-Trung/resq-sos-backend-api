@@ -85,7 +85,7 @@ public class UpdatePromptCommandHandlerTests
                 Version: null,
                 IsActive: null), CancellationToken.None));
 
-        Assert.Equal(PromptType.MissionPlanning, storedPrompt.PromptType);
+        Assert.Equal(PromptType.MissionTeamPlanning, storedPrompt.PromptType);
         Assert.Equal(0, promptRepository.UpdateCalls);
         Assert.Equal(0, unitOfWork.SaveCalls);
     }
@@ -131,7 +131,7 @@ public class UpdatePromptCommandHandlerTests
     {
         Id = 1,
         Name = "Stored prompt",
-        PromptType = PromptType.MissionPlanning,
+        PromptType = PromptType.MissionTeamPlanning,
         Purpose = "Stored purpose",
         SystemPrompt = "stored system",
         UserPromptTemplate = "stored user",

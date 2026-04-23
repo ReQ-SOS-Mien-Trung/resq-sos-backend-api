@@ -15,6 +15,10 @@ public class CreatePromptCommandValidator : AbstractValidator<CreatePromptComman
         RuleFor(x => x.PromptType)
             .IsInEnum().WithMessage("Loại prompt (PromptType) không hợp lệ.");
 
+        RuleFor(x => x.PromptType)
+            .NotEqual(PromptType.MissionPlanning)
+            .WithMessage("Prompt type 'MissionPlanning' da bi ngung ho tro. Hay su dung cac prompt stage trong pipeline.");
+
         RuleFor(x => x.Purpose)
             .NotEmpty().WithMessage("Mục đích không được để trống.");
 

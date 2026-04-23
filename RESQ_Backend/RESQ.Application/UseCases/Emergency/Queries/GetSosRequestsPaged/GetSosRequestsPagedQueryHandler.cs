@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Repositories.Emergency;
+using RESQ.Domain.Enum.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
 
@@ -23,11 +24,19 @@ public class GetSosRequestsPagedQueryHandler(
         var normalizedStatuses = request.Statuses?
             .Distinct()
             .ToArray();
+        var normalizedPriorities = request.Priorities?
+            .Distinct()
+            .ToArray();
+        var normalizedSosTypes = request.SosTypes?
+            .Distinct()
+            .ToArray();
 
         var pagedResult = await _sosRequestRepository.GetAllPagedAsync(
             request.PageNumber,
             request.PageSize,
             normalizedStatuses,
+            normalizedPriorities,
+            normalizedSosTypes,
             cancellationToken);
         var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
             pagedResult.Items.Select(x => x.Id),

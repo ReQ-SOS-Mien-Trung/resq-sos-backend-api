@@ -71,9 +71,11 @@ public class SosClusterController(IMediator mediator) : ControllerBase
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] int? sosRequestId = null,
-        [FromQuery] List<SosClusterStatus>? statuses = null)
+        [FromQuery] List<SosClusterStatus>? statuses = null,
+        [FromQuery] List<SosPriorityLevel>? priorities = null,
+        [FromQuery] List<SosRequestType>? sosTypes = null)
     {
-        var result = await _mediator.Send(new GetSosClustersQuery(pageNumber, pageSize, sosRequestId, statuses));
+        var result = await _mediator.Send(new GetSosClustersQuery(pageNumber, pageSize, sosRequestId, statuses, priorities, sosTypes));
         return Ok(result);
     }
 

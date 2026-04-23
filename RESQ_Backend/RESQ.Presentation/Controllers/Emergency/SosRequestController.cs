@@ -120,7 +120,9 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
                 MaxLat = query.MaxLat,
                 MinLng = query.MinLng,
                 MaxLng = query.MaxLng,
-                Statuses = query.Statuses
+                Statuses = query.Statuses,
+                Priorities = query.Priorities,
+                SosTypes = query.SosTypes
             });
 
             return Ok(boundsResult);
@@ -130,7 +132,9 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
         {
             PageNumber = query.PageNumber,
             PageSize = query.PageSize,
-            Statuses = query.Statuses
+            Statuses = query.Statuses,
+            Priorities = query.Priorities,
+            SosTypes = query.SosTypes
         });
 
         return Ok(pagedResult);

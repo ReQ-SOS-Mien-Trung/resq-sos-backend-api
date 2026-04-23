@@ -19,6 +19,10 @@ public class UpdatePromptCommandValidator : AbstractValidator<UpdatePromptComman
             .Must(promptType => !promptType.HasValue || Enum.IsDefined(typeof(PromptType), promptType.Value))
             .WithMessage("Loại prompt (PromptType) không hợp lệ.");
 
+        RuleFor(x => x.PromptType)
+            .Must(promptType => !promptType.HasValue || promptType.Value != PromptType.MissionPlanning)
+            .WithMessage("Prompt type 'MissionPlanning' da bi ngung ho tro. Hay su dung cac prompt stage trong pipeline.");
+
         RuleFor(x => x.Version)
             .MaximumLength(20).WithMessage("Phiên bản không được vượt quá 20 ký tự.")
             .When(x => x.Version != null);

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -6,7 +6,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Emergency;
@@ -18,7 +17,6 @@ using RESQ.Application.Services.Ai;
 using RESQ.Domain.Entities.System;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Domain.Enum.System;
-using RESQ.Infrastructure.Options;
 
 namespace RESQ.Infrastructure.Services;
 
@@ -32,12 +30,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private readonly IDepotInventoryRepository _depotInventoryRepository;
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository;
     private readonly IAssemblyPointRepository _assemblyPointRepository;
-    private readonly MissionSuggestionPipelineOptions _pipelineOptions;
     private readonly ILogger<RescueMissionSuggestionService> _logger;
 
     private const double LowConfidenceThreshold = 0.65;
 
-    private const int MaxAgentTurns = 20;
     private const int AgentPageSize = 10;
     private const string CollectSuppliesActivityType = "COLLECT_SUPPLIES";
     private const string ReturnSuppliesActivityType = "RETURN_SUPPLIES";
@@ -118,7 +114,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         IDepotInventoryRepository depotInventoryRepository,
         IItemModelMetadataRepository itemModelMetadataRepository,
         IAssemblyPointRepository assemblyPointRepository,
-        IOptions<MissionSuggestionPipelineOptions> pipelineOptions,
         ILogger<RescueMissionSuggestionService> logger)
     {
         _aiProviderClientFactory = aiProviderClientFactory;
@@ -129,7 +124,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         _depotInventoryRepository = depotInventoryRepository;
         _itemModelMetadataRepository = itemModelMetadataRepository;
         _assemblyPointRepository = assemblyPointRepository;
-        _pipelineOptions = pipelineOptions.Value;
         _logger = logger;
     }
 
@@ -195,6 +189,15 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 else if (evt.EventType == "error")
                 {
                     stopwatch.Stop();
+                    if (evt.Result != null)
+                    {
+                        evt.Result.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
+                        if (!options.PersistSuggestion)
+                            evt.Result.SuggestionId = null;
+
+                        return evt.Result;
+                    }
+
                     return new RescueMissionSuggestionResult
                     {
                         IsSuccess = false,
@@ -3525,23 +3528,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return Regex.Replace(result, @"  +", " ").Trim();
     }
 
-    private bool ShouldUsePipeline(MissionSuggestionExecutionOptions options)
-    {
-        if (options.PromptOverride?.PromptType == PromptType.MissionPlanning)
-            return false;
-
-        return options.PromptOverride is not null || _pipelineOptions.UseMissionSuggestionPipeline;
-    }
-
-    private async Task<PromptModel?> GetLegacyPromptAsync(
-        MissionSuggestionExecutionOptions options,
-        CancellationToken cancellationToken)
-    {
-        if (options.PromptOverride?.PromptType == PromptType.MissionPlanning)
-            return options.PromptOverride;
-
-        return await _promptRepository.GetActiveByTypeAsync(PromptType.MissionPlanning, cancellationToken);
-    }
+    private static bool IsPipelinePromptType(PromptType promptType) =>
+        promptType is PromptType.MissionRequirementsAssessment
+            or PromptType.MissionDepotPlanning
+            or PromptType.MissionTeamPlanning
+            or PromptType.MissionPlanValidation;
 
     private async Task<AiConfigModel?> GetEffectiveAiConfigAsync(
         MissionSuggestionExecutionOptions options,
@@ -3552,13 +3543,14 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         return await _aiConfigRepository.GetActiveAsync(cancellationToken);
     }
+
     // --- SSE helpers -----------------------------------------------------------
 
     private static SseMissionEvent Status(string msg) =>
         new() { EventType = "status", Data = msg };
 
-    private static SseMissionEvent Error(string msg) =>
-        new() { EventType = "error", Data = msg };
+    private static SseMissionEvent Error(string msg, RescueMissionSuggestionResult? result = null) =>
+        new() { EventType = "error", Data = msg, Result = result };
 
     // --- Streaming (SSE agent loop) --------------------------------------------
 
@@ -3593,275 +3585,31 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var availableNearbyTeams = nearbyTeams ?? [];
+
+        if (options.PromptOverride is not null
+            && !IsPipelinePromptType(options.PromptOverride.PromptType))
+        {
+            var unsupportedPromptResult = CreateFailureResult(
+                $"Prompt type '{options.PromptOverride.PromptType}' khong con duoc ho tro cho mission suggestion pipeline.");
+            yield return Error(unsupportedPromptResult.ErrorMessage ?? "Mission suggestion pipeline failed.", unsupportedPromptResult);
+            yield break;
+        }
+
         var aiConfig = await GetEffectiveAiConfigAsync(options, cancellationToken);
         if (aiConfig == null)
         {
-            yield return Error("Chưa có AI config active trong hệ thống. Vui lòng kích hoạt AI config trước khi chạy prompt.");
+            var missingConfigResult = CreateFailureResult(
+                "Chua co AI config active trong he thong. Vui long kich hoat AI config truoc khi chay prompt.");
+            yield return Error(missingConfigResult.ErrorMessage ?? "Mission suggestion pipeline failed.", missingConfigResult);
             yield break;
         }
 
-        MissionSuggestionMetadata? pipelineMetadata = null;
-        int? suggestionId = null;
+        var pipelineMetadata = CreateSuggestionMetadataForPipeline();
+        var suggestionId = options.PersistSuggestion
+            ? await EnsureSuggestionRecordAsync(clusterId, pipelineMetadata, cancellationToken)
+            : null;
 
-        if (ShouldUsePipeline(options))
-        {
-            pipelineMetadata = CreateSuggestionMetadataForPipeline();
-            suggestionId = options.PersistSuggestion
-                ? await EnsureSuggestionRecordAsync(clusterId, pipelineMetadata, cancellationToken)
-                : null;
-
-            await using var pipelineEnumerator = GeneratePipelineSuggestionStreamAsync(
-                sosRequests,
-                nearbyDepots,
-                availableNearbyTeams,
-                isMultiDepotRecommended,
-                clusterId,
-                suggestionId,
-                pipelineMetadata,
-                aiConfig,
-                options,
-                cancellationToken).GetAsyncEnumerator(cancellationToken);
-
-            MissionSuggestionPipelineFallbackException? pipelineFallback = null;
-
-            while (true)
-            {
-                bool movedNext;
-                try
-                {
-                    movedNext = await pipelineEnumerator.MoveNextAsync();
-                }
-                catch (MissionSuggestionPipelineFallbackException ex)
-                {
-                    pipelineFallback = ex;
-                    break;
-                }
-
-                if (!movedNext)
-                    yield break;
-
-                yield return pipelineEnumerator.Current;
-            }
-
-            if (pipelineFallback is not null)
-            {
-                if (pipelineMetadata.Pipeline is not null)
-                {
-                    pipelineMetadata.Pipeline.PipelineStatus = "fallback";
-                    pipelineMetadata.Pipeline.UsedLegacyFallback = true;
-                    pipelineMetadata.Pipeline.LegacyFallbackReason = pipelineFallback.Message;
-                    pipelineMetadata.Pipeline.FinalResultSource = "legacy";
-                    await SaveSuggestionMetadataAsync(suggestionId, pipelineMetadata, cancellationToken);
-                }
-
-                _logger.LogWarning(pipelineFallback, "Mission suggestion pipeline fell back to legacy planning");
-            }
-        }
-
-        yield return Status("Đang tải cấu hình AI agent...");
-
-        var prompt = await GetLegacyPromptAsync(options, cancellationToken);
-        if (prompt == null)
-        {
-            yield return Error("Chưa có prompt 'MissionPlanning' đang được kích hoạt. Vui lòng cấu hình trong quản trị hệ thống.");
-            yield break;
-        }
-
-        var settings = _settingsResolver.Resolve(aiConfig);
-
-        // Enforce minimum 32K tokens - mission plans with tool calls can be very long
-        var maxTokens = Math.Max(settings.MaxTokens, 32768);
-
-        // Build the initial user message (no pre-loaded depot data; agent fetches via tools)
-        var sosDataJson = BuildSosRequestsData(sosRequests);
-        var userMessage = (prompt.UserPromptTemplate ?? string.Empty)
-            .Replace("{{sos_requests_data}}", sosDataJson)
-            .Replace("{{total_count}}", sosRequests.Count.ToString())
-            .Replace("{{depots_data}}", "(Dữ liệu kho không được truyền trực tiếp. Hãy gọi công cụ searchInventory để tra cứu vật phẩm khả dụng trong các kho hợp lệ của cluster hiện tại, sau đó chọn đúng một kho phù hợp nhất cho toàn mission.)")
-            .TrimEnd();
-
-        var nearbyTeamsNote = availableNearbyTeams.Count > 0
-            ? $"\n\nDữ liệu đội cứu hộ không được truyền trực tiếp. Hãy gọi công cụ getTeams để xem {availableNearbyTeams.Count} đội nearby currently available trong bán kính cluster. Công cụ này chỉ trả về các đội gần nhất trong pool đó, không bao giờ mở rộng ra team xa hơn."
-            : "\n\nHiện không có đội Available nào trong bán kính cluster. Nếu công cụ getTeams trả về rỗng, không được tự bịa team ngoài vùng; hãy để suggested_team = null và ghi rõ cần manual review.";
-
-        userMessage += nearbyTeamsNote;
-
-        var systemPrompt = (prompt.SystemPrompt ?? string.Empty).TrimEnd()
-            + "\n\n" + BuildAgentInstructions(isMultiDepotRecommended);
-
-        yield return Status($"AI agent ({settings.Provider}/{settings.Model}) đang phân tích {sosRequests.Count} SOS request...");
-
-        var messages = new List<AiChatMessage>
-        {
-            AiChatMessage.User(userMessage)
-        };
-
-        var tools = BuildToolDefinitions();
-        var providerClient = _aiProviderClientFactory.GetClient(settings.Provider);
-
-        string? finalText = null;
-
-        for (int turn = 0; turn < MaxAgentTurns; turn++)
-        {
-            if (cancellationToken.IsCancellationRequested) yield break;
-
-            AiCompletionResponse? response = null;
-            string? sendError = null;
-            const int maxSendRetries = 3;
-            for (int attempt = 0; attempt < maxSendRetries; attempt++)
-            {
-                try
-                {
-                    response = await providerClient.CompleteAsync(new AiCompletionRequest
-                    {
-                        Provider = settings.Provider,
-                        Model = settings.Model,
-                        ApiUrl = settings.ApiUrl,
-                        ApiKey = settings.ApiKey,
-                        SystemPrompt = systemPrompt,
-                        Temperature = settings.Temperature,
-                        MaxTokens = maxTokens,
-                        Timeout = TimeSpan.FromSeconds(120),
-                        Messages = messages,
-                        Tools = tools
-                    }, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    sendError = ex.Message;
-                    break;
-                }
-
-                if (response.HttpStatusCode != 503)
-                    break;
-
-                if (attempt < maxSendRetries - 1)
-                {
-                    var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt + 2)); // 4s, 8s, 16s
-                    _logger.LogWarning(
-                        "Provider {provider} returned 503 (turn={turn}, attempt={attempt}), retrying in {delay}s...",
-                        settings.Provider, turn, attempt + 1, (int)delay.TotalSeconds);
-                    await Task.Delay(delay, cancellationToken);
-                }
-            }
-
-            if (sendError != null)
-            {
-                yield return Error($"Lỗi kết nối tới AI: {sendError}");
-                yield break;
-            }
-
-            if (response == null)
-            {
-                yield return Error("AI không phản hồi. Vui lòng thử lại sau.");
-                yield break;
-            }
-
-            _logger.LogInformation(
-                "Mission AI turn completed: Provider={provider}, Model={model}, Turn={turn}, LatencyMs={latency}, ToolCalls={toolCalls}, FinishReason={finishReason}, StatusCode={statusCode}",
-                settings.Provider,
-                settings.Model,
-                turn + 1,
-                response.LatencyMs,
-                response.ToolCalls.Count,
-                response.FinishReason,
-                response.HttpStatusCode);
-
-            if (response.HttpStatusCode is >= 400)
-            {
-                _logger.LogError(
-                    "AI API error turn={turn}: Provider={provider}, Status={status}, Error={error}",
-                    turn,
-                    settings.Provider,
-                    response.HttpStatusCode,
-                    response.ErrorBody);
-                yield return Error($"AI trả về lỗi ({response.HttpStatusCode}). Vui lòng thử lại sau.");
-                yield break;
-            }
-
-            if (!string.IsNullOrWhiteSpace(response.BlockReason)
-                && !string.Equals(response.BlockReason, "BLOCK_REASON_UNSPECIFIED", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning(
-                    "Provider blocked mission prompt (turn={turn}): Provider={provider}, BlockReason={reason}",
-                    turn,
-                    settings.Provider,
-                    response.BlockReason);
-                yield return Error($"Yêu cầu bị chặn bởi bộ lọc AI ({response.BlockReason}). Vui lòng thử lại hoặc điều chỉnh nội dung SOS.");
-                yield break;
-            }
-
-            if (string.IsNullOrWhiteSpace(response.Text) && response.ToolCalls.Count == 0)
-            {
-                var finishReason = response.FinishReason ?? "(no content)";
-                _logger.LogWarning(
-                    "Provider returned empty content (turn={turn}), provider={provider}, finishReason={reason}. Raw snippet: {raw}",
-                    turn, finishReason,
-                    settings.Provider,
-                    response.RawResponse?.Length > 500 ? response.RawResponse[..500] : response.RawResponse);
-
-                // Retry once on transient failures, otherwise surface the error
-                if (finishReason is "SAFETY" or "RECITATION" or "OTHER" or "BLOCKLIST" or "PROHIBITED_CONTENT" or "content_filter")
-                {
-                    yield return Error($"Nội dung bị lọc bởi AI ({finishReason}). Vui lòng thử lại sau.");
-                    yield break;
-                }
-                if (turn == 0 && finishReason is "MAX_TOKENS")
-                {
-                    yield return Error("AI vượt giới hạn token ở lượt đầu. Vui lòng thử lại.");
-                    yield break;
-                }
-
-                yield return Error($"AI không trả về nội dung (finishReason={finishReason}). Vui lòng thử lại.");
-                yield break;
-            }
-
-            messages.Add(AiChatMessage.Assistant(response.Text, response.ToolCalls));
-
-            if (response.ToolCalls.Count == 0)
-            {
-                // No function calls → final answer
-                finalText = response.Text;
-                break;
-            }
-
-            // Execute each function call
-            foreach (var toolCall in response.ToolCalls)
-            {
-                yield return Status($"Agent đang gọi công cụ: {toolCall.Name}(...)");
-
-                JsonElement toolResult;
-                try
-                {
-                    toolResult = await ExecuteToolAsync(toolCall.Name, toolCall.Arguments, nearbyDepots, availableNearbyTeams, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Tool {name} threw an exception", toolCall.Name);
-                    toolResult = JsonSerializer.SerializeToElement(new { error = ex.Message });
-                }
-
-                yield return Status($"Công cụ {toolCall.Name}() đã trả về kết quả.");
-                messages.Add(AiChatMessage.Tool(toolCall.Id, toolCall.Name, toolResult));
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(finalText))
-        {
-            yield return Error("AI agent không đưa ra phản hồi cuối cùng sau tối đa số vòng lặp cho phép.");
-            yield break;
-        }
-
-        yield return Status("Đang xử lý kết quả...");
-
-        _logger.LogDebug("Raw AI response (final turn):\n{raw}", finalText);
-
-        var result       = ParseMissionSuggestion(finalText);
-        result.IsSuccess     = true;
-        result.ModelName     = settings.Model;
-        result.RawAiResponse = finalText;
-        await FinalizeSuggestionResultAsync(
-            result,
+        await using var pipelineEnumerator = GeneratePipelineSuggestionStreamAsync(
             sosRequests,
             nearbyDepots,
             availableNearbyTeams,
@@ -3869,20 +3617,44 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             clusterId,
             suggestionId,
             pipelineMetadata,
-            null,
-            "legacy",
+            aiConfig,
             options,
-            cancellationToken);
+            cancellationToken).GetAsyncEnumerator(cancellationToken);
 
-        _logger.LogInformation(
-            "Agent mission suggestion: Provider={provider}, Model={model}, Title={title}, Type={type}, Activities={count}, Team={team}, Confidence={conf}",
-            settings.Provider, settings.Model,
-            result.SuggestedMissionTitle, result.SuggestedMissionType,
-            result.SuggestedActivities.Count,
-            result.SuggestedTeam?.TeamName ?? "none",
-            result.ConfidenceScore);
+        RescueMissionSuggestionResult? failedResult = null;
+        string? failedMessage = null;
 
-        yield return new SseMissionEvent { EventType = "result", Result = result };
+        while (true)
+        {
+            bool movedNext;
+            try
+            {
+                movedNext = await pipelineEnumerator.MoveNextAsync();
+            }
+            catch (MissionSuggestionPipelineException ex)
+            {
+                failedResult = await CreateFailedSuggestionResultAsync(
+                    ex.FailedStage,
+                    ex.FailureReason,
+                    suggestionId,
+                    pipelineMetadata,
+                    options,
+                    cancellationToken);
+                failedMessage = failedResult.ErrorMessage ?? ex.FailureReason;
+                _logger.LogWarning(ex, "Mission suggestion pipeline failed at stage {stage}", ex.FailedStage);
+                break;
+            }
+
+            if (!movedNext)
+                break;
+
+            yield return pipelineEnumerator.Current;
+        }
+
+        if (failedResult is not null)
+            yield return Error(failedMessage ?? "Mission suggestion pipeline failed.", failedResult);
+
+        yield break;
     }
 
     // --- Tool execution --------------------------------------------------------

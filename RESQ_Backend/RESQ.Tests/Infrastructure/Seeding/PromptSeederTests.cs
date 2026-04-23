@@ -6,17 +6,11 @@ namespace RESQ.Tests.Infrastructure.Seeding;
 public class PromptSeederTests
 {
     [Fact]
-    public void CreatePrompts_MissionPlanningV2_IncludesExplicitJsonResponseFormat()
+    public void CreatePrompts_DoesNotSeedLegacyMissionPlanningPrompts()
     {
-        var prompt = SystemSeeder.CreatePrompts().Single(item => item.Id == 8);
+        var prompts = SystemSeeder.CreatePrompts();
 
-        Assert.Equal("MissionPlanning", prompt.PromptType);
-        Assert.Equal("v2.0", prompt.Version);
-        Assert.Contains("FORMAT JSON PHẢN HỒI", prompt.SystemPrompt);
-        Assert.Contains(@"""mission_title""", prompt.SystemPrompt);
-        Assert.Contains(@"""activities""", prompt.SystemPrompt);
-        Assert.Contains(@"""resources""", prompt.SystemPrompt);
-        Assert.Contains(@"""supply_shortages""", prompt.SystemPrompt);
+        Assert.DoesNotContain(prompts, prompt => prompt.PromptType == "MissionPlanning");
     }
 
     [Fact]
@@ -36,7 +30,7 @@ public class PromptSeederTests
     [Theory]
     [InlineData(6, "v1.0")]
     [InlineData(11, "v2.0")]
-    public void CreatePrompts_MissionTeamPlanningVersions_ContainOrderedRouteAndStrictSuggestedTeamRules(
+    public void CreatePrompts_MissionTeamPlanningVersions_ContainOrderedRouteAndSuggestedTeamRules(
         int promptId,
         string version)
     {
@@ -48,9 +42,6 @@ public class PromptSeederTests
         Assert.Contains("IMPORTANT JSON RULES FOR suggested_team (STRICT):", prompt.SystemPrompt);
         Assert.Contains("top-level `suggested_team = null` exactly", prompt.SystemPrompt);
         Assert.Contains("IMPORTANT JSON RULES FOR ordered_activity_keys (STRICT):", prompt.SystemPrompt);
-        Assert.Contains("Phải chứa mọi `activity_key` từ `depot_fragment.activities`", prompt.SystemPrompt);
-        Assert.Contains("Handoff inventory giữa teams không được backend hỗ trợ.", prompt.SystemPrompt);
-        Assert.Contains("Mọi `DELIVER_SUPPLIES` phải nằm cùng route/team với `COLLECT_SUPPLIES`", prompt.SystemPrompt);
     }
 
     [Fact]
