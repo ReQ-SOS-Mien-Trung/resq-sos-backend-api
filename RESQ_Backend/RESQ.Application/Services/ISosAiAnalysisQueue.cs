@@ -47,13 +47,32 @@ public sealed record SosAiAnalysisTask(
     {
         var payload = JsonSerializer.Serialize(new
         {
-            structuredData = Normalize(structuredData),
+            structuredData = NormalizeJson(structuredData),
             rawMessage = Normalize(rawMessage),
             sosType = Normalize(sosType)
         });
 
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hashBytes);
+    }
+
+    /// <summary>
+    /// Normalize a JSON string by parsing and re-serializing to canonical form.
+    /// This ensures fingerprints match regardless of whitespace or key ordering
+    /// differences (e.g. PostgreSQL jsonb normalization).
+    /// </summary>
+    private static string? NormalizeJson(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(value);
+            return JsonSerializer.Serialize(doc.RootElement);
+        }
+        catch
+        {
+            return value.Trim();
+        }
     }
 
     private static string? Normalize(string? value)
