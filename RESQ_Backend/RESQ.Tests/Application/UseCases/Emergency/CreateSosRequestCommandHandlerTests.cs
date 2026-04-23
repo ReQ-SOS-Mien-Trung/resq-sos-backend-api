@@ -61,6 +61,26 @@ public class CreateSosRequestCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_UsesInsertedSosRequest_WhenSameMessageAlreadyExists()
+    {
+        var existing = SosRequestModel.Create(
+            ValidUserId,
+            HcmLocation,
+            "duplicate-message");
+        existing.Id = 41;
+        existing.CreatedAt = DateTime.UtcNow.AddHours(1);
+
+        var sosRepo = new StubSosRepo(existing);
+        var aiQueue = new StubAiQueue();
+        var handler = BuildHandler(sosRepo: sosRepo, aiQueue: aiQueue);
+
+        var result = await handler.Handle(BuildCommand(rawMessage: "duplicate-message"), CancellationToken.None);
+
+        Assert.Equal(42, result.Id);
+        Assert.Equal(42, aiQueue.QueuedTasks.Single().SosRequestId);
+    }
+
+    [Fact]
     public async Task Handle_PreservesGpsCoordinates_InResponse()
     {
         var handler = BuildHandler();
@@ -157,10 +177,15 @@ public class CreateSosRequestCommandHandlerTests
         public Task<List<AvailableManagerDto>> GetAvailableManagersAsync(int? excludeDepotId = null, CancellationToken ct = default) => Task.FromResult(new List<AvailableManagerDto>());
     }
 
-    private sealed class StubSosRepo : ISosRequestRepository
+    private sealed class StubSosRepo(params SosRequestModel[] seeded) : ISosRequestRepository
     {
-        private readonly List<SosRequestModel> _store = [];
-        public Task CreateAsync(SosRequestModel sos, CancellationToken ct = default) { sos.Id = _store.Count + 1; _store.Add(sos); return Task.CompletedTask; }
+        private readonly List<SosRequestModel> _store = [.. seeded];
+        public Task CreateAsync(SosRequestModel sos, CancellationToken ct = default)
+        {
+            sos.Id = _store.Count == 0 ? 1 : _store.Max(x => x.Id) + 1;
+            _store.Add(sos);
+            return Task.CompletedTask;
+        }
         public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult(_store.FirstOrDefault(s => s.Id == id));
         public Task<IEnumerable<SosRequestModel>> GetByUserIdAsync(Guid userId, CancellationToken ct = default) => Task.FromResult<IEnumerable<SosRequestModel>>(_store.Where(s => s.UserId == userId));
         public Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult<IEnumerable<SosRequestModel>>(_store);

@@ -76,10 +76,7 @@ public class CreateSosRequestCommandHandler(
         if (succeedCount < 1)
             throw new SosRequestCreationFailedException();
 
-        // Get the created SOS request to retrieve its ID
-        var created = (await _sosRequestRepository.GetByUserIdAsync(request.UserId, cancellationToken))
-            .OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefault(x => x.RawMessage == request.RawMessage);
+        var created = await ResolveCreatedSosRequestAsync(sosRequest, cancellationToken);
 
         if (created is null)
             throw new SosRequestCreationFailedException();
@@ -270,5 +267,31 @@ public class CreateSosRequestCommandHandler(
         if (string.IsNullOrWhiteSpace(json)) return default;
         try { return JsonSerializer.Deserialize<T>(json); }
         catch { return default; }
+    }
+
+    private async Task<SosRequestModel?> ResolveCreatedSosRequestAsync(
+        SosRequestModel createdRequest,
+        CancellationToken cancellationToken)
+    {
+        if (createdRequest.Id > 0)
+        {
+            var createdById = await _sosRequestRepository.GetByIdAsync(createdRequest.Id, cancellationToken);
+            if (createdById is not null)
+                return createdById;
+        }
+
+        var createdAtUtc = createdRequest.CreatedAt?.ToUniversalTime();
+
+        return (await _sosRequestRepository.GetByUserIdAsync(createdRequest.UserId, cancellationToken))
+            .Where(x => string.Equals(x.RawMessage, createdRequest.RawMessage, StringComparison.Ordinal))
+            .Where(x => createdRequest.PacketId is null || x.PacketId == createdRequest.PacketId)
+            .Where(x => string.IsNullOrWhiteSpace(createdRequest.OriginId)
+                || string.Equals(x.OriginId, createdRequest.OriginId, StringComparison.Ordinal))
+            .Where(x => createdRequest.Timestamp is null || x.Timestamp == createdRequest.Timestamp)
+            .Where(x => !createdAtUtc.HasValue
+                || (x.CreatedAt.HasValue
+                    && Math.Abs((x.CreatedAt.Value.ToUniversalTime() - createdAtUtc.Value).TotalSeconds) < 5))
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefault();
     }
 }
