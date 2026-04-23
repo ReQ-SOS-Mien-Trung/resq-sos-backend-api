@@ -28,13 +28,13 @@ public class CreateRescueTeamCommandHandler(
         var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, ct)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {request.AssemblyPointId}");
 
-        // Tự động tìm event đang Gathering tại AP để validate check-in
+        // Event chỉ dùng để đối chiếu danh sách participant/check-in của rescuer khi tạo team.
         if (ap.Status == AssemblyPointStatus.Unavailable || ap.Status == AssemblyPointStatus.Closed)
             throw new BadRequestException($"Điểm tập kết {ap.Name} đang ({ap.Status}), không thể tạo đội mới tại đây.");
 
-        var activeEvent = await assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.AssemblyPointId, ct)
-            ?? throw new BadRequestException($"Điểm tập kết id = {request.AssemblyPointId} hiện không có sự kiện tập trung đang diễn ra.");
-        var resolvedEventId = activeEvent.EventId;
+        var latestEvent = await assemblyEventRepository.GetLatestEventByAssemblyPointAsync(request.AssemblyPointId, ct)
+            ?? throw new BadRequestException($"Điểm tập kết id = {request.AssemblyPointId} hiện chưa có sự kiện tập trung nào để đối chiếu check-in.");
+        var resolvedEventId = latestEvent.EventId;
 
         // Tạo đội ở trạng thái Gathering (rescuer đã có mặt tại AP)
         var team = RescueTeamModel.Create(
