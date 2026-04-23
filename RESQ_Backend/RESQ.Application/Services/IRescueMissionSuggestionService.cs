@@ -121,13 +121,11 @@ public class RescueMissionSuggestionResult
     public bool NeedsAdditionalDepot { get; set; }
     /// <summary>Danh sách vật phẩm còn thiếu sau khi đối chiếu với kho phù hợp nhất mà AI đã chọn cho mission.</summary>
     public List<SupplyShortageDto> SupplyShortages { get; set; } = [];
-    public double ConfidenceScore { get; set; }
     public string? RawAiResponse { get; set; }
 
     /// <summary>true khi AI có độ tự tin thấp - cần người điều phối xem xét thủ công.</summary>
     public bool NeedsManualReview { get; set; }
     /// <summary>Thông báo giải thích lý do cần xem xét thủ công (chỉ set khi NeedsManualReview = true).</summary>
-    public string? LowConfidenceWarning { get; set; }
     /// <summary>true khi không có kho nào đủ đa dạng hàng để cấp phát trong một lần - AI sẽ được nhắc lấy từ nhiều kho.</summary>
     public bool MultiDepotRecommended { get; set; }
 

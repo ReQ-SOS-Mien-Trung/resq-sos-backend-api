@@ -107,8 +107,8 @@ public class GetSosEvaluationQueryHandlerTests
         var sos = BuildSos(1, OwnerId);
         var aiAnalyses = new List<SosAiAnalysisModel>
         {
-            SosAiAnalysisModel.Create(1, "gemini-2.0", "v1", "priority", "Critical", "Critical", "Urgent case", 0.92),
-            SosAiAnalysisModel.Create(1, "gemini-2.0", "v1", "severity", "High", "High", "Severe flooding", 0.85)
+            SosAiAnalysisModel.Create(1, "gemini-2.0", "v1", "priority", "Critical", "Critical", 9.5, true, "Urgent case"),
+            SosAiAnalysisModel.Create(1, "gemini-2.0", "v1", "severity", "High", "High", 7.8, true, "Severe flooding")
         };
         var handler = BuildHandler(
             sosRepo: new StubSosRequestRepository(sos),
@@ -121,6 +121,7 @@ public class GetSosEvaluationQueryHandlerTests
         Assert.True(result.HasAiAnalysis);
         Assert.Equal(2, result.AiAnalyses.Count);
         Assert.Equal("gemini-2.0", result.AiAnalyses[0].ModelName);
+        Assert.Equal(9.5, result.AiAnalyses[0].SuggestedPriorityScore);
     }
 
     // ─── No rule evaluation returns null ──────────────────────────

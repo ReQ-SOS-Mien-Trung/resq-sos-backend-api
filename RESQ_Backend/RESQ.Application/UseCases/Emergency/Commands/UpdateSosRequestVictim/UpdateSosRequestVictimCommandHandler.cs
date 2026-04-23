@@ -14,6 +14,7 @@ public class UpdateSosRequestVictimCommandHandler(
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     ISosRuleEvaluationRepository sosRuleEvaluationRepository,
     ISosPriorityEvaluationService priorityEvaluationService,
+    ISosAiAnalysisQueue sosAiAnalysisQueue,
     IUnitOfWork unitOfWork
 ) : IRequestHandler<UpdateSosRequestVictimCommand, UpdateSosRequestVictimResponse>
 {
@@ -39,8 +40,14 @@ public class UpdateSosRequestVictimCommandHandler(
 
         var currentView = SosRequestVictimUpdateOverlay.Apply(sos, latestVictimUpdate);
         var updatedAt = DateTime.UtcNow;
+        var trimmedRawMessage = request.RawMessage.Trim();
         var effectiveStructuredData = request.StructuredData ?? currentView.StructuredData;
         var effectiveSosType = request.SosType ?? currentView.SosType;
+        var contentChanged =
+            !string.Equals(trimmedRawMessage, currentView.RawMessage?.Trim(), StringComparison.Ordinal) ||
+            !string.Equals(effectiveStructuredData, currentView.StructuredData, StringComparison.Ordinal) ||
+            !string.Equals(effectiveSosType, currentView.SosType, StringComparison.OrdinalIgnoreCase);
+
         var victimUpdate = new SosRequestVictimUpdateModel
         {
             SosRequestId = sos.Id,
@@ -48,7 +55,7 @@ public class UpdateSosRequestVictimCommandHandler(
             Location = request.Location,
             LocationAccuracy = request.LocationAccuracy ?? currentView.LocationAccuracy,
             SosType = effectiveSosType,
-            RawMessage = request.RawMessage.Trim(),
+            RawMessage = trimmedRawMessage,
             StructuredData = effectiveStructuredData,
             NetworkMetadata = request.NetworkMetadata ?? currentView.NetworkMetadata,
             SenderInfo = request.SenderInfo ?? currentView.SenderInfo,
@@ -76,6 +83,16 @@ public class UpdateSosRequestVictimCommandHandler(
         sos.LastUpdatedAt = updatedAt;
         await sosRequestRepository.UpdateAsync(sos, cancellationToken);
         await unitOfWork.SaveAsync();
+
+        if (contentChanged)
+        {
+            await sosAiAnalysisQueue.QueueAsync(SosAiAnalysisTask.Create(
+                sos.Id,
+                effectiveStructuredData,
+                trimmedRawMessage,
+                effectiveSosType,
+                evaluation));
+        }
 
         return new UpdateSosRequestVictimResponse
         {

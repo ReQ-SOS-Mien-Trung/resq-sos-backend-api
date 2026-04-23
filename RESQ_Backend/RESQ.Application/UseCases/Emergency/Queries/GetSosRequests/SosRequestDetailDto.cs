@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using RESQ.Application.UseCases.Emergency.Queries;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 
@@ -31,6 +32,7 @@ public class SosRequestDetailDto
     public DateTime? ReviewedAt { get; set; }
     public Guid? ReviewedById { get; set; }
     public Guid? CreatedByCoordinatorId { get; set; }
+    public SosRequestEvaluationDto Evaluation { get; set; } = new();
     public string? LatestIncidentNote { get; set; }
     public DateTime? LatestIncidentAt { get; set; }
     public List<SosIncidentNoteDto>? IncidentHistory { get; set; }

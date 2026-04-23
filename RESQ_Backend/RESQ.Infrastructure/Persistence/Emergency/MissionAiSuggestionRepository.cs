@@ -51,7 +51,6 @@ public class MissionAiSuggestionRepository(IUnitOfWork unitOfWork) : IMissionAiS
         entity.SuggestedMissionType = model.SuggestedMissionType;
         entity.SuggestedPriorityScore = model.SuggestedPriorityScore;
         entity.SuggestedSeverityLevel = model.SuggestedSeverityLevel;
-        entity.ConfidenceScore = model.ConfidenceScore;
         entity.SuggestionScope = model.SuggestionScope;
         entity.Metadata = model.Metadata;
         if (model.CreatedAt.HasValue)

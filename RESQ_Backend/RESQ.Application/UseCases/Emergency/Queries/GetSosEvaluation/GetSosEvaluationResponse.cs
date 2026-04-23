@@ -1,102 +1,211 @@
-﻿using System.Text.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using RESQ.Domain.Entities.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 
-/// <summary>
-/// Chi tiết điểm đánh giá rule-based (tự động khi gửi SOS).
-/// </summary>
 public class SosRuleEvaluationDto
 {
-    /// <summary>ID bản ghi đánh giá trong DB</summary>
     public int Id { get; set; }
-    /// <summary>ID version config đã được snapshot khi chấm điểm.</summary>
     public int? ConfigId { get; set; }
-    /// <summary>config_version đã được snapshot khi chấm điểm.</summary>
     public string? ConfigVersion { get; set; }
-
-    // --- Giá trị tương thích legacy ---
-    /// <summary>Điểm y tế theo rule V1.</summary>
     public double MedicalScore { get; set; }
-    /// <summary>Mirror legacy: hiện phản ánh supply_urgency_score để giữ tương thích dữ liệu cũ.</summary>
     public double InjuryScore { get; set; }
-    /// <summary>Mirror legacy: hiện phản ánh vulnerability_score để giữ tương thích dữ liệu cũ.</summary>
     public double MobilityScore { get; set; }
-    /// <summary>Mirror legacy: hiện phản ánh situation_multiplier để giữ tương thích dữ liệu cũ.</summary>
     public double EnvironmentScore { get; set; }
-    /// <summary>Mirror legacy: hiện phản ánh relief_score để giữ tương thích dữ liệu cũ.</summary>
     public double FoodScore { get; set; }
-
-    // --- Tổng hợp ---
-    /// <summary>Điểm tổng theo expression priority_score của config version đã áp dụng.</summary>
     public double TotalScore { get; set; }
-    /// <summary>Mức ưu tiên nội bộ: Low / Medium / High / Critical, tương ứng P4 / P3 / P2 / P1.</summary>
     public string PriorityLevel { get; set; } = string.Empty;
-    /// <summary>Phiên bản bộ quy tắc được áp dụng</summary>
     public string RuleVersion { get; set; } = string.Empty;
-    /// <summary>Danh sách vật phẩm/thiết bị được đề xuất cần mang đến</summary>
     public List<string> ItemsNeeded { get; set; } = [];
-    /// <summary>Breakdown đầy đủ theo config snapshot đã áp dụng.</summary>
     public SosPriorityEvaluationDetails? Breakdown { get; set; }
-    /// <summary>Thời điểm đánh giá</summary>
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>
-/// Chi tiết một bản phân tích AI (có thể có nhiều lần phân tích cho cùng một SOS).
-/// </summary>
 public class SosAiAnalysisDto
 {
     public int Id { get; set; }
-    /// <summary>Tên model AI (vd: gemini-2.0-flash)</summary>
     public string? ModelName { get; set; }
-    /// <summary>Phiên bản model</summary>
     public string? ModelVersion { get; set; }
-    /// <summary>Loại phân tích (vd: SOS_TRIAGE)</summary>
     public string? AnalysisType { get; set; }
-    /// <summary>Mức độ nghiêm trọng do AI đề xuất</summary>
     public string? SuggestedSeverityLevel { get; set; }
-    /// <summary>Mức ưu tiên do AI đề xuất</summary>
     public string? SuggestedPriority { get; set; }
-    /// <summary>Giải thích / lý do đánh giá từ AI</summary>
+    public double? SuggestedPriorityScore { get; set; }
+    public bool? AgreesWithRuleBase { get; set; }
     public string? Explanation { get; set; }
-    /// <summary>Độ tin cậy (0.0–1.0)</summary>
-    public double? ConfidenceScore { get; set; }
-    /// <summary>Phạm vi đề xuất</summary>
+    public bool? NeedsImmediateSafeTransfer { get; set; }
+    public bool? CanWaitForCombinedMission { get; set; }
+    public string? HandlingReason { get; set; }
     public string? SuggestionScope { get; set; }
-    /// <summary>Metadata đầy đủ từ AI (JSON raw)</summary>
     public JsonElement? Metadata { get; set; }
-    /// <summary>Thời điểm AI phân tích xong</summary>
     public DateTime? CreatedAt { get; set; }
-    /// <summary>Thời điểm đề xuất AI được áp dụng (nếu có)</summary>
     public DateTime? AdoptedAt { get; set; }
 }
 
-/// <summary>
-/// Response tổng hợp: đánh giá rule-based + đánh giá AI cho một SOS request.
-/// </summary>
+public class SosRequestEvaluationDto
+{
+    public SosRuleEvaluationDto? RuleEvaluation { get; set; }
+    public List<SosAiAnalysisDto> AiAnalyses { get; set; } = [];
+    public bool HasAiAnalysis => AiAnalyses.Count > 0;
+}
+
 public class GetSosEvaluationResponse
 {
     public int SosRequestId { get; set; }
-    /// <summary>Loại SOS (RESCUE / MEDICAL / EVACUATION / SUPPLY ...)</summary>
     public string? SosType { get; set; }
-    /// <summary>Trạng thái hiện tại của SOS request</summary>
     public string Status { get; set; } = string.Empty;
-    /// <summary>Mức ưu tiên tổng hợp đang áp dụng trên SOS request</summary>
     public string? CurrentPriorityLevel { get; set; }
+    public SosRequestEvaluationDto Evaluation { get; set; } = new();
 
-    /// <summary>
-    /// Đánh giá rule-based (luôn tồn tại ngay sau khi gửi SOS).
-    /// Null nếu dữ liệu bị mất trong DB.
-    /// </summary>
-    public SosRuleEvaluationDto? RuleEvaluation { get; set; }
+    [JsonIgnore]
+    public SosRuleEvaluationDto? RuleEvaluation => Evaluation.RuleEvaluation;
 
-    /// <summary>
-    /// Tất cả các bản phân tích AI (xử lý bất đồng bộ sau khi gửi SOS).
-    /// Danh sách rỗng nếu AI chưa phân tích xong.
-    /// </summary>
-    public List<SosAiAnalysisDto> AiAnalyses { get; set; } = [];
+    [JsonIgnore]
+    public List<SosAiAnalysisDto> AiAnalyses => Evaluation.AiAnalyses;
 
-    /// <summary>Có ít nhất một bản phân tích AI chưa?</summary>
-    public bool HasAiAnalysis => AiAnalyses.Count > 0;
+    [JsonIgnore]
+    public bool HasAiAnalysis => Evaluation.HasAiAnalysis;
+}
+
+public static class SosEvaluationViewFactory
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public static SosRequestEvaluationDto CreateEvaluation(
+        SosRuleEvaluationModel? ruleEvaluation,
+        IEnumerable<SosAiAnalysisModel> aiAnalyses)
+    {
+        return new SosRequestEvaluationDto
+        {
+            RuleEvaluation = ruleEvaluation is null ? null : MapRuleEvaluation(ruleEvaluation),
+            AiAnalyses = aiAnalyses.Select(MapAiAnalysis).ToList()
+        };
+    }
+
+    private static SosRuleEvaluationDto MapRuleEvaluation(SosRuleEvaluationModel ruleEvaluation)
+    {
+        return new SosRuleEvaluationDto
+        {
+            Id = ruleEvaluation.Id,
+            ConfigId = ruleEvaluation.ConfigId,
+            ConfigVersion = ruleEvaluation.ConfigVersion,
+            MedicalScore = ruleEvaluation.MedicalScore,
+            InjuryScore = ruleEvaluation.InjuryScore,
+            MobilityScore = ruleEvaluation.MobilityScore,
+            EnvironmentScore = ruleEvaluation.EnvironmentScore,
+            FoodScore = ruleEvaluation.FoodScore,
+            TotalScore = ruleEvaluation.TotalScore,
+            PriorityLevel = ruleEvaluation.PriorityLevel.ToString(),
+            RuleVersion = ruleEvaluation.RuleVersion,
+            ItemsNeeded = DeserializeItems(ruleEvaluation.ItemsNeeded),
+            Breakdown = ParseJson<SosPriorityEvaluationDetails>(ruleEvaluation.BreakdownJson ?? ruleEvaluation.DetailsJson),
+            CreatedAt = ruleEvaluation.CreatedAt
+        };
+    }
+
+    private static SosAiAnalysisDto MapAiAnalysis(SosAiAnalysisModel analysis)
+    {
+        var metadata = ParseJson<JsonElement>(analysis.Metadata);
+        var metadataModel = ParseJson<SosAiAnalysisMetadata>(analysis.Metadata);
+
+        return new SosAiAnalysisDto
+        {
+            Id = analysis.Id,
+            ModelName = analysis.ModelName,
+            ModelVersion = analysis.ModelVersion,
+            AnalysisType = analysis.AnalysisType,
+            SuggestedSeverityLevel = analysis.SuggestedSeverityLevel
+                ?? metadataModel?.AnalysisResult?.SuggestedSeverityLevel
+                ?? metadataModel?.AnalysisResult?.SeverityLevel,
+            SuggestedPriority = analysis.SuggestedPriority
+                ?? metadataModel?.AnalysisResult?.SuggestedPriority
+                ?? metadataModel?.AnalysisResult?.Priority,
+            SuggestedPriorityScore = analysis.SuggestedPriorityScore
+                ?? metadataModel?.AnalysisResult?.SuggestedPriorityScore,
+            AgreesWithRuleBase = analysis.AgreesWithRuleBase
+                ?? metadataModel?.AnalysisResult?.AgreesWithRuleBase,
+            Explanation = analysis.Explanation
+                ?? metadataModel?.AnalysisResult?.Explanation,
+            NeedsImmediateSafeTransfer = metadataModel?.AnalysisResult?.NeedsImmediateSafeTransfer,
+            CanWaitForCombinedMission = metadataModel?.AnalysisResult?.CanWaitForCombinedMission,
+            HandlingReason = metadataModel?.AnalysisResult?.HandlingReason
+                ?? analysis.Explanation,
+            SuggestionScope = analysis.SuggestionScope,
+            Metadata = metadata,
+            CreatedAt = analysis.CreatedAt,
+            AdoptedAt = analysis.AdoptedAt
+        };
+    }
+
+    private static List<string> DeserializeItems(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static T? ParseJson<T>(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return default;
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, JsonOptions);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    private sealed class SosAiAnalysisMetadata
+    {
+        [JsonPropertyName("analysisResult")]
+        public SosAiAnalysisMetadataResult? AnalysisResult { get; set; }
+    }
+
+    private sealed class SosAiAnalysisMetadataResult
+    {
+        [JsonPropertyName("priority")]
+        public string? Priority { get; set; }
+
+        [JsonPropertyName("suggested_priority")]
+        public string? SuggestedPriority { get; set; }
+
+        [JsonPropertyName("severity_level")]
+        public string? SeverityLevel { get; set; }
+
+        [JsonPropertyName("suggested_severity_level")]
+        public string? SuggestedSeverityLevel { get; set; }
+
+        [JsonPropertyName("suggested_priority_score")]
+        public double? SuggestedPriorityScore { get; set; }
+
+        [JsonPropertyName("agrees_with_rule_base")]
+        public bool? AgreesWithRuleBase { get; set; }
+
+        [JsonPropertyName("explanation")]
+        public string? Explanation { get; set; }
+
+        [JsonPropertyName("needs_immediate_safe_transfer")]
+        public bool? NeedsImmediateSafeTransfer { get; set; }
+
+        [JsonPropertyName("can_wait_for_combined_mission")]
+        public bool? CanWaitForCombinedMission { get; set; }
+
+        [JsonPropertyName("handling_reason")]
+        public string? HandlingReason { get; set; }
+    }
 }

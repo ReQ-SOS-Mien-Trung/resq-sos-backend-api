@@ -14,12 +14,12 @@ public class PromptSeederTests
     }
 
     [Fact]
-    public void CreatePrompts_MissionRequirementsAssessmentV2_ContainsStrictJsonArrayRules()
+    public void CreatePrompts_MissionRequirementsAssessmentV21_ContainsStrictJsonArrayRules()
     {
         var prompt = SystemSeeder.CreatePrompts().Single(item => item.Id == 10);
 
         Assert.Equal("MissionRequirementsAssessment", prompt.PromptType);
-        Assert.Equal("v2.0", prompt.Version);
+        Assert.Equal("v2.1", prompt.Version);
         Assert.Contains("IMPORTANT JSON RULES FOR suggested_resources (STRICT):", prompt.SystemPrompt);
         Assert.Contains("- suggested_resources MUST be an array of JSON objects only.", prompt.SystemPrompt);
         Assert.Contains("IMPORTANT JSON RULES FOR sos_requirements (STRICT):", prompt.SystemPrompt);
@@ -29,7 +29,7 @@ public class PromptSeederTests
 
     [Theory]
     [InlineData(6, "v1.0")]
-    [InlineData(11, "v2.0")]
+    [InlineData(11, "v2.1")]
     public void CreatePrompts_MissionTeamPlanningVersions_ContainOrderedRouteAndSuggestedTeamRules(
         int promptId,
         string version)
@@ -60,5 +60,17 @@ public class PromptSeederTests
 
         Assert.Equal([5], activeDepotPromptIds);
         Assert.Equal([11], activeTeamPromptIds);
+    }
+
+    [Fact]
+    public void CreatePrompts_ActiveAiPrompts_DoNotRequestDeprecatedScoreField()
+    {
+        var prompts = SystemSeeder.CreatePrompts()
+            .Where(item => item.IsActive)
+            .ToArray();
+        var deprecatedField = "confidence" + "_score";
+
+        Assert.DoesNotContain(prompts, prompt => prompt.SystemPrompt?.Contains(deprecatedField) == true);
+        Assert.DoesNotContain(prompts, prompt => prompt.UserPromptTemplate?.Contains(deprecatedField) == true);
     }
 }

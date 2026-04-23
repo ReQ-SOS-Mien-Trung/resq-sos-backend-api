@@ -69,7 +69,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
         var successResult = BuildSuccessResult();
         successResult.SuggestedMissionTitle = "Cứu hộ khu vực ngập";
         successResult.SuggestedMissionType = "RESCUE";
-        successResult.ConfidenceScore = 0.85;
+        successResult.SuggestedPriorityScore = 8.5;
         successResult.MixedRescueReliefWarning = "tach warning rieng";
         successResult.PipelineMetadata = new MissionSuggestionPipelineMetadata
         {
@@ -87,7 +87,7 @@ public class GenerateRescueMissionSuggestionCommandHandlerTests
 
         Assert.Equal("Cứu hộ khu vực ngập", result.SuggestedMissionTitle);
         Assert.Equal("RESCUE", result.SuggestedMissionType);
-        Assert.Equal(0.85, result.ConfidenceScore);
+        Assert.Equal(8.5, result.SuggestedPriorityScore);
         Assert.Equal("tach warning rieng", result.MixedRescueReliefWarning);
         Assert.Equal("pipeline", result.PipelineExecutionMode);
         Assert.Equal("draft", result.PipelineFinalResultSource);

@@ -75,12 +75,7 @@ public class SosAiAnalysisBackgroundService : BackgroundService
                 using var scope = _serviceScopeFactory.CreateScope();
                 var analysisService = scope.ServiceProvider.GetRequiredService<ISosAiAnalysisService>();
 
-                await analysisService.AnalyzeAndSaveAsync(
-                    task.SosRequestId,
-                    task.StructuredData,
-                    task.RawMessage,
-                    task.SosType,
-                    stoppingToken);
+                await analysisService.AnalyzeAndSaveAsync(task, stoppingToken);
             }
             catch (OperationCanceledException)
             {

@@ -9,8 +9,9 @@ public class SosAiAnalysisModel
     public string? AnalysisType { get; set; }
     public string? SuggestedSeverityLevel { get; set; }
     public string? SuggestedPriority { get; set; }
+    public double? SuggestedPriorityScore { get; set; }
+    public bool? AgreesWithRuleBase { get; set; }
     public string? Explanation { get; set; }
-    public double? ConfidenceScore { get; set; }
     public string? SuggestionScope { get; set; }
     public string? Metadata { get; set; }
     public DateTime? CreatedAt { get; set; }
@@ -25,8 +26,9 @@ public class SosAiAnalysisModel
         string analysisType,
         string suggestedSeverityLevel,
         string suggestedPriority,
+        double suggestedPriorityScore,
+        bool? agreesWithRuleBase,
         string explanation,
-        double confidenceScore,
         string? suggestionScope = null,
         string? metadata = null)
     {
@@ -38,8 +40,9 @@ public class SosAiAnalysisModel
             AnalysisType = analysisType,
             SuggestedSeverityLevel = suggestedSeverityLevel,
             SuggestedPriority = suggestedPriority,
+            SuggestedPriorityScore = suggestedPriorityScore,
+            AgreesWithRuleBase = agreesWithRuleBase,
             Explanation = explanation,
-            ConfidenceScore = confidenceScore,
             SuggestionScope = suggestionScope,
             Metadata = metadata,
             CreatedAt = DateTime.UtcNow

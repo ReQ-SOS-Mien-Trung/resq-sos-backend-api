@@ -442,8 +442,7 @@ public class RescueMissionSuggestionServicePreviewTests
                   "estimated_duration": "20 phut",
                   "special_notes": null,
                   "needs_additional_depot": false,
-                  "supply_shortages": [],
-                  "confidence_score": 0.9
+                  "supply_shortages": []
                 }
                 """,
                 HttpStatusCode = 200,
@@ -514,8 +513,7 @@ public class RescueMissionSuggestionServicePreviewTests
                   "estimated_duration": "1 gio 30 phut",
                   "special_notes": null,
                   "needs_additional_depot": false,
-                  "supply_shortages": [],
-                  "confidence_score": 0.9
+                  "supply_shortages": []
                 }
                 """,
                 HttpStatusCode = 200,
@@ -559,7 +557,6 @@ public class RescueMissionSuggestionServicePreviewTests
                   "special_notes": null,
                   "needs_additional_depot": false,
                   "supply_shortages": [],
-                  "confidence_score": 0.9,
                   "suggested_resources": [],
                   "sos_requirements": [
                     {
@@ -577,8 +574,7 @@ public class RescueMissionSuggestionServicePreviewTests
                   "activities": [],
                   "special_notes": null,
                   "needs_additional_depot": false,
-                  "supply_shortages": [],
-                  "confidence_score": 0.8
+                  "supply_shortages": []
                 }
                 """,
                 "active-team" => """
@@ -586,8 +582,7 @@ public class RescueMissionSuggestionServicePreviewTests
                   "activity_assignments": [],
                   "additional_activities": [],
                   "suggested_team": null,
-                  "special_notes": null,
-                  "confidence_score": 0.8
+                  "special_notes": null
                 }
                 """,
                 "active-validation" => """
@@ -602,8 +597,7 @@ public class RescueMissionSuggestionServicePreviewTests
                   "estimated_duration": "20 phut",
                   "special_notes": null,
                   "needs_additional_depot": false,
-                  "supply_shortages": [],
-                  "confidence_score": 0.9
+                  "supply_shortages": []
                 }
                 """,
                 _ => throw new InvalidOperationException($"Unexpected stage marker {marker}.")
