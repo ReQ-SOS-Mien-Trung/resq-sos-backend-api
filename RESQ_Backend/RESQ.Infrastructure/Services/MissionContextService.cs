@@ -256,8 +256,10 @@ public class MissionContextService(
                     using var doc = JsonDocument.Parse(sos.StructuredData);
                     var root = doc.RootElement;
 
-                    // Dual-read: try new nested format first, fallback to old flat
-                    if (root.TryGetProperty("group_needs", out var groupNeeds))
+                    // Dual-read: try new nested format first, fallback to old flat.
+                    // Some SOS payloads include group_needs:null, so guard object reads strictly.
+                    if (root.TryGetProperty("group_needs", out var groupNeeds)
+                        && groupNeeds.ValueKind == JsonValueKind.Object)
                     {
                         // New nested format
                         if (groupNeeds.TryGetProperty("supplies", out var supplies)
@@ -344,10 +346,16 @@ public class MissionContextService(
                                 needed.Add("MEDICINE");
                         }
                     }
+
+                    ExtractIncidentVictimSupplies(root, needed);
                 }
                 catch (JsonException)
                 {
                     // ignore invalid StructuredData
+                }
+                catch (InvalidOperationException)
+                {
+                    // ignore structurally unexpected StructuredData values
                 }
             }
 
@@ -355,6 +363,149 @@ public class MissionContextService(
         }
 
         return needed;
+    }
+
+    private static void ExtractIncidentVictimSupplies(JsonElement root, ISet<string> needed)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+            return;
+
+        if (root.TryGetProperty("incident", out var incident)
+            && incident.ValueKind == JsonValueKind.Object)
+        {
+            if (IsTrueProperty(incident, "need_medical") || IsTrueProperty(incident, "has_injured"))
+                needed.Add("MEDICINE");
+
+            if (TryGetStringProperty(incident, "situation", out var situation))
+            {
+                var normalizedSituation = NormalizeSupplyText(situation);
+                if (normalizedSituation.Contains("trapped", StringComparison.Ordinal)
+                    || normalizedSituation.Contains("mac ket", StringComparison.Ordinal)
+                    || normalizedSituation.Contains("collapsed", StringComparison.Ordinal)
+                    || normalizedSituation.Contains("sap do", StringComparison.Ordinal))
+                {
+                    needed.Add("RESCUE_EQUIPMENT");
+                }
+            }
+
+            if (TryGetStringProperty(incident, "additional_description", out var description)
+                && MentionsColdExposure(description))
+            {
+                needed.Add("CLOTHING");
+            }
+        }
+
+        if (!root.TryGetProperty("victims", out var victims)
+            || victims.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        foreach (var victim in victims.EnumerateArray())
+        {
+            if (victim.ValueKind != JsonValueKind.Object)
+                continue;
+
+            if (victim.TryGetProperty("incident_status", out var status)
+                && status.ValueKind == JsonValueKind.Object)
+            {
+                if (IsTrueProperty(status, "is_injured"))
+                    needed.Add("MEDICINE");
+
+                if (status.TryGetProperty("medical_issues", out var issues)
+                    && issues.ValueKind == JsonValueKind.Array
+                    && issues.GetArrayLength() > 0)
+                {
+                    needed.Add("MEDICINE");
+
+                    if (issues.EnumerateArray().Any(issue => TryReadString(issue, out var text)
+                            && MentionsFractureOrImmobilization(text)))
+                    {
+                        needed.Add("RESCUE_EQUIPMENT");
+                    }
+                }
+            }
+
+            if (victim.TryGetProperty("personal_needs", out var personalNeeds)
+                && personalNeeds.ValueKind == JsonValueKind.Object)
+            {
+                if (personalNeeds.TryGetProperty("clothing", out var clothing)
+                    && clothing.ValueKind == JsonValueKind.Object
+                    && IsTrueProperty(clothing, "needed"))
+                {
+                    needed.Add("CLOTHING");
+                }
+
+                if (personalNeeds.TryGetProperty("diet", out var diet)
+                    && diet.ValueKind == JsonValueKind.Object
+                    && IsTrueProperty(diet, "has_special_diet"))
+                {
+                    needed.Add("FOOD");
+                }
+            }
+        }
+    }
+
+    private static bool TryGetStringProperty(JsonElement source, string propertyName, out string value)
+    {
+        value = string.Empty;
+        return source.ValueKind == JsonValueKind.Object
+            && source.TryGetProperty(propertyName, out var property)
+            && TryReadString(property, out value);
+    }
+
+    private static bool TryReadString(JsonElement element, out string value)
+    {
+        value = string.Empty;
+        if (element.ValueKind != JsonValueKind.String)
+            return false;
+
+        value = element.GetString()?.Trim() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool IsTrueProperty(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object
+            || !source.TryGetProperty(propertyName, out var property))
+        {
+            return false;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.String => bool.TryParse(property.GetString(), out var parsed) && parsed,
+            JsonValueKind.Number => property.TryGetInt32(out var number) && number != 0,
+            _ => false
+        };
+    }
+
+    private static bool MentionsColdExposure(string value)
+    {
+        var normalized = NormalizeSupplyText(value);
+        return ContainsAny(
+            normalized,
+            "mat nhiet",
+            "ha than nhiet",
+            "hypothermia",
+            "lanh",
+            "giu am",
+            "chan",
+            "men");
+    }
+
+    private static bool MentionsFractureOrImmobilization(string value)
+    {
+        var normalized = NormalizeSupplyText(value);
+        return ContainsAny(
+            normalized,
+            "fracture",
+            "gay xuong",
+            "nep",
+            "cang",
+            "immobilize",
+            "immobilization");
     }
 
     private static SosRequestSummary? FindHighestPrioritySos(List<SosRequestSummary> sosRequests) =>

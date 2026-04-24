@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
@@ -593,6 +595,7 @@ public partial class RescueMissionSuggestionService
         if (node is not JsonObject root)
             return json;
 
+        NormalizePipelineTopLevelScalars(root);
         NormalizePipelineSuggestedResources(root);
         NormalizePipelineSosRequirements(root);
         NormalizePipelineActivities(root, "activities");
@@ -603,6 +606,20 @@ public partial class RescueMissionSuggestionService
         NormalizePipelineWarningRelatedSosIds(root);
         NormalizePipelineTopLevelSuggestedTeam(root);
         return root.ToJsonString();
+    }
+
+    private static void NormalizePipelineTopLevelScalars(JsonObject root)
+    {
+        NormalizeStringProperty(root, "suggested_mission_title");
+        NormalizeStringProperty(root, "suggested_mission_type");
+        NormalizeDoubleProperty(root, "suggested_priority_score");
+        NormalizeStringProperty(root, "suggested_severity_level");
+        NormalizeStringProperty(root, "overall_assessment");
+        NormalizeStringProperty(root, "estimated_duration");
+        NormalizeStringProperty(root, "special_notes");
+        NormalizeBooleanProperty(root, "needs_additional_depot", false);
+        NormalizeBooleanProperty(root, "split_cluster_recommended", false);
+        NormalizeStringProperty(root, "split_cluster_reason");
     }
 
     private static void NormalizePipelineSuggestedResources(JsonObject root)
@@ -616,7 +633,7 @@ public partial class RescueMissionSuggestionService
             switch (entry)
             {
                 case JsonObject obj:
-                    normalized.Add(obj.DeepClone());
+                    normalized.Add(NormalizePipelineSuggestedResourceObject(obj));
                     break;
                 case JsonValue value when value.TryGetValue(out string? label) && !string.IsNullOrWhiteSpace(label):
                     normalized.Add(new JsonObject
@@ -633,6 +650,22 @@ public partial class RescueMissionSuggestionService
         root["suggested_resources"] = normalized;
     }
 
+    private static JsonObject NormalizePipelineSuggestedResourceObject(JsonObject source)
+    {
+        return new JsonObject
+        {
+            ["resource_type"] = ReadStringNode(source, "resource_type")
+                ?? ReadStringNode(source, "type")
+                ?? "EQUIPMENT",
+            ["description"] = ReadStringNode(source, "description")
+                ?? ReadStringNode(source, "name")
+                ?? ReadStringNode(source, "resource_type")
+                ?? "Required resource",
+            ["quantity"] = ReadIntNode(source, "quantity"),
+            ["priority"] = ReadStringNode(source, "priority")
+        };
+    }
+
     private static void NormalizePipelineSosRequirements(JsonObject root)
     {
         if (!root.TryGetPropertyValue("sos_requirements", out var node) || node is null)
@@ -644,9 +677,7 @@ public partial class RescueMissionSuggestionService
             switch (entry)
             {
                 case JsonObject obj:
-                    NormalizePipelineRequiredSupplies(obj);
-                    NormalizePipelineRequiredTeams(obj);
-                    normalized.Add(obj.DeepClone());
+                    normalized.Add(NormalizePipelineSosRequirementObject(obj));
                     break;
                 case JsonValue value:
                 {
@@ -669,6 +700,25 @@ public partial class RescueMissionSuggestionService
         root["sos_requirements"] = normalized;
     }
 
+    private static JsonObject NormalizePipelineSosRequirementObject(JsonObject source)
+    {
+        return new JsonObject
+        {
+            ["sos_request_id"] = ReadIntNode(source, "sos_request_id") ?? 0,
+            ["summary"] = ReadStringNode(source, "summary"),
+            ["priority"] = ReadStringNode(source, "priority"),
+            ["needs_immediate_safe_transfer"] = ReadBoolNode(source, "needs_immediate_safe_transfer"),
+            ["urgent_rescue_requires_immediate_safe_transfer"] = ReadBoolNode(source, "urgent_rescue_requires_immediate_safe_transfer"),
+            ["can_wait_for_combined_mission"] = ReadBoolNode(source, "can_wait_for_combined_mission"),
+            ["requires_supply_before_rescue"] = ReadBoolNode(source, "requires_supply_before_rescue"),
+            ["handling_reason"] = ReadStringNode(source, "handling_reason"),
+            ["required_supplies"] = NormalizePipelineRequiredSuppliesArray(
+                source.TryGetPropertyValue("required_supplies", out var suppliesNode) ? suppliesNode : null),
+            ["required_teams"] = NormalizePipelineRequiredTeamsArray(
+                source.TryGetPropertyValue("required_teams", out var teamsNode) ? teamsNode : null)
+        };
+    }
+
     private static void NormalizePipelineActivities(JsonObject root, string propertyName)
     {
         if (!root.TryGetPropertyValue(propertyName, out var node) || node is null)
@@ -680,6 +730,7 @@ public partial class RescueMissionSuggestionService
             if (entry is not JsonObject obj)
                 continue;
 
+            NormalizePipelineActivityScalars(obj);
             NormalizePipelineSuppliesToCollect(obj);
             NormalizeNestedSuggestedTeam(obj);
             normalized.Add(obj.DeepClone());
@@ -699,11 +750,45 @@ public partial class RescueMissionSuggestionService
             if (entry is not JsonObject obj)
                 continue;
 
+            NormalizePipelineActivityAssignmentScalars(obj);
             NormalizeNestedSuggestedTeam(obj);
             normalized.Add(obj.DeepClone());
         }
 
         root["activity_assignments"] = normalized;
+    }
+
+    private static void NormalizePipelineActivityScalars(JsonObject source)
+    {
+        NormalizeStringProperty(source, "activity_key");
+        NormalizeIntProperty(source, "step", 0);
+        NormalizeStringProperty(source, "activity_type");
+        NormalizeStringProperty(source, "description");
+        NormalizeStringProperty(source, "priority");
+        NormalizeStringProperty(source, "estimated_time");
+        NormalizeStringProperty(source, "execution_mode");
+        NormalizeIntProperty(source, "required_team_count");
+        NormalizeStringProperty(source, "coordination_group_key");
+        NormalizeStringProperty(source, "coordination_notes");
+        NormalizeIntProperty(source, "sos_request_id");
+        NormalizeIntProperty(source, "depot_id");
+        NormalizeStringProperty(source, "depot_name");
+        NormalizeStringProperty(source, "depot_address");
+        NormalizeDoubleProperty(source, "depot_latitude");
+        NormalizeDoubleProperty(source, "depot_longitude");
+        NormalizeIntProperty(source, "assembly_point_id");
+        NormalizeStringProperty(source, "assembly_point_name");
+        NormalizeDoubleProperty(source, "assembly_point_latitude");
+        NormalizeDoubleProperty(source, "assembly_point_longitude");
+    }
+
+    private static void NormalizePipelineActivityAssignmentScalars(JsonObject source)
+    {
+        NormalizeStringProperty(source, "activity_key");
+        NormalizeStringProperty(source, "execution_mode");
+        NormalizeIntProperty(source, "required_team_count");
+        NormalizeStringProperty(source, "coordination_group_key");
+        NormalizeStringProperty(source, "coordination_notes");
     }
 
     private static void NormalizePipelineOrderedActivityKeys(JsonObject root)
@@ -839,8 +924,11 @@ public partial class RescueMissionSuggestionService
         if (!root.TryGetPropertyValue("suggested_team", out var suggestedTeamNode))
             return;
 
-        if (suggestedTeamNode is null or JsonObject)
+        if (suggestedTeamNode is JsonObject suggestedTeamObject)
+        {
+            root["suggested_team"] = NormalizePipelineSuggestedTeamObject(suggestedTeamObject);
             return;
+        }
 
         root["suggested_team"] = null;
     }
@@ -856,10 +944,10 @@ public partial class RescueMissionSuggestionService
         };
     }
 
-    private static void NormalizePipelineRequiredSupplies(JsonObject source)
+    private static JsonArray NormalizePipelineRequiredSuppliesArray(JsonNode? node)
     {
-        if (!source.TryGetPropertyValue("required_supplies", out var node) || node is null)
-            return;
+        if (node is null)
+            return [];
 
         var normalized = new JsonArray();
         foreach (var entry in CoerceNodeToArray(node))
@@ -867,28 +955,50 @@ public partial class RescueMissionSuggestionService
             switch (entry)
             {
                 case JsonObject obj:
-                    normalized.Add(obj.DeepClone());
+                    normalized.Add(NormalizePipelineRequiredSupplyObject(obj));
                     break;
-                case JsonValue value when value.TryGetValue(out string? label) && !string.IsNullOrWhiteSpace(label):
-                    normalized.Add(new JsonObject
+                case JsonValue value:
+                {
+                    var label = ReadStringNode(value);
+                    if (!string.IsNullOrWhiteSpace(label))
                     {
-                        ["item_name"] = label.Trim(),
-                        ["quantity"] = 1,
-                        ["unit"] = null,
-                        ["category"] = null,
-                        ["notes"] = null
-                    });
+                        normalized.Add(new JsonObject
+                        {
+                            ["item_name"] = label,
+                            ["quantity"] = 1,
+                            ["unit"] = null,
+                            ["category"] = null,
+                            ["notes"] = null
+                        });
+                    }
+
                     break;
+                }
             }
         }
 
-        source["required_supplies"] = normalized;
+        return normalized;
     }
 
-    private static void NormalizePipelineRequiredTeams(JsonObject source)
+    private static JsonObject NormalizePipelineRequiredSupplyObject(JsonObject source)
     {
-        if (!source.TryGetPropertyValue("required_teams", out var node) || node is null)
-            return;
+        return new JsonObject
+        {
+            ["item_name"] = ReadStringNode(source, "item_name")
+                ?? ReadStringNode(source, "item")
+                ?? ReadStringNode(source, "name")
+                ?? "Required supply",
+            ["quantity"] = Math.Max(ReadIntNode(source, "quantity") ?? ReadIntNode(source, "needed_quantity") ?? 1, 1),
+            ["unit"] = ReadStringNode(source, "unit"),
+            ["category"] = ReadStringNode(source, "category"),
+            ["notes"] = ReadStringNode(source, "notes")
+        };
+    }
+
+    private static JsonArray NormalizePipelineRequiredTeamsArray(JsonNode? node)
+    {
+        if (node is null)
+            return [];
 
         var normalized = new JsonArray();
         foreach (var entry in CoerceNodeToArray(node))
@@ -896,20 +1006,39 @@ public partial class RescueMissionSuggestionService
             switch (entry)
             {
                 case JsonObject obj:
-                    normalized.Add(obj.DeepClone());
+                    normalized.Add(NormalizePipelineRequiredTeamObject(obj));
                     break;
-                case JsonValue value when value.TryGetValue(out string? label) && !string.IsNullOrWhiteSpace(label):
-                    normalized.Add(new JsonObject
+                case JsonValue value:
+                {
+                    var label = ReadStringNode(value);
+                    if (!string.IsNullOrWhiteSpace(label))
                     {
-                        ["team_type"] = label.Trim(),
-                        ["quantity"] = 1,
-                        ["reason"] = null
-                    });
+                        normalized.Add(new JsonObject
+                        {
+                            ["team_type"] = label,
+                            ["quantity"] = 1,
+                            ["reason"] = null
+                        });
+                    }
+
                     break;
+                }
             }
         }
 
-        source["required_teams"] = normalized;
+        return normalized;
+    }
+
+    private static JsonObject NormalizePipelineRequiredTeamObject(JsonObject source)
+    {
+        return new JsonObject
+        {
+            ["team_type"] = ReadStringNode(source, "team_type")
+                ?? ReadStringNode(source, "type")
+                ?? ReadStringNode(source, "name"),
+            ["quantity"] = Math.Max(ReadIntNode(source, "quantity") ?? 1, 1),
+            ["reason"] = ReadStringNode(source, "reason")
+        };
     }
 
     private static void NormalizePipelineSuppliesToCollect(JsonObject source)
@@ -923,20 +1052,41 @@ public partial class RescueMissionSuggestionService
             switch (entry)
             {
                 case JsonObject obj:
-                    normalized.Add(obj.DeepClone());
+                    normalized.Add(NormalizePipelineSupplyToCollectObject(obj));
                     break;
-                case JsonValue value when value.TryGetValue(out string? label) && !string.IsNullOrWhiteSpace(label):
-                    normalized.Add(new JsonObject
+                case JsonValue value:
+                {
+                    var label = ReadStringNode(value);
+                    if (!string.IsNullOrWhiteSpace(label))
                     {
-                        ["item_name"] = label.Trim(),
-                        ["quantity"] = 1,
-                        ["unit"] = null
-                    });
+                        normalized.Add(new JsonObject
+                        {
+                            ["item_name"] = label,
+                            ["quantity"] = 1,
+                            ["unit"] = null
+                        });
+                    }
+
                     break;
+                }
             }
         }
 
         source["supplies_to_collect"] = normalized;
+    }
+
+    private static JsonObject NormalizePipelineSupplyToCollectObject(JsonObject source)
+    {
+        return new JsonObject
+        {
+            ["item_id"] = ReadIntNode(source, "item_id"),
+            ["item_name"] = ReadStringNode(source, "item_name")
+                ?? ReadStringNode(source, "item")
+                ?? ReadStringNode(source, "name")
+                ?? "Supply to collect",
+            ["quantity"] = Math.Max(ReadIntNode(source, "quantity") ?? 1, 1),
+            ["unit"] = ReadStringNode(source, "unit")
+        };
     }
 
     private static void NormalizeNestedSuggestedTeam(JsonObject source)
@@ -944,24 +1094,87 @@ public partial class RescueMissionSuggestionService
         if (!source.TryGetPropertyValue("suggested_team", out var suggestedTeamNode))
             return;
 
-        if (suggestedTeamNode is null or JsonObject)
+        if (suggestedTeamNode is JsonObject suggestedTeamObject)
+        {
+            source["suggested_team"] = NormalizePipelineSuggestedTeamObject(suggestedTeamObject);
             return;
+        }
 
         source["suggested_team"] = null;
     }
 
+    private static JsonObject NormalizePipelineSuggestedTeamObject(JsonObject source)
+    {
+        return new JsonObject
+        {
+            ["team_id"] = ReadIntNode(source, "team_id") ?? 0,
+            ["team_name"] = ReadStringNode(source, "team_name")
+                ?? ReadStringNode(source, "name")
+                ?? "Suggested team",
+            ["team_type"] = ReadStringNode(source, "team_type")
+                ?? ReadStringNode(source, "type"),
+            ["reason"] = ReadStringNode(source, "reason"),
+            ["assembly_point_id"] = ReadIntNode(source, "assembly_point_id"),
+            ["assembly_point_name"] = ReadStringNode(source, "assembly_point_name"),
+            ["latitude"] = ReadDoubleNode(source.TryGetPropertyValue("latitude", out var latitudeNode) ? latitudeNode : null),
+            ["longitude"] = ReadDoubleNode(source.TryGetPropertyValue("longitude", out var longitudeNode) ? longitudeNode : null),
+            ["distance_km"] = ReadDoubleNode(source.TryGetPropertyValue("distance_km", out var distanceNode) ? distanceNode : null)
+        };
+    }
+
+    private static void NormalizeStringProperty(JsonObject source, string propertyName)
+    {
+        if (!source.TryGetPropertyValue(propertyName, out var node))
+            return;
+
+        source[propertyName] = ReadStringNode(node);
+    }
+
+    private static void NormalizeBooleanProperty(JsonObject source, string propertyName, bool? defaultValue = null)
+    {
+        if (!source.TryGetPropertyValue(propertyName, out var node))
+            return;
+
+        source[propertyName] = ReadBoolNode(node) ?? defaultValue;
+    }
+
+    private static void NormalizeIntProperty(JsonObject source, string propertyName, int? defaultValue = null)
+    {
+        if (!source.TryGetPropertyValue(propertyName, out var node))
+            return;
+
+        source[propertyName] = ReadIntNode(node) ?? defaultValue;
+    }
+
+    private static void NormalizeDoubleProperty(JsonObject source, string propertyName)
+    {
+        if (!source.TryGetPropertyValue(propertyName, out var node))
+            return;
+
+        source[propertyName] = ReadDoubleNode(node);
+    }
+
     private static int? ReadIntNode(JsonNode? node)
     {
+        if (node is null)
+            return null;
+
         if (node is JsonValue value)
         {
             if (value.TryGetValue(out int intValue))
                 return intValue;
 
-            if (value.TryGetValue(out string? stringValue)
-                && int.TryParse(stringValue, out var parsed))
-            {
-                return parsed;
-            }
+            if (value.TryGetValue(out long longValue))
+                return ClampToInt(longValue);
+
+            if (value.TryGetValue(out double doubleValue))
+                return DoubleToInt(doubleValue);
+
+            if (value.TryGetValue(out decimal decimalValue))
+                return DecimalToInt(decimalValue);
+
+            if (value.TryGetValue(out string? stringValue))
+                return ReadIntFromString(stringValue);
         }
 
         return null;
@@ -970,16 +1183,186 @@ public partial class RescueMissionSuggestionService
     private static int? ReadIntNode(JsonObject source, string propertyName) =>
         source.TryGetPropertyValue(propertyName, out var node) ? ReadIntNode(node) : null;
 
-    private static string? ReadStringNode(JsonObject source, string propertyName)
+    private static bool? ReadBoolNode(JsonObject source, string propertyName) =>
+        source.TryGetPropertyValue(propertyName, out var node) ? ReadBoolNode(node) : null;
+
+    private static bool? ReadBoolNode(JsonNode? node)
     {
-        if (!source.TryGetPropertyValue(propertyName, out var node) || node is null)
+        if (node is null)
             return null;
 
-        if (node is JsonValue value && value.TryGetValue(out string? text))
-            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        if (node is JsonValue value)
+        {
+            if (value.TryGetValue(out bool boolValue))
+                return boolValue;
+
+            if (value.TryGetValue(out int intValue))
+                return intValue != 0;
+
+            if (value.TryGetValue(out string? stringValue))
+            {
+                var normalized = stringValue?.Trim();
+                if (string.IsNullOrWhiteSpace(normalized))
+                    return null;
+
+                if (bool.TryParse(normalized, out var parsed))
+                    return parsed;
+
+                return normalized.ToLowerInvariant() switch
+                {
+                    "1" or "yes" or "y" or "true" => true,
+                    "0" or "no" or "n" or "false" => false,
+                    _ => null
+                };
+            }
+        }
 
         return null;
     }
+
+    private static double? ReadDoubleNode(JsonNode? node)
+    {
+        if (node is null)
+            return null;
+
+        if (node is JsonValue value)
+        {
+            if (value.TryGetValue(out double doubleValue))
+                return doubleValue;
+
+            if (value.TryGetValue(out decimal decimalValue))
+                return (double)decimalValue;
+
+            if (value.TryGetValue(out int intValue))
+                return intValue;
+
+            if (value.TryGetValue(out string? stringValue))
+                return ReadDoubleFromString(stringValue);
+        }
+
+        return null;
+    }
+
+    private static string? ReadStringNode(JsonObject source, string propertyName) =>
+        source.TryGetPropertyValue(propertyName, out var node) ? ReadStringNode(node) : null;
+
+    private static string? ReadStringNode(JsonNode? node)
+    {
+        if (node is null)
+            return null;
+
+        if (node is JsonValue value)
+        {
+            if (value.TryGetValue(out string? text))
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+            if (value.TryGetValue(out bool boolValue))
+                return boolValue ? "true" : "false";
+
+            if (value.TryGetValue(out int intValue))
+                return intValue.ToString(CultureInfo.InvariantCulture);
+
+            if (value.TryGetValue(out long longValue))
+                return longValue.ToString(CultureInfo.InvariantCulture);
+
+            if (value.TryGetValue(out double doubleValue))
+                return doubleValue.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (node is JsonObject obj)
+        {
+            foreach (var key in new[] { "text", "value", "name", "label", "description", "reason", "item_name", "team_type" })
+            {
+                var text = ReadStringNode(obj, key);
+                if (!string.IsNullOrWhiteSpace(text))
+                    return text;
+            }
+        }
+
+        if (node is JsonArray array)
+        {
+            var parts = array
+                .Select(ReadStringNode)
+                .Where(text => !string.IsNullOrWhiteSpace(text))
+                .ToList();
+
+            return parts.Count == 0 ? null : string.Join(", ", parts);
+        }
+
+        return null;
+    }
+
+    private static int? ReadIntFromString(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var normalized = text.Trim();
+        if (int.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            return parsed;
+
+        if (double.TryParse(normalized.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
+            return DoubleToInt(doubleValue);
+
+        var wordValue = normalized.ToLowerInvariant() switch
+        {
+            "a" or "an" or "one" => 1,
+            "two" => 2,
+            "three" => 3,
+            "four" => 4,
+            "five" => 5,
+            "six" => 6,
+            "seven" => 7,
+            "eight" => 8,
+            "nine" => 9,
+            "ten" => 10,
+            _ => (int?)null
+        };
+
+        if (wordValue.HasValue)
+            return wordValue;
+
+        var match = PipelineNumberRegex.Match(normalized);
+        return match.Success ? ReadIntFromString(match.Value) : null;
+    }
+
+    private static double? ReadDoubleFromString(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var normalized = text.Trim();
+        if (double.TryParse(normalized.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            return parsed;
+
+        var match = PipelineNumberRegex.Match(normalized);
+        return match.Success ? ReadDoubleFromString(match.Value) : null;
+    }
+
+    private static int? DoubleToInt(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+            return null;
+
+        return ClampToInt((long)Math.Ceiling(value));
+    }
+
+    private static int? DecimalToInt(decimal value) =>
+        ClampToInt((long)Math.Ceiling(value));
+
+    private static int ClampToInt(long value)
+    {
+        if (value > int.MaxValue)
+            return int.MaxValue;
+
+        if (value < int.MinValue)
+            return int.MinValue;
+
+        return (int)value;
+    }
+
+    private static readonly Regex PipelineNumberRegex =
+        new(@"-?\d+(?:[\.,]\d+)?", RegexOptions.Compiled);
     private static string ExtractJsonPayload(string rawResponse)
     {
         var cleaned = rawResponse.Trim();
